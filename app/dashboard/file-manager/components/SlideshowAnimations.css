@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Alexandria:wght@400;700&display=swap');
+
+@keyframes kenburns {
+  0% { transform: scale(1) translate(0, 0); }
+  100% { transform: scale(1.2) translate(-5%, -5%); }
+}
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+@keyframes slide-right-left {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slide-left-right {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slide-top-bottom {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slide-bottom-top {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes reveal-left-right {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes rotate-bottom-left {
+  from { transform: rotate(-45deg) scale(0.5); opacity: 0; }
+  to { transform: rotate(0) scale(1); opacity: 1; }
+}
+
+@keyframes rotate-bottom-right {
+  from { transform: rotate(45deg) scale(0.5); opacity: 0; }
+  to { transform: rotate(0) scale(1); opacity: 1; }
+}
+
+@keyframes rotate-left-bottom {
+  from { transform: rotateX(-90deg); opacity: 0; }
+  to { transform: rotateX(0); opacity: 1; }
+}
+
+@keyframes rotate-left-top {
+  from { transform: rotateY(-90deg); opacity: 0; }
+  to { transform: rotateY(0); opacity: 1; }
+}
+
+@keyframes fade-move-left {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fade-move-right {
+  from { transform: translateX(-20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fade-across-right {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+
+@keyframes fade-across-left {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(-100%); opacity: 0; }
+}
+
+@keyframes zoom-fast {
+  from { transform: scale(0.5); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes zoom-slow {
+  from { transform: scale(1); opacity: 0.5; }
+  to { transform: scale(1.1); opacity: 1; }
+}
+
+/* Use Tailwind-compatible utility classes */
+.animate-kenburns       { animation: kenburns 3s ease-in-out; }
+.animate-fade-in        { animation: fade-in 2s ease-in-out; }
+.animate-slide-right-left { animation: slide-right-left 1.5s ease-in-out; }
+.animate-slide-left-right { animation: slide-left-right 1.5s ease-in-out; }
+.animate-slide-top-bottom { animation: slide-top-bottom 1.5s ease-in-out; }
+.animate-slide-bottom-top { animation: slide-bottom-top 1.5s ease-in-out; }
+.animate-reveal-left-right { animation: reveal-left-right 2s ease-in-out; }
+.animate-rotate-bottom-left { animation: rotate-bottom-left 1.5s ease-in-out; }
+.animate-rotate-bottom-right { animation: rotate-bottom-right 1.5s ease-in-out; }
+.animate-rotate-left-bottom { animation: rotate-left-bottom 1.5s ease-in-out; }
+.animate-rotate-left-top   { animation: rotate-left-top 1.5s ease-in-out; }
+.animate-fade-move-left    { animation: fade-move-left 1.5s ease-in-out; }
+.animate-fade-move-right   { animation: fade-move-right 1.5s ease-in-out; }
+.animate-fade-across-right { animation: fade-across-right 1.5s linear; }
+.animate-fade-across-left  { animation: fade-across-left 1.5s linear; }
+.animate-zoom-fast         { animation: zoom-fast 1.2s ease-out; }
+.animate-zoom-slow         { animation: zoom-slow 2s ease-in-out; }
