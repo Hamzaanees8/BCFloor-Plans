@@ -8,6 +8,7 @@ import { Order } from '../../orders/page';
 import TourVideos from './TourVideos';
 import TourFloorPlans from './TourFloorPlans';
 import TourConfirm from './TourConfirm';
+import { useAppContext } from '@/app/context/AppContext';
 
 // const tabs = ['Settings', 'Photos', 'Floorplan', 'Matterport', 'Confirm'];
 interface TourProps {
@@ -16,6 +17,7 @@ interface TourProps {
 const tabs = ['Settings', 'Photos', 'Matterport', 'Videos', 'Floor plans', 'Confirm'];
 export default function TourTabs({ orderData }: TourProps) {
   const [activeTab, setActiveTab] = useState('Settings');
+  const { userType } = useAppContext()
 
   const renderContent = () => {
     switch (activeTab) {
@@ -47,7 +49,7 @@ export default function TourTabs({ orderData }: TourProps) {
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`text-center px-4 py-2 text-[13px] w-[180px] h-[32px] transition-colors ${activeTab === tab
-                ? 'bg-[#4290E9] text-white  rounded-[6px]  font-[500] '
+                ? `${userType}-bg text-white  rounded-[6px]  font-[500] `
                 : 'text-[#666666] hover:text-[#666666] font-[700] '
                 }`}
             >

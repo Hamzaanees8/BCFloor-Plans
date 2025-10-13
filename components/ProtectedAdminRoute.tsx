@@ -5,25 +5,62 @@ import { useAppContext } from "@/app/context/AppContext";
 
 export default function ProtectedAdminRoute({ children }: { children: React.ReactNode }) {
     const { userType } = useAppContext();
-    const router = useRouter();
     const pathname = usePathname();
-    const [checked, setChecked] = useState(false);
-    console.log('pathname', pathname);
+    const router = useRouter();
+    const [isAllowed, setIsAllowed] = useState<boolean | null>(null);
+useEffect(() => {
+  if (!userType) return;
 
-    useEffect(() => {
+  // Blocked pages for agent
+  if (
+    userType === "agent" &&
+    (pathname.startsWith("/dashboard/admin") || pathname.startsWith("/dashboard/services"))
+  ) {
+    router.replace("/dashboard/orders");
+    setIsAllowed(false);
+    return;
+  }
 
-        if (userType === "agent" && (
-            pathname.startsWith("/dashboard/admin") || pathname.startsWith("/dashboard/services")
-        )) {
-            router.replace("/dashboard/orders");
-        } else {
-            setChecked(true);
-        }
-    }, [userType, pathname, router]);
+  // Blocked pages for vendor
+  if (
+    userType === "vendor" &&
+    (
+      pathname.startsWith("/dashboard/vendors") ||
+      pathname.startsWith("/dashboard/admin") ||
+      pathname.startsWith("/dashboard/services/create") ||
+      pathname.startsWith("/dashboard/listings/create")
+    )
+  ) {
+    router.replace("/dashboard/orders");
+    setIsAllowed(false);
+    return;
+  }
 
-    if (!checked) {
-        return null;
-    }
+  // Allow admin
+  if (userType === "admin") {
+    setIsAllowed(true);
+    return;
+  }
 
-    return <>{children}</>;
+  // Allow vendor (default pages)
+  if (userType === "vendor") {
+    setIsAllowed(true);
+    return;
+  }
+
+  // ✅ Allow agent (default pages)
+  if (userType === "agent") {
+    setIsAllowed(true);
+    return;
+  }
+
+  // Unknown user → /403
+  router.replace("/403");
+  setIsAllowed(false);
+}, [userType, pathname, router]);
+
+
+    if (isAllowed === null) return null;
+
+    return <>{isAllowed && children}</>;
 }

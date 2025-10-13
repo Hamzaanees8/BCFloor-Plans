@@ -284,7 +284,7 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
                             <div className="grid grid-cols-1 gap-y-[12px]">
                                 <div className="flex items-center space-x-[18px]">
                                     <Mail className="w-[24px] text-[#666666]" strokeWidth={1} />
-                                    <span className="text-[15px] font-[400] text-[#4290E9] leading-[32px]">{data.email}</span>
+                                    <span className={`text-[15px] font-[400] text-[#4290E9] leading-[32px] ${userType}-text`}>{data.email}</span>
                                 </div>
                                 <div className="flex items-center space-x-[18px]">
                                     <Smartphone className="w-[24px] text-[#666666]" strokeWidth={1} />
@@ -344,7 +344,7 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
                             <div className="grid grid-cols-1 gap-y-[12px]">
                                 <div className="flex items-center space-x-[18px]">
                                     <Mail className="w-[24px] text-[#666666]" strokeWidth={1} />
-                                    <span className="text-[15px] font-[400] text-[#4290E9] leading-[32px]">{data.email}</span>
+                                    <span className={`text-[15px] font-[400] ${userType}-text leading-[32px]`}>{data.email}</span>
                                 </div>
                                 <div className="flex items-center space-x-[18px]">
                                     <Smartphone className="w-[24px] text-[#666666]" strokeWidth={1} />
@@ -357,13 +357,13 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
                                 <div className="text-[10px] text-[#8E8E8E] uppercase font-[700]">
                                     2D Floor plan
                                 </div>
-                                <p className="text-[15px] font-[400] text-[#666666]">Vender: <span className="text-[#4290E9]">{data.P_vendor}</span></p>
+                                <p className="text-[15px] font-[400] text-[#666666]">Vender: <span className={`${userType}-text`}>{data.P_vendor}</span></p>
                                 <p className="grid grid-cols-[auto_1fr] gap-x-2 text-[15px] font-[400] text-[#666666]">Appointment: <span>{data.P_appointment_date}<br />{data.P_appointment_time}</span></p>
                                 <p className="text-[15px] font-[400] text-[#666666]">Price: <span >{data.P_price}</span></p>
                                 <div className="text-[10px] text-[#8E8E8E] uppercase font-[700]">
                                     HDR Photos (20)
                                 </div>
-                                <p className="text-[15px] font-[400] text-[#666666]">Vender: <span className="text-[#4290E9]">{data.H_vendor}</span></p>
+                                <p className="text-[15px] font-[400] text-[#666666]">Vender: <span className={`${userType}-text`}>{data.H_vendor}</span></p>
                                 <p className="grid grid-cols-[auto_1fr] gap-x-2 text-[15px] font-[400] text-[#666666]">Appointment: <span >{data.H_appointment_date}<br />{data.H_appointment_time}</span></p>
                                 <p className="text-[15px] font-[400] text-[#666666]">Price: <span >{data.H_price}</span></p>
                                 <div className="text-[10px] text-[#8E8E8E] uppercase font-[700]">
@@ -446,11 +446,12 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
                     {/* Actions */}
 
                 </CardContent>
+                {userType!== 'vendor' &&
                 <CardFooter className="p-0 !mt-[40px]">
                     <div className=" w-full flex justify-start gap-[10px] ">
                         {type === "agent" && (
                             <Link
-                                href={`/dashboard/agents/create/${data.uuid}`}
+                            href={`/dashboard/agents/create/${data.uuid}`}
                                 className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
                             >
                                 Edit
@@ -482,8 +483,8 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
                         )}
                         {type === "vendors" && (
                             <Link
-                                href={`/dashboard/vendors/create/${data.uuid}`}
-                                className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
+                            href={`/dashboard/vendors/create/${data.uuid}`}
+                            className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
                             >
                                 Edit
                             </Link>
@@ -491,11 +492,12 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
                         {/* <Button
                             className="bg-[#4290E9] rounded-none text-white w-[132px] h-[32px] hover:bg-[#4290E9]"
                             onClick={() => setShowDialog(true)}
-                        >
+                            >
                             History
-                        </Button> */}
+                            </Button> */}
                     </div>
                 </CardFooter>
+                            }
             </Card>
             <NotificationDialog
                 open={showDialog}

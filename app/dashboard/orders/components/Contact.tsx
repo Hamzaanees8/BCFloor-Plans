@@ -492,7 +492,7 @@ const Contact = () => {
                                         <p className={`text-base font-semibold font-raleway ${userType}-text`}>Add</p>
                                         <Plus className={`w-[18px] h-[18px] ${userType}-bg text-white rounded-sm `} />
                                         <AlertDialog open={openAddNotesDialog} onOpenChange={setOpenAddNotesDialog}>
-                                            <AlertDialogContent className="w-[320px] md:w-[420px] h-[450px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
+                                            <AlertDialogContent className="w-[320px] md:w-[450px] max-h-[550px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
                                                 <AlertDialogHeader>
                                                     <AlertDialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
                                                         ADD NEW NOTES
@@ -534,6 +534,24 @@ const Contact = () => {
                                                                     className="w-[370px] h-[42px] p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] text-[#666666] font-medium"
                                                                     value={userName}
                                                                 />
+                                                                <div className='col-span-2 flex items-center justify-between'>
+                                                                    <label className='flex items-center gap-x-[10px] cursor-pointer'>
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            // checked={isSplitInvoice}
+                                                                            // onChange={(e) => {
+                                                                            //     setIsSplitInvoice(e.target.checked);
+                                                                            //     setDraftCoAgents([]);
+                                                                            //     setCoAgents([]);
+                                                                            // }}
+
+                                                                            className={`w-[18px] h-[18px] ${userType === 'admin' ? 'accent-[#4290E9]' : 'accent-[#6BAE41]'}  rounded-sm border border-[#CCCCCC]`}
+                                                                        />
+                                                                        <span className='text-base font-semibold font-raleway text-[#666666]'>
+                                                                            Allow Agent to View
+                                                                        </span>
+                                                                    </label>
+                                                                </div>
                                                                 <textarea
                                                                     className="h-[180px] w-[370px] p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] text-[#666666]"
                                                                     value={tempNotes}

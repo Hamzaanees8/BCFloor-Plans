@@ -1,127 +1,153 @@
 // components/ServiceItem.jsx
-
 import { useState } from "react";
-import { ArrowDown, ArrowUp, ChevronDownIcon, DropDownArrow } from "./Icons";
+import { ChevronDownIcon, DropDownArrow } from "./Icons";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+
+interface ProductOption {
+    uuid: string;
+    title: string;
+    cost?: number;
+    adjustment_time?: string;
+}
 
 interface ServiceItemProps {
     service: {
         serviceId: string;
-        hourlyRate: string | number;
-        timeNeeded: string | number;
-    };
+        product_options: ProductOption[];
+        optionPrices: { [key: string]: number };
+        optionTimes: { [key: string]: string };
+    }
     servicesData: { uuid: string; name?: string }[];
     index: number;
     onChange: (
         index: number,
-        field: 'serviceId' | 'hourlyRate' | 'timeNeeded',
-        value: string
+        field: 'serviceId' | 'optionPrices' | 'optionTimes',
+        value: string | { [key: string]: number } | { [key: string]: string }
     ) => void;
+    onRemove: (index: number) => void;
 }
 
 const ServiceItem = ({ service, servicesData, index, onChange }: ServiceItemProps) => {
     const [showTimeFields, setShowTimeFields] = useState(false);
-    // const serviceName =
-    //     servicesData.find((s) => s.uuid === service.serviceId)?.name || "Unknown Service";
+
     const timeNeededOptions = [
-        '5 Minutes',
-        '10 Minutes',
-        '15 Minutes',
-        '30 Minutes',
-        '45 Minutes',
+        'no adjustment',
+        '5 Minutes less',
+        '10 Minutes less',
+        '15 Minutes less',
+        '30 Minutes less',
+        '45 Minutes less',
     ];
+
+    const handleOptionPriceChange = (optionUuid: string, price: string) => {
+        const numericPrice = price === '' ? 0 : Number(price);
+        const updatedPrices = {
+            ...service.optionPrices,
+            [optionUuid]: numericPrice
+        };
+        onChange(index, 'optionPrices', updatedPrices);
+    };
+
+    const handleTimeAdjustmentChange = (optionUuid: string, adjustment: string) => {
+        const updatedTimes = {
+            ...service.optionTimes,
+            [optionUuid]: adjustment
+        };
+        onChange(index, 'optionTimes', updatedTimes);
+    };
+
+    const serviceName = servicesData.find((s) => s.uuid === service.serviceId)?.name || "Unknown Service";
+
     return (
-        <div>
-            {/* Service Name */}
-            <div className="col-span-2 mt-4">
-                <label className="block text-sm font-normal">Service Name</label>
-                <div className="flex items-center gap-x-[20px]">
-                    <Select
-                        value={service.serviceId}
-                        onValueChange={(value) => onChange(index, 'serviceId', value)}
-                    >
-                        <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
-                            <SelectValue placeholder="Select Service Option Here" />
-                            <span className="custom-arrow">
-                                <DropDownArrow />
-                            </span>
-                        </SelectTrigger>
+        <div className=" p-4  w-[450px] text-[#666] font-alexandria">
+            <label htmlFor="serviceName" className="block text-sm font-normal mb-2">
+                Service Name <span className="text-red-500">*</span>
+            </label>
+            <div className="flex items-center justify-between mb-3">
 
-                        <SelectContent>
-                            {servicesData.map((option) => (
-                                <SelectItem key={option.uuid} value={option.uuid}>
-                                    {option.name || "Unnamed Service"}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                <div className="flex items-center justify-between gap-3 w-full">
 
+                    <span className="w-[400px] border border-[#BBBBBB] rounded-[8px] h-[42px] bg-[#EEEEEE] flex items-center pl-2 ">{serviceName}</span>
                     <button
                         type="button"
                         onClick={() => setShowTimeFields(!showTimeFields)}
-                        className="mt-[12px]"
+                        className="p-1 hover:bg-gray-100 rounded"
                     >
                         {showTimeFields ? <ChevronDownIcon /> : <DropDownArrow />}
                     </button>
                 </div>
+                {/* <button
+                    type="button"
+                    onClick={() => onRemove(index)}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                >
+                    Remove
+                </button> */}
             </div>
-            {showTimeFields && (
-                <div className="flex items-center gap-x-3 w-[376px] mt-4">
-                    <div className="relative w-full">
-                        <label className="block text-sm font-normal">Hourly Rate</label>
-                        <input
-                            type="text"
-                            value={service.hourlyRate}
-                            onChange={(e) => onChange(index, 'hourlyRate', e.target.value)}
-                            className="h-[42px] w-full bg-[#EEEEEE] border rounded-[6px] text-[16px] border-[#BBBBBB] mt-[12px] px-2 
-             appearance-none [&::-webkit-inner-spin-button]:appearance-none 
-             [&::-webkit-outer-spin-button]:appearance-none"
-                        />
 
-                        <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    onChange(index, 'hourlyRate', (parseFloat(service.hourlyRate?.toString() || '0') + 1).toFixed(2))
-                                }
-                            >
-                                <ArrowUp />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    onChange(index, 'hourlyRate', Math.max(0, parseFloat(service.hourlyRate?.toString() || '0') - 1).toFixed(2))
-                                }
-                            >
-                                <ArrowDown />
-                            </button>
-                        </div>
+            {showTimeFields && service.product_options && service.product_options.length > 0 && (
+                <div className="space-y-3">
+                    <Accordion type="single" collapsible className="space-y-3">
+                        {service.product_options.map((option) => (
+                            <AccordionItem key={option.uuid} value={option.uuid}>
+                                <AccordionTrigger className="flex justify-between items-center px-3 py-2 ">
+                                    <span className="font-medium text-sm">{option.title}</span>
 
-                    </div>
+                                </AccordionTrigger>
 
-                    <div className="relative w-full">
-                        <label className="block text-sm font-normal">Time Needed</label>
-                        <Select
-                            value={service.timeNeeded?.toString() ?? ""}
-                            onValueChange={(value) => onChange(index, 'timeNeeded', value)}
-                        >
-                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
-                                <SelectValue placeholder="Select Time" />
-                            </SelectTrigger>
+                                <AccordionContent className="p-4 text-[#666]">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <Label htmlFor={`price-${option.uuid}`} className="block text-sm font-normal mb-1">
+                                                Package Amount<span className="text-red-500">*</span>
+                                            </Label>
+                                            <Input
+                                                id={`price-${option.uuid}`}
+                                                type="number"
+                                                inputMode="decimal"
+                                                placeholder="Enter price"
+                                                value={service.optionPrices?.[option.uuid] || ''}
+                                                onChange={(e) => handleOptionPriceChange(option.uuid, e.target.value)}
+                                                className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] placeholder:text-[#9ca3af]"
 
-                            <SelectContent>
-                                {timeNeededOptions.map((option, index) => (
-                                    <SelectItem key={index} value={option}>
-                                        {option}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                            <button type="button" disabled><ArrowUp /></button>
-                            <button type="button" disabled><ArrowDown /></button>
-                        </div>
-                    </div>
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <Label htmlFor={`time-${option.uuid}`} className="block text-sm font-normal mb-1">
+                                                Time Adjustment <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Select
+                                                value={service.optionTimes?.[option.uuid] || 'no adjustment'}
+                                                onValueChange={(value) => handleTimeAdjustmentChange(option.uuid, value)}
+                                            >
+                                                <SelectTrigger className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] placeholder:text-[#9ca3af]">
+                                                    <SelectValue placeholder="Select Time Adjustment" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {timeNeededOptions.map((opt, idx) => (
+                                                        <SelectItem key={idx} value={opt}>
+                                                            {opt}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
+
+                </div>
+            )}
+
+            {showTimeFields && (!service.product_options || service.product_options.length === 0) && (
+                <div className="text-center py-4 text-gray-500">
+                    No product options available for this service
                 </div>
             )}
         </div>

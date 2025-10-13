@@ -11,17 +11,18 @@ import {
 } from "@/components/ui/table";
 // import { Switch } from "@/components/ui/switch";
 import DropdownActions from "@/components/DropdownActions";
+import { useAppContext } from "@/app/context/AppContext";
 
 type notifications = {
-    createdby: string;
-    Subject: string;
-    Address: string;
-    added: string;
+  createdby: string;
+  Subject: string;
+  Address: string;
+  added: string;
 };
 
 type ListingsTableProps = {
   data: notifications[];
-  onQuickView: (type: "agent" ) => void;
+  onQuickView: (type: "agent") => void;
   onConfirmAction?: () => void;
 };
 
@@ -29,6 +30,7 @@ const ListingsTable: React.FC<ListingsTableProps> = ({
   data,
   onQuickView,
 }) => {
+  const { userType } = useAppContext()
   const options = [
     { label: "Edit", onClick: () => console.log("Edit clicked") },
     {
@@ -45,17 +47,17 @@ const ListingsTable: React.FC<ListingsTableProps> = ({
   return (
     <div className="w-full max-w-full overflow-hidden">
       <div className="overflow-x-auto">
-       
-          <Table className='font-alexandria px-0 overflow-x-auto whitespace-nowrap'>
-            <TableHeader >
-                <TableRow className='bg-[#E4E4E4] font-alexandria h-[54px] hover:bg-[#E4E4E4]'>
-                    <TableHead className="text-[14px] font-[700] text-[#666666]">Created By</TableHead>
-                    <TableHead className="text-[14px] font-[700] text-[#666666]">Subject</TableHead>
-                    <TableHead className="text-[14px] font-[700] text-[#666666]">Address</TableHead>
-                    <TableHead className="text-[14px] font-[700] text-[#666666] ">Added</TableHead>
-                    <TableHead className="text-[14px] font-[700] text-[#666666]"></TableHead>
-                </TableRow>
-            </TableHeader>
+
+        <Table className='font-alexandria px-0 overflow-x-auto whitespace-nowrap'>
+          <TableHeader >
+            <TableRow className='bg-[#E4E4E4] font-alexandria h-[54px] hover:bg-[#E4E4E4]'>
+              <TableHead className="text-[14px] font-[700] text-[#666666]">Created By</TableHead>
+              <TableHead className="text-[14px] font-[700] text-[#666666]">Subject</TableHead>
+              <TableHead className="text-[14px] font-[700] text-[#666666]">Address</TableHead>
+              <TableHead className="text-[14px] font-[700] text-[#666666] ">Added</TableHead>
+              <TableHead className="text-[14px] font-[700] text-[#666666]"></TableHead>
+            </TableRow>
+          </TableHeader>
           <TableBody>
             {data.length === 0 ? (
               <TableRow>
@@ -66,7 +68,7 @@ const ListingsTable: React.FC<ListingsTableProps> = ({
                 <TableRow key={i}>
                   <TableCell
                     onClick={() => onQuickView("agent")}
-                    className="text-[15px] font-[400] text-[#4290E9] pl-[20px] cursor-pointer hover:underline"
+                    className={`text-[15px] font-[400] ${userType}-text pl-[20px] cursor-pointer hover:underline`}
                   >
                     {notifications.createdby}
                   </TableCell>
@@ -82,7 +84,7 @@ const ListingsTable: React.FC<ListingsTableProps> = ({
                     {notifications.added}
                   </TableCell>
                   <TableCell className="text-[15px] font-[400] text-[#7D7D7D] flex justify-between items-center gap-2 pr-[20px]">
-                    
+
                     <DropdownActions options={options} />
                   </TableCell>
                 </TableRow>

@@ -4,12 +4,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { SelectedFiles } from './HDRStill';
 import { PauseCircle, Play } from 'lucide-react'; // Lucide icons
 import './SlideshowAnimations.css';
+import { Files } from '../FileManagerContext ';
 
 interface CustomSlideshowProps {
-  images: SelectedFiles[];
+  images?: SelectedFiles[];
   delay?: number;
   audioUrl?: string;
   transition?: string;
+  api_images?: Files[]
 }
 
 const transitionClasses = [
@@ -37,6 +39,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   delay = 3000,
   audioUrl,
   transition,
+  api_images,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [transitionIndex, setTransitionIndex] = useState(0);
@@ -44,13 +47,31 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
+
+const allImages = [
+  ...(images?.map((img) => ({
+    src: URL.createObjectURL(img.file),
+    isLocal: true,
+  })) || []),
+  ...(api_images?.map((img) => ({
+    src: `${API_URL}/${img.file_path}`,
+    isLocal: false,
+  })) || []),
+];
+
+
+  console.log('allImages',allImages);
+  
+
+
   const getTransitionClass = () =>
     transition ? transition : transitionClasses[transitionIndex];
 
   useEffect(() => {
     if (isPlaying) {
       intervalRef.current = setInterval(() => {
-        setCurrentIndex((prev) => (prev + 1) % images.length);
+        setCurrentIndex((prev) => (prev + 1) % allImages.length);
         if (!transition) {
           setTransitionIndex((prev) => (prev + 1) % transitionClasses.length);
         }
@@ -60,7 +81,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isPlaying, images.length, delay, transition]);
+  }, [isPlaying, allImages.length, delay, transition]);
 
   const togglePlayback = () => {
     const audioEl = audioRef.current;
@@ -75,6 +96,8 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   };
 
 
+
+
   return (
     <div className="relative w-full h-[700px] overflow-hidden bg-black">
       {/* Audio */}
@@ -86,10 +109,10 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
       )}
 
       {/* eslint-disable @next/next/no-img-element */}
-      {images.map((item, idx) => (
+      {allImages.map((item, idx) => (
         <img
           key={idx}
-          src={URL.createObjectURL(item.file)}
+          src={item.src}
           className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-1000 ${idx === currentIndex
             ? `opacity-100 z-10 animate-${getTransitionClass()}`
             : 'opacity-0 z-0'

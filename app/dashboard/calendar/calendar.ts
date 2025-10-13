@@ -14,7 +14,7 @@ export interface OrderPayload {
   split_invoice: number;
   co_agents?: CoAgent[];
   notes: AgentNote[];
-  areas:Area[];
+  areas: Area[];
   services: {
     service_id: string;
     option_id?: string;
@@ -170,4 +170,63 @@ export async function EditOrder(
   }
 
   return data;
+}
+
+export interface AddVendorBreakPayload {
+  vendor_id: number;
+  title: string
+  date: string;
+  start_time: string;
+  end_time: string;
+  address: string
+  type?: string;
+}
+
+export async function addVendorBreak(payload: AddVendorBreakPayload, token: string) {
+  try {
+
+    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+    const res = await fetch(`${API_URL}/vendor-breaks/add`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Request failed: ${errText}`);
+    }
+
+    return await res.json();
+  } catch (err) {
+    console.error('addVendorBreak error', err);
+    throw err;
+  }
+}
+export async function updateVendorBreak(breakId: string, payload: AddVendorBreakPayload, token: string) {
+  try {
+
+    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+    const res = await fetch(`${API_URL}/vendor-breaks/edit/${breakId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ ...payload, _method: 'PUT' }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Request failed: ${errText}`);
+    }
+
+    return await res.json();
+  } catch (err) {
+    console.error('addVendorBreak error', err);
+    throw err;
+  }
 }

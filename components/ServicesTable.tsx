@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { DeleteService, UpdateServiceStatus } from "@/app/dashboard/services/services";
 import { toast } from "sonner";
 import ImagePopup from "./ImagePopup";
+import { useAppContext } from "@/app/context/AppContext";
 
 type ServicesTableProps = {
   data: Services[];
@@ -32,6 +33,7 @@ const ServicesTable: React.FC<ServicesTableProps> = ({
 }) => {
   const [imagePopupOpen, setImagePopupOpen] = React.useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = React.useState<string | undefined>(undefined);
+  const { userType } = useAppContext();
 
   const router = useRouter();
 
@@ -89,7 +91,8 @@ const ServicesTable: React.FC<ServicesTableProps> = ({
               <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Category</TableHead>
               <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Preview</TableHead>
               <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Color</TableHead>
-              <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Status</TableHead>
+              {userType !== 'vendor' &&
+                <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Status</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -127,7 +130,7 @@ const ServicesTable: React.FC<ServicesTableProps> = ({
 
                 return (
                   <TableRow key={i}>
-                    <TableCell className="text-[15px] font-[400] text-[#666666] pl-[20px]">
+                    <TableCell className={`text-[15px] font-[400] ${userType}-text pl-[20px]`}>
                       {service.name}
                     </TableCell>
                     <TableCell className="text-[15px] font-[400]  pl-[20px] text-[#666666]">
@@ -141,7 +144,7 @@ const ServicesTable: React.FC<ServicesTableProps> = ({
                         }}
                         className="cursor-pointer"
                       >
-                        <PreviewImage className="w-[24px] h-[24px] object-cover" />
+                        <PreviewImage className={`w-[24px] h-[24px] object-cover ${userType}-text-svg`} />
                       </div>
                     </TableCell>
                     <TableCell className="text-[15px] font-[400] text-[#7D7D7D]">
@@ -153,23 +156,25 @@ const ServicesTable: React.FC<ServicesTableProps> = ({
                         }}
                       ></div>
                     </TableCell>
-                    <TableCell className="text-[15px] font-[400] text-[#7D7D7D] flex justify-between items-center gap-2 pr-[20px]">
-                      <Switch
-                        checked={!!service.status}
-                        onCheckedChange={async (checked) => {
-                          const data = await handleUpdateStatus(service.uuid || '', checked);
-                          if (setServicesData && data?.data?.uuid) {
-                            setServicesData((prev: Services[]) =>
-                              prev.map((list: Services) =>
-                                list.uuid === data.data.uuid ? { ...list, status: checked } : list
-                              )
-                            );
-                          }
-                        }}
-                        className={`${service.status ? "!bg-[#6BAE41]" : "!bg-[#E06D5E]"} data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500`}
-                      />
-                      <DropdownActions options={options} />
-                    </TableCell>
+
+                    {userType !== 'vendor' && (
+                      <TableCell className="text-[15px] font-[400] text-[#7D7D7D] flex justify-between items-center gap-2 pr-[20px]">
+                        <Switch
+                          checked={!!service.status}
+                          onCheckedChange={async (checked) => {
+                            const data = await handleUpdateStatus(service.uuid || '', checked);
+                            if (setServicesData && data?.data?.uuid) {
+                              setServicesData((prev: Services[]) =>
+                                prev.map((list: Services) =>
+                                  list.uuid === data.data.uuid ? { ...list, status: checked } : list
+                                )
+                              );
+                            }
+                          }}
+                          className={`${service.status ? "!bg-[#6BAE41]" : "!bg-[#E06D5E]"} data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500`}
+                        />
+                        <DropdownActions options={options} />
+                      </TableCell>)}
                   </TableRow>
                 );
               })

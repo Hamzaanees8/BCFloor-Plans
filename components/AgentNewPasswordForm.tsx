@@ -8,7 +8,7 @@ import React from 'react';
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { newPassword } from "@/app/(auth)/new-password/new-password";
-import { AgentLoginIcon } from "./Icons";
+import {  VendorLoginIcon } from "./Icons";
 
 function AgentNewPasswordForm() {
     const [password, setPassword] = React.useState('');
@@ -70,7 +70,7 @@ function AgentNewPasswordForm() {
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
             <div className='w-[400px] flex flex-col gap-[25px]'>
                  <div className='flex justify-center'>
-                                    <AgentLoginIcon width='110px' height='110px' />
+                                    <VendorLoginIcon width='110px' height='110px' />
                                 </div>
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.password ? 'text-red-500' : ''}`} htmlFor="password">Enter New Password</label>
@@ -109,7 +109,7 @@ function AgentNewPasswordForm() {
                 </div>
                 <Button
                     disabled={isLoading}
-                    onClick={handleSave} className='flex justify-center items-center bg-[#6BAE41] hover:bg-[#86d157] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>
+                    onClick={handleSave} className='flex justify-center items-center bg-[#DC9600] hover:bg-[#DC9600] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>
                     {isLoading ? (
                         <div role="status">
                             <svg
@@ -134,7 +134,7 @@ function AgentNewPasswordForm() {
                         "Save"
                     )}</Button>
                 <div className='flex justify-center'>
-                    <Link href="/agent/login-user" className='w-fit text-[#6BAE41] border-b-[1px] leading-[18px] border-[#6BAE41] text-[16px] font-[400] text-center'>Back to Login</Link>
+                    <Link href="/vendor/login-user" className='w-fit text-[#DC9600] border-b-[1px] leading-[18px] border-[#DC9600] text-[16px] font-[400] text-center'>Back to Login</Link>
                 </div>
                 <p className='text-[10px] text-[#666666] font-[400] mx-auto'>Powered by Tojuco Software 2025</p>
             </div>

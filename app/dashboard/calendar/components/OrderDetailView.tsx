@@ -278,13 +278,18 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
         }
     };
 
+    useEffect(() => {
+        if (userType == 'vendor' && isEdit) {
+            setActiveTab('square_footage')
+        }
+    }, [isEdit, userType])
     return (
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="max-w-3xl px-[10px] h-[90vh] [&>button]:hidden font-alexandria font-[400] overflow-x-auto">
                 <DialogHeader>
                     <div className="flex justify-between items-center">
                         <DialogTitle className={`${userType}-text text-[24px] font-alexandria font-[400]`}>{currentOrder?.property_address}, {currentOrder?.property_location}&nbsp;&nbsp;&nbsp;›&nbsp;&nbsp;&nbsp;Order #{currentOrder?.id}</DialogTitle>
-                        
+
                         <Button
                             variant="ghost"
                             size="icon"
@@ -320,7 +325,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                                 variant={activeTab === 'history' ? 'default' : 'outline'}
                                 onClick={() => setActiveTab('history')}
                                 className={`${activeTab === 'history' ? `${userType}-bg text-white` : 'bg-[#E4E4E4]'} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
-                                
+
                             >
                                 History
                             </Button>
@@ -333,7 +338,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                     {activeTab === 'appointment' && !isEdit && (
                         <AppointmentTab currentOrder={currentOrder} serviceId={serviceId} />
                     )}
-                    {activeTab === 'appointment' && isEdit && (
+                    {activeTab === 'appointment' && isEdit && userType !== 'vendor' && (
                         <EditAppointmentTab
                             currentOrder={currentOrder} serviceId={serviceId} agentData={agentData} notes={notes} setNotes={setNotes} coAgent={coAgent} setCoAgent={setCoAgent}
                         />
@@ -349,7 +354,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                     )}
 
                     {activeTab === 'history' && (
-                        <HistoryTab currentOrder={currentOrder} servicesData={servicesData}/>
+                        <HistoryTab currentOrder={currentOrder} servicesData={servicesData} />
                     )}
                     {isEdit &&
                         <div className="w-full flex justify-end gap-[10px] mt-[40px]">
@@ -359,7 +364,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                                     setIsEdit(false)
                                 }}
                                 className={`bg-transparent border-[1px] text-[14px] flex justify-center items-center ${userType}-border ${userType}-text  w-[132px] h-[42px] ${userType}-button hover-${userType}-bg`}
-                                
+
                             >
 
                                 Close
@@ -370,7 +375,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                                     setShowConfirmation(true)
                                 }}
                                 className={`${userType}-bg ${userType}-border text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff]  w-[132px] h-[42px] hover:text-white hover-${userType}-bg hover:opacity-95`}
-                                
+
                             >
                                 Save Changes
                             </Button>
@@ -450,8 +455,8 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                             setOrderServices([])
                             setSelectedSlots([])
                             setCalendarServices([])
-                        }} 
-                        className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400] ${userType}-text ${userType}-border text-[#0078D4] hover-${userType}-bg hover:opacity-95 ${userType}-button`}
+                        }}
+                            className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400] ${userType}-text ${userType}-border text-[#0078D4] hover-${userType}-bg hover:opacity-95 ${userType}-button`}
                         >
                             Cancel
                         </AlertDialogCancel>

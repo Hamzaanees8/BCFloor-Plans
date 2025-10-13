@@ -5,13 +5,72 @@ type PreviewFile = {
     file: File;
     upload: boolean;
 }
-type DroppedMarker = {
-    x: number;
-    y: number;
-    file: File;
-    floorImageUrl: string;
-    name?: string;
-    description?: string;
+
+export type DroppedMarker = {
+  x: number;
+  y: number;
+  file?: File;      
+  file_path?: string; 
+  floorImageUrl: string;
+  name?: string;
+  description?: string;
+  isApi?: boolean;
+};
+
+export type Files = {
+
+    id: number;
+    uuid: string;
+    tour_id: number;
+    type: string;
+    name: string;
+    file_path: string;
+    group: string | null;
+    service_id: number | null;
+    service?: { id: number; uuid: string, name: string };
+    sort_order: number;
+    created_at: string;
+    updated_at: string;
+
+}
+export type SnapShots = {
+    id: number;
+    uuid: string;
+    tour_id: number;
+    type: string;
+    file_name: string;
+    file_path: string;
+    name: string | null;
+    description: string | null;
+    x_axis: number;
+    y_axis: string;
+
+}
+export type FilesData = {
+    id: number
+    uuid: string;
+    order_id: number;
+    files: Files[]
+    links: {
+        link: string;
+        type: string
+        service?: { id: number; uuid: string };
+    }[]
+    snapshots: SnapShots[]
+    slide_show: {
+        slide_delay: string;
+        transitions: string;
+        background_audio: string;
+        auto_play: string;
+        video_overlay: string;
+    }
+
+};
+
+type LinkItem = {
+    type: "branded" | "unbranded";
+    service_id: string;
+    link: string;
 };
 
 type FormData = {
@@ -54,11 +113,8 @@ type FileManagerContextType = {
     floorFiles: SelectedFiles[];
     setFloorFiles: Dispatch<SetStateAction<SelectedFiles[]>>;
 
-    brandedLink: string;
-    setBrandedLink: (value: string) => void;
-
-    unbrandedLink: string;
-    setUnbrandedLink: (value: string) => void;
+    links: LinkItem[];
+    setLinks: Dispatch<SetStateAction<LinkItem[]>>;
 
     brandedSelected: boolean;
     setBrandedSelected: (value: boolean) => void;
@@ -84,9 +140,12 @@ type FileManagerContextType = {
     selectedAudioTrack: string | undefined;
     setSelectedAudioTrack: Dispatch<SetStateAction<string | undefined>>;
 
-     formData: FormData;
+    formData: FormData;
     setFormData: Dispatch<SetStateAction<FormData>>;
     updateFormData: (updates: Partial<FormData>) => void;
+
+    filesData: FilesData | null;
+    setFilesData: Dispatch<SetStateAction<FilesData | null>>;
 };
 
 const FileManagerContext = createContext<FileManagerContextType | undefined>(undefined);
@@ -95,8 +154,7 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
     const [files, setFiles] = useState<File[]>([]);
     const [selectedFiles, setSelectedFiles] = useState<SelectedFiles[]>([]);
     const [selectedVideoFiles, setSelectedVideoFiles] = useState<SelectedFiles[]>([]);
-    const [brandedLink, setBrandedLink] = useState('');
-    const [unbrandedLink, setUnbrandedLink] = useState('');
+    const [links, setLinks] = useState<LinkItem[]>([]);
     const [floorFiles, setFloorFiles] = useState<SelectedFiles[]>([]);
     const [brandedSelected, setBrandedSelected] = useState(false);
     const [unBrandedSelected, setUnBrandedSelected] = useState(false);
@@ -106,8 +164,10 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
     const [transition, setTransition] = useState<string>("fade-in");
     const [audioUrl, setAudioUrl] = useState<string | undefined>(undefined);
     const [selectedAudioTrack, setSelectedAudioTrack] = useState<string | undefined>("none");
+    const [filesData, setFilesData] = useState<FilesData | null>(null);
 
-    // Feature Sheet Form Data State
+    console.log('droppedMarkers', droppedMarkers);
+
     const [formData, setFormData] = useState<FormData>({
         background: "",
         border: "",
@@ -146,8 +206,7 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
             files, setFiles,
             floorFiles, setFloorFiles,
             selectedFiles, setSelectedFiles,
-            brandedLink, setBrandedLink,
-            unbrandedLink, setUnbrandedLink,
+            links, setLinks,
             brandedSelected, setBrandedSelected,
             unBrandedSelected, setUnBrandedSelected,
             previewFiles, setPreviewFiles,
@@ -164,6 +223,8 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
             formData,
             setFormData,
             updateFormData,
+            filesData,
+            setFilesData
         }}>
             {children}
         </FileManagerContext.Provider>

@@ -45,7 +45,7 @@ interface OrderTableProps {
 
 export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickView1, loading, error }: OrderTableProps) {
     const router = useRouter();
-      const { userType } = useAppContext();
+    const { userType } = useAppContext();
     const {
         setIsSubmitted,
     } = useOrderContext();
@@ -153,7 +153,7 @@ export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickVi
 
                     <div onClick={() => {
                         onQuickView1("agent", agent);
-                    }} className="text-[#4290E9] cursor-pointer">{first_name} {last_name}</div>
+                    }} className={`${userType}-text cursor-pointer`}>{first_name} {last_name}</div>
                 );
             },
         },
@@ -209,35 +209,36 @@ export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickVi
                     .map(r => r.original);
 
                 return (
-                    <DropdownActions
-                        options={[
-                            {
-                                label: "Edit",
-                                onClick: () => {
-                                    setIsSubmitted(false);
-                                    const uuid = row.original.uuid;
-                                    if (uuid) {
-                                        router.push(`/dashboard/orders/create/${uuid}`);
-                                    }
+                    userType !== "vendor" && (
+                        <DropdownActions
+                            options={[
+                                {
+                                    label: "Edit",
+                                    onClick: () => {
+                                        setIsSubmitted(false);
+                                        const uuid = row.original.uuid;
+                                        if (uuid) {
+                                            router.push(`/dashboard/orders/create/${uuid}`);
+                                        }
+                                    },
                                 },
-                            },
-                            {
-                                label: "Quick View",
-                                onClick: () => {
-                                    const uuid = row.original.uuid;
-                                    if (uuid) {
-                                        router.push(`/dashboard/orders/${uuid}`);
-                                    }
+                                {
+                                    label: "Quick View",
+                                    onClick: () => {
+                                        const uuid = row.original.uuid;
+                                        if (uuid) {
+                                            router.push(`/dashboard/orders/${uuid}`);
+                                        }
+                                    },
                                 },
-                            },
-                            {
-                                label: "Delete",
-                                onClick: () => onDelete(row.original.uuid ?? ""),
-                                confirm1: true,
-                            }
-                        ]}
-                        data={selectedOrder}
-                    />
+                                {
+                                    label: "Delete",
+                                    onClick: () => onDelete(row.original.uuid ?? ""),
+                                    confirm1: true,
+                                }
+                            ]}
+                            data={selectedOrder}
+                        />)
                 );
             },
         }
@@ -248,9 +249,13 @@ export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickVi
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
         []
     );
-const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
-  userType === "agent" ? { agent: false } : {}
-);
+    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
+        userType === "agent"
+            ? { agent: false }
+            : userType === "vendor"
+                ? { status: false }
+                : {}
+    );
     const [rowSelection, setRowSelection] = React.useState({});
     const table = useReactTable({
         data: OrderData,

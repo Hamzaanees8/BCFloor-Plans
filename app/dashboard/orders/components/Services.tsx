@@ -18,6 +18,29 @@ export interface SelectedService {
     option_id?: string;
     optionName: string;
 }
+
+const DISCOUNT_PACKAGES = [
+    {
+        name: "Floor Plans Package",
+        ids: [
+            "1f431801-c4cc-4849-b9d2-5f9956b52882",
+            "45b4eb35-954c-4330-9c82-c0d12a0f185d",
+            "8aff43aa-a2ab-412d-85ca-8ced91bf64cd"
+        ],
+        discountRate: 0.20
+    },
+    {
+        name: "HDR Still Package",
+        ids: [
+            "5bb87846-e54e-499a-a404-bba735b0afdc",
+            "52c2c81a-7508-4095-b509-8c683eaf7d69",
+            "06ccdacc-8059-4a1e-8e9d-705b2bf91d99"
+        ],
+        discountRate: 0.15
+    }
+];
+
+
 const Services = () => {
     const {
         selectedServices,
@@ -28,7 +51,21 @@ const Services = () => {
     const [servicesData, setServicesData] = useState<Services[]>([]);
     const [accordionDefaults, setAccordionDefaults] = useState<string[]>([]);
     const [listingData, setListingData] = useState<Listings>();
-    console.log(listingData?.square_footage);
+
+    const selectedServiceIds = selectedServices.map(s => s.uuid);
+
+    let activePackage = null;
+
+    for (const pkg of DISCOUNT_PACKAGES) {
+        const hasPackage =
+            selectedServiceIds.length === pkg.ids.length &&
+            pkg.ids.every(id => selectedServiceIds.includes(id));
+
+        if (hasPackage) {
+            activePackage = pkg;
+            break;
+        }
+    }
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -114,9 +151,16 @@ const Services = () => {
         return acc;
     }, {} as Record<string, Services[]>);
 
-    const totalPrice = selectedServices?.reduce((total, service) => {
+    const rawTotalPrice = selectedServices?.reduce((total, service) => {
         return total + (Number(service.price) || 0);
     }, 0);
+
+    const discount = activePackage
+        ? rawTotalPrice * activePackage.discountRate
+        : 0;
+
+    const totalPrice = rawTotalPrice - discount;
+
 
     console.log('servicesData', servicesData);
     console.log('selected Service', selectedServices)
@@ -287,8 +331,21 @@ const Services = () => {
                                     <hr className="my-2 w-[70px] h-[2px] bg-[#202020] justify-self-end" />
                                     <div className="flex justify-between font-[500]">
                                         <span>Sub Total:</span>
-                                        <span>$ {totalPrice.toFixed(2)}</span>
+                                        <span>$ {rawTotalPrice.toFixed(2)}</span>
                                     </div>
+
+                                    {activePackage && (
+                                        <>
+                                            <div className="flex justify-between text-[11px] text-blue-600 font-[500]">
+                                                <span>Package:</span>
+                                                <span>{activePackage.name}</span>
+                                            </div>
+                                            <div className="flex justify-between text-[11px] text-green-600 font-[500]">
+                                                <span>Discount ({activePackage.discountRate * 100}%)</span>
+                                                <span>- ${discount.toFixed(2)}</span>
+                                            </div>
+                                        </>
+                                    )}
 
                                     <div className="flex justify-between text-[11px]">
                                         <span>Taxes</span>
@@ -301,6 +358,7 @@ const Services = () => {
                                     </div>
                                 </div>
                             </div>
+
                         </div>
                     </div>
                 </div>

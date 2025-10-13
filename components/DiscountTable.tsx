@@ -197,7 +197,7 @@ export default function DiscountTable({ discounts, fetchDiscounts, setDiscounts,
         React.useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = React.useState({});
     const table = useReactTable({
-        data: discounts ?? [],
+        data: Array.isArray(discounts) ? discounts : [],
         columns,
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import SubAccountTable, { SubAccount } from '@/components/SubAccountTable';
 import { Delete, Get } from './subaccounts';
+import { useAppContext } from '@/app/context/AppContext';
 
 const Page = () => {
     const [showForm, setShowForm] = useState(false)
@@ -12,7 +13,7 @@ const Page = () => {
     const [type, setType] = React.useState('');
     const [showHeader, setShowHeader] = useState(true)
     const [subAccountData, setSubAccountData] = useState<SubAccount[]>([]);
-
+    const { userType } = useAppContext()
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<boolean>(false);
 
@@ -72,11 +73,11 @@ const Page = () => {
         <div>
 
             <div className='w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center' style={{ boxShadow: "0px 4px 4px #0000001F" }} >
-                <p className='text-[16px] md:text-[24px] font-[400]  text-[#4290E9]'>Sub Accounts ({length})</p>
+                <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}>Sub Accounts ({length})</p>
                 <Link href={'/dashboard/sub-accounts/create'} onClick={() => {
                     setShowHeader(false)
                     setShowForm(true)
-                }} className='w-[110px] md:w-[143px] h-[35px] md:h-[44px]  justify-center rounded-[6px] border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]'>+ Sub Accounts</Link>
+                }} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px]  justify-center rounded-[6px] border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] ${userType}-bg hover-${userType}-bg`}>+ Sub Accounts</Link>
             </div>
 
             <div className="w-full">

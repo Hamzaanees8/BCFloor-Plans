@@ -20,12 +20,14 @@ import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Order } from "../../orders/page";
+import { useAppContext } from "@/app/context/AppContext";
 
 interface TourSettingProps {
     orderData: Order | null
 }
 
 const TourSettings = ({ orderData }: TourSettingProps) => {
+    const { userType } = useAppContext()
     const [price, setprice] = useState<number>();
     const [bedrooms, setBedrooms] = useState<number>();
     const [bathrooms, setBathrooms] = useState<number>();
@@ -203,7 +205,7 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
                         className="w-full space-y-4"
                     >
                         <AccordionItem value="property">
-                            <AccordionTrigger className="px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current">
+                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>
                                 General Information
                             </AccordionTrigger>
                             <AccordionContent className="grid gap-4">
@@ -334,7 +336,7 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
                         </AccordionItem>
 
                         <AccordionItem value="additional">
-                            <AccordionTrigger className="px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current">
+                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>
                                 Property Details
                             </AccordionTrigger>
                             <AccordionContent className="grid gap-4">
@@ -453,7 +455,7 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
                             </AccordionContent>
                         </AccordionItem>
                         <AccordionItem value="statistics">
-                            <AccordionTrigger className="px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current">
+                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>
                                 Contact Details
                             </AccordionTrigger>
                             <AccordionContent className="grid gap-4">

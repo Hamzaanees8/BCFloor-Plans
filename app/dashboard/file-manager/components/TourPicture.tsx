@@ -32,33 +32,17 @@ function TourPicture() {
     setAudioUrl,
     selectedAudioTrack,
     setSelectedAudioTrack,
+    filesData,
   } = useFileManagerContext();
   const [autoPlay, setAutoPlay] = useState<boolean>(true);
-  //   const [selectedEffect, setSelectedEffect] = useState("fade-in");
-  //   const [selectedDelay, setSelectedDelay] = useState(4000);
-  //   const [selectedAudioTrack, setSelectedAudioTrack] = useState("none");
-  //   const [audioURL, setAudioURL] = useState<string | null>(null);
 
-  //   const handleAudioTrackChange = async (track: string) => {
-  //     setSelectedAudioTrack(track);
 
-  //     if (track === "none") {
-  //       setAudioURL(null);
-  //       return;
-  //     }
+  const currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === "photo");
 
-  //     try {
-  //       const response = await fetch(`/audio/${track}.mp3`);
-  //       const blob = await response.blob();
-  //       const blobUrl = URL.createObjectURL(blob);
-  //       setAudioURL(blobUrl);
-  //     } catch (error) {
-  //       console.error("Error loading audio track:", error);
-  //       setAudioURL(null);
-  //     }
-  //   };
+  const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
+
   const handleAudioTrackChange = async (track: string) => {
-    setSelectedAudioTrack(track); // ✅ This line fixes the select value not updating
+    setSelectedAudioTrack(track);
 
     if (track === "none") {
       setAudioUrl(undefined);
@@ -75,46 +59,6 @@ function TourPicture() {
       setAudioUrl(undefined);
     }
   };
-
-  // React.useEffect(() => {
-  //     const generateSlideshow = async () => {
-  //         if (!selectedFiles || selectedFiles.length === 0) return;
-
-  //         const canvas = document.createElement("canvas");
-  //         const ctx = canvas.getContext("2d");
-  //         canvas.width = 640;
-  //         canvas.height = 480;
-
-  //         const stream = canvas.captureStream();
-  //         const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
-  //         const chunks: Blob[] = [];
-
-  //         recorder.ondataavailable = (e) => chunks.push(e.data);
-  //         recorder.onstop = () => {
-  //             const blob = new Blob(chunks, { type: "video/webm" });
-  //             const url = URL.createObjectURL(blob);
-  //             setVideoURL(url);
-  //         };
-
-  //         recorder.start();
-
-  //         for (const file of selectedFiles) {
-  //             const img = new Image();
-  //             img.src = URL.createObjectURL(file.file);
-  //             await new Promise((resolve) => {
-  //                 img.onload = () => {
-  //                     ctx!.drawImage(img, 0, 0, canvas.width, canvas.height);
-  //                     setTimeout(resolve, 1000); // 1 sec per image
-  //                 };
-  //                 img.onerror = resolve;
-  //             });
-  //         }
-
-  //         recorder.stop();
-  //     };
-
-  //     generateSlideshow();
-  // }, [selectedFiles]);
 
   const checkedImages = selectedFiles.filter((files) => {
     return files.upload === true;
@@ -133,7 +77,7 @@ function TourPicture() {
           </AccordionTrigger>
           <AccordionContent>
             <div>
-              {selectedFiles?.length > 0 && (
+              {(selectedFiles?.length > 0 || (currentTourPhotos?.length ?? 0) > 0) && (
                 <div className="mt-4 w-full grid grid-cols-4 gap-2 bg-[#BBBBBB] p-3">
                   {selectedFiles?.map((file, idx) => (
                     <div key={idx} className="bg-[#BBBBBB] h-auto relative">
@@ -148,9 +92,8 @@ function TourPicture() {
                           className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
                           style={{
                             clipPath: "polygon(100% 0, 0 0, 100% 100%)",
-                            backgroundColor: `${
-                              file.upload ? "#6BAE41" : "#E06D5E"
-                            }`,
+                            backgroundColor: `${file.upload ? "#6BAE41" : "#E06D5E"
+                              }`,
                           }}
                           onClick={() => {
                             setSelectedFiles((prev) =>
@@ -194,8 +137,49 @@ function TourPicture() {
                       </div>
                     </div>
                   ))}
+
+                  {currentTourPhotos?.map((file, idx) => (
+                    <div key={idx} className="bg-[#BBBBBB] h-auto relative">
+                      <div className="relative w-full h-[240px]">
+                        {/* eslint-disable @next/next/no-img-element */}
+                        <img
+                          src={`${API_URL}/${file.file_path}`}
+                          alt="preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <span
+                          className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
+                          style={{
+                            clipPath: "polygon(100% 0, 0 0, 100% 100%)",
+                            backgroundColor: "#6BAE41",
+                          }}
+
+                        >
+                          <Check color="#fff" size={14} />
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 bg-[#BBBBBB] text-[9px]">
+                        <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">
+                          {file.name}
+                        </p>
+                        <div className="col-span-2 flex items-center justify-between">
+                          <p className="text-[#8E8E8E] mt-1">
+                            Exterior ({idx + 1} of {selectedFiles.length})
+                          </p>
+                          <span className="flex w-[24px] h-[24px] cursor-pointer">
+                            <DownloadIcon
+                              width="24px"
+                              height="24px"
+                              fill="#6BAE41"
+                            />
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
+
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -227,20 +211,6 @@ function TourPicture() {
                         <SelectItem value="embrace">Embrace</SelectItem>
                         <SelectItem value="sandbreaker">Sandbreaker</SelectItem>
                         <SelectItem value="showreel">Showreel</SelectItem>
-                        {/* <SelectItem value="breaking-sweat">Breaking Sweat</SelectItem>
-                                                <SelectItem value="chaos-at-the-spaceship">Chaos At The Spaceship</SelectItem>
-                                                <SelectItem value="daboom-jiggle">Daboom Jiggle</SelectItem>
-                                                <SelectItem value="dream-again">Dream Again</SelectItem>
-                                                <SelectItem value="encourage">Encourage</SelectItem>
-                                                <SelectItem value="endless-desert">Endless Desert</SelectItem>
-                                                <SelectItem value="fragments-of-sunlight">Fragments Of Sunlight</SelectItem>
-                                                <SelectItem value="gliding-hearts">Gliding Hearts</SelectItem>
-                                                <SelectItem value="gold-rush">Gold Rush</SelectItem>
-                                                <SelectItem value="good-feeling">Good Feeling</SelectItem>
-                                                <SelectItem value="hot-chocolate">Hot Chocolate</SelectItem>
-                                                <SelectItem value="i-want-you-to-stay">I Want You To Stay</SelectItem>
-                                                <SelectItem value="illusion-of-perfection">Illusion Of Perfection</SelectItem>
-                                                <SelectItem value="its-going-down">Its Going Down</SelectItem> */}
                       </SelectContent>
                     </Select>
                   </div>
@@ -282,12 +252,7 @@ function TourPicture() {
                           Rotate Left Top
                         </SelectItem>
                         <SelectItem value="kenburns">Ken Burns</SelectItem>
-                        {/* <SelectItem value="fade-move-left">Fade Move Left</SelectItem>
-                                                <SelectItem value="fade-move-right">Fade Move Right</SelectItem>
-                                                <SelectItem value="fade-across-right">Fade Across Right</SelectItem>
-                                                <SelectItem value="fade-across-left">Fade Across Left</SelectItem>*/}
-                        {/* <SelectItem value="zoom-fast">Zoom Fast</SelectItem>
-                                                <SelectItem value="zoom-slow">Zoom Slow</SelectItem> */}
+
                       </SelectContent>
                     </Select>
                   </div>
@@ -361,6 +326,7 @@ function TourPicture() {
                 delay={delay}
                 transition={transition}
                 audioUrl={audioUrl}
+                api_images={currentTourPhotos}
               />
             </div>
           </AccordionContent>

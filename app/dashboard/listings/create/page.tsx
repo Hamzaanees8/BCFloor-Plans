@@ -31,6 +31,8 @@ import DynamicMap from "@/components/DYnamicMap";
 import { Get } from "../../agents/agents";
 import { ArrowDown, ArrowUp } from "@/components/Icons";
 import { useAppContext } from "@/app/context/AppContext";
+import { useUnsaved } from "@/app/context/UnsavedContext";
+import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
 
 const ListingsFrom = () => {
   const { userType } = useAppContext();
@@ -83,6 +85,10 @@ const ListingsFrom = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
+  const { isDirty, setIsDirty } = useUnsaved();
+  useUnsavedChangesWarning(isDirty)
+  const isPopulatingData = useRef(false);
+
   console.log("states", states);
   console.log("province", province);
 
@@ -127,6 +133,8 @@ const ListingsFrom = () => {
           console.log("data.province", data.province);
 
           if (data) {
+
+            isPopulatingData.current = true;
             setCurrentListing(data);
             setConnectedAgent(data.agent.uuid);
             setListingPrice(data.listing_price?.toString() || "");
@@ -163,12 +171,18 @@ const ListingsFrom = () => {
             setIsStaticmail(!!data.send_statistics_email);
             setEmailFrequency(data.statistics_email_frequency || "");
             setstaticEmail(data.statistics_email_recipients || []);
+            requestAnimationFrame(() => {
+              isPopulatingData.current = false;
+            });
+
+            setIsDirty(false);
           }
         })
         .catch((err) => console.log(err.message));
     } else {
       console.log("Listing ID is undefined.");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listingId]);
   console.log("currentListing", currentListing);
 
@@ -238,6 +252,7 @@ const ListingsFrom = () => {
           toast.success("Listing updated successfully");
           setIsLoading(true);
           setOpen(true);
+          setIsDirty(false)
           router.push('/dashboard/listings')
           console.log("User updated successfully:", result);
         }
@@ -248,6 +263,7 @@ const ListingsFrom = () => {
           toast.success("Listings created successfully");
           setIsLoading(true);
           setOpen(true);
+          setIsDirty(false)
           router.push('/dashboard/listings')
           console.log("User created successfully:", result);
         }
@@ -364,6 +380,13 @@ const ListingsFrom = () => {
       </div>
       <div>
         <form
+          onChange={() => {
+            if (!isPopulatingData.current && listingId) {
+              setIsDirty(true);
+            } else if (!listingId) {
+              setIsDirty(true)
+            }
+          }}
           onSubmit={() => {
             handleSubmit();
           }}
@@ -795,16 +818,18 @@ const ListingsFrom = () => {
                                             </Table>
                                             <p className={`${currentListing && currentListing?.orders ? 'hidden' : 'flex'} text-[24px] flex justify-center items-center my-[20px]`}> No Order Found</p>
                                         </div> */}
-                    <div className="flex items-center gap-[16px]">
-                      <Switch
-                        checked={tourActivated}
-                        onCheckedChange={setTourActivated}
-                        className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#4CAF50] "
-                      />
-                      <Label className="text-[14px] text-[#424242]">
-                        Activate Tour
-                      </Label>
-                    </div>
+                    {(userType === 'admin' || userType === 'agent') && (
+                      <div className="flex items-center gap-[16px]">
+                        <Switch
+                          checked={tourActivated}
+                          onCheckedChange={setTourActivated}
+                          className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#4CAF50] "
+                        />
+                        <Label className="text-[14px] text-[#424242]">
+                          Activate Tour
+                        </Label>
+                      </div>
+                    )}
                     <div className="text-[#424242] w-full text-[14px] flex flex-col gap-[16px]">
                       {/* <div className="w-full">
                                                 <Label>Schedule Publish Date</Label>
@@ -818,28 +843,29 @@ const ListingsFrom = () => {
                                                     <Calendar className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 text-[#4290E9] h-[24px] w-[24px]" strokeWidth={1} />
                                                 </div>
                                             </div> */}
-                      <div className="w-full">
-                        <Label>Schedule Publish Date</Label>
-                        <div className="relative w-full">
-                          <Input
-                            ref={inputRef}
-                            value={publishDate}
-                            onChange={(e) => setPublishDate(e.target.value)}
-                            type="date"
-                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] appearance-none pr-10"
-                          />
-                          <Calendar
-                            onClick={openCalendar}
-                            className={`cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 ${userType}-text h-[24px] w-[24px]`}
-                            strokeWidth={1}
-                          />
-                        </div>
-                        {fieldErrors.publish_date && (
-                          <p className="text-red-500 text-[10px]">
-                            {fieldErrors.publish_date[0]}
-                          </p>
-                        )}
-                      </div>
+                      {(userType === 'admin' || userType === 'agent') && (
+                        <div className="w-full">
+                          <Label>Schedule Publish Date</Label>
+                          <div className="relative w-full">
+                            <Input
+                              ref={inputRef}
+                              value={publishDate}
+                              onChange={(e) => setPublishDate(e.target.value)}
+                              type="date"
+                              className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] appearance-none pr-10"
+                            />
+                            <Calendar
+                              onClick={openCalendar}
+                              className={`cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 ${userType}-text h-[24px] w-[24px]`}
+                              strokeWidth={1}
+                            />
+                          </div>
+                          {fieldErrors.publish_date && (
+                            <p className="text-red-500 text-[10px]">
+                              {fieldErrors.publish_date[0]}
+                            </p>
+                          )}
+                        </div>)}
                       <div className=" w-full">
                         <Label>Property Website</Label>
                         <div className="relative w-full ">
@@ -995,7 +1021,11 @@ const ListingsFrom = () => {
                       <Switch
                         checked={Isstaticmail}
                         onCheckedChange={setIsStaticmail}
-                        className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#4CAF50] "
+                        className={`data-[state=unchecked]:bg-[#E06D5E] 
+                          ${userType === "admin" ? "data-[state=checked]:bg-[#4290E9]" : ""}
+                          ${userType === "agent" ? "data-[state=checked]:bg-[#6BAE41]" : ""}
+                          ${userType === "vendor" ? "data-[state=checked]:bg-[#DC9600]" : ""}
+                        `}
                       />
                       <Label>Send Statistics Email</Label>
                       <Select

@@ -46,7 +46,7 @@ interface Notes {
     date: string
 }
 function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNotes, coAgent, setCoAgent }: AppointmentTab) {
-    const {userType} = useAppContext();
+    const { userType } = useAppContext();
     const [agent, setAgent] = useState(currentOrder?.agent.uuid ?? '');
     const [contactNumber, setContactNumber] = useState("");
     const [contactEmail, setContactEmail] = useState("");
@@ -166,7 +166,11 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentOrder, serviceId, agentData, currentAgent])
     console.log('notes', notes);
-
+    const tabs =
+        userType === 'admin'
+            ? ['Notes', 'Internal Notes']
+            : [];
+    const [activeTab, setActiveTab] = useState('Notes')
     return (
         <Accordion
             type="multiple"
@@ -253,12 +257,12 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                 })}
 
                                 <div className='col-span-5 h-[50%] grid-rows-2 grid-cols-2 self-end justify-self-end flex items-center'>
-                                        <p
+                                    <p
                                         onClick={() => setOpenAddDialog(true)}
                                         className={`${userType}-text text-[10px] font-semibold flex gap-[10px] cursor-pointer place-items-end pb-[10px] items-center`}>
-                                            <span className={`flex ${userType}-bg w-[15px] h-[15px] rounded-[3px] justify-center items-center`}><Plus className='text-[#F2F2F2] w-[12px]' /></span>Add Co-Agent
-                                        </p>
-                                        
+                                        <span className={`flex ${userType}-bg w-[15px] h-[15px] rounded-[3px] justify-center items-center`}><Plus className='text-[#F2F2F2] w-[12px]' /></span>Add Co-Agent
+                                    </p>
+
                                 </div>
                                 <AddCoAgentDialog
                                     open={openAddDialog}
@@ -472,8 +476,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                     ])
                                 }
                                 className={`${userType}-text text-[10px] font-semibold flex gap-[10px] cursor-pointer place-items-end pb-[10px] items-center`}
-                                ><span className={`flex ${userType}-bg w-[15px] h-[15px] rounded-[3px] justify-center items-center`}><Plus className='text-[#F2F2F2] w-[12px]' /></span>Add Service </p>
-                                
+                            ><span className={`flex ${userType}-bg w-[15px] h-[15px] rounded-[3px] justify-center items-center`}><Plus className='text-[#F2F2F2] w-[12px]' /></span>Add Service </p>
+
                         </div>
                         <div>
                             <Schedule currentOrder={currentOrder} />
@@ -505,12 +509,29 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
 
                 </AccordionContent>
             </AccordionItem>
+
             <AccordionItem value="Notes">
                 <AccordionTrigger className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>
                     Additional Notes
                 </AccordionTrigger>
                 <AccordionContent className="grid grid-cols-1 gap-4">
                     <div className="">
+                        <div className='flex justify-center h-[60px] items-center bg-[#fff]'>
+                            <div className=" w-fit flex border-gray-300 gap-[10px]">
+                                {tabs.map(tab => (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setActiveTab(tab)}
+                                        className={`text-center px-4 py-2 text-[13px] w-[180px] h-[32px] transition-colors ${activeTab === tab
+                                            ? `${userType}-bg text-white  rounded-[6px]  font-[500] `
+                                            : 'text-[#666666] bg-[#E4E4E4] hover:text-[#666666] rounded-[6px] font-[700] '
+                                            }`}
+                                    >
+                                        {tab.toUpperCase()}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                         {notes?.map((note, index) => (
                             <div
                                 key={index}
@@ -541,11 +562,12 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                             setOpen={setOpenAddNotesDialog}
                             notes={notes}
                             setNotes={setNotes}
+                            isInternal={activeTab === 'Internal Notes' ? true : false}
                         />
                     </div>
                 </AccordionContent>
             </AccordionItem>
-        </Accordion>
+        </Accordion >
     )
 }
 

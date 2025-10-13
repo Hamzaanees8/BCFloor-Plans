@@ -138,17 +138,18 @@ const Page = () => {
         className="w-full  h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center"
         style={{ boxShadow: "0px 4px 4px #0000001F" }}
       >
-        <p 
-        className={`text-[16px] md:text-[24px] font-[400] ${userType}-text`}
+        <p
+          className={`text-[16px] md:text-[24px] font-[400] ${userType}-text`}
         >
           Listings ({countListing})
         </p>
-        <Link
-          href={"/dashboard/listings/create"}
-          className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border bg-[#EEEEEE] text-[14px] md:text-[16px] font-[400] ${userType}-text flex gap-[5px] justify-center items-center ${userType}-button hover-${userType}-bg`}
-        >
-          + New Listing
-        </Link>
+        {userType !== 'vendor' &&
+          <Link
+            href={"/dashboard/listings/create"}
+            className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border bg-[#EEEEEE] text-[14px] md:text-[16px] font-[400] ${userType}-text flex gap-[5px] justify-center items-center ${userType}-button hover-${userType}-bg`}
+          >
+            + New Listing
+          </Link>}
       </div>
 
       <>

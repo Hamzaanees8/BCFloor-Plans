@@ -9,28 +9,28 @@ import { Services } from "../../services/page";
 import { useAppContext } from "@/app/context/AppContext";
 
 type Vendor = {
-    uuid?: string;
-    id?: number;
-    full_name: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-    created_at: string;
-    status?: boolean;
-    // vendor_services: VendorService[];
-    company?: { uuid: string, company_name: string }
-    address?: string
-    primary_phone?: string;
-    secondary_phone?: string;
-    company_name: string;
-    avatar_url?: string;
-    // addresses: Address[];
-    work_hours: {
-        start_time: string;
-        end_time: string;
-        break_start: string;
-        break_end: string;
-    }
+  uuid?: string;
+  id?: number;
+  full_name: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  created_at: string;
+  status?: boolean;
+  // vendor_services: VendorService[];
+  company?: { uuid: string, company_name: string }
+  address?: string
+  primary_phone?: string;
+  secondary_phone?: string;
+  company_name: string;
+  avatar_url?: string;
+  // addresses: Address[];
+  work_hours: {
+    start_time: string;
+    end_time: string;
+    break_start: string;
+    break_end: string;
+  }
 };
 type Option = {
   label: string;
@@ -83,7 +83,7 @@ export function MultiSelectDropdown({
   singleSelect,
   type,
 }: MultiSelectProps) {
-  const {userType} = useAppContext();
+  const { userType } = useAppContext();
   const isSelectAll = selected.length === 1 && selected[0] === "ALL";
   console.log('options', options);
 
@@ -120,12 +120,27 @@ export function MultiSelectDropdown({
       type === "service" ? "All Services" :
         "Select All";
 
-  const selectedLabels = isSelectAll
-    ? [allLabel]
-    : options
+  // const selectedLabels = isSelectAll
+  //   ? [allLabel]
+  //   : options
+  //     .map((item) => toOption(item, type))
+  //     .filter((opt) => selected.includes(opt.value))
+  //     .map((opt) => opt.label);
+
+  let selectedLabels: string[] = [];
+
+  if (isSelectAll) {
+    selectedLabels = [allLabel];
+  } else {
+    selectedLabels = options
       .map((item) => toOption(item, type))
       .filter((opt) => selected.includes(opt.value))
       .map((opt) => opt.label);
+
+    if (type === 'service' && selected.includes('TIME_OFF')) {
+      selectedLabels.unshift('Time Off');
+    }
+  }
 
   return (
     <Popover>
@@ -137,7 +152,7 @@ export function MultiSelectDropdown({
           <span className="truncate max-w-[calc(100%-1.5rem)]">
             {selectedLabels.length > 0 ? selectedLabels.join(", ") : title}
           </span>
-          <ChevronDown className={`h-4 w-4 opacity-50 shrink-0 ${userType}-text`}  />
+          <ChevronDown className={`h-4 w-4 opacity-50 shrink-0 ${userType}-text`} />
         </Button>
       </PopoverTrigger>
 
@@ -146,6 +161,22 @@ export function MultiSelectDropdown({
         className="w-[--radix-popover-trigger-width] p-2 bg-[#E4E4E4] border border-[#BBBBBB] text-[#666666] font-alexandria"
       >
         <div className="flex flex-col space-y-1 max-h-64 overflow-y-auto">
+          {type === 'service' && (
+            <label
+              key="TIME_OFF"
+              className={cn(
+                "flex items-center space-x-2 rounded-md px-2 py-2 hover:bg-muted cursor-pointer"
+              )}
+            >
+              <Checkbox
+                checked={selected.includes("TIME_OFF")}
+                onCheckedChange={() => handleToggle("TIME_OFF")}
+                id="TIME_OFF"
+              />
+              <span className="text-sm">Time Off</span>
+            </label>
+          )}
+
           {options.map((item) => {
             const option = toOption(item, type);
             return (

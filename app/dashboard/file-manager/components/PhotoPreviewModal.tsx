@@ -1,6 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { AlertDialog, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useAppContext } from '@/app/context/AppContext';
 
 type Props = {
     file: File | null;
@@ -12,6 +13,7 @@ type Props = {
 };
 
 const PhotoPreviewModal: React.FC<Props> = ({ file, open, onClose, title, onDelete, onReplace }) => {
+    const { userType } = useAppContext();
     if (!open || !file) return null;
 
     const imageUrl = URL.createObjectURL(file);
@@ -20,7 +22,7 @@ const PhotoPreviewModal: React.FC<Props> = ({ file, open, onClose, title, onDele
         <AlertDialog open={open} onOpenChange={onClose}>
             <AlertDialogContent className="w-[320px] md:w-[730px] md:max-w-[730px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
                 <AlertDialogHeader>
-                    <AlertDialogTitle className="flex items-center uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
+                    <AlertDialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
                         {title}
                         <button
                             onClick={() => {
@@ -48,7 +50,7 @@ const PhotoPreviewModal: React.FC<Props> = ({ file, open, onClose, title, onDele
                         onClick={() => {
                             onReplace();
                         }}
-                        className="bg-white rounded-[6px] w-full md:w-[176px] h-[44px] text-[20px] font-[600] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]"
+                        className={`bg-white rounded-[6px] w-full md:w-[176px] h-[44px] text-[20px] font-[600] border ${userType}-border ${userType}-text hover:bg-[#f1f8ff]`}
                     >
                         Replace
                     </button>
@@ -56,7 +58,7 @@ const PhotoPreviewModal: React.FC<Props> = ({ file, open, onClose, title, onDele
                         onClick={() => {
                             onDelete();
                         }}
-                        className="bg-[#4290E9] rounded-[6px] text-white hover:bg-[#005fb8] w-full md:w-[176px] h-[44px] font-[600] text-[20px]"
+                        className={`${userType}-bg rounded-[6px] text-white hover-${userType}-bg w-full md:w-[176px] h-[44px] font-[600] text-[20px]`}
                     >
                         Delete
                     </button>

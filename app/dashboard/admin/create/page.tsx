@@ -13,6 +13,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { Country, State } from 'country-state-city';
 import { SaveModal } from '@/components/SaveModal'
 import DynamicMap from '@/components/DYnamicMap'
+import { useUnsaved } from '@/app/context/UnsavedContext'
+import useUnsavedChangesWarning from '@/app/hooks/useUnsavedChangesWarning'
 const AdminForm = () => {
     type CurrentUser = {
         first_name?: string;
@@ -77,6 +79,12 @@ const AdminForm = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [open, setOpen] = useState(false);
     const router = useRouter();
+
+
+    const { isDirty, setIsDirty } = useUnsaved();
+    useUnsavedChangesWarning(isDirty)
+    const isPopulatingData = useRef(false);
+
     console.log('emailType', emailType);
     console.log('countries', countries);
     console.log('province', province);
@@ -110,6 +118,8 @@ const AdminForm = () => {
 
     useEffect(() => {
         if (currentUser) {
+
+            isPopulatingData.current = true;
             setFirstName(currentUser.first_name || "");
             setLastName(currentUser.last_name || "");
             setRole(currentUser.roles && currentUser.roles.length > 0 ? String(currentUser.roles[0].id) : "");
@@ -130,7 +140,14 @@ const AdminForm = () => {
             if (currentUser.avatar_url) setAvatarUrl(currentUser.avatar_url);
             if (currentUser.company_logo_url) setCompanyLogoUrl(currentUser.company_logo_url);
             if (currentUser.company_banner_url) setCompanyBannerUrl(currentUser.company_banner_url);
+
+            requestAnimationFrame(() => {
+                isPopulatingData.current = false;
+            });
+
+            setIsDirty(false);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -254,6 +271,7 @@ const AdminForm = () => {
                 setOpen(true)
                 router.push('/dashboard/admin');
                 setIsLoading(false)
+                setIsDirty(false)
             } else {
                 await Create(payload, token);
                 toast.success('User created successfully');
@@ -261,6 +279,7 @@ const AdminForm = () => {
                 setOpen(true)
                 router.push('/dashboard/admin');
                 setIsLoading(false)
+                setIsDirty(false)
             }
 
         } catch (error) {
@@ -336,7 +355,15 @@ const AdminForm = () => {
                 <ToggleButtons />
             </div> */}
             <div>
-                <form >
+                <form
+                    onChange={() => {
+                        if (!isPopulatingData.current && userId) {
+                            setIsDirty(true);
+                        } else if (!userId) {
+                            setIsDirty(true)
+                        }
+                    }}
+                >
                     <Accordion type="multiple" defaultValue={["profile", "permissions", "branding"]} className="w-full space-y-4">
                         <AccordionItem value="profile">
                             <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>PROFILE</AccordionTrigger>

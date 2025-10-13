@@ -19,6 +19,9 @@ import { Create, Edit, GetOne, GetPermissions, GetRole, SubAccountPayload } from
 import { SaveModal } from '@/components/SaveModal'
 import { Get } from '../../agents/agents'
 import DynamicMap from '@/components/DYnamicMap'
+import { useAppContext } from '@/app/context/AppContext'
+import { useUnsaved } from '@/app/context/UnsavedContext'
+import useUnsavedChangesWarning from '@/app/hooks/useUnsavedChangesWarning'
 // interface PaymentCard {
 //     uuid: string;
 //     type: 'visa' | 'mastercard' | 'amex';
@@ -101,16 +104,27 @@ const OrdersForm = () => {
     const [companyLogoFile, setCompanyLogoFile] = useState<File | null>(null);
     const [companyBannerFile, setCompanyBannerFile] = useState<File | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
-    //const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
-    //const [cards, setCards] = useState<PaymentCard[]>([]);
+    const { userType } = useAppContext()
     const handleReset = () => {
         setPassword("");
     };
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '');
     const router = useRouter();
+
+    const { isDirty, setIsDirty } = useUnsaved();
+    useUnsavedChangesWarning(isDirty)
+    const isPopulatingData = useRef(false);
+
     console.log('emailType', emailType);
     console.log('current user', currentUser);
     const params = useParams();
     const userId = params?.id as string;
+    useEffect(() => {
+        if (userType && agent.length > 0) {
+            setConnectedAgent(userInfo.uuid)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userType, agent])
     useEffect(() => {
         const token = localStorage.getItem("token");
 
@@ -153,6 +167,8 @@ const OrdersForm = () => {
     }, [country]);
     useEffect(() => {
         if (currentUser) {
+
+            isPopulatingData.current = true;
             setFirstName(currentUser.first_name || "");
             setLastName(currentUser.last_name || "");
             setConnectedAgent(currentUser.agent.uuid);
@@ -177,7 +193,13 @@ const OrdersForm = () => {
             if (currentUser.avatar_url) setAvatarUrl(currentUser.avatar_url);
             if (currentUser.company_logo_url) setCompanyLogoUrl(currentUser.company_logo_url);
             if (currentUser.company_banner_url) setCompanyBannerUrl(currentUser.company_banner_url);
+            requestAnimationFrame(() => {
+                isPopulatingData.current = false;
+            });
+
+            setIsDirty(false);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser, permissions]);
     console.log("currentuser", currentUser)
 
@@ -322,6 +344,7 @@ const OrdersForm = () => {
                 setOpenSaveDialog(true)
                 router.push('/dashboard/sub-accounts');
                 setIsLoading(false)
+                setIsDirty(false)
             } else {
                 await Create(payload, token);
                 toast.success('Sub-Account created successfully');
@@ -329,6 +352,7 @@ const OrdersForm = () => {
                 setOpenSaveDialog(true)
                 router.push('/dashboard/sub-accounts');
                 setIsLoading(false)
+                setIsDirty(false)
             }
 
         } catch (error) {
@@ -362,55 +386,13 @@ const OrdersForm = () => {
             }
         }
     };
-    // const capitalizeFirst = (str: string) =>
-    //     str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-    // const removeCard = (uuid: string) => {
-    //     setCards((prev) => prev.filter((card) => card.uuid !== uuid));
-    // };
-    // const confirmAndExecute = () => {
-    //     pendingAction?.()
-    //     setPendingAction(null)
-    // }
-    // const handleDelete = async (uuid: string) => {
-    //     const token = localStorage.getItem("token");
-    //     if (!token) return;
 
-    //     try {
-    //         await DeleteCard(uuid, token);
-    //         removeCard(uuid);
-    //         toast.success("Card removed Successfully");
-    //     } catch (err: unknown) {
-    //         if (err instanceof Error) {
-    //             console.error("Failed to delete card:", err.message);
-    //         } else {
-    //             console.error("Failed to delete card:", err);
-    //         }
-    //     }
-    // };
-    // const fetchPaymentMethods = useCallback(() => {
-    //     const token = localStorage.getItem("token");
-
-    //     if (!token) {
-    //         console.log("Token not found.");
-    //         return;
-    //     }
-
-    //     GetPaymentMethod(token)
-    //         .then((res) => setCards(Array.isArray(res.data) ? res.data : []))
-    //         .catch((err) => console.log("Error fetching data:", err.message));
-    // }, []);
-
-    // useEffect(() => {
-    //     fetchPaymentMethods();
-    // }, [fetchPaymentMethods]);
-    console.log("errors", fieldErrors)
-    console.log('agents', agent)
     return (
         <div className='font-alexandria'>
             <div className='w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center' style={{ boxShadow: "0px 4px 4px #0000001F" }} >
-                <p className='text-[16px] md:text-[24px] font-[400]  text-[#4290E9]'> Sub Account
+                <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}> Sub Account
                     {currentUser ? ` › ${currentUser.first_name} ${currentUser.last_name}` : ' › Create'}</p>
-                <Button onClick={(e) => { handleSubmit(e) }} className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]'>Save Changes</Button>
+                <Button onClick={(e) => { handleSubmit(e) }} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>Save Changes</Button>
             </div>
             <SaveModal
                 isOpen={openSaveDialog}
@@ -424,10 +406,18 @@ const OrdersForm = () => {
                 <ToggleButtons />
             </div> */}
             <div>
-                <form >
+                <form
+                    onChange={() => {
+                        if (!isPopulatingData.current && userId) {
+                            setIsDirty(true);
+                        } else if (!userId) {
+                            setIsDirty(true)
+                        }
+                    }}
+                >
                     <Accordion type="multiple" defaultValue={["profile", "permissions", "branding", "payment", "account"]} className="w-full space-y-4">
                         <AccordionItem value="profile">
-                            <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>PROFILE</AccordionTrigger>
+                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`} > PROFILE</AccordionTrigger>
                             <AccordionContent className="grid gap-4">
                                 <div className='w-full flex flex-col items-center'>
                                     <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -449,23 +439,25 @@ const OrdersForm = () => {
                                                     className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
                                                 {fieldErrors.last_name && <p className='text-red-500 text-[10px]'>{fieldErrors.last_name[0]}</p>}
                                             </div>
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Connected Agents <span className="text-red-500">*</span></label>
-                                                <Select value={connectedAgent} onValueChange={(val) => setConnectedAgent(val)}>
-                                                    <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
-                                                        <SelectValue placeholder="Select Agent" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {agent.map((ag) => (
-                                                            <SelectItem key={ag.uuid} value={ag.uuid}>
-                                                                {ag.first_name} {ag.last_name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                            {userType === 'admin' &&
+                                                <div className='col-span-2'>
+                                                    <label htmlFor="">Connected Agents <span className="text-red-500">*</span></label>
+                                                    <Select value={connectedAgent} onValueChange={(val) => setConnectedAgent(val)}>
+                                                        <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                                                            <SelectValue placeholder="Select Agent" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {agent.map((ag) => (
+                                                                <SelectItem key={ag.uuid} value={ag.uuid}>
+                                                                    {ag.first_name} {ag.last_name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
 
-                                                {fieldErrors.agent_id && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.agent_id[0]}</p>}
-                                            </div>
+                                                    {fieldErrors.agent_id && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.agent_id[0]}</p>}
+                                                </div>
+                                            }
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Role <span className="text-red-500">*</span></label>
                                                 <Select
@@ -637,7 +629,7 @@ const OrdersForm = () => {
                         </AccordionItem>
 
                         <AccordionItem value="permissions">
-                            <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>PERMISSION ACCESS</AccordionTrigger>
+                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>PERMISSION ACCESS</AccordionTrigger>
                             <AccordionContent className="grid gap-4">
                                 <div className='w-full flex flex-col items-center'>
                                     <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -658,7 +650,7 @@ const OrdersForm = () => {
                         </AccordionItem>
 
                         <AccordionItem value="branding">
-                            <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>Branding Assets</AccordionTrigger>
+                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>Branding Assets</AccordionTrigger>
                             <AccordionContent className="grid gap-4">
                                 <div className='w-full flex flex-col items-center'>
                                     <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -844,7 +836,7 @@ const OrdersForm = () => {
 
                         {currentUser && (
                             <AccordionItem value="account" className='border-none'>
-                                <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>ACCOUNT MANAGEMENT</AccordionTrigger>
+                                <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#4290E9]'} [&>svg]:text-[#6BAE41]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>ACCOUNT MANAGEMENT</AccordionTrigger>
                                 <AccordionContent className="grid gap-4">
                                     <div className='w-full flex flex-col items-center'>
                                         <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>

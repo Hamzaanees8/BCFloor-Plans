@@ -8,6 +8,7 @@ import { GetOneListing } from '../../listings/listing';
 import { useOrderContext } from '../../orders/context/OrderContext';
 import { VendorData } from '../../orders/[id]/page';
 import { GetVendors } from '../../orders/orders';
+import { useAppContext } from '@/app/context/AppContext';
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
 
@@ -124,6 +125,7 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
   const [clickedSlot, setClickedSlot] = useState<{ start: string; end: string } | null>(null);
   const [availableSlotVendors, setAvailableSlotVendors] = useState<VendorData[]>([]);
   const [destinationAddress, setDestinationAddress] = useState<string>('');
+  const { userType } = useAppContext()
   console.log('selectedSlots', selectedSlots);
   console.log('selectedVendors', selectedVendors);
 
@@ -182,7 +184,7 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
   }, [selectedListingId]);
 
   const calendarRef = useRef<FullCalendar>(null);
-  
+
   useEffect(() => {
     const matchingSlot = selectedSlots.find(
       (slot) => Number(slot.service_id) === service.service.id
@@ -389,7 +391,9 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
 
   const onEventClick = async (info: import('@fullcalendar/core').EventClickArg) => {
     if (!info.event.start || !info.event.end) return;
-
+    if (userType === 'vendor') {
+      return; // do nothing if user is a vendor
+    }
     const clicked = {
       start: info.event.start.toISOString(),
       end: info.event.end.toISOString(),
@@ -655,9 +659,9 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
           const calendarDate = dayjs(arg.start).format('YYYY-MM-DD');
           setCurrentDate(calendarDate);
         }}
-        // validRange={{
-        //   start: dayjs().format("YYYY-MM-DD")
-        // }}
+      // validRange={{
+      //   start: dayjs().format("YYYY-MM-DD")
+      // }}
       />
       {showVendorModal && clickedSlot && (
         <div

@@ -1,11 +1,10 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Check } from 'lucide-react';
 import React from 'react'
 import { useFileManagerContext } from '../FileManagerContext ';
 const TourMatterport = () => {
-    const { unbrandedLink, setUnbrandedLink, brandedLink, setBrandedLink, brandedSelected, setBrandedSelected, unBrandedSelected, setUnBrandedSelected } = useFileManagerContext();
+    const { links, setLinks,  } = useFileManagerContext();
     const isValidUrl = (url: string) => {
         try {
             new URL(url);
@@ -14,58 +13,59 @@ const TourMatterport = () => {
             return false;
         }
     };
+    const brandedLinks = links.filter(l => l.type === 'branded');
+    const unbrandedLinks = links.filter(l => l.type === 'unbranded');
 
+    const handleLinkChange = (index: number, value: string) => {
+        setLinks(prev => {
+            const updated = [...prev];
+            updated[index] = { ...updated[index], link: value };
+            return updated;
+        });
+    };
+
+    
     return (
         <div className='font-alexandria w-full'>
             <div className='flex flex-col items-center justify-center gap-y-[38px] my-[42px]'>
                 {/* Branded */}
                 <div className='flex items-end gap-x-5 w-[474px]'>
-                    <div className='w-full'>
-                        <Label className='text-[14px] text-[#424242]'>3D Tour Link - Branded</Label>
-                        <Input
-                            className='w-full h-[42px] text-[#666666] border border-[#8E8E8E] mt-2.5'
-                            value={brandedLink}
-                            onChange={(e) => setBrandedLink(e.target.value)}
-                        />
-                    </div>
-                    {brandedSelected ? (
-                        <div
-                            className='w-[34px] h-[30px] bg-[#6BAE41] rounded-[6px] flex items-center justify-center mb-2 cursor-pointer'
-                            onClick={() => setBrandedSelected(false)}
-                        >
-                            <Check className='w-4 h-4 text-white' />
+                    {brandedLinks.length > 0 && (
+                        <div className="flex flex-col gap-y-4 w-[474px]">
+                            <Label className="text-[16px] text-[#424242]">
+                                3D Tour Link - Branded
+                            </Label>
+                            {brandedLinks.map((link, idx) => (
+                                <Input
+                                    key={`branded-${idx}`}
+                                    className="w-full h-[42px] text-[#666666] border border-[#8E8E8E]"
+                                    value={link.link}
+                                    onChange={e => handleLinkChange(links.indexOf(link), e.target.value)}
+                                />
+                            ))}
                         </div>
-                    ) : (
-                        <div
-                            className='w-[34px] mb-2 h-[30px] rounded-[6px] border-[2px] border-[#7D7D7D] cursor-pointer'
-                            onClick={() => setBrandedSelected(true)}
-                        />
                     )}
+
                 </div>
 
                 {/* Unbranded */}
                 <div className='flex items-end gap-x-5 w-[474px]'>
-                    <div className='w-full'>
-                        <Label className='text-[14px] text-[#424242]'>3D Tour Link - Unbranded</Label>
-                        <Input
-                            className='w-full h-[42px] text-[#666] border border-[#8E8E8E] mt-2.5'
-                            value={unbrandedLink}
-                            onChange={(e) => setUnbrandedLink(e.target.value)}
-                        />
-                    </div>
-                    {unBrandedSelected ? (
-                        <div
-                            className='w-[34px] h-[30px] bg-[#6BAE41] rounded-[6px] flex items-center justify-center mb-2 cursor-pointer'
-                            onClick={() => setUnBrandedSelected(false)}
-                        >
-                            <Check className='w-4 h-4 text-white' />
+                    {unbrandedLinks.length > 0 && (
+                        <div className="flex flex-col gap-y-4 w-[474px]">
+                            <Label className="text-[16px] text-[#424242]">
+                                3D Tour Link - Unbranded
+                            </Label>
+                            {unbrandedLinks.map((link, idx) => (
+                                <Input
+                                    key={`unbranded-${idx}`}
+                                    className="w-full h-[42px] text-[#666666] border border-[#8E8E8E]"
+                                    value={link.link}
+                                    onChange={e => handleLinkChange(links.indexOf(link), e.target.value)}
+                                />
+                            ))}
                         </div>
-                    ) : (
-                        <div
-                            className='w-[34px] mb-2 h-[30px] rounded-[6px] border-[2px] border-[#7D7D7D] cursor-pointer'
-                            onClick={() => setUnBrandedSelected(true)}
-                        />
                     )}
+
                 </div>
             </div>
             <div className='w-full'>
@@ -104,25 +104,37 @@ const TourMatterport = () => {
                                         </span>
                                     </div>
                                 ))} */}
-                                {isValidUrl(brandedLink) && (
-                                    <iframe
-                                        src={brandedLink}
-                                        className="w-[80%] h-[500px] border"
-                                        allowFullScreen
-                                    ></iframe>
-                                )}
-                                {isValidUrl(unbrandedLink) && (
-                                    <iframe
-                                        src={unbrandedLink}
-                                        className="w-[80%] h-[500px] border"
-                                        allowFullScreen
-                                    ></iframe>
+                                {brandedLinks.map(
+                                    (link, idx) =>
+                                        isValidUrl(link.link) && (
+                                            <iframe
+                                                key={`preview-branded-${idx}`}
+                                                src={link.link}
+                                                className="w-[80%] h-[500px] border"
+                                                allowFullScreen
+                                            ></iframe>
+                                        )
                                 )}
 
-                                {/* Show message if no valid link */}
-                                {!isValidUrl(brandedLink) && !isValidUrl(unbrandedLink) && (
-                                    <p className="text-gray-500">Enter a valid link to preview the 3D tour</p>
+                                {unbrandedLinks.map(
+                                    (link, idx) =>
+                                        isValidUrl(link.link) && (
+                                            <iframe
+                                                key={`preview-unbranded-${idx}`}
+                                                src={link.link}
+                                                className="w-[80%] h-[500px] border"
+                                                allowFullScreen
+                                            ></iframe>
+                                        )
                                 )}
+
+                                {/* Fallback if no valid URLs */}
+                                {brandedLinks.every(l => !isValidUrl(l.link)) &&
+                                    unbrandedLinks.every(l => !isValidUrl(l.link)) && (
+                                        <p className="text-gray-500">
+                                            Enter a valid link to preview the 3D tour
+                                        </p>
+                                    )}
                             </div>
 
                         </AccordionContent>

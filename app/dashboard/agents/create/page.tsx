@@ -19,6 +19,11 @@ import { Switch } from '@/components/ui/switch'
 import AddCoAgentDialog from '@/components/AddCoAgentDialog'
 import { SaveModal } from '@/components/SaveModal'
 import DynamicMap from '@/components/DYnamicMap'
+import { useAppContext } from '@/app/context/AppContext'
+import { useUnsaved } from '@/app/context/UnsavedContext'
+import useUnsavedChangesWarning from '@/app/hooks/useUnsavedChangesWarning'
+import AgentDiscount from '@/components/AgentDiscount'
+import { Discount } from '@/components/DiscountTable'
 // interface PaymentCard {
 //     uuid: string;
 //     type: 'visa' | 'mastercard' | 'amex';
@@ -114,6 +119,10 @@ const AgentForm = () => {
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
     //const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
     //const [cards, setCards] = useState<PaymentCard[]>([]);
+    const { isDirty, setIsDirty } = useUnsaved();
+    useUnsavedChangesWarning(isDirty)
+    const isPopulatingData = useRef(false);
+
     const handleReset = () => {
         setPassword("");
     };
@@ -135,6 +144,9 @@ const AgentForm = () => {
     }, []);
     useEffect(() => {
         if (currentUser) {
+
+            isPopulatingData.current = true;
+
             setFirstName(currentUser.first_name || "");
             setLastName(currentUser.last_name || "");
             setRole(currentUser.role ? String(currentUser.role.id) : "");
@@ -164,7 +176,14 @@ const AgentForm = () => {
                 setCoAgents(formattedAgents);
             }
             setAgentNotes(currentUser.notes || "")
+
+            requestAnimationFrame(() => {
+                isPopulatingData.current = false;
+            });
+
+            setIsDirty(false);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser]);
     console.log("co-agent", coAgents)
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -280,6 +299,7 @@ const AgentForm = () => {
                 setOpen(true)
                 router.push('/dashboard/agents')
                 setIsLoading(false)
+                setIsDirty(false)
             } else {
                 await CreateAgent(payload, token);
                 toast.success('Agent created successfully');
@@ -287,6 +307,7 @@ const AgentForm = () => {
                 setOpen(true)
                 router.push('/dashboard/agents')
                 setIsLoading(false)
+                setIsDirty(false)
             }
 
         } catch (error) {
@@ -391,14 +412,41 @@ const AgentForm = () => {
         setCoAgents(updatedAgents);
     };
     console.log("errors", fieldErrors)
+    const { userType } = useAppContext();
+    const [agentdiscounts, setAgentDiscounts] = useState<{ id: number; discount_code: string; expiry_date: string; description: string }[]
+    >([]);
+
+    const [discounts, setDiscounts] = React.useState<Discount[]>([]);
+    const [openDiscount, setOpenDiscount] = useState(false);
+    const addDiscount = (discount: {
+        discount_code: string;
+        expiry_date: string;
+        description: string;
+    }) => {
+        const nextId = discounts.length > 0 ? discounts[discounts.length - 1].id + 1 : 1;
+
+        setAgentDiscounts([
+            ...agentdiscounts,
+            {
+                id: nextId,
+                ...discount,
+            },
+        ]);
+    };
+
+    const removeDiscount = (id: number) => {
+        setAgentDiscounts(agentdiscounts.filter((d) => d.id !== id));
+    };
+    console.log(setDiscounts);
+
     return (
         <div className='font-alexandria'>
             <div className='w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center' style={{ boxShadow: "0px 4px 4px #0000001F" }} >
-                <p className='text-[16px] md:text-[24px] font-[400] text-[#4290E9]'>
+                <p className={`text-[16px] md:text-[24px] font-[400] ${userType}-text`}>
                     Agents
                     {currentUser ? ` › ${currentUser.first_name} ${currentUser.last_name}` : ' › Create'}
                 </p>
-                <Button onClick={(e) => { handleSubmit(e) }} className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]'>Save Changes</Button>
+                <Button onClick={(e) => { handleSubmit(e) }} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg hover:opacity-95`}>Save Changes</Button>
             </div>
             <SaveModal
                 isOpen={open}
@@ -416,10 +464,18 @@ const AgentForm = () => {
                 <ToggleButtons />
             </div> */}
             <div>
-                <form >
+                <form
+                    onChange={() => {
+                        if (!isPopulatingData.current && userId) {
+                            setIsDirty(true);
+                        } else if (!userId) {
+                            setIsDirty(true)
+                        }
+                    }}
+                >
                     <Accordion type="multiple" defaultValue={["profile", "branding", "payment", "account"]} className="w-full space-y-4">
                         <AccordionItem value="profile">
-                            <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>PROFILE</AccordionTrigger>
+                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>PROFILE</AccordionTrigger>
                             <AccordionContent className="grid gap-4">
                                 <div className='w-full flex flex-col items-center'>
                                     <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -625,7 +681,7 @@ const AgentForm = () => {
                         </AccordionItem>
 
                         <AccordionItem value="branding">
-                            <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>Branding Assets</AccordionTrigger>
+                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>Branding Assets</AccordionTrigger>
                             <AccordionContent className="grid gap-4">
                                 <div className='w-full flex flex-col items-center'>
                                     <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -757,59 +813,53 @@ const AgentForm = () => {
                             </AccordionContent>
                         </AccordionItem>
 
-                        {/* <AccordionItem value="payment" className='border-none'>
-                            <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>PAYMENT</AccordionTrigger>
+                        <AccordionItem value="payment" className='border-none'>
+                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>PAYMENT</AccordionTrigger>
                             <AccordionContent className="grid gap-4">
                                 <div className='w-full flex flex-col items-center'>
                                     <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                        <div className='grid grid-cols-2 gap-[32px]'>
-                                            <div className="col-span-2">
-                                                <div className='flex items-center justify-between'>
-                                                    <p className='font-bold text-sm text-[#666666]'>Cards</p>
-                                                    <div className='flex items-center gap-x-[10px]'>
-                                                        <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
-                                                        <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm cursor-pointer' onClick={() => setOpenPaymentDialog(true)} />
-                                                    </div>
-                                                    <PaymentDialog
-                                                        open={openPaymentDialog}
-                                                        setOpen={setOpenPaymentDialog}
-                                                        onSuccess={() => {
-                                                            fetchPaymentMethods();
-                                                        }}
-                                                    />
-                                                </div>
+                                        <div className='flex items-center justify-between'>
+                                            <p className='font-bold text-sm text-[#666666]'>Discounts</p>
+                                            <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => setOpenDiscount(true)}>
+                                                <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
+                                                <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm' />
                                             </div>
-                                            <div className="col-span-2">
-                                                {cards.map((card) => (
-                                                    <div key={card.uuid} className='flex flex-col gap-y-3 mt-2'>
-                                                        <div
-                                                            className="flex justify-between items-center w-full text-[16px] font-normal text-[#666666]"
-                                                        >
-                                                            <div className='basis-[60%] flex items-center justify-between w-full gap-x-2.5'>
-                                                                <p className="text-[#4290E9]">{capitalizeFirst(card.type)}</p>
-                                                                <p>{card.last_four.slice(0, 4)} **** **** ****</p>
-                                                            </div>
-                                                            <div className="basis-[40%] w-full flex gap-x-4 items-center justify-end">
-                                                                {card.is_primary && (
-                                                                    <span className="text-sm font-normal text-[#666666]">Primary</span>
-                                                                )}
-                                                                <X onClick={() => handleDelete(card.uuid)}
-                                                                    className="text-[#E06D5E] w-6 h-6 cursor-pointer hover:scale-110 transition-transform" />
-                                                            </div>
-                                                        </div>
-                                                        <hr />
-                                                    </div>
-                                                ))}
+                                            <AgentDiscount
+                                                open={openDiscount}
+                                                setOpen={setOpenDiscount}
+                                                addDiscount={addDiscount}
+                                                
+                                            />
+                                        </div>
 
-                                            </div>
+                                        <div className="col-span-2">
+                                            {agentdiscounts.map((discount) => (
+                                                <div key={discount.id} className='flex flex-col gap-y-3 mt-2'>
+                                                    <div className="flex justify-between items-center w-full text-[16px] font-normal text-[#666666]">
+                                                        <div className='basis-[80%] flex items-center justify-between w-full gap-x-2.5'>
+                                                            <p className="text-[#4290E9]">{(discount.discount_code)}</p>
+
+                                                            <p className="text-[12px] font-[300] text-[#666666]">Expires {discount.expiry_date}</p>
+                                                        </div>
+
+                                                        <div className="basis-[20%] w-full flex gap-x-4 items-center justify-end">
+                                                            <X
+                                                                onClick={() => removeDiscount(discount.id)}
+                                                                className="text-[#E06D5E] w-6 h-6 cursor-pointer hover:scale-110 transition-transform"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <hr />
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 </div>
                             </AccordionContent>
-                        </AccordionItem> */}
-                        {currentUser && (
+                        </AccordionItem>                        {currentUser && (
                             <AccordionItem value="account" className='border-none'>
-                                <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>ACCOUNT MANAGEMENT</AccordionTrigger>
+                                <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>ACCOUNT MANAGEMENT</AccordionTrigger>
                                 <AccordionContent className="grid gap-4">
                                     <div className='w-full flex flex-col items-center'>
                                         <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>

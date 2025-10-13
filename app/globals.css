@@ -372,6 +372,14 @@ input[type="date"]::-moz-calendar-picker-indicator {
   background-color: #6BAE41 !important;
 }
 
+.vendor-bg {
+  background-color: #DC9600;
+}
+.hover-vendor-bg:hover {
+  background-color: #DC9600 !important;
+}
+
+
 .admin-text { 
   color: #4290E9 !important;
 }
@@ -380,11 +388,18 @@ input[type="date"]::-moz-calendar-picker-indicator {
   color: #6BAE41 !important;
 }
 
+.vendor-text {
+  color: #DC9600 !important;
+}
+
 .admin-border {
   border: 1px solid #4290E9 !important;
 }
 .agent-border {
   border: 1px solid #6BAE41 !important;
+}
+.vendor-border {
+  border: 1px solid #DC9600 !important;
 }
 
 .admin-accent {
@@ -395,12 +410,19 @@ input[type="date"]::-moz-calendar-picker-indicator {
   accent-color: #6BAE41 !important;
   color: #fff !important;
 }
+.vendor-accent {
+  accent-color: #DC9600 !important;
+  color: #fff !important;
+}
 
 .admin-text-svg > svg {
   color: #4290E9;
 }
 .agent-text-svg > svg {
   color: #6bae41;
+}
+.vendor-text-svg > svg {
+  color: #DC9600;
 }
 
 .admin-fill-svg > svg {
@@ -409,15 +431,21 @@ input[type="date"]::-moz-calendar-picker-indicator {
 .agent-fill-svg > svg {
   fill: #6bae41;
 }
+.vendor-fill-svg > svg {
+  fill: #DC9600;
+}
 
 .agent-button:hover {
+    color: #fff !important;
+}
+.vendor-button:hover {
     color: #fff !important;
 }
 .admin-button:hover {
     color: #fff !important;
 }
 
-.agent-order-1 {
+.agent-order-1,.vendor-order-1 {
   order: -1;
 }
 

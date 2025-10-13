@@ -23,7 +23,7 @@ interface AppointmentTab {
     serviceId: number
 }
 function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
-    const {userType} = useAppContext();
+    const { userType } = useAppContext();
     const [agent, setAgent] = useState("");
     const [company, setCompany] = useState("");
     const [contactNumber, setContactNumber] = useState("");
@@ -121,7 +121,7 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 <Input
                     readOnly
                     value={agent}
-                   
+
                     className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
                     type="text"
                 />
@@ -303,6 +303,7 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                     >Add Note</Button>
                 </div>
                 <AddNotesDialog
+                    isInternal={false}
                     open={openAddNotesDialog}
                     setOpen={setOpenAddNotesDialog}
                     notes={notes}

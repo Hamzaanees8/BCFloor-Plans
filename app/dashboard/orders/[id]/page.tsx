@@ -16,6 +16,11 @@ import { GetOneOrder, GetVendors } from "../orders";
 import { useParams, useRouter } from "next/navigation";
 import { Order } from "../page";
 import { Country } from "country-state-city";
+import { useAppContext } from "@/app/context/AppContext";
+import VendorOrderEdit from "../components/VendorOrderEdit";
+import OrderDetailView from "../components/OrderDetailView";
+import { Agent } from "@/components/AgentTable";
+import { GetAgents } from "../../calendar/calendar";
 export interface VendorAddress {
   type: "company" | "billing" | string;
   address_line_1: string;
@@ -68,6 +73,10 @@ function Page() {
   >([]);
   const [vendors, setVendors] = React.useState<VendorData[]>([]);
   const [selectedVendors, setselectedVendors] = React.useState('');
+  const [openEditPopup, setOpenEditPopup] = React.useState<boolean>(false);
+  const { userType } = useAppContext();
+  const [openDetails, setOpenDetails] = useState(false);
+  const [agentData, setAgentData] = useState<Agent[]>([]);
 
   const router = useRouter();
   const params = useParams();
@@ -76,7 +85,6 @@ function Page() {
     setCountries(Country.getAllCountries());
   }, []);
 
-  console.log('selectedVendors', selectedVendors);
 
   useEffect(() => {
     if (orderData) {
@@ -84,7 +92,23 @@ function Page() {
 
     }
   }, [orderData])
+  useEffect(() => {
+    const token = localStorage.getItem("token")
 
+    if (!token) {
+      console.log("Token not found.");
+      return;
+    }
+
+    GetAgents(token)
+      .then((data) => {
+        const allAgents = Array.isArray(data.data) ? data.data : [];
+        const filteredAgents = allAgents.filter((agent: Agent) => agent.status === true);
+        setAgentData(filteredAgents);
+      })
+      .catch((err) => console.log("Error fetching data:", err.message));
+
+  }, []);
   useEffect(() => {
     const token = localStorage.getItem("token");
 
@@ -152,66 +176,72 @@ function Page() {
     return found ? found.name : isoCode;
   }
   const uniqueVendors = Array.from(uniqueVendorsMap.values());
-  console.log("orderData", orderData);
-  console.log("vendors", vendors);
 
   return (
     <div className="font-alexandria">
+      {openEditPopup && userType === "vendor" &&
+        <VendorOrderEdit
+          currentOrder={orderData ?? undefined}
+          open={openEditPopup}
+          onOpenChange={setOpenEditPopup}
+        />
+      }
+      <OrderDetailView agentData={agentData} open={openDetails} onClose={() => { setOpenDetails(false) }} orderId={orderData?.uuid ?? ''} serviceId={22} orderData={orderData ? [orderData] : []} />
       <div
         className="w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center"
         style={{ boxShadow: "0px 4px 4px #0000001F" }}
       >
-        <p className="text-[16px] md:text-[24px] font-[400]  text-[#4290E9]">
+        <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}>
           Orders ›{" "}
           <span className="hidden md:inline-block">
             {" "}
             {orderData?.id || ""} {`(${orderData?.property?.address || ""})`}
           </span>
         </p>
-        {/* <div className="flex gap-[18px]">
-                    <Link
-                        href={"/dashboard/listings/create"}
-                        className="w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] border-[#4290E9] bg-[#EEEEEE] text-[14px] md:text-[16px] font-[400] text-[#4290E9] flex gap-[5px] justify-center items-center hover:text-[#fff] hover:bg-[#4290E9]"
-                    >
-                        Edit Order
-                    </Link>
-                    <Button
-                        // disabled={isLoading}
-                        // onClick={() => {
-                        //     setPendingAction1(() => handleSubmit);
-                        //     setConfirmOpen1(true);
-                        // }}
-                        className="w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]"
-                    >
-                        {/* {isLoading ? (
-                            <div role="status">
-                                <svg
-                                    aria-hidden="true"
-                                    className="w-[28px] h-[28px] text-gray-600 animate-spin fill-[#fff]"
-                                    viewBox="0 0 100 101"
-                                    fill="none"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                >
-                                    <path
-                                        d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
-                                        fill="currentColor"
-                                    />
-                                    <path
-                                        d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
-                                        fill="currentFill"
-                                    />
-                                </svg>
-                                <span className="sr-only">Loading...</span>
-                            </div>
-                        ) : (
-                            ""
-                        )} 
-                        Save Changes{" "}
-                    </Button>
+        <div className="flex gap-[18px]">
+          <Button
+            onClick={() => { setOpenDetails(true) }}
+            className="w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] border-[#4290E9] bg-[#EEEEEE] text-[14px] md:text-[16px] font-[400] text-[#4290E9] flex gap-[5px] justify-center items-center hover:text-[#fff] hover:bg-[#4290E9]"
+          >
+            Edit Order
+          </Button>
+          {/* <Button
+            disabled={isLoading}
+            onClick={() => {
+              setPendingAction1(() => handleSubmit);
+              setConfirmOpen1(true);
+            }}
+            className="w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]"
+          >
+            {isLoading ? (
+              <div role="status">
+                <svg
+                  aria-hidden="true"
+                  className="w-[28px] h-[28px] text-gray-600 animate-spin fill-[#fff]"
+                  viewBox="0 0 100 101"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
+                    fill="currentColor"
+                  />
+                  <path
+                    d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
+                    fill="currentFill"
+                  />
+                </svg>
+                <span className="sr-only">Loading...</span>
+              </div>
+            ) : (
+              ""
+            )}
+            Save Changes{" "}
+          </Button> */}
 
-                </div> */}
+        </div>
       </div>
-      <div className=" relative w-full h-[160px] bg-[#4290E9] flex flex-col md:flex-row justify-between items-start py-[32px] px-[25px]">
+      <div className={` relative w-full h-[160px] ${userType}-bg flex flex-col md:flex-row justify-between items-start py-[32px] px-[25px]`}>
         <div
           className="absolute inset-0 bg-center bg-cover"
           style={{
@@ -238,7 +268,7 @@ function Page() {
         className="w-full space-y-4"
       >
         <AccordionItem value="property">
-          <AccordionTrigger className="px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current">
+          <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>
             Order Details
           </AccordionTrigger>
           <AccordionContent className="grid gap-4">
@@ -325,7 +355,7 @@ function Page() {
                       type="text"
                     />
                     <div className='flex justify-end'>
-                      <p className='underline text-[#4290E9] text-[12px] w-fit cursor-pointer'>Customize URL</p>
+                      <p className={`underline ${userType}-text text-[12px] w-fit cursor-pointer`}>Customize URL</p>
 
                     </div>
                     {/* {fieldErrors.heading && (
@@ -351,16 +381,28 @@ function Page() {
                   </div>
                   <div className="col-span-2 flex flex-col gap-[16px]">
                     <Button
-                      onClick={() => router.push(`/dashboard/file-manager/${orderData?.uuid}`)} // 👈 your target route
-                      className="col-span-3 w-full md:w-full h-[32px] md:h-[32px] rounded-[3px] border-[1px] border-[#6BAE41] bg-[#6BAE41] text-[14px] md:text-[14px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#76c347] font-raleway"
+                      onClick={() => router.push(`/dashboard/file-manager/${orderData?.uuid}`)}
+                      className={`col-span-3 w-full md:w-full h-[32px] md:h-[32px] rounded-[3px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[14px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg hover:opacity-85 font-raleway`}
                     >
                       Go To File Manager
                     </Button>
-                    <div className='grid grid-cols-2 gap-[16px] font-[400] text-[#666666] text-[14px] justify-items-end'>
-                      <p>Require payment before releasing materials</p>
-                      <Switch className=' data-[state=checked]:bg-[#6BAE41]' />
-                    </div>
+                    {(userType === 'admin' || userType === 'agent') && (
+                      <div className='grid grid-cols-2 gap-[16px] font-[400] text-[#666666] text-[14px] justify-items-end'>
+                        <p>Require payment before releasing materials</p>
+                        <Switch className=' data-[state=checked]:bg-[#6BAE41]' />
+                      </div>
+                    )}
                   </div>
+                  {userType === 'vendor' &&
+                    <div className="col-span-2 flex flex-col gap-[16px] mt-[40px]">
+                      <Button
+                        onClick={() => setOpenEditPopup(true)}
+                        className={`col-span-3 w-full md:w-full h-[32px] md:h-[32px] rounded-[3px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[14px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg hover:opacity-85 font-raleway`}
+                      >
+                        Upgrade/Downgrade Order
+                      </Button>
+
+                    </div>}
                 </div>
               </div>
 
@@ -370,7 +412,7 @@ function Page() {
         </AccordionItem>
 
         <AccordionItem value="additional">
-          <AccordionTrigger className="px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current">
+          <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>
             Order Details
           </AccordionTrigger>
           <AccordionContent className="grid gap-4">
@@ -378,8 +420,8 @@ function Page() {
               <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[48px] text-[#424242] text-[14px] font-[400]">
                 <div className="flex justify-between gap-[12px]">
                   <div className="flex gap-[12px] items-center">
-                    <TriangleAlert className="text-[#4290E9] h-[24px]w-[30px]  md:h-[36px] md:w-[40px]" />
-                    <p className="text-[#4290E9] text-[24px] md:text-[36px] font-[400]">
+                    <TriangleAlert className={`${userType}-text h-[24px]w-[30px]  md:h-[36px] md:w-[40px]`} />
+                    <p className={`${userType}-text text-[24px] md:text-[36px] font-[400]`}>
                       ORDER {orderData?.id}
                     </p>
                   </div>
@@ -473,7 +515,7 @@ function Page() {
                     <span className="col-span-3">Grand Total</span>
                     <span className="col-span-1">${amount}</span>
                   </p>
-                  <Button className="col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px]  border-[1px] border-[#4290E9] bg-[#EEEEEE] text-[14px] md:text-[14px] font-[600] text-[#4290E9] flex gap-[5px] justify-center items-center hover:text-[#fff] hover:bg-[#4290E9] font-raleway">
+                  <Button className={`col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px]  border-[1px] ${userType}-border bg-[#EEEEEE] text-[14px] md:text-[14px] font-[600] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bgfont-raleway`}>
                     Awaiting Payment ${amount}
                   </Button>
                 </div>

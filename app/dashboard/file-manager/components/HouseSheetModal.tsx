@@ -10,6 +10,7 @@ import { Order } from '../../orders/page';
 import { toast } from 'sonner';
 import { EditOrder } from '../file-manager';
 import { GetOneOrder } from '../../orders/orders';
+import { useAppContext } from '@/app/context/AppContext';
 type Props = {
     open: boolean
     setOpen: (value: boolean) => void
@@ -53,6 +54,8 @@ const HouseSheetModal: React.FC<Props> = ({
     const [openAddExtraDialog, setOpenAddExtraDialog] = useState(false);
     const [orderData, setOrderData] = React.useState<Order | null>(null);
     const [tempArea, setTempArea] = useState<Area[]>([]);
+    const { userType } = useAppContext();
+
     const handleChange = (id: number, list: Field[], setList: React.Dispatch<React.SetStateAction<Field[]>>, field: Partial<Field>) => {
         setList(list.map(item => item.id === id ? { ...item, ...field } : item));
     };
@@ -239,7 +242,7 @@ const HouseSheetModal: React.FC<Props> = ({
         <AlertDialog open={open} onOpenChange={setOpen}>
             <AlertDialogContent className="w-[730px] max-w-[730px] md:w-[730px] h-[600px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
                 <AlertDialogHeader>
-                    <AlertDialogTitle className="flex items-center uppercase justify-between text-[#4290E9] text-[24px] font-[400]">
+                    <AlertDialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[24px] font-[400]`}>
                         {orderData?.property_address}, {orderData?.property_location} › Order #{orderData?.id || ""}
                         <AlertDialogCancel onClick={() => {
                             setOpen(false)
@@ -325,7 +328,7 @@ const HouseSheetModal: React.FC<Props> = ({
                             <span className='w-1/2 flex justify-center'>{total(levels)} FT²</span>
                         </div>
 
-                        <Button className='bg-[#4290E9] font-raleway text-sm font-semibold hover:bg-[#4999f4]' variant="default" onClick={() => setOpenAddDialog(true)}>
+                        <Button className={`${userType}-bgfont-raleway text-sm font-semibold hover-${userType}-bg`} variant="default" onClick={() => setOpenAddDialog(true)}>
                             Add a Level
                         </Button>
                         <AddLevelDialog
@@ -402,7 +405,7 @@ const HouseSheetModal: React.FC<Props> = ({
                             <span className='w-1/2 flex justify-center'>{total(extras)} FT²</span>
                         </div>
 
-                        <Button className='bg-[#4290E9] font-raleway text-sm font-semibold hover:bg-[#4999f4]' variant="default" onClick={() => setOpenAddExtraDialog(true)}>
+                        <Button className={`${userType}-bg font-raleway text-sm font-semibold hover-${userType}-bg`} variant="default" onClick={() => setOpenAddExtraDialog(true)}>
                             Add a Custom Field
                         </Button>
                         <AddExtraDialog
@@ -422,7 +425,7 @@ const HouseSheetModal: React.FC<Props> = ({
                     <div className="flex flex-col gap-4">
                         <hr className="w-full h-[1px] text-[#BBBBBB] my-[16px]" />
                         <AlertDialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px]  mt-2 font-raleway">
-                            <AlertDialogCancel className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">
+                            <AlertDialogCancel className={`bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400]  ${userType}-border ${userType}-text hover:bg-[#f1f8ff]`}>
                                 Close
                             </AlertDialogCancel>
                             <Button
@@ -430,7 +433,7 @@ const HouseSheetModal: React.FC<Props> = ({
                                     handleSubmitOrder(e)
                                     setOpen(false)
                                 }}
-                                className="bg-[#4290E9] w-full md:w-[170px] h-[44px] text-[20px] font-[600] text-white hover:bg-[#005fb8]"
+                                className={`${userType}-bg w-full md:w-[170px] h-[44px] text-[20px] font-[600] text-white hover-${userType}-bg`}
                             >
                                 Save And Exit
                             </Button>

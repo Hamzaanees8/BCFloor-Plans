@@ -7,6 +7,7 @@ import { Label } from "@radix-ui/react-dropdown-menu";
 import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SelectedFiles } from "./HDRStill";
+import { useAppContext } from "@/app/context/AppContext";
 
 interface AddLevelDialogProps {
     open: boolean;
@@ -41,6 +42,7 @@ export default function FilePreviewModal({
     const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
     const [mediaTypes, setMediaTypes] = useState<{ [key: number]: string }>({});
     const [groupLabel, setGroupLabel] = useState<string>("");
+    const { userType } = useAppContext();
 
     useEffect(() => {
         setMediaTypes({});
@@ -87,7 +89,7 @@ export default function FilePreviewModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="w-[320px] md:w-[700px] max-w-none font-alexandria">
                 <DialogHeader className="border-b pb-4 border-[#7d7d7d]">
-                    <DialogTitle className="text-[18px] text-[#4290E9] font-[600]">FILE UPLOAD</DialogTitle>
+                    <DialogTitle className={`text-[18px] ${userType}-text font-[600]`}>FILE UPLOAD</DialogTitle>
                 </DialogHeader>
 
                 {selectedIndexes.length >= 2 && (
@@ -169,9 +171,9 @@ export default function FilePreviewModal({
                     ))}
 
                     <div className="grid grid-cols-2 gap-3 pt-2">
-                        <Button className="w-full text-[#4290E9] border-[#4290E9] h-[44px]" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                        <Button className={`w-full ${userType}-text ${userType}-border h-[44px]`} variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                         <Button
-                            className="w-full bg-[#4290E9] text-white h-[44px]"
+                            className={`w-full ${userType}-bg text-white h-[44px]`}
                             onClick={handleAdd}
                             disabled={localFiles.length === 0}
                         >

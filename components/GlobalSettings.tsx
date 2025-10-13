@@ -24,9 +24,13 @@ import { SaveModal } from './SaveModal'
 import DynamicMap from './DYnamicMap'
 import { useRouter } from 'next/navigation'
 import { useAppContext } from '@/app/context/AppContext'
-import { TagsInput } from './TagsInput'
 import { EditAgent, GetOne } from '@/app/dashboard/agents/agents'
 import ChangePasswordDialog from './ChangePasswordDialog'
+import AddCoAgentDialog from './AddCoAgentDialog'
+import { useUnsaved } from '@/app/context/UnsavedContext'
+import useUnsavedChangesWarning from '@/app/hooks/useUnsavedChangesWarning'
+import GlobalTourSetting from './GlobalTourSetting'
+import AgentDiscount from './AgentDiscount'
 
 interface CompanyData {
     id: number;
@@ -63,13 +67,19 @@ type TimeZoneOption = {
     label: string;
     value: string;
 };
-interface PaymentCard {
+export interface PaymentCard {
     uuid: string;
     type: 'visa' | 'mastercard' | 'amex';
     last_four: string;
     cardholder_name: string;
     is_primary?: boolean;
     expiry_date: string;
+}
+interface Agent {
+    name: string;
+    email: string;
+    primary_phone: string;
+    split: string;
 }
 export const friendlyTimeZoneNames: Record<string, string> = {
     // North America
@@ -242,7 +252,18 @@ const GlobalSettings = () => {
     const [avatarUrl, setAvatarUrl] = useState('')
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [openChangePasswordDialog, setOpenChangePasswordDialog] = useState(false);
+    const [openAddAgentDialog, setOpenAddAgentDialog] = useState(false);
+    const [coAgents, setCoAgents] = useState<{ name: string; email: string; primary_phone: string; split: string }[]>([]);
+    const [agentdiscounts, setAgentDiscounts] = useState<{ id: number; discount_code: string; expiry_date: string; description: string }[]
+    >([]);
 
+    const [openDiscount, setOpenDiscount] = useState(false);
+
+
+
+    const { isDirty, setIsDirty } = useUnsaved();
+    useUnsavedChangesWarning(isDirty)
+    const isPopulatingData = useRef(false);
     console.log('subAccounts', subAccounts);
 
     const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -283,6 +304,9 @@ const GlobalSettings = () => {
                 .then((res) => {
                     console.log("Company Data:", res);
                     const data = res.data;
+
+                    isPopulatingData.current = true;
+
                     setCompanyData(data);
                     setCompanyName(data.name);
                     setCompanyWebsite(data.website);
@@ -319,12 +343,20 @@ const GlobalSettings = () => {
                 })
                 .finally(() => {
                     setLoading(false);
+                    requestAnimationFrame(() => {
+                        isPopulatingData.current = false;
+                    });
+
+                    setIsDirty(false);
                 });
         } else if (userType === 'agent') {
             GetOne(token, userInfo.uuid)
                 .then((res) => {
                     console.log("Agent Data:", res);
                     const data = res.data;
+
+                    isPopulatingData.current = true;
+
                     setFirstName(data.first_name || '');
                     setLastName(data.last_name || '');
                     setEmail(data.email || '');
@@ -346,6 +378,15 @@ const GlobalSettings = () => {
                     if (data.company_banner) setCompanyBannerFileName(data.company_banner);
                     if (data.avatar_url) setAvatarUrl(data.avatar_url);
                     if (data.avatar) setAvatarFileName(data.avatar);
+                    if (data.co_agents && Array.isArray(data.co_agents)) {
+                        const formattedAgents = data.co_agents.map((agent: Agent) => ({
+                            name: agent.name,
+                            email: agent.email,
+                            primary_phone: agent.primary_phone,
+                            split: agent.split,
+                        }));
+                        setCoAgents(formattedAgents);
+                    }
                 })
                 .catch(err => {
                     console.log(err.message);
@@ -353,6 +394,11 @@ const GlobalSettings = () => {
                 })
                 .finally(() => {
                     setLoading(false);
+                    requestAnimationFrame(() => {
+                        isPopulatingData.current = false;
+                    });
+
+                    setIsDirty(false);
                 });
         }
 
@@ -481,6 +527,7 @@ const GlobalSettings = () => {
                     setOpenSaveDialog(true)
                     router.push('/dashboard/global-settings')
                     setIsLoading(false)
+                    setIsDirty(false)
                 } else {
                     console.log("check checj")
                     await CreateCompany(payload, token);
@@ -488,6 +535,7 @@ const GlobalSettings = () => {
                     setOpenSaveDialog(true)
                     router.push('/dashboard/global-settings')
                     setIsLoading(false)
+                    setIsDirty(false)
                 }
             } else if (userType === 'agent') {
                 const payload = {
@@ -501,7 +549,7 @@ const GlobalSettings = () => {
                     license_number: license,
                     certifications: certifications,
                     headquarter_address: headquarterAddress,
-                    // co_agents: subAccounts,
+                    co_agents: coAgents,
                     avatar: avatarFile || undefined,
                     company_banner: companyBannerFile || undefined,
                     company_logo: companyLogoFile || undefined,
@@ -514,6 +562,7 @@ const GlobalSettings = () => {
                     setOpenSaveDialog(true);
                     toast.success('settings updated successfully')
                     setIsLoading(false);
+                    setIsDirty(false)
                 } catch (error) {
                     console.log('Raw error:', error);
 
@@ -729,6 +778,37 @@ const GlobalSettings = () => {
         setTimeZoneOptions(options);
     }, []);
 
+    const removeAgent = (index: number) => {
+        const updatedAgents = coAgents.filter((_, i) => i !== index);
+        setCoAgents(updatedAgents);
+    };
+
+    const tabs =
+        userType === 'admin'
+            ? ['Profile Settings', 'Discounts', 'Tour Settings']
+            : [];
+    const [activeTab, setActiveTab] = useState('Profile Settings');
+
+    const addDiscount = (discount: {
+        discount_code: string;
+        expiry_date: string;
+        description: string;
+    }) => {
+        const nextId = discounts.length > 0 ? discounts[discounts.length - 1].id + 1 : 1;
+
+        setAgentDiscounts([
+            ...agentdiscounts,
+            {
+                id: nextId,
+                ...discount,
+            },
+        ]);
+    };
+
+    const removeDiscount = (id: number) => {
+        setAgentDiscounts(agentdiscounts.filter((d) => d.id !== id));
+    };
+
     return (
         <div className='font-alexandria'>
             <div className='w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center' style={{ boxShadow: "0px 4px 4px #0000001F" }} >
@@ -747,673 +827,725 @@ const GlobalSettings = () => {
                 open={openSaveDialog}
                 setOpen={setOpenSaveDialog}
             /> */}
+            {userType === 'admin' &&
+                <div className='flex justify-center h-[60px] items-center bg-[#E4E4E4]'>
+                    <div className=" w-fit flex border-gray-300 gap-[10px]">
+                        {tabs.map(tab => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                className={`text-center px-4 py-2 text-[13px] w-[180px] h-[32px] transition-colors ${activeTab === tab
+                                    ? `${userType}-bg text-white  rounded-[6px]  font-[500] `
+                                    : 'text-[#666666] hover:text-[#666666] font-[700] '
+                                    }`}
+                            >
+                                {tab.toUpperCase()}
+                            </button>
+                        ))}
+                    </div>
+                </div>}
             <form>
-                <Accordion type="multiple" defaultValue={["discounts", "profile", "branding", "hours", "vendor", "service", "order", "payment", "account"]} className="w-full space-y-4 ">
-                    {userType === 'admin' &&
-                        <AccordionItem value="discounts" className='border-none'>
-                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>
-                                <div className='flex items-center justify-between w-full' onClick={(e) => e.stopPropagation()}>
-                                    <p>DISCOUNTS</p>
-                                    <div onClick={(e) => {
-                                        e.stopPropagation();
-                                        setOpenAddDiscountDialog(true);
-                                    }} className='flex items-center gap-x-[10px] pr-[24px]'>
-                                        <p className='text-base font-semibold font-raleway'>Add</p>
-                                        <Plus className={`w-[18px] h-[18px] ${userType}-bg text-white rounded-sm`} />
+                <Accordion type="multiple" defaultValue={['payment', "discounts", 'tour', "profile", "branding", "hours", "vendor", "service", "order", "payment", "account"]} className="w-full space-y-4 ">
+                    {activeTab === 'Discounts' &&
+                        (userType === 'admin' &&
+                            <AccordionItem value="discounts" className='border-none'>
+                                <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>
+                                    <div className='flex items-center justify-between w-full' onClick={(e) => e.stopPropagation()}>
+                                        <p>DISCOUNTS</p>
+                                        <div onClick={(e) => {
+                                            e.stopPropagation();
+                                            setOpenAddDiscountDialog(true);
+                                        }} className='flex items-center gap-x-[10px] pr-[24px]'>
+                                            <p className='text-base font-semibold font-raleway'>Add</p>
+                                            <Plus className={`w-[18px] h-[18px] ${userType}-bg text-white rounded-sm`} />
+                                        </div>
+                                        <AddDiscountDialog
+                                            open={openAddDiscountDialog}
+                                            setOpen={setOpenAddDiscountDialog}
+                                            onSuccess={() => {
+                                                fetchDiscounts();
+                                            }}
+                                        />
                                     </div>
-                                    <AddDiscountDialog
-                                        open={openAddDiscountDialog}
-                                        setOpen={setOpenAddDiscountDialog}
-                                        onSuccess={() => {
-                                            fetchDiscounts();
-                                        }}
+                                </AccordionTrigger>
+                                <AccordionContent className="w-full pb-0">
+                                    <DiscountTable discounts={discounts}
+                                        fetchDiscounts={fetchDiscounts}
+                                        setDiscounts={setDiscounts}
+                                        loading={loading}
+                                        error={error}
                                     />
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="w-full pb-0">
-                                <DiscountTable discounts={discounts}
-                                    fetchDiscounts={fetchDiscounts}
-                                    setDiscounts={setDiscounts}
-                                    loading={loading}
-                                    error={error}
-                                />
-                            </AccordionContent>
-                        </AccordionItem>}
+                                </AccordionContent>
+                            </AccordionItem>)
+                    }
 
-                    {userType === 'admin' &&
-                        <AccordionItem value="profile" className='border-none'>
-                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'} [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>COMPANY PROFILE</AccordionTrigger>
-                            <AccordionContent className="grid gap-4">
-                                <div className='w-full flex flex-col items-center'>
-                                    <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                        <div className='grid grid-cols-2 gap-[16px] text-sm font-normal '>
-                                            <div className='col-span-2'>
-                                                <p>Explanation of where these assets are used and leveraged, recommended/specify dimensions, color variations, etc.</p>
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Company Name <span className="text-red-500">*</span></label>
-                                                <Input value={companyName}
-                                                    onChange={(e) => setCompanyName(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]' type="text" placeholder='BC Floor Plans Media Co' />
-                                                {fieldErrors.name && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.name[0]}</p>}
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Company Website <span className="text-red-500">*</span></label>
-                                                <Input value={companyWebsite}
-                                                    onChange={(e) => setCompanyWebsite(e.target.value)} className='h-[42px] bg-[#EEEEEE] placeholder:text-[#9ca3af] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" placeholder='www.bcfloorplans.com' />
-                                                {fieldErrors.website && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.website[0]}</p>}
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Email <span className="text-red-500">*</span></label>
-                                                <Input value={email}
-                                                    onChange={(e) => setEmail(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]' type="text" placeholder='info@bcfloorplans.com' />
-                                                {fieldErrors.email && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.email[0]}</p>}
-                                            </div>
-                                            <div>
-                                                <label htmlFor="">Primary Phone <span className="text-red-500">*</span></label>
-                                                <Input value={primaryPhone}
-                                                    onChange={(e) => setPrimaryPhone(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]' type="text" placeholder='604-666-8787' />
-                                                {fieldErrors.primary_phone && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.primary_phone[0]}</p>}
-                                            </div>
-                                            <div>
-                                                <label htmlFor="">Secondary Phone</label>
-                                                <Input value={secondaryPhone}
-                                                    onChange={(e) => setSecondaryPhone(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-                                                {fieldErrors.secondary_phone && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.secondary_phone[0]}</p>}
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Headquarter Address <span className="text-red-500">*</span></label>
-                                                <Input value={headquarterAddress}
-                                                    onChange={(e) => setHeadquarterAddress(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" placeholder='7458 Burrard Street' />
-                                                {fieldErrors.street && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.street[0]}</p>}
-                                            </div>
-                                            <div>
-                                                <label htmlFor="">City <span className="text-red-500">*</span></label>
-                                                <Input value={city}
-                                                    onChange={(e) => setCity(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]' type="text" placeholder='Burnaby' />
-                                                {fieldErrors.city && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.city[0]}</p>}
-                                            </div>
-                                            <div>
-                                                <label htmlFor="">Province <span className="text-red-500">*</span></label>
-                                                <Select
-                                                    value={province}
-                                                    onValueChange={(val) => setProvince(val)}
-                                                    disabled={!states.length}
-                                                >
-                                                    <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
-                                                        <SelectValue placeholder="Select Province" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {states.map((s, i) => (
-                                                            <SelectItem key={i} value={s.isoCode}>
-                                                                {s.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                {fieldErrors.province && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.province[0]}</p>}
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Country <span className="text-red-500">*</span></label>
-                                                <Select value={country} onValueChange={(val) => setCountry(val)}>
-                                                    <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
-                                                        <SelectValue placeholder="Select Country" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {countries.map((c, i) => (
-                                                            <SelectItem key={i} value={c.isoCode}>
-                                                                {c.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                {fieldErrors.country && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.country[0]}</p>}
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Billing Address Line 1 <span className="text-red-500">*</span></label>
-                                                <Input value={billingAddress1}
-                                                    onChange={(e) => setBillingAddress1(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]' type="text" placeholder='7458 Burrard Street' />
-                                                {fieldErrors.billing_street_1 && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.billing_street_1[0]}</p>}
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Billing Address Line 2</label>
-                                                <Input value={billingAddress2}
-                                                    onChange={(e) => setBillingAddress2(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-                                                {fieldErrors.billing_street_2 && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.billing_street_2[0]}</p>}
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <div className='flex items-center justify-between'>
-                                                    <p >Vendor files must be reviewed by admin before sending to client</p>
-                                                    <Switch checked={adminReviewRequired}
-                                                        onCheckedChange={setAdminReviewRequired} className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41] float-end" />
-                                                    {fieldErrors.review_files && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.review_files[0]}</p>}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>}
-
-
-                    {userType === 'agent' &&
-                        <AccordionItem value="profile" className='border-none'>
-                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'agent' ? '[&>svg]:text-[#6BAE41]' : '[&>svg]:text-[#4290E9]'} [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>ACCOUNT PROFILE</AccordionTrigger>
-                            <AccordionContent className="grid gap-4">
-                                <div className='w-full flex flex-col items-center'>
-                                    <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                        <div className='grid grid-cols-2 gap-[16px] text-sm font-normal'>
-                                            <div>
-                                                <label>First Name</label>
-                                                <Input
-                                                    value={firstName}
-                                                    onChange={(e) => setFirstName(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
-                                                    type="text"
-                                                    placeholder='First Name'
-                                                />
-                                            </div>
-                                            <div>
-                                                <label>Last Name</label>
-                                                <Input
-                                                    value={lastName}
-                                                    onChange={(e) => setLastName(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
-                                                    type="text"
-                                                    placeholder='Last Name'
-                                                />
-                                            </div>
-
-                                            <div className='col-span-2'>
-                                                <label>Email</label>
-                                                <Input
-                                                    value={email}
-                                                    onChange={(e) => setEmail(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
-                                                    type="text"
-                                                    placeholder='name@email.com'
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label>Primary Phone</label>
-                                                <Input
-                                                    value={primaryPhone}
-                                                    onChange={(e) => setPrimaryPhone(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
-                                                    type="text"
-                                                    placeholder='(604) 451-5584'
-                                                />
-                                            </div>
-                                            <div>
-                                                <label>Secondary Phone</label>
-                                                <Input
-                                                    value={secondaryPhone}
-                                                    onChange={(e) => setSecondaryPhone(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
-                                                    type="text"
-                                                    placeholder='Optional'
-                                                />
-                                            </div>
-
-                                            <div className='col-span-2'>
-                                                <label>Company Name</label>
-                                                <Input
-                                                    value={companyName}
-                                                    onChange={(e) => setCompanyName(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
-                                                    type="text"
-                                                    placeholder='Company Name'
-                                                />
-                                            </div>
-
-                                            <div className='col-span-2'>
-                                                <label>Website</label>
-                                                <Input
-                                                    value={website}
-                                                    onChange={(e) => setWebsite(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
-                                                    type="text"
-                                                    placeholder='www.company.com'
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label>Agent License #</label>
-                                                <Input
-                                                    value={license}
-                                                    onChange={(e) => setLicense(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
-                                                    type="text"
-                                                    placeholder='12-778455'
-                                                />
-                                            </div>
-                                            <div>
-                                                <label>Certifications</label>
-                                                <Input
-                                                    value={certifications}
-                                                    onChange={(e) => {
-                                                        const inputValue = e.target.value;
-                                                        const certsArray = inputValue.split(',')
-                                                            .map(cert => cert.trim())
-                                                            .filter(cert => cert !== '');
-                                                        setCertifications(certsArray);
-                                                    }}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
-                                                    type="text"
-                                                    placeholder='CIPS, ABR, CRS, CCIM (comma separated)'
-                                                />
-
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <label>Headquarter Address</label>
-                                                <Input
-                                                    value={headquarterAddress}
-                                                    onChange={(e) => setHeadquarterAddress(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
-                                                    type="text"
-                                                    placeholder='686 Nelson Street'
-                                                />
-                                                <div className='w-full h-[200px] mt-4 bg-gray-200 flex items-center justify-center'>
-                                                    <DynamicMap
-                                                        address={headquarterAddress}
-                                                        city={city}
-                                                        province={province}
-                                                        country={country}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div className='col-span-2'>
-                                                <div className="flex justify-between mb-[12px]">
-                                                    <Label htmlFor="" className="">
-                                                        Co Agents
-                                                    </Label>
-                                                    {/* <p className='text-[#4290E9] flex gap-[10px] cursor-pointer'>Add<span className='flex bg-[#4290E9] w-[18px] h-[18px] rounded-[3px] justify-center items-center'><Plus className='text-[#F2F2F2] w-[12px]' /></span> </p> */}
-                                                </div>
-                                                <TagsInput
-                                                    coAgents={subAccounts}
-                                                    setCoAgents={setSubAccounts}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>}
-
-                    <AccordionItem value="branding" className='border-none'>
-                        <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>BRANDING ASSETS</AccordionTrigger>
-                        <AccordionContent className="grid gap-4">
-                            <div className='w-full flex flex-col items-center'>
-                                <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                    <p className='text-[#666666] text-sm font-normal'>These branding images appear throughout your site, invoices, and marketing materials. Ensure you follow the recommendations to present the highest quality.</p>
-
-                                    <div className='flex flex-col gap-y-[6px]'>
-                                        <div className='flex items-end gap-x-[6px]'>
-                                            {avatarUrl ?
-                                                <Image
-                                                    unoptimized
-                                                    src={avatarUrl}
-                                                    alt="Avatar"
-                                                    width={64}
-                                                    height={64}
-                                                    className="h-16 w-16 object-cover border"
-                                                />
-                                                : <div className='w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]'></div>
-                                            }
-                                            <div className="flex-1">
-                                                <Label className="text-sm  text-gray-600">Avatar</Label>
-                                                <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
-                                                    <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">{AvatarfileName}
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={triggerFileInput}
-                                                        className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                                                    >
-                                                        Replace
-                                                    </button>
-                                                </div>
-                                                <input
-                                                    type="file"
-                                                    accept="image/png, image/jpeg"
-                                                    ref={AvatarfileInputRef}
-                                                    onChange={handleFileChange}
-                                                    className="hidden"
-                                                />
-                                            </div>
-                                        </div>
-                                        <p className="text-[10px] text-[#6BAE41] ">
-                                            Company logo 512 x 512, PNG or JPG
-                                        </p>
-
-                                    </div>
-                                    <div className='flex flex-col gap-y-[6px]'>
-
-                                        <div className='flex items-end gap-x-[6px]'>
-                                            {CompanyLogoUrl ?
-                                                <Image
-                                                    unoptimized
-                                                    src={CompanyLogoUrl}
-                                                    alt="Avatar"
-                                                    width={64}
-                                                    height={64}
-                                                    className="h-16 w-16 object-cover border"
-                                                />
-                                                : <div className='w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]'></div>
-                                            }
-                                            <div className="flex-1">
-                                                <Label className="text-sm  text-gray-600">Company Logo</Label>
-                                                <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
-                                                    <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">{CompanyLogofileName}
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={triggerFileInput1}
-                                                        className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                                                    >
-                                                        Browse
-                                                    </button>
-                                                </div>
-                                                <input
-                                                    type="file"
-                                                    accept="image/png, image/jpeg"
-                                                    ref={CompanyLogofileInputRef}
-                                                    onChange={handleFileChange1}
-                                                    className="hidden"
-                                                />
-                                            </div>
-                                        </div>
-                                        <p className="text-[10px] text-[#6BAE41] ">
-                                            Company logo 512 x 512, PNG or JPG
-                                        </p>
-                                        {fieldErrors.logo_path && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.logo_path[0]}</p>}
-                                    </div>
-                                    <div className='flex flex-col gap-y-[6px]'>
-                                        <div className='flex items-end gap-x-[6px] flex-1'>
-                                            {CompanyBannerUrl ?
-                                                <Image
-                                                    unoptimized
-                                                    src={CompanyBannerUrl}
-                                                    alt="Avatar"
-                                                    width={64}
-                                                    height={64}
-                                                    className="h-16 w-16 object-cover border"
-                                                />
-                                                : <div className='w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]'></div>
-                                            }
-                                            <div className="flex-1 h-full">
-                                                <Label className="text-sm font-normal">Company Banner</Label>
-                                                <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
-                                                    <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden flex-1">
-                                                        {CompanyBannerfileName}
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={triggerFileInput2}
-                                                        className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                                                    >
-                                                        Browse
-                                                    </button>
-                                                </div>
-
-
-                                                <input
-                                                    type="file"
-                                                    accept="image/png, image/jpeg"
-                                                    ref={CompanyBannerfileInputRef}
-                                                    onChange={handleFileChange2}
-                                                    className="hidden"
-                                                />
-                                            </div>
-                                        </div>
-                                        <p className="text-[10px] text-[#4290E9] ">
-                                            Company banner 1600 x 720, PNG or JPG
-                                        </p>
-                                        {fieldErrors.banner_path && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.banner_path[0]}</p>}
-                                    </div>
-                                </div>
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-
-                    {userType === 'admin' &&
-                        <AccordionItem value="hours" className='border-none'>
-                            <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>WORK HOURS</AccordionTrigger>
-                            <AccordionContent className="grid gap-4">
-                                <div className='w-full flex flex-col items-center'>
-                                    <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                        <div className='grid grid-cols-2 gap-[16px]'>
-                                            <div className='col-span-2'>
-                                                <p>Scheduling settings have impact on ordering from all customers - addresses, last job location, working hours, duration of services, travel time, all contribute to your availability.</p>
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <p>Set your working hours that clients can book your services.</p>
-                                            </div>
-                                            <div className="relative">
-                                                <label htmlFor="time" className="block text-sm font-normal">
-                                                    Start Time <span className="text-red-500">*</span>
-                                                </label>
-                                                <Input
-                                                    id="starttime"
-                                                    type="text"
-                                                    value={startTime}
-                                                    onChange={(e) => setStartTime(e.target.value)}
-                                                    className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px]"
-                                                />
-                                                {fieldErrors.start_time && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.start_time[0]}</p>}
-                                                <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                                                    <button type="button" onClick={handleIncrement}>
-                                                        <ArrowUp />
-                                                    </button>
-                                                    <button type="button" onClick={handleDecrement}>
-                                                        <ArrowDown />
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <div className="relative">
-                                                <label htmlFor="time" className="block text-sm font-normal">
-                                                    End Time <span className="text-red-500">*</span>
-                                                </label>
-                                                <Input
-                                                    id="endtime"
-                                                    type="text"
-                                                    value={endTime}
-                                                    onChange={(e) => setEndTime(e.target.value)}
-                                                    className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px]"
-                                                />
-                                                {fieldErrors.end_time && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.end_time[0]}</p>}
-                                                <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                                                    <button type="button" onClick={handleIncrement1}>
-                                                        <ArrowUp />
-                                                    </button>
-                                                    <button type="button" onClick={handleDecrement1}>
-                                                        <ArrowDown />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <div className="col-span-2">
-                                                <label >Work Week <span className="text-red-500">*</span></label>
-                                                <Popover open={open} onOpenChange={setOpen}>
-                                                    <PopoverTrigger asChild>
-                                                        <Button
-                                                            variant="outline"
-                                                            className="w-full h-[42px] bg-[#EEEEEE] border-[1px] hover:bg-[#EEEEEE]  border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 text-[#424242]"
+                    {activeTab === 'Profile Settings' &&
+                        <form
+                            onChange={() => {
+                                if (!isPopulatingData.current) {
+                                    setIsDirty(true);
+                                }
+                            }}
+                        >
+                            {userType === 'admin' &&
+                                <AccordionItem value="profile" className='border-none'>
+                                    <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'} [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>COMPANY PROFILE</AccordionTrigger>
+                                    <AccordionContent className="grid gap-4">
+                                        <div className='w-full flex flex-col items-center'>
+                                            <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                                                <div className='grid grid-cols-2 gap-[16px] text-sm font-normal '>
+                                                    <div className='col-span-2'>
+                                                        <p>Explanation of where these assets are used and leveraged, recommended/specify dimensions, color variations, etc.</p>
+                                                    </div>
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Company Name <span className="text-red-500">*</span></label>
+                                                        <Input value={companyName}
+                                                            onChange={(e) => setCompanyName(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]' type="text" placeholder='BC Floor Plans Media Co' />
+                                                        {fieldErrors.name && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.name[0]}</p>}
+                                                    </div>
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Company Website <span className="text-red-500">*</span></label>
+                                                        <Input value={companyWebsite}
+                                                            onChange={(e) => setCompanyWebsite(e.target.value)} className='h-[42px] bg-[#EEEEEE] placeholder:text-[#9ca3af] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" placeholder='www.bcfloorplans.com' />
+                                                        {fieldErrors.website && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.website[0]}</p>}
+                                                    </div>
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Email <span className="text-red-500">*</span></label>
+                                                        <Input value={email}
+                                                            onChange={(e) => setEmail(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]' type="text" placeholder='info@bcfloorplans.com' />
+                                                        {fieldErrors.email && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.email[0]}</p>}
+                                                    </div>
+                                                    <div>
+                                                        <label htmlFor="">Primary Phone <span className="text-red-500">*</span></label>
+                                                        <Input value={primaryPhone}
+                                                            onChange={(e) => setPrimaryPhone(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]' type="text" placeholder='604-666-8787' />
+                                                        {fieldErrors.primary_phone && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.primary_phone[0]}</p>}
+                                                    </div>
+                                                    <div>
+                                                        <label htmlFor="">Secondary Phone</label>
+                                                        <Input value={secondaryPhone}
+                                                            onChange={(e) => setSecondaryPhone(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                        {fieldErrors.secondary_phone && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.secondary_phone[0]}</p>}
+                                                    </div>
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Headquarter Address <span className="text-red-500">*</span></label>
+                                                        <Input value={headquarterAddress}
+                                                            onChange={(e) => setHeadquarterAddress(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" placeholder='7458 Burrard Street' />
+                                                        {fieldErrors.street && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.street[0]}</p>}
+                                                    </div>
+                                                    <div>
+                                                        <label htmlFor="">City <span className="text-red-500">*</span></label>
+                                                        <Input value={city}
+                                                            onChange={(e) => setCity(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]' type="text" placeholder='Burnaby' />
+                                                        {fieldErrors.city && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.city[0]}</p>}
+                                                    </div>
+                                                    <div>
+                                                        <label htmlFor="">Province <span className="text-red-500">*</span></label>
+                                                        <Select
+                                                            value={province}
+                                                            onValueChange={(val) => setProvince(val)}
+                                                            disabled={!states.length}
                                                         >
-                                                            {workWeek.length > 0 ? workWeek.join(', ') : "Select Work Week"}
-                                                            <span className="custom-arrow">
-                                                                <DropDownArrow />
-                                                            </span>
-                                                        </Button>
-                                                    </PopoverTrigger>
-
-                                                    <PopoverContent
-                                                        className="w-[410px] p-2 border border-[#BBBBBB] bg-white 
-"
-                                                        align="start"
-                                                    >
-                                                        <div className="grid gap-2">
-                                                            {daysOfWeek.map((day) => {
-                                                                const checked = workWeek.includes(day);
-                                                                return (
-                                                                    <button
-                                                                        key={day}
-                                                                        onClick={() => toggleDay(day)}
-                                                                        className="flex items-center gap-2 cursor-pointer text-[#666666] text-sm"
-                                                                    >
-                                                                        <span
-                                                                            className={`h-4 w-4 flex items-center justify-center border rounded-sm border-[#BBBBBB] ${checked ? "bg-[#4290E9]" : "bg-white"
-                                                                                }`}
-                                                                        >
-                                                                            {checked && <Check size={12} color="white" />}
-                                                                        </span>
-                                                                        {day}
-                                                                    </button>
-                                                                );
-                                                            })}
+                                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                                                                <SelectValue placeholder="Select Province" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {states.map((s, i) => (
+                                                                    <SelectItem key={i} value={s.isoCode}>
+                                                                        {s.name}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        {fieldErrors.province && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.province[0]}</p>}
+                                                    </div>
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Country <span className="text-red-500">*</span></label>
+                                                        <Select value={country} onValueChange={(val) => setCountry(val)}>
+                                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                                                                <SelectValue placeholder="Select Country" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {countries.map((c, i) => (
+                                                                    <SelectItem key={i} value={c.isoCode}>
+                                                                        {c.name}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        {fieldErrors.country && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.country[0]}</p>}
+                                                    </div>
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Billing Address Line 1 <span className="text-red-500">*</span></label>
+                                                        <Input value={billingAddress1}
+                                                            onChange={(e) => setBillingAddress1(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]' type="text" placeholder='7458 Burrard Street' />
+                                                        {fieldErrors.billing_street_1 && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.billing_street_1[0]}</p>}
+                                                    </div>
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Billing Address Line 2</label>
+                                                        <Input value={billingAddress2}
+                                                            onChange={(e) => setBillingAddress2(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                        {fieldErrors.billing_street_2 && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.billing_street_2[0]}</p>}
+                                                    </div>
+                                                    <div className='col-span-2'>
+                                                        <div className='flex items-center justify-between'>
+                                                            <p >Vendor files must be reviewed by admin before sending to client</p>
+                                                            <Switch checked={adminReviewRequired}
+                                                                onCheckedChange={setAdminReviewRequired} className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41] float-end" />
+                                                            {fieldErrors.review_files && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.review_files[0]}</p>}
                                                         </div>
-                                                    </PopoverContent>
-                                                </Popover>
-                                                {fieldErrors.work_days && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.work_days[0]}</p>}
-                                            </div>
-
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Repeat</label>
-                                                <Select value={repeat} onValueChange={(value) => setRepeat(value)}>
-                                                    <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
-                                                        <SelectValue placeholder="Select Repeat Options Here" />
-                                                        <span className="custom-arrow">
-                                                            <DropDownArrow />
-                                                        </span>
-                                                    </SelectTrigger>
-
-                                                    <SelectContent>
-                                                        {repeatOptions.map((option, index) => (
-                                                            <SelectItem key={index} value={option}>
-                                                                {option}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                {fieldErrors.repeat_weekly && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.repeat_weekly[0]}</p>}
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <label htmlFor="timezone">Time Zone <span className="text-red-500">*</span></label>
-                                                <Select value={timeZone} onValueChange={(value) => setTimeZone(value)}>
-                                                    <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
-                                                        <SelectValue placeholder="Select Time Zone Here" />
-                                                        <span className="custom-arrow">
-                                                            <DropDownArrow />
-                                                        </span>
-                                                    </SelectTrigger>
-
-                                                    <SelectContent>
-                                                        {timeZoneOptions.map((option, index) => (
-                                                            <SelectItem key={index} value={option.value}>
-                                                                {option.label}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-
-                                                    {fieldErrors?.timezone && (
-                                                        <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.timezone[0]}</p>
-                                                    )}
-                                                </Select>
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Commute Time Baseline</label>
-                                                <Select
-                                                    value={commuteTime}
-                                                    onValueChange={(value) => setCommuteTime(value)}
-                                                >
-                                                    <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
-                                                        <SelectValue placeholder="Select Time Baseline" />
-                                                        <span className="custom-arrow">
-                                                            <DropDownArrow />
-                                                        </span>
-                                                    </SelectTrigger>
-
-                                                    <SelectContent>
-                                                        {commuteTimeOptions.map((option, index) => (
-                                                            <SelectItem key={index} value={option}>
-                                                                {option}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                {fieldErrors.commute_minutes && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.commute_minutes[0]}</p>}
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Reoccuring break</label>
-                                                <div className='flex items-center gap-[10px]'>
-                                                    <Input checked={isReoccuringBreak}
-                                                        onChange={(e) => setIsReoccuringBreak(e.target.checked)} type='checkbox' className='h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' />
-                                                    <p className='text-[16px] font-normal text-[#666666] mt-[12px]'>Enable Google Calendar Sync</p>
-                                                </div>
-                                                {fieldErrors.enable_breaks && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.enable_breaks[0]}</p>}
-                                            </div>
-                                            <div className='flex items-center gap-[10px]'>
-                                                <Input checked={isSyncToGoogle}
-                                                    onChange={(e) => setIsSyncToGoogle(e.target.checked)} type='checkbox' className='h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' />
-                                                <p className='text-[16px] font-normal text-[#666666] mt-[12px]'>Sync to Google</p>
-                                                {fieldErrors.sync_google && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.sync_google[0]}</p>}
-                                            </div>
-                                            <div className=''>
-                                                <Select onValueChange={(value) => setSyncEmailType(value)} value={syncEmailType} >
-                                                    <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[3px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
-                                                        <SelectValue placeholder="Select Email" />
-                                                        <span className="custom-arrow">
-                                                            <DropDownArrow />
-                                                        </span>
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="primary">Primary Email</SelectItem>
-                                                        <SelectItem value="secondary">Secondary Email</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                                {fieldErrors.sync_email && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.sync_email[0]}</p>}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    }
-
-                    {userType === 'admin' &&
-                        <AccordionItem value="vendor" className='border-none'>
-                            <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>VENDOR RATE SETTINGS</AccordionTrigger>
-                            <AccordionContent className="grid gap-4">
-                                <div className='w-full flex flex-col items-center'>
-                                    <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                        <div className='grid grid-cols-2 gap-[16px] py-[32px]'>
-                                            <div className='col-span-2'>
-                                                <p className='text-sm font-normal text-[#666666]'>Set rate for all vendors commute reimbursement value.</p>
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <div>
-                                                    <Label htmlFor="">Payment per kilometer</Label>
-                                                    <Input value={paymentPerKm}
-                                                        onChange={(e) => setPaymentPerKm(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-                                                    {fieldErrors.payment_per_km && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.payment_per_km[0]}</p>}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    }
+                                    </AccordionContent>
+                                </AccordionItem>}
 
-                    {userType === 'admin' &&
-                        <AccordionItem value="service" className='border-none'>
-                            <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>SERVICE AREA</AccordionTrigger>
-                            <AccordionContent className="grid gap-4">
-                                <div className='w-full flex flex-col items-center'>
-                                    <div className='w-full flex justify-center flex-col'>
-                                        <div className='w-full h-[200px] md:h-[560px]'>
-                                            {/* <iframe
+
+                            {userType === 'agent' &&
+                                <AccordionItem value="profile" className='border-none'>
+                                    <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'agent' ? '[&>svg]:text-[#6BAE41]' : '[&>svg]:text-[#4290E9]'} [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>ACCOUNT PROFILE</AccordionTrigger>
+                                    <AccordionContent className="grid gap-4">
+                                        <div className='w-full flex flex-col items-center'>
+                                            <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                                                <div className='grid grid-cols-2 gap-[16px] text-sm font-normal'>
+                                                    <div>
+                                                        <label>First Name</label>
+                                                        <Input
+                                                            value={firstName}
+                                                            onChange={(e) => setFirstName(e.target.value)}
+                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            type="text"
+                                                            placeholder='First Name'
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label>Last Name</label>
+                                                        <Input
+                                                            value={lastName}
+                                                            onChange={(e) => setLastName(e.target.value)}
+                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            type="text"
+                                                            placeholder='Last Name'
+                                                        />
+                                                    </div>
+
+                                                    <div className='col-span-2'>
+                                                        <label>Email</label>
+                                                        <Input
+                                                            value={email}
+                                                            onChange={(e) => setEmail(e.target.value)}
+                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            type="text"
+                                                            placeholder='name@email.com'
+                                                        />
+                                                    </div>
+
+                                                    <div>
+                                                        <label>Primary Phone</label>
+                                                        <Input
+                                                            value={primaryPhone}
+                                                            onChange={(e) => setPrimaryPhone(e.target.value)}
+                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            type="text"
+                                                            placeholder='(604) 451-5584'
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label>Secondary Phone</label>
+                                                        <Input
+                                                            value={secondaryPhone}
+                                                            onChange={(e) => setSecondaryPhone(e.target.value)}
+                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            type="text"
+                                                            placeholder='Optional'
+                                                        />
+                                                    </div>
+
+                                                    <div className='col-span-2'>
+                                                        <label>Company Name</label>
+                                                        <Input
+                                                            value={companyName}
+                                                            onChange={(e) => setCompanyName(e.target.value)}
+                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            type="text"
+                                                            placeholder='Company Name'
+                                                        />
+                                                    </div>
+
+                                                    <div className='col-span-2'>
+                                                        <label>Website</label>
+                                                        <Input
+                                                            value={website}
+                                                            onChange={(e) => setWebsite(e.target.value)}
+                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            type="text"
+                                                            placeholder='www.company.com'
+                                                        />
+                                                    </div>
+
+                                                    <div>
+                                                        <label>Agent License #</label>
+                                                        <Input
+                                                            value={license}
+                                                            onChange={(e) => setLicense(e.target.value)}
+                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            type="text"
+                                                            placeholder='12-778455'
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label>Certifications</label>
+                                                        <Input
+                                                            value={certifications}
+                                                            onChange={(e) => {
+                                                                const inputValue = e.target.value;
+                                                                const certsArray = inputValue.split(',')
+                                                                    .map(cert => cert.trim())
+                                                                    .filter(cert => cert !== '');
+                                                                setCertifications(certsArray);
+                                                            }}
+                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            type="text"
+                                                            placeholder='CIPS, ABR, CRS, CCIM (comma separated)'
+                                                        />
+
+                                                    </div>
+                                                    <div className='col-span-2'>
+                                                        <label>Headquarter Address</label>
+                                                        <Input
+                                                            value={headquarterAddress}
+                                                            onChange={(e) => setHeadquarterAddress(e.target.value)}
+                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            type="text"
+                                                            placeholder='686 Nelson Street'
+                                                        />
+                                                        <div className='w-full h-[200px] mt-4 bg-gray-200 flex items-center justify-center'>
+                                                            <DynamicMap
+                                                                address={headquarterAddress}
+                                                                city={city}
+                                                                province={province}
+                                                                country={country}
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="col-span-2">
+                                                        <div className='flex items-center justify-between'>
+                                                            <p >Assistants/Co Agents</p>
+                                                            <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => setOpenAddAgentDialog(true)}>
+                                                                <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
+                                                                <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm ' />
+                                                            </div>
+                                                            <AddCoAgentDialog
+                                                                open={openAddAgentDialog}
+                                                                setOpen={setOpenAddAgentDialog}
+                                                                onSuccess={(agent) => {
+                                                                    setCoAgents((prev) => [...prev, agent]);
+                                                                    console.log('Agent added:', agent);
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <div className="border border-[#BBBBBB] mt-[12px] px-[6px] py-[8px] rounded-[6px] bg-[#EEEEEE] flex flex-wrap gap-[6px] min-h-[67px]">
+                                                            {coAgents.map((coagent, index) => (
+                                                                <div
+                                                                    key={index}
+                                                                    className="flex items-center bg-[#E4E4E4] px-[6px] h-[24px] py-1.5 rounded-[10px] shadow-sm max-w-full break-words cursor-pointer overflow-hidden"
+                                                                    style={{ maxWidth: '100%' }}
+                                                                >
+                                                                    <span className="text-sm font-normal text-[#7D7D7D] break-words whitespace-pre-wrap overflow-hidden text-ellipsis" onClick={() => setOpenAddAgentDialog(true)}>
+                                                                        {coagent.name} &lt;{coagent.email}&gt;
+                                                                    </span>
+                                                                    <button
+                                                                        onClick={() => removeAgent(index)}
+                                                                        className="text-red-500 hover:text-red-700 ml-2 flex-shrink-0"
+                                                                    >
+                                                                        <X size={18} />
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+
+
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>}
+
+                            <AccordionItem value="branding" className='border-none'>
+                                <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>BRANDING ASSETS</AccordionTrigger>
+                                <AccordionContent className="grid gap-4">
+                                    <div className='w-full flex flex-col items-center'>
+                                        <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                                            <p className='text-[#666666] text-sm font-normal'>These branding images appear throughout your site, invoices, and marketing materials. Ensure you follow the recommendations to present the highest quality.</p>
+
+                                            <div className='flex flex-col gap-y-[6px]'>
+                                                <div className='flex items-end gap-x-[6px]'>
+                                                    {avatarUrl ?
+                                                        <Image
+                                                            unoptimized
+                                                            src={avatarUrl}
+                                                            alt="Avatar"
+                                                            width={64}
+                                                            height={64}
+                                                            className="h-16 w-16 object-cover border"
+                                                        />
+                                                        : <div className='w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]'></div>
+                                                    }
+                                                    <div className="flex-1">
+                                                        <Label className="text-sm  text-gray-600">Avatar</Label>
+                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
+                                                            <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">{AvatarfileName}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={triggerFileInput}
+                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                            >
+                                                                Replace
+                                                            </button>
+                                                        </div>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/png, image/jpeg"
+                                                            ref={AvatarfileInputRef}
+                                                            onChange={handleFileChange}
+                                                            className="hidden"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <p className="text-[10px] text-[#6BAE41] ">
+                                                    Company logo 512 x 512, PNG or JPG
+                                                </p>
+
+                                            </div>
+                                            <div className='flex flex-col gap-y-[6px]'>
+
+                                                <div className='flex items-end gap-x-[6px]'>
+                                                    {CompanyLogoUrl ?
+                                                        <Image
+                                                            unoptimized
+                                                            src={CompanyLogoUrl}
+                                                            alt="Avatar"
+                                                            width={64}
+                                                            height={64}
+                                                            className="h-16 w-16 object-cover border"
+                                                        />
+                                                        : <div className='w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]'></div>
+                                                    }
+                                                    <div className="flex-1">
+                                                        <Label className="text-sm  text-gray-600">Company Logo</Label>
+                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
+                                                            <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">{CompanyLogofileName}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={triggerFileInput1}
+                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                            >
+                                                                Browse
+                                                            </button>
+                                                        </div>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/png, image/jpeg"
+                                                            ref={CompanyLogofileInputRef}
+                                                            onChange={handleFileChange1}
+                                                            className="hidden"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <p className="text-[10px] text-[#6BAE41] ">
+                                                    Company logo 512 x 512, PNG or JPG
+                                                </p>
+                                                {fieldErrors.logo_path && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.logo_path[0]}</p>}
+                                            </div>
+                                            <div className='flex flex-col gap-y-[6px]'>
+                                                <div className='flex items-end gap-x-[6px] flex-1'>
+                                                    {CompanyBannerUrl ?
+                                                        <Image
+                                                            unoptimized
+                                                            src={CompanyBannerUrl}
+                                                            alt="Avatar"
+                                                            width={64}
+                                                            height={64}
+                                                            className="h-16 w-16 object-cover border"
+                                                        />
+                                                        : <div className='w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]'></div>
+                                                    }
+                                                    <div className="flex-1 h-full">
+                                                        <Label className="text-sm font-normal">Company Banner</Label>
+                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
+                                                            <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden flex-1">
+                                                                {CompanyBannerfileName}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={triggerFileInput2}
+                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                            >
+                                                                Browse
+                                                            </button>
+                                                        </div>
+
+
+                                                        <input
+                                                            type="file"
+                                                            accept="image/png, image/jpeg"
+                                                            ref={CompanyBannerfileInputRef}
+                                                            onChange={handleFileChange2}
+                                                            className="hidden"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <p className="text-[10px] text-[#4290E9] ">
+                                                    Company banner 1600 x 720, PNG or JPG
+                                                </p>
+                                                {fieldErrors.banner_path && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.banner_path[0]}</p>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+
+                            {userType === 'admin' &&
+                                <AccordionItem value="hours" className='border-none'>
+                                    <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>WORK HOURS</AccordionTrigger>
+                                    <AccordionContent className="grid gap-4">
+                                        <div className='w-full flex flex-col items-center'>
+                                            <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                                                <div className='grid grid-cols-2 gap-[16px]'>
+                                                    <div className='col-span-2'>
+                                                        <p>Scheduling settings have impact on ordering from all customers - addresses, last job location, working hours, duration of services, travel time, all contribute to your availability.</p>
+                                                    </div>
+                                                    <div className='col-span-2'>
+                                                        <p>Set your working hours that clients can book your services.</p>
+                                                    </div>
+                                                    <div className="relative">
+                                                        <label htmlFor="time" className="block text-sm font-normal">
+                                                            Start Time <span className="text-red-500">*</span>
+                                                        </label>
+                                                        <Input
+                                                            id="starttime"
+                                                            type="text"
+                                                            value={startTime}
+                                                            onChange={(e) => setStartTime(e.target.value)}
+                                                            className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px]"
+                                                        />
+                                                        {fieldErrors.start_time && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.start_time[0]}</p>}
+                                                        <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
+                                                            <button type="button" onClick={handleIncrement}>
+                                                                <ArrowUp />
+                                                            </button>
+                                                            <button type="button" onClick={handleDecrement}>
+                                                                <ArrowDown />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="relative">
+                                                        <label htmlFor="time" className="block text-sm font-normal">
+                                                            End Time <span className="text-red-500">*</span>
+                                                        </label>
+                                                        <Input
+                                                            id="endtime"
+                                                            type="text"
+                                                            value={endTime}
+                                                            onChange={(e) => setEndTime(e.target.value)}
+                                                            className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px]"
+                                                        />
+                                                        {fieldErrors.end_time && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.end_time[0]}</p>}
+                                                        <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
+                                                            <button type="button" onClick={handleIncrement1}>
+                                                                <ArrowUp />
+                                                            </button>
+                                                            <button type="button" onClick={handleDecrement1}>
+                                                                <ArrowDown />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <label >Work Week <span className="text-red-500">*</span></label>
+                                                        <Popover open={open} onOpenChange={setOpen}>
+                                                            <PopoverTrigger asChild>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    className="w-full h-[42px] bg-[#EEEEEE] border-[1px] hover:bg-[#EEEEEE]  border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 text-[#424242]"
+                                                                >
+                                                                    {workWeek.length > 0 ? workWeek.join(', ') : "Select Work Week"}
+                                                                    <span className="custom-arrow">
+                                                                        <DropDownArrow />
+                                                                    </span>
+                                                                </Button>
+                                                            </PopoverTrigger>
+
+                                                            <PopoverContent
+                                                                className="w-[410px] p-2 border border-[#BBBBBB] bg-white"
+                                                                align="start"
+                                                            >
+                                                                <div className="grid gap-2">
+                                                                    {daysOfWeek.map((day) => {
+                                                                        const checked = workWeek.includes(day);
+                                                                        return (
+                                                                            <button
+                                                                                key={day}
+                                                                                onClick={() => toggleDay(day)}
+                                                                                className="flex items-center gap-2 cursor-pointer text-[#666666] text-sm"
+                                                                            >
+                                                                                <span
+                                                                                    className={`h-4 w-4 flex items-center justify-center border rounded-sm border-[#BBBBBB] ${checked ? "bg-[#4290E9]" : "bg-white"
+                                                                                        }`}
+                                                                                >
+                                                                                    {checked && <Check size={12} color="white" />}
+                                                                                </span>
+                                                                                {day}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </PopoverContent>
+                                                        </Popover>
+                                                        {fieldErrors.work_days && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.work_days[0]}</p>}
+                                                    </div>
+
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Repeat</label>
+                                                        <Select value={repeat} onValueChange={(value) => setRepeat(value)}>
+                                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
+                                                                <SelectValue placeholder="Select Repeat Options Here" />
+                                                                <span className="custom-arrow">
+                                                                    <DropDownArrow />
+                                                                </span>
+                                                            </SelectTrigger>
+
+                                                            <SelectContent>
+                                                                {repeatOptions.map((option, index) => (
+                                                                    <SelectItem key={index} value={option}>
+                                                                        {option}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        {fieldErrors.repeat_weekly && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.repeat_weekly[0]}</p>}
+                                                    </div>
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="timezone">Time Zone <span className="text-red-500">*</span></label>
+                                                        <Select value={timeZone} onValueChange={(value) => setTimeZone(value)}>
+                                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
+                                                                <SelectValue placeholder="Select Time Zone Here" />
+                                                                <span className="custom-arrow">
+                                                                    <DropDownArrow />
+                                                                </span>
+                                                            </SelectTrigger>
+
+                                                            <SelectContent>
+                                                                {timeZoneOptions.map((option, index) => (
+                                                                    <SelectItem key={index} value={option.value}>
+                                                                        {option.label}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+
+                                                            {fieldErrors?.timezone && (
+                                                                <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.timezone[0]}</p>
+                                                            )}
+                                                        </Select>
+                                                    </div>
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Commute Time Baseline</label>
+                                                        <Select
+                                                            value={commuteTime}
+                                                            onValueChange={(value) => setCommuteTime(value)}
+                                                        >
+                                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
+                                                                <SelectValue placeholder="Select Time Baseline" />
+                                                                <span className="custom-arrow">
+                                                                    <DropDownArrow />
+                                                                </span>
+                                                            </SelectTrigger>
+
+                                                            <SelectContent>
+                                                                {commuteTimeOptions.map((option, index) => (
+                                                                    <SelectItem key={index} value={option}>
+                                                                        {option}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        {fieldErrors.commute_minutes && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.commute_minutes[0]}</p>}
+                                                    </div>
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Reoccuring break</label>
+                                                        <div className='flex items-center gap-[10px]'>
+                                                            <Input checked={isReoccuringBreak}
+                                                                onChange={(e) => setIsReoccuringBreak(e.target.checked)} type='checkbox' className='h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' />
+                                                            <p className='text-[16px] font-normal text-[#666666] mt-[12px]'>Enable Google Calendar Sync</p>
+                                                        </div>
+                                                        {fieldErrors.enable_breaks && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.enable_breaks[0]}</p>}
+                                                    </div>
+                                                    <div className='flex items-center gap-[10px]'>
+                                                        <Input checked={isSyncToGoogle}
+                                                            onChange={(e) => setIsSyncToGoogle(e.target.checked)} type='checkbox' className='h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' />
+                                                        <p className='text-[16px] font-normal text-[#666666] mt-[12px]'>Sync to Google</p>
+                                                        {fieldErrors.sync_google && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.sync_google[0]}</p>}
+                                                    </div>
+                                                    <div className=''>
+                                                        <Select onValueChange={(value) => setSyncEmailType(value)} value={syncEmailType} >
+                                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[3px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
+                                                                <SelectValue placeholder="Select Email" />
+                                                                <span className="custom-arrow">
+                                                                    <DropDownArrow />
+                                                                </span>
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="primary">Primary Email</SelectItem>
+                                                                <SelectItem value="secondary">Secondary Email</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                        {fieldErrors.sync_email && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.sync_email[0]}</p>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            }
+
+                            {userType === 'admin' &&
+                                <AccordionItem value="vendor" className='border-none'>
+                                    <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>VENDOR RATE SETTINGS</AccordionTrigger>
+                                    <AccordionContent className="grid gap-4">
+                                        <div className='w-full flex flex-col items-center'>
+                                            <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                                                <div className='grid grid-cols-2 gap-[16px] py-[32px]'>
+                                                    <div className='col-span-2'>
+                                                        <p className='text-sm font-normal text-[#666666]'>Set rate for all vendors commute reimbursement value.</p>
+                                                    </div>
+                                                    <div className='col-span-2'>
+                                                        <div>
+                                                            <Label htmlFor="">Payment per kilometer</Label>
+                                                            <Input value={paymentPerKm}
+                                                                onChange={(e) => setPaymentPerKm(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                            {fieldErrors.payment_per_km && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.payment_per_km[0]}</p>}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            }
+
+                            {userType === 'admin' &&
+                                <AccordionItem value="service" className='border-none'>
+                                    <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>SERVICE AREA</AccordionTrigger>
+                                    <AccordionContent className="grid gap-4">
+                                        <div className='w-full flex flex-col items-center'>
+                                            <div className='w-full flex justify-center flex-col'>
+                                                <div className='w-full h-[200px] md:h-[560px]'>
+                                                    {/* <iframe
                                             src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d83357.52320128103!2d-123.04024198044628!3d49.23995664757976!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x548677a8219c8373%3A0xdd0a72738752b169!2sBurnaby%2C%20BC%2C%20Canada!5e0!3m2!1sen!2s!4v1748548645299!5m2!1sen!2s"
                                             width="100%"
                                             height="100%"
@@ -1423,38 +1555,38 @@ const GlobalSettings = () => {
                                             className="border-0"
                                             title="Google Map - Burnaby, BC"
                                         ></iframe> */}
-                                            <DynamicMap
-                                                address={headquarterAddress}
-                                                city={city}
-                                                province={province}
-                                                country={country}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    }
-
-                    {userType === 'admin' &&
-                        <AccordionItem value="order" className='border-none'>
-                            <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>ORDER FORM</AccordionTrigger>
-                            <AccordionContent className="grid gap-4">
-                                <div className='w-full flex flex-col items-center'>
-                                    <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                        <div className='grid grid-cols-2 gap-[32px]'>
-                                            <div className='col-span-2'>
-                                                <label htmlFor="" className='text-[16px] font-normal text-[#666666]'>Full Page Order Form</label>
-                                                <div className="relative mt-[12px]">
-                                                    <Input
-                                                        id="order-link"
-                                                        type="text"
-                                                        className="h-[42px] placeholder:text-[#9ca3af] w-full bg-[#EEEEEE] border border-[#BBBBBB] px-4 pr-10 text-sm"
-                                                        value={orderLink}
-                                                        onChange={(e) => setOrderLink(e.target.value)}
-                                                        placeholder="bcfloorplans.tojuco.com/v/id#22718"
+                                                    <DynamicMap
+                                                        address={headquarterAddress}
+                                                        city={city}
+                                                        province={province}
+                                                        country={country}
                                                     />
-                                                    {/* 
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            }
+
+                            {userType === 'admin' &&
+                                <AccordionItem value="order" className='border-none'>
+                                    <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>ORDER FORM</AccordionTrigger>
+                                    <AccordionContent className="grid gap-4">
+                                        <div className='w-full flex flex-col items-center'>
+                                            <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                                                <div className='grid grid-cols-2 gap-[32px]'>
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="" className='text-[16px] font-normal text-[#666666]'>Full Page Order Form</label>
+                                                        <div className="relative mt-[12px]">
+                                                            <Input
+                                                                id="order-link"
+                                                                type="text"
+                                                                className="h-[42px] placeholder:text-[#9ca3af] w-full bg-[#EEEEEE] border border-[#BBBBBB] px-4 pr-10 text-sm"
+                                                                value={orderLink}
+                                                                onChange={(e) => setOrderLink(e.target.value)}
+                                                                placeholder="bcfloorplans.tojuco.com/v/id#22718"
+                                                            />
+                                                            {/* 
                                                 <button
                                                     type="button"
                                                     onClick={handleCopy}
@@ -1462,148 +1594,185 @@ const GlobalSettings = () => {
                                                 >
                                                     <Copy className="text-[#4290E9] w-5 h-5" />
                                                 </button> */}
-                                                </div>
-                                                <p className='text-xs font-normal text-[#666666] mt-[6px]'>Copy and paste the URL to a link or button on your business website to integrate BCFP services to your page.</p>
-                                                {fieldErrors.order_form_url && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.order_form_url[0]}</p>}
-                                            </div>
-                                            <div className="col-span-2">
-                                                <div className="flex items-center justify-between">
-                                                    <label htmlFor="" className="text-[16px] font-normal text-[#666666]">
-                                                        iFrame Code Order Form
-                                                    </label>
-                                                    {/* <p
+                                                        </div>
+                                                        <p className='text-xs font-normal text-[#666666] mt-[6px]'>Copy and paste the URL to a link or button on your business website to integrate BCFP services to your page.</p>
+                                                        {fieldErrors.order_form_url && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.order_form_url[0]}</p>}
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <label htmlFor="" className="text-[16px] font-normal text-[#666666]">
+                                                                iFrame Code Order Form
+                                                            </label>
+                                                            {/* <p
                                                     onClick={handleCopy2}
                                                     className="text-[#6BAE41] font-semibold text-base font-raleway cursor-pointer"
                                                 >
                                                     Copy
                                                 </p> */}
-                                                </div>
+                                                        </div>
 
-                                                <textarea
-                                                    className="h-[200px] w-full p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                    value={iframeCode}
-                                                    onChange={(e) => setIframeCode(e.target.value)}
-                                                    placeholder='<iframe src="gre_iframe.html" style="height:auto;width:auto;" title="BC Floor Plans"></iframe>'
-                                                />
-                                                {fieldErrors.iframe_code && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.iframe_code[0]}</p>}
+                                                        <textarea
+                                                            className="h-[200px] w-full p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                            value={iframeCode}
+                                                            onChange={(e) => setIframeCode(e.target.value)}
+                                                            placeholder='<iframe src="gre_iframe.html" style="height:auto;width:auto;" title="BC Floor Plans"></iframe>'
+                                                        />
+                                                        {fieldErrors.iframe_code && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.iframe_code[0]}</p>}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    }
+                                    </AccordionContent>
+                                </AccordionItem>
+                            }
 
-                    {userType === 'admin' &&
-                    <AccordionItem value="payment" className='border-none'>
-                        <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>PAYMENT</AccordionTrigger>
-                        <AccordionContent className="grid gap-4">
-                            <div className='w-full flex flex-col items-center'>
-                                <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                    <div className='grid grid-cols-2 gap-[32px]'>
-                                        {userType === 'admin' &&
-                                            <div className="col-span-2">
-                                                <div className="flex flex-col gap-y-[16px] text-sm font-normal text-[#7D7D7D]">
+                            <AccordionItem value="payment" className='border-none'>
+                                <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>PAYMENT</AccordionTrigger>
+                                <AccordionContent className="grid gap-4">
+                                    <div className='w-full flex flex-col items-center'>
+                                        <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                                            <div className='grid grid-cols-2 gap-[32px]'>
+                                                {userType === 'admin' &&
+                                                    <div className="col-span-2">
+                                                        <div className="flex flex-col gap-y-[16px] text-sm font-normal text-[#7D7D7D]">
 
-                                                    <div>
-                                                        <p className="font-bold">
-                                                            {planName} <span className="font-normal">({billingCycle})</span>
-                                                        </p>
-                                                        <p>{seats} Seats</p>
-                                                        <p>Joined: {joinDate}</p>
+                                                            <div>
+                                                                <p className="font-bold">
+                                                                    {planName} <span className="font-normal">({billingCycle})</span>
+                                                                </p>
+                                                                <p>{seats} Seats</p>
+                                                                <p>Joined: {joinDate}</p>
+                                                            </div>
+
+                                                            <div className="flex items-center gap-x-1">
+                                                                <p>Add additional</p>
+                                                                <Link href="" className="text-[#4290E9] font-bold underline">
+                                                                    SEATS
+                                                                </Link>
+                                                            </div>
+
+                                                        </div>
                                                     </div>
+                                                }
 
-                                                    <div className="flex items-center gap-x-1">
-                                                        <p>Add additional</p>
-                                                        <Link href="" className="text-[#4290E9] font-bold underline">
-                                                            SEATS
-                                                        </Link>
+                                                <div className="col-span-2">
+                                                    <div className='flex items-center justify-between'>
+                                                        <p className='font-bold text-sm text-[#666666]'>Cards</p>
+                                                        <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => setOpenPaymentDialog(true)}>
+                                                            <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
+                                                            <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm' />
+                                                        </div>
+                                                        <PaymentDialog
+                                                            open={openPaymentDialog}
+                                                            setOpen={setOpenPaymentDialog}
+                                                            onSuccess={() => {
+                                                                fetchPaymentMethods();
+                                                            }}
+                                                        />
                                                     </div>
+                                                </div>
+                                                <div className="col-span-2">
+                                                    {cards.map((card) => (
+                                                        <div key={card.uuid} className='flex flex-col gap-y-3 mt-2'>
+                                                            <div
+                                                                className="flex justify-between items-center w-full text-[16px] font-normal text-[#666666]"
+                                                            >
+                                                                <div className='basis-[60%] flex items-center justify-between w-full gap-x-2.5'>
+                                                                    <p className="text-[#4290E9]">{capitalizeFirst(card.type)}</p>
+                                                                    <p>{card.last_four.slice(0, 4)} **** **** ****</p>
+                                                                </div>
+                                                                <div className="basis-[40%] w-full flex gap-x-4 items-center justify-end">
+                                                                    {card.is_primary && (
+                                                                        <span className="text-sm font-normal text-[#666666]">Primary</span>
+                                                                    )}
+                                                                    <X onClick={() => handleDelete(card.uuid)}
+                                                                        className="text-[#E06D5E] w-6 h-6 cursor-pointer hover:scale-110 transition-transform" />
+                                                                </div>
+                                                            </div>
+                                                            <hr />
+                                                        </div>
+                                                    ))}
 
                                                 </div>
                                             </div>
-                                        }
+                                        </div>
 
-                                        <div className="col-span-2">
+                                        <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
                                             <div className='flex items-center justify-between'>
-                                                <p className='font-bold text-sm text-[#666666]'>Cards</p>
-                                                <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => setOpenPaymentDialog(true)}>
+                                                <p className='font-bold text-sm text-[#666666]'>Discounts</p>
+                                                <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => setOpenDiscount(true)}>
                                                     <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
                                                     <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm' />
                                                 </div>
-                                                <PaymentDialog
-                                                    open={openPaymentDialog}
-                                                    setOpen={setOpenPaymentDialog}
-                                                    onSuccess={() => {
-                                                        fetchPaymentMethods();
-                                                    }}
+                                                <AgentDiscount
+                                                    open={openDiscount}
+                                                    setOpen={setOpenDiscount}
+                                                    addDiscount={addDiscount}
                                                 />
                                             </div>
-                                        </div>
-                                        <div className="col-span-2">
-                                            {cards.map((card) => (
-                                                <div key={card.uuid} className='flex flex-col gap-y-3 mt-2'>
-                                                    <div
-                                                        className="flex justify-between items-center w-full text-[16px] font-normal text-[#666666]"
-                                                    >
-                                                        <div className='basis-[60%] flex items-center justify-between w-full gap-x-2.5'>
-                                                            <p className="text-[#4290E9]">{capitalizeFirst(card.type)}</p>
-                                                            <p>{card.last_four.slice(0, 4)} **** **** ****</p>
-                                                        </div>
-                                                        <div className="basis-[40%] w-full flex gap-x-4 items-center justify-end">
-                                                            {card.is_primary && (
-                                                                <span className="text-sm font-normal text-[#666666]">Primary</span>
-                                                            )}
-                                                            <X onClick={() => handleDelete(card.uuid)}
-                                                                className="text-[#E06D5E] w-6 h-6 cursor-pointer hover:scale-110 transition-transform" />
-                                                        </div>
-                                                    </div>
-                                                    <hr />
-                                                </div>
-                                            ))}
 
+                                            <div className="col-span-2">
+                                                {agentdiscounts.map((discount) => (
+                                                    <div key={discount.id} className='flex flex-col gap-y-3 mt-2'>
+                                                        <div className="flex justify-between items-center w-full text-[16px] font-normal text-[#666666]">
+                                                            <div className='basis-[80%] flex items-center justify-between w-full gap-x-2.5'>
+                                                                <p className="text-[#4290E9]">{capitalizeFirst(discount.discount_code)}</p>
+
+                                                                <p className="text-[12px] font-[300] text-[#666666]">Expires {discount.expiry_date}</p>
+                                                            </div>
+
+                                                            <div className="basis-[20%] w-full flex gap-x-4 items-center justify-end">
+                                                                <X
+                                                                    onClick={() => removeDiscount(discount.id)}
+                                                                    className="text-[#E06D5E] w-6 h-6 cursor-pointer hover:scale-110 transition-transform"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <hr />
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                    }
-                    <AccordionItem value="account" className='border-none'>
-                        <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'} [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>ACCOUNT MANAGEMENT</AccordionTrigger>
-                        <AccordionContent className="grid gap-4">
-                            <div className='w-full flex flex-col items-center'>
-                                <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                    <div className='col-span-2'>
-                                        <label htmlFor="">Password Change</label>
-                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
-                                            <input
-                                                type="password"
-                                                id="password"
-                                                value={password}
-                                                disabled
-                                                onChange={(e) => setPassword(e.target.value)}
-                                                className="bg-[#EEEEEE] text-[16px] font-medium w-full h-full px-4 focus:outline-none"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    handleReset();
-                                                    setOpenChangePasswordDialog(true);
-                                                }}
-                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                                            >
-                                                Reset
-                                            </button>
-                                            <ChangePasswordDialog
-                                                userId={userInfo?.uuid}
-                                                open={openChangePasswordDialog}
-                                                setOpen={setOpenChangePasswordDialog}
-                                                type="agents"
-                                            />
-                                        </div>
-                                    </div>
-                                    {/* <div className='flex items-center justify-center'>
+                                </AccordionContent>
+                            </AccordionItem>
+
+                            <AccordionItem value="account" className='border-none'>
+                                <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'} [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>ACCOUNT MANAGEMENT</AccordionTrigger>
+                                <AccordionContent className="grid gap-4">
+                                    <div className='w-full flex flex-col items-center'>
+                                        <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                                            <div className='col-span-2'>
+                                                <label htmlFor="">Password Change</label>
+                                                <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
+                                                    <input
+                                                        type="password"
+                                                        id="password"
+                                                        value={password}
+                                                        disabled
+                                                        onChange={(e) => setPassword(e.target.value)}
+                                                        className="bg-[#EEEEEE] text-[16px] font-medium w-full h-full px-4 focus:outline-none"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            handleReset();
+                                                            setOpenChangePasswordDialog(true);
+                                                        }}
+                                                        className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                    >
+                                                        Reset
+                                                    </button>
+                                                    <ChangePasswordDialog
+                                                        userId={userInfo?.uuid}
+                                                        open={openChangePasswordDialog}
+                                                        setOpen={setOpenChangePasswordDialog}
+                                                        type="agents"
+                                                    />
+                                                </div>
+                                            </div>
+                                            {/* <div className='flex items-center justify-center'>
                                         <button
                                             type="button"
                                             onClick={() => setOpenCloseDialog(true)}
@@ -1617,11 +1786,17 @@ const GlobalSettings = () => {
                                             onConfirm={confirmAndExecute}
                                         />
                                     </div> */}
-                                </div>
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
+                                        </div>
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
 
+                        </form>
+                    }
+
+                    {activeTab === 'Tour Settings' && userType === 'admin' &&
+                        <GlobalTourSetting />
+                    }
                 </Accordion>
             </form>
         </div >

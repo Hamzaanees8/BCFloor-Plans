@@ -16,6 +16,7 @@ export interface VendorSettings {
 export interface VendorCompany {
   name: string;
   website: string;
+  vendor_id?: number
   // company_logo: File | null;
   // company_banner: File | null;
 }
@@ -60,6 +61,7 @@ export interface VendorPayload {
   services?: VendorService[];
   addresses?: VendorAddress[];
   work_hours?: WorkHours;
+  coordinates?: string;
 }
 
 export interface FetchErrors {
@@ -145,10 +147,9 @@ function payloadToFormData(payload: VendorPayload): FormData {
             String(service.time_needed)
           );
         });
-      } else {
-        value.forEach((val) => {
-          formData.append(`${key}[]`, String(val));
-        });
+      } else if (key === "coordinates") {
+        formData.append(key, JSON.stringify(value));
+
       }
     } else if (typeof value === "object") {
       if (key === "work_hours") {
@@ -255,7 +256,7 @@ export async function Get(token: string) {
     if (!response.ok) {
       throw new Error(
         SubAccountData.message ||
-          `Request failed with status ${response.status}`
+        `Request failed with status ${response.status}`
       );
     }
 

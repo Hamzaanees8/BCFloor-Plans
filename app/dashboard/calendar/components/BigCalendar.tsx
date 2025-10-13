@@ -44,6 +44,15 @@ export type Vendor = {
         break_start: string;
         break_end: string;
     }
+    additional_breaks?: {
+        address: string
+        date: Date
+        end_time: string
+        start_time: string
+        title: string
+        uuid: string
+        vendor_id: string
+    }[]
 };
 
 interface BigCalendarProps {
@@ -125,7 +134,7 @@ const generateWeeklyBreakEvents = (vendors: Vendor[], referenceDate: Date): Cale
 };
 
 const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, visibleDays, setCurrentMonthYear, serviceData, agentData }: BigCalendarProps) => {
-    const {userType} = useAppContext();
+    const { userType } = useAppContext();
     const [date, setDate] = useState(new Date());
     const [open, setOpen] = useState(false);
     const [openDetails, setOpenDetails] = useState(false);
@@ -138,12 +147,29 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
     const [vendorBreaks, setVendorBreaks] = useState<CalendarEvent[]>([]);
     const [selectedBreakEvent, setSelectedBreakEvent] = useState<CalendarEvent | null>(null);
     const [selectedOrder, setSelectedOrder] = useState<CalendarEvent | null>(null);
+    const [popupType, setPopupType] = useState<"time_off" | "break" | "other">("break")
 
 
     useEffect(() => {
-        const breaks = generateWeeklyBreakEvents(vendorData, date);
+
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+
+        const currentvendorData = vendorData.find((vendor) => vendor.uuid === userInfo?.uuid);
+        console.log('currentvendorData', currentvendorData);
+
+        let breaks: CalendarEvent[] = [];
+
+        if (userType === 'vendor' && userInfo?.uuid) {
+            breaks = generateWeeklyBreakEvents(currentvendorData ? [currentvendorData] : [], date);
+        } else if (userType === 'admin') {
+            breaks = generateWeeklyBreakEvents(vendorData, date);
+        } else {
+            breaks = [];
+        }
+
         setVendorBreaks(breaks);
-    }, [vendorData, date]);
+
+    }, [vendorData, date, userType]);
 
 
     const events = orderData?.flatMap((order) => {
@@ -231,26 +257,87 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
 
         return groupedEvents;
     });
+    const additionalBreakEvents: CalendarEvent[] = [];
 
-    const filteredEvents = events.filter((event) => {
+    const seenBreakIds = new Set<string>();
+
+    orderData.forEach(order => {
+        order.slots.forEach(slot => {
+            const vendor = slot.vendor;
+            if (vendor?.additional_breaks && Array.isArray(vendor?.additional_breaks)) {
+                vendor?.additional_breaks?.forEach((brk) => {
+                    if (!seenBreakIds.has(brk.uuid)) {
+                        seenBreakIds.add(brk.uuid);
+
+                        const start = dayjs(`${brk.date}T${brk.start_time}`).toDate();
+                        const end = dayjs(`${brk.date}T${brk.end_time}`).toDate();
+
+                        additionalBreakEvents.push({
+                            title: `${vendor.first_name} ${vendor.last_name}-Break`,
+                            start,
+                            end,
+                            vendor_id: vendor.uuid,
+                            color_id: Number(slot?.vendor_id ?? 0)
+                        });
+                    }
+                });
+
+            }
+        });
+    });
+
+    const isTimeOffSelected = selectedservice.includes('TIME_OFF');
+    const selectedServicesWithoutTimeOff = selectedservice.filter(s => s !== 'TIME_OFF');
+
+    const isAllServicesSelected =
+        selectedServicesWithoutTimeOff.length === 0 || selectedServicesWithoutTimeOff.includes('ALL');
+
+    const filteredEvents = events.filter(event => {
+
         const matchService =
-            selectedservice.includes('ALL') || selectedservice.includes(String(event.service_id));
+            isAllServicesSelected ||
+            selectedServicesWithoutTimeOff.includes(String(event.service_id));
 
         const matchVendor =
-            selectedVendors.includes('ALL') || selectedVendors.includes(String(event.vendor_id));
+            selectedVendors.includes('ALL') ||
+            selectedVendors.includes(String(event.vendor_id));
 
         return matchService && matchVendor;
     });
 
-    const filteredBreaks = vendorBreaks.filter((event) => {
-        return selectedVendors.includes('ALL') || selectedVendors.includes(String(event.vendor_id));
-    });
+    const filteredBreaks = vendorBreaks.filter(event =>
+        selectedVendors.includes('ALL') || selectedVendors.includes(String(event.vendor_id))
+    );
 
-    const allEvents = [
-        ...filteredEvents,
-        ...filteredBreaks,
-        ...(customEvents || [])
-    ];
+    const filteredAdditionalBreaks = additionalBreakEvents?.filter(event =>
+        selectedVendors.includes('ALL') || selectedVendors.includes(String(event.vendor_id))
+    );
+
+    let allEvents: CalendarEvent[] = [];
+
+    if (isTimeOffSelected && selectedServicesWithoutTimeOff.length === 0) {
+        allEvents = [
+            // ...filteredBreaks,
+            ...filteredAdditionalBreaks,
+            ...(customEvents || []),
+        ];
+    } else {
+        allEvents = [
+            ...filteredEvents,
+            ...filteredBreaks,
+            ...filteredAdditionalBreaks,
+            ...(customEvents || []),
+        ];
+    }
+
+
+
+    // const allEvents = [
+    //     ...filteredEvents,
+    //     ...filteredBreaks,
+    //     ...filteredAdditionalBreaks,
+    //     ...(customEvents || [])
+    // ];
 
     const CustomEvent = ({ event }: { event: CalendarEvent }) => {
 
@@ -296,13 +383,33 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     <button onClick={() => onNavigate('PREV')} className='w-[30px] h-[30px] flex justify-center items-center hover:bg-gray-300 rounded-full'>
                         <ChevronLeft color='#7D7D7D' />
                     </button>
+
                     <button onClick={() => onNavigate('NEXT')} className='w-[30px] h-[30px] flex justify-center items-center hover:bg-gray-300 rounded-full'>
                         <ChevronRight color='#7D7D7D' />
                     </button>
                 </div>
                 <div className='flex gap-[16px] w-auto pr-[20px]'>
-                    <Button onClick={() => setOpen(true)} className={`font-raleway text-[14px] font-[600] bg-[#4290E9] hover-${userType}-bg flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>Add Break</Button>
-                    <Link href={'/dashboard/orders/create'} className={`font-raleway text-[14px] font-[600] bg-[#4290E9] hover-${userType}-bg rounded-[6px] text-[#fff] flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>Create New Booking</Link>
+                    {/* {(userType === 'vendor') &&
+                        <Button
+                            onClick={() => {
+                                setOpen(true)
+                                setPopupType('time_off')
+                            }}
+                            className={`font-raleway text-[14px] font-[600] bg-[#4290E9] hover-${userType}-bg flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>Add Time Off</Button>
+                    } */}
+
+                    {(userType === 'admin' || userType === 'vendor') &&
+                        <Button
+                            onClick={() => {
+                                setOpen(true)
+                                setPopupType('break')
+                            }}
+                            className={`font-raleway text-[14px] font-[600] bg-[#4290E9] hover-${userType}-bg flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>Add Time Off</Button>
+                    }
+
+                    {(userType !== 'vendor') &&
+                        <Link href={'/dashboard/orders/create'} className={`font-raleway text-[14px] font-[600] bg-[#4290E9] hover-${userType}-bg rounded-[6px] text-[#fff] flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>Create New Booking</Link>
+                    }
                 </div>
             </div>
         );
@@ -350,7 +457,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
 
     return (
         <div style={{ height: 'auto' }}>
-            <AddBreakPopup onAddBreak={handleAddBreak} open={open} setOpen={setOpen} vendorData={vendorData} />
+            <AddBreakPopup popupType={popupType} onAddBreak={handleAddBreak} open={open} setOpen={setOpen} vendorData={vendorData} />
             {visibleDays == 7 &&
                 <Calendar
                     localizer={localizer}

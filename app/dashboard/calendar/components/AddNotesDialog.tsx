@@ -14,11 +14,12 @@ interface AddNotesDialogProps {
     setOpen: (open: boolean) => void;
     notes: Note[];
     setNotes: (notes: Note[]) => void;
+    isInternal: boolean
 }
 
 
 
-const AddNotesDialog = ({ open, setOpen, notes, setNotes }: AddNotesDialogProps) => {
+const AddNotesDialog = ({ open, setOpen, notes, setNotes, isInternal }: AddNotesDialogProps) => {
     const [tempNotes, setTempNotes] = useState('');
     const [userName, setUserName] = useState('');
     useEffect(() => {
@@ -56,7 +57,7 @@ const AddNotesDialog = ({ open, setOpen, notes, setNotes }: AddNotesDialogProps)
 
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent className="w-[320px] md:w-[420px] h-[500px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
+            <AlertDialogContent className="w-[320px] md:w-[450px] max-h-[550px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
                 <AlertDialogHeader>
                     <AlertDialogTitle className="flex items-center uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
                         ADD NEW NOTES
@@ -81,6 +82,9 @@ const AddNotesDialog = ({ open, setOpen, notes, setNotes }: AddNotesDialogProps)
                         className="w-[370px] h-[42px] p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] text-[#666666] font-medium"
                         value={userName}
                     />
+                    {isInternal &&
+                        <p className='text-[#E06D5E] '>This note is for Internal Use only. Vendor will not be able to see or access Note.</p>
+                    }
                     <textarea
                         className="h-[180px] w-[370px] p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] text-[#666666]"
                         value={tempNotes}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Accordion,
   AccordionItem,
@@ -35,15 +35,22 @@ interface TourConfimation {
 }
 
 const TourConfirm = ({ orderData }: TourConfimation) => {
-  const { selectedFiles, delay, transition, audioUrl, brandedLink, unbrandedLink } =
+  const { selectedFiles, delay, transition, audioUrl, links, filesData } =
     useFileManagerContext();
   console.log(orderData);
   const uploadedImages = selectedFiles?.filter((f) => f.upload) || [];
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState("Home");
   const { selectedVideoFiles } = useFileManagerContext();
-  const [mainVideo, setMainVideo] = useState<File | null>(null);
+  const [mainVideo, setMainVideo] = useState<string | null>(null);
   // const [confirmFloor, setConfirmFloor] = useState(false);
+
+  const currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === "photo");
+
+  const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
+
+  const currentVideoFiles = filesData?.files?.filter(file => file.type === "video");
+
 
   const handlePrev = () => {
     setCurrentImageIndex((prev) =>
@@ -66,6 +73,19 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
     }
   };
 
+
+  useEffect(() => {
+    if (!mainVideo) {
+      if (selectedVideoFiles.length > 0) {
+        setMainVideo(URL.createObjectURL(selectedVideoFiles[0].file));
+      } else if (currentVideoFiles && currentVideoFiles.length > 0) {
+        setMainVideo(`${API_URL}/${currentVideoFiles[0].file_path}`);
+      }
+    }
+  }, [selectedVideoFiles, currentVideoFiles, mainVideo, API_URL]);
+
+  const brandedLinks = links.filter(l => l.type === 'branded');
+  const unbrandedLinks = links.filter(l => l.type === 'unbranded');
   return (
     <div className="w-full">
       {/* Tour Link Input */}
@@ -290,8 +310,9 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                     delay={delay}
                     transition={transition}
                     audioUrl={audioUrl}
+                    api_images={currentTourPhotos}
                   />
-                  {uploadedImages.length > 0 && (
+                  {(uploadedImages.length > 0 || (currentTourPhotos?.length ?? 0) > 0) && (
                     <div className="grid grid-cols-6 gap-2 mt-4">
                       {uploadedImages.map((image, index) => (
                         <div
@@ -306,6 +327,19 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                           />
                         </div>
                       ))}
+                      {currentTourPhotos?.map((image, index) => (
+                        <div
+                          key={index}
+                          className="w-full aspect-square overflow-hidden"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={`${API_URL}/${image.file_path}`}
+                            alt={`Uploaded ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -313,40 +347,59 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
               {activeTab === "Videos" && (
                 <div className="w-full ">
                   <div className="p-4 pt-0">
+                    {/* Main video preview */}
                     <div className="mb-6 h-[95vh] w-full bg-black overflow-hidden">
                       <video
-                        src={
-                          mainVideo
-                            ? URL.createObjectURL(mainVideo)
-                            : selectedVideoFiles[0]?.file
-                              ? URL.createObjectURL(selectedVideoFiles[0].file)
-                              : undefined
-                        }
+                        src={mainVideo || undefined}
                         className="w-full h-full object-contain"
                         controls
                       />
                     </div>
-                    {selectedVideoFiles.length > 0 && (
+
+                    {/* Local uploaded videos */}
+                    {(selectedVideoFiles.length > 0 || (currentVideoFiles?.length ?? 0) > 0) && (
                       <div className="mt-4 w-full grid grid-cols-3 gap-5 p-3">
-                        {selectedVideoFiles.map((file, idx) => (
-                          <div
-                            key={idx}
-                            onClick={() => setMainVideo(file.file)}
-                            className=" h-auto relative"
-                          >
-                            <div className="relative w-full h-[240px] cursor-pointer">
-                              <video
-                                src={URL.createObjectURL(file.file)}
-                                className="w-full h-full object-cover"
-                              />
+                        {selectedVideoFiles.map((file, idx) => {
+                          const thumbSrc = URL.createObjectURL(file.file);
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => setMainVideo(thumbSrc)}
+                              className="h-auto relative"
+                            >
+                              <div className="relative w-full h-[240px] cursor-pointer">
+                                <video
+                                  src={thumbSrc}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
+                        {currentVideoFiles?.map((file, idx) => {
+                          const apiSrc = `${API_URL}/${file.file_path}`;
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => setMainVideo(apiSrc)}
+                              className="h-auto relative"
+                            >
+                              <div className="relative w-full h-[240px] cursor-pointer">
+                                <video
+                                  src={apiSrc}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
+
                   </div>
                 </div>
               )}
+
               {activeTab === "Floorplan" && (
                 <div className="w-full">
                   <TourFloorPlans type="confirm" />
@@ -354,19 +407,28 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
               )}
               {activeTab === "Matterport" && (
                 <div className="w-full flex flex-col items-center gap-10">
-                  {isValidUrl(brandedLink) && (
-                    <iframe
-                      src={brandedLink}
-                      className="w-[80%] h-[500px] border"
-                      allowFullScreen
-                    ></iframe>
+                  {brandedLinks.map(
+                    (link, idx) =>
+                      isValidUrl(link.link) && (
+                        <iframe
+                          key={`preview-branded-${idx}`}
+                          src={link.link}
+                          className="w-[80%] h-[500px] border"
+                          allowFullScreen
+                        ></iframe>
+                      )
                   )}
-                  {isValidUrl(unbrandedLink) && (
-                    <iframe
-                      src={unbrandedLink}
-                      className="w-[80%] h-[500px] border"
-                      allowFullScreen
-                    ></iframe>
+
+                  {unbrandedLinks.map(
+                    (link, idx) =>
+                      isValidUrl(link.link) && (
+                        <iframe
+                          key={`preview-unbranded-${idx}`}
+                          src={link.link}
+                          className="w-[80%] h-[500px] border"
+                          allowFullScreen
+                        ></iframe>
+                      )
                   )}
                 </div>
               )}

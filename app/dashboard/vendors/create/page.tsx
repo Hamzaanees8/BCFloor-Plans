@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Input } from '@/components/ui/input'
@@ -16,13 +16,16 @@ import { useParams, useRouter } from 'next/navigation'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog'
 import { Create, Edit, GetOne, GetServices, VendorAddress, VendorPayload, VendorService, VendorSettings, WorkHours } from '../vendors'
 import { SaveModal } from '@/components/SaveModal'
-import DynamicMap from '@/components/DYnamicMap'
-import { ArrowDown, ArrowDownOrange, ArrowUp, ArrowUpOrange, ChevronDownIcon, DropDownArrow } from '@/components/Icons'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Check, Plus } from 'lucide-react'
-import { friendlyTimeZoneNames } from '@/components/GlobalSettings'
-import ServiceItem from '@/components/ServiceItem'
+import { Plus, X } from 'lucide-react'
+import { friendlyTimeZoneNames, PaymentCard } from '@/components/GlobalSettings'
 import TravelTable from '@/components/TravelTable'
+import { useAppContext } from '@/app/context/AppContext'
+import PaymentDialog from '@/components/PaymentDialog'
+import { DeleteCard, GetPaymentMethod } from '../../global-settings/global-settings'
+import { LatLng } from '@/components/WorkAreaMap'
+import useUnsavedChangesWarning from '@/app/hooks/useUnsavedChangesWarning'
+import { useUnsaved } from '@/app/context/UnsavedContext'
+import VendorWorkHours from '@/components/WorkHours'
 interface VendorCompany {
     company_name: string;
     company_website: string;
@@ -66,6 +69,7 @@ const VendorForm = () => {
         vendor_services?: VendorService[];
         addresses?: VendorAddress[];
         work_hours?: WorkHours;
+        coordinates?: string[]
         // add other fields as needed
     };
     type TimeZoneOption = {
@@ -85,7 +89,7 @@ const VendorForm = () => {
     const [forceServiceArea, setForceServiceArea] = useState(false);
     const [adminReviewRequired, setAdminReviewRequired] = useState(false);
     const [showVendorName, setShowVendorName] = useState(false);
-    const [paymentPerKm, setPaymentPerKm] = useState<number | ''>('');
+    const [paymentPerKm, setPaymentPerKm] = useState<string | number>('');
     const [billingAddress1, setBillingAddress1] = useState('');
     const [billingAddress2, setBillingAddress2] = useState('');
     const [startLocation, setStartLocation] = useState('');
@@ -105,7 +109,7 @@ const VendorForm = () => {
     const [billingCity, setBillingCity] = useState("");
     const [billingProvince, setBillingProvince] = useState("");
     const [billingCountry, setBillingCountry] = useState("CA");
-    const [vendorServicesId, setVendorServicesId] = useState("");
+    // const [vendorServicesId, setVendorServicesId] = useState("");
     const [password, setPassword] = useState("");
     const [openChangePasswordDialog, setOpenChangePasswordDialog] = useState(false);
     const CompanyLogofileInputRef = useRef(null)
@@ -122,7 +126,6 @@ const VendorForm = () => {
     const [companyLogoFile, setCompanyLogoFile] = useState<File | null>(null);
     const [companyBannerFile, setCompanyBannerFile] = useState<File | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
-    const [showTimeFields, setShowTimeFields] = useState(false);
     const [startTime, setStartTime] = useState("8:00 AM");
     const [endTime, setEndTime] = useState("8:00 AM");
     const [breakStartTime, setBreakStartTime] = useState("8:00 AM");
@@ -135,20 +138,28 @@ const VendorForm = () => {
     const [isSyncToGoogle, setIsSyncToGoogle] = useState(false);
     const [syncEmailType, setSyncEmailType] = useState('');
     const [timeZoneOptions, setTimeZoneOptions] = useState<TimeZoneOption[]>([]);
-    const [serviceId, setServiceId] = useState("");
-    const [hourlyRate, setHourlyRate] = useState<number | ''>('');
-    const [timeNeeded, setTimeNeeded] = useState("");
-    const [services, setServices] = useState<{ serviceId: string; hourlyRate: number; timeNeeded: string; }[]>([]);
-    const [open, setOpen] = useState(false);
+    // const [serviceId, setServiceId] = useState("");
+    // const [hourlyRate, setHourlyRate] = useState<number | ''>('');
+    // const [timeNeeded, setTimeNeeded] = useState("");
+    // const [services, setServices] = useState<{ serviceId: string; hourlyRate: number; timeNeeded: string; }[]>([]);
     const [servicesData, setServicesData] = useState<Services[]>([]);
+    const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
+    const [cards, setCards] = useState<PaymentCard[]>([]);
+    const [map_coordinates, setmap_coordinates] = useState<LatLng[]>([]);
     //const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
-    const [isAddingService, setIsAddingService] = useState(false);
+    console.log(timeZoneOptions);
+
+    const { userType } = useAppContext()
+    const { isDirty, setIsDirty } = useUnsaved();
+    useUnsavedChangesWarning(isDirty)
+    const isPopulatingData = useRef(false);
+
+
     const handleReset = () => {
         setPassword("");
     };
     const router = useRouter();
     console.log('current user', currentUser);
-    console.log('services', servicesData)
     const params = useParams();
     const userId = params?.id as string;
     useEffect(() => {
@@ -169,7 +180,8 @@ const VendorForm = () => {
             setCompanyProvince('');
         }
     }, [companyCountry]);
-
+    const capitalizeFirst = (str: string) =>
+        str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
     // useEffect(() => {
     //     setCountries(Country.getAllCountries());
     // }, []);
@@ -220,33 +232,49 @@ const VendorForm = () => {
 
         setTimeZoneOptions(options);
     }, []);
-    // Inside your component
-    useEffect(() => {
-        if (!serviceId || !hourlyRate || !timeNeeded) return;
 
-        const alreadyExists = services.some(
-            s =>
-                s.serviceId === serviceId &&
-                s.hourlyRate === hourlyRate &&
-                s.timeNeeded === timeNeeded
-        );
+    const fetchPaymentMethods = useCallback(() => {
+        const token = localStorage.getItem("token");
 
-        if (!alreadyExists) {
-            const newService = {
-                serviceId,
-                hourlyRate,
-                timeNeeded,
-            };
-
-            setServices(prev => [...prev, newService]);
-
-            // Clear inputs after adding
-            setServiceId("");
-            setHourlyRate(0);
-            setTimeNeeded("");
-            setShowTimeFields(false);
+        if (!token) {
+            console.log("Token not found.");
+            return;
         }
-    }, [serviceId, hourlyRate, timeNeeded, services]);
+
+        GetPaymentMethod(token)
+            .then((res) => setCards(Array.isArray(res.data) ? res.data : []))
+            .catch((err) => console.log("Error fetching data:", err.message));
+    }, []);
+
+    useEffect(() => {
+        fetchPaymentMethods();
+    }, [fetchPaymentMethods]);
+
+    // useEffect(() => {
+    //     if (!serviceId || !hourlyRate || !timeNeeded) return;
+
+    //     const alreadyExists = services.some(
+    //         s =>
+    //             s.serviceId === serviceId &&
+    //             s.hourlyRate === hourlyRate &&
+    //             s.timeNeeded === timeNeeded
+    //     );
+
+    //     if (!alreadyExists) {
+    //         const newService = {
+    //             serviceId,
+    //             hourlyRate,
+    //             timeNeeded,
+    //         };
+
+    //         setServices(prev => [...prev, newService]);
+
+    //         // Clear inputs after adding
+    //         setServiceId("");
+    //         setHourlyRate(0);
+    //         setTimeNeeded("");
+    //     }
+    // }, [serviceId, hourlyRate, timeNeeded, services]);
 
     useEffect(() => {
         const token = localStorage.getItem("token")
@@ -262,24 +290,43 @@ const VendorForm = () => {
             })
             .catch((err) => console.log(err.message));
     }, []);
+
+    let idToUse: string = '';
+
     useEffect(() => {
         const token = localStorage.getItem("token");
 
+        if (userType === "vendor") {
+            const userInfo = localStorage.getItem("userInfo");
+            if (userInfo) {
+                try {
+                    const parsedInfo = JSON.parse(userInfo);
+                    // eslint-disable-next-line react-hooks/exhaustive-deps
+                    idToUse = parsedInfo.uuid;
+                } catch (err) {
+                    console.error("Failed to parse userInfo:", err);
+                }
+            }
+        } else {
+            idToUse = userId;
+        }
         if (!token) {
             console.log('Token not found.')
             return;
         }
 
-        if (userId) {
-            GetOne(token, userId)
-                .then(data => setCurrentUser(data.data))
+        if (idToUse) {
+            GetOne(token, idToUse)
+                .then(data => { setCurrentUser(data.data) })
                 .catch(err => console.log(err.message));
         } else {
             console.log('User ID is undefined.');
         }
-    }, [userId]);
+    }, [userId, userType]);
+
     useEffect(() => {
         if (currentUser) {
+            isPopulatingData.current = true;
             setFirstName(currentUser.first_name || "");
             setLastName(currentUser.last_name || "");
             setEmail(currentUser.email || "");
@@ -290,7 +337,13 @@ const VendorForm = () => {
             setPrimaryPhone(currentUser.primary_phone || "");
             setSecondaryPhone(currentUser.secondary_phone || "");
             setAvatarFileName(currentUser.avatar || "");
-
+            setmap_coordinates(
+                typeof currentUser?.coordinates === "string"
+                    ? JSON.parse(currentUser.coordinates)
+                    : Array.isArray(currentUser?.coordinates)
+                        ? currentUser.coordinates
+                        : []
+            )
 
             if (currentUser.avatar_url) setAvatarUrl(currentUser.avatar_url);
 
@@ -360,31 +413,35 @@ const VendorForm = () => {
             if (currentUser.vendor_services) {
                 const firstService = currentUser.vendor_services[0];
                 if (firstService?.uuid) {
-                    setVendorServicesId(firstService.uuid);
+                    // setVendorServicesId(firstService.uuid);
                 }
             }
             // Services
             if (currentUser.vendor_services) {
-                const formattedServices = currentUser.vendor_services
-                    .filter(s => s.service?.uuid) // only include entries with service.uuid
-                    .map(s => ({
-                        serviceId: s.service!.uuid, // non-null because we filtered above
-                        hourlyRate: Number(s.hourly_rate),
-                        timeNeeded: `${s.time_needed} Minutes`,
-                    }));
+                // const formattedServices = currentUser.vendor_services
+                //     .filter(s => s.service?.uuid) // only include entries with service.uuid
+                //     .map(s => ({
+                //         serviceId: s.service!.uuid, // non-null because we filtered above
+                //         hourlyRate: Number(s.hourly_rate),
+                //         timeNeeded: `${s.time_needed} Minutes`,
+                //     }));
 
-                setServices(formattedServices);
+                // setServices(formattedServices);
             }
-            // Feature toggles (optional)
             setShowVendorName(currentUser.name_on_booking);
             setAdminReviewRequired(currentUser.review_files);
             setIsEnableGoogle(currentUser.sync_google_calendar);
             setIsSyncToGoogle(currentUser.sync_google);
             setSyncEmailType(currentUser.sync_email || "");
+            requestAnimationFrame(() => {
+                isPopulatingData.current = false;
+            });
+
+            setIsDirty(false);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser]);
-    console.log("currentuser", currentUser)
-    console.log("workweek", workWeek)
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (file) {
@@ -393,30 +450,15 @@ const VendorForm = () => {
             setAvatarUrl(URL.createObjectURL(file))
         }
     }
-    const handleAddService = () => {
-        setIsAddingService(true);
-        if (!serviceId || !hourlyRate || !timeNeeded) return;
 
-        const newService = {
-            serviceId,
-            hourlyRate,
-            timeNeeded,
-        };
 
-        setServices([...services, newService]);
-
-        // Clear inputs
-        setServiceId("");
-        setHourlyRate(0);
-        setTimeNeeded("");
-        setShowTimeFields(false);
-    };
 
     const triggerFileInput = () => {
         if (AvatarfileInputRef.current) {
             (AvatarfileInputRef.current as HTMLInputElement).click()
         }
     }
+
     const handleFileChange1 = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (file) {
@@ -431,6 +473,7 @@ const VendorForm = () => {
             (CompanyLogofileInputRef.current as HTMLInputElement).click()
         }
     }
+
     const handleFileChange2 = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (file) {
@@ -477,7 +520,6 @@ const VendorForm = () => {
             if (formattedWebsite && !/^https?:\/\//i.test(formattedWebsite)) {
                 formattedWebsite = 'https://' + formattedWebsite;
             }
-            console.log("service id", serviceId);
             const payload: VendorPayload = {
                 first_name: firstName,
                 last_name: lastName,
@@ -496,6 +538,7 @@ const VendorForm = () => {
                 avatar: avatarFile || undefined,
                 company_logo: companyLogoFile,
                 company_banner: companyBannerFile,
+                coordinates: JSON.stringify(map_coordinates),
                 addresses: [
                     {
                         type: "company",
@@ -529,7 +572,7 @@ const VendorForm = () => {
                     repeat_weekly: repeat,
                     commute_minutes: parseInt(commuteTime) || 0,
                     timezone: timeZone,
-                    break_start: convertTo24HourFormat(breakStartTime), // or a value if applicable
+                    break_start: convertTo24HourFormat(breakStartTime),
                     break_end: convertTo24HourFormat(breakEndTime),
                 },
                 company: {
@@ -539,27 +582,52 @@ const VendorForm = () => {
                     // company_banner: companyBannerFile
                 },
 
-                services: services.map(s => ({
-                    uuid: vendorServicesId,
-                    service_id: s.serviceId,
-                    hourly_rate: s.hourlyRate,
-                    time_needed: parseInt(s.timeNeeded)
-                })),
+                // services: services.map(s => ({
+                //     uuid: vendorServicesId,
+                //     service_id: s.serviceId,
+                //     hourly_rate: s.hourlyRate,
+                //     time_needed: parseInt(s.timeNeeded)
+                // })),
                 settings: {
                     payment_per_km: Number(paymentPerKm),
                     enable_service_area: enableServiceArea ? 1 : 0,
                     force_service_area: forceServiceArea ? 1 : 0
                 }
             };
+            let idToUse: string = '';
 
-            if (userId) {
+            if (userType === "vendor") {
+                const userInfo = localStorage.getItem("userInfo");
+                if (userInfo) {
+                    try {
+                        const parsedInfo = JSON.parse(userInfo);
+                        idToUse = parsedInfo.uuid;
+                    } catch (err) {
+                        console.error("Failed to parse userInfo:", err);
+                    }
+                }
+            } else {
+                idToUse = userId;
+            }
+            if (!token) {
+                console.log('Token not found.')
+                return;
+            }
+            if (idToUse) {
                 // Add _method: 'PUT' to payload for method override
                 const updatedPayload = { ...payload, _method: 'PUT' };
-                await Edit(userId, updatedPayload, token);
-                toast.success('Vendors updated successfully');
+                await Edit(idToUse, updatedPayload, token);
                 setIsLoading(true)
-                setOpenSaveDialog(true)
-                router.push('/dashboard/vendors');
+                setIsDirty(false)
+                if (userType !== 'vendor') {
+
+                    setOpenSaveDialog(true)
+                    router.push('/dashboard/vendors');
+                    toast.success('Vendors updated successfully');
+                } else {
+
+                    toast.success('Settings updated successfully');
+                }
                 setIsLoading(false)
             } else {
                 await Create(payload, token);
@@ -568,6 +636,7 @@ const VendorForm = () => {
                 setOpenSaveDialog(true)
                 router.push('/dashboard/vendors');
                 setIsLoading(false)
+                setIsDirty(false)
             }
 
         } catch (error) {
@@ -606,123 +675,130 @@ const VendorForm = () => {
     //     pendingAction?.()
     //     setPendingAction(null)
     // }
-    const minutesToTime = (mins: number) => {
-        mins = (mins + 1440) % 1440;
-        let hour = Math.floor(mins / 60);
-        const minute = mins % 60; // <-- changed let to const
-        const period = hour >= 12 ? "PM" : "AM";
-        hour = hour % 12;
-        if (hour === 0) hour = 12;
-        return `${hour}:${minute.toString().padStart(2, "0")} ${period}`;
-    };
-    const timeToMinutes = (t: string) => {
-        const [timePart, period] = t.split(" ");
-        const test = timePart.split(":").map(Number);
-        let hour = test[0];
-        const minuteValue = test[1];
-        const minute = minuteValue; // Use const for minute
-        if (period === "PM" && hour < 12) hour += 12;
-        if (period === "AM" && hour === 12) hour = 0;
-        return hour * 60 + minute;
-    };
-    const handleIncrement = () => {
-        const newMinutes = timeToMinutes(startTime) + 1;
-        setStartTime(minutesToTime(newMinutes));
+    // const minutesToTime = (mins: number) => {
+    //     mins = (mins + 1440) % 1440;
+    //     let hour = Math.floor(mins / 60);
+    //     const minute = mins % 60; // <-- changed let to const
+    //     const period = hour >= 12 ? "PM" : "AM";
+    //     hour = hour % 12;
+    //     if (hour === 0) hour = 12;
+    //     return `${hour}:${minute.toString().padStart(2, "0")} ${period}`;
+    // };
+    // const timeToMinutes = (t: string) => {
+    //     const [timePart, period] = t.split(" ");
+    //     const test = timePart.split(":").map(Number);
+    //     let hour = test[0];
+    //     const minuteValue = test[1];
+    //     const minute = minuteValue; // Use const for minute
+    //     if (period === "PM" && hour < 12) hour += 12;
+    //     if (period === "AM" && hour === 12) hour = 0;
+    //     return hour * 60 + minute;
+    // };
+    // const handleIncrement = () => {
+    //     const newMinutes = timeToMinutes(startTime) + 1;
+    //     setStartTime(minutesToTime(newMinutes));
+    // };
+
+    // const handleDecrement = () => {
+    //     const newMinutes = timeToMinutes(startTime) - 1;
+    //     setStartTime(minutesToTime(newMinutes));
+    // };
+    // const handleIncrement1 = () => {
+    //     const newMinutes = timeToMinutes(endTime) + 1;
+    //     setEndTime(minutesToTime(newMinutes));
+    // };
+
+    // const handleDecrement1 = () => {
+    //     const newMinutes = timeToMinutes(endTime) - 1;
+    //     setEndTime(minutesToTime(newMinutes));
+    // };
+    // const handleIncrement2 = () => {
+    //     const newMinutes = timeToMinutes(breakStartTime) + 1;
+    //     setBreakStartTime(minutesToTime(newMinutes));
+    // };
+
+    // const handleDecrement2 = () => {
+    //     const newMinutes = timeToMinutes(breakStartTime) - 1;
+    //     setBreakStartTime(minutesToTime(newMinutes));
+    // };
+    // const handleIncrement3 = () => {
+    //     const newMinutes = timeToMinutes(breakEndTime) + 1;
+    //     setBreakEndTime(minutesToTime(newMinutes));
+    // };
+
+    // const handleDecrement3 = () => {
+    //     const newMinutes = timeToMinutes(breakEndTime) - 1;
+    //     setBreakEndTime(minutesToTime(newMinutes));
+    // };
+    // const toggleDay = (day: string) => {
+    //     setWorkWeek(prev =>
+    //         prev.includes(day)
+    //             ? prev.filter(d => d !== day)
+    //             : [...prev, day]
+    //     );
+    // };
+    // const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    // const repeatOptions = [
+    //     'Repeat every week',
+    //     'Repeat every month',
+    //     'Repeat every year'
+    // ];
+    // const commuteTimeOptions = [
+    //     '5 Minutes',
+    //     '10 Minutes',
+    //     '15 Minutes',
+    //     '30 Minutes',
+    //     '45 Minutes',
+    // ];
+
+    const removeCard = (uuid: string) => {
+        setCards((prev) => prev.filter((card) => card.uuid !== uuid));
     };
 
-    const handleDecrement = () => {
-        const newMinutes = timeToMinutes(startTime) - 1;
-        setStartTime(minutesToTime(newMinutes));
-    };
-    const handleIncrement1 = () => {
-        const newMinutes = timeToMinutes(endTime) + 1;
-        setEndTime(minutesToTime(newMinutes));
-    };
+    const handleDelete = async (uuid: string) => {
+        const token = localStorage.getItem("token");
+        if (!token) return;
 
-    const handleDecrement1 = () => {
-        const newMinutes = timeToMinutes(endTime) - 1;
-        setEndTime(minutesToTime(newMinutes));
-    };
-    const handleIncrement2 = () => {
-        const newMinutes = timeToMinutes(breakStartTime) + 1;
-        setBreakStartTime(minutesToTime(newMinutes));
-    };
-
-    const handleDecrement2 = () => {
-        const newMinutes = timeToMinutes(breakStartTime) - 1;
-        setBreakStartTime(minutesToTime(newMinutes));
-    };
-    const handleIncrement3 = () => {
-        const newMinutes = timeToMinutes(breakEndTime) + 1;
-        setBreakEndTime(minutesToTime(newMinutes));
-    };
-
-    const handleDecrement3 = () => {
-        const newMinutes = timeToMinutes(breakEndTime) - 1;
-        setBreakEndTime(minutesToTime(newMinutes));
-    };
-    const toggleDay = (day: string) => {
-        setWorkWeek(prev =>
-            prev.includes(day)
-                ? prev.filter(d => d !== day)
-                : [...prev, day]
-        );
-    };
-    const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const repeatOptions = [
-        'Repeat every week',
-        'Repeat every month',
-        'Repeat every year'
-    ];
-    const commuteTimeOptions = [
-        '5 Minutes',
-        '10 Minutes',
-        '15 Minutes',
-        '30 Minutes',
-        '45 Minutes',
-    ];
-    const timeNeededOptions = [
-        '5 Minutes',
-        '10 Minutes',
-        '15 Minutes',
-        '30 Minutes',
-        '45 Minutes',
-    ];
-    const handleServiceChange = (
-        index: number,
-        field: 'hourlyRate' | 'timeNeeded' | 'serviceId',
-        value: string
-    ) => {
-        const updatedServices = [...services];
-        updatedServices[index] = {
-            ...updatedServices[index],
-            [field]: value,
-        };
-        setServices(updatedServices);
+        try {
+            await DeleteCard(uuid, token);
+            removeCard(uuid);
+            toast.success("Card removed Successfully");
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                console.error("Failed to delete card:", err.message);
+            } else {
+                console.error("Failed to delete card:", err);
+            }
+        }
     };
     console.log("fieldErrors", fieldErrors);
+
+
     return (
         <div className='font-alexandria'>
             <div className='w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center' style={{ boxShadow: "0px 4px 4px #0000001F" }} >
-                <p className='text-[16px] md:text-[24px] font-[400]  text-[#4290E9]'> Vendor
-                    {currentUser ? ` › ${currentUser.first_name} ${currentUser.last_name}` : ' › Create'}</p>
+                {userType === "vendor" &&
+                    <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}> Settings</p>}
+                {userType !== "vendor" &&
+                    <p className='text-[16px] md:text-[24px] font-[400]  text-[#4290E9]'> Vendor
+                        {currentUser ? ` › ${currentUser.first_name} ${currentUser.last_name}` : ' › Create'}</p>}
                 <div className='flex gap-[10px] items-center'>
-                    {/* {(active === "travel") && (
+                    {(active === "travel") && (
                         <Button
                             className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] border-[#4290E9] bg-white text-[#4290E9] hover:bg-[#f0f0f0] text-[14px] md:text-[16px] font-[400] flex gap-[5px] items-center'
                         >
                             Payout Period
                         </Button>
                     )}
-                    {(active === "travel") && (
+                    {/* {(active === "travel") && (
                         <Button
                             className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]'
                         >
                             Payments
                         </Button>
                     )} */}
-                    {(active === "details") && (
-                        <Button onClick={(e) => { handleSubmit(e) }} className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]'>Save Changes</Button>
+                    {(active === "details" || active === "work hours") && (
+                        <Button onClick={(e) => { handleSubmit(e) }} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>Save Changes</Button>
                     )}
                 </div>
             </div>
@@ -734,39 +810,57 @@ const VendorForm = () => {
                 backLink="/dashboard/vendors"
                 title={'Vendors'}
             />
-            <div className='flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600]' >
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => setActive("details")}
-                        className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-          ${active === "details" ? "bg-[#4290E9] text-white" : "bg-[#E4E4E4] text-[#666666]"}`}
-                    >
-                        DETAILS
-                    </button>
-                    {/* <button
+            {
+                <div className='flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600]' >
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setActive("details")}
+                            className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                            ${active === "details" ? "bg-[#4290E9] text-white" : "bg-[#F2F2F2] text-[#666666]"}`}
+                        >
+                            DETAILS
+                        </button>
+                        <button
+                            onClick={() => setActive("work hours")}
+                            className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                            ${active === "work hours" ? "bg-[#4290E9] text-white" : "bg-[#F2F2F2] text-[#666666]"}`}
+                        >
+                            WORK HOURS
+                        </button>
+                        {/* <button
                         onClick={() => setActive("history")}
                         className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
                 ${active === "history" ? "bg-[#4290E9] text-white" : "bg-[#E4E4E4] text-[#666666]"}`}
                     >
                         HISTORY
                     </button> */}
-                    {currentUser?.uuid && (
-                        <button
-                            onClick={() => setActive("travel")}
-                            className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                             ${active === "travel" ? "bg-[#4290E9] text-white" : "bg-[#E4E4E4] text-[#666666]"}`}
-                        >
-                            TRAVEL
-                        </button>
-                    )}
-                </div>
-            </div>
+                        {userType !== 'vendor' &&
+                            (currentUser?.uuid && (
+                                <button
+                                    onClick={() => setActive("travel")}
+                                    className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                                ${active === "travel" ? "bg-[#4290E9] text-white" : "bg-[#F2F2F2] text-[#666666]"}`}
+                                >
+                                    TRAVEL
+                                </button>
+                            ))
+                        }
+                    </div>
+                </div>}
             <div>
                 {(active === "details") && (
-                    <form >
-                        <Accordion type="multiple" defaultValue={["profile", "branding", "vendor", "service-area", "account", "hours", "location", "service"]} className="w-full space-y-4">
+                    <form
+                        onChange={() => {
+                            if (!isPopulatingData.current && userId) {
+                                setIsDirty(true);
+                            } else if (!userId) {
+                                setIsDirty(true)
+                            }
+                        }}
+                    >
+                        <Accordion type="multiple" defaultValue={["profile", "branding", "vendor", "service-area", "account", "hours", "location", "service", 'payment']} className="w-full space-y-4">
                             <AccordionItem value="profile">
-                                <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>PROFILE</AccordionTrigger>
+                                <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>PROFILE</AccordionTrigger>
                                 <AccordionContent className="grid gap-4">
                                     <div className='w-full flex flex-col items-center'>
                                         <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -776,7 +870,10 @@ const VendorForm = () => {
                                                     <Input
                                                         required
                                                         value={firstName}
-                                                        onChange={(e) => setFirstName(e.target.value)}
+                                                        onChange={(e) => {
+                                                            setFirstName(e.target.value)
+                                                            setIsDirty(true);
+                                                        }}
                                                         className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
                                                     {fieldErrors.first_name && <p className='text-red-500 text-[10px]'>{fieldErrors.first_name[0]}</p>}
                                                 </div>
@@ -784,7 +881,10 @@ const VendorForm = () => {
                                                     <label htmlFor="">Last Name <span className="text-red-500">*</span></label>
                                                     <Input
                                                         value={lastName}
-                                                        onChange={(e) => setLastName(e.target.value)}
+                                                        onChange={(e) => {
+                                                            setLastName(e.target.value)
+                                                            setIsDirty(true);
+                                                        }}
                                                         className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
                                                     {fieldErrors.last_name && <p className='text-red-500 text-[10px]'>{fieldErrors.last_name[0]}</p>}
                                                 </div>
@@ -916,14 +1016,7 @@ const VendorForm = () => {
                                                         </SelectContent>
                                                     </Select>
                                                 </div>
-                                                <div className='col-span-2 h-[200px]'>
-                                                    <DynamicMap
-                                                        address={companyAddress}
-                                                        city={companyCity}
-                                                        province={companyProvince}
-                                                        country={companyCountry}
-                                                    />
-                                                </div>
+
                                                 {!currentUser && (
                                                     <div className='col-span-2'>
                                                         <label htmlFor="">Password <span className="text-red-500">*</span></label>
@@ -959,7 +1052,7 @@ const VendorForm = () => {
                                 </AccordionContent>
                             </AccordionItem>
                             <AccordionItem value="location" className='border-none'>
-                                <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>LOCATION</AccordionTrigger>
+                                <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>LOCATION</AccordionTrigger>
                                 <AccordionContent className="grid gap-4">
                                     <div className='w-full flex flex-col items-center'>
                                         <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -1056,7 +1149,7 @@ const VendorForm = () => {
                                 </AccordionContent>
                             </AccordionItem>
                             <AccordionItem value="branding">
-                                <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>Branding Assets</AccordionTrigger>
+                                <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>Branding Assets</AccordionTrigger>
                                 <AccordionContent className="grid gap-4">
                                     <div className='w-full flex flex-col items-center'>
                                         <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -1095,7 +1188,7 @@ const VendorForm = () => {
                                                         />
                                                     </div>
                                                 </div>
-                                                <p className="text-[10px] text-[#6BAE41] ">
+                                                <p className={`text-[10px] ${userType}-text`}>
                                                     Avatar 96 x 96, PNG or JPG
                                                 </p>
 
@@ -1135,7 +1228,7 @@ const VendorForm = () => {
                                                         />
                                                     </div>
                                                 </div>
-                                                <p className="text-[10px] text-[#6BAE41] ">
+                                                <p className={`text-[10px] ${userType}-text`}>
                                                     Company logo 512 x 512, PNG or JPG
                                                 </p>
 
@@ -1178,7 +1271,7 @@ const VendorForm = () => {
                                                         />
                                                     </div>
                                                 </div>
-                                                <p className="text-[10px] text-[#4290E9] ">
+                                                <p className={`text-[10px] ${userType}-text`}>
                                                     Company banner 1600 x 720, PNG or JPG
                                                 </p>
                                             </div>
@@ -1187,495 +1280,64 @@ const VendorForm = () => {
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
-                            <AccordionItem value="hours" className='border-none'>
-                                <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>WORK HOURS</AccordionTrigger>
-                                <AccordionContent className="grid gap-4">
-                                    <div className='w-full flex flex-col items-center'>
-                                        <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                            <div className='grid grid-cols-2 gap-[16px]'>
-                                                <div className='col-span-2'>
-                                                    <p>Scheduling settings have impact on ordering from all customers - addresses, last job location, working hours, duration of services, travel time, all contribute to your availability.</p>
-                                                </div>
-                                                <div className='col-span-2'>
-                                                    <p>Set your working hours that clients can book your services.</p>
-                                                </div>
-                                                <div className="relative">
-                                                    <label htmlFor="time" className="block text-sm font-normal">
-                                                        Start Time
-                                                    </label>
-                                                    <Input
-                                                        id="starttime"
-                                                        type="text"
-                                                        value={startTime}
-                                                        placeholder='8:00 AM'
-                                                        onChange={(e) => setStartTime(e.target.value)}
-                                                        className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] placeholder:text-[#9ca3af]"
-                                                    />
-                                                    {fieldErrors.start_time && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.start_time[0]}</p>}
-                                                    <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                                                        <button type="button" onClick={handleIncrement}>
-                                                            <ArrowUp />
-                                                        </button>
-                                                        <button type="button" onClick={handleDecrement}>
-                                                            <ArrowDown />
-                                                        </button>
-                                                    </div>
-                                                </div>
 
-                                                <div className="relative">
-                                                    <label htmlFor="time" className="block text-sm font-normal">
-                                                        End Time
-                                                    </label>
-                                                    <Input
-                                                        id="endtime"
-                                                        type="text"
-                                                        value={endTime}
-                                                        placeholder='8:00 AM'
-                                                        onChange={(e) => setEndTime(e.target.value)}
-                                                        className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] placeholder:text-[#9ca3af]"
-                                                    />
-                                                    {fieldErrors[`work_hours.end_time`] && (
-                                                        <p className="text-red-500 text-[10px] mt-1">
-                                                            {fieldErrors[`work_hours.end_time`][0]}
-                                                        </p>
-                                                    )}
-                                                    <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                                                        <button type="button" onClick={handleIncrement1}>
-                                                            <ArrowUp />
-                                                        </button>
-                                                        <button type="button" onClick={handleDecrement1}>
-                                                            <ArrowDown />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <div className="col-span-2">
-                                                    <label >Work Week <span className="text-red-500">*</span></label>
-                                                    <Popover open={open} onOpenChange={setOpen}>
-                                                        <PopoverTrigger asChild>
-                                                            <Button
-                                                                variant="outline"
-                                                                className="w-full h-[42px] bg-[#EEEEEE] border-[1px] hover:bg-[#EEEEEE] hover:text-[#666666] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 text-[#666666]"
-                                                            >
-                                                                <span className={workWeek.length === 0 ? "text-[#9ca3af]" : ""}>
-                                                                    {workWeek.length > 0 ? workWeek.join(', ') : "Select Work Week"}
-                                                                </span>
-                                                                <span className="custom-arrow">
-                                                                    <DropDownArrow />
-                                                                </span>
-                                                            </Button>
-                                                        </PopoverTrigger>
+                            {
+                                userType === 'vendor' &&
+                                <AccordionItem value="payment" className='border-none'>
+                                    <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'vendor' ? '[&>svg]:text-[#6BAE41]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>PAYMENT</AccordionTrigger>
+                                    <AccordionContent className="grid gap-4">
+                                        <div className='w-full flex flex-col items-center'>
+                                            <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                                                <div className='grid grid-cols-2 gap-[32px]'>
 
-                                                        <PopoverContent
-                                                            className="w-[410px] p-2 border border-[#BBBBBB] bg-white 
-                            "
-                                                            align="start"
-                                                        >
-                                                            <div className="grid gap-2">
-                                                                {daysOfWeek.map((day) => {
-                                                                    const checked = workWeek.includes(day);
-                                                                    return (
-                                                                        <button
-                                                                            key={day}
-                                                                            onClick={() => toggleDay(day)}
-                                                                            className="flex items-center gap-2 cursor-pointer text-[#666666] text-sm"
-                                                                        >
-                                                                            <span
-                                                                                className={`h-4 w-4 flex items-center justify-center border rounded-sm border-[#BBBBBB] ${checked ? "bg-[#4290E9]" : "bg-white"
-                                                                                    }`}
-                                                                            >
-                                                                                {checked && <Check size={12} color="white" />}
-                                                                            </span>
-                                                                            {day}
-                                                                        </button>
-                                                                    );
-                                                                })}
+                                                    <div className="col-span-2">
+                                                        <div className='flex items-center justify-between'>
+                                                            <p className='font-bold text-sm text-[#666666]'>Cards</p>
+                                                            <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => setOpenPaymentDialog(true)}>
+                                                                <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
+                                                                <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm' />
                                                             </div>
-                                                        </PopoverContent>
-                                                    </Popover>
-                                                    {fieldErrors[`work_hours.work_days`] && (
-                                                        <p className="text-red-500 text-[10px] mt-1">
-                                                            {fieldErrors[`work_hours.work_days`][0]}
-                                                        </p>
-                                                    )}
-                                                </div>
-
-                                                <div className='col-span-2'>
-                                                    <label htmlFor="">Repeat</label>
-                                                    <Select value={repeat} onValueChange={(value) => setRepeat(value)}>
-                                                        <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] data-[placeholder]:text-[#9ca3af] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
-                                                            <SelectValue placeholder="Select Repeat Options Here" />
-                                                            <span className="custom-arrow">
-                                                                <DropDownArrow />
-                                                            </span>
-                                                        </SelectTrigger>
-
-                                                        <SelectContent>
-                                                            {repeatOptions.map((option, index) => (
-                                                                <SelectItem key={index} value={option}>
-                                                                    {option}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    {fieldErrors[`work_hours.repeat_weekly`] && (
-                                                        <p className="text-red-500 text-[10px] mt-1">
-                                                            {fieldErrors[`work_hours.repeat_weekly`][0]}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <div className='col-span-2'>
-                                                    <label htmlFor="timezone">Time Zone</label>
-                                                    <Select value={timeZone} onValueChange={(value) => setTimeZone(value)}>
-                                                        <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] data-[placeholder]:text-[#9ca3af] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
-                                                            <SelectValue placeholder="Select Time Zone Here" />
-                                                            <span className="custom-arrow">
-                                                                <DropDownArrow />
-                                                            </span>
-                                                        </SelectTrigger>
-
-                                                        <SelectContent>
-                                                            {timeZoneOptions.map((option, index) => (
-                                                                <SelectItem key={index} value={option.value}>
-                                                                    {option.label}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-
-                                                        {fieldErrors?.timezone && (
-                                                            <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.timezone[0]}</p>
-                                                        )}
-                                                    </Select>
-                                                </div>
-                                                <div className='col-span-2'>
-                                                    <label htmlFor="">Commute Time Baseline</label>
-                                                    <Select
-                                                        value={commuteTime}
-                                                        onValueChange={(value) => setCommuteTime(value)}
-                                                    >
-                                                        <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] data-[placeholder]:text-[#9ca3af] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
-                                                            <SelectValue placeholder="Select Time Baseline" />
-                                                            <span className="custom-arrow">
-                                                                <DropDownArrow />
-                                                            </span>
-                                                        </SelectTrigger>
-
-                                                        <SelectContent>
-                                                            {commuteTimeOptions.map((option, index) => (
-                                                                <SelectItem key={index} value={option}>
-                                                                    {option}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    {fieldErrors[`work_hours.commute_minutes`] && (
-                                                        <p className="text-red-500 text-[10px] mt-1">
-                                                            {fieldErrors[`work_hours.commute_minutes`][0]}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <label htmlFor="" className='col-span-2'>Reoccuring break</label>
-                                                <div className="relative">
-                                                    <label htmlFor="time" className="block text-sm font-normal">
-                                                        Start Time
-                                                    </label>
-                                                    <Input
-                                                        type="text"
-                                                        value={breakStartTime}
-                                                        placeholder='8:00 AM'
-                                                        onChange={(e) => setBreakStartTime(e.target.value)}
-                                                        className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] placeholder:text-[#9ca3af]"
-                                                    />
-                                                    {fieldErrors.start_time && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.start_time[0]}</p>}
-                                                    <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                                                        <button type="button" onClick={handleIncrement2}>
-                                                            <ArrowUpOrange />
-                                                        </button>
-                                                        <button type="button" onClick={handleDecrement2}>
-                                                            <ArrowDownOrange />
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                <div className="relative">
-                                                    <label htmlFor="time" className="block text-sm font-normal">
-                                                        End Time
-                                                    </label>
-                                                    <Input
-                                                        type="text"
-                                                        value={breakEndTime}
-                                                        placeholder='8:00 AM'
-                                                        onChange={(e) => setBreakEndTime(e.target.value)}
-                                                        className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] placeholder:text-[#9ca3af]"
-                                                    />
-                                                    {fieldErrors[`work_hours.break_end`] && (
-                                                        <p className="text-red-500 text-[10px] mt-1">
-                                                            {fieldErrors[`work_hours.break_end`][0]}
-                                                        </p>
-                                                    )}
-                                                    <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                                                        <button type="button" onClick={handleIncrement3}>
-                                                            <ArrowUpOrange />
-                                                        </button>
-                                                        <button type="button" onClick={handleDecrement3}>
-                                                            <ArrowDownOrange />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <div className='col-span-2'>
-                                                    <div className='flex items-center gap-[10px]'>
-                                                        <Input checked={isEnableGoogle}
-                                                            onChange={(e) => setIsEnableGoogle(e.target.checked)} type='checkbox' className='h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' />
-                                                        <p className='text-[16px] font-normal text-[#666666] mt-[12px]'>Enable Google Calendar Sync</p>
-                                                    </div>
-                                                    {fieldErrors.enable_breaks && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.enable_breaks[0]}</p>}
-                                                </div>
-                                                <div className='flex items-center gap-[10px]'>
-                                                    <Input checked={isSyncToGoogle}
-                                                        onChange={(e) => setIsSyncToGoogle(e.target.checked)} type='checkbox' className='h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' />
-                                                    <p className='text-[16px] font-normal text-[#666666] mt-[12px]'>Sync to Google</p>
-                                                    {fieldErrors.sync_google && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.sync_google[0]}</p>}
-                                                </div>
-                                                <div className=''>
-                                                    <Select onValueChange={(value) => setSyncEmailType(value)} value={syncEmailType} >
-                                                        <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] data-[placeholder]:text-[#9ca3af] border-[#BBBBBB] mt-[3px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
-                                                            <SelectValue placeholder="Select Email" />
-                                                            <span className="custom-arrow">
-                                                                <DropDownArrow />
-                                                            </span>
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="primary">Primary Email</SelectItem>
-                                                            <SelectItem value="secondary">Secondary Email</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    {fieldErrors.sync_email && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.sync_email[0]}</p>}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                            <AccordionItem value="service" className='border-none'>
-                                <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>SERVICES</AccordionTrigger>
-                                <AccordionContent className="grid gap-4">
-                                    <div className='w-full flex flex-col items-center'>
-                                        <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                            <div className='grid grid-cols-2 gap-[16px]'>
-                                                <div className="col-span-2">
-                                                    <div className='flex items-center justify-between'>
-                                                        <p className='font-normal text-base text-[#666666]'>Services</p>
-                                                        <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={handleAddService}>
-                                                            <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
-                                                            <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm' />
+                                                            <PaymentDialog
+                                                                open={openPaymentDialog}
+                                                                setOpen={setOpenPaymentDialog}
+                                                                onSuccess={() => {
+                                                                    fetchPaymentMethods();
+                                                                }}
+                                                            />
                                                         </div>
                                                     </div>
-                                                </div>
-                                                {(!currentUser || isAddingService) && (
-                                                    <>
-                                                        <div className="col-span-2">
-                                                            <label htmlFor="serviceName" className="block text-sm font-normal">
-                                                                Service Name <span className="text-red-500">*</span>
-                                                            </label>
-                                                            <div className="flex items-center gap-x-[20px]">
-                                                                <Select
-                                                                    value={serviceId}
-                                                                    onValueChange={(value) => setServiceId(value)}
+                                                    <div className="col-span-2">
+                                                        {cards.map((card) => (
+                                                            <div key={card.uuid} className='flex flex-col gap-y-3 mt-2'>
+                                                                <div
+                                                                    className="flex justify-between items-center w-full text-[16px] font-normal text-[#666666]"
                                                                 >
-                                                                    <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] data-[placeholder]:text-[#9ca3af] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
-                                                                        <SelectValue placeholder="Select Service Option Here" />
-                                                                        <span className="custom-arrow">
-                                                                            <DropDownArrow />
-                                                                        </span>
-                                                                    </SelectTrigger>
-
-                                                                    <SelectContent>
-                                                                        {servicesData.map((option) => (
-                                                                            <SelectItem key={option.uuid} value={option.uuid}>
-                                                                                {option.name}
-                                                                            </SelectItem>
-                                                                        ))}
-                                                                    </SelectContent>
-                                                                </Select>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setShowTimeFields(!showTimeFields)}
-                                                                    className="mt-[12px]"
-                                                                >
-                                                                    {showTimeFields ? <ChevronDownIcon /> : <DropDownArrow />}
-                                                                </button>
-                                                            </div>
-                                                            {fieldErrors.services && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.services[0]}</p>}
-                                                        </div>
-
-                                                        {showTimeFields && (
-                                                            <div className="flex items-center gap-x-3 w-[376px]">
-                                                                <div className="relative w-full">
-                                                                    <label htmlFor="hourlyRate" className="block text-sm font-normal">
-                                                                        Hourly Rate <span className="text-red-500">*</span>
-                                                                    </label>
-                                                                    <Input
-                                                                        id="hourlyRate"
-                                                                        type="number"
-                                                                        min={0}
-                                                                        step="0.01"
-                                                                        inputMode="decimal"
-                                                                        value={hourlyRate === '' ? '' : hourlyRate}
-                                                                        onChange={(e) => {
-                                                                            const value = e.target.value;
-
-                                                                            if (value === '') {
-                                                                                setHourlyRate(''); // Allow clearing the input
-                                                                                return;
-                                                                            }
-
-                                                                            const numeric = Number(value);
-                                                                            if (!isNaN(numeric) && numeric >= 0) {
-                                                                                setHourlyRate(numeric); // Only valid numbers >= 0
-                                                                            }
-                                                                        }}
-                                                                        className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                                                    />
-
-                                                                    <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                                                                        <button type="button" onClick={() => setHourlyRate(prev => Math.max(0, parseFloat((prev || 0).toString()) + 1))}><ArrowUp /></button>
-                                                                        <button type="button" onClick={() => setHourlyRate(prev => Math.max(0, parseFloat((prev || 0).toString()) - 1))}><ArrowDown /></button>
+                                                                    <div className='basis-[60%] flex items-center justify-between w-full gap-x-2.5'>
+                                                                        <p className="text-[#4290E9]">{capitalizeFirst(card.type)}</p>
+                                                                        <p>{card.last_four.slice(0, 4)} **** **** ****</p>
+                                                                    </div>
+                                                                    <div className="basis-[40%] w-full flex gap-x-4 items-center justify-end">
+                                                                        {card.is_primary && (
+                                                                            <span className="text-sm font-normal text-[#666666]">Primary</span>
+                                                                        )}
+                                                                        <X onClick={() => handleDelete(card.uuid)}
+                                                                            className="text-[#E06D5E] w-6 h-6 cursor-pointer hover:scale-110 transition-transform" />
                                                                     </div>
                                                                 </div>
-
-                                                                <div className="relative w-full">
-                                                                    <label htmlFor="timeNeeded" className="block text-sm font-normal">
-                                                                        Time Needed <span className="text-red-500">*</span>
-                                                                    </label>
-                                                                    <Select
-                                                                        value={timeNeeded}
-                                                                        onValueChange={(value) => setTimeNeeded(value)}
-                                                                    >
-                                                                        <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] data-[placeholder]:text-[#9ca3af] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
-                                                                            <SelectValue placeholder="Select Time" />
-                                                                        </SelectTrigger>
-
-                                                                        <SelectContent>
-                                                                            {timeNeededOptions.map((option, index) => (
-                                                                                <SelectItem key={index} value={option}>
-                                                                                    {option}
-                                                                                </SelectItem>
-                                                                            ))}
-                                                                        </SelectContent>
-                                                                    </Select>
-                                                                    <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                                                                        <button type="button"><ArrowUp /></button>
-                                                                        <button type="button"><ArrowDown /></button>
-                                                                    </div>
-                                                                </div>
+                                                                <hr />
                                                             </div>
-                                                        )}
-                                                    </>
-                                                )}
-                                                <div className='col-span-2'>
-                                                    {services.length > 0 && (
-                                                        <div>
-                                                            {services.map((service, index) => (
-                                                                <ServiceItem
-                                                                    key={index}
-                                                                    index={index}
-                                                                    service={service}
-                                                                    servicesData={servicesData} // Pass the service list
-                                                                    onChange={handleServiceChange}
-                                                                />
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                            <AccordionItem value="vendor" className='border-none'>
-                                <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>VENDOR RATE SETTINGS</AccordionTrigger>
-                                <AccordionContent className="grid gap-4">
-                                    <div className='w-full flex flex-col items-center'>
-                                        <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                            <div className='grid grid-cols-2 gap-[16px] py-[32px]'>
-                                                <div className='col-span-2'>
-                                                    <p className='text-sm font-normal text-[#666666]'>Set rate for all vendors commute reimbursement value.</p>
-                                                </div>
-                                                <div className='col-span-2'>
-                                                    <div>
-                                                        <Label htmlFor="">Payment per kilometer</Label>
-                                                        <Input
-                                                            type="number"
-                                                            value={paymentPerKm === '' ? '' : paymentPerKm}
-                                                            min={0}
-                                                            step="any"
-                                                            onChange={(e) => {
-                                                                const value = e.target.value;
+                                                        ))}
 
-                                                                // Allow empty string to let user clear the input
-                                                                if (value === '') {
-                                                                    setPaymentPerKm('');
-                                                                } else {
-                                                                    const numeric = Number(value);
-                                                                    if (!isNaN(numeric) && numeric >= 0) {
-                                                                        setPaymentPerKm(numeric);
-                                                                    }
-                                                                }
-                                                            }}
-                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'
-                                                        />
-
-                                                        {fieldErrors.payment_per_km && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.payment_per_km[0]}</p>}
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                            <AccordionItem value="service-area" className='border-none'>
-                                <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>SERVICE AREA</AccordionTrigger>
-                                <AccordionContent className="grid gap-4">
-                                    <div className='flex flex-col gap-y-4 py-[16px]'>
-                                        <div className='pl-[18px] flex items-center gap-[10px]'>
-                                            <Input
-                                                type='checkbox'
-                                                checked={enableServiceArea}
-                                                onChange={(e) => setEnableServiceArea(e.target.checked)}
-                                                className='h-[16px] w-[16px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'
-                                            />
-                                            <p className='text-[16px] font-normal text-[#666666] mt-[12px]'>
-                                                Enable Service Area
-                                            </p>
-                                        </div>
-                                        <div className='pl-[18px] flex items-center gap-[10px]'>
-                                            <Input
-                                                type='checkbox'
-                                                checked={forceServiceArea}
-                                                onChange={(e) => setForceServiceArea(e.target.checked)}
-                                                className='h-[16px] w-[16px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'
-                                            />
-                                            <p className='text-[16px] font-normal text-[#666666] mt-[12px]'>
-                                                Force Service Area
-                                            </p>
-                                        </div>
-                                    </div>
-                                    {/* <div className='w-full flex flex-col items-center'>
-                                        <div className='w-full flex justify-center flex-col'>
-                                            <div className='w-full h-[200px] md:h-[560px]'>
-                                                <DynamicMap
-                                                    address={billingAddress}
-                                                    city={billingCity}
-                                                    province={billingProvince}
-                                                    country={billingCountry}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div> */}
-                                </AccordionContent>
-                            </AccordionItem>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            }
                             {currentUser && (
                                 <AccordionItem value="account" className='border-none'>
-                                    <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>ACCOUNT MANAGEMENT</AccordionTrigger>
+                                    <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>ACCOUNT MANAGEMENT</AccordionTrigger>
                                     <AccordionContent className="grid gap-4">
                                         <div className='w-full flex flex-col items-center'>
                                             <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -1737,6 +1399,29 @@ const VendorForm = () => {
                 {(active === "travel") && (
                     <TravelTable userId={currentUser?.uuid} />
                 )
+                }
+                {(active === "work hours") && (
+                    <VendorWorkHours
+                        currentUser={Array.isArray(currentUser) ? currentUser[0] : currentUser}
+                        servicesData={servicesData}
+                        // services={services}
+                        // setServices={setServices}
+                        setPaymentPerKm={setPaymentPerKm}
+                        paymentPerKm={paymentPerKm}
+                        fieldErrors={fieldErrors}
+                        enableServiceArea={enableServiceArea}
+                        setEnableServiceArea={setEnableServiceArea}
+                        forceServiceArea={forceServiceArea}
+                        setForceServiceArea={setForceServiceArea}
+                        providerId={idToUse}
+                        address={companyAddress}
+                        city={companyCity}
+                        province={companyProvince}
+                        country={companyCountry}
+                        coords={map_coordinates}
+                        setmap_coordinates={setmap_coordinates}
+
+                    />)
                 }
 
             </div>

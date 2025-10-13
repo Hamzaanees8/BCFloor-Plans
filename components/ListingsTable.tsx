@@ -93,11 +93,12 @@ const ListingsTable: React.FC<ListingsTableProps> = ({
             <TableRow className="bg-[#E4E4E4] font-alexandria h-[54px] hover:bg-[#E4E4E4]">
               <TableHead className="text-[14px] font-[700] text-[#7D7D7D] pl-[20px]">Address</TableHead>
               <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Location</TableHead>
-              {userType === 'admin' && (
+              {(userType === 'admin' || userType === 'vendor') && (
                 <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Agent</TableHead>
               )}
               <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Added</TableHead>
-              <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Status</TableHead>
+              {userType !== 'vendor' &&
+                <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Status</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -146,10 +147,10 @@ const ListingsTable: React.FC<ListingsTableProps> = ({
                   <TableCell className="text-[15px] font-[400] text-[#7D7D7D]">
                     {listing?.city + ', ' + listing?.province + ', ' + listing?.postal_code + ', ' + listing?.country + ','}
                   </TableCell>
-                  {userType === 'admin' && (
+                  {(userType === 'admin' || userType === 'vendor') && (
                     <TableCell
                       onClick={() => onQuickView1("agent", listing.agent)}
-                      className="text-[15px] font-[400] text-[#4290E9] cursor-pointer "
+                      className={`text-[15px] font-[400] ${userType}-text cursor-pointer `}
                     >
                       {listing.agent?.first_name + ' ' + listing.agent?.last_name || 'N/A'}
                     </TableCell>
@@ -163,24 +164,26 @@ const ListingsTable: React.FC<ListingsTableProps> = ({
                       })
                       : "N/A"}
                   </TableCell>
-                  <TableCell className="text-[15px] font-[400] text-[#7D7D7D] flex justify-between items-center gap-2 pr-[20px]">
-                    <Switch
-                      checked={!!listing.status}
-                      onCheckedChange={async (checked) => {
-                        const data = await handleUpdateStatus(listing.uuid || '', checked);
-                        if (setListingsData && data?.data?.uuid) {
-                          setListingsData((prev: Listings[]) =>
-                            prev.map((list: Listings) =>
-                              list.uuid === data.data.uuid ? { ...list, status: checked } : list
-                            )
-                          );
-                        }
-                      }}
-                      className={`${listing.status ? "!bg-[#6BAE41]" : "!bg-[#E06D5E]"} data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500`}
-                    />
+                  {userType !== 'vendor' &&
+                    <TableCell className="text-[15px] font-[400] text-[#7D7D7D] flex justify-between items-center gap-2 pr-[20px]">
+                      <Switch
+                        checked={!!listing.status}
+                        onCheckedChange={async (checked) => {
+                          const data = await handleUpdateStatus(listing.uuid || '', checked);
+                          if (setListingsData && data?.data?.uuid) {
+                            setListingsData((prev: Listings[]) =>
+                              prev.map((list: Listings) =>
+                                list.uuid === data.data.uuid ? { ...list, status: checked } : list
+                              )
+                            );
+                          }
+                        }}
+                        className={`${listing.status ? "!bg-[#6BAE41]" : "!bg-[#E06D5E]"} data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500`}
+                      />
 
-                    <DropdownActions options={options} />
-                  </TableCell>
+                      <DropdownActions options={options} />
+                    </TableCell>
+                  }
                 </TableRow>
               })
             )}

@@ -5,6 +5,7 @@ import ServicesTable from '@/components/ServicesTable';
 import Link from 'next/link';
 import { CleanedProductOption, GetServices } from './services';
 import ProtectedAdminRoute from '@/components/ProtectedAdminRoute';
+import { useAppContext } from '@/app/context/AppContext';
 
 
 export interface Services {
@@ -48,6 +49,7 @@ export interface Services {
 }
 
 const Page = () => {
+  const { userType } = useAppContext();
   const [servicesData, setServicesData] = useState<Services[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
@@ -87,17 +89,17 @@ const Page = () => {
         className='w-full h-[80px] bg-[#E4E4E4] font-alexandria z-10 relative flex justify-between px-[20px] items-center'
         style={{ boxShadow: "0px 4px 4px #0000001F" }}
       >
-        <p className='text-[16px] md:text-[24px] font-[400] text-[#4290E9]'>
+        <p className={`text-[16px] md:text-[24px] font-[400] ${userType}-text`}>
           Services ({servicesData.length})
         </p>
         <div className='flex space-x-3'>
           {/* <Link href={'/dashboard/services/create'} className='w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] border-[#4290E9] bg-[#EEEEEE] text-[14px] md:text-[16px] font-[400] text-[#4290E9] flex gap-[5px] justify-center items-center hover:text-[#fff] hover:bg-[#4290E9]'>+ Package</Link> */}
-          <Link
+         {userType !== 'vendor' &&  <Link
             href={'/dashboard/services/create'}
-            className='w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] border-[#4290E9] bg-[#EEEEEE] text-[14px] md:text-[16px] font-[400] text-[#4290E9] flex gap-[5px] justify-center items-center hover:text-[#fff] hover:bg-[#4290E9]'
+            className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border bg-[#EEEEEE] text-[14px] md:text-[16px] font-[400] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button`}
           >
             + New Service
-          </Link>
+          </Link>}
         </div>
       </div>
 

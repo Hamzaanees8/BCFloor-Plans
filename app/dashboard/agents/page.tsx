@@ -5,6 +5,7 @@ import { Delete, Get } from './agents';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import AgentTable, { Agent } from '@/components/AgentTable';
+import { useAppContext } from '@/app/context/AppContext';
 export interface AgentData {
     uuid?: string;
     first_name: string;
@@ -79,14 +80,17 @@ const Page = () => {
     };
     console.log('agents', agentData);
     const agentlength = agentData.length;
+    const { userType } = useAppContext();
     return (
         <div>
             <div className='w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center' style={{ boxShadow: "0px 4px 4px #0000001F" }} >
-                <p className='text-[16px] md:text-[24px] font-[400]  text-[#4290E9]'>Agents ({agentlength})</p>
-                <Link href={'/dashboard/agents/create'} onClick={() => {
-                    setShowHeader(false)
-                    setShowForm(true)
-                }} className='w-[110px] md:w-[143px] h-[35px] md:h-[44px]  justify-center rounded-[6px] border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]'>+ New Agent</Link>
+                <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}>Agents ({agentlength})</p>
+                {userType !== 'vendor' &&
+                    <Link href={'/dashboard/agents/create'} onClick={() => {
+                        setShowHeader(false)
+                        setShowForm(true)
+                    }} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px]  justify-center rounded-[6px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg hover:opacity-95`}>+ New Agent</Link>
+                }
             </div>
 
             <div className="w-full">
@@ -104,7 +108,7 @@ const Page = () => {
                     loading={loading}
                     error={error}
                 />
-                {showCard && selectedData && (
+                {showCard && selectedData  && (
                     <QuickViewCard
                         type="agent"
                         data={selectedData}

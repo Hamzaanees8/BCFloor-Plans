@@ -45,8 +45,10 @@ const AddDiscountDialog: React.FC<Props> = ({
     const [codeDescription, setCodeDescription] = useState("");
     const [discountDescription, setDiscountDescription] = useState('');
     const [openCalendar, setOpenCalendar] = React.useState(false);
+    const [openStartCalendar, setOpenStartCalendar] = React.useState(false);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
     const [dateValue, setDateValue] = React.useState("")
+    const [startdateValue, setStartDateValue] = React.useState("")
     const [openDrowndown, setOpenDropdown] = useState(false);
     const [selectedServices, setSelectedServices] = useState<number[]>([]);
     const [selectedServicesCode, setSelectedServicesCode] = useState<number[]>([]);
@@ -58,6 +60,13 @@ const AddDiscountDialog: React.FC<Props> = ({
         parseDate(dateValue) || undefined
     )
     const [month, setMonth] = React.useState<Date | undefined>(date)
+    const [startdate, setStartDate] = React.useState<Date | undefined>(
+        parseDate(dateValue) || undefined
+    )
+    const [startmonth, setStartMonth] = React.useState<Date | undefined>(date)
+    const [isEligible, setIsEligible] = useState(false);
+console.log('startdate',startdate);
+
     // Function to handle tab clicks
     const handleTabClick = (tabName: string) => {
         setActiveTab(tabName);
@@ -560,28 +569,88 @@ const AddDiscountDialog: React.FC<Props> = ({
                                             {fieldErrors.name && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.name[0]}</p>}
                                         </div>
                                         <div className="col-span-2">
-                                            <label className="text-[#424242]" htmlFor="">Expiry Date</label>
+                                            <label className="text-[#424242]" htmlFor="">
+                                                Start Date
+                                            </label>
+                                            <div className="relative flex gap-2 w-full">
+                                                <Input
+                                                    id="date"
+                                                    value={startdateValue}
+                                                    className="h-[42px] w-full bg-[#EEEEEE] border-[1px] text-[#666666] border-[#BBBBBB] mt-[12px] pr-10"
+                                                    onChange={(e) => {
+                                                        setStartDateValue(e.target.value);
+                                                        const parsed = parseDate(e.target.value);
+                                                        if (parsed) {
+                                                            setStartDate(parsed);
+                                                            setStartMonth(parsed);
+                                                        }
+                                                    }}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === "ArrowDown") {
+                                                            e.preventDefault();
+                                                            setOpenStartCalendar(true);
+                                                        }
+                                                    }}
+                                                />
+
+                                                {/* Popover for Calendar */}
+                                                <Popover open={openStartCalendar} onOpenChange={setOpenStartCalendar}>
+                                                    <PopoverTrigger asChild>
+                                                        <Button
+                                                            id="date-picker"
+                                                            variant="ghost"
+                                                            className="absolute [&_svg]:size-6 top-8 right-2 size-6 -translate-y-1/2"
+                                                        >
+                                                            <CalendarIcon className="w-6 h-6 text-[#1E6FCC]" />
+                                                            <span className="sr-only">Select date</span>
+                                                        </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto overflow-hidden p-0" align="end">
+                                                        <Calendar
+                                                            mode="single"
+                                                            selected={date}
+                                                            captionLayout="dropdown"
+                                                            month={startmonth}
+                                                            onMonthChange={setStartMonth}
+                                                            onSelect={(selected) => {
+                                                                setStartDate(selected);
+                                                                setStartDateValue(formatDate(selected));
+                                                                setOpenStartCalendar(false);
+                                                            }}
+                                                        />
+                                                    </PopoverContent>
+                                                </Popover>
+                                            </div>
+                                            {fieldErrors.expiry_date && (
+                                                <p className="text-red-500 text-[10px] mt-1">{fieldErrors.expiry_date[0]}</p>
+                                            )}
+                                        </div>
+                                        <div className="col-span-2">
+                                            <label className="text-[#424242]" htmlFor="">
+                                                Expiry Date
+                                            </label>
                                             <div className="relative flex gap-2 w-full">
                                                 <Input
                                                     id="date"
                                                     value={dateValue}
                                                     className="h-[42px] w-full bg-[#EEEEEE] border-[1px] text-[#666666] border-[#BBBBBB] mt-[12px] pr-10"
                                                     onChange={(e) => {
-                                                        setDateValue(e.target.value)
-                                                        const date = parseDate(e.target.value)
-                                                        if (date) {
-                                                            setDate(date)
-                                                            setMonth(date)
+                                                        setDateValue(e.target.value);
+                                                        const parsed = parseDate(e.target.value);
+                                                        if (parsed) {
+                                                            setDate(parsed);
+                                                            setMonth(parsed);
                                                         }
                                                     }}
                                                     onKeyDown={(e) => {
                                                         if (e.key === "ArrowDown") {
-                                                            e.preventDefault()
-                                                            setOpenCalendar(true)
+                                                            e.preventDefault();
+                                                            setOpenCalendar(true);
                                                         }
                                                     }}
                                                 />
-                                                {fieldErrors.expiry_date && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.expiry_date[0]}</p>}
+
+                                                {/* Popover for Calendar */}
                                                 <Popover open={openCalendar} onOpenChange={setOpenCalendar}>
                                                     <PopoverTrigger asChild>
                                                         <Button
@@ -600,16 +669,37 @@ const AddDiscountDialog: React.FC<Props> = ({
                                                             captionLayout="dropdown"
                                                             month={month}
                                                             onMonthChange={setMonth}
-                                                            onSelect={(date) => {
-                                                                setDate(date)
-                                                                setDateValue(formatDate(date))
-                                                                setOpenCalendar(false)
+                                                            onSelect={(selected) => {
+                                                                setDate(selected);
+                                                                setDateValue(formatDate(selected));
+                                                                setOpenCalendar(false);
                                                             }}
                                                         />
                                                     </PopoverContent>
                                                 </Popover>
                                             </div>
+                                            {fieldErrors.expiry_date && (
+                                                <p className="text-red-500 text-[10px] mt-1">{fieldErrors.expiry_date[0]}</p>
+                                            )}
                                         </div>
+                                        <div className="py-2 col-span-2">
+                                            <label
+                                                className="flex items-center  py-2 cursor-pointer text-[16px] font-normal"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    className="form-checkbox h-4 w-4 rounded"
+                                                    checked={isEligible}
+                                                    onChange={() => setIsEligible((prev) => !prev)}
+                                                    aria-checked={isEligible}
+                                                    role="menuitemcheckbox"
+                                                />
+                                                <span className="ml-3 text-[#666666] text-[16px] font-normal">
+                                                    Eligible for use with other discounts
+                                                </span>
+                                            </label>
+                                        </div>
+
                                         <div className="col-span-2">
                                             <div className='flex items-center justify-between' ref={dropdownRef}>
                                                 <p className='font-normal text-base text-[#424242]'>Required Services</p>

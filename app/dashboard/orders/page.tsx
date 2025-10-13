@@ -58,6 +58,7 @@ export type Order = {
         uuid: string;
 
     }[]
+
 };
 export type Slot = {
     id: number;
@@ -153,6 +154,15 @@ type Vendor = {
     status: boolean;
     created_at: string;
     updated_at: string;
+    additional_breaks?: {
+        address: string
+        date: Date
+        end_time: string
+        start_time: string
+        title: string
+        uuid: string
+        vendor_id: string
+    }[]
 };
 export type OrderService = {
     id: number;
@@ -237,7 +247,7 @@ type Property = {
 
 
 const Page = () => {
-    const {userType} = useAppContext()
+    const { userType } = useAppContext()
     const [showForm, setShowForm] = useState(false)
     const [showCard, setShowCard] = React.useState(false);
     const [type, setType] = React.useState('');
@@ -343,7 +353,8 @@ const Page = () => {
 
             <div className='w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center' style={{ boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className={`text-[16px] md:text-[24px] font-[400] ${userType}-text`}>Orders ({length})</p>
-                <Link href={'/dashboard/orders/create'} onClick={handleClick} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px]  justify-center rounded-[6px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>+ New Order</Link>
+                {userType !== 'vendor' &&
+                    <Link href={'/dashboard/orders/create'} onClick={handleClick} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px]  justify-center rounded-[6px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>+ New Order</Link>}
             </div>
 
             <div className="w-full">

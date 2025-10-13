@@ -27,6 +27,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AgentData } from "@/app/dashboard/agents/page";
 import { UpdateAgentStatus } from "@/app/dashboard/agents/agents";
+import { useAppContext } from "@/app/context/AppContext";
 
 export type Agent = {
     uuid?: string;
@@ -69,6 +70,8 @@ interface AgentTableProps {
 
 export default function AgentTable({ setAgentData, onQuickView, agentData, onDelete, loading, error }: AgentTableProps) {
     const router = useRouter();
+    const { userType } = useAppContext();
+
     console.log("agent data", agentData)
     const handleUpdateStatus = async (uuid: string, status: boolean) => {
         try {
@@ -133,7 +136,7 @@ export default function AgentTable({ setAgentData, onQuickView, agentData, onDel
 
                 return (
                     <div
-                        className="text-[#4290E9] cursor-pointer"
+                        className={`text-[#4290E9] cursor-pointer ${userType}-text`}
                         onClick={handleClick}
                     >
                         {first_name} {last_name}
@@ -191,21 +194,26 @@ export default function AgentTable({ setAgentData, onQuickView, agentData, onDel
                 const uuid = row.original.uuid;
 
                 return (
-                    <Switch
-                        checked={!!status}
-                        onCheckedChange={async (checked) => {
-                            const data = await handleUpdateStatus(uuid || '', checked);
-                            if (setAgentData && data?.data?.uuid) {
-                                setAgentData((prev) =>
-                                    prev.map((agent) =>
-                                        agent.uuid === data.data.uuid ? { ...agent, status: checked } : agent
-                                    )
-                                );
-                            }
-                        }}
-                        className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
-                    />
+                    userType !== "vendor" && (
+                        <Switch
+                            checked={!!status}
+                            onCheckedChange={async (checked) => {
+                                const data = await handleUpdateStatus(uuid || "", checked);
+                                if (setAgentData && data?.data?.uuid) {
+                                    setAgentData((prev) =>
+                                        prev.map((agent) =>
+                                            agent.uuid === data.data.uuid
+                                                ? { ...agent, status: checked }
+                                                : agent
+                                        )
+                                    );
+                                }
+                            }}
+                            className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
+                        />
+                    )
                 );
+
             },
         },
         {
@@ -222,6 +230,7 @@ export default function AgentTable({ setAgentData, onQuickView, agentData, onDel
                     }));
 
                 return (
+                    userType !== "vendor" &&
                     <DropdownActions
                         options={[
                             {
@@ -272,8 +281,9 @@ export default function AgentTable({ setAgentData, onQuickView, agentData, onDel
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
         []
     );
-    const [columnVisibility, setColumnVisibility] =
-        React.useState<VisibilityState>({});
+    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
+        userType === "vendor" ? { status: false } : {}
+    );
     const [rowSelection, setRowSelection] = React.useState({});
     const table = useReactTable({
         data: agentData,

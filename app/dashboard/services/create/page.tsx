@@ -11,12 +11,14 @@ import { toast } from 'sonner'
 import { SaveModal } from '@/components/SaveModal'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import CategoryDialog from '@/components/CategoryDialog'
-import { CleanedProductOption, CreateService, DeleteVendorService, GetCategories, GetOneService, UpdateService, UpdateVendorServiceStatus } from '../services'
+import { CleanedProductOption, CreateService, GetCategories, GetOneService, GetServices, UpdateService } from '../services'
 import { useParams, useRouter } from 'next/navigation'
 import { Services } from '../page'
 import DropdownActions from '@/components/DropdownActions'
-import { Switch } from '@/components/ui/switch'
 import { HexColorPicker } from "react-colorful";
+import { useUnsaved } from '@/app/context/UnsavedContext';
+import useUnsavedChangesWarning from '@/app/hooks/useUnsavedChangesWarning';
+import ServicesSelector from '@/components/ServicesSelector';
 
 interface ProductOption {
     uuid?: string;
@@ -48,6 +50,7 @@ export interface CategoriesData {
 const ServicesFrom = () => {
     const [background, setBackground] = useState('');
     const [currentService, setCurrentService] = useState<Services | null>(null);
+    const [services, setServices] = useState<Services[] | null>(null);
     const [categoriesData, setCategoriesData] = useState<CategoriesData[] | null>(null);
     const [openCaegoryDialog, setOpenCaegoryDialog] = useState(false);
     const [category, setCategory] = useState<string>('');
@@ -59,6 +62,9 @@ const ServicesFrom = () => {
     const [ServiceDescription, setServiceDescription] = useState('');
     const [openColorPicker, setOpenColorPicker] = useState(false);
     const [openColorPicker1, setOpenColorPicker1] = useState(false);
+    const [selectedServices, setSelectedServices] = useState<string[]>([]);
+    const [discount, setDiscount] = useState<number>(0);
+
     const wrapperRef = useRef<HTMLDivElement | null>(null);
     const wrapperRef1 = useRef<HTMLDivElement | null>(null);
     const [options, setOptions] = useState<ProductOption[]>([
@@ -84,7 +90,16 @@ const ServicesFrom = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [open, setOpen] = useState(false);
 
-    console.log('addOns', addOns);
+    const { isDirty, setIsDirty } = useUnsaved();
+    useUnsavedChangesWarning(isDirty)
+    const isPopulatingData = useRef(false);
+
+
+    console.log('categoryObject', categoryObject);
+    console.log('category', category);
+    console.log('services', services);
+    console.log('selectedServices', selectedServices);
+
 
     const addOption = () => {
         setOptions([
@@ -112,8 +127,6 @@ const ServicesFrom = () => {
     const params = useParams();
     const ServiceId = params?.id as string;
 
-
-
     useEffect(() => {
         const token = localStorage.getItem("token");
 
@@ -137,8 +150,30 @@ const ServicesFrom = () => {
             return;
         }
 
+        GetServices(token)
+            .then(res => {
+
+                isPopulatingData.current = true;
+                const data = res.data;
+                setServices(data)
+                setIsDirty(false);
+            })
+            .catch(err => console.log(err.message));
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [ServiceId]);
+
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+
+        if (!token || !ServiceId) {
+            return;
+        }
+
         GetOneService(token, ServiceId)
             .then(res => {
+
+                isPopulatingData.current = true;
                 const data = res.data;
                 setCurrentService(data)
                 setCategory(data.category_id)
@@ -148,9 +183,15 @@ const ServicesFrom = () => {
                 // setOptions(data.product_options)
                 setThumbnailName(data.thumbnail)
                 setServiceDescription(data.description)
+                requestAnimationFrame(() => {
+                    isPopulatingData.current = false;
+                });
+
+                setIsDirty(false);
             })
             .catch(err => console.log(err.message));
 
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ServiceId]);
 
     useEffect(() => {
@@ -187,68 +228,68 @@ const ServicesFrom = () => {
         };
     }, []);
 
-    const handleUpdateVendorStatus = async (
-        vendorServiceUuid: string,
-        status: boolean,
-        serviceUuid: string
-    ) => {
-        try {
-            const token = localStorage.getItem('token') || '';
+    // const handleUpdateVendorStatus = async (
+    //     vendorServiceUuid: string,
+    //     status: boolean,
+    //     serviceUuid: string
+    // ) => {
+    //     try {
+    //         const token = localStorage.getItem('token') || '';
 
-            const payload = {
-                status,
-                _method: 'POST',
-            };
+    //         const payload = {
+    //             status,
+    //             _method: 'POST',
+    //         };
 
-            const response = await UpdateVendorServiceStatus(vendorServiceUuid, payload, token);
+    //         const response = await UpdateVendorServiceStatus(vendorServiceUuid, payload, token);
 
-            toast.success('Vendor service status updated successfully');
+    //         toast.success('Vendor service status updated successfully');
 
-            setCurrentService((prev) =>
-                prev && prev.uuid === serviceUuid
-                    ? {
-                        ...prev,
-                        vendor_services: prev.vendor_services.map((vs) =>
-                            vs.uuid === vendorServiceUuid ? { ...vs, status } : vs
-                        ),
-                    }
-                    : prev
-            );
-            return response;
-        } catch (error: unknown) {
-            if (error instanceof Error) {
-                console.error(error.message);
-                toast.error(error.message || 'Failed to update vendor status');
-            }
-        }
-    };
+    //         setCurrentService((prev) =>
+    //             prev && prev.uuid === serviceUuid
+    //                 ? {
+    //                     ...prev,
+    //                     vendor_services: prev.vendor_services.map((vs) =>
+    //                         vs.uuid === vendorServiceUuid ? { ...vs, status } : vs
+    //                     ),
+    //                 }
+    //                 : prev
+    //         );
+    //         return response;
+    //     } catch (error: unknown) {
+    //         if (error instanceof Error) {
+    //             console.error(error.message);
+    //             toast.error(error.message || 'Failed to update vendor status');
+    //         }
+    //     }
+    // };
 
-    const handleDelete = async (vendorServiceUuid: string) => {
-        try {
-            const token = localStorage.getItem('token') || '';
-            await DeleteVendorService(vendorServiceUuid, token);
+    // const handleDelete = async (vendorServiceUuid: string) => {
+    //     try {
+    //         const token = localStorage.getItem('token') || '';
+    //         await DeleteVendorService(vendorServiceUuid, token);
 
-            toast.success('Service deleted successfully');
-            setCurrentService((prev) =>
-                prev
-                    ? {
-                        ...prev,
-                        vendor_services: prev.vendor_services.filter(
-                            (vs) => vs.uuid !== vendorServiceUuid
-                        ),
-                    }
-                    : prev
-            );
-        } catch (error) {
-            if (error instanceof Error) {
-                console.error('Delete failed:', error.message);
-                toast.error(error.message || 'Failed to delete user');
-            } else {
-                console.error('Delete failed:', error);
-                toast.error('Failed to delete service');
-            }
-        }
-    };
+    //         toast.success('Service deleted successfully');
+    //         setCurrentService((prev) =>
+    //             prev
+    //                 ? {
+    //                     ...prev,
+    //                     vendor_services: prev.vendor_services.filter(
+    //                         (vs) => vs.uuid !== vendorServiceUuid
+    //                     ),
+    //                 }
+    //                 : prev
+    //         );
+    //     } catch (error) {
+    //         if (error instanceof Error) {
+    //             console.error('Delete failed:', error.message);
+    //             toast.error(error.message || 'Failed to delete user');
+    //         } else {
+    //             console.error('Delete failed:', error);
+    //             toast.error('Failed to delete service');
+    //         }
+    //     }
+    // };
 
     const handleDeleteOption = (uuid?: string) => {
         if (!currentService) return;
@@ -362,6 +403,7 @@ const ServicesFrom = () => {
                 setOpen(true)
                 router.push('/dashboard/services');
                 setIsLoading(false)
+                setIsDirty(false)
             } else {
                 await CreateService(payload, token);
                 toast.success("Service created successfully");
@@ -369,6 +411,7 @@ const ServicesFrom = () => {
                 setOpen(true)
                 router.push('/dashboard/services');
                 setIsLoading(false)
+                setIsDirty(false)
             }
         } catch (error) {
             setIsLoading(false);
@@ -451,7 +494,15 @@ const ServicesFrom = () => {
             </div>
 
             <div>
-                <form onSubmit={(e) => { handleSubmit(e) }}>
+                <form
+                    onChange={() => {
+                        if (!isPopulatingData.current && ServiceId) {
+                            setIsDirty(true);
+                        } else if (!ServiceId) {
+                            setIsDirty(true)
+                        }
+                    }}
+                    onSubmit={(e) => { handleSubmit(e) }}>
                     <div className='w-full flex flex-col items-center'>
                         <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
                             <div className='grid grid-cols-2 gap-[16px]'>
@@ -641,7 +692,6 @@ const ServicesFrom = () => {
 
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Description</label>
-                                                {/* <Input placeholder='Single Family Detached Starter Home' className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" /> */}
                                                 <Textarea value={ServiceDescription}
                                                     onChange={(e) => setServiceDescription(e.target.value)}
                                                     // placeholder={`This service covers:\n\n- Item\n- Item\n- Item\n- Item\n- Item`}
@@ -649,286 +699,359 @@ const ServicesFrom = () => {
                                                     className='w-full resize-none h-[200px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' />
                                                 {fieldErrors.description && <p className='text-red-500 text-[10px]'>{fieldErrors.description[0]}</p>}
                                             </div>
+                                            {categoryObject?.name.toLocaleLowerCase() === 'package' &&
+                                                <div className='w-full col-span-2'>
+                                                    <div className='w-full'>
+                                                        <label htmlFor="">Discount <span className="text-red-500">*</span></label>
+                                                        <Input
+                                                            type="number"
+                                                            min={-1} // allows clearing the input without defaulting to 0
+                                                            placeholder="Discount (Percentage)"
+                                                            className="px-3  w-full h-[42px] bg-[#eee] border border-[#BBBBBB] mt-[10px]"
+                                                            value={discount <= 0 ? "" : discount} // use your discount state here
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+
+                                                                if (val === "") {
+                                                                    setDiscount(0); // or null depending on your logic
+                                                                    return;
+                                                                }
+
+                                                                const parsed = parseInt(val, 10);
+                                                                if (!isNaN(parsed) && parsed > 0) {
+                                                                    setDiscount(parsed);
+                                                                }
+                                                            }}
+                                                        />
+
+                                                    </div>
+                                                    <div className='w-full mt-[16px] '>
+                                                        <label htmlFor="">Add Services <span className="text-red-500">*</span></label>
+
+                                                        <div className='w-full'>
+                                                            <ServicesSelector
+                                                                servicesData={services}
+                                                                services={selectedServices}
+                                                                setServices={setSelectedServices}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                            }
                                         </div>
 
                                     </div>
                                 </div>
                             </AccordionContent>
                         </AccordionItem>
-
-                        <AccordionItem value="options" className='relative group !mt-0'>
-                            <p onClick={addOption} className='text-[#4290E9] flex gap-[10px] cursor-pointer items-center absolute right-[75px] top-[20px] group-data-[state=closed]:hidden'>Add<span className='flex bg-[#4290E9] w-[18px] h-[18px] rounded-[3px] justify-center items-center'><Plus className='text-[#F2F2F2] w-[12px]' /></span> </p>
-                            <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>Product Options </AccordionTrigger>
-                            <AccordionContent className="grid gap-4 !pb-0 overflow-x-auto">
-                                <div className='w-full flex flex-col items-center mb-[40px]'>
-                                    <Table className='font-alexandria !overflow-x-auto whitespace-nowrap min-w-[800px]"'>
-                                        <TableHeader className='bg-[#E4E4E4]'>
-                                            <TableRow className='text-[14px] !font-[700]'>
-                                                <TableHead className="text-[14px] font-bold pl-[15px]">TITLE <span className="text-red-500">*</span></TableHead>
-                                                {categoryObject?.type.includes('quantity') &&
-                                                    <TableHead className="text-[14px] font-bold">QUANTITY</TableHead>}
-                                                {categoryObject?.type.includes('area') &&
-                                                    <TableHead className="text-[14px] font-bold">SQ. FT.</TableHead>}
-                                                {(Number(categoryObject?.duration) == 1) &&
-                                                    <TableHead className="text-[14px] font-bold">SERVICE DURATION</TableHead>}
-                                                {/* <TableHead className="text-[14px] font-bold">MIN PRICE</TableHead> */}
-                                                <TableHead className="text-[14px] font-bold">MIN PRICE</TableHead>
-                                                <TableHead className="text-[14px] font-bold">AMOUNT</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {currentService?.product_options.map((opt, idx) => (
-                                                <TableRow className='py-4' key={idx}>
-                                                    <TableCell>
-                                                        <Label className=' text-[15px] font-[400] text-[#666666] pl-[7px]'>{opt?.title}</Label>
-
-                                                    </TableCell>
+                        {categoryObject?.name.toLocaleLowerCase() !== 'package' &&
+                            <AccordionItem value="options" className='relative group !mt-0'>
+                                <p onClick={addOption} className='text-[#4290E9] flex gap-[10px] cursor-pointer items-center absolute right-[75px] top-[20px] group-data-[state=closed]:hidden'>Add<span className='flex bg-[#4290E9] w-[18px] h-[18px] rounded-[3px] justify-center items-center'><Plus className='text-[#F2F2F2] w-[12px]' /></span> </p>
+                                <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>Product Options </AccordionTrigger>
+                                <AccordionContent className="grid gap-4 !pb-0 overflow-x-auto">
+                                    <div className='w-full flex flex-col items-center mb-[40px]'>
+                                        <Table className='font-alexandria !overflow-x-auto whitespace-nowrap min-w-[800px]"'>
+                                            <TableHeader className='bg-[#E4E4E4]'>
+                                                <TableRow className='text-[14px] !font-[700]'>
+                                                    <TableHead className="text-[14px] font-bold pl-[15px]">TITLE <span className="text-red-500">*</span></TableHead>
                                                     {categoryObject?.type.includes('quantity') &&
-                                                        <TableCell>
-                                                            <Label className=' text-[15px] font-[400] text-[#666666]'>{opt?.quantity == 0 ? '-' : opt?.quantity}</Label>
-                                                        </TableCell>}
+                                                        <TableHead className="text-[14px] font-bold">QUANTITY</TableHead>}
                                                     {categoryObject?.type.includes('area') &&
-                                                        <TableCell className=''>
-                                                            <div className='flex justify-start items-center'>
-                                                                <Label className=' flex text-[15px] font-[400] text-[#666666] w-1/2'>{opt.sq_ft_range ? opt.sq_ft_range : (opt.sq_ft_rate !== undefined ? Number(opt.sq_ft_rate).toFixed(0) : '')}</Label>
-                                                                <Label className=' flex text-[15px] font-[400] text-[#666666]'>{opt.sq_ft_range ? 'Sq. ft. Range' : 'Sq. ft. Rate'}</Label>
-
-                                                            </div>
-                                                        </TableCell>}
-
-                                                    {Number(categoryObject?.duration) == 1 &&
-                                                        <TableCell>
-                                                            <Label className=' text-[15px] font-[400] text-[#666666]'>{opt.service_duration && opt.service_duration != 0 ? opt.service_duration + " Min" : '-'}</Label>
-                                                        </TableCell>}
-
-                                                    <TableCell>
-                                                        <Label className=' text-[15px] font-[400] text-[#666666]'>{opt.min_price && opt.min_price ? "$" + opt.min_price : '-'}</Label>
-                                                    </TableCell>
-                                                    <TableCell className=''>
-                                                        <div className='flex justify-between'>
-                                                            <Label className=' text-[15px] font-[400] text-[#666666] flex items-center'>${opt.amount}</Label>
-                                                            <DropdownActions options={[
-                                                                {
-                                                                    label: "Edit",
-                                                                    onClick: () => {
-                                                                        const { ...rest } = opt;
-                                                                        setOptions((prev) => {
-                                                                            const emptyIndex = prev.findIndex(
-                                                                                (row) =>
-                                                                                    !row.title &&
-                                                                                    (!row.quantity || row.quantity === 0) &&
-                                                                                    (!row.amount || row.amount === 0) &&
-                                                                                    (!row.service_duration || row.service_duration === 0) &&
-                                                                                    (!row.min_price || row.min_price === 0) &&
-                                                                                    (!row.sq_ft_rate || row.sq_ft_rate === '') &&
-                                                                                    (!row.sq_ft_range || row.sq_ft_range === '')
-                                                                            );
-
-                                                                            const newOption = {
-                                                                                ...rest,
-                                                                                title: opt.title ?? "",
-                                                                                quantity: opt.quantity ?? 0,
-                                                                                amount: opt.amount ?? 0,
-                                                                                min_price: opt.min_price ?? 0,
-                                                                                service_duration: opt.service_duration ?? 0,
-                                                                                sq_ft_rate: opt.sq_ft_rate?.toString() ?? "",
-                                                                                sq_ft_range: opt.sq_ft_range?.toString() ?? "",
-                                                                                isSqFtRate: !!opt.sq_ft_rate,
-                                                                                isSqFtRange: !!opt.sq_ft_range,
-                                                                            };
-
-                                                                            // If an empty row is found, replace it
-                                                                            if (emptyIndex !== -1) {
-                                                                                const updated = [...prev];
-                                                                                updated[emptyIndex] = newOption;
-                                                                                return updated;
-                                                                            }
-
-                                                                            // Else, add new row
-                                                                            return [...prev, newOption];
-                                                                        });
-
-
-                                                                        const updatedOptions = (currentService.product_options || []).filter(option => {
-                                                                            return !(opt.uuid && option.uuid === opt.uuid);
-                                                                        });
-
-                                                                        setCurrentService(prev => {
-                                                                            if (!prev) return prev;
-                                                                            return {
-                                                                                ...prev,
-                                                                                product_options: updatedOptions,
-                                                                            };
-                                                                        });
-                                                                    }
-
-                                                                },
-                                                                {
-                                                                    label: "Delete",
-                                                                    onClick: () => handleDeleteOption(opt.uuid),
-                                                                },
-                                                            ]
-                                                            } />
-                                                        </div>
-                                                    </TableCell>
+                                                        <TableHead className="text-[14px] font-bold">SQ. FT.</TableHead>}
+                                                    {(Number(categoryObject?.duration) == 1) &&
+                                                        <TableHead className="text-[14px] font-bold">SERVICE DURATION</TableHead>}
+                                                    {/* <TableHead className="text-[14px] font-bold">MIN PRICE</TableHead> */}
+                                                    <TableHead className="text-[14px] font-bold">MIN PRICE</TableHead>
+                                                    <TableHead className="text-[14px] font-bold">AMOUNT</TableHead>
                                                 </TableRow>
-                                            ))}
-
-                                            {options.map((opt, idx) => (
-                                                <TableRow key={idx} className='text-[#666666] text-[14px] !border-b-0 '>
-                                                    <TableCell className='pl-[15px]'>
-                                                        {/* <Label className='font-bold'>TITLE</Label> */}
-                                                        <Input
-                                                            className=" w-[192px] h-[42px] mt-[10px]"
-                                                            value={opt.title}
-                                                            onChange={(e) =>
-                                                                updateOption(idx, { ...opt, title: e.target.value })
-                                                            }
-                                                        />
-                                                        {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.title`] && (
-                                                            <p className="text-red-500 text-[10px] mt-1">
-                                                                {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.title`][0]}
-                                                            </p>
-                                                        )}
-                                                    </TableCell>
-                                                    {categoryObject?.type.includes('quantity') &&
+                                            </TableHeader>
+                                            <TableBody>
+                                                {currentService?.product_options.map((opt, idx) => (
+                                                    <TableRow className='py-4' key={idx}>
                                                         <TableCell>
-                                                            {/* <Label className='font-bold'>QUANTITY</Label> */}
-                                                            <Input
-                                                                type="number"
-                                                                min="0"
-                                                                className="w-[192px] h-[42px] mt-[10px]"
-                                                                value={opt.quantity === 0 ? "" : opt.quantity}
-                                                                onChange={(e) => {
-                                                                    const val = e.target.value;
+                                                            <Label className=' text-[15px] font-[400] text-[#666666] pl-[7px]'>{opt?.title}</Label>
 
-                                                                    if (val === "") {
-                                                                        updateOption(idx, {
-                                                                            ...opt,
-                                                                            quantity: 0, // temporary placeholder — or consider using `null`
-                                                                        });
-                                                                        return;
-                                                                    }
-
-                                                                    const parsed = parseInt(val, 10);
-
-                                                                    if (!isNaN(parsed) && parsed > 0) {
-                                                                        updateOption(idx, {
-                                                                            ...opt,
-                                                                            quantity: parsed,
-                                                                        });
-                                                                    }
-                                                                }}
-                                                            />
-                                                            {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.quantity`] && (
-                                                                <p className="text-red-500 text-[10px] mt-1">
-                                                                    {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.quantity`][0]}
-                                                                </p>
-                                                            )}
                                                         </TableCell>
-                                                    }
-                                                    {categoryObject?.type.includes('area') &&
-                                                        <TableCell className="">
-                                                            {/* Input section: col 1, spans both rows */}
-                                                            {/* <Label className="font-bold col-start-1">SQ. FT.</Label> */}
-                                                            <div className=" flex flex-row justify-start gap-[10px] h-[42px] mt-[10px]">
-                                                                {opt.isSqFtRange && (
-                                                                    <Input
-                                                                        type="text"
-                                                                        placeholder="Sq. Ft. Range"
-                                                                        value={opt.sq_ft_range || ''}
-                                                                        className="w-[192px] h-[42px] col-start-2"
-                                                                        onChange={(e) =>
-                                                                            updateOption(idx, {
-                                                                                ...opt,
-                                                                                sq_ft_range: e.target.value,
-                                                                            })
-                                                                        }
-                                                                    />
+                                                        {categoryObject?.type.includes('quantity') &&
+                                                            <TableCell>
+                                                                <Label className=' text-[15px] font-[400] text-[#666666]'>{opt?.quantity == 0 ? '-' : opt?.quantity}</Label>
+                                                            </TableCell>}
+                                                        {categoryObject?.type.includes('area') &&
+                                                            <TableCell className=''>
+                                                                <div className='flex justify-start items-center'>
+                                                                    <Label className=' flex text-[15px] font-[400] text-[#666666] w-1/2'>{opt.sq_ft_range ? opt.sq_ft_range : (opt.sq_ft_rate !== undefined ? Number(opt.sq_ft_rate).toFixed(0) : '')}</Label>
+                                                                    <Label className=' flex text-[15px] font-[400] text-[#666666]'>{opt.sq_ft_range ? 'Sq. ft. Range' : 'Sq. ft. Rate'}</Label>
 
-                                                                )}
-                                                                {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.sq_ft_range`] && (
-                                                                    <p className="text-red-500 text-[10px] mt-1">
-                                                                        {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.sq_ft_range`][0]}
-                                                                    </p>
-                                                                )}
-                                                                {opt.isSqFtRate && (
-                                                                    <Input
-                                                                        type="text"
-                                                                        placeholder="Sq. Ft. Rate"
-                                                                        value={opt.sq_ft_rate || ''}
-                                                                        className="w-[192px] h-[42px] col-start-2"
-                                                                        onChange={(e) =>
-                                                                            updateOption(idx, {
-                                                                                ...opt,
-                                                                                sq_ft_rate: e.target.value,
-                                                                            })
-                                                                        }
-                                                                    />
-                                                                )}
-                                                                {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.sq_ft_rate`] && (
-                                                                    <p className="text-red-500 text-[10px] mt-1">
-                                                                        {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.sq_ft_rate`][0]}
-                                                                    </p>
-                                                                )}
-                                                                <div className=" flex flex-col gap-0">
-                                                                    <label className="flex items-center gap-1 text-[14px] font-[700]">
-                                                                        <Input
-                                                                            type="radio"
-                                                                            name={`sq_ft_type_${idx}`}
-                                                                            checked={opt.isSqFtRange}
-                                                                            className="w-[16px] h-[16px]"
-                                                                            onChange={() =>
-                                                                                updateOption(idx, {
-                                                                                    ...opt,
-                                                                                    isSqFtRange: true,
-                                                                                    isSqFtRate: false,
-                                                                                })
-                                                                            }
-                                                                        />
-                                                                        SQ. FT. RANGE
-                                                                    </label>
-                                                                    <label className="flex items-center gap-1 text-[14px] font-[700]">
-                                                                        <Input
-                                                                            type="radio"
-                                                                            name={`sq_ft_type_${idx}`}
-                                                                            checked={opt.isSqFtRate}
-                                                                            className="w-[16px] h-[16px]"
-                                                                            onChange={() =>
-                                                                                updateOption(idx, {
-                                                                                    ...opt,
-                                                                                    isSqFtRange: false,
-                                                                                    isSqFtRate: true,
-                                                                                })
-                                                                            }
-                                                                        />
-                                                                        SQ. FT. RATE
-                                                                    </label>
                                                                 </div>
-                                                            </div>
+                                                            </TableCell>}
 
+                                                        {Number(categoryObject?.duration) == 1 &&
+                                                            <TableCell>
+                                                                <Label className=' text-[15px] font-[400] text-[#666666]'>{opt.service_duration && opt.service_duration != 0 ? opt.service_duration + " Min" : '-'}</Label>
+                                                            </TableCell>}
 
-                                                            {/* Radio buttons section: col 2, row 2 only */}
-                                                        </TableCell>
-                                                    }
-
-                                                    {Number(categoryObject?.duration) == 1 &&
                                                         <TableCell>
+                                                            <Label className=' text-[15px] font-[400] text-[#666666]'>{opt.min_price && opt.min_price ? "$" + opt.min_price : '-'}</Label>
+                                                        </TableCell>
+                                                        <TableCell className=''>
+                                                            <div className='flex justify-between'>
+                                                                <Label className=' text-[15px] font-[400] text-[#666666] flex items-center'>${opt.amount}</Label>
+                                                                <DropdownActions options={[
+                                                                    {
+                                                                        label: "Edit",
+                                                                        onClick: () => {
+                                                                            const { ...rest } = opt;
+                                                                            setOptions((prev) => {
+                                                                                const emptyIndex = prev.findIndex(
+                                                                                    (row) =>
+                                                                                        !row.title &&
+                                                                                        (!row.quantity || row.quantity === 0) &&
+                                                                                        (!row.amount || row.amount === 0) &&
+                                                                                        (!row.service_duration || row.service_duration === 0) &&
+                                                                                        (!row.min_price || row.min_price === 0) &&
+                                                                                        (!row.sq_ft_rate || row.sq_ft_rate === '') &&
+                                                                                        (!row.sq_ft_range || row.sq_ft_range === '')
+                                                                                );
 
-                                                            {/* <Label className='font-bold'>SERVICE DURATION</Label> */}
+                                                                                const newOption = {
+                                                                                    ...rest,
+                                                                                    title: opt.title ?? "",
+                                                                                    quantity: opt.quantity ?? 0,
+                                                                                    amount: opt.amount ?? 0,
+                                                                                    min_price: opt.min_price ?? 0,
+                                                                                    service_duration: opt.service_duration ?? 0,
+                                                                                    sq_ft_rate: opt.sq_ft_rate?.toString() ?? "",
+                                                                                    sq_ft_range: opt.sq_ft_range?.toString() ?? "",
+                                                                                    isSqFtRate: !!opt.sq_ft_rate,
+                                                                                    isSqFtRange: !!opt.sq_ft_range,
+                                                                                };
+
+                                                                                // If an empty row is found, replace it
+                                                                                if (emptyIndex !== -1) {
+                                                                                    const updated = [...prev];
+                                                                                    updated[emptyIndex] = newOption;
+                                                                                    return updated;
+                                                                                }
+
+                                                                                // Else, add new row
+                                                                                return [...prev, newOption];
+                                                                            });
+
+
+                                                                            const updatedOptions = (currentService.product_options || []).filter(option => {
+                                                                                return !(opt.uuid && option.uuid === opt.uuid);
+                                                                            });
+
+                                                                            setCurrentService(prev => {
+                                                                                if (!prev) return prev;
+                                                                                return {
+                                                                                    ...prev,
+                                                                                    product_options: updatedOptions,
+                                                                                };
+                                                                            });
+                                                                        }
+
+                                                                    },
+                                                                    {
+                                                                        label: "Delete",
+                                                                        onClick: () => handleDeleteOption(opt.uuid),
+                                                                    },
+                                                                ]
+                                                                } />
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+
+                                                {options.map((opt, idx) => (
+                                                    <TableRow key={idx} className='text-[#666666] text-[14px] !border-b-0 '>
+                                                        <TableCell className='pl-[15px]'>
+                                                            {/* <Label className='font-bold'>TITLE</Label> */}
+                                                            <Input
+                                                                className=" w-[192px] h-[42px] mt-[10px]"
+                                                                value={opt.title}
+                                                                onChange={(e) =>
+                                                                    updateOption(idx, { ...opt, title: e.target.value })
+                                                                }
+                                                            />
+                                                            {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.title`] && (
+                                                                <p className="text-red-500 text-[10px] mt-1">
+                                                                    {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.title`][0]}
+                                                                </p>
+                                                            )}
+                                                        </TableCell>
+                                                        {categoryObject?.type.includes('quantity') &&
+                                                            <TableCell>
+                                                                {/* <Label className='font-bold'>QUANTITY</Label> */}
+                                                                <Input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    className="w-[192px] h-[42px] mt-[10px]"
+                                                                    value={opt.quantity === 0 ? "" : opt.quantity}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+
+                                                                        if (val === "") {
+                                                                            updateOption(idx, {
+                                                                                ...opt,
+                                                                                quantity: 0, // temporary placeholder — or consider using `null`
+                                                                            });
+                                                                            return;
+                                                                        }
+
+                                                                        const parsed = parseInt(val, 10);
+
+                                                                        if (!isNaN(parsed) && parsed > 0) {
+                                                                            updateOption(idx, {
+                                                                                ...opt,
+                                                                                quantity: parsed,
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.quantity`] && (
+                                                                    <p className="text-red-500 text-[10px] mt-1">
+                                                                        {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.quantity`][0]}
+                                                                    </p>
+                                                                )}
+                                                            </TableCell>
+                                                        }
+                                                        {categoryObject?.type.includes('area') &&
+                                                            <TableCell className="">
+                                                                {/* Input section: col 1, spans both rows */}
+                                                                {/* <Label className="font-bold col-start-1">SQ. FT.</Label> */}
+                                                                <div className=" flex flex-row justify-start gap-[10px] h-[42px] mt-[10px]">
+                                                                    {opt.isSqFtRange && (
+                                                                        <Input
+                                                                            type="text"
+                                                                            placeholder="Sq. Ft. Range"
+                                                                            value={opt.sq_ft_range || ''}
+                                                                            className="w-[192px] h-[42px] col-start-2"
+                                                                            onChange={(e) =>
+                                                                                updateOption(idx, {
+                                                                                    ...opt,
+                                                                                    sq_ft_range: e.target.value,
+                                                                                })
+                                                                            }
+                                                                        />
+
+                                                                    )}
+                                                                    {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.sq_ft_range`] && (
+                                                                        <p className="text-red-500 text-[10px] mt-1">
+                                                                            {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.sq_ft_range`][0]}
+                                                                        </p>
+                                                                    )}
+                                                                    {opt.isSqFtRate && (
+                                                                        <Input
+                                                                            type="text"
+                                                                            placeholder="Sq. Ft. Rate"
+                                                                            value={opt.sq_ft_rate || ''}
+                                                                            className="w-[192px] h-[42px] col-start-2"
+                                                                            onChange={(e) =>
+                                                                                updateOption(idx, {
+                                                                                    ...opt,
+                                                                                    sq_ft_rate: e.target.value,
+                                                                                })
+                                                                            }
+                                                                        />
+                                                                    )}
+                                                                    {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.sq_ft_rate`] && (
+                                                                        <p className="text-red-500 text-[10px] mt-1">
+                                                                            {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.sq_ft_rate`][0]}
+                                                                        </p>
+                                                                    )}
+                                                                    <div className=" flex flex-col gap-0">
+                                                                        <label className="flex items-center gap-1 text-[14px] font-[700]">
+                                                                            <Input
+                                                                                type="radio"
+                                                                                name={`sq_ft_type_${idx}`}
+                                                                                checked={opt.isSqFtRange}
+                                                                                className="w-[16px] h-[16px]"
+                                                                                onChange={() =>
+                                                                                    updateOption(idx, {
+                                                                                        ...opt,
+                                                                                        isSqFtRange: true,
+                                                                                        isSqFtRate: false,
+                                                                                    })
+                                                                                }
+                                                                            />
+                                                                            SQ. FT. RANGE
+                                                                        </label>
+                                                                        <label className="flex items-center gap-1 text-[14px] font-[700]">
+                                                                            <Input
+                                                                                type="radio"
+                                                                                name={`sq_ft_type_${idx}`}
+                                                                                checked={opt.isSqFtRate}
+                                                                                className="w-[16px] h-[16px]"
+                                                                                onChange={() =>
+                                                                                    updateOption(idx, {
+                                                                                        ...opt,
+                                                                                        isSqFtRange: false,
+                                                                                        isSqFtRate: true,
+                                                                                    })
+                                                                                }
+                                                                            />
+                                                                            SQ. FT. RATE
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+
+
+                                                                {/* Radio buttons section: col 2, row 2 only */}
+                                                            </TableCell>
+                                                        }
+
+                                                        {Number(categoryObject?.duration) == 1 &&
+                                                            <TableCell>
+
+                                                                {/* <Label className='font-bold'>SERVICE DURATION</Label> */}
+                                                                <Input
+                                                                    type="number"
+                                                                    min={-1} // allows clearing the input without defaulting to 0
+                                                                    placeholder="Duration"
+                                                                    className="mt-[10px]"
+                                                                    value={opt.service_duration <= 0 ? "" : opt.service_duration}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+
+                                                                        if (val === "") {
+                                                                            updateOption(idx, {
+                                                                                ...opt,
+                                                                                service_duration: 0, // or null, depending on your app logic
+                                                                            });
+                                                                            return;
+                                                                        }
+
+                                                                        const parsed = parseInt(val, 10);
+                                                                        if (!isNaN(parsed) && parsed > 0) {
+                                                                            updateOption(idx, {
+                                                                                ...opt,
+                                                                                service_duration: parsed,
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                />
+
+                                                                {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.service_duration`] && (
+                                                                    <p className="text-red-500 text-[10px] mt-1">
+                                                                        {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.service_duration`][0]}
+                                                                    </p>
+                                                                )}
+                                                            </TableCell>
+                                                        }
+                                                        <TableCell>
                                                             <Input
                                                                 type="number"
-                                                                min={-1} // allows clearing the input without defaulting to 0
-                                                                placeholder="Duration"
-                                                                className="mt-[10px]"
-                                                                value={opt.service_duration <= 0 ? "" : opt.service_duration}
+                                                                min={-1}
+                                                                value={opt.min_price <= 0 ? "" : opt.min_price}
                                                                 onChange={(e) => {
                                                                     const val = e.target.value;
 
                                                                     if (val === "") {
                                                                         updateOption(idx, {
                                                                             ...opt,
-                                                                            service_duration: 0, // or null, depending on your app logic
+                                                                            min_price: 0,
                                                                         });
                                                                         return;
                                                                     }
@@ -937,266 +1060,234 @@ const ServicesFrom = () => {
                                                                     if (!isNaN(parsed) && parsed > 0) {
                                                                         updateOption(idx, {
                                                                             ...opt,
-                                                                            service_duration: parsed,
+                                                                            min_price: parsed,
+                                                                        });
+                                                                    }
+                                                                }}
+                                                                className='w-[100px] mt-[10px]'
+                                                                placeholder='Min Price'
+                                                            />
+                                                        </TableCell>
+
+                                                        <TableCell className='flex justify-between items-center'>
+                                                            {/* <Label className='font-bold'>AMOUNT</Label> */}
+                                                            <Input
+                                                                type="number"
+                                                                min={0} // allows 0 and up
+                                                                step="0.01" // allows decimals like 0.03
+                                                                className="w-[80px] mt-[10px]"
+                                                                value={opt.amount === 0 ? "" : opt.amount}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value;
+
+                                                                    if (val === "") {
+                                                                        updateOption(idx, {
+                                                                            ...opt,
+                                                                            amount: 0, // or null if you want to treat empty as no value
+                                                                        });
+                                                                        return;
+                                                                    }
+
+                                                                    const parsed = parseFloat(val);
+
+                                                                    // Accept only positive values including 0
+                                                                    if (!isNaN(parsed) && parsed >= 0) {
+                                                                        updateOption(idx, {
+                                                                            ...opt,
+                                                                            amount: parsed,
                                                                         });
                                                                     }
                                                                 }}
                                                             />
-
-                                                            {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.service_duration`] && (
-                                                                <p className="text-red-500 text-[10px] mt-1">
-                                                                    {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.service_duration`][0]}
-                                                                </p>
+                                                            {options.length > 1 && !opt.uuid && (
+                                                                <DropdownActions
+                                                                    options={[{
+                                                                        label: "Delete",
+                                                                        onClick: () => {
+                                                                            const updatedOptions = options.filter((_, i) => i !== idx);
+                                                                            setOptions(updatedOptions);
+                                                                        }
+                                                                    }]}
+                                                                />
                                                             )}
-                                                        </TableCell>
-                                                    }
-                                                    <TableCell>
-                                                        <Input
-                                                            type="number"
-                                                            min={-1}
-                                                            value={opt.min_price <= 0 ? "" : opt.min_price}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value;
-
-                                                                if (val === "") {
-                                                                    updateOption(idx, {
-                                                                        ...opt,
-                                                                        min_price: 0,
-                                                                    });
-                                                                    return;
-                                                                }
-
-                                                                const parsed = parseInt(val, 10);
-                                                                if (!isNaN(parsed) && parsed > 0) {
-                                                                    updateOption(idx, {
-                                                                        ...opt,
-                                                                        min_price: parsed,
-                                                                    });
-                                                                }
-                                                            }}
-                                                            className='w-[100px] mt-[10px]'
-                                                            placeholder='Min Price'
-                                                        />
-                                                    </TableCell>
-
-                                                    <TableCell className='flex justify-between items-center'>
-                                                        {/* <Label className='font-bold'>AMOUNT</Label> */}
-                                                        <Input
-                                                            type="number"
-                                                            min={0} // allows 0 and up
-                                                            step="0.01" // allows decimals like 0.03
-                                                            className="w-[80px] mt-[10px]"
-                                                            value={opt.amount === 0 ? "" : opt.amount}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value;
-
-                                                                if (val === "") {
-                                                                    updateOption(idx, {
-                                                                        ...opt,
-                                                                        amount: 0, // or null if you want to treat empty as no value
-                                                                    });
-                                                                    return;
-                                                                }
-
-                                                                const parsed = parseFloat(val);
-
-                                                                // Accept only positive values including 0
-                                                                if (!isNaN(parsed) && parsed >= 0) {
-                                                                    updateOption(idx, {
-                                                                        ...opt,
-                                                                        amount: parsed,
-                                                                    });
-                                                                }
-                                                            }}
-                                                        />
-                                                        {options.length > 1 && !opt.uuid && (
-                                                            <DropdownActions
-                                                                options={[{
-                                                                    label: "Delete",
-                                                                    onClick: () => {
-                                                                        const updatedOptions = options.filter((_, i) => i !== idx);
-                                                                        setOptions(updatedOptions);
-                                                                    }
-                                                                }]}
-                                                            />
-                                                        )}
-                                                        {/* {opt.uuid && (
+                                                            {/* {opt.uuid && (
                                                             <Button className='bg-[#4290E9] hover:bg-[#4a96ec]'>Save</Button>
                                                         )} */}
 
 
 
 
-                                                        {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.amount`] && (
-                                                            <p className='text-red-500 text-[10px]'>{fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.amount`][0]}</p>
-                                                        )}
-                                                    </TableCell>
-
-                                                </TableRow>
-                                            ))}
-
-                                            {fieldErrors.product_options && (
-                                                <p className="text-red-500 text-[10px] mt-1 ml-[20px]">
-                                                    {fieldErrors.product_options[0]}
-                                                </p>
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                    {categoryObject?.add_ons &&
-                                        <div className='w-full'>
-                                            <hr />
-                                            <div className='flex justify-between items-center px-[20px]'>
-                                                <h1 className='flex text-center text-[#4290E9] text-[18px] my-[20px]'>ADD ONS</h1>
-                                                <p onClick={handleAddRow} className='text-[#4290E9] flex gap-[10px] cursor-pointer items-center  group-data-[state=closed]:hidden'>Add<span className='flex bg-[#4290E9] w-[18px] h-[18px] rounded-[3px] justify-center items-center'><Plus className='text-[#F2F2F2] w-[12px]' /></span> </p>
-                                            </div>
-                                            <Table>
-                                                <TableHeader className='bg-[#E4E4E4] text-[#666666]'>
-                                                    <TableRow>
-                                                        <TableCell className='text-[14px] font-bold pl-[15px]'>TITLE</TableCell>
-                                                        <TableCell className='text-[14px] font-bold pl-[15px]'>AMOUNT</TableCell>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                {currentService?.service_add_ons.map((opt, idx) => (
-                                                    <TableRow className='py-4' key={idx}>
-                                                        <TableCell>
-                                                            <Label className=' text-[15px] font-[400] text-[#666666] pl-[7px]'>{opt?.title}</Label>
-
+                                                            {fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.amount`] && (
+                                                                <p className='text-red-500 text-[10px]'>{fieldErrors[`product_options.${(currentService?.product_options?.length ?? 0) > 0 ? currentService?.product_options?.length ?? 0 : idx}.amount`][0]}</p>
+                                                            )}
                                                         </TableCell>
-
-                                                        <TableCell className='flex justify-between items-center px-[20px]'>
-                                                            <Label className=' text-[15px] font-[400] text-[#666666]'>$ {opt?.amount}</Label>
-                                                            <DropdownActions options={[
-                                                                {
-                                                                    label: "Edit",
-                                                                    onClick: () => {
-                                                                        const { ...rest } = opt;
-                                                                        setAddOns((prev) => {
-                                                                            const emptyIndex = prev.findIndex(
-                                                                                (row) =>
-                                                                                    !row.title &&
-                                                                                    (!row.amount || row.amount === 0)
-                                                                            );
-
-                                                                            const newOption = {
-                                                                                ...rest,
-                                                                                title: opt.title ?? "",
-                                                                                amount: opt.amount ?? 0,
-                                                                            };
-
-                                                                            // If an empty row is found, replace it
-                                                                            if (emptyIndex !== -1) {
-                                                                                const updated = [...prev];
-                                                                                updated[emptyIndex] = newOption;
-                                                                                return updated;
-                                                                            }
-
-                                                                            // Else, add new row
-                                                                            return [...prev, newOption];
-                                                                        });
-
-
-                                                                        const updatedOptions = (currentService.service_add_ons || []).filter(option => {
-                                                                            return !(opt.uuid && option.uuid === opt.uuid);
-                                                                        });
-
-                                                                        setCurrentService(prev => {
-                                                                            if (!prev) return prev;
-                                                                            return {
-                                                                                ...prev,
-                                                                                service_add_ons: updatedOptions,
-                                                                            };
-                                                                        });
-                                                                    }
-
-                                                                },
-                                                                {
-                                                                    label: "Delete",
-                                                                    onClick: () => handleDeleteAddOn(opt.uuid),
-                                                                },
-                                                            ]
-                                                            } />
-                                                        </TableCell>
-
 
                                                     </TableRow>
                                                 ))}
-                                                {addOns.map((addOn, index) => (
-                                                    <TableRow key={index}>
-                                                        <TableCell>
-                                                            <Input
-                                                                className='h-[42px]'
-                                                                placeholder='Enter Add On title'
-                                                                value={addOn.title}
-                                                                onChange={(e) => {
-                                                                    const newAddOns = [...addOns];
-                                                                    newAddOns[index].title = e.target.value;
-                                                                    setAddOns(newAddOns);
-                                                                }}
-                                                            />
-                                                            {fieldErrors[`add_ons.${(currentService?.service_add_ons?.length ?? 0) > 0 ? currentService?.service_add_ons?.length ?? 0 : index}.title`] && (
-                                                                <p className="text-red-500 text-[10px] mt-1">
-                                                                    {fieldErrors[`add_ons.${(currentService?.service_add_ons?.length ?? 0) > 0 ? currentService?.service_add_ons?.length ?? 0 : index}.title`][0]}
-                                                                </p>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className=''>
-                                                            <div className='w-full flex justify-between items-center'>
+
+                                                {fieldErrors.product_options && (
+                                                    <p className="text-red-500 text-[10px] mt-1 ml-[20px]">
+                                                        {fieldErrors.product_options[0]}
+                                                    </p>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                        {categoryObject?.add_ons &&
+                                            <div className='w-full'>
+                                                <hr />
+                                                <div className='flex justify-between items-center px-[20px]'>
+                                                    <h1 className='flex text-center text-[#4290E9] text-[18px] my-[20px]'>ADD ONS</h1>
+                                                    <p onClick={handleAddRow} className='text-[#4290E9] flex gap-[10px] cursor-pointer items-center  group-data-[state=closed]:hidden'>Add<span className='flex bg-[#4290E9] w-[18px] h-[18px] rounded-[3px] justify-center items-center'><Plus className='text-[#F2F2F2] w-[12px]' /></span> </p>
+                                                </div>
+                                                <Table>
+                                                    <TableHeader className='bg-[#E4E4E4] text-[#666666]'>
+                                                        <TableRow>
+                                                            <TableCell className='text-[14px] font-bold pl-[15px]'>TITLE</TableCell>
+                                                            <TableCell className='text-[14px] font-bold pl-[15px]'>AMOUNT</TableCell>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    {currentService?.service_add_ons.map((opt, idx) => (
+                                                        <TableRow className='py-4' key={idx}>
+                                                            <TableCell>
+                                                                <Label className=' text-[15px] font-[400] text-[#666666] pl-[7px]'>{opt?.title}</Label>
+
+                                                            </TableCell>
+
+                                                            <TableCell className='flex justify-between items-center px-[20px]'>
+                                                                <Label className=' text-[15px] font-[400] text-[#666666]'>$ {opt?.amount}</Label>
+                                                                <DropdownActions options={[
+                                                                    {
+                                                                        label: "Edit",
+                                                                        onClick: () => {
+                                                                            const { ...rest } = opt;
+                                                                            setAddOns((prev) => {
+                                                                                const emptyIndex = prev.findIndex(
+                                                                                    (row) =>
+                                                                                        !row.title &&
+                                                                                        (!row.amount || row.amount === 0)
+                                                                                );
+
+                                                                                const newOption = {
+                                                                                    ...rest,
+                                                                                    title: opt.title ?? "",
+                                                                                    amount: opt.amount ?? 0,
+                                                                                };
+
+                                                                                // If an empty row is found, replace it
+                                                                                if (emptyIndex !== -1) {
+                                                                                    const updated = [...prev];
+                                                                                    updated[emptyIndex] = newOption;
+                                                                                    return updated;
+                                                                                }
+
+                                                                                // Else, add new row
+                                                                                return [...prev, newOption];
+                                                                            });
+
+
+                                                                            const updatedOptions = (currentService.service_add_ons || []).filter(option => {
+                                                                                return !(opt.uuid && option.uuid === opt.uuid);
+                                                                            });
+
+                                                                            setCurrentService(prev => {
+                                                                                if (!prev) return prev;
+                                                                                return {
+                                                                                    ...prev,
+                                                                                    service_add_ons: updatedOptions,
+                                                                                };
+                                                                            });
+                                                                        }
+
+                                                                    },
+                                                                    {
+                                                                        label: "Delete",
+                                                                        onClick: () => handleDeleteAddOn(opt.uuid),
+                                                                    },
+                                                                ]
+                                                                } />
+                                                            </TableCell>
+
+
+                                                        </TableRow>
+                                                    ))}
+                                                    {addOns.map((addOn, index) => (
+                                                        <TableRow key={index}>
+                                                            <TableCell>
                                                                 <Input
                                                                     className='h-[42px]'
-                                                                    type='number'
-                                                                    placeholder='Enter Amount'
-                                                                    value={addOn.amount === 0 ? "" : addOn.amount}
+                                                                    placeholder='Enter Add On title'
+                                                                    value={addOn.title}
                                                                     onChange={(e) => {
-                                                                        const val = e.target.value;
-
-                                                                        if (val === "") {
-                                                                            const newAddOns = [...addOns];
-                                                                            newAddOns[index].amount = 0;
-                                                                            setAddOns(newAddOns);
-                                                                            return;
-                                                                        }
-
-                                                                        const parsed = parseFloat(val);
-
-                                                                        if (!isNaN(parsed) && parsed >= 0) {
-                                                                            const newAddOns = [...addOns];
-                                                                            newAddOns[index].amount = parsed;
-                                                                            setAddOns(newAddOns);
-                                                                        }
+                                                                        const newAddOns = [...addOns];
+                                                                        newAddOns[index].title = e.target.value;
+                                                                        setAddOns(newAddOns);
                                                                     }}
-
                                                                 />
-                                                                {addOns.length > 1 && !addOn.uuid && (
-                                                                    <DropdownActions
-                                                                        options={[{
-                                                                            label: "Delete",
-                                                                            onClick: () => {
-                                                                                const updatedAddons = addOns?.filter((_, i) => i !== index);
-                                                                                setAddOns(updatedAddons);
-                                                                            }
-                                                                        }]}
-                                                                    />
+                                                                {fieldErrors[`add_ons.${(currentService?.service_add_ons?.length ?? 0) > 0 ? currentService?.service_add_ons?.length ?? 0 : index}.title`] && (
+                                                                    <p className="text-red-500 text-[10px] mt-1">
+                                                                        {fieldErrors[`add_ons.${(currentService?.service_add_ons?.length ?? 0) > 0 ? currentService?.service_add_ons?.length ?? 0 : index}.title`][0]}
+                                                                    </p>
                                                                 )}
-                                                            </div>
-                                                            {fieldErrors[`add_ons.${(currentService?.service_add_ons?.length ?? 0) > 0 ? currentService?.service_add_ons?.length ?? 0 : index}.amount`] && (
-                                                                <p className="text-red-500 text-[10px] mt-1">
-                                                                    {fieldErrors[`add_ons.${(currentService?.service_add_ons?.length ?? 0) > 0 ? currentService?.service_add_ons?.length ?? 0 : index}.amount`][0]}
-                                                                </p>
-                                                            )}
+                                                            </TableCell>
+                                                            <TableCell className=''>
+                                                                <div className='w-full flex justify-between items-center'>
+                                                                    <Input
+                                                                        className='h-[42px]'
+                                                                        type='number'
+                                                                        placeholder='Enter Amount'
+                                                                        value={addOn.amount === 0 ? "" : addOn.amount}
+                                                                        onChange={(e) => {
+                                                                            const val = e.target.value;
+
+                                                                            if (val === "") {
+                                                                                const newAddOns = [...addOns];
+                                                                                newAddOns[index].amount = 0;
+                                                                                setAddOns(newAddOns);
+                                                                                return;
+                                                                            }
+
+                                                                            const parsed = parseFloat(val);
+
+                                                                            if (!isNaN(parsed) && parsed >= 0) {
+                                                                                const newAddOns = [...addOns];
+                                                                                newAddOns[index].amount = parsed;
+                                                                                setAddOns(newAddOns);
+                                                                            }
+                                                                        }}
+
+                                                                    />
+                                                                    {addOns.length > 1 && !addOn.uuid && (
+                                                                        <DropdownActions
+                                                                            options={[{
+                                                                                label: "Delete",
+                                                                                onClick: () => {
+                                                                                    const updatedAddons = addOns?.filter((_, i) => i !== index);
+                                                                                    setAddOns(updatedAddons);
+                                                                                }
+                                                                            }]}
+                                                                        />
+                                                                    )}
+                                                                </div>
+                                                                {fieldErrors[`add_ons.${(currentService?.service_add_ons?.length ?? 0) > 0 ? currentService?.service_add_ons?.length ?? 0 : index}.amount`] && (
+                                                                    <p className="text-red-500 text-[10px] mt-1">
+                                                                        {fieldErrors[`add_ons.${(currentService?.service_add_ons?.length ?? 0) > 0 ? currentService?.service_add_ons?.length ?? 0 : index}.amount`][0]}
+                                                                    </p>
+                                                                )}
 
 
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </Table>
-                                        </div>
-                                    }
-                                </div>
-                                {/* </div>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </Table>
+                                            </div>
+                                        }
+                                    </div>
+                                    {/* </div>
                                 </div> */}
-                            </AccordionContent>
-                        </AccordionItem>
-
+                                </AccordionContent>
+                            </AccordionItem>
+                        }
+                        {/* 
                         {currentService && currentService?.vendor_services && currentService?.vendor_services.length > 0 && (
                             <AccordionItem value="statistics" className='!mt-0'>
                                 <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>Vendors</AccordionTrigger>
@@ -1278,7 +1369,7 @@ const ServicesFrom = () => {
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
-                        )}
+                        )} */}
 
                     </Accordion>
                 </form>

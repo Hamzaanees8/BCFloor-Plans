@@ -51,6 +51,7 @@ const Page = () => {
         month: dayjs().format('MMMM'),
         year: dayjs().format('YYYY'),
     });
+    console.log('selectedservice', selectedservice);
 
 
     const Days = [
@@ -59,7 +60,7 @@ const Page = () => {
         { label: "3 Days", value: "3" },
         { label: "1 Days", value: "1" },
     ];
-    
+
     useEffect(() => {
         const token = localStorage.getItem("token");
 

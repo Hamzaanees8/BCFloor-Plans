@@ -80,9 +80,10 @@ export default function OrderQuickViewCard({ data, onClose, vendorData, serviceD
                     </p> */}
                     <div className="flex items-center space-x-[18px]">
                         <MapPin className="w-[24px] text-[#666666]" strokeWidth={1} />
-                        <p className={`hover:underline text-[15px] font-[400] leading-[32px] ${userType}-text`}>
-                            {CurrentOrder?.property_address},   {CurrentOrder?.property_location}
-                        </p>
+                        <a className={`hover:underline text-[15px] font-[400] leading-[32px] ${userType}-text`} href={`https://www.google.com/maps?q=${CurrentOrder?.property_address + ',' + CurrentOrder?.property_location}`}
+                            target="_blank"
+                            rel="noopener noreferrer">
+                            {CurrentOrder?.property_address}, {CurrentOrder?.property_location}</a>
                     </div>
 
                     <div className="flex items-center space-x-[18px]">
