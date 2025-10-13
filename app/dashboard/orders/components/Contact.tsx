@@ -22,7 +22,9 @@ const Contact = () => {
         coAgents,
         setCoAgents,
         isSplitInvoice,
-        setIsSplitInvoice
+        setIsSplitInvoice,
+        internal,
+        setInternal
     } = useOrderContext();
     const { userType } = useAppContext()
     const [agentData, setAgentData] = useState<Agent[]>([]);
@@ -70,6 +72,7 @@ const Contact = () => {
         setPercentage('');
     };
 
+console.log('agentNotes',agentNotes);
 
 
     const handleRemove = (index: number) => {
@@ -520,7 +523,8 @@ const Contact = () => {
                                                                     {
                                                                         note: tempNotes.trim(),
                                                                         name: userName,
-                                                                        date: new Date()
+                                                                        date: new Date(),
+                                                                        internal: internal
                                                                     }
                                                                 ]);
                                                                 setTempNotes('');
@@ -538,12 +542,10 @@ const Contact = () => {
                                                                     <label className='flex items-center gap-x-[10px] cursor-pointer'>
                                                                         <input
                                                                             type="checkbox"
-                                                                            // checked={isSplitInvoice}
-                                                                            // onChange={(e) => {
-                                                                            //     setIsSplitInvoice(e.target.checked);
-                                                                            //     setDraftCoAgents([]);
-                                                                            //     setCoAgents([]);
-                                                                            // }}
+                                                                            checked={internal}
+                                                                            onChange={(e) => {
+                                                                                setInternal(e.target.checked);
+                                                                            }}
 
                                                                             className={`w-[18px] h-[18px] ${userType === 'admin' ? 'accent-[#4290E9]' : 'accent-[#6BAE41]'}  rounded-sm border border-[#CCCCCC]`}
                                                                         />

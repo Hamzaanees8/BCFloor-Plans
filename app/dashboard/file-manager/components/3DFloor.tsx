@@ -12,6 +12,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import { Order } from '../../orders/page';
 import UpgradeServicePopup from './UpgradeServicePopup';
 import PayInvoiceModal from './PayInvoiceModal';
+import AgentNotificationModal from './AgentNotificationModal';
 // import FileUploader from './FileUploader';
 
 function FileTab2({ currentService, orderData }: { currentService?: Services, orderData: Order | null }) {
@@ -22,6 +23,7 @@ function FileTab2({ currentService, orderData }: { currentService?: Services, or
     const [openPaymentModal, setOpenPaymentModal] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     const [openUpgrade, setOpenUpgrade] = useState(false);
+    const [showConfirmation, setShowConfirmation] = useState(false);
     const dragCounter = useRef(0);
 
     const { userType } = useAppContext()
@@ -184,9 +186,18 @@ function FileTab2({ currentService, orderData }: { currentService?: Services, or
                     <div className='flex justify-center items-center'>
                         {userType !== 'agent' &&
                             <Button
-                                onClick={() => setMediaUploaded(true)}
+                                onClick={() => {
+                                    setMediaUploaded(true)
+                                    setShowConfirmation(true)
+                                }}
                                 className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Send for Approval'} </Button>
                         }
+                        <AgentNotificationModal
+                            open={showConfirmation}
+                            onClose={() => setShowConfirmation(false)}
+                            serviceDate={currentService ? currentService : null}
+                            orderData={orderData ? orderData : null}
+                        />
                         {userType === 'agent' &&
                             <div className='flex flex-col justify-center items-center mr-4'>
                                 <p className='text-[18px] text-[#6BAE41]'>${currentServiceOption?.option.amount}</p>
@@ -229,7 +240,7 @@ function FileTab2({ currentService, orderData }: { currentService?: Services, or
                 </div>
 
             </div>
-             <div className='p-4 flex justify-end'>
+            <div className='p-4 flex justify-end'>
                 <Button
                     onClick={() => setOpenUpgrade(true)}
                     className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}>Upgrade Plan</Button>

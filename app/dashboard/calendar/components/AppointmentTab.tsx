@@ -1,5 +1,4 @@
 import DynamicMap from '@/components/DYnamicMap';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,11 +7,11 @@ import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react'
 import { Order } from '../../orders/page';
 import AddNotesDialog from './AddNotesDialog';
-import { useAppContext } from '@/app/context/AppContext';
 interface Notes {
     name: string;
     note: string;
     date: string
+    internal?:string
 }
 interface CoAgent {
     name: string;
@@ -23,7 +22,6 @@ interface AppointmentTab {
     serviceId: number
 }
 function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
-    const { userType } = useAppContext();
     const [agent, setAgent] = useState("");
     const [company, setCompany] = useState("");
     const [contactNumber, setContactNumber] = useState("");
@@ -297,10 +295,10 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 ))}
 
                 <div className="flex justify-end mt-[10px]">
-                    <Button
+                    {/* <Button
                         onClick={() => { setOpenAddNotesDialog(true) }}
                         className={`${userType}-bg ${userType}-border text-[14px] flex justify-center items-center text-[#fff]  w-[110px] h-[37px] hover:text-white hover-${userType}-bg hover:opacity-95`}
-                    >Add Note</Button>
+                    >Add Note</Button> */}
                 </div>
                 <AddNotesDialog
                     isInternal={false}

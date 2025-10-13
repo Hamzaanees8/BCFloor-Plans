@@ -43,6 +43,7 @@ export type Vendor = {
     company_name: string;
     avatar_url?: string;
     addresses: Address[];
+    settings: { payment_per_km: string }
 };
 export interface Company {
     id: number;

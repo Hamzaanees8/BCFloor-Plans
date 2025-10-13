@@ -393,3 +393,73 @@ export async function GetServices(token: string) {
     throw error;
   }
 }
+
+
+
+// utils/distanceCalculator.ts
+export async function calculateDistance(
+  originAddress: string,
+  destinationAddress: string
+): Promise<{ est_time: number; distance: number } | null> {
+  if (typeof window === "undefined" || !window.google?.maps) {
+    console.error("Google Maps API not loaded.");
+    return null;
+  }
+
+  const geocoder = new window.google.maps.Geocoder();
+  const distanceService = new window.google.maps.DistanceMatrixService();
+
+  // Helper: Geocode function
+  function geocode(address: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      geocoder.geocode({ address }, (results, status) => {
+        if (status === "OK" && results?.[0]) {
+          resolve(results[0].formatted_address);
+        } else {
+          reject(`Geocode failed for ${address}: ${status}`);
+        }
+      });
+    });
+  }
+
+  try {
+    const [origin, destination] = await Promise.all([
+      geocode(originAddress.trim()),
+      geocode(destinationAddress.trim()),
+    ]);
+
+    return new Promise((resolve) => {
+      distanceService.getDistanceMatrix(
+        {
+          origins: [origin],
+          destinations: [destination],
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        },
+        (response, status) => {
+          if (status !== "OK" || !response?.rows?.[0]?.elements?.[0]) {
+            console.error("Distance Matrix failed:", status);
+            resolve(null);
+            return;
+          }
+
+          const element = response.rows[0].elements[0];
+          if (element.status !== "OK") {
+            console.error("Invalid element:", element.status);
+            resolve(null);
+            return;
+          }
+
+          const distance = element.distance.value / 1000;
+          const est_time = element.duration.value / 60;
+
+          resolve({ distance, est_time });
+        }
+      );
+    });
+  } catch (error) {
+    console.error("Error calculating distance:", error);
+    return null;
+  }
+}
+
+

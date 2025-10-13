@@ -13,6 +13,9 @@ import ServiceItem from "./ServiceItem";
 import { Button } from "./ui/button";
 import AddBreakPopup from "@/app/dashboard/calendar/components/AddBreakPopup";
 import WorkAreaMap, { LatLng } from "./WorkAreaMap";
+import FileUploader from "@/app/dashboard/file-manager/components/FileUploader";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "./ui/carousel";
+import Image from "next/image";
 
 interface DaySchedule {
     enabled: boolean;
@@ -147,7 +150,7 @@ const VendorWorkHours = ({ currentUser, servicesData, setPaymentPerKm, paymentPe
     const [selectedBreak, setSelectedBreak] = useState<Break | undefined>(undefined);
     const { userType } = useAppContext()
     const [services, setServices] = useState<Service[]>([]);
-
+    const [files, setFiles] = useState<File[]>([]);
     const [tempOptionPrices, setTempOptionPrices] = useState<{ [key: string]: number }>({});
     const [tempOptionTimes, setTempOptionTimes] = useState<{ [key: string]: string }>({});
     const [workHours, setWorkHours] = useState<WorkHoursData>({
@@ -171,7 +174,7 @@ const VendorWorkHours = ({ currentUser, servicesData, setPaymentPerKm, paymentPe
     });
 
 
-    console.log('services', services);
+    console.log('files', files);
 
 
     const handleDayToggle = (day: string) => {
@@ -297,12 +300,15 @@ const VendorWorkHours = ({ currentUser, servicesData, setPaymentPerKm, paymentPe
         setSelectedBreak(undefined);
     };
 
+    const handleFilesChange = (selectedFiles: File[]) => {
+        setFiles((prev) => [...prev, ...selectedFiles]);
+    };
 
     console.log('currentUser', currentUser);
 
     return (
         <div className="w-full flex justify-center font-alexandria">
-            <Accordion type="multiple" defaultValue={["hours", "service", 'timeOff', 'vendor', 'service-area']} className="w-full space-y-4">
+            <Accordion type="multiple" defaultValue={["hours", "service", 'timeOff', 'vendor', 'service-area', 'media']} className="w-full space-y-4">
 
                 <AccordionItem value="hours">
                     <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>WORK HOURS</AccordionTrigger>
@@ -802,6 +808,44 @@ const VendorWorkHours = ({ currentUser, servicesData, setPaymentPerKm, paymentPe
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="media" className='border-none'>
+                    <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>Vendor Work</AccordionTrigger>
+                    <AccordionContent className="grid gap-4">
+                        <div className="w-full flex flex-col items-center">
+                            <div className="w-full py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
+                                <p className="font-alexandria text-[#666666] px-[10px]">Add photos to gallery</p>
+                                <div className="flex flex-col items-center">
+                                    <FileUploader onFilesChange={handleFilesChange} />
+                                </div>
+                                {files.length > 0 && (
+                                    <div className="w-full mt-8 flex justify-center">
+                                        <Carousel className="relative w-full max-w-[1100px]">
+                                            <CarouselContent>
+                                                {files.map((file, index) => (
+                                                    <CarouselItem
+                                                        key={index}
+                                                        className="basis-1/6 flex justify-center items-center" // 6 visible per view
+                                                    >
+                                                        <div className="relative w-[160px] h-[160px] rounded-lg overflow-hidden border border-gray-300">
+                                                            <Image
+                                                                src={URL.createObjectURL(file)}
+                                                                alt={`preview-${index}`}
+                                                                fill
+                                                                className="object-cover"
+                                                            />
+                                                        </div>
+                                                    </CarouselItem>
+                                                ))}
+                                            </CarouselContent>
+                                            <CarouselPrevious className="absolute left-[-40px] top-1/2 -translate-y-1/2 z-10" />
+                                            <CarouselNext className="absolute right-[-40px] top-1/2 -translate-y-1/2 z-10" />
+                                        </Carousel>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </AccordionContent>

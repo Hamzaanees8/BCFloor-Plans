@@ -7,6 +7,60 @@ import { VendorData } from '../[id]/page'
 import { useOrderContext } from '../context/OrderContext'
 import { Services } from '../../services/page'
 
+interface Coordinate {
+    lat: number
+    lng: number
+}
+
+function isPointInPolygon(point: Coordinate, polygon: Coordinate[]): boolean {
+    let inside = false
+    const { lat, lng } = point
+
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i].lng,
+            yi = polygon[i].lat
+        const xj = polygon[j].lng,
+            yj = polygon[j].lat
+
+        const intersect =
+            yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi
+
+        if (intersect) inside = !inside
+    }
+
+    return inside
+}
+
+async function isPropertyInsideVendorArea(selectedCurrentListing: string, vendor: VendorData): Promise<boolean> {
+    if (!selectedCurrentListing || !vendor.coordinates) return false
+
+    try {
+        const polygon: Coordinate[] = JSON.parse(vendor.coordinates as unknown as string);
+        if (!Array.isArray(polygon) || polygon.length < 3) return false
+
+        const geocoder = new window.google.maps.Geocoder()
+
+        const propertyCoords = await new Promise<Coordinate | null>((resolve) => {
+            geocoder.geocode({ address: selectedCurrentListing }, (results, status) => {
+                if (status === 'OK' && results && results[0]) {
+                    const loc = results[0].geometry.location
+                    resolve({ lat: loc.lat(), lng: loc.lng() })
+                } else {
+                    console.error('Geocoding failed:', status)
+                    resolve(null)
+                }
+            })
+        })
+
+        if (!propertyCoords) return false
+
+        return isPointInPolygon(propertyCoords, polygon)
+    } catch (err) {
+        console.error('Invalid vendor coordinates:', err)
+        return false
+    }
+}
+
 const Schedule = () => {
     const [vendorsData, setVendorsData] = React.useState<VendorData[]>([]);
     const [selectedVendorMap, setSelectedVendorMap] = React.useState<Record<number, string | string[]>>({});
@@ -15,7 +69,13 @@ const Schedule = () => {
     const [scheduleOverrideMap, setScheduleOverrideMap] = useState<Record<number, 0 | 1>>({});
     const [recommendTimeMap, setRecommendTimeMap] = useState<Record<number, 0 | 1>>({});
     const [servicesData, setServicesData] = useState<Services[]>([]);
+    const [filteredVendors, setFilteredVendors] = useState<VendorData[]>([])
+    const [filteredVendorsByService, setFilteredVendorsByService] = useState<Record<string, VendorData[]>>({});
+    const {
+        selectedCurrentListing,
+    } = useOrderContext();
 
+    console.log('selectedCurrentListing', filteredVendors);
     const { selectedServices } = useOrderContext();
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -44,7 +104,59 @@ const Schedule = () => {
             })
             .catch((err) => console.log(err.message));
     }, []);
+    console.log('vendorsData', vendorsData);
 
+    useEffect(() => {
+        async function filterVendors() {
+            if (!vendorsData.length || !selectedCurrentListing) return
+
+            const results = await Promise.all(
+                vendorsData.map(async (vendor) => ({
+                    vendor,
+                    inside: await isPropertyInsideVendorArea((selectedCurrentListing.address + ',' + selectedCurrentListing.city + ',' + selectedCurrentListing.country), vendor),
+                }))
+            )
+
+            const insideVendors = results
+                .filter((r) => r.inside)
+                .map((r) => r.vendor)
+
+            console.log('✅ Vendors covering property:', insideVendors)
+            setFilteredVendors(insideVendors)
+        }
+
+        filterVendors()
+    }, [vendorsData, selectedCurrentListing])
+
+    useEffect(() => {
+        async function filterVendorsByService() {
+            if (!vendorsData.length || !selectedCurrentListing || !servicesData.length) return;
+
+            const addressString = `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.country}`;
+            const result: Record<string, VendorData[]> = {};
+
+            for (const service of servicesData) {
+                const vendorsForService = vendorsData.filter(v =>
+                    v.vendor_services?.some(vs => vs.service?.uuid === service.uuid)
+                );
+
+                const insideResults = await Promise.all(
+                    vendorsForService.map(async vendor => ({
+                        vendor,
+                        inside: await isPropertyInsideVendorArea(addressString, vendor),
+                    }))
+                );
+
+                result[service.uuid] = insideResults
+                    .filter(r => r.inside)
+                    .map(r => r.vendor);
+            }
+
+            setFilteredVendorsByService(result);
+        }
+
+        filterVendorsByService();
+    }, [vendorsData, servicesData, selectedCurrentListing]);
 
     useEffect(() => {
         function generateColorMap(vendors: VendorData[]): Record<string, string> {
@@ -73,130 +185,9 @@ const Schedule = () => {
         setVendorColors(colorMap);
     }, [vendorsData]);
 
-    // console.log('servicesData', servicesData);
-
-
-    // const filteredService =
-
-
-    // const handleVendorChange = (value: string) => {
-    //     if (value === "all") {
-    //         // store all UUIDs
-    //         const allUUIDs = vendorsData.map(v => v.uuid);
-    //         setSelectedVendors(allUUIDs);
-    //     } else {
-    //         setSelectedVendors(value);
-    //     }
-    // };
-    console.log('selectedVendorMap', selectedVendorMap)
+    console.log('filteredVendorsByService', filteredVendorsByService)
     return (
         <div className='font-alexandria'>
-            {/* <div className='grid grid-cols-3 gap-16 text-[#7D7D7D] px-16 py-20 font-alexandria'>
-                {selectedServices?.map((service, idx) => {
-                    const selectedVendor = selectedVendorMap[idx] ?? 'all';
-
-                    const handleVendorChange = (value: string) => {
-                        if (value === "all") {
-                            const allUUIDs = vendorsData.map(v => v.uuid).filter((uuid): uuid is string => typeof uuid === "string");
-                            setSelectedVendorMap(prev => ({ ...prev, [idx]: allUUIDs }));
-                        } else {
-                            setSelectedVendorMap(prev => ({ ...prev, [idx]: value }));
-                        }
-                    };
-                    const showAllVendors = showAllVendorsMap[idx] ?? 0;
-                    const scheduleOverride = scheduleOverrideMap[idx] ?? 0;
-                    const recommendTime = recommendTimeMap[idx] ?? 0;
-
-                    const currentService = servicesData?.find((s) => {
-                        return s.uuid == service.uuid
-                    })
-                    const productOption = currentService?.product_options?.find((option) => {
-                        return option.uuid == service.option_id
-                    })
-                    return <div key={idx} className='flex flex-col gap-4'>
-                        <div>
-                            <p className='text-[12px]'>Select  Service Time ({idx + 1} of {selectedServices?.length})</p>
-                            <p className='text-[16px] font-[700]'>{service.title}</p>
-                            <p className='text-[12px]'>Approx. Duration <br />
-                                <span className='text-[16px] font-[700]'>{productOption?.service_duration} Minutes</span></p>
-                        </div>
-                        <div className='flex flex-col gap-4'>
-                            <div className='flex justify-start gap-6 items-center'>
-                                <Switch
-                                    checked={!!showAllVendors}
-                                    onCheckedChange={() =>
-                                        setShowAllVendorsMap(prev => ({ ...prev, [idx]: showAllVendors === 1 ? 0 : 1 }))
-                                    }
-                                    className='data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500'
-                                />
-
-                                <p className='text-[12px]'>Show all Vendors Regardless of Travel Time</p>
-                            </div>
-                            <div className='flex justify-start gap-6 items-center'>
-                                <Switch
-                                    checked={!!scheduleOverride}
-                                    onCheckedChange={() =>
-                                        setScheduleOverrideMap(prev => ({ ...prev, [idx]: scheduleOverride === 1 ? 0 : 1 }))
-                                    }
-                                    className='data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500'
-                                />
-                                <p className='text-[12px]'>Schedule Override</p>
-                            </div>
-                            <div className='flex justify-start gap-6 items-center'>
-                                <Switch
-                                    checked={!!recommendTime}
-                                    onCheckedChange={() =>
-                                        setRecommendTimeMap(prev => ({ ...prev, [idx]: recommendTime === 1 ? 0 : 1 }))
-                                    }
-                                    className='data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500'
-                                />
-                                <p className='text-[12px]'>Recommend Best Time</p>
-                            </div>
-                        </div>
-                        <div>
-                            <Select
-                                value={typeof selectedVendor === "string" ? selectedVendor : "all"}
-                                onValueChange={handleVendorChange}
-                            >
-                                <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
-                                    <SelectValue placeholder="Select Vendor" />
-                                </SelectTrigger>
-
-                                <SelectContent>
-                                    <SelectItem value="all">All Vendors</SelectItem>
-                                    {vendorsData?.map((vendor, idx) => (
-                                        <SelectItem key={idx} value={vendor.uuid ?? ''}>
-                                            {vendor.first_name} {vendor.last_name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <div className='mt-[20px]'>
-                                <OneDayCalendar
-                                    selectedVendors={
-                                        selectedVendor === 'all'
-                                            ? vendorsData.map(v => v.uuid).filter((uuid): uuid is string => typeof uuid === "string")
-                                            : Array.isArray(selectedVendor)
-                                                ? selectedVendor.filter((uuid): uuid is string => typeof uuid === "string")
-                                                : [selectedVendor].filter((uuid): uuid is string => typeof uuid === "string")
-                                    }
-                                    vendorColors={vendorColors}
-                                    service={service}
-                                    calendarIdx={idx}
-                                    showAllVendorsMap={showAllVendorsMap}
-                                    scheduleOverrideMap={scheduleOverrideMap}
-                                    recommendTimeMap={recommendTimeMap}
-                                    recommendTime={recommendTime}
-                                    showAllVendors={showAllVendors}
-                                    scheduleOverride={scheduleOverride}
-                                />
-                            </div>
-
-                        </div>
-                    </div>
-                })}
-
-            </div> */}
             <div className="grid grid-cols-3 gap-16 text-[#7D7D7D] px-16 py-20 auto-rows-max">
                 {selectedServices?.map((service, idx) => {
                     const selectedVendor = selectedVendorMap[idx] ?? 'all';
@@ -287,24 +278,48 @@ const Schedule = () => {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="all">All Vendors</SelectItem>
-                                            {vendorsData?.map((vendor, vidx) => (
-                                                <SelectItem key={vidx} value={vendor.uuid ?? ''}>
-                                                    {vendor.first_name} {vendor.last_name}
+                                            {service.uuid && filteredVendorsByService[service.uuid]?.length ? (
+                                                filteredVendorsByService[service.uuid]!.map((vendor, vidx) => (
+                                                    <SelectItem key={vidx} value={vendor.uuid ?? ''}>
+                                                        {vendor.first_name} {vendor.last_name}
+                                                    </SelectItem>
+                                                ))
+                                            ) : (
+                                                <SelectItem value="none" disabled>
+                                                    No vendors available for this service in the selected area
                                                 </SelectItem>
-                                            ))}
+                                            )}
+
+
                                         </SelectContent>
+
                                     </Select>
 
                                     <div className="mt-[20px]">
                                         <OneDayCalendar
                                             selectedVendors={
                                                 selectedVendor === 'all'
-                                                    ? vendorsData
-                                                        .map((v) => v.uuid)
-                                                        .filter((uuid): uuid is string => typeof uuid === 'string')
+                                                    ? (
+                                                        service.uuid
+                                                            ? (filteredVendorsByService[service.uuid] ?? [])
+                                                                .filter((v) =>
+                                                                    v.vendor_services?.some(
+                                                                        (vs) => vs.service?.uuid === service.uuid
+                                                                    )
+                                                                )
+                                                                .map((v) => v.uuid)
+                                                                .filter(
+                                                                    (uuid): uuid is string => typeof uuid === 'string'
+                                                                )
+                                                            : []
+                                                    )
                                                     : Array.isArray(selectedVendor)
-                                                        ? selectedVendor.filter((uuid): uuid is string => typeof uuid === 'string')
-                                                        : [selectedVendor].filter((uuid): uuid is string => typeof uuid === 'string')
+                                                        ? selectedVendor.filter(
+                                                            (uuid): uuid is string => typeof uuid === 'string'
+                                                        )
+                                                        : [selectedVendor].filter(
+                                                            (uuid): uuid is string => typeof uuid === 'string'
+                                                        )
                                             }
                                             vendorColors={vendorColors}
                                             service={service}

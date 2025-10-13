@@ -112,8 +112,6 @@ export default function OneDayCalendar({ selectedVendors, vendorColors, service,
   const [clickedSlot, setClickedSlot] = useState<{ start: string; end: string } | null>(null);
   const [availableSlotVendors, setAvailableSlotVendors] = useState<VendorData[]>([]);
   const [destinationAddress, setDestinationAddress] = useState<string>('');
-  console.log('selectedSlots', selectedSlots);
-  console.log('selectedVendors', selectedVendors);
   useEffect(() => {
     const selectedServiceIds = selectedServices.map(s => s.uuid);
     setSelectedSlots((prev) =>
@@ -161,7 +159,10 @@ export default function OneDayCalendar({ selectedVendors, vendorColors, service,
 
     if (selectedListingId) {
       GetOneListing(token, selectedListingId)
-        .then(data => setDestinationAddress(data.data.address))
+        .then(data => {
+          setDestinationAddress(data.data.address + ',' + data.data.city + ',' + data.data.country)
+
+        })
         .catch(err => console.log(err.message));
     } else {
       console.log('Property ID is undefined.');
@@ -170,13 +171,19 @@ export default function OneDayCalendar({ selectedVendors, vendorColors, service,
   useEffect(() => {
     const date = currentDate;
 
-    const filteredVendors = vendors.filter((vendor) =>
-      vendor.uuid !== undefined && selectedVendors.includes(vendor.uuid)
+    const filteredVendors = vendors.filter(
+      (vendor) => vendor.uuid && selectedVendors?.includes(vendor.uuid)
     );
+    if (filteredVendors.length === 0) {
+      setEvents([]);
+      return;
+    }
+
+    const fullDaySlots = generateAllDaySlots(date, 15);
+
 
     if (!filteredVendors.length) return;
 
-    const fullDaySlots = generateAllDaySlots(date, 15); // Unavailable baseline
     const availableSlotMap = new Map<string, Slots>();
 
     filteredVendors.forEach((vendor) => {
@@ -301,6 +308,7 @@ export default function OneDayCalendar({ selectedVendors, vendorColors, service,
     return address?.trim() || "";
   }
   async function calculateDistance(originInput: string, destinationInput: string): Promise<{ est_time: number; distance: number } | null> {
+
     try {
       if (!originInput || !destinationInput) {
         console.error("Origin or destination address is empty.");
@@ -334,9 +342,8 @@ export default function OneDayCalendar({ selectedVendors, vendorColors, service,
 
             const distance = result.distance.value / 1000;
             const est_time = result.duration.value / 60;
+            console.log('distance', distance, 'est_time', est_time);
 
-            console.log("Distance (km):", distance);
-            console.log("Estimated time (min):", est_time);
             resolve({ est_time, distance });
           }
         );
@@ -359,12 +366,13 @@ export default function OneDayCalendar({ selectedVendors, vendorColors, service,
     const slotEnd = dayjs(info.event.end).format('HH:mm');
     const selectedDate = dayjs(info.event.start).format('YYYY-MM-DD');
 
-    if (selectedVendors.length === 1) {
+    if (selectedVendors?.length === 1) {
       const vendorUUID = selectedVendors[0];
       const vendor = vendors.find(v => v.uuid === vendorUUID);
       if (!vendor || !vendor.work_hours) return;
       const { start_time, end_time, break_start, break_end } = vendor.work_hours;
       const origin = vendor?.addresses?.[1]?.address_line_1 || "";
+      console.log('vendor', vendor?.addresses);
       //setOriginAddress(vendor?.addresses?.[1]?.address_line_1 || '');
       const eventStart = dayjs(`2000-01-01T${slotStart}`);
       const eventEnd = dayjs(`2000-01-01T${slotEnd}`);
@@ -376,6 +384,8 @@ export default function OneDayCalendar({ selectedVendors, vendorColors, service,
       const isWithinWorkingHours = eventStart.isSameOrAfter(workStart) && eventEnd.isSameOrBefore(workEnd);
       const isNotDuringBreak = eventEnd.isSameOrBefore(breakStartTime) || eventStart.isSameOrAfter(breakEndTime);
       const result = await calculateDistance(origin, destinationAddress);
+      console.log('result', result);
+
       if (isWithinWorkingHours && isNotDuringBreak) {
         const isAlreadySelected = selectedSlots.some(
           (slot) =>
@@ -517,7 +527,6 @@ export default function OneDayCalendar({ selectedVendors, vendorColors, service,
     });
 
     if (matching.length === 1) {
-      console.log('single vendor match', matching[0]);
 
       handleAssignVendor(matching[0], clicked);
     } else {
@@ -526,11 +535,13 @@ export default function OneDayCalendar({ selectedVendors, vendorColors, service,
       setShowVendorModal(true);
     }
   };
-  console.log('destination', destinationAddress);
   const handleAssignVendor = async (vendor: VendorData, slot: { start: string; end: string }) => {
-    const origin = vendor?.addresses?.[1]?.address_line_1 || "";
+    const originAddress = vendor?.addresses?.find((address) => address.type === 'start_location')
+    const origin = (originAddress?.address_line_1 + ',' + originAddress?.city + "," + originAddress?.province + "," + originAddress?.country)
+    console.log('vendor', vendor);
+
+
     // const destination = destinationAddress;
-    console.log('vendor function', vendor, slot);
 
     const result = await calculateDistance(origin, destinationAddress);
 

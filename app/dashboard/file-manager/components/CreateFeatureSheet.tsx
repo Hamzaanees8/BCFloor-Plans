@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// import Image from "next/image";
+import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import { Order } from "../../orders/page";
@@ -25,6 +25,11 @@ import BcfpStandard3 from "./BcfpStandard3";
 import BcfpStandard4 from "./BcfpStandard4";
 import BcfpStandard5 from "./BcfpStandard5";
 import BcfpStandard6 from "./BcfpStandard6";
+import BcfpStandard7 from "./BcfpStandard7";
+import BcfpStandard8 from "./BcfpStandard8";
+import BcfpStandard9 from "./BcfpStandard9";
+import BcfpStandard10 from "./BcfpStandard10";
+import BcfpStandard11 from "./BcfpStandard11";
 import { useAppContext } from "@/app/context/AppContext";
 
 interface TourSettingProps {
@@ -32,6 +37,7 @@ interface TourSettingProps {
 }
 
 const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement | null>(null);
   const [email, setEmail] = useState<string>("");
   const [linkedin, setLinkedin] = useState<string>("");
@@ -42,6 +48,7 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const wrapperRef1 = useRef<HTMLDivElement | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState("BCFP Standard");
+  const [realtorPreview, setRealtorPreview] = useState<string | null>(null);
   const realtorInputRef = useRef<HTMLInputElement | null>(null);
 
   const triggerRealtorInput = () => {
@@ -49,26 +56,19 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
   };
 
   const handleRealtorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setFormData((prev) => ({
-        ...prev,
-        realtorImagePreview: imageURL,
-      }));
+    const file = e.target.files?.[0];
+    if (file) {
+      setRealtorPreview(URL.createObjectURL(file));
     }
   };
 
   const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setFormData((prev) => ({
-        ...prev,
-        logoPreview: URL.createObjectURL(file),
-        logoFileName: file.name,
-      }));
+      setLogoPreview(URL.createObjectURL(file));
     }
   };
+
   const triggerLogoInput = () => {
     logoInputRef.current?.click();
   };
@@ -243,17 +243,26 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
                       )}
                     </div>
                     <div>
-                      <div className="mt-4 w-full">
-                        <label htmlFor="" className="text-[#666666] ">
-                          Logo
-                        </label>
+                       <div className="mt-4 w-full">
+                        <label className="text-[#666666]">Logo</label>
                         <div className="flex gap-3">
                           {/* Preview */}
                           <div className="flex h-[128px] items-end gap-x-[6px]">
-                            <div className="w-[193px] h-[128px] bg-[#E4E4E4] rounded-[6px]"></div>
+                            <div className="w-[193px] h-[128px] bg-[#E4E4E4] rounded-[6px] overflow-hidden border">
+                              {logoPreview && (
+                                <Image
+                                  unoptimized
+                                  src={logoPreview}
+                                  alt="Logo Preview"
+                                  width={193}
+                                  height={128}
+                                  className="object-cover w-full h-full"
+                                />
+                              )}
+                            </div>
                           </div>
 
-                          {/* Buttons only */}
+                          {/* Button */}
                           <div className="flex flex-1 w-full">
                             <div className="flex flex-col gap-3 justify-between w-full self-center">
                               <div>
@@ -310,20 +319,44 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
                           <SelectItem value="BCFP Standard6">
                             BCFP Standard6
                           </SelectItem>
+                          <SelectItem value="BCFP Standard7">
+                            BCFP Standard7
+                          </SelectItem>
+                          <SelectItem value="BCFP Standard8">
+                            BCFP Standard8
+                          </SelectItem>
+                          <SelectItem value="BCFP Standard9">
+                            BCFP Standard9
+                          </SelectItem>
+                          <SelectItem value="BCFP Standard10">
+                            BCFP Standard10
+                          </SelectItem>
+                          <SelectItem value="BCFP Standard11">
+                            BCFP Standard11
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="mt-4 w-full">
-                      <label htmlFor="" >
-                        Realtor Image
-                      </label>
+                      <label className="text-[#666666]">Realtor Image</label>
                       <div className="flex gap-3 mt-2">
                         {/* Circle Preview */}
                         <div className="flex items-center gap-x-[6px]">
-                            <div className="w-[62px] h-[62px] bg-[#E4E4E4] rounded-full"></div>
+                          <div className="w-[62px] h-[62px] bg-[#E4E4E4] rounded-full overflow-hidden border">
+                            {realtorPreview && (
+                              <Image
+                                unoptimized
+                                src={realtorPreview}
+                                alt="Realtor Preview"
+                                width={62}
+                                height={62}
+                                className="object-cover w-full h-full rounded-full"
+                              />
+                            )}
+                          </div>
                         </div>
 
-                        {/* Buttons only */}
+                        {/* Button */}
                         <div className="flex flex-1 w-full">
                           <div className="flex flex-col gap-3 justify-between w-full self-center">
                             <div>
@@ -413,6 +446,11 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
                 {selectedTemplate === "BCFP Standard4" && <BcfpStandard4 orderData={orderData || null} />}
                 {selectedTemplate === "BCFP Standard5" && <BcfpStandard5 orderData={orderData || null} />}
                 {selectedTemplate === "BCFP Standard6" && <BcfpStandard6 orderData={orderData || null} />}
+                {selectedTemplate === "BCFP Standard7" && <BcfpStandard7 orderData={orderData || null} />}
+                {selectedTemplate === "BCFP Standard8" && <BcfpStandard8 orderData={orderData || null} />}
+                {selectedTemplate === "BCFP Standard9" && <BcfpStandard9 orderData={orderData || null} />}
+                {selectedTemplate === "BCFP Standard10" && <BcfpStandard10 orderData={orderData || null} />}
+                {selectedTemplate === "BCFP Standard11" && <BcfpStandard11 orderData={orderData || null} />}
               </div>
             </AccordionContent>
           </AccordionItem>

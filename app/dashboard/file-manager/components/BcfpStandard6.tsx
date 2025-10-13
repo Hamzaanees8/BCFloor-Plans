@@ -3,11 +3,34 @@ import Image from "next/image";
 import React, { useRef, useState } from "react";
 import { Order } from "../../orders/page";
 import "../../../globals.css";
+import StyledInput from "./StyledInput";
 
 interface BcfpStandard {
   orderData: Order | null;
 }
 const BcfpStandard = ({}: BcfpStandard) => {
+
+  const [byLawRestrictions, setByLawRestrictions] = useState("");
+  const [maintFees, setMaintFees] = useState("");
+  const [maintFeesInclude, setMaintFeesInclude] = useState("");
+  const [featuresIncluded, setFeaturesIncluded] = useState("");
+  const [siteInfluences, setSiteInfluences] = useState("");
+  const [amenities, setAmenities] = useState("");
+  const [view, setView] = useState("");
+  const [bedroom, setBedroom] = useState("");
+  const [bathroom, setBathroom] = useState("");
+  const [sqft, setSqft] = useState("");
+  const [builtYear, setBuiltYear] = useState("");
+  const [description, setDescription] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [propertyName, setPropertyName] = useState("");
+  const [amount, setAmount] = useState("");
+  const [number, setNumber] = useState("");
+  const [addressCode, setAddressCode] = useState("");
+  const [roadName, setRoadName] = useState("");
+  const [cityLine, setCityLine] = useState("");
+
   // --- States ---
   const [image1, setImage1] = useState<string | null>(null);
   const [image2, setImage2] = useState<string | null>(null);
@@ -16,6 +39,14 @@ const BcfpStandard = ({}: BcfpStandard) => {
   const [image5, setImage5] = useState<string | null>(null);
   const [image6, setImage6] = useState<string | null>(null);
   const [image7, setImage7] = useState<string | null>(null);
+  const [image8, setImage8] = useState<string | null>(null);
+  const [image9, setImage9] = useState<string | null>(null);
+  const [image10, setImage10] = useState<string | null>(null);
+  const [image11, setImage11] = useState<string | null>(null);
+  const [image12, setImage12] = useState<string | null>(null);
+  const [image13, setImage13] = useState<string | null>(null);
+  const [image14, setImage14] = useState<string | null>(null);
+  const [image15, setImage15] = useState<string | null>(null);
 
   // --- Refs ---
   const fileInputRef1 = useRef<HTMLInputElement | null>(null);
@@ -25,6 +56,14 @@ const BcfpStandard = ({}: BcfpStandard) => {
   const fileInputRef5 = useRef<HTMLInputElement | null>(null);
   const fileInputRef6 = useRef<HTMLInputElement | null>(null);
   const fileInputRef7 = useRef<HTMLInputElement | null>(null);
+  const fileInputRef8 = useRef<HTMLInputElement | null>(null);
+  const fileInputRef9 = useRef<HTMLInputElement | null>(null);
+  const fileInputRef10 = useRef<HTMLInputElement | null>(null);
+  const fileInputRef11 = useRef<HTMLInputElement | null>(null);
+  const fileInputRef12 = useRef<HTMLInputElement | null>(null);
+  const fileInputRef13 = useRef<HTMLInputElement | null>(null);
+  const fileInputRef14 = useRef<HTMLInputElement | null>(null);
+  const fileInputRef15 = useRef<HTMLInputElement | null>(null);
 
   // --- Handlers ---
   const handleDelete1 = () => {
@@ -111,6 +150,104 @@ const BcfpStandard = ({}: BcfpStandard) => {
     }
   };
 
+  const handleDelete8 = () => {
+    setImage8(null);
+    if (fileInputRef8.current) fileInputRef8.current.value = "";
+  };
+  const handleImageChange8 = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      const imageURL = URL.createObjectURL(file);
+      setImage8(imageURL);
+    }
+  };
+
+  const handleDelete9 = () => {
+    setImage9(null);
+    if (fileInputRef9.current) fileInputRef9.current.value = "";
+  };
+  const handleImageChange9 = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      const imageURL = URL.createObjectURL(file);
+      setImage9(imageURL);
+    }
+  };
+
+  const handleDelete10 = () => {
+    setImage10(null);
+    if (fileInputRef10.current) fileInputRef10.current.value = "";
+  };
+  const handleImageChange10 = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      const imageURL = URL.createObjectURL(file);
+      setImage10(imageURL);
+    }
+  };
+
+  const handleDelete11 = () => {
+    setImage11(null);
+    if (fileInputRef11.current) fileInputRef11.current.value = "";
+  };
+  const handleImageChange11 = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      const imageURL = URL.createObjectURL(file);
+      setImage11(imageURL);
+    }
+  };
+
+  const handleDelete12 = () => {
+    setImage12(null);
+    if (fileInputRef12.current) fileInputRef12.current.value = "";
+  };
+  const handleImageChange12 = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      const imageURL = URL.createObjectURL(file);
+      setImage12(imageURL);
+    }
+  };
+
+  const handleDelete13 = () => {
+    setImage13(null);
+    if (fileInputRef13.current) fileInputRef13.current.value = "";
+  };
+  const handleImageChange13 = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      const imageURL = URL.createObjectURL(file);
+      setImage13(imageURL);
+    }
+  };
+
+  const handleDelete14 = () => {
+    setImage14(null);
+    if (fileInputRef14.current) fileInputRef14.current.value = "";
+  };
+  const handleImageChange14 = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      const imageURL = URL.createObjectURL(file);
+      setImage14(imageURL);
+    }
+  };
+
+  const handleDelete15 = () => {
+    setImage15(null);
+    if (fileInputRef15.current) fileInputRef15.current.value = "";
+  };
+  const handleImageChange15 = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      const imageURL = URL.createObjectURL(file);
+      setImage15(imageURL);
+    }
+  };
+
+
+
   
 
 
@@ -120,10 +257,10 @@ const BcfpStandard = ({}: BcfpStandard) => {
       <div className="w-full flex  justify-center font-alexandria">
         <div className="w-1/2 bg-white flex flex-col relative">
           <div className="w-full h-full bg-white  place-self-center relative overflow-hidden flex items-center justify-center group">
-            {image7 ? (
+            {image1 ? (
               <>
                 <Image
-                  src={image7}
+                  src={image1}
                   alt="uploaded"
                   width={200}
                   height={300}
@@ -131,7 +268,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 />
                 <button
                   type="button"
-                  onClick={() => fileInputRef7.current?.click()}
+                  onClick={() => fileInputRef1.current?.click()}
                   className="absolute top-24 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                   title="Edit image"
                 >
@@ -139,7 +276,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 </button>
                 <button
                   type="button"
-                  onClick={handleDelete7}
+                  onClick={handleDelete1}
                   className="absolute top-24 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                   title="Delete image"
                 >
@@ -148,7 +285,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
               </>
             ) : (
               <div
-                onClick={() => fileInputRef7.current?.click()}
+                onClick={() => fileInputRef1.current?.click()}
                 className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
               >
                 Select Image
@@ -157,8 +294,8 @@ const BcfpStandard = ({}: BcfpStandard) => {
             <input
               type="file"
               accept="image/*"
-              ref={fileInputRef7}
-              onChange={handleImageChange7}
+              ref={fileInputRef1}
+              onChange={handleImageChange1}
               className="hidden"
             />
           </div>
@@ -168,8 +305,82 @@ const BcfpStandard = ({}: BcfpStandard) => {
         </div>
         <div className="w-1/2 bg-[#376173] flex flex-col relative">
           <div className="flex w-full flex-col justify-center relative z-[19] items-center pt-[50px]">
-            <div className="text-[28px] font-light leading-none mt-0 text-[#00B9F2]">0000-0000 <span className="text-[#226292]">Number 0 Road</span></div>
-            <div className="text-[#2C2E35] text-[10px]">BRIGHOUSE SOUTH, RICHMOND</div> 
+            <div className="text-[28px] font-light leading-none mt-0 text-[#00B9F2] flex">
+              <span className="inline">
+                <StyledInput
+                  value={addressCode}
+                  onChange={(e) => setAddressCode(e.target.value)}
+                  className="font-light text-[28px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-[#00B9F2] text-left focus:outline-none border-none placeholder-[#00B9F2] placeholder:font-[200]"
+                  placeholder="0000-0000"
+                />
+              </span>
+              <span className="text-[#226292] flex">Number 
+                <StyledInput
+                  value={roadName}
+                  onChange={(e) => setRoadName(e.target.value)}
+                  className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-[#226292] text-center w-[65px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                  placeholder="0"
+                />
+                Road
+              </span>
+            </div>
+            <div className="text-[#2C2E35] text-[10px]">
+              <StyledInput
+                value={cityLine}
+                onChange={(e) => setCityLine(e.target.value)}
+                className="text-[#2C2E35] text-[10px] bg-transparent text-left w-[150px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                placeholder="BRIGHOUSE SOUTH, RICHMOND"
+              />  
+            </div> 
+            <div className="absolute bottom-[-145px] left-[50px] group z-10">
+              <div className="w-[200px] h-[110px] relative bg-white shadow-md">
+                {/* logo */}
+                {image7 ? (
+                  <>
+                    <Image
+                      src={image7}
+                      alt="selected"
+                      width={200}
+                      height={300}
+                      className="w-full h-full object-cover "
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef7.current?.click()}
+                      className="absolute top-2 right-10 z-8 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      title="Edit image"
+                    >
+                      <Pencil className="w-4 h-4 text-gray-700" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDelete7}
+                      className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      title="Delete image"
+                    >
+                      <Trash className="w-4 h-4 text-red-500" />
+                    </button>
+                  </>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef7.current?.click()}
+                    className="w-[200px] h-full bg-gray-200  text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                  >
+                    Select Image
+                  </div>
+                )}
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef7}
+                  onChange={handleImageChange7}
+                  className="hidden"
+                />
+              </div>
+            </div>
           </div>
           <svg
             className="absolute top-0 left-0 w-full z-[18]"
@@ -221,51 +432,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
             </defs>
           </svg>
           <div className="w-full h-[730px] mt-[25px] place-self-center relative overflow-hidden flex items-center justify-center group">
-            {image1 ? (
-              <>
-                <Image
-                  src={image1}
-                  alt="uploaded"
-                  width={200}
-                  height={300}
-                  className="w-full h-full object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef1.current?.click()}
-                  className="absolute top-24 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                  title="Edit image"
-                >
-                  <Pencil className="w-4 h-4 text-gray-700" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDelete1}
-                  className="absolute top-24 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                  title="Delete image"
-                >
-                  <Trash className="w-4 h-4 text-red-500" />
-                </button>
-              </>
-            ) : (
-              <div
-                onClick={() => fileInputRef1.current?.click()}
-                className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-              >
-                Select Image
-              </div>
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              ref={fileInputRef1}
-              onChange={handleImageChange1}
-              className="hidden"
-            />
-          </div>
-          <div className="grid grid-cols-4">
-            <div className="h-[170px] relative group">
-              {image2 ? (
+            {image2 ? (
               <>
                 <Image
                   src={image2}
@@ -277,7 +444,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 <button
                   type="button"
                   onClick={() => fileInputRef2.current?.click()}
-                  className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                  className="absolute top-24 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                   title="Edit image"
                 >
                   <Pencil className="w-4 h-4 text-gray-700" />
@@ -285,28 +452,29 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 <button
                   type="button"
                   onClick={handleDelete2}
-                  className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                  className="absolute top-24 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                   title="Delete image"
                 >
                   <Trash className="w-4 h-4 text-red-500" />
                 </button>
               </>
-              ) : (
-                <div
-                  onClick={() => fileInputRef2.current?.click()}
-                  className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                >
-                  Select Image
-                </div>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                ref={fileInputRef2}
-                onChange={handleImageChange2}
-                className="hidden"
-              />
-            </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef2.current?.click()}
+                className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+              >
+                Select Image
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef2}
+              onChange={handleImageChange2}
+              className="hidden"
+            />
+          </div>
+          <div className="grid grid-cols-4">
             <div className="h-[170px] relative group">
               {image3 ? (
               <>
@@ -436,55 +604,41 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 className="hidden"
               />
             </div>
-          </div>
-          
-
-
-
-        </div>
-      </div>
-      <div className="flex h-[100px] px-[40px] pt-[10px]" style={{background: "linear-gradient(90deg, #00B9F2 0%, #0097C9 39%, #028DBD 52%, #186C9B 89%, #226392 100%)",}}>
-        <div className="w-1/2 relative" >
-          <div className="absolute top-[-40px] right-[45px] group">
-            <div className="w-[200px] h-[110px] relative bg-white shadow-md">
-              {/* logo */}
+            <div className="h-[170px] relative group">
               {image6 ? (
-                <>
-                  <Image
-                    src={image6}
-                    alt="selected"
-                    width={200}
-                    height={300}
-                    className="w-full h-full object-cover "
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef6.current?.click()}
-                    className="absolute top-2 right-10 z-8 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                    title="Edit image"
-                  >
-                    <Pencil className="w-4 h-4 text-gray-700" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleDelete6}
-                    className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                    title="Delete image"
-                  >
-                    <Trash className="w-4 h-4 text-red-500" />
-                  </button>
-                </>
+              <>
+                <Image
+                  src={image6}
+                  alt="uploaded"
+                  width={200}
+                  height={300}
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef6.current?.click()}
+                  className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                  title="Edit image"
+                >
+                  <Pencil className="w-4 h-4 text-gray-700" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete6}
+                  className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                  title="Delete image"
+                >
+                  <Trash className="w-4 h-4 text-red-500" />
+                </button>
+              </>
               ) : (
                 <div
                   onClick={() => fileInputRef6.current?.click()}
-                  className="w-[200px] h-full bg-gray-200  text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                  className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                 >
                   Select Image
                 </div>
               )}
-
               <input
                 type="file"
                 accept="image/*"
@@ -494,17 +648,88 @@ const BcfpStandard = ({}: BcfpStandard) => {
               />
             </div>
           </div>
+          
+
+
+
+        </div>
+      </div>
+      <div className="flex h-[100px] px-[40px]" style={{background: "linear-gradient(90deg, #00B9F2 0%, #0097C9 39%, #028DBD 52%, #186C9B 89%, #226392 100%)",}}>
+        <div className="w-1/2 py-[10px] relative" >
+          <div className="absolute top-[-40px] right-[45px] group">
+            <div className="w-[200px] h-[110px] relative bg-white shadow-md">
+              {/* logo */}
+              {image7 ? (
+                <>
+                  <Image
+                    src={image7}
+                    alt="selected"
+                    width={200}
+                    height={300}
+                    className="w-full h-full object-cover "
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef7.current?.click()}
+                    className="absolute top-2 right-10 z-8 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    title="Edit image"
+                  >
+                    <Pencil className="w-4 h-4 text-gray-700" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDelete7}
+                    className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    title="Delete image"
+                  >
+                    <Trash className="w-4 h-4 text-red-500" />
+                  </button>
+                </>
+              ) : (
+                <div
+                  onClick={() => fileInputRef7.current?.click()}
+                  className="w-[200px] h-full bg-gray-200  text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                >
+                  Select Image
+                </div>
+              )}
+
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef7}
+                onChange={handleImageChange7}
+                className="hidden"
+              />
+            </div>
+          </div>
           <div className=" text-white leading-none text-left ">
-            <div className=" text-white leading-none text-left ">
-              <div className="font-semibold text-[20px] mb-1">
-                FIRSTNAME LASTNAME &nbsp;{" "}
-                <span className="font-thin">MACDONALD REALTY</span>
+            <div>
+              <div className="font-semibold text-[20px] flex gap-3 w-[70%]">
+                <StyledInput
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className=" text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                  placeholder="FIRSTNAME LASTNAME" />
+                <StyledInput
+                  value={propertyName}
+                  onChange={(e) => setPropertyName(e.target.value)}
+                  className=" text-[20px] h-[22px] font- bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                  placeholder="MACDONALD  Realty" />
               </div>
-              <div className="font-thin text-[20px] mb-1 ">
-                604.000.0000 &nbsp;
-                <span>
-                  <a href="mailto:FIRST@LAST.COM"> Email</a>
-                </span>
+              <div className="font-semibold text-[20px] flex gap-3 w-[70%]">
+                <StyledInput
+                  value={number}
+                  onChange={(e) => setNumber(e.target.value)}
+                  className="font-semibold text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                  placeholder="604.000.0000" />
+                <StyledInput
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="font-thin text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                  placeholder="Enter email here" />
               </div>
             </div>
             <div className="text-start mt-3  font-thin flex w-[60%]">
@@ -566,6 +791,579 @@ const BcfpStandard = ({}: BcfpStandard) => {
             
           </div>
         </div>
+        <div className="w-1/2 text-center text-[30px] text-white content-center">
+          <StyledInput
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="font-semibold text-center text-[30px] h-[30px] bg-transparent w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
+            placeholder="$000,000" />
+        </div>
+      </div>
+    </div>
+    <div className="">
+      <div className="w-full flex flex-col justify-center font-alexandria relative p-[50px] pb-[20px]">
+        <div className="flex gap-4">
+          <div className="w-1/2 flex flex-col gap-4">
+            <div className="w-full h-[420px] place-self-center z-10 relative overflow-hidden flex items-center justify-center group">
+              {image8 ? (
+                <>
+                  <Image
+                    src={image8}
+                    alt="uploaded"
+                    width={200}
+                    height={300}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef8.current?.click()}
+                    className="absolute top-24 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    title="Edit image"
+                  >
+                    <Pencil className="w-4 h-4 text-gray-700" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDelete8}
+                    className="absolute top-24 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    title="Delete image"
+                  >
+                    <Trash className="w-4 h-4 text-red-500" />
+                  </button>
+                </>
+              ) : (
+                <div
+                  onClick={() => fileInputRef8.current?.click()}
+                  className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                >
+                  Select Image
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef8}
+                onChange={handleImageChange8}
+                className="hidden"
+              />
+            </div>
+              <StyledInput
+                value={description}
+                rows={6}
+                onChange={(e) => setDescription(e.target.value)}
+                className="font-normal text-[10px] max-h-[300px] z-20 text-black leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-black placeholder:font-[500]"
+                placeholder="On top of it all! Beautiful sub-penthouse in the well appointed CENTRO building. This centrally located 2 bedroom, 2 bathroom home
+                  boasts incredible, totally unobstructed VIEWS overlooking Brighouse Park & to the South and South Westproviding unhindered privacy.
+                  The perfect floorplan with open concept living and cross unit bedrooms. Dark laminate flooring, S/S appliances, Gas range and a large
+                  open ‘den/nook’ area perfect for the home office. Huge private balcony, great building amenities including exercise room, sauna, roof top
+                  courtyard and outdoor kids playground. With parking, and storage locker and balance of the the 5-10 warranty, this home provides
+                  nothing but exceptional value. Call today to set up your viewing."
+              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="h-[180px] relative z-10 group">
+                {image9 ? (
+                <>
+                  <Image
+                    src={image9}
+                    alt="uploaded"
+                    width={200}
+                    height={300}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef9.current?.click()}
+                    className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    title="Edit image"
+                  >
+                    <Pencil className="w-4 h-4 text-gray-700" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDelete9}
+                    className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    title="Delete image"
+                  >
+                    <Trash className="w-4 h-4 text-red-500" />
+                  </button>
+                </>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef9.current?.click()}
+                    className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                  >
+                    Select Image
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef9}
+                  onChange={handleImageChange9}
+                  className="hidden"
+                />
+              </div>
+              <div className="h-[180px] relative z-10 group">
+                {image10 ? (
+                <>
+                  <Image
+                    src={image10}
+                    alt="uploaded"
+                    width={200}
+                    height={300}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef10.current?.click()}
+                    className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    title="Edit image"
+                  >
+                    <Pencil className="w-4 h-4 text-gray-700" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDelete10}
+                    className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    title="Delete image"
+                  >
+                    <Trash className="w-4 h-4 text-red-500" />
+                  </button>
+                </>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef10.current?.click()}
+                    className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                  >
+                    Select Image
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef10}
+                  onChange={handleImageChange10}
+                  className="hidden"
+                />
+              </div>
+            </div>
+            <div className="font-bold text-white text-[18px] flex flex-wrap gap-2">
+              <div className="inline">
+                <StyledInput
+                  value={bedroom}
+                  onChange={(e) => setBedroom(e.target.value)}
+                  className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                  placeholder="0"
+                />
+              </div>
+              BEDROOM •
+              <div className="inline">
+                <StyledInput
+                  value={bathroom}
+                  onChange={(e) => setBathroom(e.target.value)}
+                  className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                  placeholder="0"
+                />
+              </div>
+              BATHROOM •
+              <div className="inline">
+                <StyledInput
+                  value={sqft}
+                  onChange={(e) => setSqft(e.target.value)}
+                  className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[32px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                  placeholder="000"
+                />
+              </div>
+              SQ FT •
+              BUILT IN
+              <div className="inline">
+                <StyledInput
+                  value={builtYear}
+                  onChange={(e) => setBuiltYear(e.target.value)}
+                  className="font-semibold text-[13px] bg-transparent text-left h-[30px] w-[80px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                  placeholder="0000"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="w-1/2 flex gap-4">
+            <div className="w-[40%]">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="h-[165px] relative z-10 group">
+                  {image11 ? (
+                  <>
+                    <Image
+                      src={image11}
+                      alt="uploaded"
+                      width={200}
+                      height={300}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef11.current?.click()}
+                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      title="Edit image"
+                    >
+                      <Pencil className="w-4 h-4 text-gray-700" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDelete11}
+                      className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      title="Delete image"
+                    >
+                      <Trash className="w-4 h-4 text-red-500" />
+                    </button>
+                  </>
+                  ) : (
+                    <div
+                      onClick={() => fileInputRef11.current?.click()}
+                      className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                    >
+                      Select Image
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef11}
+                    onChange={handleImageChange11}
+                    className="hidden"
+                  />
+                </div>
+                <div className="h-[165px] relative z-10 group">
+                  {image12 ? (
+                  <>
+                    <Image
+                      src={image12}
+                      alt="uploaded"
+                      width={200}
+                      height={300}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef12.current?.click()}
+                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      title="Edit image"
+                    >
+                      <Pencil className="w-4 h-4 text-gray-700" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDelete12}
+                      className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      title="Delete image"
+                    >
+                      <Trash className="w-4 h-4 text-red-500" />
+                    </button>
+                  </>
+                  ) : (
+                    <div
+                      onClick={() => fileInputRef12.current?.click()}
+                      className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                    >
+                      Select Image
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef12}
+                    onChange={handleImageChange12}
+                    className="hidden"
+                  />
+                </div>
+                <div className="h-[165px] relative z-10 group">
+                  {image13 ? (
+                  <>
+                    <Image
+                      src={image13}
+                      alt="uploaded"
+                      width={200}
+                      height={300}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef13.current?.click()}
+                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      title="Edit image"
+                    >
+                      <Pencil className="w-4 h-4 text-gray-700" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDelete13}
+                      className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      title="Delete image"
+                    >
+                      <Trash className="w-4 h-4 text-red-500" />
+                    </button>
+                  </>
+                  ) : (
+                    <div
+                      onClick={() => fileInputRef13.current?.click()}
+                      className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                    >
+                      Select Image
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef13}
+                    onChange={handleImageChange13}
+                    className="hidden"
+                  />
+                </div>
+                <div className="h-[165px] relative z-10 group">
+                  {image14 ? (
+                  <>
+                    <Image
+                      src={image14}
+                      alt="uploaded"
+                      width={200}
+                      height={300}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef14.current?.click()}
+                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      title="Edit image"
+                    >
+                      <Pencil className="w-4 h-4 text-gray-700" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDelete14}
+                      className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      title="Delete image"
+                    >
+                      <Trash className="w-4 h-4 text-red-500" />
+                    </button>
+                  </>
+                  ) : (
+                    <div
+                      onClick={() => fileInputRef14.current?.click()}
+                      className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                    >
+                      Select Image
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef14}
+                    onChange={handleImageChange14}
+                    className="hidden"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="w-[60%] flex flex-col gap-4 justify-between">
+              
+              <div className="w-full h-[550px] place-self-center border-2 z-10 border-[#fff] relative overflow-hidden flex items-center justify-center group">
+                {image15 ? (
+                  <>
+                    <Image
+                      src={image15}
+                      alt="uploaded"
+                      width={200}
+                      height={300}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef15.current?.click()}
+                      className="absolute top-2 right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      title="Edit image"
+                    >
+                      <Pencil className="w-4 h-4 text-gray-700" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDelete15}
+                      className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      title="Delete image"
+                    >
+                      <Trash className="w-4 h-4 text-red-500" />
+                    </button>
+                  </>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef15.current?.click()}
+                    className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                  >
+                    Select Image
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef15}
+                  onChange={handleImageChange15}
+                  className="hidden"
+                />
+              </div>
+              <div className="flex gap-4 text-white text-[12px] leading-relaxed pt-[20px]">
+                <div className="space-y-2 text-[8px]">
+                  <div>
+                    <span className="font-bold text-[#00B9F2]">BY-LAW RESTRICTIONS:</span>
+                    <StyledInput
+                      value={byLawRestrictions}
+                      onChange={(e) => setByLawRestrictions(e.target.value)}
+                      className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                      placeholder="Pets Allowed w/Rest., Rentals Allowed"
+                    />
+                  </div>
+                  <div>
+                    <span className="font-bold text-[#00B9F2]">MAINT. FEES:</span>
+                    <StyledInput
+                      value={maintFees}
+                      onChange={(e) => setMaintFees(e.target.value)}
+                      className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                      placeholder="$000.00"
+                    />
+                  </div>
+                  <div>
+                    <span className="font-bold text-[#00B9F2]">MAINT. FEES INCLUDE:</span>
+                    <StyledInput
+                      value={maintFeesInclude}
+                      onChange={(e) => setMaintFeesInclude(e.target.value)}
+                      className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                      placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
+                    />
+                  </div>
+                  <div>
+                    <span className="font-bold text-[#00B9F2]">FEATURES INCLUDED:</span>
+                    <StyledInput
+                      value={featuresIncluded}
+                      onChange={(e) => setFeaturesIncluded(e.target.value)}
+                      className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                      placeholder="Clothes Washer/Dryer/ Fridge/Stove/DW, Drapes/ Window Coverings"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2 text-[8px]">
+                  <div>
+                    <span className="font-bold text-[#00B9F2]">SITE INFLUENCES:</span>
+                    <StyledInput
+                      value={siteInfluences}
+                      onChange={(e) => setSiteInfluences(e.target.value)}
+                      className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                      placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
+                    />
+                  </div>
+                  <div>
+                    <span className="font-bold text-[#00B9F2]">AMENITIES:</span>
+                    <StyledInput
+                      value={amenities}
+                      onChange={(e) => setAmenities(e.target.value)}
+                      className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                      placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
+                    />
+                  </div>
+                  <div>
+                    <span className="font-bold text-[#00B9F2]">VIEW:</span>
+                    <StyledInput
+                      value={view}
+                      onChange={(e) => setView(e.target.value)}
+                      className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                      placeholder="South & SW - Van Isl."
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <svg
+          width="100%"
+          height="123"
+          viewBox="0 0 648 123"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          preserveAspectRatio="none"
+          className="absolute top-20 left-0 right-0"
+        >
+          <mask id="mask0_146_14" maskUnits="userSpaceOnUse" x="0" y="0" width="648" height="123">
+            <path
+              d="M0 58.5596V82.8596C7.9 91.4596 75.7 156.86 284.2 99.9596C507.1 39.1596 647.2 90.6596 647.2 90.6596V89.3596L648 66.9596V18.2596L2 0.559631L0 58.5596Z"
+              fill="white"
+            />
+          </mask>
+          <g mask="url(#mask0_146_14)">
+            <path
+              d="M656 95C656 95 540 19.5 291.5 77.5001C43.0002 135.5 1.90296 53.7173 1.90296 53.7173L1.90295 85C1.90295 85 79.2658 175.406 306.5 95C371.5 72 656 95 656 95Z"
+              fill="url(#paint0_linear_146_14)"
+            />
+          </g>
+          <defs>
+            <linearGradient
+              id="paint0_linear_146_14"
+              x1="629.705"
+              y1="29.4826"
+              x2="7.43761"
+              y2="10.4706"
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop stopColor="#00B9F2" />
+              <stop offset="0.391667" stopColor="#0097C9" />
+              <stop offset="0.515476" stopColor="#028DBD" />
+              <stop offset="0.892857" stopColor="#1B6C9B" />
+              <stop offset="1" stopColor="#226392" />
+            </linearGradient>
+          </defs>
+        </svg>
+        <svg
+          width="100%"
+          height="255"
+          viewBox="0 0 1242 255"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          preserveAspectRatio="none"
+          className="w-full absolute bottom-0 left-0 right-0 z-[-1]"
+        >
+          <mask
+            id="mask0_146_3734"
+            maskUnits="userSpaceOnUse"
+            x="0"
+            y="0"
+            width="1242"
+            height="255"
+          >
+            <path
+              d="M694.6 58.8C271.7 203.1 0 100.4 0 100.4V103.2V254.5H1241.6V81C1241.6 81 1181.2 0 1001 0C923 0 822.4 15.2 694.6 58.8Z"
+              fill="white"
+            />
+          </mask>
+          <g mask="url(#mask0_146_3734)">
+            <path
+              d="M0 254.5H1242V-555.5H0V254.5Z"
+              fill="url(#paint0_linear_146_3734)"
+            />
+          </g>
+          <defs>
+            <linearGradient
+              id="paint0_linear_146_3734"
+              x1="0"
+              y1="-0.0199854"
+              x2="1241.58"
+              y2="-0.0199854"
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop stopColor="#00B9F2" />
+              <stop offset="0.391667" stopColor="#0097C9" />
+              <stop offset="0.515476" stopColor="#028DBD" />
+              <stop offset="0.892857" stopColor="#1B6C9B" />
+              <stop offset="1" stopColor="#226392" />
+            </linearGradient>
+          </defs>
+        </svg>
+
       </div>
     </div>
     

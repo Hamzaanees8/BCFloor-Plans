@@ -37,7 +37,7 @@ function LoginUser() {
         if (hasError) return
         setIsLoading(true)
         try {
-            const response = await login({ email, password });
+            const response = await login({ email, password, role:'admin' });
 
             console.log('Login successful:', response);
             toast.success('Login successfully')

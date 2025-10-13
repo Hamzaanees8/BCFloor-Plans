@@ -14,6 +14,7 @@ import ManualPayment from './ManualPayment';
 import { useAppContext } from '@/app/context/AppContext';
 import UpgradeServicePopup from './UpgradeServicePopup';
 import PayInvoiceModal from './PayInvoiceModal';
+import AgentNotificationModal from './AgentNotificationModal';
 import ImagePopup from '@/components/ImagePopup';
 
 export interface SelectedFiles {
@@ -46,6 +47,7 @@ function FileTab1({ currentService, orderData }: { currentService?: Services, or
     const [dragging, setDragging] = useState(false);
     const [openPaymentModal, setOpenPaymentModal] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
+    const [showConfirmation, setShowConfirmation] = useState(false);
     const [imagePopupOpen, setImagePopupOpen] = useState(false);
     const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
     const dragCounter = useRef(0);
@@ -188,12 +190,10 @@ function FileTab1({ currentService, orderData }: { currentService?: Services, or
         }
     };
 
-
     const handleImageClick = (imageUrl: string) => {
         setSelectedImageUrl(imageUrl);
         setImagePopupOpen(true);
     };
-
 
 
     return (
@@ -231,6 +231,7 @@ function FileTab1({ currentService, orderData }: { currentService?: Services, or
                     {userType !== 'agent' &&
                         <Button
                             onClick={() => {
+                                setShowConfirmation(true)
                                 handleSubmitToClient()
                                 // setSelectedFiles(prev =>
                                 //     prev.map(file => ({ ...file, upload: true }))
@@ -238,6 +239,12 @@ function FileTab1({ currentService, orderData }: { currentService?: Services, or
                             }}
                             className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Submit to Client'} </Button>
                     }
+                    <AgentNotificationModal
+                        open={showConfirmation}
+                        onClose={() => setShowConfirmation(false)}
+                        serviceDate={currentService ? currentService : null}
+                        orderData={orderData ? orderData : null}
+                    />
                     {userType === 'agent' &&
                         <div className='flex flex-col justify-center items-center mr-4'>
                             <p className='text-[18px] text-[#6BAE41]'>${currentServiceOption?.option.amount}</p>
@@ -297,13 +304,13 @@ function FileTab1({ currentService, orderData }: { currentService?: Services, or
 
                         {currentServiceFiles?.map((file, idx) => (
                             <div key={idx} className="bg-[#BBBBBB] h-auto relative">
-                                <div className="relative w-full h-[240px] cursor-pointer">
+                                <div className="relative w-full h-[240px]">
                                     {/* eslint-disable @next/next/no-img-element */}
                                     <img
                                         src={`${API_URL}/${file.file_path}`}
+                                        onClick={() => handleImageClick(`${API_URL}/${file.file_path}`)}
                                         alt="preview"
                                         className="w-full h-full object-cover"
-                                        onClick={() => handleImageClick(`${API_URL}/${file.file_path}`)}
                                     />
                                     <span
                                         className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
@@ -332,12 +339,12 @@ function FileTab1({ currentService, orderData }: { currentService?: Services, or
                         ))}
                         {filesForService.map((file, idx) => (
                             <div key={idx} className="bg-[#BBBBBB] h-auto relative">
-                                <div className="relative w-full h-[240px] cursor-pointer">
+                                <div className="relative w-full h-[240px]">
                                     {/* eslint-disable @next/next/no-img-element */}
                                     <img
                                         src={URL.createObjectURL(file.file)}
-                                        alt="preview"
                                         onClick={() => handleImageClick(URL.createObjectURL(file.file))}
+                                        alt="preview"
                                         className="w-full h-full object-cover"
                                     />
                                     <span

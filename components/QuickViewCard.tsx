@@ -1,5 +1,5 @@
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { MapPin, Mail, Phone, Smartphone, X } from "lucide-react";
+import { MapPin, Mail, Phone, Smartphone, X, File } from "lucide-react";
 import React, { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import NotificationDialog from "./NotificationDialog";
@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Listings } from "@/app/dashboard/listings/page";
 import { Address } from "./VendorTable";
 import { useAppContext } from "@/app/context/AppContext";
+import { format, parse } from "date-fns";
 
 export interface AgentData {
     uuid?: string;
@@ -74,24 +75,40 @@ export interface SubAccountData {
     secondary_phone?: string;
     avatar_url?: string;
 }
-interface NotificationData {
-    name: string;
-    O_id: string;
-    address: string;
-    email: string;
-    mobile: string;
-    office: string;
-    P_vendor: string;
-    P_appointment_date: string;
-    P_appointment_time: string;
-    P_price: string;
-    H_vendor: string;
-    H_appointment_date: string;
-    H_appointment_time: string;
-    H_price: string;
-    total: string;
-    avatar_url?: string;
-
+export interface NotificationData {
+    type: string
+    created_by_name: string
+    Subject: string
+    created_at: string
+    order_details: {
+        id: string | number;
+        created_at: string
+        agent: {
+            first_name: string;
+            last_name: string;
+            email: string;
+            primary_phone: string;
+            secondary_phone: string;
+        };
+        property_address: string;
+        services: Array<{
+            service_id: string | number;
+            service: {
+                name: string;
+            };
+            amount: string | number;
+        }>;
+        slots: Array<{
+            service_id: string | number;
+            vendor: {
+                first_name: string;
+                last_name: string;
+            };
+            date: string;
+            start_time: string;
+            end_time: string;
+        }>;
+    };
 }
 const typeToLabelMap: Record<QuickViewCardProps["type"], string> = {
     agent: "Agent Quick View",
@@ -113,13 +130,18 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
     const { userType } = useAppContext();
     //const isAgent = type === "agent";
     const [showDialog, setShowDialog] = useState(false);
-    console.log('data', data);
+    console.log('notification data', data);
     console.log('type', type)
     // const activityData = [
     //     { sqft: "1200", min: "30", cost: "$150" },
     //     { sqft: "900", min: "45", cost: "$200" },
     //     { sqft: "1500", min: "60", cost: "$300" }
     // ];
+    function formatTimeRange(start: string, end: string): string {
+        const startDate = parse(start, "HH:mm:ss", new Date());
+        const endDate = parse(end, "HH:mm:ss", new Date());
+        return `${format(startDate, "h:mm a")} - ${format(endDate, "h:mm a")}`;
+    }
     return (
         <>
             <Card style={{ minHeight: 'calc(100vh - 80px)' }} className="w-full sm:w-[405px]  flex flex-col justify-between  font-alexandria p-4 border-[1px] border-[#BBBBBB] rounded-none space-y-4 absolute top-[80px] right-0 z-50 bg-[#EEEEEE]">
@@ -158,7 +180,7 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
                         </div>
                     )}
 
-                    
+
 
 
                     {/* Profile Info */}
@@ -198,10 +220,10 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
 
                         <div className="text-[#4290E9] font-[400] text-[15px]">
                             {(type === "notification") && (
-                                <div className="text-[24px] font-[400] text-[#666666]">Order Update </div>
+                                <div className="text-[24px] font-[400] text-[#666666]">{data.type}</div>
                             )}
                             {(type === "notification") && (
-                                <span className="text-[15px] font-[400] text-[#666666]">Contact: </span>
+                                <span className="text-[15px] font-[400] text-[#666666] ]  ">Contact: <span className="text-[#4290E9]">{data.order_details.agent.first_name} {data.order_details.agent.last_name} </span></span>
                             )}
                             {type === "admin" && (
                                 <div className="text-[24px] font-[400] text-[#666666] font-alexandria">{(data as AdminData).full_name} </div>
@@ -247,8 +269,8 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
                     <div className="space-y-2 text-sm">
                         {(type === "notification") && (
                             <div className="flex items-center space-x-[18px] ">
-                                <MapPin className="w-[24px] text-[#666666]" strokeWidth={1} />
-                                <p className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px]`}>{data.O_id}</p>
+                                <File className="w-[24px] text-[#666666]" strokeWidth={1} />
+                                <p className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px] text-[#4290E9]`}>#{data.order_details.id}</p>
                             </div>
                         )}
                         {type === "vendors" && data.addresses?.length > 0 && (
@@ -266,7 +288,7 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
                                     {type === "admin" && (data as AdminData).address}
                                     {type === "subaccount" && (data as SubAccountData).address}
                                     {type === "listing" && (data as Listings).address}
-                                    {type === "notification" && (data as NotificationData).address}
+                                    {type === "notification" && (data as NotificationData).order_details.property_address}
                                     {type === "subaccount" && (data as SubAccountData).address}
                                 </p>
                             </div>
@@ -344,32 +366,46 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
                             <div className="grid grid-cols-1 gap-y-[12px]">
                                 <div className="flex items-center space-x-[18px]">
                                     <Mail className="w-[24px] text-[#666666]" strokeWidth={1} />
-                                    <span className={`text-[15px] font-[400] ${userType}-text leading-[32px]`}>{data.email}</span>
+                                    <span className={`text-[15px] font-[400] ${userType}-text leading-[32px]`}>{data.order_details.agent.email}</span>
                                 </div>
                                 <div className="flex items-center space-x-[18px]">
                                     <Smartphone className="w-[24px] text-[#666666]" strokeWidth={1} />
-                                    <span className="text-[15px] font-[400] text-[#666666] leading-[32px]">{data.mobile}</span>
+                                    <span className="text-[15px] font-[400] text-[#666666] leading-[32px]">{data.order_details.agent.primary_phone}</span>
                                 </div>
                                 <div className="flex items-center space-x-[18px]">
                                     <Phone className="w-[24px] text-[#666666]" strokeWidth={1} />
-                                    <span className="text-[15px] font-[400] text-[#666666] leading-[32px]">{data.office}</span>
+                                    <span className="text-[15px] font-[400] text-[#666666] leading-[32px]">{data.order_details.agent.secondary_phone}</span>
                                 </div>
-                                <div className="text-[10px] text-[#8E8E8E] uppercase font-[700]">
-                                    2D Floor plan
-                                </div>
-                                <p className="text-[15px] font-[400] text-[#666666]">Vender: <span className={`${userType}-text`}>{data.P_vendor}</span></p>
-                                <p className="grid grid-cols-[auto_1fr] gap-x-2 text-[15px] font-[400] text-[#666666]">Appointment: <span>{data.P_appointment_date}<br />{data.P_appointment_time}</span></p>
-                                <p className="text-[15px] font-[400] text-[#666666]">Price: <span >{data.P_price}</span></p>
-                                <div className="text-[10px] text-[#8E8E8E] uppercase font-[700]">
-                                    HDR Photos (20)
-                                </div>
-                                <p className="text-[15px] font-[400] text-[#666666]">Vender: <span className={`${userType}-text`}>{data.H_vendor}</span></p>
-                                <p className="grid grid-cols-[auto_1fr] gap-x-2 text-[15px] font-[400] text-[#666666]">Appointment: <span >{data.H_appointment_date}<br />{data.H_appointment_time}</span></p>
-                                <p className="text-[15px] font-[400] text-[#666666]">Price: <span >{data.H_price}</span></p>
+                                {data?.order_details.services?.map((service, idx) => {
+                                    const currentserviceSlot = data?.order_details.slots.find((slot) => slot.service_id == service.service_id)
+                                    console.log('currentserviceSlot', currentserviceSlot);
+
+                                    return <div key={idx}>
+                                        <div className="text-[10px] text-[#8E8E8E] uppercase font-[700]">
+                                            {service.service.name}
+                                        </div>
+                                        <p className="text-[15px] font-[400] text-[#666666]">Vender: <span className={`${userType}-text`}>{currentserviceSlot?.vendor.first_name} {currentserviceSlot?.vendor.last_name}</span></p>
+                                        <p className="grid grid-cols-[auto_1fr] gap-x-2 text-[15px] font-[400] text-[#666666]">Appointment: <span>{currentserviceSlot?.date}<br />{formatTimeRange(currentserviceSlot?.start_time ?? '', currentserviceSlot?.end_time ?? "")}</span></p>
+                                        <p className="text-[15px] font-[400] text-[#666666]">Price: <span >${service.amount}</span></p>
+                                    </div>
+                                })}
                                 <div className="text-[10px] text-[#8E8E8E] uppercase font-[700]">
                                     Total
                                 </div>
-                                <p className="text-[15px] font-[400] text-[#666666]">Price: <span >{data.total}</span></p>
+                                <p className="text-[15px] font-[400] text-[#666666]">
+                                    Price:{" "}
+                                    <span className={`${userType}-text`}>
+                                        $
+                                        {data?.order_details?.services
+                                            ?.reduce(
+                                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                (total: number, service: any) =>
+                                                    total + Number(service.amount || 0),
+                                                0
+                                            )
+                                            .toFixed(2)}
+                                    </span>
+                                </p>
                             </div>
                         )}
 
@@ -446,59 +482,59 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
                     {/* Actions */}
 
                 </CardContent>
-                {userType!== 'vendor' &&
-                <CardFooter className="p-0 !mt-[40px]">
-                    <div className=" w-full flex justify-start gap-[10px] ">
-                        {type === "agent" && (
-                            <Link
-                            href={`/dashboard/agents/create/${data.uuid}`}
-                                className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
-                            >
-                                Edit
-                            </Link>
-                        )}
-                        {type === "subaccount" && (
-                            <Link
-                                href={`/dashboard/sub-accounts/create/${data.uuid}`}
-                                className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
-                            >
-                                Edit
-                            </Link>
-                        )}
-                        {type === "admin" && (
-                            <Link
-                                href={`/dashboard/admin/create/${data.uuid}`}
-                                className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
-                            >
-                                Edit
-                            </Link>
-                        )}
-                        {type === "listing" && (
-                            <Link
-                                href={`/dashboard/listings/create/${data.uuid}`}
-                                className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
-                            >
-                                Edit
-                            </Link>
-                        )}
-                        {type === "vendors" && (
-                            <Link
-                            href={`/dashboard/vendors/create/${data.uuid}`}
-                            className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
-                            >
-                                Edit
-                            </Link>
-                        )}
-                        {/* <Button
+                {userType !== 'vendor' &&
+                    <CardFooter className="p-0 !mt-[40px]">
+                        <div className=" w-full flex justify-start gap-[10px] ">
+                            {type === "agent" && (
+                                <Link
+                                    href={`/dashboard/agents/create/${data.uuid}`}
+                                    className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
+                                >
+                                    Edit
+                                </Link>
+                            )}
+                            {type === "subaccount" && (
+                                <Link
+                                    href={`/dashboard/sub-accounts/create/${data.uuid}`}
+                                    className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
+                                >
+                                    Edit
+                                </Link>
+                            )}
+                            {type === "admin" && (
+                                <Link
+                                    href={`/dashboard/admin/create/${data.uuid}`}
+                                    className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
+                                >
+                                    Edit
+                                </Link>
+                            )}
+                            {type === "listing" && (
+                                <Link
+                                    href={`/dashboard/listings/create/${data.uuid}`}
+                                    className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
+                                >
+                                    Edit
+                                </Link>
+                            )}
+                            {type === "vendors" && (
+                                <Link
+                                    href={`/dashboard/vendors/create/${data.uuid}`}
+                                    className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
+                                >
+                                    Edit
+                                </Link>
+                            )}
+                            {/* <Button
                             className="bg-[#4290E9] rounded-none text-white w-[132px] h-[32px] hover:bg-[#4290E9]"
                             onClick={() => setShowDialog(true)}
                             >
                             History
                             </Button> */}
-                    </div>
-                </CardFooter>
-                            }
-            </Card>
+                        </div>
+                    </CardFooter>
+                }
+            </Card >
             <NotificationDialog
                 open={showDialog}
                 setOpen={setShowDialog}

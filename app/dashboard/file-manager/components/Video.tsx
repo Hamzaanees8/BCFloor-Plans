@@ -13,6 +13,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import { Order } from '../../orders/page';
 import UpgradeServicePopup from './UpgradeServicePopup';
 import PayInvoiceModal from './PayInvoiceModal';
+import AgentNotificationModal from './AgentNotificationModal';
 
 export interface SelectedFiles {
     file: File;
@@ -35,6 +36,7 @@ function Video({ currentService, orderData }: { currentService?: Services, order
     const { selectedVideoFiles, setSelectedVideoFiles, filesData } = useFileManagerContext();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [dragging, setDragging] = useState(false);
+    const [showConfirmation, setShowConfirmation] = useState(false);
     const dragCounter = useRef(0);
     const { userType } = useAppContext()
 
@@ -164,12 +166,19 @@ function Video({ currentService, orderData }: { currentService?: Services, order
                         <Button
                             onClick={() => {
                                 setMediaUploaded(true);
+                                setShowConfirmation(true)
                                 // setSelectedVideoFiles(prev =>
                                 //     prev.map(file => ({ ...file, upload: true }))
                                 // );
                             }}
                             className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[#4290E9] hover:bg-[#4999f5]'}  h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Submit to Client'} </Button>
                     }
+                    <AgentNotificationModal
+                        open={showConfirmation}
+                        onClose={() => setShowConfirmation(false)}
+                        serviceDate={currentService ? currentService : null}
+                        orderData={orderData ? orderData : null}
+                    />
                     {userType === 'agent' &&
                         <div className='flex flex-col justify-center items-center mr-4'>
                             <p className='text-[18px] text-[#6BAE41]'>${currentServiceOption?.option.amount}</p>

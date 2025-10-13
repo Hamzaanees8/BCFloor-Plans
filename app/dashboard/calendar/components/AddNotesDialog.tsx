@@ -7,6 +7,7 @@ interface Note {
     note: string;
     name: string;
     date: string;
+    internal?: string
 }
 
 interface AddNotesDialogProps {
@@ -46,7 +47,8 @@ const AddNotesDialog = ({ open, setOpen, notes, setNotes, isInternal }: AddNotes
                 {
                     note: tempNotes.trim(),
                     name: userName,
-                    date: new Date().toISOString().replace('T', ' ').split('.')[0]
+                    date: new Date().toISOString().replace('T', ' ').split('.')[0],
+                    internal: isInternal ? "true" : 'false'
                 }
             ]);
             setTempNotes('');

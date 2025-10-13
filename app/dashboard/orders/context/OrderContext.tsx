@@ -6,6 +6,7 @@ import { SelectedService } from '../components/Services';
 import { Dispatch, SetStateAction } from 'react';
 import { Discount } from '../components/Confirmation';
 import { OrderService } from '../page';
+import { Listings } from '../../listings/page';
 type CoAgent = {
     name: string;
     email: string;
@@ -66,6 +67,9 @@ type OrderContextType = {
     isSplitInvoice: boolean;
     setIsSplitInvoice: (value: boolean) => void;
 
+    internal: boolean;
+    setInternal: (value: boolean) => void;
+
     agentNotes: AgentNote[];
     setAgentNotes: React.Dispatch<React.SetStateAction<AgentNote[]>>;
 
@@ -83,6 +87,9 @@ type OrderContextType = {
 
     customServiceNames: Record<string, string>; // service.uuid -> name
     setCustomServiceNames: Dispatch<SetStateAction<Record<string, string>>>;
+
+    selectedCurrentListing: Listings | null
+    setSelectedCurrentListing: React.Dispatch<React.SetStateAction<Listings | null>>;
 
     discountCode: string;
     setDiscountCode: (notes: string) => void;
@@ -122,14 +129,14 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     const [appliedCodeDiscount, setAppliedCodeDiscount] = useState<Discount | null>(null);
     const [appliedQuantityDiscounts, setAppliedQuantityDiscounts] = useState<Discount[]>([]);
     const [OrderServices, setOrderServices] = useState<OrderService[]>([]);
-
+    const [selectedCurrentListing, setSelectedCurrentListing] = useState<Listings | null>(null);
     const [total, setTotal] = useState(0);
     const [isSplitInvoice, setIsSplitInvoice] = useState(false);
+    const [internal, setInternal] = useState(false);
     const [selectedSlots, setSelectedSlots] = useState<Slot[]>([]);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    console.log('selectedOptions', selectedOptions);
     return (
         <OrderContext.Provider
             value={{
@@ -137,6 +144,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
                 setSelectedAgentId,
                 selectedListingId,
                 setSelectedListingId,
+                selectedCurrentListing,
+                setSelectedCurrentListing,
                 selectedServices,
                 setSelectedServices,
                 agentNotes,
@@ -171,7 +180,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
                 setCalendarServices,
                 OrderServices,
                 setOrderServices,
-
+                internal,
+                setInternal
             }}
         >
             {children}

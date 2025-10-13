@@ -15,6 +15,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import ManualPayment from './ManualPayment';
 import UpgradeServicePopup from './UpgradeServicePopup';
 import PayInvoiceModal from './PayInvoiceModal';
+import AgentNotificationModal from './AgentNotificationModal';
 import ImagePopup from '@/components/ImagePopup';
 type Props = {
     orderData: Order | null;
@@ -39,10 +40,11 @@ const Service: React.FC<Props> = ({ orderData, currentService }) => {
     const [openUpgrade, setOpenUpgrade] = useState(false);
     const [openPaymentModal, setOpenPaymentModal] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
-    const [imagePopupOpen, setImagePopupOpen] = useState(false);
-    const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
     const fileInputRef = React.useRef<HTMLInputElement | null>(null);
     const [dragging, setDragging] = useState(false);
+    const [imagePopupOpen, setImagePopupOpen] = useState(false);
+    const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
+    const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
     const { userType } = useAppContext()
     const dragCounter = useRef(0);
 
@@ -168,12 +170,11 @@ const Service: React.FC<Props> = ({ orderData, currentService }) => {
     const currentServiceOption = orderData?.services.find((service) => service.service.uuid === currentService?.uuid)
 
     console.log('paymentSuccess', paymentSuccess);
-   
+
     const handleImageClick = (imageUrl: string) => {
         setSelectedImageUrl(imageUrl);
         setImagePopupOpen(true);
     };
-
     return (
         <div>
             <div className='w-full justify-between h-[65px] bg-[#E4E4E4] font-alexandria pr-5 z-10 flex items-center border-b border-[#BBBBBB] px-6' >
@@ -191,12 +192,19 @@ const Service: React.FC<Props> = ({ orderData, currentService }) => {
                             <Button
                                 onClick={() => {
                                     setMediaUploaded(true);
+                                    setShowEmailConfirmation(true)
                                     // setSelectedFiles(prev =>
                                     //  prev.map(file => ({ ...file, upload: true }))
                                     // );
                                 }}
                                 className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Submit to Client'} </Button>
                         }
+                        <AgentNotificationModal
+                            open={showEmailConfirmation}
+                            onClose={() => setShowEmailConfirmation(false)}
+                            serviceDate={currentService ? currentService : null}
+                            orderData={orderData ? orderData : null}
+                        />
                         {userType === 'agent' &&
                             <div className='flex flex-col justify-center items-center mr-4'>
                                 <p className='text-[18px] text-[#6BAE41]'>${currentServiceOption?.option.amount}</p>
@@ -302,8 +310,8 @@ const Service: React.FC<Props> = ({ orderData, currentService }) => {
                                                 {/* eslint-disable @next/next/no-img-element */}
                                                 <img
                                                     src={`${API_URL}/${file.file_path}`}
-                                                    alt="Preview"
                                                     onClick={() => handleImageClick(`${API_URL}/${file.file_path}`)}
+                                                    alt="Preview"
                                                     className="object-contain h-auto w-full cursor-pointer"
                                                 // onClick={() => {
                                                 //     setSelectedPreviewFile(file.file);
@@ -347,8 +355,8 @@ const Service: React.FC<Props> = ({ orderData, currentService }) => {
                                                         {/* eslint-disable @next/next/no-img-element */}
                                                         <img
                                                             src={`${API_URL}/${file.file_path}`}
-                                                            onClick={() => handleImageClick(`${API_URL}/${file.file_path}`)}
                                                             alt="Preview"
+                                                            onClick={() => handleImageClick(`${API_URL}/${file.file_path}`)}
                                                             className="object-contain h-auto w-full cursor-pointer"
                                                         // onClick={() => {
                                                         //     setSelectedPreviewFile(file.file);

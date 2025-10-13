@@ -70,6 +70,7 @@ const Property = () => {
         setSelectedAgentId,
         selectedListingId,
         setSelectedListingId,
+        setSelectedCurrentListing
     } = useOrderContext();
     const { userType } = useAppContext()
     const [agentData, setAgentData] = useState<Agent[]>([]);
@@ -148,9 +149,7 @@ const Property = () => {
     const [province, setProvince] = useState("");
     const [postalCode, setPostalCode] = useState("");
     const [country, setCountry] = useState("CA");
-    const [countries, setCountries] = useState<
-        { name: string; isoCode: string }[]
-    >([]);
+    const [countries, setCountries] = useState<{ name: string; isoCode: string }[]>([]);
     const [states, setStates] = useState<{ name: string; isoCode: string }[]>([]);
     const [squareFootage, setSquareFootage] = useState("");
     const [lotSize, setLotSize] = useState<string | "">("");
@@ -164,6 +163,12 @@ const Property = () => {
     const [agent, setAgent] = useState<{ uuid: string; first_name: string; last_name: string; email: string; created_at: string }[]>([]);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '');
+    
+    useEffect(() => {
+        const currentListing = listingData.find((list) => list.uuid === selectedListingId)
+        setSelectedCurrentListing(currentListing ?? null)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedListingId, listingData])
 
     useEffect(() => {
         if (userType === 'agent') {

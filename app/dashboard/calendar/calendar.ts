@@ -176,6 +176,8 @@ export interface AddVendorBreakPayload {
   vendor_id: number;
   title: string
   date: string;
+  start_date: string;
+  end_date: string;
   start_time: string;
   end_time: string;
   address: string

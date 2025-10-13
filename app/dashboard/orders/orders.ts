@@ -43,7 +43,8 @@ export interface OrderPayload {
 type AgentNote = {
   note: string;
   name: string;
-  date: string; // ← using JavaScript Date object
+  date: string;
+  internal?: boolean
 };
 export interface FetchErrors {
   status?: boolean;

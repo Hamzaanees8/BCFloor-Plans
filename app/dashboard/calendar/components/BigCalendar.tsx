@@ -47,6 +47,8 @@ export type Vendor = {
     additional_breaks?: {
         address: string
         date: Date
+        start_date: Date
+        end_date: Date
         end_time: string
         start_time: string
         title: string
@@ -269,8 +271,10 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     if (!seenBreakIds.has(brk.uuid)) {
                         seenBreakIds.add(brk.uuid);
 
-                        const start = dayjs(`${brk.date}T${brk.start_time}`).toDate();
-                        const end = dayjs(`${brk.date}T${brk.end_time}`).toDate();
+                        // Create event only for the start date with start_time
+                        // Make it exactly 1 hour long for visibility
+                        const start = dayjs(`${brk.start_date}T${brk.start_time}`).toDate();
+                        const end = dayjs(`${brk.start_date}T${brk.start_time}`).add(1, 'hour').toDate();
 
                         additionalBreakEvents.push({
                             title: `${vendor.first_name} ${vendor.last_name}-Break`,
@@ -281,7 +285,6 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         });
                     }
                 });
-
             }
         });
     });

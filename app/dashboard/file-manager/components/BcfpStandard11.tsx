@@ -264,8 +264,118 @@ const BcfpStandard = ({}: BcfpStandard) => {
   return (
     <>
     <div className="w-full flex  justify-center font-alexandria">
-      <div className="w-1/2 flex flex-col">
-        <div className="p-[50px] pb-[120px] bg-[#376173] ">
+      <div className="w-1/2 flex flex-col bg-[#43454B]">
+        <div className="relative z-10">
+          <svg
+            viewBox="163 83 631 114"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className=""
+          >
+            <g opacity={0.350006} filter="url(#filter0_d_20_1415)">
+              <path
+                d="M794 141C794 141 678.203 92.031 463 154C223 244 164.5 149 164.5 149V83H794V144.5"
+                fill="black"
+              />
+            </g>
+            <path
+              d="M793.592 137.865C793.592 137.865 655.583 84.5849 440.821 159.465C226.06 234.345 163 147.945 163 147.945V83H477.5H794L793.592 136.425"
+              fill="white"
+            />
+            <path
+              opacity={0.350006}
+              d="M794 160.5C794 160.5 656.323 102.81 441.12 171.096C225.916 239.382 166 151.064 166 151.064L167.5 83.5H794V158.5"
+              fill="white"
+            />
+            <defs>
+              <filter
+                id="filter0_d_20_1415"
+                x={0.5}
+                y={0}
+                width={953.5}
+                height={433.744}
+                filterUnits="userSpaceOnUse"
+                colorInterpolationFilters="sRGB"
+              >
+                <feFlood floodOpacity={0} result="BackgroundImageFix" />
+                <feColorMatrix
+                  in="SourceAlpha"
+                  type="matrix"
+                  values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+                  result="hardAlpha"
+                />
+                <feOffset dx={-2} dy={79} />
+                <feGaussianBlur stdDeviation={81} />
+                <feComposite in2="hardAlpha" operator="out" />
+                <feColorMatrix
+                  type="matrix"
+                  values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"
+                />
+                <feBlend
+                  mode="normal"
+                  in2="BackgroundImageFix"
+                  result="effect1_dropShadow_20_1415"
+                />
+                <feBlend
+                  mode="normal"
+                  in="SourceGraphic"
+                  in2="effect1_dropShadow_20_1415"
+                  result="shape"
+                />
+              </filter>
+            </defs>
+          </svg>
+          <div className="absolute top-[18px] right-[68px] group">
+            <div className="w-[170px] h-[94px] relative bg-white shadow-md">
+              {/* logo */}
+              {image3 ? (
+                <>
+                  <Image
+                    src={image3}
+                    alt="selected"
+                    width={200}
+                    height={300}
+                    className="w-full h-full object-cover "
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef3.current?.click()}
+                    className="absolute top-2 right-10 z-8 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    title="Edit image"
+                  >
+                    <Pencil className="w-4 h-4 text-gray-700" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDelete3}
+                    className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    title="Delete image"
+                  >
+                    <Trash className="w-4 h-4 text-red-500" />
+                  </button>
+                </>
+              ) : (
+                <div
+                  onClick={() => fileInputRef3.current?.click()}
+                  className="w-[200px] h-full bg-gray-200  text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                >
+                  Select Image
+                </div>
+              )}
+
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef3}
+                onChange={handleImageChange3}
+                className="hidden"
+              />
+            </div>
+          </div>
+        </div>
+        <div className="p-[50px] pb-[120px] ">
           <div className="w-[500px] h-[630px] place-self-center border-2 border-[#fff] relative overflow-hidden flex items-center justify-center group">
             {image1 ? (
               <>
@@ -469,116 +579,6 @@ const BcfpStandard = ({}: BcfpStandard) => {
         </div>
       </div>
       <div className="w-1/2 bg-[#376173] flex flex-col relative">
-        <div className="relative z-10">
-          <svg
-            viewBox="163 83 631 114"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="absolute top-0 right-0 left-0"
-          >
-            <g opacity={0.350006} filter="url(#filter0_d_20_1415)">
-              <path
-                d="M794 141C794 141 678.203 92.031 463 154C223 244 164.5 149 164.5 149V83H794V144.5"
-                fill="black"
-              />
-            </g>
-            <path
-              d="M793.592 137.865C793.592 137.865 655.583 84.5849 440.821 159.465C226.06 234.345 163 147.945 163 147.945V83H477.5H794L793.592 136.425"
-              fill="white"
-            />
-            <path
-              opacity={0.350006}
-              d="M794 160.5C794 160.5 656.323 102.81 441.12 171.096C225.916 239.382 166 151.064 166 151.064L167.5 83.5H794V158.5"
-              fill="white"
-            />
-            <defs>
-              <filter
-                id="filter0_d_20_1415"
-                x={0.5}
-                y={0}
-                width={953.5}
-                height={433.744}
-                filterUnits="userSpaceOnUse"
-                colorInterpolationFilters="sRGB"
-              >
-                <feFlood floodOpacity={0} result="BackgroundImageFix" />
-                <feColorMatrix
-                  in="SourceAlpha"
-                  type="matrix"
-                  values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
-                  result="hardAlpha"
-                />
-                <feOffset dx={-2} dy={79} />
-                <feGaussianBlur stdDeviation={81} />
-                <feComposite in2="hardAlpha" operator="out" />
-                <feColorMatrix
-                  type="matrix"
-                  values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"
-                />
-                <feBlend
-                  mode="normal"
-                  in2="BackgroundImageFix"
-                  result="effect1_dropShadow_20_1415"
-                />
-                <feBlend
-                  mode="normal"
-                  in="SourceGraphic"
-                  in2="effect1_dropShadow_20_1415"
-                  result="shape"
-                />
-              </filter>
-            </defs>
-          </svg>
-          <div className="absolute top-[18px] left-[68px] group">
-            <div className="w-[170px] h-[94px] relative bg-white shadow-md">
-              {/* logo */}
-              {image3 ? (
-                <>
-                  <Image
-                    src={image3}
-                    alt="selected"
-                    width={200}
-                    height={300}
-                    className="w-full h-full object-cover "
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef3.current?.click()}
-                    className="absolute top-2 right-10 z-8 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                    title="Edit image"
-                  >
-                    <Pencil className="w-4 h-4 text-gray-700" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleDelete3}
-                    className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                    title="Delete image"
-                  >
-                    <Trash className="w-4 h-4 text-red-500" />
-                  </button>
-                </>
-              ) : (
-                <div
-                  onClick={() => fileInputRef3.current?.click()}
-                  className="w-[200px] h-full bg-gray-200  text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-                >
-                  Select Image
-                </div>
-              )}
-
-              <input
-                type="file"
-                accept="image/*"
-                ref={fileInputRef3}
-                onChange={handleImageChange3}
-                className="hidden"
-              />
-            </div>
-          </div>
-        </div>
         <div className="w-full h-[420px] mt-[35px] place-self-center relative overflow-hidden flex items-center justify-center group">
           {image4 ? (
             <>

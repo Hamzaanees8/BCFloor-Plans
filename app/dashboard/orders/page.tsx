@@ -157,6 +157,8 @@ type Vendor = {
     additional_breaks?: {
         address: string
         date: Date
+        start_date: Date
+        end_date: Date
         end_time: string
         start_time: string
         title: string

@@ -44,6 +44,7 @@ interface Notes {
     name: string;
     note: string;
     date: string
+    internal?: string
 }
 function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNotes, coAgent, setCoAgent }: AppointmentTab) {
     const { userType } = useAppContext();
@@ -68,7 +69,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
     // >([]);
 
     const { setCalendarServices, calendarServices, selectedSlots } = useOrderContext();
-    console.log('selectedServices', calendarServices);
+    console.log('currentOrder', calendarServices);
     console.log('selectedSlots edit app', selectedSlots);
 
     useEffect(() => {
@@ -97,6 +98,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
 
     const currentAgent = agentData.find((ag) => ag.uuid === agent)
 
+    console.log('notes', notes);
 
     useEffect(() => {
 
@@ -104,36 +106,6 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
         setAgent(currentAgent?.uuid ?? '');
         setContactNumber(currentAgent?.primary_phone ?? '')
         setContactEmail(currentAgent?.email ?? '')
-        // setContactNumber(currentAgent?.primary_phone ?? '')
-        // const currentVendor = currentOrder?.slots.find((slots) => {
-        //     return slots.service_id == serviceId
-        // })
-        // const currentServiceSlots = currentOrder?.slots.filter((slots) => {
-        //     return slots.service_id == serviceId
-        // })
-        // if (currentServiceSlots && currentServiceSlots.length > 0) {
-        //     const formattedDate = dayjs(currentServiceSlots[0].date).format('dddd, MMMM D');
-        //     const sortedSlots = [...currentServiceSlots].sort((a, b) =>
-        //         a.start_time.localeCompare(b.start_time)
-        //     );
-
-        //     const startTime = dayjs(`${currentServiceSlots[0].date}T${sortedSlots[0].start_time}`).format('h:mm A');
-        //     const endTime = dayjs(`${currentServiceSlots[0].date}T${sortedSlots[sortedSlots.length - 1].end_time}`).format('h:mm A');
-        //     const timeRange = `${startTime} - ${endTime}`;
-
-        //     setTime(timeRange)
-        //     setDate(formattedDate)
-        // }
-        // const currentService = currentOrder?.services.find((service) => {
-        //     return service.service.id == serviceId
-        // })
-
-        // setServices(currentService?.service?.name ?? '')
-        // setVendor(currentVendor?.vendor?.first_name ?
-        //     `${currentVendor?.vendor?.first_name} ${currentVendor?.vendor?.last_name}`
-        //     : ''
-        // )
-        // setServiceOption(currentService?.option?.title ?? '')
         setListing(currentOrder?.property ? `${currentOrder?.property.address}, ${currentOrder?.property.city}, ${currentOrder?.property.province}` : '')
         setSquareFootage(String(currentOrder?.property?.square_footage))
         // @ts-expect-error  error
@@ -152,15 +124,12 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
 
             if (Array.isArray(parsed)) {
                 setCoAgent(parsed);
-                // setFirstCoAgentName(parsed[0]?.name ?? "");
             } else {
                 setCoAgent([]);
-                // setFirstCoAgentName("");
             }
         } catch (error) {
             console.error("Invalid co_agents:", error);
             setCoAgent([]);
-            // setFirstCoAgentName("");
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -532,7 +501,26 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                 ))}
                             </div>
                         </div>
-                        {notes?.map((note, index) => (
+                        {activeTab === 'Notes' && notes?.filter((note) => note.internal == 'false' || !note.internal)?.map((note, index) => (
+                            <div
+                                key={index}
+                                className="w-full p-3 rounded-[6px] bg-[#E4E4E4] border border-[#BBBBBB] relative whitespace-pre-wrap break-words mt-[15px]"
+                            >
+
+                                <p className="text-sm text-[#333]">{note.note}</p>
+
+                                <div className="mt-2 text-right text-[#8E8E8E] text-[13px] font-[400] leading-tight">
+                                    <p>{new Date(note.date).toLocaleDateString("en-US", {
+                                        year: "numeric",
+                                        month: "short",
+                                        day: "numeric",
+                                    })}</p>
+                                    <p>{note.name}</p>
+                                </div>
+                            </div>
+                        ))
+                        }
+                        {activeTab === 'Internal Notes' && notes?.filter((note) => note.internal == 'true')?.map((note, index) => (
                             <div
                                 key={index}
                                 className="w-full p-3 rounded-[6px] bg-[#E4E4E4] border border-[#BBBBBB] relative whitespace-pre-wrap break-words mt-[15px]"
