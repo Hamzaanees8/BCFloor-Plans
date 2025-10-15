@@ -8,12 +8,66 @@ import { useOrderContext } from '../../orders/context/OrderContext'
 import { GetServices, GetVendors } from '../../orders/orders'
 import { Order } from '../../orders/page'
 import { useAppContext } from '@/app/context/AppContext'
+// import OneDayCalendar from '../../orders/components/OneDayCalendar'
 
 
 interface AppointmentTab {
     currentOrder?: Order;
 }
 
+interface Coordinate {
+    lat: number
+    lng: number
+}
+
+function isPointInPolygon(point: Coordinate, polygon: Coordinate[]): boolean {
+    let inside = false
+    const { lat, lng } = point
+
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i].lng,
+            yi = polygon[i].lat
+        const xj = polygon[j].lng,
+            yj = polygon[j].lat
+
+        const intersect =
+            yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi
+
+        if (intersect) inside = !inside
+    }
+
+    return inside
+}
+
+async function isPropertyInsideVendorArea(selectedCurrentListing: string, vendor: VendorData): Promise<boolean> {
+    if (!selectedCurrentListing || !vendor.coordinates) return false
+
+    try {
+        const polygon: Coordinate[] = JSON.parse(vendor.coordinates as unknown as string);
+        if (!Array.isArray(polygon) || polygon.length < 3) return false
+
+        const geocoder = new window.google.maps.Geocoder()
+
+        const propertyCoords = await new Promise<Coordinate | null>((resolve) => {
+            geocoder.geocode({ address: selectedCurrentListing }, (results, status) => {
+                if (status === 'OK' && results && results[0]) {
+                    const loc = results[0].geometry.location
+                    resolve({ lat: loc.lat(), lng: loc.lng() })
+                } else {
+                    console.error('Geocoding failed:', status)
+                    resolve(null)
+                }
+            })
+        })
+
+        if (!propertyCoords) return false
+
+        return isPointInPolygon(propertyCoords, polygon)
+    } catch (err) {
+        console.error('Invalid vendor coordinates:', err)
+        return false
+    }
+}
 const Schedule = ({ currentOrder }: AppointmentTab) => {
     const { userType } = useAppContext();
     const [vendorsData, setVendorsData] = React.useState<VendorData[]>([]);
@@ -23,12 +77,10 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
     const [scheduleOverrideMap, setScheduleOverrideMap] = useState<Record<number, 0 | 1>>({});
     const [recommendTimeMap, setRecommendTimeMap] = useState<Record<number, 0 | 1>>({});
     const [servicesData, setServicesData] = useState<Services[]>([]);
+    const [filteredVendorsByService, setFilteredVendorsByService] = useState<Record<string, VendorData[]>>({});
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [mergedServices, setMergedServices] = useState<any[]>([]);
     const { setSelectedSlots, calendarServices } = useOrderContext();
-    console.log('calendarServices', calendarServices);
-    console.log('mergedServices', mergedServices);
-
     useEffect(() => {
         if (!currentOrder?.slots) return;
 
@@ -70,8 +122,6 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
                 uuid: service.uuid,
             };
         }).filter(Boolean);
-
-        console.log('enriched', enriched);
 
         setMergedServices([
             ...(currentOrder?.services || []),
@@ -160,7 +210,35 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
         setScheduleOverrideMap(newScheduleOverrideMap);
         setRecommendTimeMap(newRecommendTimeMap);
     }, [currentOrder]);
+    useEffect(() => {
+        async function filterVendorsByService() {
+            if (!vendorsData.length || !currentOrder?.property || !servicesData.length) return;
 
+            const addressString = `${currentOrder?.property.address}, ${currentOrder?.property.city}, ${currentOrder?.property.country}`;
+            const result: Record<string, VendorData[]> = {};
+
+            for (const service of servicesData) {
+                const vendorsForService = vendorsData.filter(v =>
+                    v.vendor_services?.some(vs => vs.service?.uuid === service.uuid)
+                );
+
+                const insideResults = await Promise.all(
+                    vendorsForService.map(async vendor => ({
+                        vendor,
+                        inside: await isPropertyInsideVendorArea(addressString, vendor),
+                    }))
+                );
+
+                result[service.uuid] = insideResults
+                    .filter(r => r.inside)
+                    .map(r => r.vendor);
+            }
+
+            setFilteredVendorsByService(result);
+        }
+
+        filterVendorsByService();
+    }, [vendorsData, servicesData, currentOrder]);
 
     return (
         <div className='font-alexandria'>
@@ -251,25 +329,48 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="all">All Vendors</SelectItem>
-                                            {vendorsData?.map((vendor, vidx) => (
-                                                <SelectItem key={vidx} value={vendor.uuid ?? ''}>
-                                                    {vendor.first_name} {vendor.last_name}
+                                            {service.service.uuid && filteredVendorsByService[service.service.uuid]?.length ? (
+                                                filteredVendorsByService[service.service.uuid]!.map((vendor, vidx) => (
+                                                    <SelectItem key={vidx} value={vendor.uuid ?? ''}>
+                                                        {vendor.first_name} {vendor.last_name}
+                                                    </SelectItem>
+                                                ))
+                                            ) : (
+                                                <SelectItem value="none" disabled>
+                                                    No vendors available for this service in the selected area
                                                 </SelectItem>
-                                            ))}
+                                            )}
+
+
                                         </SelectContent>
                                     </Select>
 
                                     <div className="mt-[20px]">
                                         <OneDayCalendar
-                                            className={`my-${userType}-calendar`} 
+                                            className={`my-${userType}-calendar`}
                                             selectedVendors={
                                                 selectedVendor === 'all'
-                                                    ? vendorsData
-                                                        .map((v) => v.uuid)
-                                                        .filter((uuid): uuid is string => typeof uuid === 'string')
+                                                    ? (
+                                                        service.service.uuid
+                                                            ? (filteredVendorsByService[service.service.uuid] ?? [])
+                                                                .filter((v) =>
+                                                                    v.vendor_services?.some(
+                                                                        (vs) => vs.service?.uuid === service.service.uuid
+                                                                    )
+                                                                )
+                                                                .map((v) => v.uuid)
+                                                                .filter(
+                                                                    (uuid): uuid is string => typeof uuid === 'string'
+                                                                )
+                                                            : []
+                                                    )
                                                     : Array.isArray(selectedVendor)
-                                                        ? selectedVendor.filter((uuid): uuid is string => typeof uuid === 'string')
-                                                        : [selectedVendor].filter((uuid): uuid is string => typeof uuid === 'string')
+                                                        ? selectedVendor.filter(
+                                                            (uuid): uuid is string => typeof uuid === 'string'
+                                                        )
+                                                        : [selectedVendor].filter(
+                                                            (uuid): uuid is string => typeof uuid === 'string'
+                                                        )
                                             }
                                             selectedListingId={currentOrder?.property.uuid ?? ''}
                                             vendorColors={vendorColors}
@@ -281,7 +382,7 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
                                             recommendTime={recommendTime}
                                             showAllVendors={showAllVendors}
                                             scheduleOverride={scheduleOverride}
-                                            
+
                                         // serviceDuration={service?.option?.service_duration ?? ''}
                                         />
                                     </div>

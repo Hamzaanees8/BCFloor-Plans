@@ -17,6 +17,7 @@ import UpgradeServicePopup from './UpgradeServicePopup';
 import PayInvoiceModal from './PayInvoiceModal';
 import AgentNotificationModal from './AgentNotificationModal';
 import ImagePopup from '@/components/ImagePopup';
+import DownloadModal from './DownloadModal';
 type Props = {
     orderData: Order | null;
     currentService?: Services;
@@ -47,6 +48,7 @@ const Service: React.FC<Props> = ({ orderData, currentService }) => {
     const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
     const { userType } = useAppContext()
     const dragCounter = useRef(0);
+    const [showDownloadModal, setShowDownloadModal] = useState(false);
 
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
@@ -187,7 +189,14 @@ const Service: React.FC<Props> = ({ orderData, currentService }) => {
                 )}
                 <div className='flex items-center gap-x-[14px]'>
                     {/* <Button className='w-[150px] md:w-[143px] h-[32px] md:h-[32px]  justify-center rounded-[6px] font-raleway border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]'>Download All File</Button> */}
-                    <div className='flex justify-center items-center'>
+                    <div className='flex justify-center items-center gap-x-[14px]'>
+                        {userType !== 'vendor' &&
+                            <Button
+                                onClick={() => {
+                                    setShowDownloadModal(true);
+                                }}
+                                className={`${`${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}>Download Files </Button>
+                        }
                         {userType !== 'agent' &&
                             <Button
                                 onClick={() => {
@@ -555,6 +564,12 @@ const Service: React.FC<Props> = ({ orderData, currentService }) => {
                 imageUrl={selectedImageUrl}
                 open={imagePopupOpen}
                 onClose={() => setImagePopupOpen(false)}
+            />
+            <DownloadModal
+                open={showDownloadModal}
+                onClose={() => setShowDownloadModal(false)}
+                localFiles={floorFiles}
+                apiFiles={currentServiceFiles || []}
             />
         </div>
     )

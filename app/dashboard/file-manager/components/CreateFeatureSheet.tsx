@@ -23,13 +23,14 @@ import BcfpStandard1 from "./BcfpStandard1";
 import BcfpStandard2 from "./BcfpStandard2";
 import BcfpStandard3 from "./BcfpStandard3";
 import BcfpStandard4 from "./BcfpStandard4";
-import BcfpStandard5 from "./BcfpStandard5";
+// import BcfpStandard5 from "./BcfpStandard5";
 import BcfpStandard6 from "./BcfpStandard6";
 import BcfpStandard7 from "./BcfpStandard7";
 import BcfpStandard8 from "./BcfpStandard8";
 import BcfpStandard9 from "./BcfpStandard9";
 import BcfpStandard10 from "./BcfpStandard10";
 import BcfpStandard11 from "./BcfpStandard11";
+// import BcfpStandard12 from "./BcfpStandard12";
 import { useAppContext } from "@/app/context/AppContext";
 
 interface TourSettingProps {
@@ -313,9 +314,9 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
                           <SelectItem value="BCFP Standard4">
                             BCFP Standard4
                           </SelectItem>
-                          <SelectItem value="BCFP Standard5">
+                          {/* <SelectItem value="BCFP Standard5">
                             BCFP Standard5
-                          </SelectItem>
+                          </SelectItem> */}
                           <SelectItem value="BCFP Standard6">
                             BCFP Standard6
                           </SelectItem>
@@ -334,6 +335,9 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
                           <SelectItem value="BCFP Standard11">
                             BCFP Standard11
                           </SelectItem>
+                          {/* <SelectItem value="BCFP Standard12">
+                            BCFP Standard12
+                          </SelectItem> */}
                         </SelectContent>
                       </Select>
                     </div>
@@ -444,13 +448,14 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
                 {selectedTemplate === "BCFP Standard2" && <BcfpStandard2 orderData={orderData || null} />}
                 {selectedTemplate === "BCFP Standard3" && <BcfpStandard3 orderData={orderData || null} />}
                 {selectedTemplate === "BCFP Standard4" && <BcfpStandard4 orderData={orderData || null} />}
-                {selectedTemplate === "BCFP Standard5" && <BcfpStandard5 orderData={orderData || null} />}
+                {/* {selectedTemplate === "BCFP Standard5" && <BcfpStandard5 orderData={orderData || null} />} */}
                 {selectedTemplate === "BCFP Standard6" && <BcfpStandard6 orderData={orderData || null} />}
                 {selectedTemplate === "BCFP Standard7" && <BcfpStandard7 orderData={orderData || null} />}
                 {selectedTemplate === "BCFP Standard8" && <BcfpStandard8 orderData={orderData || null} />}
                 {selectedTemplate === "BCFP Standard9" && <BcfpStandard9 orderData={orderData || null} />}
                 {selectedTemplate === "BCFP Standard10" && <BcfpStandard10 orderData={orderData || null} />}
                 {selectedTemplate === "BCFP Standard11" && <BcfpStandard11 orderData={orderData || null} />}
+                {/* {selectedTemplate === "BCFP Standard12" && <BcfpStandard12 orderData={orderData || null} />} */}
               </div>
             </AccordionContent>
           </AccordionItem>
