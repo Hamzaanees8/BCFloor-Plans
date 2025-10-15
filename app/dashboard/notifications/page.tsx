@@ -63,13 +63,13 @@ const Page = () => {
                             value="unpaid"
                             className="p-0 px-[16px] mb-[9px] hover:!bg-transparent focus:!bg-transparent cursor-pointer"
                         >
-                            Unpaid
+                            Read
                         </SelectItem>
                         <SelectItem
                             value="draft"
                             className="p-0 px-[16px] hover:!bg-transparent focus:!bg-transparent cursor-pointer"
                         >
-                            Draft
+                            Unread
                         </SelectItem>
                     </SelectContent>
                 </Select>

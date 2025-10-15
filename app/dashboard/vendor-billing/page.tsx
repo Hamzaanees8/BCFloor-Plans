@@ -17,29 +17,28 @@ import {
 } from "@/components/ui/select";
 import BillingDialog from "@/components/BillingDialog";
 import { useAppContext } from "@/app/context/AppContext";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { Get } from "../orders/orders";
+import { toast } from "sonner";
+import { payVendor } from "./vendorBilling";
 
 
-// one slot booked by a vendor for a service
 export interface Slot {
     id: number;
     service_id: number;
     vendor_id: number | string;
-    start_time: string;      // ISO or time string
-    end_time: string;        // ISO or time string
-    vendor: Vendor;          // vendor details
+    start_time: string;
+    end_time: string;
+    vendor: Vendor;
 }
 
-// vendor details attached to slot
 export interface Vendor {
     uuid: string;
     first_name: string;
     last_name: string;
-    // add other vendor fields if needed
+
 }
 
-// service record attached to order
 export interface ServiceRecord {
     service_id?: number;
     service?: {
@@ -51,9 +50,9 @@ export interface ServiceRecord {
     option?: { title?: string };
     option_id?: string | number;
     amount?: string | number;
+    uuid?: string
 }
 
-// one order from API
 export interface Order {
     id: number;
     created_at: string;
@@ -65,10 +64,10 @@ export interface Order {
 export interface VendorService {
     serviceId: number;
     serviceName: string;
-    option: string | number | undefined;
+    option?: { title?: string };
     amount: string | number;
     slots: Slot[];
-    status: string; // COMPLETE or other
+    status?: string;
 }
 
 export interface VendorOrder {
@@ -89,12 +88,14 @@ export interface VendorGrouped {
 interface ServiceForVendor {
     serviceId: number;
     serviceName: string;
-    option: string | number | undefined;
+    option?: { title?: string };
+    option_id?: string | number;
     amount: string | number;
     slots: Slot[];
-    status: 'COMPLETE' | 'PENDING' | string;
+    status?: 'COMPLETE' | 'PENDING' | string;
+    uuid?: string;
+    vendor_payment?: { stripe_transfer_id: string, uuid: string , invoice_url:string}
 }
-
 const Page = () => {
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
@@ -104,7 +105,7 @@ const Page = () => {
     const [orderData, setOrderData] = useState<Order[]>([]);
     const { userType } = useAppContext();
     console.log(error);
-
+    const [processingPayments, setProcessingPayments] = useState<Set<string>>(new Set());
     const [expandedRow, setExpandedRow] = useState<number | null>(null);
 
     const confirmAndExecute = () => {
@@ -148,7 +149,6 @@ const Page = () => {
             });
     }, []);
 
-    // Helper: format time (HH:MM) even if input is HH:MM:SS
     const formatTime = (timeStr?: string) => {
         if (!timeStr) return "—";
         const parts = timeStr.split(":");
@@ -156,7 +156,6 @@ const Page = () => {
         return timeStr;
     };
 
-    // Helper: compute combined time string for a given array of slots
     const computeCombinedTime = (slots: Slot[]) => {
         if (!slots || slots.length === 0) return "—";
         const sorted = [...slots].sort(
@@ -185,6 +184,7 @@ const Page = () => {
 
         orderData.forEach((order: Order) => {
             if (!order.slots || order.slots.length === 0) return;
+
             // group slots by service_id
             const groupedSlots = order.slots.reduce<Record<number, Slot[]>>((acc, slot) => {
                 const sid = slot.service_id;
@@ -224,24 +224,17 @@ const Page = () => {
                             services: [],
                         });
                     }
-                    const optionValue =
-                        (typeof svcRecord?.option === "object"
-                            ? svcRecord?.option?.title
-                            : svcRecord?.option) ||
-                        svcRecord?.option_id ||
-                        "";
 
-                    const serviceForVendor: VendorService = {
+                    const serviceForVendor: ServiceForVendor = {
+                        ...svcRecord,
                         serviceId: sid,
                         serviceName:
                             svcRecord?.service?.name ||
                             svcRecord?.service_name ||
                             svcRecord?.name ||
                             `Service ${sid}`,
-                        option: optionValue,
-                        amount: svcRecord?.amount ?? "0",
                         slots: slotsForService.filter((s) => s.vendor_id === vendorId),
-                        status: "COMPLETE",
+                        amount: svcRecord?.amount || 0,
                     };
 
                     vendorEntry.orders.get(order.id)!.services.push(serviceForVendor);
@@ -279,9 +272,73 @@ const Page = () => {
         return arr;
     }, [orderData]);
 
+    console.log('vendorsGrouped', vendorsGrouped);
 
-    // console debugging (optional)
-    // console.log("vendorsGrouped", vendorsGrouped);
+    const handlePayVendor = async (paymentData: { order_service_uuid: string, vendor_uuid: string, amount: number }) => {
+        const paymentKey = `${paymentData.order_service_uuid}-${paymentData.vendor_uuid}`;
+
+        try {
+            setProcessingPayments(prev => new Set(prev).add(paymentKey));
+
+            const token = localStorage.getItem("token") || "";
+
+            if (!paymentData?.vendor_uuid || !paymentData?.order_service_uuid) {
+                toast.error("Invalid payment data");
+                return;
+            }
+
+            const result = await payVendor(paymentData, token);
+
+            if (result.status === "success") {
+                toast.success("Payment processed successfully");
+
+                setOrderData(prevOrderData => {
+                    return prevOrderData.map(order => {
+                        const hasPaidService = order.services?.some(service =>
+                            service.uuid === paymentData.order_service_uuid
+                        );
+
+                        if (hasPaidService) {
+                            const updatedServices = order.services?.map(service => {
+                                if (service.uuid === paymentData.order_service_uuid) {
+                                    return {
+                                        ...service,
+                                        vendor_payment: {
+                                            paid: true,
+                                            transfer_id: result.transfer_id,
+                                            paid_at: new Date().toISOString()
+                                        }
+                                    };
+                                }
+                                return service;
+                            });
+
+                            return {
+                                ...order,
+                                services: updatedServices
+                            };
+                        }
+
+                        return order;
+                    });
+                });
+            } else {
+                toast.error("Payment failed");
+            }
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (error: any) {
+            console.error("Payment error:", error);
+            toast.error(error.message || "Payment failed");
+        } finally {
+            setProcessingPayments(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(paymentKey);
+                return newSet;
+            });
+        }
+    };
+
 
     return (
         <div>
@@ -393,11 +450,10 @@ const Page = () => {
                                                 <TableRow className="bg-gray-50">
                                                     <TableCell colSpan={8} className="p-0">
                                                         <div className="overflow-hidden transition-all duration-300 p-4">
-                                                            {/* ORDERS accordion for this vendor */}
                                                             <div className="space-y-4">
                                                                 {vg.orders.map((order: VendorOrder) => {
                                                                     const orderTotal = order.services.reduce(
-                                                                        (s: number, svc: ServiceForVendor) => s + Number(svc.amount ?? 0),
+                                                                        (total: number, svc: VendorService) => total + Number(svc.amount ?? 0),
                                                                         0
                                                                     );
 
@@ -421,6 +477,8 @@ const Page = () => {
                                                                             <div className="bg-gray-50 p-4 space-y-4">
                                                                                 {order.services.map((svc: ServiceForVendor, idx: number) => {
                                                                                     const svcTime = computeCombinedTime(svc.slots || []);
+                                                                                    console.log('svc', svc);
+
                                                                                     return (
                                                                                         <div
                                                                                             key={idx}
@@ -430,7 +488,7 @@ const Page = () => {
                                                                                                 <div>
                                                                                                     <p className="font-semibold text-gray-800">
                                                                                                         {svc.serviceName}{" "}
-                                                                                                        {svc.option ? `(${svc.option})` : ""}
+                                                                                                        {svc.option ? `(${svc.option.title})` : ""}
                                                                                                     </p>
                                                                                                     <p className="text-sm text-gray-600">
                                                                                                         Price: ${Number(svc.amount ?? 0).toFixed(2)}
@@ -441,15 +499,55 @@ const Page = () => {
 
                                                                                                 <div className="flex flex-col gap-2 items-end">
                                                                                                     <button
-                                                                                                        onClick={() =>
-                                                                                                            alert(
-                                                                                                                `Pay Now - Order ${order.orderId} Service ${svc.serviceId} Vendor ${vg.vendorId}`
-                                                                                                            )
-                                                                                                        }
-                                                                                                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm shadow"
+                                                                                                        disabled={svc.vendor_payment != null || processingPayments.has(`${svc.uuid}-${svc.slots[0].vendor.uuid}`)}
+                                                                                                        onClick={(e) => {
+                                                                                                            e.stopPropagation();
+                                                                                                            handlePayVendor({
+                                                                                                                vendor_uuid: svc.slots[0].vendor.uuid,
+                                                                                                                order_service_uuid: svc.uuid ?? '',
+                                                                                                                amount: Number(svc.amount ?? 0)
+                                                                                                            });
+                                                                                                        }}
+                                                                                                        className={`
+                                                                                                                px-4 py-2 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px]
+                                                                                                                ${svc.vendor_payment != null
+                                                                                                                ? 'bg-green-500 cursor-not-allowed'
+                                                                                                                : processingPayments.has(`${svc.uuid}-${svc.slots[0].vendor.uuid}`)
+                                                                                                                    ? 'bg-blue-400 cursor-not-allowed'
+                                                                                                                    : 'bg-blue-500 hover:bg-blue-600 cursor-pointer'
+                                                                                                            } `}
                                                                                                     >
-                                                                                                        Pay Now
+                                                                                                        {processingPayments.has(`${svc.uuid}-${svc.slots[0].vendor.uuid}`) ? (
+                                                                                                            <span className="flex items-center">
+                                                                                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                                                                </svg>
+                                                                                                                Processing...
+                                                                                                            </span>
+                                                                                                        ) : svc.vendor_payment != null ? (
+                                                                                                            'Paid'
+                                                                                                        ) : (
+                                                                                                            'Pay Now'
+                                                                                                        )}
                                                                                                     </button>
+                                                                                                    {svc.vendor_payment?.invoice_url &&
+                                                                                                        <div className="flex items-center gap-2">
+                                                                                                            <ExternalLink className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                                                                                            <a
+                                                                                                                href={svc.vendor_payment?.invoice_url}
+                                                                                                                target="_blank"
+                                                                                                                rel="noopener noreferrer"
+                                                                                                                className="text-blue-500 hover:text-blue-700 hover:underline truncate max-w-[200px]"
+                                                                                                                title={svc.vendor_payment?.invoice_url}
+                                                                                                            >
+                                                                                                                {svc.vendor_payment?.invoice_url ?
+                                                                                                                    svc.vendor_payment.invoice_url.replace(/^https?:\/\//, '').substring(0, 30) + '...'
+                                                                                                                    : 'No URL'
+                                                                                                                }
+                                                                                                            </a>
+                                                                                                        </div>
+                                                                                                    }
                                                                                                 </div>
                                                                                             </div>
                                                                                         </div>

@@ -46,6 +46,7 @@ export interface VendorData {
     service: { uuid: string }
   }[]
   coordinates: string[]
+  company: { vendor_id: string }
 }
 export interface OrderData {
   uuid: string;

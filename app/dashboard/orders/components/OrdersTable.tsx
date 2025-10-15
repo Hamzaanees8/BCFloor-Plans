@@ -260,6 +260,11 @@ export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickVi
     const table = useReactTable({
         data: OrderData,
         columns,
+        initialState: {
+            pagination: {
+                pageSize: 1000, 
+            },
+        },
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
         getCoreRowModel: getCoreRowModel(),
