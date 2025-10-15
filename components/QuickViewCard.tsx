@@ -220,10 +220,10 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
 
                         <div className="text-[#4290E9] font-[400] text-[15px]">
                             {(type === "notification") && (
-                                <div className="text-[24px] font-[400] text-[#666666]">{data.type}</div>
+                                <div className="text-[24px] font-[400] text-[#666666]"> {(data?.type)?.replace(/_/g, ' ')?.replace(/\b\w/g, char => char.toUpperCase())} </div>
                             )}
                             {(type === "notification") && (
-                                <span className="text-[15px] font-[400] text-[#666666] ]  ">Contact: <span className="text-[#4290E9]">{data.order_details.agent.first_name} {data.order_details.agent.last_name} </span></span>
+                                <span className="text-[15px] font-[400] text-[#666666] ]  ">Contact: <span className="text-[#4290E9]">{data?.order_details?.agent?.first_name} {data?.order_details?.agent?.last_name} </span></span>
                             )}
                             {type === "admin" && (
                                 <div className="text-[24px] font-[400] text-[#666666] font-alexandria">{(data as AdminData).full_name} </div>
@@ -270,7 +270,7 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
                         {(type === "notification") && (
                             <div className="flex items-center space-x-[18px] ">
                                 <File className="w-[24px] text-[#666666]" strokeWidth={1} />
-                                <p className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px] text-[#4290E9]`}>#{data.order_details.id}</p>
+                                <p className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px] text-[#4290E9]`}>#{data?.order_details?.id}</p>
                             </div>
                         )}
                         {type === "vendors" && data.addresses?.length > 0 && (
@@ -288,7 +288,7 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
                                     {type === "admin" && (data as AdminData).address}
                                     {type === "subaccount" && (data as SubAccountData).address}
                                     {type === "listing" && (data as Listings).address}
-                                    {type === "notification" && (data as NotificationData).order_details.property_address}
+                                    {type === "notification" && (data as NotificationData)?.order_details?.property_address}
                                     {type === "subaccount" && (data as SubAccountData).address}
                                 </p>
                             </div>
@@ -366,17 +366,17 @@ export default function QuickViewCard({ type, data, onClose }: QuickViewCardProp
                             <div className="grid grid-cols-1 gap-y-[12px]">
                                 <div className="flex items-center space-x-[18px]">
                                     <Mail className="w-[24px] text-[#666666]" strokeWidth={1} />
-                                    <span className={`text-[15px] font-[400] ${userType}-text leading-[32px]`}>{data.order_details.agent.email}</span>
+                                    <span className={`text-[15px] font-[400] ${userType}-text leading-[32px]`}>{data?.order_details?.agent?.email}</span>
                                 </div>
                                 <div className="flex items-center space-x-[18px]">
                                     <Smartphone className="w-[24px] text-[#666666]" strokeWidth={1} />
-                                    <span className="text-[15px] font-[400] text-[#666666] leading-[32px]">{data.order_details.agent.primary_phone}</span>
+                                    <span className="text-[15px] font-[400] text-[#666666] leading-[32px]">{data?.order_details?.agent?.primary_phone}</span>
                                 </div>
                                 <div className="flex items-center space-x-[18px]">
                                     <Phone className="w-[24px] text-[#666666]" strokeWidth={1} />
-                                    <span className="text-[15px] font-[400] text-[#666666] leading-[32px]">{data.order_details.agent.secondary_phone}</span>
+                                    <span className="text-[15px] font-[400] text-[#666666] leading-[32px]">{data?.order_details?.agent?.secondary_phone}</span>
                                 </div>
-                                {data?.order_details.services?.map((service, idx) => {
+                                {data?.order_details?.services?.map((service, idx) => {
                                     const currentserviceSlot = data?.order_details.slots.find((slot) => slot.service_id == service.service_id)
                                     console.log('currentserviceSlot', currentserviceSlot);
 

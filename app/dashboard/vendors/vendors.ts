@@ -463,3 +463,46 @@ export async function calculateDistance(
 }
 
 
+// lib/api/stripeAPI.ts
+
+export interface StripeConnectResponse {
+  success: boolean;
+  url?: string;
+  message?: string;
+  error?: string;
+}
+
+export const connectStripe = async (token: string): Promise<StripeConnectResponse> => {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  try {
+    const response = await fetch(`${API_URL}/vendor/stripe/connect`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    return {
+      success: true,
+      url: data.url, // If API returns redirect URL
+      message: data.message,
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    console.error('Stripe connect error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to connect Stripe',
+    };
+  }
+};

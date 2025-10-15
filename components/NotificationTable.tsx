@@ -9,7 +9,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import DropdownActions from "@/components/DropdownActions";
 import { useAppContext } from "@/app/context/AppContext";
 import { NotificationData } from "./QuickViewCard";
 
@@ -26,10 +25,10 @@ const NotificationTable: React.FC<NotificationTableProps> = ({
 }) => {
   const { userType } = useAppContext();
 
-  const options = [
-    { label: "Edit", onClick: () => console.log("Edit clicked") },
-    { label: "Delete", onClick: () => console.log("Deleted!"), confirm: true },
-  ];
+  // const options = [
+  //   { label: "Edit", onClick: () => console.log("Edit clicked") },
+  //   { label: "Delete", onClick: () => console.log("Deleted!"), confirm: true },
+  // ];
 
   return (
     <div className="w-full max-w-full overflow-hidden">
@@ -71,7 +70,7 @@ const NotificationTable: React.FC<NotificationTableProps> = ({
                   </TableCell>
 
                   <TableCell className="text-[15px] font-[400] text-[#7D7D7D]">
-                    {notification.type || notification.Subject}
+                    {(notification.type || notification.Subject)?.replace(/_/g, ' ')?.replace(/\b\w/g, char => char.toUpperCase())}
                   </TableCell>
 
                   <TableCell className="text-[15px] font-[400] text-[#7D7D7D] w-[50%]">
@@ -98,7 +97,7 @@ const NotificationTable: React.FC<NotificationTableProps> = ({
                           hour12: true,
                         })
                         : null}
-                    <DropdownActions options={options} />
+                    {/* <DropdownActions options={options} /> */}
                   </TableCell>
                 </TableRow>
               ))

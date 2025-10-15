@@ -205,10 +205,23 @@ export default function VendorTable({ setVendorData, onQuickView, vendorData, on
 
                 const serviceNames = vendorServices
                     .map(vs => vs.service?.name)
-                    .filter(Boolean); // filter out undefined/null names safely
+                    .filter(Boolean);
+
+                const allServices = serviceNames.join(", ");
+
+                if (serviceNames.length > 3) {
+                    const firstThree = serviceNames.slice(0, 3).join(", ");
+                    return (
+                        <div
+                            className="text-[#666666] cursor-help"
+                            title={allServices}
+                        >
+                            {firstThree}...
+                        </div>
+                    );
+                }
 
                 const displayText = serviceNames.join(", ");
-
                 return (
                     <div className="text-[#666666]">
                         {displayText || "No services"}

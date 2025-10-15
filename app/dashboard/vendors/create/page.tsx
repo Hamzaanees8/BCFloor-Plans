@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label'
 import { useParams, useRouter } from 'next/navigation'
 //import CloseDialog from '@/components/CloseDialog'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog'
-import { Create, Edit, GetOne, GetServices, VendorAddress, VendorPayload, VendorService, VendorSettings, WorkHours } from '../vendors'
+import { connectStripe, Create, Edit, GetOne, GetServices, VendorAddress, VendorPayload, VendorService, VendorSettings, WorkHours } from '../vendors'
 import { SaveModal } from '@/components/SaveModal'
 import { Plus, X } from 'lucide-react'
 import { friendlyTimeZoneNames, PaymentCard } from '@/components/GlobalSettings'
@@ -146,7 +146,7 @@ const VendorForm = () => {
     const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
     const [cards, setCards] = useState<PaymentCard[]>([]);
     const [map_coordinates, setmap_coordinates] = useState<LatLng[]>([]);
-    //const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
+    const [isStripeLoading, setIsStripeLoading] = useState(false);
     console.log(timeZoneOptions);
 
     const { userType } = useAppContext()
@@ -693,6 +693,36 @@ const VendorForm = () => {
         }
     };
     console.log("fieldErrors", fieldErrors);
+    const handleConnectStripe = async (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.preventDefault()
+        setIsStripeLoading(true);
+        try {
+            const token = localStorage.getItem("token") || "";
+
+            if (!token) {
+                toast.error("Please login first");
+                return;
+            }
+
+            const result = await connectStripe(token);
+
+            if (result.success) {
+                toast.success("Redirecting to Stripe...");
+
+                if (result.url) {
+                    window.location.href = result.url;
+                }
+            } else {
+                toast.error(result.error || "Failed to connect Stripe");
+            }
+
+        } catch (error) {
+            console.error("Stripe connection error:", error);
+            toast.error("Failed to connect Stripe");
+        } finally {
+            setIsStripeLoading(false);
+        }
+    };
 
 
     return (
@@ -1250,6 +1280,27 @@ const VendorForm = () => {
                                                         ))}
 
                                                     </div>
+                                                    {userType === 'vendor' && (
+                                                        <div className="col-span-2">
+                                                            <button
+                                                                onClick={(e) => handleConnectStripe(e)}
+                                                                disabled={isStripeLoading}
+                                                                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                                            >
+                                                                {isStripeLoading ? (
+                                                                    <>
+                                                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                        </svg>
+                                                                        Connecting...
+                                                                    </>
+                                                                ) : (
+                                                                    'Connect Stripe'
+                                                                )}
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
