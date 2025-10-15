@@ -39,7 +39,6 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
     const [squareFootage, setSquareFootage] = useState("");
     const [notes, setNotes] = useState<Notes[]>([]);
     const [openAddNotesDialog, setOpenAddNotesDialog] = useState(false);
-    console.log('notes', notes);
     console.log('coAgent', coAgent);
 
     useEffect(() => {

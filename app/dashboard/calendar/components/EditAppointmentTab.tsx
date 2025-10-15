@@ -68,9 +68,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
     //     { serviceId: number; optionId: string | null; price: string }[]
     // >([]);
 
-    const { setCalendarServices, calendarServices, selectedSlots } = useOrderContext();
-    console.log('currentOrder', calendarServices);
-    console.log('selectedSlots edit app', selectedSlots);
+    const { setCalendarServices, calendarServices } = useOrderContext();
 
     useEffect(() => {
 
@@ -98,7 +96,6 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
 
     const currentAgent = agentData.find((ag) => ag.uuid === agent)
 
-    console.log('notes', notes);
 
     useEffect(() => {
 
@@ -134,7 +131,6 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentOrder, serviceId, agentData, currentAgent])
-    console.log('notes', notes);
     const tabs =
         userType === 'admin'
             ? ['Notes', 'Internal Notes']

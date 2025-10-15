@@ -7,8 +7,9 @@ import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { GetOneListing } from '../../listings/listing';
 import { useOrderContext } from '../../orders/context/OrderContext';
 import { VendorData } from '../../orders/[id]/page';
-import { GetVendors } from '../../orders/orders';
+import { Get, GetVendors } from '../../orders/orders';
 import { useAppContext } from '@/app/context/AppContext';
+import { Order, Slot } from '../../orders/page';
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
 
@@ -58,7 +59,13 @@ interface CalendarProps {
 
 
 
-function generateMarkedSlots(date: string, workHours: WorkHours, interval = 15): Slots[] {
+function generateMarkedSlots(
+  date: string,
+  workHours: WorkHours,
+  vendorId: string,
+  allBookedSlots: Slot[],
+  interval = 15
+): Slots[] {
   if (!workHours) return [];
 
   const slots = [];
@@ -74,13 +81,29 @@ function generateMarkedSlots(date: string, workHours: WorkHours, interval = 15):
 
     const inBreak = next.isAfter(breakStart) && current.isBefore(breakEnd);
 
-    if (!inBreak) {
+    // Check if this slot is already booked for this vendor
+    const isBooked = allBookedSlots?.some(bookedSlot => {
+      if (!bookedSlot) return false;
+
+      const bookedStart = dayjs(`${bookedSlot.date}T${bookedSlot.start_time}`);
+      const bookedEnd = dayjs(`${bookedSlot.date}T${bookedSlot.end_time}`);
+
+      return (
+        bookedSlot.vendor_id === vendorId &&
+        bookedSlot.date === date &&
+        current.isSame(bookedStart) &&
+        next.isSame(bookedEnd)
+      );
+    }) || false;
+
+    if (!inBreak && !isBooked) {
       slots.push({
         id: current.toISOString(),
         start: current.toISOString(),
         end: next.toISOString(),
         title: 'Available',
         className: 'slot-available',
+        vendor_id: vendorId,
       });
     }
 
@@ -125,9 +148,8 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
   const [clickedSlot, setClickedSlot] = useState<{ start: string; end: string } | null>(null);
   const [availableSlotVendors, setAvailableSlotVendors] = useState<VendorData[]>([]);
   const [destinationAddress, setDestinationAddress] = useState<string>('');
+  const [orderData, setOrderData] = useState<Order[]>([]);
   const { userType } = useAppContext()
-  console.log('selectedSlots', selectedSlots);
-  console.log('selectedVendors', selectedVendors);
 
   // useEffect(() => {
   //   const selectedServiceIds = selectedServices.map(s => s.uuid);
@@ -135,6 +157,22 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
   //     prev.filter((slot) => selectedServiceIds.includes(slot.service_id))
   //   );
   // }, [selectedServices, setSelectedSlots]);
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      return;
+    }
+
+    Get(token)
+      .then((data) => {
+        setOrderData(data.data);
+      })
+      .catch((err) => console.log(err.message));
+  }, []);
+
+
+  const AllBookedSlots = orderData?.map((order) => order.slots).flat()
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -150,22 +188,7 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
       .catch((err) => console.log(err.message));
   }, []);
 
-  // useEffect(() => {
-  //   const token = localStorage.getItem("token");
 
-  //   if (!token) {
-  //     console.log('Token not found.')
-  //     return;
-  //   }
-
-  //   if (selectedSlots.length > 0 && selectedSlots[0].vendor_id) {
-  //     GetOne(token, selectedSlots[0].vendor_id)
-  //       .then(data => setOriginAddress(data.data.addresses[1].address_line_1))
-  //       .catch(err => console.log(err.message));
-  //   } else {
-  //     console.log('Vendor ID is undefined.');
-  //   }
-  // }, [selectedSlots]);
   useEffect(() => {
     const token = localStorage.getItem("token");
 
@@ -203,7 +226,7 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
       calendarApi.gotoDate(currentDate);
     }
   }, [currentDate]);
-  console.log(currentDate, 'currentDate');
+
 
   useEffect(() => {
     const date = currentDate;
@@ -214,13 +237,13 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
 
     if (!filteredVendors.length) return;
 
-    const fullDaySlots = generateAllDaySlots(date, 15); // Unavailable baseline
+    const fullDaySlots = generateAllDaySlots(date, 15);
     const availableSlotMap = new Map<string, Slots>();
 
     filteredVendors.forEach((vendor) => {
       if (!vendor.work_hours) return;
 
-      const vendorSlots = generateMarkedSlots(date, vendor.work_hours, 15);
+      const vendorSlots = generateMarkedSlots(date, vendor.work_hours, vendor.company.vendor_id, AllBookedSlots, 15);
       vendorSlots.forEach((slot) => {
         const key = `${slot.start}_${slot.end}`;
         availableSlotMap.set(key, {
@@ -265,66 +288,9 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
     });
 
     setEvents(finalSlots);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendors, currentDate, selectedVendors, selectedSlots, service.title, service.service.id, service.service.name]);
 
-  // const prevVendorsRef = React.useRef<string[]>([]);
-  // const prevDateRef = React.useRef<string>(currentDate);
-
-  // useEffect(() => {
-  //   if (id) return; // ⛔ Skip running this effect if we're in edit mode (id is present)
-
-  //   const vendorsChanged =
-  //     JSON.stringify(prevVendorsRef.current) !== JSON.stringify(selectedVendors);
-  //   const dateChanged = prevDateRef.current !== currentDate;
-
-  //   // if (vendorsChanged || dateChanged) {
-  //   //   setSelectedSlots((prev) =>
-  //   //     prev.filter((slot) => slot.service_id !== service.service.id)
-  //   //   );
-
-  //   //   prevVendorsRef.current = selectedVendors;
-  //   //   prevDateRef.current = currentDate;
-  //   // }
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [selectedVendors, currentDate]);
-
-  // const getDistanceAndTime = async (
-  //   originAddress: string,
-  //   destinationAddress: string
-  // ): Promise<{ distance: number; duration: number } | null> => {
-  //   try {
-  //     const response = await axios.get(
-  //       'https://maps.googleapis.com/maps/api/distancematrix/json',
-  //       {
-  //         params: {
-  //           origins: originAddress,
-  //           destinations: destinationAddress,
-  //           key: process.env.NEXT_PUBLIC_PLACES_API_KEY,
-  //         },
-  //       }
-  //     );
-  //     console.log('Google Maps response:', response.data);
-  //     const data = response.data;
-
-  //     if (
-  //       data.rows?.[0]?.elements?.[0]?.status === 'OK' &&
-  //       data.rows[0].elements[0].distance &&
-  //       data.rows[0].elements[0].duration
-  //     ) {
-  //       const element = data.rows[0].elements[0];
-
-  //       return {
-  //         distance: element.distance.value / 1000, // meters to km
-  //         duration: element.duration.value / 60, // seconds to minutes
-  //       };
-  //     }
-
-  //     return null;
-  //   } catch (error) {
-  //     console.error('Error fetching distance and time:', error);
-  //     return null;
-  //   }
-  // };
   function geocodeAddress(address: string): Promise<string> {
     const geocoder = new window.google.maps.Geocoder();
 
@@ -377,8 +343,6 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
             const distance = result.distance.value / 1000;
             const est_time = result.duration.value / 60;
 
-            console.log("Distance (km):", distance);
-            console.log("Estimated time (min):", est_time);
             resolve({ est_time, distance });
           }
         );
@@ -392,8 +356,9 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
   const onEventClick = async (info: import('@fullcalendar/core').EventClickArg) => {
     if (!info.event.start || !info.event.end) return;
     if (userType === 'vendor') {
-      return; // do nothing if user is a vendor
+      return;
     }
+
     const clicked = {
       start: info.event.start.toISOString(),
       end: info.event.end.toISOString(),
@@ -402,107 +367,6 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
     const slotStart = dayjs(info.event.start).format('HH:mm');
     const slotEnd = dayjs(info.event.end).format('HH:mm');
     const selectedDate = dayjs(info.event.start).format('YYYY-MM-DD');
-
-    if (selectedVendors.length === 1) {
-      const vendorUUID = selectedVendors[0];
-
-      const vendor = vendors.find(v => v.uuid === vendorUUID);
-      console.log('vendor', vendor);
-      if (!vendor || !vendor.work_hours) return;
-      const { start_time, end_time, break_start, break_end } = vendor.work_hours;
-      const origin = vendor?.addresses?.[1]?.address_line_1 || "";
-      //setOriginAddress(vendor?.addresses?.[1]?.address_line_1 || '');
-      const eventStart = dayjs(`2000-01-01T${slotStart}`);
-      const eventEnd = dayjs(`2000-01-01T${slotEnd}`);
-      const workStart = dayjs(`2000-01-01T${start_time}`);
-      const workEnd = dayjs(`2000-01-01T${end_time}`);
-      const breakStartTime = dayjs(`2000-01-01T${break_start}`);
-      const breakEndTime = dayjs(`2000-01-01T${break_end}`);
-
-      const isWithinWorkingHours = eventStart.isSameOrAfter(workStart) && eventEnd.isSameOrBefore(workEnd);
-      const isNotDuringBreak = eventEnd.isSameOrBefore(breakStartTime) || eventStart.isSameOrAfter(breakEndTime);
-      const result = await calculateDistance(origin, destinationAddress);
-      if (isWithinWorkingHours && isNotDuringBreak) {
-        const isAlreadySelected = selectedSlots.some(
-          (slot) =>
-            Number(slot.service_id) === service.service.id &&
-            slot.start_time === dayjs(clicked.start).format('HH:mm:ss') &&
-            slot.end_time === dayjs(clicked.end).format('HH:mm:ss') &&
-            slot.vendor_id === vendorUUID &&
-            slot.date === selectedDate
-        );
-
-        if (isAlreadySelected) {
-          setSelectedSlots((prev) =>
-            prev.filter(
-              (slot) =>
-                !(
-                  Number(slot.service_id) === service.service.id &&
-                  slot.start_time === dayjs(clicked.start).format('HH:mm:ss') &&
-                  slot.end_time === dayjs(clicked.end).format('HH:mm:ss') &&
-                  slot.vendor_id === vendorUUID &&
-                  slot.date === selectedDate
-                )
-            )
-          );
-
-          const updatedEvents = events.map((event) => {
-            if (
-              dayjs(event.start).isSame(clicked.start) &&
-              dayjs(event.end).isSame(clicked.end)
-            ) {
-              return {
-                ...event,
-                title: '',
-                className: `slot-available`,
-              };
-            }
-            return event;
-          });
-
-          setEvents(updatedEvents);
-        } else {
-          const updatedEvents = events.map((event) => {
-            if (
-              dayjs(event.start).isSame(clicked.start) &&
-              dayjs(event.end).isSame(clicked.end)
-            ) {
-              return {
-                ...event,
-                title: `${vendor.first_name} ${vendor.last_name}\n${service.title}`,
-                className: `slot-selected vendor-${vendor.uuid}`,
-              };
-            }
-            return event;
-          });
-
-          setEvents(updatedEvents);
-
-          console.log('selected slot vendor', vendor);
-
-          const newSlot = {
-            service_id: String(service.service.id) ?? '',
-            vendor_id: vendor.uuid ? vendor.uuid : '',
-            show_all_vendors: showAllVendorsMap[calendarIdx] ?? 0,
-            schedule_override: scheduleOverrideMap[calendarIdx] ?? 0,
-            recommend_time: recommendTimeMap[calendarIdx] ?? 0,
-            travel: null,
-            start_time: dayjs(clicked.start).format('HH:mm:ss'),
-            end_time: dayjs(clicked.end).format('HH:mm:ss'),
-            date: selectedDate,
-            est_time: result?.est_time ?? null,
-            distance: result?.distance ?? null,
-            km_price: null,
-          };
-
-          setSelectedSlots((prev) => [...prev, newSlot]);
-        }
-
-        return;
-      }
-
-      return;
-    }
 
     const isAlreadySelected = selectedSlots.find(
       (slot) =>
@@ -540,14 +404,14 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
       });
 
       setEvents(updatedEvents);
-      return; // stop here — don't open vendor popup
+      return;
     }
 
-    // Else show vendor modal to assign one
-
-    setClickedSlot(clicked);
-
     const matching = vendors.filter(vendor => {
+      if (!vendor.uuid || !selectedVendors.includes(vendor.uuid)) {
+        return false;
+      }
+
       if (!vendor.work_hours) return false;
 
       const { start_time, end_time, break_start, break_end } = vendor.work_hours;
@@ -564,21 +428,23 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
       return isWithinWorkingHours && isNotDuringBreak;
     });
 
-    if (matching.length === 1) {
-      console.log('single vendor match', matching[0]);
 
+    if (matching.length === 1) {
+      console.log('Single vendor match, auto-assigning:', matching[0]);
       handleAssignVendor(matching[0], clicked);
-    } else {
+    }
+    else if (matching.length > 1) {
       setClickedSlot(clicked);
       setAvailableSlotVendors(matching);
       setShowVendorModal(true);
     }
+    else {
+      console.log('No vendors available for this service at selected time');
+    }
   };
-  console.log('destination', destinationAddress);
   const handleAssignVendor = async (vendor: VendorData, slot: { start: string; end: string }) => {
     const origin = vendor?.addresses?.[1]?.address_line_1 || "";
     // const destination = destinationAddress;
-    console.log('vendor function', vendor, slot);
 
     const result = await calculateDistance(origin, destinationAddress);
 
@@ -668,25 +534,25 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
           onClick={() => setShowVendorModal(false)}
           style={{ height: '-webkit-fill-available' }}
           className="sticky top-0 inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-
           <div
             onClick={(e) => e.stopPropagation()}
             className="bg-[#EEEEEE] rounded-lg p-4 w-[300px] shadow-lg">
             {availableSlotVendors.length === 0 ? (
-              <p className="text-gray-500">No vendors available at this time.</p>
+              <p className="text-gray-500">No vendors available for this service at selected time.</p>
             ) : (
               <ul className="space-y-2 max-h-60 overflow-y-auto">
                 {availableSlotVendors.map((vendor) => {
-                  const color = vendor.uuid ? vendorColors[vendor.uuid] || '#888' : '#888'; // fallback gray
+                  const color = vendor.uuid ? vendorColors[vendor.uuid] || '#888' : '#888';
                   return (
                     <li
                       key={vendor.uuid}
-                      className="cursor-pointer p-2 flex items-center gap-1  hover:bg-gray-100"
+                      className="cursor-pointer p-2 flex items-center gap-1 hover:bg-gray-100"
                       onClick={() => handleAssignVendor(vendor, clickedSlot)}
                     >
                       <span
                         style={{ backgroundColor: color }}
-                        className={`flex h-[16px] w-[5px]`}></span> <span className='text-[14px]'>{vendor.first_name} {vendor.last_name}</span>
+                        className={`flex h-[16px] w-[5px]`}></span>
+                      <span className='text-[14px]'>{vendor.first_name} {vendor.last_name}</span>
                     </li>
                   );
                 })}

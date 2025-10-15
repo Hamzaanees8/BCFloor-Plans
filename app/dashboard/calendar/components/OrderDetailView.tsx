@@ -131,12 +131,9 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
     };
 
 
-    console.log('area', area);
-    console.log('currentOrder', currentOrder);
 
     const { calendarServices, selectedSlots, OrderServices, setOrderServices, setSelectedSlots, setCalendarServices } = useOrderContext();
-    console.log('calendarServices', calendarServices);
-    console.log('OrderServices', OrderServices);
+
 
     useEffect(() => {
         const token = localStorage.getItem("token");
