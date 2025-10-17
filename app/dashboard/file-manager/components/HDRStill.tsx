@@ -16,6 +16,7 @@ import UpgradeServicePopup from './UpgradeServicePopup';
 import PayInvoiceModal from './PayInvoiceModal';
 import AgentNotificationModal from './AgentNotificationModal';
 import ImagePopup from '@/components/ImagePopup';
+import DownloadModal from './DownloadModal';
 
 export interface SelectedFiles {
     file: File;
@@ -50,6 +51,7 @@ function FileTab1({ currentService, orderData }: { currentService?: Services, or
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [imagePopupOpen, setImagePopupOpen] = useState(false);
     const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
+    const [showDownloadModal, setShowDownloadModal] = useState(false);
     const dragCounter = useRef(0);
     const { userType } = useAppContext()
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
@@ -162,33 +164,43 @@ function FileTab1({ currentService, orderData }: { currentService?: Services, or
     };
 
 
-    const handleDownload = async (filePath: string, fileName: string) => {
-        // Build full file URL from env
-        const fileUrl = `${process.env.NEXT_PUBLIC_FILES_API_URL}/${filePath}`;
-        // Example:
-        // filePath = "tours/files/y5FI3wilFnYd50Q3ASC7Ldcs4S6MypYkZ4zP3ddt.png"
-
+    const handleDownload = async (file: string | File, fileName: string) => {
         try {
-            const res = await fetch(fileUrl, {
-                // If auth token required, add headers here
-                // headers: { Authorization: `Bearer ${token}` }
-            });
-            if (!res.ok) throw new Error(`Failed to fetch file ${res.status}`);
+            let blobUrl = "";
+            let revokeAfter = false;
 
-            const blob = await res.blob();
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = fileName; // suggest a filename to browser
+            if (typeof file === "string") {
+                console.log("file", file)
+                // 🟢 Download from server
+                const fileUrl = `${process.env.NEXT_PUBLIC_FILES_API_URL}/${file}`;
+                const res = await fetch(fileUrl);
+                if (!res.ok) throw new Error(`Failed to fetch file ${res.status}`);
+
+                const blob = await res.blob();
+                blobUrl = URL.createObjectURL(blob);
+                revokeAfter = true;
+            } else {
+                // 🟡 Local file (already selected)
+                blobUrl = URL.createObjectURL(file);
+                revokeAfter = true;
+            }
+
+            // 💾 Trigger download
+            const link = document.createElement("a");
+            link.href = blobUrl;
+            link.download = fileName;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
 
-            // revoke URL after a short delay
-            setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+            if (revokeAfter) {
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+            }
         } catch (err) {
-            console.error('[Download Error]:', err);
+            console.error("[Download Error]:", err);
         }
     };
+
 
     const handleImageClick = (imageUrl: string) => {
         setSelectedImageUrl(imageUrl);
@@ -227,7 +239,14 @@ function FileTab1({ currentService, orderData }: { currentService?: Services, or
 
                     </p>
                 </div>
-                <div className='flex justify-center items-center'>
+                <div className='flex justify-center items-center gap-x-[14px]'>
+                    {userType !== 'vendor' &&
+                        <Button
+                            onClick={() => {
+                                setShowDownloadModal(true);
+                            }}
+                            className={`${`${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}>Download Files </Button>
+                    }
                     {userType !== 'agent' &&
                         <Button
                             onClick={() => {
@@ -374,11 +393,7 @@ function FileTab1({ currentService, orderData }: { currentService?: Services, or
                                     <div className='col-span-2 flex items-center justify-between'>
                                         <p className='text-[#8E8E8E] mt-1'>Exterior ({idx + 1} of {filesForService.length})</p>
                                         <span
-                                            onClick={() => {
-                                                const objectUrl = URL.createObjectURL(file.file);
-                                                // handleDownload(objectUrl, file.file.name);
-                                                URL.revokeObjectURL(objectUrl);
-                                            }}
+                                            onClick={() => handleDownload(file.file, file.file.name)}
                                             className='flex w-[24px] h-[24px] cursor-pointer'>
                                             <DownloadIcon width='24px' height='24px' fill='#6BAE41' />
                                         </span>
@@ -394,6 +409,12 @@ function FileTab1({ currentService, orderData }: { currentService?: Services, or
                 imageUrl={selectedImageUrl}
                 open={imagePopupOpen}
                 onClose={() => setImagePopupOpen(false)}
+            />
+            <DownloadModal
+                open={showDownloadModal}
+                onClose={() => setShowDownloadModal(false)}
+                localFiles={filesForService}
+                apiFiles={currentServiceFiles || []}
             />
         </div>
     );

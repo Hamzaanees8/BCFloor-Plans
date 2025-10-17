@@ -29,7 +29,9 @@ type CombinedFile = {
   name: string;
   url: string;
   isLocal: boolean;
-};
+  type: string;
+}
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -48,6 +50,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
       name: f.file.name,
       url: URL.createObjectURL(f.file),
       isLocal: true,
+      type: f.file.type, // 👈 File API gives us mime type (e.g. image/png, video/mp4)
     }));
 
     const api = apiFiles.map((f, idx) => ({
@@ -55,6 +58,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
       name: f.name,
       url: `${API_URL}/${f.file_path}`,
       isLocal: false,
+      type: f.type,
     }));
 
     return [...local, ...api];
@@ -85,7 +89,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
   //   });
   //   onClose();
   // };
-
+  console.log("files", files)
   return (
     <AlertDialog open={open} onOpenChange={onClose}>
       <AlertDialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#E4E4E4] rounded-xl shadow-lg border p-6 w-full max-w-[700px] font-Alexandria">
@@ -122,7 +126,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
           </label>
         </div>
 
-        <div className="flex flex-col gap-y-3 max-h-[300px] overflow-y-auto pr-2">
+        <div className="flex flex-col gap-y-3 max-h-[300px] overflow-y-auto pr-2 sidebar-scroll">
           {files.map((file) => (
             <div key={file.id} className="flex items-center gap-x-4">
               <div
@@ -134,14 +138,28 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
                 )}
               </div>
 
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={
-                  file.url
-                }
-                alt={file.name}
-                className="w-[210px] h-[125px] object-cover"
-              />
+
+              {file.type === 'photo' ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={file.url}
+                    alt={file.name}
+                    className="w-[210px] h-[125px] object-cover rounded-md"
+                  />
+                </>
+              ) : file.type === 'video' ? (
+                <video
+                  src={file.url}
+                  className="w-[210px] h-[125px] object-cover rounded-md"
+                  controls
+                />
+              ) : (
+                <div className="w-[210px] h-[125px] flex items-center justify-center bg-gray-200 text-gray-600 rounded-md">
+                  {file.name.split('.').pop()?.toUpperCase() || 'FILE'}
+                </div>
+              )}
+
               <div className="flex flex-col gap-y-2 w-[385px]">
                 <p className="text-[#666666] text-[16px] font-normal max-w-[250px] truncate">{file.name}</p>
 

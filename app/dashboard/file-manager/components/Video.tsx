@@ -14,6 +14,7 @@ import { Order } from '../../orders/page';
 import UpgradeServicePopup from './UpgradeServicePopup';
 import PayInvoiceModal from './PayInvoiceModal';
 import AgentNotificationModal from './AgentNotificationModal';
+import DownloadModal from './DownloadModal';
 
 export interface SelectedFiles {
     file: File;
@@ -37,6 +38,7 @@ function Video({ currentService, orderData }: { currentService?: Services, order
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [dragging, setDragging] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
+    const [showDownloadModal, setShowDownloadModal] = useState(false);
     const dragCounter = useRef(0);
     const { userType } = useAppContext()
 
@@ -161,7 +163,14 @@ function Video({ currentService, orderData }: { currentService?: Services, order
                         <span className='text-[12px] text-[#7D7D7D]'>{currentServiceOption?.option.title}</span>
                     </p>
                 </div>
-                <div className='flex justify-center items-center'>
+                <div className='flex justify-center items-center gap-x-[14px]'>
+                    {userType !== 'vendor' &&
+                        <Button
+                            onClick={() => {
+                                setShowDownloadModal(true);
+                            }}
+                            className={`${`${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}>Download Files </Button>
+                    }
                     {userType !== 'agent' &&
                         <Button
                             onClick={() => {
@@ -321,6 +330,12 @@ function Video({ currentService, orderData }: { currentService?: Services, order
                 )}
 
             </div>
+            <DownloadModal
+                open={showDownloadModal}
+                onClose={() => setShowDownloadModal(false)}
+                localFiles={filesForService}
+                apiFiles={currentServiceFiles || []}
+            />
         </div>
     );
 }
