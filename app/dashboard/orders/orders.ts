@@ -44,7 +44,7 @@ type AgentNote = {
   note: string;
   name: string;
   date: string;
-  internal?: boolean
+  internal?: string;
 };
 export interface FetchErrors {
   status?: boolean;
@@ -444,3 +444,58 @@ export async function EditListings(
 
   return data;
 }
+
+
+
+
+export interface TwilightResponse {
+  address: string;
+  coordinates: { latitude: number; longitude: number };
+  date: string;
+  sunrise: string;
+  sunset: string;
+  civil_twilight_begin: string;
+  civil_twilight_end: string;
+  nautical_twilight_begin: string;
+  nautical_twilight_end: string;
+}
+
+export async function fetchTwilightTime(address: string, date: string): Promise<TwilightResponse | null> {
+  const API_KEY = process.env.NEXT_PUBLIC_PLACES_API_KEY;
+
+  try {
+    const geocodeRes = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${API_KEY}`
+    );
+    const geoData = await geocodeRes.json();
+
+    if (!geoData.results.length) throw new Error(`No geocode results found for address: ${address}`);
+
+    const { lat, lng } = geoData.results[0].geometry.location;
+
+    const twilightRes = await fetch(
+      `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lng}&date=${date}&formatted=0`
+    );
+    const twilightData = await twilightRes.json();
+
+    if (twilightData.status !== "OK") throw new Error("Failed to fetch twilight data");
+
+    const result = twilightData.results;
+
+    return {
+      address,
+      coordinates: { latitude: lat, longitude: lng },
+      date,
+      sunrise: result.sunrise,
+      sunset: result.sunset,
+      civil_twilight_begin: result.civil_twilight_begin,
+      civil_twilight_end: result.civil_twilight_end,
+      nautical_twilight_begin: result.nautical_twilight_begin,
+      nautical_twilight_end: result.nautical_twilight_end,
+    };
+  } catch (error) {
+    console.error("Error fetching twilight data:", error);
+    return null;
+  }
+}
+

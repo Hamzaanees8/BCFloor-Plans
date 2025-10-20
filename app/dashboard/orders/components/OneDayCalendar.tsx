@@ -39,6 +39,7 @@ interface CalendarProps {
   showAllVendorsMap: Record<number, 0 | 1>;
   scheduleOverrideMap: Record<number, 0 | 1>;
   recommendTimeMap: Record<number, 0 | 1>;
+  setSelectedDate: (date: string) => void;
 }
 
 
@@ -119,7 +120,7 @@ function generateAllDaySlots(date: string, interval = 15): Slots[] {
 
 
 
-export default function OneDayCalendar({ selectedVendors, vendorColors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx }: CalendarProps) {
+export default function OneDayCalendar({ setSelectedDate, selectedVendors, vendorColors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx }: CalendarProps) {
   const {
     selectedSlots,
     setSelectedSlots,
@@ -268,7 +269,7 @@ export default function OneDayCalendar({ selectedVendors, vendorColors, service,
     setEvents(finalSlots);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendors, currentDate, selectedVendors, selectedSlots, service.title, service.uuid]);
- 
+
   const prevVendorsRef = React.useRef<string[]>([]);
   const prevDateRef = React.useRef<string>(currentDate);
 
@@ -290,7 +291,7 @@ export default function OneDayCalendar({ selectedVendors, vendorColors, service,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVendors, currentDate]);
 
-    function geocodeAddress(address: string): Promise<string> {
+  function geocodeAddress(address: string): Promise<string> {
     const geocoder = new window.google.maps.Geocoder();
 
     return new Promise((resolve, reject) => {
@@ -523,6 +524,7 @@ export default function OneDayCalendar({ selectedVendors, vendorColors, service,
         datesSet={(arg) => {
           const calendarDate = dayjs(arg.start).format('YYYY-MM-DD');
           setCurrentDate(calendarDate);
+          setSelectedDate(calendarDate)
         }}
         validRange={{
           start: dayjs().format("YYYY-MM-DD")

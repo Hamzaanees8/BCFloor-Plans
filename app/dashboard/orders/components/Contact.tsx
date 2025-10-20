@@ -1,9 +1,9 @@
 
 import { AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { AlertDialog } from '@radix-ui/react-alert-dialog';
-import { Minus, Plus, X } from 'lucide-react';
+import { Eye, Minus, Plus, EyeOff, X, Trash, Edit2Icon } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useOrderContext } from '../context/OrderContext';
+import { AgentNote, useOrderContext } from '../context/OrderContext';
 import { Get } from '../../agents/agents';
 import { Agent } from '@/components/AgentTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -33,7 +33,7 @@ const Contact = () => {
     }, [agentData, selectedAgentId]);
     const [draftCoAgents, setDraftCoAgents] = useState<typeof coAgents>([]);
     const [percentage, setPercentage] = useState<number | ''>('');
-
+    const [activeTab, setActiveTab] = useState("appointment");
     const [userName, setUserName] = useState<string>("");
     const [coAgentEmail, setCoAgentEmail] = useState("");
     const [tempNotes, setTempNotes] = useState('');
@@ -41,6 +41,7 @@ const Contact = () => {
     const [openAddCoAgentDialog, setOpenAddCoAgentDialog] = useState(false);
     const [openDropdown, setOpenDropdown] = useState(false);
     const [openAddNotesDialog, setOpenAddNotesDialog] = useState(false);
+    const [editingNote, setEditingNote] = useState<AgentNote | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const removeAdmin = () => setAdminEmail("");
     const handleAdd = () => {
@@ -72,7 +73,7 @@ const Contact = () => {
         setPercentage('');
     };
 
-console.log('agentNotes',agentNotes);
+    console.log('agentNotes', agentNotes);
 
 
     const handleRemove = (index: number) => {
@@ -171,7 +172,76 @@ console.log('agentNotes',agentNotes);
     //         setAgentNotes("");
     //     }
     // }, [selectedAgent, setAgentNotes, setCoAgents]);
-    console.log("agent", selectedAgent)
+    const filteredNotes = useMemo(() => {
+
+        const filtered = agentNotes.filter(note => {
+            if (activeTab === "appointment") {
+                const shouldShow = note.internal === "false";
+                return shouldShow;
+            } else {
+                const shouldShow = note.internal === "true";
+                return shouldShow;
+            }
+        });
+        return filtered;
+    }, [agentNotes, activeTab]);
+    const handleDeleteNote = (targetNote: AgentNote) => {
+        setAgentNotes(prev => {
+            const indexToDelete = prev.findIndex(
+                n =>
+                    n.note === targetNote.note &&
+                    n.internal === targetNote.internal &&
+                    n.date === targetNote.date
+            );
+
+            if (indexToDelete !== -1) {
+                const updated = [...prev];
+                updated.splice(indexToDelete, 1);
+                return updated;
+            }
+            return prev;
+        });
+    };
+    const isEditing = Boolean(editingNote);
+    const handleEditNote = (note: AgentNote) => {
+        setEditingNote(note);
+        setTempNotes(note.note);
+        setOpenAddNotesDialog(true);
+    };
+    const handleAddNote = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (tempNotes.trim()) {
+            if (editingNote) {
+                setAgentNotes(prev =>
+                    prev.map(note =>
+                        note.note === editingNote.note &&
+                            note.internal === editingNote.internal &&
+                            note.date === editingNote.date
+                            ? { ...note, note: tempNotes.trim() }
+                            : note
+                    )
+                );
+            } else {
+                setAgentNotes(prev => [
+                    ...prev,
+                    {
+                        note: tempNotes.trim(),
+                        name: userName,
+                        date: new Date(),
+                        internal: internal ? "true" : "false"
+                    }
+                ]);
+            }
+            setTempNotes('');
+            setEditingNote(null);
+            setOpenAddNotesDialog(false);
+        }
+    };
+    const handleCloseNotesDialog = () => {
+        setOpenAddNotesDialog(false);
+        setEditingNote(null);
+        setTempNotes('');
+    };
     return (
         <div className="w-full space-y-4">
             <div className="grid gap-4">
@@ -489,7 +559,7 @@ console.log('agentNotes',agentNotes);
                             <div className="col-span-2">
                                 <div className='flex items-center justify-between'>
                                     <label htmlFor="">
-                                        Agent Notes (Not visible to Agent)
+                                        Additional Notes
                                     </label>
                                     <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => setOpenAddNotesDialog(true)}>
                                         <p className={`text-base font-semibold font-raleway ${userType}-text`}>Add</p>
@@ -498,12 +568,9 @@ console.log('agentNotes',agentNotes);
                                             <AlertDialogContent className="w-[320px] md:w-[450px] max-h-[550px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
                                                 <AlertDialogHeader>
                                                     <AlertDialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
-                                                        ADD NEW NOTES
+                                                        {isEditing ? "EDIT NOTE" : "ADD NEW NOTES"}
                                                         <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setOpenAddNotesDialog(false);
-                                                            }}
+                                                            onClick={handleCloseNotesDialog}
                                                             className="border-none !shadow-none bg-transparent"
                                                             aria-label="Close"
                                                         >
@@ -513,60 +580,45 @@ console.log('agentNotes',agentNotes);
                                                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
                                                 </AlertDialogHeader>
 
-                                                <div className="flex flex-col " >
+                                                <div className="flex flex-col">
                                                     <div className="flex flex-col gap-4">
-                                                        <form onSubmit={(e) => {
-                                                            e.preventDefault();
-                                                            if (tempNotes.trim()) {
-                                                                setAgentNotes(prev => [
-                                                                    ...prev,
-                                                                    {
-                                                                        note: tempNotes.trim(),
-                                                                        name: userName,
-                                                                        date: new Date(),
-                                                                        internal: internal
-                                                                    }
-                                                                ]);
-                                                                setTempNotes('');
-                                                                setOpenAddNotesDialog(false);
-                                                            }
-                                                        }}>
+                                                        <form onSubmit={handleAddNote}>
                                                             <div className="flex flex-col gap-4">
                                                                 <input
                                                                     type="text"
                                                                     disabled
-                                                                    className="w-[370px] h-[42px] p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] text-[#666666] font-medium"
+                                                                    className="w-full h-[42px] p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] text-[#666666] font-medium"
                                                                     value={userName}
                                                                 />
-                                                                <div className='col-span-2 flex items-center justify-between'>
-                                                                    <label className='flex items-center gap-x-[10px] cursor-pointer'>
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={internal}
-                                                                            onChange={(e) => {
-                                                                                setInternal(e.target.checked);
-                                                                            }}
-
-                                                                            className={`w-[18px] h-[18px] ${userType === 'admin' ? 'accent-[#4290E9]' : 'accent-[#6BAE41]'}  rounded-sm border border-[#CCCCCC]`}
-                                                                        />
-                                                                        <span className='text-base font-semibold font-raleway text-[#666666]'>
-                                                                            Allow Agent to View
-                                                                        </span>
-                                                                    </label>
-                                                                </div>
+                                                                {isEditing ? (
+                                                                    editingNote?.internal === "true" ? (
+                                                                        <p className="text-[#7D7D7D] text-[16px]">
+                                                                            This note is for Internal Use only. Agent will not be able to see or access Note.
+                                                                        </p>
+                                                                    ) : (
+                                                                        <p className="text-[#E06D5E] text-[16px]">
+                                                                            These notes will be viewable by AGENT.
+                                                                        </p>
+                                                                    )
+                                                                ) : activeTab === "appointment" ? (
+                                                                    <p className="text-[#E06D5E] text-[16px]">
+                                                                        These notes will be viewable by AGENT.
+                                                                    </p>
+                                                                ) : (
+                                                                    <p className="text-[#7D7D7D] text-[16px]">
+                                                                        This note is for Internal Use only. Agent will not be able to see or access Note.
+                                                                    </p>
+                                                                )}
                                                                 <textarea
-                                                                    className="h-[180px] w-[370px] p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] text-[#666666]"
+                                                                    className="h-[180px] w-full p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] text-[#666666]"
                                                                     value={tempNotes}
                                                                     onChange={(e) => setTempNotes(e.target.value)}
                                                                     placeholder='Write Notes Here...'
                                                                 />
                                                             </div>
                                                             <hr className="w-full h-[1px] text-[#BBBBBB] my-[16px]" />
-                                                            <AlertDialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
-                                                                <AlertDialogCancel onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setOpenAddNotesDialog(false);
-                                                                }} className={`bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] ${userType}-border ${userType}-text ${userType}-button hover-${userType}-bg`}>
+                                                            <AlertDialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px] mt-2 font-alexandria">
+                                                                <AlertDialogCancel onClick={handleCloseNotesDialog} className={`bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] ${userType}-border ${userType}-text ${userType}-button hover-${userType}-bg`}>
                                                                     Cancel
                                                                 </AlertDialogCancel>
                                                                 <AlertDialogAction
@@ -577,20 +629,53 @@ console.log('agentNotes',agentNotes);
                                                                     }}
                                                                     className={`${userType}-bg text-white hover-${userType}-bg w-full md:w-[176px] h-[44px] font-[400] text-[20px]`}
                                                                 >
-                                                                    Add
+                                                                    {isEditing ? "Update" : "Add"}
                                                                 </AlertDialogAction>
-
                                                             </AlertDialogFooter>
                                                         </form>
                                                     </div>
-
                                                 </div>
                                             </AlertDialogContent>
                                         </AlertDialog>
                                     </div>
                                 </div>
+                                <div className="flex flex-col gap-y-3 mt-3">
+                                    <div className="flex items-center justify-center gap-x-2.5">
+                                        <button
+                                            onClick={() => {
+                                                setActiveTab("appointment");
+                                                setInternal(false);
+                                            }}
+                                            className={`px-5 py-1 text-[13px] rounded-[6px] font-bold rounded-l-md transition-colors duration-200 h-[30px]
+  ${activeTab === "appointment" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
+                                        >
+
+                                            Appointment Notes
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setActiveTab("agent");
+                                                setInternal(true);
+                                            }}
+                                            className={`px-5 py-1 text-[13px] rounded-[6px] font-bold rounded-l-md transition-colors duration-200 h-[30px]
+  ${activeTab === "agent" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
+                                        >
+
+                                            Notes on Agent
+                                        </button>
+                                    </div>
+                                    {activeTab === "appointment" ? (
+                                        <p className="text-[#E06D5E] text-[13px]">
+                                            These notes will be viewable by AGENT.
+                                        </p>
+                                    ) : (
+                                        <p className="text-[#7D7D7D] text-[13px]">
+                                            This note is for Internal Use only. Agent will not be able to see or access Note.
+                                        </p>
+                                    )}
+                                </div>
                                 <div className="flex flex-col gap-4 mt-[12px]">
-                                    {agentNotes.length === 0 ? (
+                                    {filteredNotes.length === 0 ? (
                                         <textarea
                                             className="w-full min-h-[150px] p-3 rounded-[6px] bg-[#E4E4E4] border-[1px] sidebar-scroll border-[#BBBBBB] resize-none overflow-y-auto"
                                             disabled
@@ -598,22 +683,30 @@ console.log('agentNotes',agentNotes);
                                             value=""
                                         />
                                     ) : (
-                                        agentNotes.map((note, index) => (
+                                        filteredNotes.map((note, index) => (
                                             <div
                                                 key={index}
                                                 className="w-full p-3 rounded-[6px] bg-[#E4E4E4] border border-[#BBBBBB] relative whitespace-pre-wrap break-words"
                                             >
-                                                {/* Note content */}
                                                 <p className="text-sm text-[#333]">{note.note}</p>
-
-                                                {/* Username and Date aligned to bottom right */}
                                                 <div className="mt-2 text-right text-[#8E8E8E] text-[13px] font-[400] leading-tight">
-                                                    <p>{new Date(note.date).toLocaleDateString("en-US", {
-                                                        year: "numeric",
-                                                        month: "short",
-                                                        day: "numeric",
-                                                    })}</p>
+                                                    <p>
+                                                        {new Date(note.date).toLocaleDateString("en-US", {
+                                                            year: "numeric",
+                                                            month: "short",
+                                                            day: "numeric",
+                                                        })}
+                                                    </p>
                                                     <p>{note.name}</p>
+                                                    <div className='flex items-center justify-end gap-x-2'>
+                                                        {note.internal === "true" ? (
+                                                            <EyeOff className='w-4 h-4 text-[#7D7D7D]' />
+                                                        ) : (
+                                                            <Eye className='w-4 h-4 text-[#7D7D7D]' />
+                                                        )}
+                                                        <Edit2Icon className='w-4 h-4 text-[#7D7D7D] cursor-pointer' onClick={() => handleEditNote(note)} />
+                                                        <Trash onClick={() => handleDeleteNote(note)} className="w-4 h-4 text-[#7D7D7D] cursor-pointer" />
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))

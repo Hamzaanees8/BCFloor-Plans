@@ -5,7 +5,7 @@ import OneDayCalendar from './OneDayCalendar'
 import { Services } from '../../services/page'
 import { VendorData } from '../../orders/[id]/page'
 import { useOrderContext } from '../../orders/context/OrderContext'
-import { GetServices, GetVendors } from '../../orders/orders'
+import { fetchTwilightTime, GetServices, GetVendors, TwilightResponse } from '../../orders/orders'
 import { Order } from '../../orders/page'
 import { useAppContext } from '@/app/context/AppContext'
 // import OneDayCalendar from '../../orders/components/OneDayCalendar'
@@ -81,6 +81,9 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [mergedServices, setMergedServices] = useState<any[]>([]);
     const { setSelectedSlots, calendarServices } = useOrderContext();
+    const [data, setData] = useState<TwilightResponse | null>(null);
+    const [selectedDate, setSelectedDate] = useState<string>('');
+
     useEffect(() => {
         if (!currentOrder?.slots) return;
 
@@ -240,6 +243,33 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
         filterVendorsByService();
     }, [vendorsData, servicesData, currentOrder]);
 
+    useEffect(() => {
+        const address = `${currentOrder?.property?.address}, ${currentOrder?.property?.city}, ${currentOrder?.property?.country}`
+
+        async function loadTwilight() {
+            const result = await fetchTwilightTime(address, selectedDate);
+            if (result) setData(result);
+        }
+
+        loadTwilight();
+    }, [currentOrder, selectedDate]);
+
+    const formatLocalTime = (utcTime: string, fixedTimeZone: string = "America/Vancouver") => {
+        if (!utcTime) return "—";
+        try {
+            const date = new Date(utcTime);
+            return date.toLocaleTimeString("en-CA", {
+                timeZone: fixedTimeZone,
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: true,
+            });
+        } catch (error) {
+            console.error("Error formatting time:", error);
+            return "Invalid time";
+        }
+    };
     return (
         <div className='font-alexandria'>
             <div className="grid grid-cols-2 gap-8 text-[#7D7D7D] px-3 py-20 auto-rows-max">
@@ -382,10 +412,34 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
                                             recommendTime={recommendTime}
                                             showAllVendors={showAllVendors}
                                             scheduleOverride={scheduleOverride}
-
+                                            setSelectedDate={setSelectedDate}
                                         // serviceDuration={service?.option?.service_duration ?? ''}
                                         />
                                     </div>
+
+                                    {data && (
+                                        <div className="mt-4 p-3 bg-gray-50 rounded-md">
+                                            <h4 className="text-sm font-[600] text-[#666666] mb-2">Twilight Times</h4>
+
+                                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                                <div className="col-span-2 mt-2 font-[500] text-gray-500">Morning </div>
+                                                <div className="col-span-1">
+                                                    Civil: {formatLocalTime(data.civil_twilight_begin)}
+                                                </div>
+                                                <div className="col-span-1">
+                                                    Nautical: {formatLocalTime(data.nautical_twilight_begin)}
+                                                </div>
+
+                                                <div className="col-span-2 mt-2 font-[500] text-gray-500">Evening </div>
+                                                <div className="col-span-1">
+                                                    Civil: {formatLocalTime(data.civil_twilight_end)}
+                                                </div>
+                                                <div className="col-span-1">
+                                                    Nautical: {formatLocalTime(data.nautical_twilight_end)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

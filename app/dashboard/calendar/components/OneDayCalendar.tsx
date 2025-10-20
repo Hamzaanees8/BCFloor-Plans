@@ -55,6 +55,7 @@ interface CalendarProps {
   recommendTimeMap: Record<number, 0 | 1>;
   selectedListingId: string | null;
   className?: string;
+  setSelectedDate: (date: string) => void;
 }
 
 
@@ -136,7 +137,7 @@ function generateAllDaySlots(date: string, interval = 15): Slots[] {
 
 
 
-export default function OneDayCalendar({ selectedListingId, selectedVendors, vendorColors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx }: CalendarProps) {
+export default function OneDayCalendar({ setSelectedDate, selectedListingId, selectedVendors, vendorColors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx }: CalendarProps) {
   const {
     selectedSlots,
     setSelectedSlots,
@@ -288,7 +289,7 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
     });
 
     setEvents(finalSlots);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendors, currentDate, selectedVendors, selectedSlots, service.title, service.service.id, service.service.name]);
 
   function geocodeAddress(address: string): Promise<string> {
@@ -524,6 +525,7 @@ export default function OneDayCalendar({ selectedListingId, selectedVendors, ven
         datesSet={(arg) => {
           const calendarDate = dayjs(arg.start).format('YYYY-MM-DD');
           setCurrentDate(calendarDate);
+          setSelectedDate(calendarDate)
         }}
       // validRange={{
       //   start: dayjs().format("YYYY-MM-DD")

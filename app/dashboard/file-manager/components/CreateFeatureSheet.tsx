@@ -30,7 +30,7 @@ import BcfpStandard8 from "./BcfpStandard8";
 import BcfpStandard9 from "./BcfpStandard9";
 import BcfpStandard10 from "./BcfpStandard10";
 import BcfpStandard11 from "./BcfpStandard11";
-// import BcfpStandard12 from "./BcfpStandard12";
+import BcfpStandard12 from "./BcfpStandard12";
 import { useAppContext } from "@/app/context/AppContext";
 
 interface TourSettingProps {
@@ -335,9 +335,9 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
                           <SelectItem value="BCFP Standard11">
                             BCFP Standard11
                           </SelectItem>
-                          {/* <SelectItem value="BCFP Standard12">
+                          <SelectItem value="BCFP Standard12">
                             BCFP Standard12
-                          </SelectItem> */}
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -455,7 +455,7 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
                 {selectedTemplate === "BCFP Standard9" && <BcfpStandard9 orderData={orderData || null} />}
                 {selectedTemplate === "BCFP Standard10" && <BcfpStandard10 orderData={orderData || null} />}
                 {selectedTemplate === "BCFP Standard11" && <BcfpStandard11 orderData={orderData || null} />}
-                {/* {selectedTemplate === "BCFP Standard12" && <BcfpStandard12 orderData={orderData || null} />} */}
+                {selectedTemplate === "BCFP Standard12" && <BcfpStandard12 orderData={orderData || null} />}
               </div>
             </AccordionContent>
           </AccordionItem>
