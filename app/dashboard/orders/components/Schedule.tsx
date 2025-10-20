@@ -2,7 +2,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import React, { useEffect, useState } from 'react'
 import OneDayCalendar from './OneDayCalendar'
-import { GetServices, GetVendors } from '../orders'
+import { fetchTwilightTime, GetServices, GetVendors, TwilightResponse } from '../orders'
 import { VendorData } from '../[id]/page'
 import { useOrderContext } from '../context/OrderContext'
 import { Services } from '../../services/page'
@@ -69,13 +69,17 @@ const Schedule = () => {
     const [scheduleOverrideMap, setScheduleOverrideMap] = useState<Record<number, 0 | 1>>({});
     const [recommendTimeMap, setRecommendTimeMap] = useState<Record<number, 0 | 1>>({});
     const [servicesData, setServicesData] = useState<Services[]>([]);
-    const [filteredVendors, setFilteredVendors] = useState<VendorData[]>([])
+    const [data, setData] = useState<TwilightResponse | null>(null);
     const [filteredVendorsByService, setFilteredVendorsByService] = useState<Record<string, VendorData[]>>({});
+    const [selectedDate, setSelectedDate] = useState<string>('');
+
     const {
         selectedCurrentListing,
     } = useOrderContext();
 
-    console.log('selectedCurrentListing', filteredVendors);
+    console.log('selectedDate', selectedDate);
+
+    console.log('twilight data', data);
     const { selectedServices } = useOrderContext();
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -104,29 +108,6 @@ const Schedule = () => {
             })
             .catch((err) => console.log(err.message));
     }, []);
-    console.log('vendorsData', vendorsData);
-
-    useEffect(() => {
-        async function filterVendors() {
-            if (!vendorsData.length || !selectedCurrentListing) return
-
-            const results = await Promise.all(
-                vendorsData.map(async (vendor) => ({
-                    vendor,
-                    inside: await isPropertyInsideVendorArea((selectedCurrentListing.address + ',' + selectedCurrentListing.city + ',' + selectedCurrentListing.country), vendor),
-                }))
-            )
-
-            const insideVendors = results
-                .filter((r) => r.inside)
-                .map((r) => r.vendor)
-
-            console.log('✅ Vendors covering property:', insideVendors)
-            setFilteredVendors(insideVendors)
-        }
-
-        filterVendors()
-    }, [vendorsData, selectedCurrentListing])
 
     useEffect(() => {
         async function filterVendorsByService() {
@@ -185,7 +166,34 @@ const Schedule = () => {
         setVendorColors(colorMap);
     }, [vendorsData]);
 
-    console.log('filteredVendorsByService', filteredVendorsByService)
+    useEffect(() => {
+        const address = `${selectedCurrentListing?.address}, ${selectedCurrentListing?.city}, ${selectedCurrentListing?.country}`
+
+        async function loadTwilight() {
+            const result = await fetchTwilightTime(address, selectedDate);
+            if (result) setData(result);
+        }
+
+        loadTwilight();
+    }, [selectedCurrentListing,selectedDate]);
+
+    const formatLocalTime = (utcTime: string, fixedTimeZone: string = "America/Vancouver") => {
+        if (!utcTime) return "—";
+        try {
+            const date = new Date(utcTime);
+            return date.toLocaleTimeString("en-CA", {
+                timeZone: fixedTimeZone,
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: true,
+            });
+        } catch (error) {
+            console.error("Error formatting time:", error);
+            return "Invalid time";
+        }
+    };
+
     return (
         <div className='font-alexandria'>
             <div className="grid grid-cols-3 gap-16 text-[#7D7D7D] px-16 py-20 auto-rows-max">
@@ -330,9 +338,35 @@ const Schedule = () => {
                                             recommendTime={recommendTime}
                                             showAllVendors={showAllVendors}
                                             scheduleOverride={scheduleOverride}
+                                            setSelectedDate={setSelectedDate}
                                         //serviceDuration={productOption?.service_duration ?? 0}
                                         />
                                     </div>
+
+                                    {data && (
+                                        <div className="mt-4 p-3 bg-gray-50 rounded-md">
+                                            <h4 className="text-sm font-[600] text-[#666666] mb-2">Twilight Times</h4>
+
+                                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                                <div className="col-span-2 mt-2 font-[500] text-gray-500">Morning </div>
+                                                <div className="col-span-1">
+                                                    Civil: {formatLocalTime(data.civil_twilight_begin)}
+                                                </div>
+                                                <div className="col-span-1">
+                                                    Nautical: {formatLocalTime(data.nautical_twilight_begin)}
+                                                </div>
+
+                                                <div className="col-span-2 mt-2 font-[500] text-gray-500">Evening </div>
+                                                <div className="col-span-1">
+                                                    Civil: {formatLocalTime(data.civil_twilight_end)}
+                                                </div>
+                                                <div className="col-span-1">
+                                                    Nautical: {formatLocalTime(data.nautical_twilight_end)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                 </div>
                             </div>
 

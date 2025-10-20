@@ -14,10 +14,11 @@ type CoAgent = {
     split?: string;
     percentage?: number;
 };
-type AgentNote = {
+export type AgentNote = {
     note: string;
     name: string;
-    date: Date; // ← using JavaScript Date object
+    date: Date;
+    internal?: string// ← using JavaScript Date object
 };
 type CalendarServices = {
     serviceId: number;

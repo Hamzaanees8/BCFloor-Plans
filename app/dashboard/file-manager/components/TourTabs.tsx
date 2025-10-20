@@ -9,6 +9,7 @@ import TourVideos from './TourVideos';
 import TourFloorPlans from './TourFloorPlans';
 import TourConfirm from './TourConfirm';
 import { useAppContext } from '@/app/context/AppContext';
+import TourActivityDialog from './TourActivityDialog';
 
 // const tabs = ['Settings', 'Photos', 'Floorplan', 'Matterport', 'Confirm'];
 interface TourProps {
@@ -17,6 +18,7 @@ interface TourProps {
 const tabs = ['Settings', 'Photos', 'Matterport', 'Videos', 'Floor plans', 'Confirm'];
 export default function TourTabs({ orderData }: TourProps) {
   const [activeTab, setActiveTab] = useState('Settings');
+  const [open, setOpen] = useState(false);
   const { userType } = useAppContext()
 
   const renderContent = () => {
@@ -56,11 +58,17 @@ export default function TourTabs({ orderData }: TourProps) {
               {tab.toUpperCase()}
             </button>
           ))}
+          <button
+            onClick={() => setOpen(true)}
+            className={`text-center px-4 py-2 text-[13px] w-[180px] h-[32px] transition-colors ${userType}-bg text-white  rounded-[6px]  font-[500]  `}>
+            Tour Activity
+          </button>
         </div>
       </div>
       <div className="bg-white shadow-md border rounded-b-md mt-0">
         {renderContent()}
       </div>
+      <TourActivityDialog open={open} onOpenChange={setOpen} />
     </div>
   );
 }
