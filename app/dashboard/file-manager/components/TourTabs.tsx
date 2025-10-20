@@ -58,11 +58,11 @@ export default function TourTabs({ orderData }: TourProps) {
               {tab.toUpperCase()}
             </button>
           ))}
-          <button
+          {/* <button
             onClick={() => setOpen(true)}
             className={`text-center px-4 py-2 text-[13px] w-[180px] h-[32px] transition-colors ${userType}-bg text-white  rounded-[6px]  font-[500]  `}>
             Tour Activity
-          </button>
+          </button> */}
         </div>
       </div>
       <div className="bg-white shadow-md border rounded-b-md mt-0">

@@ -29,6 +29,7 @@ import { Order } from "../../orders/page";
 import DynamicMap from "@/components/DYnamicMap";
 import CustomSlideshow from "./CustomPreview";
 import TourFloorPlans from "./TourFloorPlans";
+import TourActivityDialog from "./TourActivityDialog";
 
 interface TourConfimation {
   orderData: Order | null;
@@ -44,7 +45,7 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
   const { selectedVideoFiles } = useFileManagerContext();
   const [mainVideo, setMainVideo] = useState<string | null>(null);
   // const [confirmFloor, setConfirmFloor] = useState(false);
-
+  const [open, setOpen] = useState(false);
   const currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === "photo");
 
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
@@ -98,7 +99,11 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
             className=" w-[410px] border border-[#8E8E8E] text-[#666666]"
             readOnly
           />
-          <Button className="w-[185px] bg-[#6BAE41]">Post Tour</Button>
+          <div className="flex items-center gap-x-3">
+            <Button className="w-[185px] bg-[#6BAE41]">Post Tour</Button>
+            <Button onClick={() => setOpen(true)} className="w-[100px] bg-[#4290E9]">Stats</Button>
+          </div>
+
         </div>
       </div>
       <Accordion type="single" defaultValue="Preview" className="w-full">
@@ -436,6 +441,7 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+      <TourActivityDialog open={open} onOpenChange={setOpen} />
     </div>
   );
 };
