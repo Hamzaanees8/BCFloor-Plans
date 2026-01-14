@@ -3,9 +3,12 @@
 import React, { useEffect, useState } from 'react';
 import ServicesTable from '@/components/ServicesTable';
 import Link from 'next/link';
-import { CleanedProductOption, GetServices } from './services';
+import { CleanedProductOption, GetPackages, GetServices } from './services';
 import ProtectedAdminRoute from '@/components/ProtectedAdminRoute';
 import { useAppContext } from '@/app/context/AppContext';
+import { useWhiteLabel } from '@/app/context/Whitelabel';
+import { usePermissions } from '@/app/hooks/usePermissions';
+import { PERMISSIONS } from '@/lib/permissions';
 
 
 export interface Services {
@@ -47,12 +50,55 @@ export interface Services {
     }
   }[]
 }
+export interface Packages {
+  id: number;
+  uuid?: string;
+  name?: string;
+  status?: boolean;
+  services: Services[];
+  discount?: number;
+}
 
 const Page = () => {
   const { userType } = useAppContext();
+  const { appliedSettings } = useWhiteLabel();
+  const role = (userType as string) || 'admin';
+  const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+
   const [servicesData, setServicesData] = useState<Services[]>([]);
+  const [packagesData, setPackagesData] = useState<Packages[] | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
+  const { hasPermission } = usePermissions();
+
+  // Check if user can create services
+  const canCreateService = userType !== 'admin' || hasPermission(PERMISSIONS.CREATE_SERVICES);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token")
+
+    if (!token) {
+      console.log("Token not found.");
+      setLoading(false);
+      setError(true);
+      return;
+    }
+
+    setLoading(true);
+    setError(false);
+
+    GetPackages(token)
+      .then((data) => {
+        setPackagesData(Array.isArray(data.data) ? data.data : []);
+      })
+      .catch(err => {
+        console.log(err.message);
+        setError(true);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -80,38 +126,41 @@ const Page = () => {
       });
   }, []);
 
-  console.log('servicesData', servicesData);
 
   return (
     <ProtectedAdminRoute>
-    <div>
-      <div
-        className='w-full h-[80px] bg-[#E4E4E4] font-alexandria z-10 relative flex justify-between px-[20px] items-center'
-        style={{ boxShadow: "0px 4px 4px #0000001F" }}
-      >
-        <p className={`text-[16px] md:text-[24px] font-[400] ${userType}-text`}>
-          Services ({servicesData.length})
-        </p>
-        <div className='flex space-x-3'>
-          {/* <Link href={'/dashboard/services/create'} className='w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] border-[#4290E9] bg-[#EEEEEE] text-[14px] md:text-[16px] font-[400] text-[#4290E9] flex gap-[5px] justify-center items-center hover:text-[#fff] hover:bg-[#4290E9]'>+ Package</Link> */}
-         {userType !== 'vendor' &&  <Link
-            href={'/dashboard/services/create'}
-            className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border bg-[#EEEEEE] text-[14px] md:text-[16px] font-[400] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button`}
-          >
-            + New Service
-          </Link>}
+      <div>
+        <div
+          className='w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center'
+          style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }}
+        >
+          <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>
+            Services ({servicesData.length})
+          </p>
+          <div className='flex space-x-3'>
+            {/* <Link href={'/dashboard/services/create'} className='w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] border-[#4290E9] bg-[#EEEEEE] text-[14px] md:text-[16px] font-[400] text-[#4290E9] flex gap-[5px] justify-center items-center hover:text-[#fff] hover:bg-[#4290E9]'>+ Package</Link> */}
+            {(userType !== 'vendor' && canCreateService) && (
+              <Link
+                href={'/dashboard/services/create'}
+                className='w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] justify-center items-center hover:brightness-110'
+                style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+              >
+                + New Service
+              </Link>
+            )}
+          </div>
+        </div>
+
+        <div className="w-full">
+          <ServicesTable
+            data={servicesData}
+            packagesData={packagesData}
+            setServicesData={setServicesData}
+            loading={loading}
+            error={error}
+          />
         </div>
       </div>
-
-      <div className="w-full">
-        <ServicesTable
-          data={servicesData}
-          setServicesData={setServicesData}
-          loading={loading}
-          error={error}
-        />
-      </div>
-    </div>
     </ProtectedAdminRoute>
   );
 };

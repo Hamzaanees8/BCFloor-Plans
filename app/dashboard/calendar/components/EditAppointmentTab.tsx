@@ -11,10 +11,9 @@ import Schedule from './Schedule';
 import { Button } from '@/components/ui/button';
 import AddNotesDialog from './AddNotesDialog';
 import { AddCoAgentDialog } from './AddCoAgnets';
-import { GetServices } from '../../orders/orders';
-import { Services } from '../../services/page';
 import { useOrderContext } from '../../orders/context/OrderContext';
 import { useAppContext } from '@/app/context/AppContext';
+import Link from 'next/link';
 
 // interface Notes {
 //     name: string;
@@ -63,30 +62,16 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
     const [listing, setListing] = useState("");
     const [squareFootage, setSquareFootage] = useState("");
     // const [isSplit, setIsSplit] = useState(currentOrder?.split_invoice ?? false);
-    const [servicesData, setServicesData] = useState<Services[]>([]);
     // const [additionalServices, setAdditionalServices] = useState<
     //     { serviceId: number; optionId: string | null; price: string }[]
     // >([]);
 
-    const { setCalendarServices, calendarServices } = useOrderContext();
+    const { setCalendarServices, calendarServices, servicesData } = useOrderContext();
 
     useEffect(() => {
-
-        setCalendarServices(calendarServices)
-    })
-    useEffect(() => {
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-            return;
-        }
-
-        GetServices(token)
-            .then((data) => {
-                setServicesData(data.data);
-            })
-            .catch((err) => console.log(err.message));
-    }, []);
+        // This was a problematic useEffect without dependencies
+        // setCalendarServices(calendarServices)
+    }, [calendarServices, setCalendarServices]);
 
     // const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     //     const checked = e.target.checked;
@@ -143,7 +128,10 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
             className="w-full space-y-4"
         >
             <AccordionItem value="property">
-                <AccordionTrigger className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>
+                <AccordionTrigger
+                    className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                >
                     Agent Details
                 </AccordionTrigger>
                 <AccordionContent className="grid gap-4">
@@ -157,7 +145,10 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                         value={agent || ''}
                                         onValueChange={(value) => setAgent(value)}
                                     >
-                                        <SelectTrigger className="w-full  h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
+                                        <SelectTrigger
+                                            className="w-full  h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                        >
                                             <SelectValue placeholder="Select Agent" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -174,7 +165,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                     <Input
                                         readOnly
                                         value={contactNumber}
-                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                         type="number"
                                     />
                                 </div>
@@ -184,7 +176,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                     <Input
                                         readOnly
                                         value={contactEmail}
-                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                         type="email"
                                     />
                                 </div>
@@ -195,7 +188,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                             <Input
                                                 readOnly
                                                 value={agent.name}
-                                                className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                 type="text"
                                             />
 
@@ -205,7 +199,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                             <Input
                                                 readOnly
                                                 value={agent.contact ? agent.contact : ''}
-                                                className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                 type="number"
                                             />
 
@@ -215,7 +210,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                             <Input
                                                 readOnly
                                                 value={agent.email}
-                                                className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                 type="email"
                                             />
                                         </div></div>
@@ -243,7 +239,10 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
             </AccordionItem>
 
             <AccordionItem value="additional">
-                <AccordionTrigger className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>
+                <AccordionTrigger
+                    className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                >
                     Listing Details
                 </AccordionTrigger>
                 <AccordionContent className="grid grid-cols-1 gap-4">
@@ -254,7 +253,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                 readOnly
                                 value={listing}
                                 // onChange={(e) => setAddress(e.target.value)}
-                                className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                 type="text"
                             />
 
@@ -264,7 +264,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                             <Input
                                 readOnly
                                 value={squareFootage}
-                                className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                 type="text"
                             />
 
@@ -287,7 +288,10 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
             </AccordionItem>
 
             <AccordionItem value="statistics">
-                <AccordionTrigger className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>
+                <AccordionTrigger
+                    className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                >
                     Statistics
                 </AccordionTrigger>
                 <AccordionContent className="grid gap-4">
@@ -299,7 +303,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                     <Input
                                         readOnly
                                         value={service.service.name}
-                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                         type="text"
                                     />
 
@@ -309,7 +314,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                     <Input
                                         readOnly
                                         value={service?.option?.title}
-                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                         type="text"
                                     />
 
@@ -320,7 +326,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                         <Input
                                             readOnly
                                             value={service.amount}
-                                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                            className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                             type="text"
                                         />
 
@@ -352,15 +359,40 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                                     );
                                                 }}
                                             >
-                                                <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]">
+                                                <SelectTrigger
+                                                    className="w-full h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                >
                                                     <SelectValue placeholder="Select Service" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {servicesData.map((srv) => (
-                                                        <SelectItem key={srv.id} value={srv.id.toString()}>
-                                                            {srv.name}
-                                                        </SelectItem>
-                                                    ))}
+                                                    {servicesData
+                                                        .filter((srv) => {
+                                                            // Logic to filter based on square footage
+                                                            const sqFt = parseInt(squareFootage, 10);
+                                                            if (isNaN(sqFt)) return true; // Show all if no sq ft is set
+
+                                                            if (!srv.product_options || srv.product_options.length === 0) return true;
+
+                                                            const hasMatchingOption = srv.product_options.some((option) => {
+                                                                if (!option.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
+
+                                                                const [minStr, maxStr] = option.sq_ft_range.split("-").map((s) => s.trim());
+                                                                const min = parseInt(minStr, 10);
+                                                                const max = parseInt(maxStr, 10);
+
+                                                                if (isNaN(min) || isNaN(max)) return false;
+
+                                                                return sqFt >= min && sqFt <= max;
+                                                            });
+
+                                                            return hasMatchingOption;
+                                                        })
+                                                        .map((srv) => (
+                                                            <SelectItem key={srv.id} value={srv.id.toString()}>
+                                                                {srv.name}
+                                                            </SelectItem>
+                                                        ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -381,15 +413,33 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
 
                                                 disabled={!selectedService}
                                             >
-                                                <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]">
+                                                <SelectTrigger
+                                                    className="w-full h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                >
                                                     <SelectValue placeholder="Select Option" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {selectedService?.product_options?.map((opt) => (
-                                                        <SelectItem key={opt.uuid} value={opt.uuid ?? ''}>
-                                                            {opt.title}
-                                                        </SelectItem>
-                                                    ))}
+                                                    {selectedService?.product_options
+                                                        ?.filter((opt) => {
+                                                            const sqFt = parseInt(squareFootage, 10);
+                                                            if (isNaN(sqFt)) return true;
+
+                                                            if (!opt.sq_ft_range || typeof opt.sq_ft_range !== "string") return true;
+
+                                                            const [minStr, maxStr] = opt.sq_ft_range.split("-").map((s) => s.trim());
+                                                            const min = parseInt(minStr, 10);
+                                                            const max = parseInt(maxStr, 10);
+
+                                                            if (isNaN(min) || isNaN(max)) return true;
+
+                                                            return sqFt >= min && sqFt <= max;
+                                                        })
+                                                        .map((opt) => (
+                                                            <SelectItem key={opt.uuid} value={opt.uuid ?? ''}>
+                                                                {opt.title}
+                                                            </SelectItem>
+                                                        ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -410,7 +460,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                                             )
                                                         );
                                                     }}
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                 />
                                             </div>
                                             <div className='col-span-1 flex justify-between gap-[16px] mt-[28px]'>
@@ -476,7 +527,10 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
             </AccordionItem>
 
             <AccordionItem value="Notes">
-                <AccordionTrigger className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>
+                <AccordionTrigger
+                    className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                >
                     Additional Notes
                 </AccordionTrigger>
                 <AccordionContent className="grid grid-cols-1 gap-4">
@@ -489,8 +543,9 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                         onClick={() => setActiveTab(tab)}
                                         className={`text-center px-4 py-2 text-[13px] w-[180px] h-[32px] transition-colors ${activeTab === tab
                                             ? `${userType}-bg text-white  rounded-[6px]  font-[500] `
-                                            : 'text-[#666666] bg-[#E4E4E4] hover:text-[#666666] rounded-[6px] font-[700] '
+                                            : 'text-[#666666] hover:text-[#666666] rounded-[6px] font-[700] '
                                             }`}
+                                        style={{ backgroundColor: activeTab !== tab ? `var(--${userType}-page-bg, #E4E4E4)` : undefined }}
                                     >
                                         {tab.toUpperCase()}
                                     </button>
@@ -500,7 +555,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                         {activeTab === 'Notes' && notes?.filter((note) => note.internal == 'false' || !note.internal)?.map((note, index) => (
                             <div
                                 key={index}
-                                className="w-full p-3 rounded-[6px] bg-[#E4E4E4] border border-[#BBBBBB] relative whitespace-pre-wrap break-words mt-[15px]"
+                                className="w-full p-3 rounded-[6px] border border-[#BBBBBB] relative whitespace-pre-wrap break-words mt-[15px]"
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
                             >
 
                                 <p className="text-sm text-[#333]">{note.note}</p>
@@ -519,7 +575,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                         {activeTab === 'Internal Notes' && notes?.filter((note) => note.internal == 'true')?.map((note, index) => (
                             <div
                                 key={index}
-                                className="w-full p-3 rounded-[6px] bg-[#E4E4E4] border border-[#BBBBBB] relative whitespace-pre-wrap break-words mt-[15px]"
+                                className="w-full p-3 rounded-[6px] border border-[#BBBBBB] relative whitespace-pre-wrap break-words mt-[15px]"
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
                             >
 
                                 <p className="text-sm text-[#333]">{note.note}</p>
@@ -548,6 +605,15 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                             setNotes={setNotes}
                             isInternal={activeTab === 'Internal Notes' ? true : false}
                         />
+                        <div
+                            className='mt-[40px]'>
+                            <Link
+                                href={`/dashboard/file-manager/${currentOrder?.uuid}`}
+                                className="bg-[#4290E9] w-[140px]  rounded-[6px] border-[1px] text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff] h-[37px] hover:text-white hover:bg-[#4e9af1]"
+
+                            >Media</Link>
+
+                        </div>
                     </div>
                 </AccordionContent>
             </AccordionItem>

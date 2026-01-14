@@ -57,7 +57,8 @@ const AgentDiscount: React.FC<Props> = ({ open, setOpen, addDiscount }) => {
                             value={discountCode}
                             onChange={(e) => setDiscountCode(e.target.value)}
                             placeholder="Enter Discount Code"
-                            className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]'
+                            className='h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]'
+                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                         />
                     </div>
 
@@ -69,7 +70,8 @@ const AgentDiscount: React.FC<Props> = ({ open, setOpen, addDiscount }) => {
                             type="date"
                             value={expiryDate}
                             onChange={(e) => setExpiryDate(e.target.value)}
-                            className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]'
+                            className='h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]'
+                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                         />
                     </div>
 
@@ -86,7 +88,7 @@ const AgentDiscount: React.FC<Props> = ({ open, setOpen, addDiscount }) => {
                     </div>
                 </div>
 
-             
+
                 <AlertDialogFooter className="flex flex-col md:flex-row md:justify-between gap-[5px]  mt-2 font-alexandria">
                     <AlertDialogCancel className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400]  ${userType}-border ${userType}-text ${userType}-button hover-${userType}-bg`}>
                         Cancel

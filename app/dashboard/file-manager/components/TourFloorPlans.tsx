@@ -20,10 +20,18 @@ type DroppedMarker = {
   isApi?: boolean;
 };
 
+import { useAppContext } from "@/app/context/AppContext";
+
 function TourFloorPlans({ type = "" }) {
+  const { userType } = useAppContext();
   const { floorFiles, selectedFiles, droppedMarkers, setDroppedMarkers, filesData } = useFileManagerContext();
-  const currentTourFloorFiles = filesData?.files?.filter(file => file?.service?.name === '2D Floor Plans' || file?.service?.name === '3D Floor Plans');
-  const currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans');
+  let currentTourFloorFiles = filesData?.files?.filter(file => file?.service?.name === '2D Floor Plans' || file?.service?.name === '3D Floor Plans');
+  let currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans');
+
+  if (userType === 'agent') {
+    currentTourFloorFiles = currentTourFloorFiles?.filter(file => file.is_admin_approved);
+    currentTourPhotos = currentTourPhotos?.filter(file => file.is_admin_approved);
+  }
   const [draggedFile, setDraggedFile] = useState<{ file?: File; file_path?: string } | null>(null);
 
   const [selectedImageId, setSelectedImageId] = useState<string | null>(() => {
@@ -196,7 +204,13 @@ function TourFloorPlans({ type = "" }) {
     (f) => f.name === selectedImageId
   );
 
-
+  if ((!floorFiles || floorFiles?.length === 0) && (!currentTourFloorFiles || currentTourFloorFiles?.length === 0)) {
+    return (
+      <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
+        <p>No Floor Photo found — please add Floor Photos or select a Floor Plan service.</p>
+      </div>
+    );
+  }
 
   return (
     <div className={`w-full h-auto font-alexandria bg-gray-100 py-6  ${type !== "confirm" ? "pl-6" : "pl-0 mt-[75px] pt-0"}`}>

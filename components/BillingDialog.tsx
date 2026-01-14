@@ -31,7 +31,10 @@ const BillingDialog: React.FC<Props> = ({
   const { userType } = useAppContext()
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogContent className="w-[320px] md:w-[593px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria">
+      <AlertDialogContent
+        className="w-[320px] md:w-[593px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria"
+        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+      >
         <AlertDialogHeader className="mb-2">
           <AlertDialogTitle className={`flex items-center justify-between ${userType}-text text-[18px] uppercase font-[600] border-b-[1px] border-[#BBBBBB] pb-2`}>
             Status: Arrears
@@ -43,7 +46,7 @@ const BillingDialog: React.FC<Props> = ({
 
         <div className="flex items-start gap-3">
           <AlertDialogDescription className="text-[14px] font-[400] text-[#7D7D7D] ">
-            <p className="mb-3 font-[400] text-[16px]">Janet Janetson account is in arrears.</p>
+            <p className="mb-3 font-[400] text-[16px]">Musawar Ahmed account is in arrears.</p>
             <p className="mb-3"><span className="text-[#E06D5E] font-semibold">$430.80</span> is owed since Mar 3, 2025.</p>
             <p className="">Automated reminder emails have been sent.</p>
           </AlertDialogDescription>

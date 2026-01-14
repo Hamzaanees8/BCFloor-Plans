@@ -93,14 +93,7 @@ const AdminForm = () => {
     const userId = params?.id as string;
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-            console.log('Token not found.')
-            return;
-        }
-
-        GetRole(token)
+        GetRole()
             .then(data => setRoles(Array.isArray(data.data) ? data.data : []))
             .catch(err => console.log(err.message));
     }, []);
@@ -194,21 +187,23 @@ const AdminForm = () => {
     }
 
     const togglePermission = (id: number, checked: boolean) => {
-        setSelectedPermissions((prev) =>
-            checked ? [...prev, id] : prev.filter((pid) => pid !== id)
-        );
+        setSelectedPermissions((prev) => {
+            const newPermissions = checked ? [...prev, id] : prev.filter((pid) => pid !== id);
+            if (fieldErrors.permissions && newPermissions.length > 0) {
+                setFieldErrors(prevErrors => {
+                    const newErrors = { ...prevErrors };
+                    delete newErrors.permissions;
+                    return newErrors;
+                });
+            }
+            return newPermissions;
+        });
     };
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-            console.log('Token not found.')
-            return;
-        }
 
         if (userId) {
-            GetOne(token, userId)
+            GetOne(userId)
                 .then(data => setCurrentUser(data.data))
                 .catch(err => console.log(err.message));
         } else {
@@ -219,23 +214,101 @@ const AdminForm = () => {
 
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-            console.log('Token not found.')
-            return;
-        }
-
-        GetPermissions(token)
+        GetPermissions()
             .then(data => setPermissions(Array.isArray(data.data) ? data.data : []))
             .catch(err => console.log(err.message));
     }, []);
 
+    const validateForm = () => {
+        const errors: Record<string, string[]> = {};
+        let isValid = true;
+
+        if (!firstName.trim()) {
+            errors.first_name = ["First Name is required"];
+            isValid = false;
+        } else if (firstName.length > 255) {
+            errors.first_name = ["First Name must be less than 255 characters"];
+            isValid = false;
+        }
+
+        if (lastName && lastName.length > 255) {
+            errors.last_name = ["Last Name must be less than 255 characters"];
+            isValid = false;
+        }
+
+        if (!email.trim()) {
+            errors.email = ["Email is required"];
+            isValid = false;
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            errors.email = ["Invalid email format"];
+            isValid = false;
+        }
+
+        if (secondaryEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(secondaryEmail)) {
+            errors.secondary_email = ["Invalid email format"];
+            isValid = false;
+        }
+
+        // Validate password only if creating a new user or if password field is filled
+        if (!userId) {
+            if (!password) {
+                errors.password = ["Password is required"];
+                isValid = false;
+            } else if (password.length < 8) {
+                errors.password = ["Password must be at least 8 characters"];
+                isValid = false;
+            }
+        } else if (password && password.length < 8) {
+            errors.password = ["Password must be at least 8 characters"];
+            isValid = false;
+        }
+
+        if (!role) {
+            errors.roles = ["Role is required"];
+            isValid = false;
+        }
+
+        if (selectedPermissions.length === 0) {
+            errors.permissions = ["At least one permission is required"];
+            isValid = false;
+        }
+
+        if (primaryPhone && primaryPhone.length > 20) {
+            errors.primary_phone = ["Primary Phone must be less than 20 characters"];
+            isValid = false;
+        }
+
+        if (secondaryPhone && secondaryPhone.length > 20) {
+            errors.secondary_phone = ["Secondary Phone must be less than 20 characters"];
+            isValid = false;
+        }
+
+        if (companyName && companyName.length > 255) {
+            errors.company_name = ["Company Name must be less than 255 characters"];
+            isValid = false;
+        }
+
+        setFieldErrors(errors);
+
+        if (!isValid) {
+            const firstError = Object.values(errors).flat()[0];
+            toast.error(firstError || 'Please fill all required fields');
+
+            // Scroll to top if there are errors to ensure visibility
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        return isValid;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (!validateForm()) {
+            return;
+        }
+
         try {
-            const token = localStorage.getItem('token') || '';
             let formattedWebsite = companyWebsite?.trim();
             if (formattedWebsite && !/^https?:\/\//i.test(formattedWebsite)) {
                 formattedWebsite = 'https://' + formattedWebsite;
@@ -254,8 +327,8 @@ const AdminForm = () => {
                 city: city || undefined,
                 province: province || undefined,
                 country: country || undefined,
-                password: password || undefined,
-                password_confirmation: password || undefined,
+                password: userId ? undefined : password || undefined,
+                password_confirmation: userId ? undefined : password || undefined,
                 avatar: avatarFile || undefined,
                 company_logo: companyLogoFile || undefined,
                 company_banner: companyBannerFile || undefined,
@@ -265,7 +338,7 @@ const AdminForm = () => {
 
             if (userId) {
                 const updatedPayload = { ...payload, _method: 'PUT' };
-                await Edit(userId, updatedPayload, token);
+                await Edit(userId, updatedPayload);
                 toast.success('User updated successfully');
                 setIsLoading(true)
                 setOpen(true)
@@ -273,7 +346,7 @@ const AdminForm = () => {
                 setIsLoading(false)
                 setIsDirty(false)
             } else {
-                await Create(payload, token);
+                await Create(payload);
                 toast.success('User created successfully');
                 setIsLoading(true)
                 setOpen(true)
@@ -316,7 +389,6 @@ const AdminForm = () => {
 
     const handlePasswordReset = async (userId: string) => {
         try {
-            const token = localStorage.getItem('token') || '';
 
             const payload = {
                 new_password: password,
@@ -325,7 +397,7 @@ const AdminForm = () => {
             }
             console.log('payload', payload);
 
-            await ResetPassword(payload, userId, token);
+            await ResetPassword(payload, userId);
             toast.success('Reset email Send successfully');
         } catch (error) {
             if (error instanceof Error) {
@@ -376,8 +448,17 @@ const AdminForm = () => {
                                                 <Input
                                                     required
                                                     value={firstName}
-                                                    onChange={(e) => setFirstName(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    onChange={(e) => {
+                                                        setFirstName(e.target.value);
+                                                        if (fieldErrors.first_name) {
+                                                            setFieldErrors(prev => {
+                                                                const newErrors = { ...prev };
+                                                                delete newErrors.first_name;
+                                                                return newErrors;
+                                                            });
+                                                        }
+                                                    }}
+                                                    className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.first_name ? 'border-red-500' : ''}`} type="text" />
                                                 {fieldErrors.first_name && <p className='text-red-500 text-[10px]'>{fieldErrors.first_name[0]}</p>}
                                             </div>
                                             <div>
@@ -391,9 +472,18 @@ const AdminForm = () => {
                                                 <label htmlFor="">Role <span className="text-red-500">*</span></label>
                                                 <Select
                                                     value={String(role)}
-                                                    onValueChange={(val) => setRole(val)}
+                                                    onValueChange={(val) => {
+                                                        setRole(val);
+                                                        if (fieldErrors.roles) {
+                                                            setFieldErrors(prev => {
+                                                                const newErrors = { ...prev };
+                                                                delete newErrors.roles;
+                                                                return newErrors;
+                                                            });
+                                                        }
+                                                    }}
                                                 >
-                                                    <SelectTrigger className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'>
+                                                    <SelectTrigger className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.roles ? 'border-red-500' : ''}`}>
                                                         <SelectValue placeholder="Select a role" />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -410,8 +500,17 @@ const AdminForm = () => {
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Email <span className="text-red-500">*</span></label>
                                                 <Input value={email}
-                                                    onChange={(e) => setEmail(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    onChange={(e) => {
+                                                        setEmail(e.target.value);
+                                                        if (fieldErrors.email) {
+                                                            setFieldErrors(prev => {
+                                                                const newErrors = { ...prev };
+                                                                delete newErrors.email;
+                                                                return newErrors;
+                                                            });
+                                                        }
+                                                    }}
+                                                    className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.email ? 'border-red-500' : ''}`} type="text" />
 
                                                 {fieldErrors.email && <p className='text-red-500 text-[10px]'>{fieldErrors.email[0]}</p>}
                                             </div>
@@ -533,8 +632,17 @@ const AdminForm = () => {
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Password <span className="text-red-500">*</span></label>
                                                 <Input value={password}
-                                                    onChange={(e) => setPassword(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="password" />
+                                                    onChange={(e) => {
+                                                        setPassword(e.target.value);
+                                                        if (fieldErrors.password) {
+                                                            setFieldErrors(prev => {
+                                                                const newErrors = { ...prev };
+                                                                delete newErrors.password;
+                                                                return newErrors;
+                                                            });
+                                                        }
+                                                    }}
+                                                    className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.password ? 'border-red-500' : ''}`} type="password" />
 
                                                 {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
                                             </div>

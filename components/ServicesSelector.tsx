@@ -10,6 +10,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Services } from "@/app/dashboard/services/page";
+import { useAppContext } from "@/app/context/AppContext";
 
 interface ServicesSelectorProps {
     servicesData: Services[] | null;
@@ -22,6 +23,7 @@ export default function ServicesSelector({
     services,
     setServices,
 }: ServicesSelectorProps) {
+    const { userType } = useAppContext();
     const [selectedService, setSelectedService] = useState<string>("");
 
     const handleAdd = () => {
@@ -47,7 +49,10 @@ export default function ServicesSelector({
                     value={selectedService}
                     onValueChange={(val) => setSelectedService(val)}
                 >
-                    <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border rounded-r-none border-[#BBBBBB]">
+                    <SelectTrigger
+                        className="w-full h-[42px] border rounded-r-none border-[#BBBBBB]"
+                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                    >
                         <SelectValue placeholder="Select a service" />
                     </SelectTrigger>
                     <SelectContent>
@@ -58,7 +63,12 @@ export default function ServicesSelector({
                         ))}
                     </SelectContent>
                 </Select>
-                <Button className="h-[42px] bg-[#EEEEEE] rounded-l-none border border-[#888787] !text-[#323232] flex justify-center items-center" onClick={handleAdd} disabled={!selectedService}>
+                <Button
+                    className="h-[42px] rounded-l-none border border-[#888787] !text-[#323232] flex justify-center items-center"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                    onClick={handleAdd}
+                    disabled={!selectedService}
+                >
                     Add
                 </Button>
             </div>

@@ -83,20 +83,32 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
     const { setSelectedSlots, calendarServices } = useOrderContext();
     const [data, setData] = useState<TwilightResponse | null>(null);
     const [selectedDate, setSelectedDate] = useState<string>('');
+    const [vendorDistances, setVendorDistances] = useState<Record<string, number>>({});
 
     useEffect(() => {
-        if (!currentOrder?.slots) return;
+        if (!currentOrder?.slots || !currentOrder?.services) return;
 
         setSelectedSlots((prev) => {
-            const currentOrderServiceIds = currentOrder.slots.map((slot) => String(slot.service_id));
+            // Map service templates for quick lookup: numeric ID -> UUID
+            const serviceIdToUuidMap: Record<number, string> = {};
+            currentOrder.services.forEach(s => {
+                if (s.service?.id && s.service?.uuid) {
+                    serviceIdToUuidMap[s.service.id] = s.service.uuid;
+                }
+            });
+
+            const currentOrderServiceUuids = currentOrder.slots.map((slot) => {
+                return serviceIdToUuidMap[slot.service_id] || String(slot.service_id);
+            });
 
             const extraSlots = prev.filter(
-                (slot) => !currentOrderServiceIds.includes(String(slot.service_id))
+                (slot) => !currentOrderServiceUuids.includes(slot.service_id)
             );
 
             const convertedOrderSlots = currentOrder.slots.map((slot) => ({
                 ...slot,
-                service_id: String(slot.service_id),
+                service_id: serviceIdToUuidMap[slot.service_id] || String(slot.service_id),
+                vendor_id: slot.vendor?.uuid || slot.vendor_id,
             }));
 
             return [...convertedOrderSlots, ...extraSlots];
@@ -226,10 +238,19 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
                 );
 
                 const insideResults = await Promise.all(
-                    vendorsForService.map(async vendor => ({
-                        vendor,
-                        inside: await isPropertyInsideVendorArea(addressString, vendor),
-                    }))
+                    vendorsForService.map(async vendor => {
+                        const force_service_area = vendor.settings?.force_service_area;
+                        const shouldBypass = force_service_area === 1 || force_service_area === true;
+
+                        if (shouldBypass) {
+                            return { vendor, inside: true };
+                        }
+
+                        return {
+                            vendor,
+                            inside: await isPropertyInsideVendorArea(addressString, vendor),
+                        };
+                    })
                 );
 
                 result[service.uuid] = insideResults
@@ -242,6 +263,87 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
 
         filterVendorsByService();
     }, [vendorsData, servicesData, currentOrder]);
+
+    async function calculateAllVendorDistances(
+        address: string,
+        availableVendors: VendorData[]
+    ) {
+        if (!window.google || !window.google.maps) return;
+
+        const service = new window.google.maps.DistanceMatrixService();
+        const destinations: string[] = [];
+        const vendorUUIDs: string[] = [];
+
+        availableVendors.forEach((vendor) => {
+            const originAddress = vendor?.addresses?.find(
+                (addr) => addr.type === "start_location"
+            );
+
+            if (
+                originAddress?.address_line_1 &&
+                originAddress?.city &&
+                originAddress?.province &&
+                originAddress?.country
+            ) {
+                const fullAddress = `${originAddress.address_line_1}, ${originAddress.city}, ${originAddress.province}, ${originAddress.country}`;
+                destinations.push(fullAddress);
+                vendorUUIDs.push(vendor.uuid || "");
+            }
+        });
+
+        if (destinations.length === 0) return;
+
+        const estimatedTimes: Record<string, number> = {};
+
+        await new Promise<void>((resolve) => {
+            service.getDistanceMatrix(
+                {
+                    origins: [address],
+                    destinations,
+                    travelMode: window.google.maps.TravelMode.DRIVING,
+                },
+                (response, status) => {
+                    if (status === "OK" && response?.rows?.[0]?.elements?.length) {
+                        response.rows[0].elements.forEach((element, i) => {
+                            const vendorUUID = vendorUUIDs[i];
+                            if (vendorUUID && element.status === "OK") {
+                                const durationInMinutes = Math.ceil(
+                                    element.duration.value / 60
+                                );
+                                estimatedTimes[vendorUUID] = durationInMinutes;
+                            }
+                        });
+                    } else {
+                        console.error("Distance Matrix failed:", status, response);
+                    }
+                    resolve();
+                }
+            );
+        });
+
+        setVendorDistances((prev) => ({ ...prev, ...estimatedTimes }));
+    }
+
+
+    useEffect(() => {
+        if (!currentOrder?.property || !filteredVendorsByService) return;
+
+        const listingAddress = `${currentOrder.property.address}, ${currentOrder.property.city}, ${currentOrder.property.country}`;
+
+        Object.values(filteredVendorsByService).forEach((vendors) => {
+            if (vendors?.length > 0) {
+                calculateAllVendorDistances(listingAddress, vendors);
+            }
+        });
+    }, [currentOrder, filteredVendorsByService]);
+
+    const formatTravelTime = (minutes: number) => {
+        if (minutes < 60) return `${minutes} min`;
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        if (mins === 0) return `${hours} hour${hours > 1 ? 's' : ''}`;
+        return `${hours} hour${hours > 1 ? 's' : ''} ${mins} min`;
+    };
 
     useEffect(() => {
         const address = `${currentOrder?.property?.address}, ${currentOrder?.property?.city}, ${currentOrder?.property?.country}`
@@ -360,11 +462,21 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
                                         <SelectContent>
                                             <SelectItem value="all">All Vendors</SelectItem>
                                             {service.service.uuid && filteredVendorsByService[service.service.uuid]?.length ? (
-                                                filteredVendorsByService[service.service.uuid]!.map((vendor, vidx) => (
-                                                    <SelectItem key={vidx} value={vendor.uuid ?? ''}>
-                                                        {vendor.first_name} {vendor.last_name}
-                                                    </SelectItem>
-                                                ))
+                                                filteredVendorsByService[service.service.uuid]!.map((vendor, vidx) => {
+                                                    const travelTime = vendorDistances[vendor.uuid ?? ''];
+                                                    return (
+                                                        <SelectItem key={vidx} value={vendor.uuid ?? ''}>
+                                                            <div className="flex justify-between w-full items-center">
+                                                                <span>{vendor.first_name} {vendor.last_name}</span>
+                                                                {travelTime !== undefined && (
+                                                                    <span className="text-gray-500 text-[12px] ml-2">
+                                                                        ({formatTravelTime(travelTime)})
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </SelectItem>
+                                                    );
+                                                })
                                             ) : (
                                                 <SelectItem value="none" disabled>
                                                     No vendors available for this service in the selected area

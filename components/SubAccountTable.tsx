@@ -21,6 +21,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "./ui/switch";
 import DropdownActions from "./DropdownActions";
 import { useRouter } from "next/navigation";
@@ -29,6 +30,7 @@ import { SubAccountData } from "./QuickViewCard";
 import { UpdateStatus } from "@/app/dashboard/sub-accounts/subaccounts";
 import { AgentData } from "@/app/dashboard/agents/page";
 import { useAppContext } from "@/app/context/AppContext";
+import { Pagination } from "./TablePagination";
 
 export type SubAccount = {
     uuid?: string;
@@ -263,9 +265,22 @@ export default function SubAccountTable({ setSubAccountData, onQuickView, subAcc
     const [columnVisibility, setColumnVisibility] =
         React.useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = React.useState({});
+    const [pagination, setPagination] = React.useState({
+        pageIndex: 0,
+        pageSize: 10,
+    });
+
     const table = useReactTable({
         data: subAccountData,
         columns,
+        state: {
+            sorting,
+            columnFilters,
+            columnVisibility,
+            rowSelection,
+            pagination, // Add this
+        },
+        onPaginationChange: setPagination, // Add this
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
         getCoreRowModel: getCoreRowModel(),
@@ -274,12 +289,6 @@ export default function SubAccountTable({ setSubAccountData, onQuickView, subAcc
         getFilteredRowModel: getFilteredRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
-        state: {
-            sorting,
-            columnFilters,
-            columnVisibility,
-            rowSelection,
-        },
     });
     return (
         <div>
@@ -291,7 +300,7 @@ export default function SubAccountTable({ setSubAccountData, onQuickView, subAcc
                                 <TableRow key={headerGroup.id}>
                                     {headerGroup.headers.map((header) => {
                                         return (
-                                            <TableHead key={header.id} className="text-sm text-[#666666] font-bold h-[54px] bg-[#E4E4E4]">
+                                            <TableHead key={header.id} className="text-sm text-[#666666] font-bold h-[54px]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
                                                 {header.isPlaceholder
                                                     ? null
                                                     : flexRender(
@@ -305,7 +314,20 @@ export default function SubAccountTable({ setSubAccountData, onQuickView, subAcc
                             ))}
                         </TableHeader>
                         <TableBody className="text-[15px] font-normal">
-                            {table.getRowModel().rows?.length ? (
+                            {loading ? (
+                                // Skeleton Loading State
+                                Array.from({ length: 5 }).map((_, index) => (
+                                    <TableRow key={index} className="h-[60px] bg-white border-b border-[#E4E4E4]">
+                                        <TableCell><Skeleton className="h-4 w-[20px] bg-gray-200" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-[120px] bg-gray-200" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-[100px] bg-gray-200" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-[120px] bg-gray-200" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-[100px] bg-gray-200" /></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-[40px] bg-gray-200 rounded-full" /></TableCell>
+                                        <TableCell><Skeleton className="h-8 w-[40px] bg-gray-200 rounded" /></TableCell>
+                                    </TableRow>
+                                ))
+                            ) : table.getRowModel().rows?.length ? (
                                 table.getRowModel().rows.map((row) => (
                                     <TableRow
                                         key={row.id}
@@ -321,24 +343,35 @@ export default function SubAccountTable({ setSubAccountData, onQuickView, subAcc
                                         ))}
                                     </TableRow>
                                 ))
+                            ) : subAccountData.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                                        No Sub Account Found.
+                                    </TableCell>
+                                </TableRow>
+                            ) : error ? (
+                                <TableRow>
+                                    <TableCell colSpan={columns.length} className="h-24 text-center text-red-500">
+                                        Failed to load sub-accounts.
+                                    </TableCell>
+                                </TableRow>
                             ) : (
-                                loading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={columns.length} className="h-24 text-center">
-                                            Loading Sub Accounts ...
-                                        </TableCell>
-                                    </TableRow>
-                                ) : error ? (
-                                    <TableRow>
-                                        <TableCell colSpan={columns.length} className="h-24 text-center">
-                                            No Sub Account Found.
-                                        </TableCell>
-                                    </TableRow>
-                                ) : null
+                                <TableRow>
+                                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                                        No Sub Account Found.
+                                    </TableCell>
+                                </TableRow>
                             )}
                         </TableBody>
                     </Table>
                 </div>
+
+                <Pagination<SubAccount>
+                    table={table}
+                    data={subAccountData}
+                    dataName="Sub Accounts"
+                    userType={userType}
+                />
             </div>
         </div>
 

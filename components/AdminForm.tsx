@@ -9,8 +9,10 @@ import ToggleButtons from './ui/toogle'
 import { Label } from './ui/label'
 import { Create, GetPermissions, GetRole } from '@/app/dashboard/admin/admin'
 import { toast } from 'sonner'
+import { useAppContext } from '@/app/context/AppContext'
 
 const AdminForm = () => {
+    const { userType } = useAppContext();
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [role, setRole] = useState("");
@@ -154,7 +156,7 @@ const AdminForm = () => {
             return;
         }
 
-        GetRole(token)
+        GetRole()
             .then(data => {
                 console.log('Fetched roles:', data);
                 setRoles(data.data); // verify shape of data
@@ -172,19 +174,16 @@ const AdminForm = () => {
             return;
         }
 
-        GetPermissions(token)
+        GetPermissions()
             .then(data => setPermissions(Array.isArray(data.data) ? data.data : []))
             .catch(err => console.log(err.message));
     }, []);
 
-    console.log('roles', roles);
-    console.log('permissions', permissions);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         try {
-            const token = localStorage.getItem('token') || '';
 
             const payload = {
                 first_name: firstName,
@@ -202,17 +201,17 @@ const AdminForm = () => {
                 // roles: [Number(role)], // ensure this is a number
                 // permissions: selectedPermissions, // ensure this is number[]
                 roles: Array.isArray(role) ? role.map(Number) : [Number(role)].filter(n => !isNaN(n)),
-                permissions: Array.isArray(selectedPermissions) 
-                    ? selectedPermissions.map(Number).filter(n => !isNaN(n)) 
+                permissions: Array.isArray(selectedPermissions)
+                    ? selectedPermissions.map(Number).filter(n => !isNaN(n))
                     : [],
                 ...(password ? {
                     password,
                     password_confirmation: password,
                 }
-                : {}),
+                    : {}),
             };
 
-            const result = await Create(payload, token);
+            const result = await Create(payload);
 
             console.log('User created successfully:', result);
             toast.success('User created successfully')
@@ -236,18 +235,21 @@ const AdminForm = () => {
 
     return (
         <div className='font-alexandria'>
-            <div className='w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center' style={{ boxShadow: "0px 4px 4px #0000001F" }} >
+            <div className='w-full h-[80px] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className='text-[16px] md:text-[24px] font-[400]  text-[#4290E9]'>Admin Edit › Phillip Phillipson (BC Floor Plans)</p>
                 <Button onClick={(e) => { handleSubmit(e) }} className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]'>Save Changes</Button>
             </div>
-            <div className='flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600]' >
+            <div className='flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600]' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }} >
                 <ToggleButtons />
             </div>
             <div>
                 <form >
                     <Accordion type="multiple" defaultValue={["profile", "permissions", "branding"]} className="w-full space-y-4">
                         <AccordionItem value="profile">
-                            <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>PROFILE</AccordionTrigger>
+                            <AccordionTrigger
+                                className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                            >PROFILE</AccordionTrigger>
                             <AccordionContent className="grid gap-4">
                                 <div className='w-full flex flex-col items-center'>
                                     <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -258,14 +260,18 @@ const AdminForm = () => {
                                                     required
                                                     value={firstName}
                                                     onChange={(e) => setFirstName(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    type="text" />
                                             </div>
                                             <div>
                                                 <label htmlFor="">Last Name</label>
                                                 <Input
                                                     value={lastName}
                                                     onChange={(e) => setLastName(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    type="text" />
                                             </div>
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Role</label>
@@ -273,7 +279,10 @@ const AdminForm = () => {
                                                     value={String(role)}
                                                     onValueChange={(val) => setRole(val)}
                                                 >
-                                                    <SelectTrigger className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'>
+                                                    <SelectTrigger
+                                                        className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    >
                                                         <SelectValue placeholder="Select a role" />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -289,24 +298,34 @@ const AdminForm = () => {
                                                 <label htmlFor="">Email</label>
                                                 <Input value={email}
                                                     onChange={(e) => setEmail(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    type="text" />
                                             </div>
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Email Secondary</label>
                                                 <Input value={secondaryEmail}
                                                     onChange={(e) => setSecondaryEmail(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    type="text" />
                                             </div>
                                             <div className='flex items-center gap-[10px]'>
                                                 <Input
                                                     checked={notificationEmailChecked}
                                                     onChange={(e) => setNotificationEmailChecked(e.target.checked)}
-                                                    type='checkbox' className='h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' />
+                                                    type='checkbox'
+                                                    className='h-[20px] w-[20px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                />
                                                 <p className='text-[16px] font-normal text-[#666666] mt-[12px]'>Notification Email</p>
                                             </div>
                                             <div className=''>
                                                 <Select onValueChange={setEmailType} >
-                                                    <SelectTrigger className="w-full  h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
+                                                    <SelectTrigger
+                                                        className="w-full h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    >
                                                         <SelectValue placeholder="Both" />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -320,50 +339,67 @@ const AdminForm = () => {
                                                 <label htmlFor="">Primary Phone</label>
                                                 <Input value={primaryPhone}
                                                     onChange={(e) => setPrimaryPhone(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    type="text" />
                                             </div>
                                             <div>
                                                 <label htmlFor="">Secondary Phone</label>
                                                 <Input value={secondaryPhone}
                                                     onChange={(e) => setSecondaryPhone(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    type="text" />
                                             </div>
 
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Company Name</label>
                                                 <Input value={companyName}
                                                     onChange={(e) => setCompanyName(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    type="text" />
                                             </div>
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Company Website</label>
                                                 <Input value={companyWebsite}
-                                                    onChange={(e) => setCompanyWebsite(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    onChange={(e) => setCompanyWebsite(e.target.value)}
+                                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    type="text" />
 
                                             </div>
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Address</label>
                                                 <Input value={address}
                                                     onChange={(e) => setAddress(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    type="text" />
                                             </div>
                                             <div>
                                                 <label htmlFor="">City</label>
                                                 <Input value={city}
                                                     onChange={(e) => setCity(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    type="text" />
                                             </div>
                                             <div>
                                                 <label htmlFor="">Province</label>
                                                 <Input value={province}
                                                     onChange={(e) => setProvince(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    type="text" />
                                             </div>
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Country</label>
                                                 <Input value={country}
                                                     onChange={(e) => setCountry(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    type="text" />
                                             </div>
                                             <div className='col-span-2 h-[200px]'>
                                                 <iframe
@@ -381,7 +417,9 @@ const AdminForm = () => {
                                                 <label htmlFor="">Password</label>
                                                 <Input value={password}
                                                     onChange={(e) => setPassword(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="password" />
+                                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    type="password" />
                                             </div>
                                             <p className='text-[16px] font-normal text-[#666666]'>Reset Password</p>
                                         </div>
@@ -391,7 +429,10 @@ const AdminForm = () => {
                         </AccordionItem>
 
                         <AccordionItem value="permissions">
-                            <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>PERMISSION ACCESS</AccordionTrigger>
+                            <AccordionTrigger
+                                className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                            >PERMISSION ACCESS</AccordionTrigger>
                             <AccordionContent className="grid gap-4">
                                 <div className='w-full flex flex-col items-center'>
                                     <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -411,7 +452,10 @@ const AdminForm = () => {
                         </AccordionItem>
 
                         <AccordionItem value="branding">
-                            <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>Branding Assets</AccordionTrigger>
+                            <AccordionTrigger
+                                className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                            >Branding Assets</AccordionTrigger>
                             <AccordionContent className="grid gap-4">
                                 <div className='w-full flex flex-col items-center'>
                                     <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>

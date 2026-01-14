@@ -12,6 +12,7 @@ import {
     getSortedRowModel,
     useReactTable,
 } from "@tanstack/react-table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
     Table,
@@ -27,6 +28,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { UpdateStatus } from "@/app/dashboard/vendors/vendors";
 import { VendorData } from "./QuickViewCard";
+import { useAppContext } from "@/app/context/AppContext";
+import { Pagination } from "./TablePagination";
 export type Vendor = {
     uuid?: string;
     full_name: string;
@@ -141,6 +144,8 @@ interface VendorTableProps {
 
 export default function VendorTable({ setVendorData, onQuickView, vendorData, onDelete, loading, error }: VendorTableProps) {
     const router = useRouter();
+    const { userType } = useAppContext();
+
     const handleUpdateStatus = async (userId: string, status: boolean) => {
         try {
             const token = localStorage.getItem('token') || '';
@@ -322,30 +327,37 @@ export default function VendorTable({ setVendorData, onQuickView, vendorData, on
     ];
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
-    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-        []
-    );
-    const [columnVisibility, setColumnVisibility] =
-        React.useState<VisibilityState>({});
+    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = React.useState({});
+
+    // Add pagination state
+    const [pagination, setPagination] = React.useState({
+        pageIndex: 0,
+        pageSize: 10,
+    });
+
     const table = useReactTable({
         data: vendorData,
         columns,
-        onSortingChange: setSorting,
-        onColumnFiltersChange: setColumnFilters,
-        getCoreRowModel: getCoreRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
-        getSortedRowModel: getSortedRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
-        onColumnVisibilityChange: setColumnVisibility,
-        onRowSelectionChange: setRowSelection,
         state: {
             sorting,
             columnFilters,
             columnVisibility,
             rowSelection,
+            pagination, // Add this
         },
+        onPaginationChange: setPagination, // Add this
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setColumnFilters,
+        onColumnVisibilityChange: setColumnVisibility,
+        onRowSelectionChange: setRowSelection,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(), // Already exists
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
     });
+
     return (
         <div>
             <div className="w-full">
@@ -356,7 +368,7 @@ export default function VendorTable({ setVendorData, onQuickView, vendorData, on
                                 <TableRow key={headerGroup.id}>
                                     {headerGroup.headers.map((header) => {
                                         return (
-                                            <TableHead key={header.id} className="text-sm text-[#666666] font-bold h-[54px] bg-[#E4E4E4]">
+                                            <TableHead key={header.id} className="text-sm text-[#666666] font-bold h-[54px]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
                                                 {header.isPlaceholder
                                                     ? null
                                                     : flexRender(
@@ -370,7 +382,18 @@ export default function VendorTable({ setVendorData, onQuickView, vendorData, on
                             ))}
                         </TableHeader>
                         <TableBody className="text-[15px] font-normal">
-                            {table.getRowModel().rows?.length ? (
+                            {loading ? (
+                                // Skeleton Loading State
+                                Array.from({ length: 5 }).map((_, index) => (
+                                    <TableRow key={index} className="h-[54px] bg-white border-b border-[#E4E4E4]">
+                                        {columns.map((_, colIndex) => (
+                                            <TableCell key={colIndex}>
+                                                <Skeleton className="h-4 w-auto bg-gray-200" />
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))
+                            ) : table.getRowModel().rows?.length ? (
                                 table.getRowModel().rows.map((row) => (
                                     <TableRow
                                         key={row.id}
@@ -386,24 +409,28 @@ export default function VendorTable({ setVendorData, onQuickView, vendorData, on
                                         ))}
                                     </TableRow>
                                 ))
+                            ) : error ? (
+                                <TableRow>
+                                    <TableCell colSpan={columns.length} className="h-24 text-center text-red-500">
+                                        Failed to load vendors.
+                                    </TableCell>
+                                </TableRow>
                             ) : (
-                                loading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={columns.length} className="h-24 text-center">
-                                            Loading Vendors ...
-                                        </TableCell>
-                                    </TableRow>
-                                ) : error ? (
-                                    <TableRow>
-                                        <TableCell colSpan={columns.length} className="h-24 text-center">
-                                            No Vendor Found.
-                                        </TableCell>
-                                    </TableRow>
-                                ) : null
+                                <TableRow>
+                                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                                        No Vendors Available
+                                    </TableCell>
+                                </TableRow>
                             )}
                         </TableBody>
                     </Table>
                 </div>
+                <Pagination<Vendor>
+                    table={table}
+                    data={vendorData}
+                    dataName="Vendors"
+                    userType={userType}
+                />
             </div>
         </div>
 

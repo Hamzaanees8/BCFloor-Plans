@@ -54,8 +54,7 @@ export default function DiscountTable({ discounts, fetchDiscounts, setDiscounts,
     const [openAddDiscountDialog, setOpenAddDiscountDialog] = React.useState(false);
     const handleDelete = async (uuid: string) => {
         try {
-            const token = localStorage.getItem('token') || '';
-            await Delete(uuid, token);
+            await Delete(uuid);
             toast.success('Discount deleted successfully');
             setDiscounts((prev: Discount[]) => prev.filter(discount => discount.uuid !== uuid));
         } catch (error) {
@@ -70,15 +69,13 @@ export default function DiscountTable({ discounts, fetchDiscounts, setDiscounts,
     };
     const handleStatus = async (checked: boolean, uuid: string) => {
         try {
-            const token = localStorage.getItem('token') || '';
 
             const payload = {
                 status: checked,
             };
 
-            const result = await EditDiscountStatus(payload, token, uuid);
+            await EditDiscountStatus(payload, uuid);
             toast.success('Discount status updated successfully');
-            console.log('Discount status updated successfully:', result);
         } catch (error) {
             if (error instanceof Error) {
                 console.error('Submission failed:', error.message);
@@ -89,7 +86,6 @@ export default function DiscountTable({ discounts, fetchDiscounts, setDiscounts,
             }
         }
     };
-    console.log("discount", discounts)
     const options = (row: Discount) => [
         {
             label: "Edit",
@@ -215,7 +211,6 @@ export default function DiscountTable({ discounts, fetchDiscounts, setDiscounts,
         },
         manualPagination: true,
     });
-    console.log(discounts);
     return (
         <div className="w-full">
             <div className="rounded-none border">

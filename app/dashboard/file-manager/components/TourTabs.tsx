@@ -26,7 +26,7 @@ export default function TourTabs({ orderData }: TourProps) {
       case 'Settings':
         return <div className="p-4"><TourSettings orderData={orderData} /></div>;
       case 'Photos':
-        return <div className="p-4"><TourPicture /></div>;
+        return <div className="p-4"><TourPicture orderData={orderData} /></div>;
       case 'Floor plans':
         return <div className=""><TourFloorPlans /></div>;
       case 'Videos':

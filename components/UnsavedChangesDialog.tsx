@@ -41,7 +41,10 @@ export default function UnsavedChangesDialog({
         if (!v && onCancel) onCancel();
       }}
     >
-      <AlertDialogContent className="w-[320px] md:w-[560px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria">
+      <AlertDialogContent
+        className="w-[320px] md:w-[560px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria"
+        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+      >
         {/* Header */}
         <AlertDialogHeader className="mb-2">
           <AlertDialogTitle className={`${userType}-text flex items-center justify-between text-[18px] font-[600] border-b-[1px] border-[#E4E4E4] pb-2`}>

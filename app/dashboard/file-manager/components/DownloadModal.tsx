@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
+import { DownloadFile } from '../file-manager';
 
 type LocalFile = {
   file: File;
@@ -35,7 +36,7 @@ type CombinedFile = {
 type Props = {
   open: boolean;
   onClose: () => void;
-  localFiles: LocalFile[];
+  localFiles?: LocalFile[];
   apiFiles: ApiFile[];
 };
 
@@ -45,12 +46,12 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [openModal, setOpenModal] = useState(false)
   const files: CombinedFile[] = useMemo(() => {
-    const local = localFiles.map((f, idx) => ({
+    const local = localFiles?.map((f, idx) => ({
       id: `local-${idx}`,
       name: f.file.name,
       url: URL.createObjectURL(f.file),
       isLocal: true,
-      type: f.file.type, // 👈 File API gives us mime type (e.g. image/png, video/mp4)
+      type: f.file.type,
     }));
 
     const api = apiFiles.map((f, idx) => ({
@@ -61,7 +62,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
       type: f.type,
     }));
 
-    return [...local, ...api];
+    return [...local ?? [], ...api];
   }, [localFiles, apiFiles, API_URL]);
   // ✅ Select / Deselect all files
   const handleSelectAll = (checked: boolean) => {
@@ -89,7 +90,58 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
   //   });
   //   onClose();
   // };
-  console.log("files", files)
+  const handledownloadFile = async (fileUuid: string, fileName: string) => {
+    try {
+      const token = localStorage.getItem('token') ?? "";
+
+      const response = await DownloadFile(token, fileUuid);
+
+      if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
+
+      // Convert the response directly to blob
+      const blob = await response.blob();
+
+      // Create a temporary URL and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+    } catch (err) {
+      console.error('Download error:', err);
+      alert('Download failed. Please try again.');
+    }
+  };
+
+  const handleDownloadSelected = async () => {
+    const selected = files.filter((f) => selectedFiles.includes(f.id));
+
+    for (const file of selected) {
+      if (file.isLocal) {
+        // Download local files
+        const link = document.createElement('a');
+        link.href = file.url;
+        link.download = file.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // Download API files - you'll need the file UUID
+        const apiFile = apiFiles.find(f => f.name === file.name);
+        if (apiFile) {
+          await handledownloadFile(apiFile.uuid, file.name);
+        }
+      }
+    }
+
+    setOpenModal(false);
+    onClose();
+    setSelectedFiles([]);
+  };
   return (
     <AlertDialog open={open} onOpenChange={onClose}>
       <AlertDialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#E4E4E4] rounded-xl shadow-lg border p-6 w-full max-w-[700px] font-Alexandria">
@@ -259,11 +311,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
             <hr className="w-full h-[1px] bg-[#BBBBBB]" />
             <AlertDialogFooter className="flex justify-end gap-3 font-raleway">
               <button
-                onClick={() => {
-                  setOpenModal(false);
-                  setSelectedFiles([]);
-                  onClose();
-                }}
+                onClick={handleDownloadSelected}
                 className={`bg-white rounded-[6px] w-full md:w-[176px] h-[44px] text-[16px] font-[600] border ${userType}-border ${userType}-text hover:bg-[#f1f8ff]`}
               >
                 Download

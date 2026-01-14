@@ -1,3 +1,4 @@
+import { api } from "@/lib/api";
 import { Area, CoAgent } from "./components/OrderDetailView";
 
 type AgentNote = {
@@ -89,21 +90,13 @@ function payloadToFormData(payload: OrderPayload): FormData {
 
   return formData;
 }
-export async function GetAgents(token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
+export async function GetAgents() {
   try {
-    const response = await fetch(`${API_URL}/agents`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await api.get(`/agents`);
 
-    const agentData = await response.json();
+    const agentData = await response.data;
 
-    if (!response.ok) {
+    if (response.status !== 200) {
       throw new Error(
         agentData.message || `Request failed with status ${response.status}`
       );
@@ -117,27 +110,20 @@ export async function GetAgents(token: string) {
 }
 
 
-export async function GetOne(token: string, orderId: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function GetOne(orderId: string) {
 
   try {
-    const response = await fetch(`${API_URL}/orders/${orderId}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await api.get(`/orders/${orderId}`);
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+    if (response.status !== 200) {
+      const error = await response.data;
       throw new Error(
         error.message || `Request failed with status ${response.status}`
       );
     }
 
-    const adminData = await response.json();
-    return adminData;
+    const orderData = await response.data;
+    return orderData;
   } catch (error) {
     console.error("Failed to fetch Order data:", error);
     throw error;
@@ -150,20 +136,17 @@ export async function EditOrder(
   payload: OrderPayload,
   token: string
 ) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const formData = payloadToFormData(payload);
 
-  const response = await fetch(`${API_URL}/orders/${orderId}`, {
-    method: "POST",
+  const response = await api.post(`/orders/${orderId}`, formData, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    body: formData,
   });
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (response.status !== 200) {
     const error = new Error(data.message || "Request failed");
     (error as FetchErrors).errors = data.errors;
     throw error;
@@ -187,48 +170,60 @@ export interface AddVendorBreakPayload {
 export async function addVendorBreak(payload: AddVendorBreakPayload, token: string) {
   try {
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
-    const res = await fetch(`${API_URL}/vendor-breaks/add`, {
-      method: 'POST',
+    const res = await api.post(`/vendor-breaks/add`, payload, {
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify(payload),
     });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Request failed: ${errText}`);
+    if (res.data.status === false) {
+      throw new Error(
+        `failed to add vendor break`
+      );
     }
 
-    return await res.json();
+    return await res.data;
   } catch (err) {
     console.error('addVendorBreak error', err);
     throw err;
   }
 }
+
 export async function updateVendorBreak(breakId: string, payload: AddVendorBreakPayload, token: string) {
   try {
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
-    const res = await fetch(`${API_URL}/vendor-breaks/edit/${breakId}`, {
-      method: 'POST',
+    const res = await api.post(`/vendor-breaks/edit/${breakId}`, { ...payload, _method: 'PUT' }, {
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ ...payload, _method: 'PUT' }),
     });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Request failed: ${errText}`);
+    if (res.status !== 200) {
+      const error = await res.data;
+      throw new Error(
+        error.message || `Request failed with status ${res.status}`
+      );
     }
 
-    return await res.json();
+    return await res.data;
   } catch (err) {
-    console.error('addVendorBreak error', err);
+    console.error('update VendorBreak error', err);
     throw err;
   }
+}
+
+export async function DeleteVendorBreak(uuid: string, token: string) {
+  const response = await api.delete(`/vendor-breaks/${uuid}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await response.data;
+
+  if (response.status !== 200) {
+    throw new Error(data.message || 'Failed to delete vendor break');
+  }
+
+  return data;
 }

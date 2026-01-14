@@ -85,7 +85,7 @@ export function MultiSelectDropdown({
 }: MultiSelectProps) {
   const { userType } = useAppContext();
   const isSelectAll = selected.length === 1 && selected[0] === "ALL";
-  console.log('options', options);
+  //('options', options);
 
   useEffect(() => {
     if (selected.length === 0 && options.length > 0) {

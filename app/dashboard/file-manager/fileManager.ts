@@ -259,3 +259,55 @@ export async function UpdateFloorPhotosData(
 
     return response.json();
 }
+
+export async function DownloadFile(
+    token: string,
+    fileUuid: string
+) {
+    const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/tours/files/${fileUuid}/download`,
+        {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+        }
+    );
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || `Upload failed with status ${response.status}`);
+    }
+
+    return response
+}
+export async function ServiceCompletion(
+    token: string,
+    serviceUUid: string,
+    seviceStatus: boolean,
+    OrderUuid: string
+) {
+    const params = new URLSearchParams();
+    params.append('order_uuid', OrderUuid);
+    params.append('orderservice_uuid', serviceUUid);
+    params.append('is_completed', `${seviceStatus ? 1 : 0}`);
+
+    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+    const response = await fetch(`${API_URL}/orders/completion-status/update`, {
+        method: "PATCH",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || `Upload failed with status ${response.status}`);
+    }
+
+    return response
+}

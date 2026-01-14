@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 import { Agent } from '@/components/AgentTable';
 import { GetAgents } from './calendar';
 import { useAppContext } from '@/app/context/AppContext';
+import { useWhiteLabel } from '@/app/context/Whitelabel';
 
 type Vendor = {
     uuid?: string;
@@ -40,9 +41,13 @@ type Vendor = {
 
 const Page = () => {
     const { userType } = useAppContext();
+    const { appliedSettings } = useWhiteLabel();
+    const role = (userType as string) || 'admin';
+    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+
     const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
     const [selectedservice, setSelectedservice] = useState<string[]>([]);
-    const [selectedDay, setSelectedDay] = useState<string[]>([]);
+    const [selectedDay, setSelectedDay] = useState<string[]>(['7']);
     const [orderData, setOrderData] = useState<Order[]>([]);
     const [vendorData, setVendorData] = useState<Vendor[]>([]);
     const [serviceData, setServiceData] = useState<Services[]>([]);
@@ -51,7 +56,6 @@ const Page = () => {
         month: dayjs().format('MMMM'),
         year: dayjs().format('YYYY'),
     });
-    console.log('selectedservice', selectedservice);
 
 
     const Days = [
@@ -59,6 +63,7 @@ const Page = () => {
         { label: "5 Days", value: "5" },
         { label: "3 Days", value: "3" },
         { label: "1 Days", value: "1" },
+        { label: "Monthly", value: "30" },
     ];
 
     useEffect(() => {
@@ -121,11 +126,11 @@ const Page = () => {
         const token = localStorage.getItem("token")
 
         if (!token) {
-            console.log("Token not found.");
+            //("Token not found.");
             return;
         }
 
-        GetAgents(token)
+        GetAgents()
             .then((data) => {
                 const allAgents = Array.isArray(data.data) ? data.data : [];
                 const filteredAgents = allAgents.filter((agent: Agent) => agent.status === true);
@@ -138,8 +143,8 @@ const Page = () => {
 
     return (
         <div>
-            <div className='w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  grid grid-cols-4 gap-[10px] grid-rows-1 justify-between px-[20px] items-center' style={{ boxShadow: "0px 4px 4px #0000001F" }} >
-                <p className={`text-[16px] md:text-[22px] font-[400] capitalize ${userType}-text`}>Calendar › {currentMonthYear.month} {currentMonthYear.year}</p>
+            <div className='w-full h-[80px] font-alexandria z-10 relative grid grid-cols-4 gap-[10px] grid-rows-1 justify-between px-[20px] items-center' style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }} >
+                <p className='text-[16px] md:text-[22px] font-[400] capitalize' style={{ color: roleSettings.pageTabColor }}>Calendar › {currentMonthYear.month} {currentMonthYear.year}</p>
                 <MultiSelectDropdown
                     options={serviceData}
                     selected={selectedservice}
@@ -168,7 +173,10 @@ const Page = () => {
                 </div>
             </div>
             <div className='py-[40px]'>
-                <BigCalendar orderData={orderData} agentData={agentData} serviceData={serviceData} setCurrentMonthYear={setCurrentMonthYear} vendorData={vendorData} selectedVendors={selectedVendors} selectedservice={selectedservice} visibleDays={Number(selectedDay[0])} />
+                <BigCalendar orderData={orderData} agentData={agentData} serviceData={serviceData} setCurrentMonthYear={setCurrentMonthYear} vendorData={vendorData} setVendorData={setVendorData} selectedVendors={selectedVendors} selectedservice={selectedservice}
+                    setVisibleDays={setSelectedDay}
+                    visibleDays={selectedDay}
+                />
             </div>
         </div>
     )

@@ -6,9 +6,12 @@ import { toast } from 'sonner';
 import SubAccountTable, { SubAccount } from '@/components/SubAccountTable';
 import { Delete, Get } from './subaccounts';
 import { useAppContext } from '@/app/context/AppContext';
+import { useWhiteLabel } from '@/app/context/Whitelabel';
+import { useSearchParams } from 'next/navigation';
 
 const Page = () => {
-    const [showForm, setShowForm] = useState(false)
+    const searchParams = useSearchParams();
+    const agentId = searchParams.get('agentId') || '';
     const [showCard, setShowCard] = React.useState(false);
     const [type, setType] = React.useState('');
     const [showHeader, setShowHeader] = useState(true)
@@ -20,8 +23,10 @@ const Page = () => {
     const [selectedData, setSelectedData] = useState<SubAccountData | null>(null);
     const [selectedData1, setSelectedData1] = useState<AgentData>();
 
-    console.log('type', type)
-    console.log(showForm);
+    const { appliedSettings } = useWhiteLabel();
+    const role = (userType as string) || 'admin';
+    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -38,7 +43,7 @@ const Page = () => {
         Get(token)
             .then(data => {
                 setSubAccountData(Array.isArray(data.data) ? data.data : [])
-                if (data.data.length == 0) {
+                if (data.success === false) {
                     setError(true)
                 }
             })
@@ -67,22 +72,35 @@ const Page = () => {
             }
         }
     };
-    const length = subAccountData.length;
     console.log("subaccount data", subAccountData)
+
+    const filteredSubAccounts = subAccountData.filter(subAccount => {
+        if (agentId) {
+            return subAccount.agent.uuid === agentId
+
+        }
+        return true;
+    })
+    const lengthFiltered = filteredSubAccounts.length;
     return (
         <div>
-
-            <div className='w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center' style={{ boxShadow: "0px 4px 4px #0000001F" }} >
-                <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}>Sub Accounts ({length})</p>
-                <Link href={'/dashboard/sub-accounts/create'} onClick={() => {
-                    setShowHeader(false)
-                    setShowForm(true)
-                }} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px]  justify-center rounded-[6px] border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] ${userType}-bg hover-${userType}-bg`}>+ Sub Accounts</Link>
+            <div className='w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center' style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }} >
+                <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>Sub Accounts ({lengthFiltered})</p>
+                <Link
+                    href={`/dashboard/sub-accounts/create?agentId=${agentId}`}
+                    onClick={() => {
+                        setShowHeader(false)
+                    }}
+                    className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] justify-center rounded-[6px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:brightness-110'
+                    style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+                >
+                    + Sub Accounts
+                </Link>
             </div>
 
             <div className="w-full">
                 <SubAccountTable
-                    subAccountData={subAccountData}
+                    subAccountData={filteredSubAccounts}
                     showHeader={showHeader}
                     setSubAccountData={setSubAccountData}
                     setShowHeader={setShowHeader}

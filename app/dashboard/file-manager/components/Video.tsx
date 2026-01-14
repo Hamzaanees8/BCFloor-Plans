@@ -15,6 +15,7 @@ import UpgradeServicePopup from './UpgradeServicePopup';
 import PayInvoiceModal from './PayInvoiceModal';
 import AgentNotificationModal from './AgentNotificationModal';
 import DownloadModal from './DownloadModal';
+import { DownloadFile } from '../file-manager';
 
 export interface SelectedFiles {
     file: File;
@@ -22,10 +23,11 @@ export interface SelectedFiles {
     group?: string;
     upload?: boolean;
     service_id?: string
+    is_admin_approved?: boolean;
 
 }
 
-function Video({ currentService, orderData }: { currentService?: Services, orderData: Order | null }) {
+function Video({ currentService, orderData, isListing, reviewFilesEnabled }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean }) {
     const [files, setFiles] = useState<File[]>([]);
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [open, setOpen] = useState(false);
@@ -34,7 +36,7 @@ function Video({ currentService, orderData }: { currentService?: Services, order
     const [openUpgrade, setOpenUpgrade] = useState(false);
     const [openPaymentModal, setOpenPaymentModal] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
-    const { selectedVideoFiles, setSelectedVideoFiles, filesData } = useFileManagerContext();
+    const { selectedVideoFiles, setSelectedVideoFiles, filesData, setChangedFileUuids, setFilesData } = useFileManagerContext();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [dragging, setDragging] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
@@ -44,7 +46,13 @@ function Video({ currentService, orderData }: { currentService?: Services, order
 
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
-    const currentServiceFiles = filesData?.files?.filter(file => file?.service?.uuid === currentService?.uuid && file.type === "video");
+    // Filter existing files
+    let currentServiceFiles = filesData?.files?.filter(file => file?.service?.uuid === currentService?.uuid && file.type === "video");
+
+    // If Agent and review is enabled, only show approved files
+    if (userType === 'agent' && reviewFilesEnabled) {
+        currentServiceFiles = currentServiceFiles?.filter(file => file.is_admin_approved);
+    }
 
 
     const handleFileInputClick = () => {
@@ -61,7 +69,6 @@ function Video({ currentService, orderData }: { currentService?: Services, order
     const handleFilesChange = (selectedVideoFiles: File[]) => {
         setFiles(selectedVideoFiles);
     };
-    console.log('Selected Files:', selectedVideoFiles);
 
     useEffect(() => {
         if (files.length > 0) {
@@ -131,125 +138,206 @@ function Video({ currentService, orderData }: { currentService?: Services, order
         setSuccess(true);
     };
 
-    const currentServiceOption = orderData?.services.find((service) => service.service.uuid === currentService?.uuid)
+    const currentBookedService = orderData?.services.find((service) => service.service.uuid === currentService?.uuid)
 
+    const handledownloadFile = async (fileUuid: string, fileName: string) => {
+        try {
+            const token = localStorage.getItem('token') ?? "";
+
+            const response = await DownloadFile(token, fileUuid);
+
+            if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
+
+            // Convert the response directly to blob
+            const blob = await response.blob();
+
+            // Create a temporary URL and trigger download
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+        } catch (err) {
+            console.error('Download error:', err);
+            toast.error('Download failed. Please try again.');
+        }
+    };
     return (
         <div>
-            {dragging && (
+            {dragging && !isListing && userType !== 'agent' && (
                 <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center pointer-events-none">
                 </div>
             )}
-            <div className='h-[66px] w-full bg-[#E4E4E4] flex justify-between items-center px-4 font-alexandria'>
-                <div>
+            {!isListing &&
+
+                <div
+                    className='h-[66px] w-full flex justify-between items-center px-4 font-alexandria'
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                >
+                    <div>
+                        {userType !== 'agent' && (
+                            <div>
+                                <Button
+
+                                    onClick={handleFileInputClick}
+                                    className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}>Add File</Button>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    multiple
+                                    hidden
+                                    accept="image/*"
+                                    onChange={handleFileSelect}
+                                />
+                            </div>
+
+                        )}
+                    </div>
+                    <div>
+                        <p className='flex flex-col items-center'>
+                            <span className={`${userType}-text font-bold`}>
+                                {currentService ? currentService.name : ''}
+                            </span>
+
+                            <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option.title}</span>
+                        </p>
+                    </div>
+                    <div className='flex justify-center items-center gap-x-[14px]'>
+                        {(userType === 'agent') && currentBookedService?.payment_status === "PAID" && (
+                            <Button
+                                onClick={() => {
+                                    setShowDownloadModal(true);
+                                }}
+                                className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}
+                            >
+                                Download Files
+                            </Button>
+                        )}
+                        {userType === 'admin' && (
+                            <Button
+                                onClick={() => {
+                                    setShowDownloadModal(true);
+                                }}
+                                className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}
+                            >
+                                Download Files
+                            </Button>
+                        )}
+                        {userType !== 'agent' &&
+                            <Button
+                                onClick={() => {
+                                    setMediaUploaded(true);
+                                    setShowConfirmation(true)
+                                    // setSelectedVideoFiles(prev =>
+                                    //     prev.map(file => ({ ...file, upload: true }))
+                                    // );
+                                }}
+                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[#4290E9] hover:bg-[#4999f5]'}  h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Submit to Client'} </Button>
+                        }
+                        <AgentNotificationModal
+                            open={showConfirmation}
+                            onClose={() => setShowConfirmation(false)}
+                            serviceDate={currentService ? currentService : null}
+                            orderData={orderData ? orderData : null}
+                        />
+                        {userType === 'agent' &&
+                            <div className='flex flex-col justify-center items-center mr-4'>
+                                <p className='text-[18px] text-[#6BAE41]'>${currentBookedService?.option.amount}</p>
+                                <p className='text-[#7D7D7D] text-[12px]'>{currentBookedService?.option.title}</p>
+                            </div>
+                        }
+                        {userType === 'agent' &&
+                            <Button
+                                // onClick={() => setOpenPaymentModal(true)}
+                                className={`h-[32px] w-[150px] flex justify-center items-center 
+                                                                                              ${paymentSuccess
+                                        ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
+                                        : "bg-[#DC9600] hover:bg-[#eda304]"}`
+                                }>{currentBookedService?.payment_status == 'PAID' ? 'Paid' : 'UnPaid'}</Button>
+                        }
+                        <PayInvoiceModal open={openPaymentModal} setOpen={setOpenPaymentModal} success={paymentSuccess} setSuccess={setPaymentSuccess} />
+
+                        {userType === 'admin' &&
+                            <div className="pl-4">
+                                {!success ? (
+                                    <Button
+                                        onClick={() => setOpenPayment(true)}
+                                        className="bg-[#4290E9] text-white hover:bg-[#4999f5] cursor-pointer  h-[32px]"
+                                    >
+                                        Add Manual Payment
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        // disabled
+                                        className="bg-[#6BAE41] hover:bg-[#7dc94f]  text-white flex items-center gap-2  h-[32px] cursor-default"
+                                    >
+                                        <CheckCircle2 className="w-5 h-5" />
+                                        Payment Added
+                                    </Button>
+                                )}
+
+                                <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
+                            </div>}
+                    </div>
+                </div>}
+            {!isListing &&
+
+                <div className='p-4 flex justify-end'>
                     <Button
-
-                        onClick={handleFileInputClick}
-                        className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}>Add File</Button>
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        multiple
-                        hidden
-                        accept="video/*"
-                        onChange={handleFileSelect}
-                    />
-                </div>
-                <div>
-                    <p className='flex flex-col items-center'>
-                        <span className={`${userType}-text font-bold`}>
-                            {currentService ? currentService.name : ''}
-                        </span>
-
-                        <span className='text-[12px] text-[#7D7D7D]'>{currentServiceOption?.option.title}</span>
-                    </p>
-                </div>
-                <div className='flex justify-center items-center gap-x-[14px]'>
-                    {userType !== 'vendor' &&
-                        <Button
-                            onClick={() => {
-                                setShowDownloadModal(true);
-                            }}
-                            className={`${`${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}>Download Files </Button>
-                    }
-                    {userType !== 'agent' &&
-                        <Button
-                            onClick={() => {
-                                setMediaUploaded(true);
-                                setShowConfirmation(true)
-                                // setSelectedVideoFiles(prev =>
-                                //     prev.map(file => ({ ...file, upload: true }))
-                                // );
-                            }}
-                            className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[#4290E9] hover:bg-[#4999f5]'}  h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Submit to Client'} </Button>
-                    }
-                    <AgentNotificationModal
-                        open={showConfirmation}
-                        onClose={() => setShowConfirmation(false)}
-                        serviceDate={currentService ? currentService : null}
-                        orderData={orderData ? orderData : null}
-                    />
-                    {userType === 'agent' &&
-                        <div className='flex flex-col justify-center items-center mr-4'>
-                            <p className='text-[18px] text-[#6BAE41]'>${currentServiceOption?.option.amount}</p>
-                            <p className='text-[#7D7D7D] text-[12px]'>{currentServiceOption?.option.title}</p>
-                        </div>
-                    }
-                    {userType === 'agent' &&
-                        <Button
-                            onClick={() => setOpenPaymentModal(true)}
-                            className={`h-[32px] w-[150px] flex justify-center items-center 
-                                                       ${paymentSuccess
-                                    ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
-                                    : "bg-[#DC9600] hover:bg-[#eda304]"}`
-                            }>{paymentSuccess ? 'Paid' : 'UnPaid'}</Button>
-                    }
-                    <PayInvoiceModal open={openPaymentModal} setOpen={setOpenPaymentModal} success={paymentSuccess} setSuccess={setPaymentSuccess} />
-
-                    {userType === 'admin' &&
-                        <div className="pl-4">
-                            {!success ? (
-                                <Button
-                                    onClick={() => setOpenPayment(true)}
-                                    className="bg-[#4290E9] text-white hover:bg-[#4999f5] cursor-pointer  h-[32px]"
-                                >
-                                    Add Manual Payment
-                                </Button>
-                            ) : (
-                                <Button
-                                    // disabled
-                                    className="bg-[#6BAE41] hover:bg-[#7dc94f]  text-white flex items-center gap-2  h-[32px] cursor-default"
-                                >
-                                    <CheckCircle2 className="w-5 h-5" />
-                                    Payment Added
-                                </Button>
-                            )}
-
-                            <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
-                        </div>}
-                </div>
-            </div>
-            <div className='p-4 flex justify-end'>
-                <Button
-                    onClick={() => setOpenUpgrade(true)}
-                    className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}>Upgrade Plan</Button>
-                <UpgradeServicePopup open={openUpgrade} setOpen={setOpenUpgrade} currentService={currentService} currentOption={currentServiceOption?.option} />
-            </div>
+                        onClick={() => setOpenUpgrade(true)}
+                        className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}>Upgrade Plan</Button>
+                    <UpgradeServicePopup open={openUpgrade} setOpen={setOpenUpgrade} currentService={currentService} currentOption={currentBookedService?.option} />
+                </div>}
             <div className="p-4">
-                {(filesForService.length === 0 && currentServiceFiles?.length === 0) && (
+                {(filesForService.length === 0 && currentServiceFiles?.length === 0) && userType !== 'agent' && (
                     <div className='w-full flex justify-center items-center mt-20'>
                         <FileUploader onFilesChange={handleFilesChange} type="video" />
                     </div>)}
-                <FilePreviewModal type='HDR_photos' open={open} onOpenChange={() => { setOpen(false) }} files={files} setSelectedFiles={setSelectedVideoFiles} serviceUuid={currentService?.uuid ?? ''} />
+                <FilePreviewModal type='HDR_photos' open={open} onOpenChange={() => { setOpen(false) }} files={files} setSelectedFiles={setSelectedVideoFiles} serviceUuid={currentService?.uuid ?? ''} reviewFilesEnabled={reviewFilesEnabled} />
                 {(filesForService.length > 0 || (currentServiceFiles?.length ?? 0) > 0) && (
-                    <div className="mt-4 w-full grid grid-cols-4 gap-2 bg-[#BBBBBB] p-3">
+                    <div
+                        className="mt-4 w-full grid grid-cols-4 gap-2 p-3"
+                        style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
+                    >
                         {filesForService.map((file, idx) => (
-                            <div key={idx} className="bg-[#BBBBBB] h-auto relative">
+                            <div
+                                key={idx}
+                                className="h-auto relative"
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
+                            >
                                 <div className="relative w-full h-[240px]">
                                     <video
                                         src={URL.createObjectURL(file.file)}
                                         className="w-full h-full object-cover"
                                         controls
                                     />
+                                    {/* Admin Approved Checkbox for New Uploads */}
+                                    {userType === 'admin' && reviewFilesEnabled && (
+                                        <div
+                                            className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedVideoFiles(prev =>
+                                                    prev.map(f => {
+                                                        if (f.file === file.file && f.service_id === file.service_id) {
+                                                            return { ...f, is_admin_approved: !f.is_admin_approved };
+                                                        }
+                                                        return f;
+                                                    })
+                                                );
+                                            }}
+                                        >
+                                            <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                                {file.is_admin_approved && <Check color="white" size={12} />}
+                                            </div>
+                                            <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
+                                        </div>
+                                    )}
+
                                     <span
                                         className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
                                         style={{
@@ -272,11 +360,15 @@ function Video({ currentService, orderData }: { currentService?: Services, order
                                         {file.upload ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
                                     </span>
                                 </div>
-                                <div className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 bg-[#BBBBBB] text-[9px]'>
+                                <div
+                                    className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 text-[9px]'
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
+                                >
                                     <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{file.file.name}</p>
                                     <div className='col-span-2 flex items-center justify-between'>
                                         <p className='text-[#8E8E8E] mt-1'>Exterior ({idx + 1} of {filesForService.length})</p>
-                                        <span className='flex w-[24px] h-[24px] cursor-pointer'>
+                                        <span
+                                            className='flex w-[24px] h-[24px] cursor-not-allowed opacity-50'>
                                             <DownloadIcon width='24px' height='24px' fill='#6BAE41' />
                                         </span>
                                     </div>
@@ -284,13 +376,80 @@ function Video({ currentService, orderData }: { currentService?: Services, order
                             </div>
                         ))}
                         {currentServiceFiles?.map((file, idx) => (
-                            <div key={idx} className="bg-[#BBBBBB] h-auto relative">
+                            <div
+                                key={idx}
+                                className="h-auto relative"
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
+                            >
                                 <div className="relative w-full h-[240px]">
                                     <video
                                         src={`${API_URL}/${file.file_path}`}
-                                        className="w-full h-full object-cover"
+                                        className={`w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
                                         controls
                                     />
+                                    {/* Admin Approved Checkbox */}
+                                    {userType === 'admin' && reviewFilesEnabled && (
+                                        <div
+                                            className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setFilesData(prev => {
+                                                    if (!prev) return prev;
+                                                    return {
+                                                        ...prev,
+                                                        files: prev.files.map(f => {
+                                                            if (f.uuid === file.uuid) {
+                                                                setChangedFileUuids(prevSet => {
+                                                                    const newSet = new Set(prevSet);
+                                                                    newSet.add(f.uuid);
+                                                                    return newSet;
+                                                                });
+                                                                return { ...f, is_admin_approved: !f.is_admin_approved };
+                                                            }
+                                                            return f;
+                                                        })
+                                                    };
+                                                });
+                                            }}
+                                        >
+                                            <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                                {file.is_admin_approved && <Check color="white" size={12} />}
+                                            </div>
+                                            <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
+                                        </div>
+                                    )}
+
+                                    {/* Agent Approved Checkbox */}
+                                    {userType === 'agent' && (
+                                        <div
+                                            className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setFilesData(prev => {
+                                                    if (!prev) return prev;
+                                                    return {
+                                                        ...prev,
+                                                        files: prev.files.map(f => {
+                                                            if (f.uuid === file.uuid) {
+                                                                setChangedFileUuids(prevSet => {
+                                                                    const newSet = new Set(prevSet);
+                                                                    newSet.add(f.uuid);
+                                                                    return newSet;
+                                                                });
+                                                                return { ...f, is_agent_approved: !f.is_agent_approved };
+                                                            }
+                                                            return f;
+                                                        })
+                                                    };
+                                                });
+                                            }}
+                                        >
+                                            <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                                {file.is_agent_approved && <Check color="white" size={12} />}
+                                            </div>
+                                            <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
+                                        </div>
+                                    )}
                                     <span
                                         className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
                                         style={{
@@ -313,13 +472,21 @@ function Video({ currentService, orderData }: { currentService?: Services, order
                                         <Check color="#fff" size={14} />
                                     </span>
                                 </div>
-                                <div className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 bg-[#BBBBBB] text-[9px]'>
+                                <div
+                                    className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 text-[9px]'
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
+                                >
                                     <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{file.name}</p>
                                     <div className='col-span-2 flex items-center justify-between'>
                                         <p className='text-[#8E8E8E] mt-1'>Exterior ({idx + 1} of {filesForService.length})</p>
-                                        <span className='flex w-[24px] h-[24px] cursor-pointer'>
-                                            <DownloadIcon width='24px' height='24px' fill='#6BAE41' />
-                                        </span>
+                                        {userType === 'agent' && currentBookedService?.payment_status === "PAID" &&
+                                            <span
+                                                onClick={() => handledownloadFile(file.uuid, file.name)}
+                                                className="flex w-[24px] h-[24px] cursor-pointer hover:bg-gray-300"
+                                            >
+                                                <DownloadIcon width="24px" height="24px" fill="#6BAE41" />
+                                            </span>
+                                        }
                                     </div>
                                 </div>
                             </div>

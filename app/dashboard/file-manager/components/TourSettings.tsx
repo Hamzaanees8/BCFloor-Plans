@@ -56,7 +56,6 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
     // const [avatarFile, setAvatarFile] = useState<File | null>(null);
     // const [companyLogoFile, setCompanyLogoFile] = useState<File | null>(null);
 
-    console.log('orderData', orderData);
 
     useEffect(() => {
         if (orderData) {
@@ -85,107 +84,12 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
         }
     }, [orderData])
 
-    // const router = useRouter();
-    // const params = useParams();
-    // const listingId = params?.id as string;
-    // useEffect(() => {
-    //     const token = localStorage.getItem("token");
-
-    //     if (!token) {
-    //         console.log('Token not found.')
-    //         return;
-    //     }
-
-    //     if (token) {
-    //         Get(token)
-    //             .then(data => setAgent(data.data))
-    //             .catch(err => console.log(err.message));
-    //     } else {
-    //         console.log('User ID is undefined.');
-    //     }
-    // }, []);
-    // useEffect(() => {
-    //     const token = localStorage.getItem("token");
-
-    //     if (!token) {
-    //         console.log("Token not found.");
-    //         return;
-    //     }
-
-    //     if (listingId) {
-    //         GetOneListing(token, listingId)
-    //             .then((res) => {
-    //                 const data = res.data;
-    //                 console.log("data.province", data.province);
-
-    //                 if (data) {
-    //                     setCurrentListing(data);
-    //                     setConnectedAgent(data.agent.uuid);
-    //                     setListingPrice(data.listing_price?.toString() || "");
-    //                     setMls(data.mls_number || "");
-    //                     setBedrooms(data.bedrooms ?? "");
-    //                     setBathrooms(data.bathrooms ?? "");
-    //                     setSquareFootage(data.square_footage?.toString() || "");
-    //                     setLotSize(data.lot_size?.toString() || "");
-    //                     setYearConstructed(data.year_constructed?.toString() || "");
-    //                     setParkingSpots(data.parking_spots?.toString() || "");
-    //                     setPropertyType(data.property_type || "");
-    //                     setPropertyStatus(data.property_status || "");
-    //                     setHeading(data.heading || "");
-    //                     setDescription(data.description || "");
-    //                     setSuite(data.suite || "");
-    //                     setAddress(data.address || "");
-    //                     setCity(data.city || "");
-    //                     // setProvince(data.province);
-    //                     setPostalCode(data.postal_code || "");
-    //                     setCountry(data.country || "CA");
-    //                     setTourActivated(!!data.tour_activated);
-    //                     setPublishDate(
-    //                         typeof data.publish_date === "string"
-    //                             ? data.publish_date.split(" ")[0]
-    //                             : ""
-    //                     );
-    //                     setPropertyWebsite(data.property_website || "");
-    //                     setMlsProperty(data.mls_property || "");
-    //                     setOccupancy(data.occupancy || "");
-    //                     setMediaCreatorAccess(data.media_creator_access || "");
-    //                     setInstructions(data.instructions || "");
-    //                     setAnimalsOnProperty(!!data.animals_on_property);
-    //                     setCoAgents(data.co_agents || []);
-    //                     setIsStaticmail(!!data.send_statistics_email);
-    //                     setEmailFrequency(data.statistics_email_frequency || "");
-    //                     setstaticEmail(data.statistics_email_recipients || []);
-    //                 }
-    //             })
-    //             .catch((err) => console.log(err.message));
-    //     } else {
-    //         console.log("Listing ID is undefined.");
-    //     }
-    // }, [listingId]);
-
-    // const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    //     const file = e.target.files?.[0]
-    //     if (file) {
-    //         setAvatarFile(file);
-    //         setAvatarFileName(file.name)
-    //         setAvatarUrl(URL.createObjectURL(file))
-    //     }
-    // }
 
     const triggerFileInput = () => {
         if (AvatarfileInputRef.current) {
             (AvatarfileInputRef.current as HTMLInputElement).click()
         }
     }
-
-    // const handleFileChange1 = (e: React.ChangeEvent<HTMLInputElement>) => {
-    //     const file = e.target.files?.[0]
-    //     if (file) {
-    //         setCompanyLogoFile(file)
-    //         setCompanyLogoFileName(file.name)
-    //         setCompanyLogoUrl(URL.createObjectURL(file))
-    //     }
-    // }
 
     const triggerFileInput1 = () => {
         if (CompanyLogofileInputRef.current) {

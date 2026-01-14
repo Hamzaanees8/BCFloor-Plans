@@ -7,11 +7,13 @@ import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react'
 import { Order } from '../../orders/page';
 import AddNotesDialog from './AddNotesDialog';
+import Link from 'next/link';
+import { useAppContext } from '@/app/context/AppContext';
 interface Notes {
     name: string;
     note: string;
     date: string
-    internal?:string
+    internal?: string
 }
 interface CoAgent {
     name: string;
@@ -22,6 +24,7 @@ interface AppointmentTab {
     serviceId: number
 }
 function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
+    const { userType } = useAppContext();
     const [agent, setAgent] = useState("");
     const [company, setCompany] = useState("");
     const [contactNumber, setContactNumber] = useState("");
@@ -119,7 +122,8 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                     readOnly
                     value={agent}
 
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     type="text"
                 />
 
@@ -129,7 +133,8 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 <Input
                     readOnly
                     value={company}
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     type="text"
                 />
 
@@ -139,7 +144,8 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 <Input
                     readOnly
                     value={contactNumber}
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     type="text"
                 />
 
@@ -149,7 +155,8 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 <Input
                     readOnly
                     value={contactEmail}
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     type="text"
                 />
 
@@ -159,7 +166,8 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 <Input
                     readOnly
                     value={firstCoAgentName}
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     type="text"
                 />
 
@@ -169,7 +177,8 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 <Input
                     readOnly
                     // value={address}
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     type="text"
                 />
 
@@ -179,7 +188,8 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 <Input
                     readOnly
                     // value={address}
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     type="text"
                 />
 
@@ -188,7 +198,8 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 <Label className="text-[14px] text-[#424242] " htmlFor="">Agent Notes (Not Viewable by Agent)</Label>
                 <Textarea
                     // value={address}
-                    className=" bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px] resize-none h-[100px] "
+                    className=" border-[1px] border-[#BBBBBB] mt-[10px] resize-none h-[100px] "
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
 
                 />
 
@@ -198,7 +209,8 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 <Input
                     readOnly
                     value={vendor}
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     type="text"
                 />
 
@@ -208,7 +220,8 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 <Input
                     readOnly
                     value={services}
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     type="text"
                 />
 
@@ -218,7 +231,8 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 <Input
                     readOnly
                     value={serviceOption}
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     type="text"
                 />
 
@@ -229,7 +243,8 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 <Input
                     readOnly
                     value={date}
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     type="text"
                 />
 
@@ -239,7 +254,8 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 <Input
                     readOnly
                     value={time}
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     type="text"
                 />
 
@@ -249,7 +265,8 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 <Input
                     readOnly
                     value={listing}
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     type="text"
                 />
 
@@ -259,7 +276,8 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 <Input
                     readOnly
                     value={squareFootage}
-                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     type="text"
                 />
 
@@ -277,7 +295,8 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 {notes?.map((note, index) => (
                     <div
                         key={index}
-                        className="w-full p-3 rounded-[6px] bg-[#E4E4E4] border border-[#BBBBBB] relative whitespace-pre-wrap break-words mt-[15px]"
+                        className="w-full p-3 rounded-[6px] border border-[#BBBBBB] relative whitespace-pre-wrap break-words mt-[15px]"
+                        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
                     >
 
                         <p className="text-sm text-[#333]">{note.note}</p>
@@ -306,6 +325,16 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                     notes={notes}
                     setNotes={setNotes}
                 />
+
+                <div
+                    className='mt-[40px]'>
+                    <Link
+                        href={`/dashboard/file-manager/${currentOrder?.uuid}`}
+                        className="bg-[#4290E9] w-[140px]  rounded-[6px] border-[1px] text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff]  w-[110px] h-[37px] hover:text-white hover:bg-[#4e9af1]"
+
+                    >Media</Link>
+
+                </div>
             </div>
         </div>
     )

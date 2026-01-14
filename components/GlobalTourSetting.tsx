@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+// components/GlobalTourSetting.tsx
+import React, { useState, useEffect } from "react";
 import {
     Accordion,
     AccordionContent,
@@ -8,9 +9,10 @@ import {
 import { Plus } from "lucide-react";
 import { useAppContext } from "@/app/context/AppContext";
 import TourSettingTable from "./TourSettingTable";
-import AddAreaPopup from "./AddAreaPopup";
+import AddAreaPopup, { AreaData } from "./AddAreaPopup";
 import { Input } from "./ui/input";
-
+import { CreateMediaSettings, SaveTourSettings, UpdateTourSetting, DeleteTourSetting, GetMediaSettings, GetTourSettings } from "@/app/dashboard/global-settings/global-settings";
+import { toast } from "sonner";
 
 type SizeType = {
     width: number;
@@ -31,54 +33,115 @@ type PhotoSizesType = {
     mls: SizeType;
 };
 
-
 export default function GlobalTourSetting() {
     const { userType } = useAppContext();
-
-    const [areas, setAreas] = useState([
-        {
-            id: 1,
-            area: "Main Floor",
-            type: "Finished Area",
-            charges: "$0.5 per sq. ft.",
-            discount: "—",
-        },
-        {
-            id: 2,
-            area: "Lower Level",
-            type: "Finished Area",
-            charges: "$0.5 per sq. ft.",
-            discount: "—",
-        },
-    ]);
-
+    const [areas, setAreas] = useState<AreaData[]>([]);
     const [popupOpen, setPopupOpen] = useState(false);
-
+    const [editingArea, setEditingArea] = useState<null | AreaData>(null);
     const [videoSizes, setVideoSizes] = useState<VideoSizesType>({
-        original: { width: 1920, height: 1080 },
-        small: { width: 1920, height: 1080 },
-        large: { width: 1920, height: 1080 },
-        mls: { width: 1920, height: 1080 }
+        original: { width: 0, height: 0 },
+        small: { width: 0, height: 0 },
+        large: { width: 0, height: 0 },
+        mls: { width: 0, height: 0 }
     });
-
     const [photoSizes, setPhotoSizes] = useState<PhotoSizesType>({
-        original: { width: 1920, height: 1080 },
-        small: { width: 1920, height: 1080 },
-        large: { width: 1920, height: 1080 },
-        mls: { width: 1920, height: 1080 }
+        original: { width: 0, height: 0 },
+        small: { width: 0, height: 0 },
+        large: { width: 0, height: 0 },
+        mls: { width: 0, height: 0 }
     });
 
-    const handleAddArea = (newArea: { area: string; type: string; charges: string; discount: string }) => {
-        setAreas((prev) => [
-            ...prev,
-            {
-                id: prev.length + 1,
-                area: newArea.area,
-                type: newArea.type,
-                charges: newArea.charges,
-                discount: newArea.discount,
-            },
-        ]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchAreas = async () => {
+
+        setLoading(true);
+        try {
+            const tourData = await GetTourSettings();
+            if (tourData && tourData.data && tourData.data.tour_settings) {
+                const mappedAreas = tourData.data.tour_settings.map((item: AreaData, index: number) => ({
+                    ...item,
+                    uuid: item.uuid || `temp-${index}-${Date.now()}`
+                }));
+                setAreas(mappedAreas);
+            }
+
+
+        } catch (error) {
+            console.error('Failed to fetch settings:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+    const fetchMediaSettings = async () => {
+        try {
+            const mediaData = await GetMediaSettings();
+
+            if (mediaData && mediaData.value) {
+                const mediaSettings = mediaData.value
+                if (mediaSettings.photos) setPhotoSizes(mediaSettings.photos);
+                if (mediaSettings.videos) setVideoSizes(mediaSettings.videos);
+            }
+
+        } catch (error) {
+            console.error('Failed to fetch media settings:', error);
+        }
+    };
+
+    useEffect(() => {
+        fetchAreas();
+        fetchMediaSettings();
+    }, []);
+
+    const handleAddArea = async (newArea: Omit<AreaData, 'id' | 'uuid'>) => {
+        try {
+            // API expects an array for creation or we can adjust if needed, 
+            // but usually creation might be bulk. Based on user request "send only one object in array for add".
+            // The previous global-settings.ts SaveTourSettings takes TourSettingPayload[] which is correct for add.
+            // We'll send just the new one.
+            const payload = {
+                ...newArea,
+                status: true // Default status if not provided, or take from newArea
+            };
+
+            await SaveTourSettings([payload]);
+            await fetchAreas();
+            toast.success('Area added successfully');
+        } catch (error) {
+            console.error('Failed to add area:', error);
+            toast.error('Failed to add area. Please try again.');
+        }
+    };
+
+    const handleEditArea = async (updatedArea: AreaData) => {
+        if (!updatedArea.uuid) {
+            toast.error('Cannot update area without ID');
+            return;
+        }
+
+        try {
+            await UpdateTourSetting(updatedArea);
+            await fetchAreas();
+            toast.success('Area updated successfully');
+        } catch (error) {
+            console.error('Failed to update area:', error);
+            toast.error('Failed to update area. Please try again.');
+        }
+    };
+
+    const handleDeleteArea = async (uuid: string) => {
+        try {
+            await DeleteTourSetting(uuid);
+            // Optimistic update or fetch
+            const updatedAreas = areas.filter(area => area.uuid !== uuid);
+            setAreas(updatedAreas);
+            toast.success('Area deleted successfully');
+        } catch (error) {
+            console.error('Failed to delete area:', error);
+            toast.error('Failed to delete area. Please try again.');
+            // Re-fetch to sync state if failed or to be sure
+            fetchAreas();
+        }
     };
 
     const handleVideoSizeChange = (type: keyof VideoSizesType, dimension: keyof SizeType, value: number) => {
@@ -99,6 +162,62 @@ export default function GlobalTourSetting() {
                 [dimension]: value
             }
         }));
+    };
+
+    const handleEditClick = (area: AreaData) => {
+        setEditingArea(area);
+        setPopupOpen(true);
+    };
+
+    const handleAddClick = () => {
+        setEditingArea(null);
+        setPopupOpen(true);
+    };
+
+    const handlePopupClose = () => {
+        setPopupOpen(false);
+        setEditingArea(null);
+    };
+
+    const handleSaveMediaSettings = async () => {
+        const token = localStorage.getItem('token');
+
+        if (!token) {
+            toast.error('Please login to save settings');
+            return;
+        }
+
+        try {
+            await CreateMediaSettings({
+                photos: photoSizes,
+                videos: videoSizes
+            });
+
+            toast.success('Media settings saved successfully');
+        } catch (error) {
+            console.error('Failed to save media settings:', error);
+            toast.error('Failed to save media settings. Please try again.');
+        }
+    };
+
+    const handleStatusChange = async (area: AreaData, status: boolean) => {
+        if (!area.uuid) return;
+
+        try {
+            const updatedArea = { ...area, status };
+            await UpdateTourSetting(updatedArea);
+
+            // Optimistic update
+            const updatedAreas = areas.map(a =>
+                a.uuid === area.uuid ? updatedArea : a
+            );
+            setAreas(updatedAreas);
+            toast.success('Status updated successfully');
+        } catch (error) {
+            console.error('Failed to update status:', error);
+            toast.error('Failed to update status. Please try again.');
+            fetchAreas();
+        }
     };
 
     return (
@@ -123,7 +242,7 @@ export default function GlobalTourSetting() {
                                 <p>TOUR SETTINGS</p>
                                 <div
                                     className="flex items-center gap-x-[10px] pr-[24px] cursor-pointer"
-                                    onClick={() => setPopupOpen(true)}
+                                    onClick={handleAddClick}
                                 >
                                     <p className="text-base font-semibold font-raleway">Add</p>
                                     <Plus
@@ -133,7 +252,13 @@ export default function GlobalTourSetting() {
                             </div>
                         </AccordionTrigger>
                         <AccordionContent className="w-full pb-0">
-                            <TourSettingTable data={areas} />
+                            <TourSettingTable
+                                data={areas}
+                                onEdit={handleEditClick}
+                                onDelete={(area) => area.uuid && handleDeleteArea(area.uuid)}
+                                onStatusChange={handleStatusChange}
+                                loading={loading}
+                            />
                         </AccordionContent>
                     </AccordionItem>
                 )}
@@ -153,7 +278,6 @@ export default function GlobalTourSetting() {
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="w-full pb-0 font-alexandria">
-
                         <div className="mb-6">
                             <h3 className="text-[14px] text-[#666666] font-[700] mb-3 px-4 h-[54px] bg-[#E4E4E4] flex items-center">PHOTOS</h3>
                             <div className="w-full flex justify-center ">
@@ -190,7 +314,6 @@ export default function GlobalTourSetting() {
                             </div>
                         </div>
 
-
                         <div className="mb-6">
                             <h3 className="text-[14px] text-[#666666] font-[700] mb-3 px-4 h-[54px] bg-[#E4E4E4] flex items-center">VIDEO</h3>
                             <div className="w-full flex justify-center ">
@@ -226,13 +349,26 @@ export default function GlobalTourSetting() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Save Button */}
+                        <div className="w-full flex justify-end mt-6 mb-4 px-4">
+                            <button
+                                type="button"
+                                onClick={handleSaveMediaSettings}
+                                className={`w-[200px] h-[44px] ${userType}-bg text-white rounded-[6px] font-[600] text-[16px] hover:opacity-90 transition-opacity`}
+                            >
+                                Save Changes
+                            </button>
+                        </div>
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>
             <AddAreaPopup
                 open={popupOpen}
-                setOpen={setPopupOpen}
+                setOpen={handlePopupClose}
                 onAdd={handleAddArea}
+                onEdit={handleEditArea}
+                editingArea={editingArea}
             />
         </div>
     );

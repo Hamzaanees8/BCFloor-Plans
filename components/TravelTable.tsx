@@ -14,6 +14,7 @@ import { X } from 'lucide-react'
 import { Card, CardContent, CardFooter } from './ui/card'
 import { Input } from './ui/input'
 import { calculateDistance, GetOne } from '@/app/dashboard/vendors/vendors'
+import { useAppContext } from '@/app/context/AppContext'
 import { Vendor } from './VendorTable'
 type OrderSlot = {
     id: number;
@@ -140,6 +141,7 @@ function sortGroupedSlots(groupedData: {
 }
 
 const TravelTable: React.FC<TravelTableProps> = ({ userId }) => {
+    const { userType } = useAppContext();
     const [vendorName, setVendorName] = useState<string>('');
     const [vendorData, setVendorData] = useState<Vendor | null>(null);
     const [startPoint, setStartPoint] = useState<string>('');
@@ -187,7 +189,7 @@ const TravelTable: React.FC<TravelTableProps> = ({ userId }) => {
             return;
         }
 
-        GetOne(token, userId || "")
+        GetOne(userId || "")
             .then(data => {
                 const vendor = data.data;
                 if (vendor) {
@@ -337,7 +339,7 @@ const TravelTable: React.FC<TravelTableProps> = ({ userId }) => {
         }
 
         calculateAllDistances();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [vendor_address]);
 
 
@@ -370,7 +372,8 @@ const TravelTable: React.FC<TravelTableProps> = ({ userId }) => {
 
     return (
         <div>
-            <div className='w-full h-[66px] bg-[#E4E4E4] font-alexandria border-b border-[#BBBBBB] z-10 relative  flex justify-center px-[20px] items-center gap-[20px]'
+            <div className='w-full h-[66px] font-alexandria border-b border-[#BBBBBB] z-10 relative  flex justify-center px-[20px] items-center gap-[20px]'
+                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
             >
                 <div className='flex flex-col h-[35px] w-[200px] items-center justify-start'>
                     <p className='text-[#7D7D7D] text-sm font-normal'>Est. Accumulative Distance</p>
@@ -427,7 +430,7 @@ const TravelTable: React.FC<TravelTableProps> = ({ userId }) => {
             <div className="w-full relative">
                 <Table className='font-alexandria px-0 overflow-x-auto border-b border-[#BBBBBB] whitespace-nowrap'>
                     <TableHeader >
-                        <TableRow className='bg-[#E4E4E4] font-alexandria h-[54px] hover:bg-[#E4E4E4] border-b border-[#BBBBBB]'>
+                        <TableRow className='font-alexandria h-[54px] border-b border-[#BBBBBB]' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
                             <TableHead className="text-[14px] font-[700] text-[#666666] pl-[20px]">ORDER</TableHead>
                             <TableHead className="text-[14px] font-[700] text-[#666666]">START POINT</TableHead>
                             <TableHead className="text-[14px] font-[700] text-[#666666]">END POINT</TableHead>
@@ -487,7 +490,8 @@ const TravelTable: React.FC<TravelTableProps> = ({ userId }) => {
             </div>
             {showQuickView && selectedSlot && (
                 <Card
-                    className="w-full sidebar-scroll sm:w-[405px] h-[calc(100vh-80px)] overflow-y-auto flex flex-col justify-between font-alexandria p-4 border-[1px] border-[#BBBBBB] rounded-none absolute top-[80px] right-0 z-50 bg-[#EEEEEE]"
+                    className="w-full sidebar-scroll sm:w-[405px] h-[calc(100vh-80px)] overflow-y-auto flex flex-col justify-between font-alexandria p-4 border-[1px] border-[#BBBBBB] rounded-none absolute top-[80px] right-0 z-50"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                 >
                     <CardContent className="flex flex-col gap-[40px] p-0">
                         <div className="flex justify-between items-center mb-2">
@@ -502,7 +506,8 @@ const TravelTable: React.FC<TravelTableProps> = ({ userId }) => {
                             <div>
                                 <label htmlFor="" className='text-sm font-normal text-[#424242]'>Start Point</label>
                                 <Input
-                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                     type="text"
                                     value={startPoint}
                                     onChange={(e) => setStartPoint(e.target.value)}
@@ -511,7 +516,8 @@ const TravelTable: React.FC<TravelTableProps> = ({ userId }) => {
                             <div>
                                 <label htmlFor="" className='text-sm font-normal text-[#424242]'>End Point</label>
                                 <Input
-                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                     type="text"
                                     value={endPoint}
                                     onChange={(e) => setEndPoint(e.target.value)}
@@ -544,13 +550,15 @@ const TravelTable: React.FC<TravelTableProps> = ({ userId }) => {
                                                 setTotalDistance(numeric);
                                             }
                                         }}
-                                        className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                        className="h-[42px] w-full border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                     />
                                 </div>
                                 <div>
                                     <label htmlFor="" className='text-sm font-normal text-[#424242]'>Total Payout</label>
                                     <Input
-                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                        className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                         type="text"
                                         value={totalPayout}
                                         onChange={(e) => setTotalPayout(e.target.value)}
@@ -573,7 +581,9 @@ const TravelTable: React.FC<TravelTableProps> = ({ userId }) => {
                                         const [from, to] = value.split(" - ").map(dateStr => new Date(dateStr.trim()));
                                         setDate({ from, to });
                                     }}
-                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                    type="text" />
                             </div>
                             <p className='text-sm font-[700] text-[#424242]'>Vendor: {vendorName}</p>
                             <hr className='border-[#BBBBBB]' />

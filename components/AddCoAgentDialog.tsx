@@ -1,6 +1,6 @@
 // components/ConfirmationDialog.tsx
 "use client"
-import React, {  useState } from "react"
+import React, { useState } from "react"
 import {
     AlertDialog,
     AlertDialogContent,
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { X } from "lucide-react"
 import { Input } from "./ui/input"
-//import { toast } from "sonner"
+import { toast } from "sonner"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
 import { DropDownArrow } from "./Icons"
 import { useAppContext } from "@/app/context/AppContext"
@@ -30,6 +30,7 @@ const AddCoAgentDialog: React.FC<Props> = ({
     onSuccess,
     uuid,
 }) => {
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
@@ -39,123 +40,12 @@ const AddCoAgentDialog: React.FC<Props> = ({
         'Different Split for all parties',
         'Custom Split'
     ];
+
     const handleAddAgent = async (e: React.FormEvent) => {
         e.preventDefault();
-        // if (isView) {
-        //     try {
-        //         const token = localStorage.getItem('token');
-        //         if (!token) {
-        //             toast.error('Authentication token not found.');
-        //             return;
-        //         }
-        //         if (!uuid) {
-        //             toast.error('Code ID (uuid) is missing.');
-        //             return;
-        //         }
-        //         const payload = {
-        //             type: "code",
-        //             code_key: codeKey,
-        //             description: codeDescription,
-        //             percentage: codePercentage,
-        //             services: selectedServicesCode,
-        //         };
-        //         if (payload) {
-        //             const result = await EditCode(payload, token, uuid);
-        //             toast.success('Code Edited successfully');
-        //             console.log('Code Edited successfully:', result);
-        //             setOpen(false);
-
-        //         }
-        //         if (onSuccess) onSuccess();
-        //         setCodeKey("");
-        //         setCodeDescription("");
-        //         setCodePercentage(0);
-        //         setSelectedServicesCode([]);
-        //     } catch (error) {
-        //         console.log('Raw error:', error);
-
-        //         setFieldErrors({});
-        //         const apiError = error as { message?: string; errors?: Record<string, string[]> };
-
-        //         if (apiError.errors && typeof apiError.errors === 'object') {
-        //             const normalizedErrors: Record<string, string[]> = {};
-
-        //             Object.entries(apiError.errors).forEach(([key, messages]) => {
-        //                 const normalizedKey = key.split('.')[0];
-        //                 if (!normalizedErrors[normalizedKey]) {
-        //                     normalizedErrors[normalizedKey] = [];
-        //                 }
-        //                 normalizedErrors[normalizedKey].push(...messages);
-        //             });
-
-        //             setFieldErrors(normalizedErrors);
-
-        //             const firstError = Object.values(normalizedErrors).flat()[0];
-        //             toast.error(firstError || 'Validation error');
-        //         }
-        //         else if (error instanceof Error) {
-        //             toast.error(error.message);
-        //         } else {
-        //             toast.error('Failed to submit user data');
-        //         }
-        //     }
-        // } else {
-        //     try {
-        //         const token = localStorage.getItem('token');
-        //         if (!token) {
-        //             toast.error('Authentication token not found.');
-        //             return;
-        //         }
-        //         const payload = {
-        //             type: "code",
-        //             code_key: codeKey,
-        //             description: codeDescription,
-        //             percentage: codePercentage,
-        //             services: selectedServicesCode,
-        //         };
-        //         if (payload) {
-        //             const result = await CreateCode(payload, token);
-        //             toast.success('Code created successfully');
-        //             console.log('Code created successfully:', result);
-        //             setOpen(false);
-        //         }
-        //         if (onSuccess) onSuccess();
-        //         setCodeKey("");
-        //         setCodeDescription("");
-        //         setCodePercentage(0);
-        //         setSelectedServicesCode([]);
-        //     } catch (error) {
-        //         console.log('Raw error:', error);
-
-        //         setFieldErrors({});
-        //         const apiError = error as { message?: string; errors?: Record<string, string[]> };
-
-        //         if (apiError.errors && typeof apiError.errors === 'object') {
-        //             const normalizedErrors: Record<string, string[]> = {};
-
-        //             Object.entries(apiError.errors).forEach(([key, messages]) => {
-        //                 const normalizedKey = key.split('.')[0];
-        //                 if (!normalizedErrors[normalizedKey]) {
-        //                     normalizedErrors[normalizedKey] = [];
-        //                 }
-        //                 normalizedErrors[normalizedKey].push(...messages);
-        //             });
-
-        //             setFieldErrors(normalizedErrors);
-
-        //             const firstError = Object.values(normalizedErrors).flat()[0];
-        //             toast.error(firstError || 'Validation error');
-        //         }
-        //         else if (error instanceof Error) {
-        //             toast.error(error.message);
-        //         } else {
-        //             toast.error('Failed to submit user data');
-        //         }
-        //     }
-        // }
-
+        // ... (existing commented out code)
     }
-    const {userType} = useAppContext();
+    const { userType } = useAppContext();
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
             <AlertDialogContent className="w-[320px] md:w-[417px] h-[550px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
@@ -179,28 +69,61 @@ const AddCoAgentDialog: React.FC<Props> = ({
                             <form >
                                 <div className='grid grid-cols-2 gap-[16px]' >
                                     <div className="col-span-2">
-                                        <label htmlFor="" className='text-[16px] font-normal text-[#424242]'>Name</label>
+                                        <label htmlFor="" className='text-[16px] font-normal text-[#424242]'>Name <span className="text-red-500">*</span></label>
                                         <Input value={name}
-                                            onChange={(e) => setName(e.target.value)} className='h-[42px] bg-[#EEEEEE] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-                                        {/* {fieldErrors.name && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.name[0]}</p>} */}
+                                            onChange={(e) => {
+                                                setName(e.target.value);
+                                                if (fieldErrors.name) {
+                                                    const newErrors = { ...fieldErrors };
+                                                    delete newErrors.name;
+                                                    setFieldErrors(newErrors);
+                                                }
+                                            }}
+                                            className={`h-[42px] text-[#666666] border-[1px] mt-[12px] ${fieldErrors.name ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                            type="text" />
+                                        {fieldErrors.name && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.name[0]}</p>}
                                     </div>
                                     <div className="col-span-2">
-                                        <label htmlFor="" className='text-[16px] font-normal text-[#424242]'>Email</label>
+                                        <label htmlFor="" className='text-[16px] font-normal text-[#424242]'>Email <span className="text-red-500">*</span></label>
                                         <Input value={email}
-                                            onChange={(e) => setEmail(e.target.value)} className='h-[42px] bg-[#EEEEEE] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]' type="email" />
-                                        {/* {fieldErrors.name && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.name[0]}</p>} */}
+                                            onChange={(e) => {
+                                                setEmail(e.target.value);
+                                                if (fieldErrors.email) {
+                                                    const newErrors = { ...fieldErrors };
+                                                    delete newErrors.email;
+                                                    setFieldErrors(newErrors);
+                                                }
+                                            }}
+                                            className={`h-[42px] text-[#666666] border-[1px] mt-[12px] ${fieldErrors.email ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                            type="email" />
+                                        {fieldErrors.email && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.email[0]}</p>}
                                     </div>
                                     <div className="col-span-2">
-                                        <label htmlFor="" className='text-[16px] font-normal text-[#424242]'>Phone Number</label>
+                                        <label htmlFor="" className='text-[16px] font-normal text-[#424242]'>Phone Number <span className="text-red-500">*</span></label>
                                         <Input value={phoneNumber}
-                                            onChange={(e) => setPhoneNumber(e.target.value)} className='h-[42px] bg-[#EEEEEE] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-                                        {/* {fieldErrors.name && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.name[0]}</p>} */}
+                                            onChange={(e) => {
+                                                setPhoneNumber(e.target.value);
+                                                if (fieldErrors.phoneNumber) {
+                                                    const newErrors = { ...fieldErrors };
+                                                    delete newErrors.phoneNumber;
+                                                    setFieldErrors(newErrors);
+                                                }
+                                            }}
+                                            className={`h-[42px] text-[#666666] border-[1px] mt-[12px] ${fieldErrors.phoneNumber ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                            type="text" />
+                                        {fieldErrors.phoneNumber && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.phoneNumber[0]}</p>}
                                     </div>
                                     {uuid && (
                                         <div className='col-span-2'>
                                             <label htmlFor="">Repeat</label>
                                             <Select value={invoice} onValueChange={(value) => setInvoice(value)}>
-                                                <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
+                                                <SelectTrigger
+                                                    className="w-full h-[42px] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block"
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                >
                                                     <SelectValue placeholder="Select Repeat Options Here" />
                                                     <span className="custom-arrow">
                                                         <DropDownArrow />
@@ -221,7 +144,10 @@ const AddCoAgentDialog: React.FC<Props> = ({
                                 </div>
                                 <hr className="w-full h-[1px] text-[#BBBBBB] my-[16px]" />
                                 <AlertDialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
-                                    <AlertDialogCancel onClick={(e) => { e.stopPropagation() }} className={`bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] outline-none ${userType}-border ${userType}-text hover-${userType}-bg ${userType}-button`}>
+                                    <AlertDialogCancel onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFieldErrors({});
+                                    }} className={`bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] outline-none ${userType}-border ${userType}-text hover-${userType}-bg ${userType}-button`}>
                                         Cancel
                                     </AlertDialogCancel>
                                     <AlertDialogAction
@@ -229,9 +155,22 @@ const AddCoAgentDialog: React.FC<Props> = ({
                                             e.stopPropagation();
 
                                             if (!uuid) {
-                                                // Validate required fields (optional)
-                                                if (!name || !email || !phoneNumber) {
-                                                    alert("Please fill in all required fields");
+                                                // Validate required fields
+                                                const errors: Record<string, string[]> = {};
+                                                if (!name.trim()) errors.name = ["Name is required"];
+                                                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                                                if (!email.trim()) {
+                                                    errors.email = ["Email is required"];
+                                                } else if (!emailRegex.test(email)) {
+                                                    errors.email = ["Invalid email address"];
+                                                }
+                                                if (!phoneNumber.trim()) errors.phoneNumber = ["Phone Number is required"];
+
+                                                if (Object.keys(errors).length > 0) {
+                                                    setFieldErrors(errors);
+                                                    // const firstError = Object.values(errors).flat()[0];
+                                                    // toast.error(firstError);
+                                                    toast.error('Please fill in all required fields');
                                                     return;
                                                 }
 
@@ -244,11 +183,12 @@ const AddCoAgentDialog: React.FC<Props> = ({
 
                                                 onSuccess(newAgent);
 
-                                                // Clear the fields
+                                                // Clear the fields and errors
                                                 setName('');
                                                 setEmail('');
                                                 setPhoneNumber('');
                                                 setInvoice('');
+                                                setFieldErrors({});
 
                                                 // Close the modal
                                                 setOpen(false);

@@ -14,7 +14,7 @@ import { ArrowDown, ArrowUp, DropDownArrow } from './Icons'
 //import CloseDialog from './CloseDialog'
 import PaymentDialog from './PaymentDialog'
 import AddDiscountDialog from './AddDiscountDialog'
-import { CreateCompany, DeleteCard, GetCompany, GetDiscount, GetPaymentMethod, UpdateCompany } from '@/app/dashboard/global-settings/global-settings'
+import { CreateCompany, DeleteCard, GetCompany, GetDiscount, GetPaymentMethod, GetQuickBookStatus, QuickBookConnection, UpdateCompany } from '@/app/dashboard/global-settings/global-settings'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { Button } from './ui/button'
 //import SaveDialog from './SaveDialog'
@@ -244,7 +244,6 @@ const GlobalSettings = () => {
     const [lastName, setLastName] = useState("");
     const [license, setLicense] = useState("");
     const [certifications, setCertifications] = useState<string[]>([]);
-    const [subAccounts, setSubAccounts] = useState<string[]>([]);
     // const [newSubAccount, setNewSubAccount] = useState("");
     const [website, setWebsite] = useState("");
     const AvatarfileInputRef = useRef(null)
@@ -256,6 +255,7 @@ const GlobalSettings = () => {
     const [coAgents, setCoAgents] = useState<{ name: string; email: string; primary_phone: string; split: string }[]>([]);
     const [agentdiscounts, setAgentDiscounts] = useState<{ id: number; discount_code: string; expiry_date: string; description: string }[]
     >([]);
+    const [quickBookStatus, setQuickBookStatus] = useState(false);
 
     const [openDiscount, setOpenDiscount] = useState(false);
 
@@ -264,7 +264,6 @@ const GlobalSettings = () => {
     const { isDirty, setIsDirty } = useUnsaved();
     useUnsavedChangesWarning(isDirty)
     const isPopulatingData = useRef(false);
-    console.log('subAccounts', subAccounts);
 
     const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const repeatOptions = [
@@ -300,9 +299,8 @@ const GlobalSettings = () => {
         setLoading(true);
         setError(false);
         if (userType === 'admin') {
-            GetCompany(token)
+            GetCompany()
                 .then((res) => {
-                    console.log("Company Data:", res);
                     const data = res.data;
 
                     isPopulatingData.current = true;
@@ -350,9 +348,8 @@ const GlobalSettings = () => {
                     setIsDirty(false);
                 });
         } else if (userType === 'agent') {
-            GetOne(token, userInfo.uuid)
+            GetOne(userInfo.uuid)
                 .then((res) => {
-                    console.log("Agent Data:", res);
                     const data = res.data;
 
                     isPopulatingData.current = true;
@@ -370,7 +367,7 @@ const GlobalSettings = () => {
                     setCity(data.city || '');
                     setProvince(data.province || '');
                     setCountry(data.country || '');
-                    setSubAccounts(data.co_agents || []);
+                    // setSubAccounts(data.co_agents || []);
 
                     if (data.company_logo_url) setCompanyLogoUrl(data.company_logo_url);
                     if (data.company_banner_url) setCompanyBannerUrl(data.company_banner_url);
@@ -431,7 +428,7 @@ const GlobalSettings = () => {
         if (!token) return;
 
         try {
-            await DeleteCard(uuid, token);
+            await DeleteCard(uuid);
             removeCard(uuid);
             toast.success("Card removed Successfully");
         } catch (err: unknown) {
@@ -450,7 +447,7 @@ const GlobalSettings = () => {
             return;
         }
 
-        GetPaymentMethod(token)
+        GetPaymentMethod()
             .then((res) => setCards(Array.isArray(res.data) ? res.data : []))
             .catch((err) => console.log("Error fetching data:", err.message));
     }, []);
@@ -472,7 +469,7 @@ const GlobalSettings = () => {
             return;
         }
 
-        GetDiscount(token)
+        GetDiscount()
             .then((data) => setDiscounts(Array.isArray(data.data) ? data.data : []))
             .catch((err) => console.log(err.message));
     }, []);
@@ -482,7 +479,6 @@ const GlobalSettings = () => {
     }, [fetchDiscounts]);
 
     const handleSubmit = async (e: React.FormEvent) => {
-        console.log('start time before request', startTime)
         e.preventDefault();
         const token = localStorage.getItem("token");
         if (!token) return;
@@ -515,22 +511,19 @@ const GlobalSettings = () => {
             iframe_code: iframeCode || null,
 
         };
-        console.log("uuid", companyData?.uuid)
-        console.log('payload from global settings', payload)
+
         try {
             if (userType === 'admin') {
                 if (companyData) {
-                    console.log("check")
                     const updatedPayload = { ...payload, _method: 'PUT' };
-                    await UpdateCompany(updatedPayload, token, companyData.uuid);
+                    await UpdateCompany(updatedPayload, companyData.uuid);
                     setIsLoading(true)
                     setOpenSaveDialog(true)
                     router.push('/dashboard/global-settings')
                     setIsLoading(false)
                     setIsDirty(false)
                 } else {
-                    console.log("check checj")
-                    await CreateCompany(payload, token);
+                    await CreateCompany(payload);
                     setIsLoading(true)
                     setOpenSaveDialog(true)
                     router.push('/dashboard/global-settings')
@@ -557,7 +550,7 @@ const GlobalSettings = () => {
                 };
 
                 try {
-                    await EditAgent(userInfo.uuid, payload, token);
+                    await EditAgent(userInfo.uuid, payload);
                     setIsLoading(true);
                     setOpenSaveDialog(true);
                     toast.success('settings updated successfully')
@@ -809,9 +802,41 @@ const GlobalSettings = () => {
         setAgentDiscounts(agentdiscounts.filter((d) => d.id !== id));
     };
 
+    useEffect(() => {
+        let isMounted = true;
+
+        const fetchQuickBookStatus = async () => {
+            try {
+                const response = await GetQuickBookStatus();
+                if (isMounted) {
+                    setQuickBookStatus(response.connected)
+                }
+            } catch (error) {
+                if (isMounted) {
+                    console.error('Error fetching QuickBook status:', error);
+                }
+            }
+        };
+
+        fetchQuickBookStatus();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    async function handleQuickBookStatus() {
+        setLoading(true)
+        const response = await QuickBookConnection()
+        if (response.success) {
+            window.location.href = response.auth_url;
+        }
+        setLoading(false)
+
+    }
     return (
         <div className='font-alexandria'>
-            <div className='w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center' style={{ boxShadow: "0px 4px 4px #0000001F" }} >
+            <div className='w-full h-[80px] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}>Global Settings</p>
                 <Button onClick={(e) => { handleSubmit(e) }} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg `}>Save Changes</Button>
             </div>
@@ -828,7 +853,7 @@ const GlobalSettings = () => {
                 setOpen={setOpenSaveDialog}
             /> */}
             {userType === 'admin' &&
-                <div className='flex justify-center h-[60px] items-center bg-[#E4E4E4]'>
+                <div className='flex justify-center h-[60px] items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
                     <div className=" w-fit flex border-gray-300 gap-[10px]">
                         {tabs.map(tab => (
                             <button
@@ -849,7 +874,10 @@ const GlobalSettings = () => {
                     {activeTab === 'Discounts' &&
                         (userType === 'admin' &&
                             <AccordionItem value="discounts" className='border-none'>
-                                <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>
+                                <AccordionTrigger
+                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                >
                                     <div className='flex items-center justify-between w-full' onClick={(e) => e.stopPropagation()}>
                                         <p>DISCOUNTS</p>
                                         <div onClick={(e) => {
@@ -889,7 +917,10 @@ const GlobalSettings = () => {
                         >
                             {userType === 'admin' &&
                                 <AccordionItem value="profile" className='border-none'>
-                                    <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'} [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>COMPANY PROFILE</AccordionTrigger>
+                                    <AccordionTrigger
+                                        className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'} [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                    >COMPANY PROFILE</AccordionTrigger>
                                     <AccordionContent className="grid gap-4">
                                         <div className='w-full flex flex-col items-center'>
                                             <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -900,43 +931,64 @@ const GlobalSettings = () => {
                                                     <div className='col-span-2'>
                                                         <label htmlFor="">Company Name <span className="text-red-500">*</span></label>
                                                         <Input value={companyName}
-                                                            onChange={(e) => setCompanyName(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]' type="text" placeholder='BC Floor Plans Media Co' />
+                                                            onChange={(e) => setCompanyName(e.target.value)}
+                                                            className='h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            type="text" placeholder='BC Floor Plans Media Co' />
                                                         {fieldErrors.name && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.name[0]}</p>}
                                                     </div>
                                                     <div className='col-span-2'>
                                                         <label htmlFor="">Company Website <span className="text-red-500">*</span></label>
                                                         <Input value={companyWebsite}
-                                                            onChange={(e) => setCompanyWebsite(e.target.value)} className='h-[42px] bg-[#EEEEEE] placeholder:text-[#9ca3af] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" placeholder='www.bcfloorplans.com' />
+                                                            onChange={(e) => setCompanyWebsite(e.target.value)}
+                                                            className='h-[42px] placeholder:text-[#9ca3af] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            type="text" placeholder='www.bcfloorplans.com' />
                                                         {fieldErrors.website && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.website[0]}</p>}
                                                     </div>
                                                     <div className='col-span-2'>
                                                         <label htmlFor="">Email <span className="text-red-500">*</span></label>
                                                         <Input value={email}
-                                                            onChange={(e) => setEmail(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]' type="text" placeholder='info@bcfloorplans.com' />
+                                                            onChange={(e) => setEmail(e.target.value)}
+                                                            className='h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            type="text" placeholder='info@bcfloorplans.com' />
                                                         {fieldErrors.email && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.email[0]}</p>}
                                                     </div>
                                                     <div>
                                                         <label htmlFor="">Primary Phone <span className="text-red-500">*</span></label>
                                                         <Input value={primaryPhone}
-                                                            onChange={(e) => setPrimaryPhone(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]' type="text" placeholder='604-666-8787' />
+                                                            onChange={(e) => setPrimaryPhone(e.target.value)}
+                                                            className='h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            type="text" placeholder='604-666-8787' />
                                                         {fieldErrors.primary_phone && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.primary_phone[0]}</p>}
                                                     </div>
                                                     <div>
                                                         <label htmlFor="">Secondary Phone</label>
                                                         <Input value={secondaryPhone}
-                                                            onChange={(e) => setSecondaryPhone(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                            onChange={(e) => setSecondaryPhone(e.target.value)}
+                                                            className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            type="text" />
                                                         {fieldErrors.secondary_phone && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.secondary_phone[0]}</p>}
                                                     </div>
                                                     <div className='col-span-2'>
                                                         <label htmlFor="">Headquarter Address <span className="text-red-500">*</span></label>
                                                         <Input value={headquarterAddress}
-                                                            onChange={(e) => setHeadquarterAddress(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" placeholder='7458 Burrard Street' />
+                                                            onChange={(e) => setHeadquarterAddress(e.target.value)}
+                                                            className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            type="text" placeholder='7458 Burrard Street' />
                                                         {fieldErrors.street && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.street[0]}</p>}
                                                     </div>
                                                     <div>
                                                         <label htmlFor="">City <span className="text-red-500">*</span></label>
                                                         <Input value={city}
-                                                            onChange={(e) => setCity(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]' type="text" placeholder='Burnaby' />
+                                                            onChange={(e) => setCity(e.target.value)}
+                                                            className='h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            type="text" placeholder='Burnaby' />
                                                         {fieldErrors.city && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.city[0]}</p>}
                                                     </div>
                                                     <div>
@@ -946,7 +998,10 @@ const GlobalSettings = () => {
                                                             onValueChange={(val) => setProvince(val)}
                                                             disabled={!states.length}
                                                         >
-                                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                                                            <SelectTrigger
+                                                                className="w-full h-[42px] mt-[12px] border border-[#BBBBBB]"
+                                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            >
                                                                 <SelectValue placeholder="Select Province" />
                                                             </SelectTrigger>
                                                             <SelectContent>
@@ -962,7 +1017,10 @@ const GlobalSettings = () => {
                                                     <div className='col-span-2'>
                                                         <label htmlFor="">Country <span className="text-red-500">*</span></label>
                                                         <Select value={country} onValueChange={(val) => setCountry(val)}>
-                                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                                                            <SelectTrigger
+                                                                className="w-full h-[42px] mt-[12px] border border-[#BBBBBB]"
+                                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            >
                                                                 <SelectValue placeholder="Select Country" />
                                                             </SelectTrigger>
                                                             <SelectContent>
@@ -978,13 +1036,19 @@ const GlobalSettings = () => {
                                                     <div className='col-span-2'>
                                                         <label htmlFor="">Billing Address Line 1 <span className="text-red-500">*</span></label>
                                                         <Input value={billingAddress1}
-                                                            onChange={(e) => setBillingAddress1(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]' type="text" placeholder='7458 Burrard Street' />
+                                                            onChange={(e) => setBillingAddress1(e.target.value)}
+                                                            className='h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            type="text" placeholder='7458 Burrard Street' />
                                                         {fieldErrors.billing_street_1 && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.billing_street_1[0]}</p>}
                                                     </div>
                                                     <div className='col-span-2'>
                                                         <label htmlFor="">Billing Address Line 2</label>
                                                         <Input value={billingAddress2}
-                                                            onChange={(e) => setBillingAddress2(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                            onChange={(e) => setBillingAddress2(e.target.value)}
+                                                            className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            type="text" />
                                                         {fieldErrors.billing_street_2 && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.billing_street_2[0]}</p>}
                                                     </div>
                                                     <div className='col-span-2'>
@@ -1004,7 +1068,10 @@ const GlobalSettings = () => {
 
                             {userType === 'agent' &&
                                 <AccordionItem value="profile" className='border-none'>
-                                    <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'agent' ? '[&>svg]:text-[#6BAE41]' : '[&>svg]:text-[#4290E9]'} [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>ACCOUNT PROFILE</AccordionTrigger>
+                                    <AccordionTrigger
+                                        className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'agent' ? '[&>svg]:text-[#6BAE41]' : '[&>svg]:text-[#4290E9]'} [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                    >ACCOUNT PROFILE</AccordionTrigger>
                                     <AccordionContent className="grid gap-4">
                                         <div className='w-full flex flex-col items-center'>
                                             <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -1014,7 +1081,8 @@ const GlobalSettings = () => {
                                                         <Input
                                                             value={firstName}
                                                             onChange={(e) => setFirstName(e.target.value)}
-                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            className='h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                             type="text"
                                                             placeholder='First Name'
                                                         />
@@ -1024,7 +1092,8 @@ const GlobalSettings = () => {
                                                         <Input
                                                             value={lastName}
                                                             onChange={(e) => setLastName(e.target.value)}
-                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            className='h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                             type="text"
                                                             placeholder='Last Name'
                                                         />
@@ -1035,7 +1104,8 @@ const GlobalSettings = () => {
                                                         <Input
                                                             value={email}
                                                             onChange={(e) => setEmail(e.target.value)}
-                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            className='h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                             type="text"
                                                             placeholder='name@email.com'
                                                         />
@@ -1046,7 +1116,8 @@ const GlobalSettings = () => {
                                                         <Input
                                                             value={primaryPhone}
                                                             onChange={(e) => setPrimaryPhone(e.target.value)}
-                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            className='h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                             type="text"
                                                             placeholder='(604) 451-5584'
                                                         />
@@ -1056,7 +1127,8 @@ const GlobalSettings = () => {
                                                         <Input
                                                             value={secondaryPhone}
                                                             onChange={(e) => setSecondaryPhone(e.target.value)}
-                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            className='h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                             type="text"
                                                             placeholder='Optional'
                                                         />
@@ -1067,7 +1139,8 @@ const GlobalSettings = () => {
                                                         <Input
                                                             value={companyName}
                                                             onChange={(e) => setCompanyName(e.target.value)}
-                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            className='h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                             type="text"
                                                             placeholder='Company Name'
                                                         />
@@ -1078,7 +1151,8 @@ const GlobalSettings = () => {
                                                         <Input
                                                             value={website}
                                                             onChange={(e) => setWebsite(e.target.value)}
-                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            className='h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                             type="text"
                                                             placeholder='www.company.com'
                                                         />
@@ -1089,7 +1163,8 @@ const GlobalSettings = () => {
                                                         <Input
                                                             value={license}
                                                             onChange={(e) => setLicense(e.target.value)}
-                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            className='h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                             type="text"
                                                             placeholder='12-778455'
                                                         />
@@ -1105,7 +1180,8 @@ const GlobalSettings = () => {
                                                                     .filter(cert => cert !== '');
                                                                 setCertifications(certsArray);
                                                             }}
-                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            className='h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                             type="text"
                                                             placeholder='CIPS, ABR, CRS, CCIM (comma separated)'
                                                         />
@@ -1116,7 +1192,8 @@ const GlobalSettings = () => {
                                                         <Input
                                                             value={headquarterAddress}
                                                             onChange={(e) => setHeadquarterAddress(e.target.value)}
-                                                            className='h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            className='h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[8px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                             type="text"
                                                             placeholder='686 Nelson Street'
                                                         />
@@ -1142,11 +1219,13 @@ const GlobalSettings = () => {
                                                                 setOpen={setOpenAddAgentDialog}
                                                                 onSuccess={(agent) => {
                                                                     setCoAgents((prev) => [...prev, agent]);
-                                                                    console.log('Agent added:', agent);
                                                                 }}
                                                             />
                                                         </div>
-                                                        <div className="border border-[#BBBBBB] mt-[12px] px-[6px] py-[8px] rounded-[6px] bg-[#EEEEEE] flex flex-wrap gap-[6px] min-h-[67px]">
+                                                        <div
+                                                            className="border border-[#BBBBBB] mt-[12px] px-[6px] py-[8px] rounded-[6px] flex flex-wrap gap-[6px] min-h-[67px]"
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                        >
                                                             {coAgents.map((coagent, index) => (
                                                                 <div
                                                                     key={index}
@@ -1175,7 +1254,10 @@ const GlobalSettings = () => {
                                 </AccordionItem>}
 
                             <AccordionItem value="branding" className='border-none'>
-                                <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>BRANDING ASSETS</AccordionTrigger>
+                                <AccordionTrigger
+                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                >BRANDING ASSETS</AccordionTrigger>
                                 <AccordionContent className="grid gap-4">
                                     <div className='w-full flex flex-col items-center'>
                                         <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -1196,13 +1278,18 @@ const GlobalSettings = () => {
                                                     }
                                                     <div className="flex-1">
                                                         <Label className="text-sm  text-gray-600">Avatar</Label>
-                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
-                                                            <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">{AvatarfileName}
+                                                        <div className="flex items-center border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
+                                                            <span
+                                                                className="max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden"
+                                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            >
+                                                                {AvatarfileName}
                                                             </span>
                                                             <button
                                                                 type="button"
                                                                 onClick={triggerFileInput}
-                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                                className="px-4 text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
                                                             >
                                                                 Replace
                                                             </button>
@@ -1237,13 +1324,18 @@ const GlobalSettings = () => {
                                                     }
                                                     <div className="flex-1">
                                                         <Label className="text-sm  text-gray-600">Company Logo</Label>
-                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
-                                                            <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">{CompanyLogofileName}
+                                                        <div className="flex items-center border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
+                                                            <span
+                                                                className="max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden"
+                                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            >
+                                                                {CompanyLogofileName}
                                                             </span>
                                                             <button
                                                                 type="button"
                                                                 onClick={triggerFileInput1}
-                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                                className="px-4 text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
                                                             >
                                                                 Browse
                                                             </button>
@@ -1277,14 +1369,18 @@ const GlobalSettings = () => {
                                                     }
                                                     <div className="flex-1 h-full">
                                                         <Label className="text-sm font-normal">Company Banner</Label>
-                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
-                                                            <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden flex-1">
+                                                        <div className="flex items-center border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
+                                                            <span
+                                                                className="max-w-[246px] text-[16px] font-normal py-2 px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden flex-1"
+                                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            >
                                                                 {CompanyBannerfileName}
                                                             </span>
                                                             <button
                                                                 type="button"
                                                                 onClick={triggerFileInput2}
-                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                                className="px-4 text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
                                                             >
                                                                 Browse
                                                             </button>
@@ -1312,7 +1408,10 @@ const GlobalSettings = () => {
 
                             {userType === 'admin' &&
                                 <AccordionItem value="hours" className='border-none'>
-                                    <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>WORK HOURS</AccordionTrigger>
+                                    <AccordionTrigger
+                                        className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                    >WORK HOURS</AccordionTrigger>
                                     <AccordionContent className="grid gap-4">
                                         <div className='w-full flex flex-col items-center'>
                                             <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -1332,7 +1431,8 @@ const GlobalSettings = () => {
                                                             type="text"
                                                             value={startTime}
                                                             onChange={(e) => setStartTime(e.target.value)}
-                                                            className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px]"
+                                                            className="h-[42px] w-full border text-[16px] border-[#BBBBBB] mt-[12px]"
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                         />
                                                         {fieldErrors.start_time && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.start_time[0]}</p>}
                                                         <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
@@ -1354,7 +1454,8 @@ const GlobalSettings = () => {
                                                             type="text"
                                                             value={endTime}
                                                             onChange={(e) => setEndTime(e.target.value)}
-                                                            className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px]"
+                                                            className="h-[42px] w-full border text-[16px] border-[#BBBBBB] mt-[12px]"
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                         />
                                                         {fieldErrors.end_time && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.end_time[0]}</p>}
                                                         <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
@@ -1372,7 +1473,8 @@ const GlobalSettings = () => {
                                                             <PopoverTrigger asChild>
                                                                 <Button
                                                                     variant="outline"
-                                                                    className="w-full h-[42px] bg-[#EEEEEE] border-[1px] hover:bg-[#EEEEEE]  border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 text-[#424242]"
+                                                                    className="w-full h-[42px] border-[1px] hover:brightness-95 border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 text-[#424242]"
+                                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                                 >
                                                                     {workWeek.length > 0 ? workWeek.join(', ') : "Select Work Week"}
                                                                     <span className="custom-arrow">
@@ -1413,7 +1515,10 @@ const GlobalSettings = () => {
                                                     <div className='col-span-2'>
                                                         <label htmlFor="">Repeat</label>
                                                         <Select value={repeat} onValueChange={(value) => setRepeat(value)}>
-                                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
+                                                            <SelectTrigger
+                                                                className="w-full h-[42px] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block"
+                                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            >
                                                                 <SelectValue placeholder="Select Repeat Options Here" />
                                                                 <span className="custom-arrow">
                                                                     <DropDownArrow />
@@ -1433,7 +1538,10 @@ const GlobalSettings = () => {
                                                     <div className='col-span-2'>
                                                         <label htmlFor="timezone">Time Zone <span className="text-red-500">*</span></label>
                                                         <Select value={timeZone} onValueChange={(value) => setTimeZone(value)}>
-                                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
+                                                            <SelectTrigger
+                                                                className="w-full h-[42px] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block"
+                                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            >
                                                                 <SelectValue placeholder="Select Time Zone Here" />
                                                                 <span className="custom-arrow">
                                                                     <DropDownArrow />
@@ -1459,7 +1567,10 @@ const GlobalSettings = () => {
                                                             value={commuteTime}
                                                             onValueChange={(value) => setCommuteTime(value)}
                                                         >
-                                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
+                                                            <SelectTrigger
+                                                                className="w-full h-[42px] border-[1px] border-[#BBBBBB] mt-[10px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block"
+                                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            >
                                                                 <SelectValue placeholder="Select Time Baseline" />
                                                                 <span className="custom-arrow">
                                                                     <DropDownArrow />
@@ -1480,20 +1591,31 @@ const GlobalSettings = () => {
                                                         <label htmlFor="">Reoccuring break</label>
                                                         <div className='flex items-center gap-[10px]'>
                                                             <Input checked={isReoccuringBreak}
-                                                                onChange={(e) => setIsReoccuringBreak(e.target.checked)} type='checkbox' className='h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' />
+                                                                onChange={(e) => setIsReoccuringBreak(e.target.checked)}
+                                                                type='checkbox'
+                                                                className='h-[20px] w-[20px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            />
                                                             <p className='text-[16px] font-normal text-[#666666] mt-[12px]'>Enable Google Calendar Sync</p>
                                                         </div>
                                                         {fieldErrors.enable_breaks && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.enable_breaks[0]}</p>}
                                                     </div>
                                                     <div className='flex items-center gap-[10px]'>
                                                         <Input checked={isSyncToGoogle}
-                                                            onChange={(e) => setIsSyncToGoogle(e.target.checked)} type='checkbox' className='h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' />
+                                                            onChange={(e) => setIsSyncToGoogle(e.target.checked)}
+                                                            type='checkbox'
+                                                            className='h-[20px] w-[20px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                        />
                                                         <p className='text-[16px] font-normal text-[#666666] mt-[12px]'>Sync to Google</p>
                                                         {fieldErrors.sync_google && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.sync_google[0]}</p>}
                                                     </div>
                                                     <div className=''>
                                                         <Select onValueChange={(value) => setSyncEmailType(value)} value={syncEmailType} >
-                                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[3px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block">
+                                                            <SelectTrigger
+                                                                className="w-full h-[42px] border-[1px] border-[#BBBBBB] mt-[3px] flex items-center justify-between px-3 [&>svg]:hidden [&>span.custom-arrow>svg]:block"
+                                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                            >
                                                                 <SelectValue placeholder="Select Email" />
                                                                 <span className="custom-arrow">
                                                                     <DropDownArrow />
@@ -1515,7 +1637,10 @@ const GlobalSettings = () => {
 
                             {userType === 'admin' &&
                                 <AccordionItem value="vendor" className='border-none'>
-                                    <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>VENDOR RATE SETTINGS</AccordionTrigger>
+                                    <AccordionTrigger
+                                        className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                    >VENDOR RATE SETTINGS</AccordionTrigger>
                                     <AccordionContent className="grid gap-4">
                                         <div className='w-full flex flex-col items-center'>
                                             <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -1527,7 +1652,10 @@ const GlobalSettings = () => {
                                                         <div>
                                                             <Label htmlFor="">Payment per kilometer</Label>
                                                             <Input value={paymentPerKm}
-                                                                onChange={(e) => setPaymentPerKm(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                                onChange={(e) => setPaymentPerKm(e.target.value)}
+                                                                className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                                type="text" />
                                                             {fieldErrors.payment_per_km && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.payment_per_km[0]}</p>}
                                                         </div>
                                                     </div>
@@ -1540,7 +1668,10 @@ const GlobalSettings = () => {
 
                             {userType === 'admin' &&
                                 <AccordionItem value="service" className='border-none'>
-                                    <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>SERVICE AREA</AccordionTrigger>
+                                    <AccordionTrigger
+                                        className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                    >SERVICE AREA</AccordionTrigger>
                                     <AccordionContent className="grid gap-4">
                                         <div className='w-full flex flex-col items-center'>
                                             <div className='w-full flex justify-center flex-col'>
@@ -1570,7 +1701,10 @@ const GlobalSettings = () => {
 
                             {userType === 'admin' &&
                                 <AccordionItem value="order" className='border-none'>
-                                    <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>ORDER FORM</AccordionTrigger>
+                                    <AccordionTrigger
+                                        className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                    >ORDER FORM</AccordionTrigger>
                                     <AccordionContent className="grid gap-4">
                                         <div className='w-full flex flex-col items-center'>
                                             <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -1581,7 +1715,8 @@ const GlobalSettings = () => {
                                                             <Input
                                                                 id="order-link"
                                                                 type="text"
-                                                                className="h-[42px] placeholder:text-[#9ca3af] w-full bg-[#EEEEEE] border border-[#BBBBBB] px-4 pr-10 text-sm"
+                                                                className="h-[42px] placeholder:text-[#9ca3af] w-full border border-[#BBBBBB] px-4 pr-10 text-sm"
+                                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                                 value={orderLink}
                                                                 onChange={(e) => setOrderLink(e.target.value)}
                                                                 placeholder="bcfloorplans.tojuco.com/v/id#22718"
@@ -1612,7 +1747,8 @@ const GlobalSettings = () => {
                                                         </div>
 
                                                         <textarea
-                                                            className="h-[200px] w-full p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                            className="h-[200px] w-full p-3 rounded-[6px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                             value={iframeCode}
                                                             onChange={(e) => setIframeCode(e.target.value)}
                                                             placeholder='<iframe src="gre_iframe.html" style="height:auto;width:auto;" title="BC Floor Plans"></iframe>'
@@ -1627,7 +1763,10 @@ const GlobalSettings = () => {
                             }
 
                             <AccordionItem value="payment" className='border-none'>
-                                <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>PAYMENT</AccordionTrigger>
+                                <AccordionTrigger
+                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                >PAYMENT</AccordionTrigger>
                                 <AccordionContent className="grid gap-4">
                                     <div className='w-full flex flex-col items-center'>
                                         <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -1734,12 +1873,34 @@ const GlobalSettings = () => {
                                                 ))}
                                             </div>
                                         </div>
+                                        <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+
+                                            {!quickBookStatus &&
+                                                <Button
+                                                    onClick={handleQuickBookStatus}
+                                                    type='button'
+                                                    className={`${userType}-bg hover-${userType}-bg`}>
+                                                    {isLoading ? 'Connecting...' : '  Connect Quick Book'}
+                                                </Button>
+                                            }
+                                            {quickBookStatus &&
+                                                <Button
+                                                    type='button'
+                                                    disabled
+                                                    className={`${userType}-bg hover-${userType}-bg justify-self-start`}>
+                                                    Connected
+                                                </Button>
+                                            }
+                                        </div>
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
 
                             <AccordionItem value="account" className='border-none'>
-                                <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'} [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>ACCOUNT MANAGEMENT</AccordionTrigger>
+                                <AccordionTrigger
+                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'} [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                >ACCOUNT MANAGEMENT</AccordionTrigger>
                                 <AccordionContent className="grid gap-4">
                                     <div className='w-full flex flex-col items-center'>
                                         <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -1752,7 +1913,8 @@ const GlobalSettings = () => {
                                                         value={password}
                                                         disabled
                                                         onChange={(e) => setPassword(e.target.value)}
-                                                        className="bg-[#EEEEEE] text-[16px] font-medium w-full h-full px-4 focus:outline-none"
+                                                        className="text-[16px] font-medium w-full h-full px-4 focus:outline-none"
+                                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                     />
                                                     <button
                                                         type="button"
@@ -1760,7 +1922,8 @@ const GlobalSettings = () => {
                                                             handleReset();
                                                             setOpenChangePasswordDialog(true);
                                                         }}
-                                                        className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                        className="px-4 text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
                                                     >
                                                         Reset
                                                     </button>

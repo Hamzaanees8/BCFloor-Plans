@@ -10,7 +10,7 @@ import { Country, State } from 'country-state-city';
 //import ToggleButtons from '@/components/ui/toogle'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
-import { useParams, useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 //import { Plus, X } from 'lucide-react'
 //import PaymentDialog from '@/components/PaymentDialog'
 //import CloseDialog from '@/components/CloseDialog'
@@ -115,16 +115,21 @@ const OrdersForm = () => {
     useUnsavedChangesWarning(isDirty)
     const isPopulatingData = useRef(false);
 
-    console.log('emailType', emailType);
-    console.log('current user', currentUser);
-    const params = useParams();
-    const userId = params?.id as string;
+    const searchParams = useSearchParams();
+
+    const agentId = searchParams.get('agentId');
+    const subAccountId = searchParams.get('subAccountId');
+
     useEffect(() => {
-        if (userType && agent.length > 0) {
+        if (agentId) {
+            setConnectedAgent(agentId)
+
+        } else if (userType && agent.length > 0) {
             setConnectedAgent(userInfo.uuid)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userType, agent])
+
     useEffect(() => {
         const token = localStorage.getItem("token");
 
@@ -147,7 +152,6 @@ const OrdersForm = () => {
             .catch(err => console.log(err.message));
     }, []);
 
-    console.log(roles)
     useEffect(() => {
         setCountries(Country.getAllCountries());
     }, []);
@@ -201,7 +205,6 @@ const OrdersForm = () => {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser, permissions]);
-    console.log("currentuser", currentUser)
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -260,14 +263,14 @@ const OrdersForm = () => {
             return;
         }
 
-        if (userId) {
-            GetOne(token, userId)
-                .then(data => setCurrentUser(data.data))
+        if (subAccountId) {
+            GetOne(token, subAccountId)
+                .then(data => setCurrentUser(data))
                 .catch(err => console.log(err.message));
         } else {
             console.log('User ID is undefined.');
         }
-    }, [userId]);
+    }, [subAccountId]);
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -278,7 +281,7 @@ const OrdersForm = () => {
         }
 
         if (token) {
-            Get(token)
+            Get()
                 .then(data => setAgent(data.data))
                 .catch(err => console.log(err.message));
         } else {
@@ -298,10 +301,105 @@ const OrdersForm = () => {
             .then(data => setPermissions(Array.isArray(data.data) ? data.data : []))
             .catch(err => console.log(err.message));
     }, []);
-    console.log("permissions", permissions)
-    console.log(fieldErrors)
+
+    const validateForm = () => {
+        const errors: Record<string, string[]> = {};
+        let isValid = true;
+
+        if (!firstName.trim()) {
+            errors.first_name = ["First Name is required"];
+            isValid = false;
+        }
+
+        if (!lastName.trim()) {
+            errors.last_name = ["Last Name is required"];
+            isValid = false;
+        }
+
+        if (!connectedAgent) {
+            errors.agent_id = ["Agent is required"];
+            isValid = false;
+        }
+
+        if (!role) {
+            errors.role_id = ["Role is required"];
+            isValid = false;
+        }
+
+        if (!email.trim()) {
+            errors.primary_email = ["Email is required"];
+            isValid = false;
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            errors.primary_email = ["Invalid email format"];
+            isValid = false;
+        }
+
+        if (secondaryEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(secondaryEmail)) {
+            errors.secondary_email = ["Invalid email format"];
+            isValid = false;
+        }
+
+        // Validate password only if creating a new user or if password field is filled
+        if (!subAccountId) {
+            if (!password) {
+                errors.password = ["Password is required"];
+                isValid = false;
+            } else if (password.length < 8) {
+                errors.password = ["Password must be at least 8 characters"];
+                isValid = false;
+            }
+        } else if (password && password.length < 8) {
+            errors.password = ["Password must be at least 8 characters"];
+            isValid = false;
+        }
+
+        if (!primaryPhone.trim()) {
+            errors.primary_phone = ["Primary Phone is required"];
+            isValid = false;
+        } else if (primaryPhone.length > 20) {
+            errors.primary_phone = ["Primary Phone must be less than 20 characters"];
+            isValid = false;
+        }
+
+        if (secondaryPhone && secondaryPhone.length > 20) {
+            errors.secondary_phone = ["Secondary Phone must be less than 20 characters"];
+            isValid = false;
+        }
+
+        if (address && address.length > 100) {
+            errors.address = ["Address must be less than 100 characters"];
+            isValid = false;
+        }
+        if (city && city.length > 50) {
+            errors.city = ["City must be less than 50 characters"];
+            isValid = false;
+        }
+        if (province && province.length > 50) {
+            errors.province = ["Province must be less than 50 characters"];
+            isValid = false;
+        }
+        if (country && country.length > 50) {
+            errors.country = ["Country must be less than 50 characters"];
+            isValid = false;
+        }
+
+        setFieldErrors(errors);
+
+        if (!isValid) {
+            const firstError = Object.values(errors).flat()[0];
+            toast.error(firstError || 'Please fill all required fields');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        return isValid;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!validateForm()) {
+            return;
+        }
 
         try {
             const token = localStorage.getItem('token') || '';
@@ -335,14 +433,18 @@ const OrdersForm = () => {
                 permissions: selectedPermissions || [],
             };
 
-            if (userId) {
+            if (subAccountId) {
                 // Add _method: 'PUT' to payload for method override
                 const updatedPayload = { ...payload, _method: 'PUT' };
-                await Edit(userId, updatedPayload, token);
+                await Edit(subAccountId, updatedPayload, token);
                 toast.success('Sub-Account updated successfully');
                 setIsLoading(true)
                 setOpenSaveDialog(true)
-                router.push('/dashboard/sub-accounts');
+                if (agentId) {
+                    router.push(`/dashboard/agents/create/${agentId}`);
+                } else {
+                    router.push(`/dashboard/sub-accounts`);
+                }
                 setIsLoading(false)
                 setIsDirty(false)
             } else {
@@ -350,7 +452,11 @@ const OrdersForm = () => {
                 toast.success('Sub-Account created successfully');
                 setIsLoading(true)
                 setOpenSaveDialog(true)
-                router.push('/dashboard/sub-accounts');
+                if (agentId) {
+                    router.push(`/dashboard/agents/create/${agentId}`);
+                } else {
+                    router.push(`/dashboard/sub-accounts`);
+                }
                 setIsLoading(false)
                 setIsDirty(false)
             }
@@ -358,7 +464,6 @@ const OrdersForm = () => {
         } catch (error) {
             setIsLoading(false);
             setOpenSaveDialog(false);
-            console.log('Raw error:', error);
 
             setFieldErrors({});
             const apiError = error as { message?: string; errors?: Record<string, string[]> };
@@ -389,7 +494,7 @@ const OrdersForm = () => {
 
     return (
         <div className='font-alexandria'>
-            <div className='w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center' style={{ boxShadow: "0px 4px 4px #0000001F" }} >
+            <div className='w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}> Sub Account
                     {currentUser ? ` › ${currentUser.first_name} ${currentUser.last_name}` : ' › Create'}</p>
                 <Button onClick={(e) => { handleSubmit(e) }} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>Save Changes</Button>
@@ -399,7 +504,7 @@ const OrdersForm = () => {
                 onClose={() => setOpenSaveDialog(false)}
                 isLoading={isLoading}
                 isSuccess={true}
-                backLink="/dashboard/sub-accounts"
+                backLink={`/dashboard/agents/${agentId}`}
                 title={'Sub Accounts'}
             />
             {/* <div className='flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600]' >
@@ -408,16 +513,19 @@ const OrdersForm = () => {
             <div>
                 <form
                     onChange={() => {
-                        if (!isPopulatingData.current && userId) {
+                        if (!isPopulatingData.current && subAccountId) {
                             setIsDirty(true);
-                        } else if (!userId) {
+                        } else if (!subAccountId) {
                             setIsDirty(true)
                         }
                     }}
                 >
                     <Accordion type="multiple" defaultValue={["profile", "permissions", "branding", "payment", "account"]} className="w-full space-y-4">
                         <AccordionItem value="profile">
-                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`} > PROFILE</AccordionTrigger>
+                            <AccordionTrigger
+                                className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                            > PROFILE</AccordionTrigger>
                             <AccordionContent className="grid gap-4">
                                 <div className='w-full flex flex-col items-center'>
                                     <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -427,23 +535,50 @@ const OrdersForm = () => {
                                                 <Input
                                                     required
                                                     value={firstName}
-                                                    onChange={(e) => setFirstName(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    onChange={(e) => {
+                                                        setFirstName(e.target.value);
+                                                        if (fieldErrors.first_name) {
+                                                            setFieldErrors(prev => {
+                                                                const newErrors = { ...prev };
+                                                                delete newErrors.first_name;
+                                                                return newErrors;
+                                                            });
+                                                        }
+                                                    }}
+                                                    className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.first_name ? 'border-red-500' : ''}`} type="text" />
                                                 {fieldErrors.first_name && <p className='text-red-500 text-[10px]'>{fieldErrors.first_name[0]}</p>}
                                             </div>
                                             <div>
                                                 <label htmlFor="">Last Name <span className="text-red-500">*</span></label>
                                                 <Input
                                                     value={lastName}
-                                                    onChange={(e) => setLastName(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    onChange={(e) => {
+                                                        setLastName(e.target.value);
+                                                        if (fieldErrors.last_name) {
+                                                            setFieldErrors(prev => {
+                                                                const newErrors = { ...prev };
+                                                                delete newErrors.last_name;
+                                                                return newErrors;
+                                                            });
+                                                        }
+                                                    }}
+                                                    className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.last_name ? 'border-red-500' : ''}`} type="text" />
                                                 {fieldErrors.last_name && <p className='text-red-500 text-[10px]'>{fieldErrors.last_name[0]}</p>}
                                             </div>
                                             {userType === 'admin' &&
                                                 <div className='col-span-2'>
                                                     <label htmlFor="">Connected Agents <span className="text-red-500">*</span></label>
-                                                    <Select value={connectedAgent} onValueChange={(val) => setConnectedAgent(val)}>
-                                                        <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                                                    <Select value={connectedAgent} onValueChange={(val) => {
+                                                        setConnectedAgent(val);
+                                                        if (fieldErrors.agent_id) {
+                                                            setFieldErrors(prev => {
+                                                                const newErrors = { ...prev };
+                                                                delete newErrors.agent_id;
+                                                                return newErrors;
+                                                            });
+                                                        }
+                                                    }} disabled={!!agentId}>
+                                                        <SelectTrigger className={`w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB] ${fieldErrors.agent_id ? 'border-red-500' : ''}`}>
                                                             <SelectValue placeholder="Select Agent" />
                                                         </SelectTrigger>
                                                         <SelectContent>
@@ -462,9 +597,18 @@ const OrdersForm = () => {
                                                 <label htmlFor="">Role <span className="text-red-500">*</span></label>
                                                 <Select
                                                     value={String(role)}
-                                                    onValueChange={(val) => setRole(val)}
+                                                    onValueChange={(val) => {
+                                                        setRole(val);
+                                                        if (fieldErrors.role_id) {
+                                                            setFieldErrors(prev => {
+                                                                const newErrors = { ...prev };
+                                                                delete newErrors.role_id;
+                                                                return newErrors;
+                                                            });
+                                                        }
+                                                    }}
                                                 >
-                                                    <SelectTrigger className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'>
+                                                    <SelectTrigger className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.role_id ? 'border-red-500' : ''}`}>
                                                         <SelectValue placeholder="Select a role" />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -481,8 +625,17 @@ const OrdersForm = () => {
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Email <span className="text-red-500">*</span></label>
                                                 <Input value={email}
-                                                    onChange={(e) => setEmail(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="email" />
+                                                    onChange={(e) => {
+                                                        setEmail(e.target.value);
+                                                        if (fieldErrors.primary_email) {
+                                                            setFieldErrors(prev => {
+                                                                const newErrors = { ...prev };
+                                                                delete newErrors.primary_email;
+                                                                return newErrors;
+                                                            });
+                                                        }
+                                                    }}
+                                                    className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.primary_email ? 'border-red-500' : ''}`} type="email" />
 
                                                 {fieldErrors.primary_email && <p className='text-red-500 text-[10px]'>{fieldErrors.primary_email[0]}</p>}
                                             </div>
@@ -521,8 +674,17 @@ const OrdersForm = () => {
                                             <div>
                                                 <label htmlFor="">Primary Phone <span className="text-red-500">*</span></label>
                                                 <Input value={primaryPhone}
-                                                    onChange={(e) => setPrimaryPhone(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                    onChange={(e) => {
+                                                        setPrimaryPhone(e.target.value);
+                                                        if (fieldErrors.primary_phone) {
+                                                            setFieldErrors(prev => {
+                                                                const newErrors = { ...prev };
+                                                                delete newErrors.primary_phone;
+                                                                return newErrors;
+                                                            });
+                                                        }
+                                                    }}
+                                                    className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.primary_phone ? 'border-red-500' : ''}`} type="text" />
                                                 {fieldErrors.primary_phone && <p className='text-red-500 text-[10px]'>{fieldErrors.primary_phone[0]}</p>}
                                             </div>
                                             <div>
@@ -613,8 +775,17 @@ const OrdersForm = () => {
                                                     <label htmlFor="">Password <span className="text-red-500">*</span></label>
                                                     <Input
                                                         value={password}
-                                                        onChange={(e) => setPassword(e.target.value)}
-                                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                        onChange={(e) => {
+                                                            setPassword(e.target.value);
+                                                            if (fieldErrors.password) {
+                                                                setFieldErrors(prev => {
+                                                                    const newErrors = { ...prev };
+                                                                    delete newErrors.password;
+                                                                    return newErrors;
+                                                                });
+                                                            }
+                                                        }}
+                                                        className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.password ? 'border-red-500' : ''}`}
                                                         type="password"
                                                     />
                                                     {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
@@ -629,7 +800,10 @@ const OrdersForm = () => {
                         </AccordionItem>
 
                         <AccordionItem value="permissions">
-                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>PERMISSION ACCESS</AccordionTrigger>
+                            <AccordionTrigger
+                                className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                            >PERMISSION ACCESS</AccordionTrigger>
                             <AccordionContent className="grid gap-4">
                                 <div className='w-full flex flex-col items-center'>
                                     <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -650,7 +824,10 @@ const OrdersForm = () => {
                         </AccordionItem>
 
                         <AccordionItem value="branding">
-                            <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>Branding Assets</AccordionTrigger>
+                            <AccordionTrigger
+                                className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                            >Branding Assets</AccordionTrigger>
                             <AccordionContent className="grid gap-4">
                                 <div className='w-full flex flex-col items-center'>
                                     <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
@@ -836,7 +1013,10 @@ const OrdersForm = () => {
 
                         {currentUser && (
                             <AccordionItem value="account" className='border-none'>
-                                <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#4290E9]'} [&>svg]:text-[#6BAE41]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>ACCOUNT MANAGEMENT</AccordionTrigger>
+                                <AccordionTrigger
+                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#4290E9]'} [&>svg]:text-[#6BAE41]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                >ACCOUNT MANAGEMENT</AccordionTrigger>
                                 <AccordionContent className="grid gap-4">
                                     <div className='w-full flex flex-col items-center'>
                                         <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>

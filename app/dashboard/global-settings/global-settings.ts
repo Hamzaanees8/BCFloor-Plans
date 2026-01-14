@@ -1,3 +1,5 @@
+import { api } from "@/lib/api";
+
 export interface DiscountEditStatusPayload {
   status: boolean;
 }
@@ -59,21 +61,13 @@ export interface PaymentCard {
   cvv: string;
 }
 
-export async function CreateDiscount(payload: DiscountPayload, token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function CreateDiscount(payload: DiscountPayload) {
 
-  const response = await fetch(`${API_URL}/discounts`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  const response = await api.post(`/discounts`, payload);
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (data.status !== true) {
     const error = new Error(data.message || "Request failed");
     (error as FetchErrors).errors = data.errors;
     throw error;
@@ -82,21 +76,13 @@ export async function CreateDiscount(payload: DiscountPayload, token: string) {
   return data;
 }
 
-export async function CreateCode(payload: CodePayload, token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function CreateCode(payload: CodePayload) {
 
-  const response = await fetch(`${API_URL}/discounts`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  const response = await api.post(`/discounts`, payload);
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (data.status !== true) {
     const error = new Error(data.message || "Request failed");
     (error as FetchErrors).errors = data.errors;
     throw error;
@@ -106,23 +92,14 @@ export async function CreateCode(payload: CodePayload, token: string) {
 }
 export async function EditCode(
   payload: CodePayload,
-  token: string,
   uuid: string
 ) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  const response = await fetch(`${API_URL}/discounts/${uuid}`, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  const response = await api.put(`/discounts/${uuid}`, payload);
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (data.status !== true) {
     const error = new Error(data.message || "Request failed");
     (error as FetchErrors).errors = data.errors;
     throw error;
@@ -133,23 +110,14 @@ export async function EditCode(
 
 export async function EditDiscount(
   payload: DiscountPayload,
-  token: string,
   uuid: string
 ) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  const response = await fetch(`${API_URL}/discounts/${uuid}`, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  const response = await api.put(`/discounts/${uuid}`, payload);
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (response.status !== 200) {
     const error = new Error(data.message || "Request failed");
     (error as FetchErrors).errors = data.errors;
     throw error;
@@ -158,27 +126,18 @@ export async function EditDiscount(
   return data;
 }
 
-export async function GetDiscount(token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function GetDiscount() {
 
   try {
-    const response = await fetch(`${API_URL}/discounts`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await api.get(`/discounts`);
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+    const discounts = await response.data;
+    if (discounts.status !== true) {
+      const error = await discounts.catch(() => ({}));
       throw new Error(
         error.message || `Request failed with status ${response.status}`
       );
     }
-
-    const discounts = await response.json();
-    console.log("Discounts", discounts);
 
     return discounts;
   } catch (error) {
@@ -187,27 +146,19 @@ export async function GetDiscount(token: string) {
   }
 }
 
-export async function GetServices(token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function GetServices() {
 
   try {
-    const response = await fetch(`${API_URL}/services`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await api.get(`/services`);
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+    const services = await response.data;
+    if (services.status !== true) {
+      const error = await services.catch(() => ({}));
       throw new Error(
         error.message || `Request failed with status ${response.status}`
       );
     }
 
-    const services = await response.json();
-    console.log("Services", services);
 
     return services;
   } catch (error) {
@@ -216,26 +167,20 @@ export async function GetServices(token: string) {
   }
 }
 
-export async function GetOne(token: string, uuid: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function GetOne(uuid: string) {
 
   try {
-    const response = await fetch(`${API_URL}/discounts/${uuid}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await api.get(`/discounts/${uuid}`);
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+    const discount = await response.data;
+
+    if (discount.status !== true) {
+      const error = await response.data.catch(() => ({}));
       throw new Error(
         error.message || `Request failed with status ${response.status}`
       );
     }
 
-    const discount = await response.json();
     return discount;
   } catch (error) {
     console.error("Failed to fetch discount data:", error);
@@ -244,69 +189,40 @@ export async function GetOne(token: string, uuid: string) {
 }
 export async function EditDiscountStatus(
   payload: DiscountEditStatusPayload,
-  token: string,
   uuid: string
 ) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  const response = await fetch(`${API_URL}/discounts/${uuid}/status`, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  const response = await api.put(`/discounts/${uuid}/status`, payload);
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (data.status !== true) {
     throw new Error(data.message || "Failed to edit discount status");
   }
 
   return data;
 }
-export async function Delete(uuid: string, token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function Delete(uuid: string) {
 
-  const response = await fetch(`${API_URL}/discounts/${uuid}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ _method: "DELETE" }),
-  });
+  const response = await api.delete(`/discounts/${uuid}`);
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (response.status !== 200) {
     throw new Error(data.message || "Failed to delete user");
   }
 
   return data;
 }
-export async function GetCompany(token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function GetCompany() {
 
   try {
-    const response = await fetch(`${API_URL}/companies/by_user`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await api.get(`/companies/by_user`);
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(
-        error.message || `Request failed with status ${response.status}`
-      );
+    const company = await response.data;
+    if (company.status !== true) {
+      throw new Error(company.message || "Failed to fetch company data");
     }
-
-    const company = await response.json();
-    console.log("company", company);
 
     return company;
   } catch (error) {
@@ -314,6 +230,7 @@ export async function GetCompany(token: string) {
     throw error;
   }
 }
+
 function payloadToFormData(payload: CompanyData): FormData {
   const formData = new FormData();
 
@@ -337,11 +254,8 @@ function payloadToFormData(payload: CompanyData): FormData {
   return formData;
 }
 
-export async function CreateCompany(payload: CompanyData, token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
-  console.log("Raw Payload:", payload);
+export async function CreateCompany(payload: CompanyData) {
   const formData = payloadToFormData(payload);
-  console.log("formdata");
   for (const [key, value] of formData.entries()) {
     let valueType: string;
 
@@ -358,17 +272,11 @@ export async function CreateCompany(payload: CompanyData, token: string) {
 
     console.log(`${key}:`, value, `| Type: ${valueType}`);
   }
-  const response = await fetch(`${API_URL}/companies`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
+  const response = await api.post(`/companies`, formData);
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (data.status !== true) {
     const error = new Error(data.message || "Request failed");
     (error as FetchErrors).errors = data.errors;
     throw error;
@@ -379,14 +287,10 @@ export async function CreateCompany(payload: CompanyData, token: string) {
 
 export async function UpdateCompany(
   payload: CompanyData,
-  token: string,
   uuid: string
 ) {
-  console.log("Raw Payload:", payload);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const formData = payloadToFormData(payload);
-  console.log("dcdcdcdcdcdcdcd");
   for (const [key, value] of formData.entries()) {
     let valueType: string;
 
@@ -395,8 +299,6 @@ export async function UpdateCompany(
       valueType = "string";
     } else if (value instanceof File) {
       valueType = "File";
-      // } else if (value instanceof Blob) {
-      //   valueType = "Blob";
     } else {
       valueType = Object.prototype.toString.call(value);
     }
@@ -404,17 +306,11 @@ export async function UpdateCompany(
     console.log(`${key}:`, value, `| Type: ${valueType}`);
   }
 
-  const response = await fetch(`${API_URL}/companies/${uuid}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
+  const response = await api.post(`/companies/${uuid}`, formData);
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (data.status !== true) {
     const error = new Error(data.message || "Request failed");
     (error as FetchErrors).errors = data.errors;
     throw error;
@@ -423,21 +319,13 @@ export async function UpdateCompany(
   return data;
 }
 
-export async function AddCard(payload: PaymentCard, token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function AddCard(payload: PaymentCard) {
 
-  const response = await fetch(`${API_URL}/payment-methods`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  const response = await api.post(`/payment-methods`, payload);
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (data.status !== true) {
     const error = new Error(data.message || "Request failed");
     (error as FetchErrors).errors = data.errors;
     throw error;
@@ -445,51 +333,198 @@ export async function AddCard(payload: PaymentCard, token: string) {
 
   return data;
 }
-export async function DeleteCard(uuid: string, token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function DeleteCard(uuid: string) {
 
-  const response = await fetch(`${API_URL}/payment-methods/${uuid}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ _method: "DELETE" }),
-  });
+  const response = await api.delete(`/payment-methods/${uuid}`);
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (data.status !== true) {
     throw new Error(data.message || "Failed to delete payment method");
   }
 
   return data;
 }
-export async function GetPaymentMethod(token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+export async function GetPaymentMethod() {
 
   try {
-    const response = await fetch(`${API_URL}/payment-methods`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await api.get(`/payment-methods`);
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(
-        error.message || `Request failed with status ${response.status}`
-      );
-    }
+    const paymentMethod = await response.data;
 
-    const paymentMethod = await response.json();
-    console.log("paymentMethod", paymentMethod);
+    // if (paymentMethod.status !== true) {
+    //   throw new Error(paymentMethod.message || "Failed to fetch payment method");
+    // }
 
     return paymentMethod;
   } catch (error) {
     console.error("Failed to fetch Payment Method:", error);
     throw error;
   }
+}
+
+export async function GetQuickBookStatus() {
+
+  try {
+    const response = await api.get(`/quickbooks/status`);
+
+    const paymentMethod = await response.data;
+
+    return paymentMethod;
+  } catch (error) {
+    console.error("Failed to fetch Payment Method:", error);
+    throw error;
+  }
+}
+export async function QuickBookConnection() {
+
+  try {
+    const response = await api.get(`/quickbooks/connect`);
+
+    const paymentMethod = await response.data;
+
+    if (paymentMethod.status !== true) {
+      throw new Error(paymentMethod.message || "Failed to fetch payment method");
+    }
+
+    return paymentMethod;
+  } catch (error) {
+    console.error("Failed to fetch Payment Method:", error);
+    throw error;
+  }
+}
+
+
+export async function GetMediaSettings() {
+
+  try {
+    const response = await api.get(`/settings/media_settings`);
+
+    const data = await response.data;
+
+    // if (data.success !== true) {
+    //   throw new Error(data.message || "Failed to fetch payment method");
+    // }
+
+    return data;
+  } catch (error) {
+    console.error("Failed to fetch Media Settings:", error);
+    throw error;
+  }
+}
+
+export async function GetTourSettings() {
+
+  try {
+    const response = await api.get(`/global-settings`);
+
+    const data = await response.data;
+
+    if (data.success !== true) {
+      throw new Error(data.message || "Failed to fetch payment method");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Failed to fetch Tour Settings:", error);
+    throw error;
+  }
+}
+
+export async function SaveTourSettings(payload: TourSettingPayload[]) {
+
+  const response = await api.post(`/global-settings`, { tour_settings: payload });
+
+  const data = await response.data;
+
+  if (data.success !== true) {
+    const error = new Error(data.message || "Request failed");
+    (error as FetchErrors).errors = data.errors;
+    throw error;
+  }
+
+  return data;
+}
+
+export async function UpdateTourSetting(payload: TourSettingPayload) {
+  const response = await api.put(`/global-settings/${payload.uuid}`, payload);
+
+  const data = await response.data;
+
+  if (data.success !== true) {
+    const error = new Error(data.message || "Request failed");
+    (error as FetchErrors).errors = data.errors;
+    throw error;
+  }
+
+  return data;
+}
+
+export async function DeleteTourSetting(uuid: string) {
+  const response = await api.delete(`/global-settings/${uuid}`);
+
+  const data = await response.data;
+
+  if (data.success !== true) {
+    throw new Error(data.message || "Failed to delete tour setting");
+  }
+
+  return data;
+}
+
+export interface TourSettingPayload {
+  uuid?: string;
+  area: string;
+  type: string;
+  charge: number;
+  discount: number;
+  status: boolean;
+  is_percentage?: boolean;
+}
+
+export interface MediaSettingsPayload {
+  photos: {
+    original: { width: number; height: number };
+    small: { width: number; height: number };
+    large: { width: number; height: number };
+    mls: { width: number; height: number };
+  };
+  videos: {
+    original: { width: number; height: number };
+    small: { width: number; height: number };
+    large: { width: number; height: number };
+    mls: { width: number; height: number };
+  };
+}
+export async function CreateMediaSettings(payload: MediaSettingsPayload) {
+
+  const response = await api.post(
+    "/settings/media_settings",
+    {
+      value: payload,
+    }
+  );
+
+  const data = await response.data;
+
+
+  return data;
+}
+
+export async function UpdateMediaSettings(payload: MediaSettingsPayload) {
+
+  const response = await api.put(`/settings/media_settings`, {
+    value: payload,
+  });
+
+  const data = await response.data;
+
+  if (data.success !== true) {
+    const error = new Error(data.message || "Request failed");
+    (error as FetchErrors).errors = data.errors;
+    throw error;
+  }
+
+  return data;
 }

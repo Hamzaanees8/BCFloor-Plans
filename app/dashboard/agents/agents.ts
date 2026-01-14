@@ -1,3 +1,5 @@
+import { api } from "@/lib/api";
+
 export interface AgentPayload {
   first_name: string;
   last_name: string;
@@ -26,6 +28,7 @@ export interface AgentPayload {
     primary_phone?: string;
     split?: string;
   }[];
+  default_music?: string | null;
 }
 
 export interface FetchErrors {
@@ -47,7 +50,7 @@ export interface ResetPassword {
   current_password: string;
 }
 
-function payloadToFormData(payload: AgentPayload): FormData {
+export function payloadToFormData(payload: AgentPayload): FormData {
   const formData = new FormData();
 
   Object.entries(payload).forEach(([key, value]) => {
@@ -100,21 +103,14 @@ function payloadToFormData(payload: AgentPayload): FormData {
 //   return formData;
 // }
 
-export async function CreateAgent(payload: AgentPayload, token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function CreateAgent(payload: AgentPayload) {
   const formData = payloadToFormData(payload);
 
-  const response = await fetch(`${API_URL}/agents`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
+  const response = await api.post(`/agents`, formData);
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (data.status !== true) {
     const error = new Error(data.message || "Request failed");
     (error as FetchErrors).errors = data.errors;
     throw error;
@@ -126,22 +122,14 @@ export async function CreateAgent(payload: AgentPayload, token: string) {
 export async function EditAgent(
   userId: string,
   payload: AgentPayload,
-  token: string
 ) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const formData = payloadToFormData(payload);
 
-  const response = await fetch(`${API_URL}/agents/${userId}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
+  const response = await api.post(`/agents/${userId}`, formData);
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (data.status !== true) {
     const error = new Error(data.message || "Request failed");
     (error as FetchErrors).errors = data.errors;
     throw error;
@@ -150,21 +138,13 @@ export async function EditAgent(
   return data;
 }
 
-export async function Get(token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
+export async function Get() {
   try {
-    const response = await fetch(`${API_URL}/agents`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await api.get(`/agents`);
 
-    const agentData = await response.json();
+    const agentData = await response.data;
 
-    if (!response.ok) {
+    if (agentData.status !== true) {
       throw new Error(
         agentData.message || `Request failed with status ${response.status}`
       );
@@ -184,144 +164,98 @@ export interface UpdateStatusPayload {
 export async function UpdateAgentStatus(
   uuid: string,
   payload: UpdateStatusPayload,
-  token: string
 ) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  const response = await fetch(`${API_URL}/agents/${uuid}/status`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  const response = await api.post(`/agents/${uuid}/status`, payload);
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (data.status !== true) {
     throw new Error(data.message || "Failed to update status");
   }
 
   return data;
 }
 
-export async function GetOne(token: string, userId: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function GetOne(userId: string) {
 
   try {
-    const response = await fetch(`${API_URL}/agents/${userId}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await api.get(`/agents/${userId}`);
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+    const agentData = await response.data;
+
+    if (agentData.status !== true) {
       throw new Error(
-        error.message || `Request failed with status ${response.status}`
+        agentData.message || `Request failed with status ${response.status}`
       );
     }
 
-    const adminData = await response.json();
-    return adminData;
+    return agentData;
   } catch (error) {
     console.error("Failed to fetch agent data:", error);
     throw error;
   }
 }
-export async function Delete(uuid: string, token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  const response = await fetch(`${API_URL}/agents/${uuid}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ _method: "DELETE" }),
+export async function Delete(uuid: string) {
+
+  const response = await api.post(`/agents/${uuid}`, {
+    _method: "DELETE",
   });
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (data.status !== true) {
     throw new Error(data.message || "Failed to delete agent");
   }
 
   return data;
 }
 
-export async function GetRole(token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function GetRole() {
 
   try {
-    const response = await fetch(`${API_URL}/roles`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await api.get(`/roles`);
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+    if (response.status !== 200) {
       throw new Error(
-        error.message || `Request failed with status ${response.status}`
+        response.data.message || `Request failed with status ${response.status}`
       );
     }
 
-    const rolesData = await response.json();
-    console.log("rolesData", rolesData);
-
+    const rolesData = await response.data;
     return rolesData;
   } catch (error) {
     console.error("Failed to fetch role data:", error);
     throw error;
   }
 }
-export async function GetPermissions(token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+export async function GetPermissions() {
 
   try {
-    const response = await fetch(`${API_URL}/permissions`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await api.get(`/permissions`);
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+    if (response.status !== 200) {
       throw new Error(
-        error.message || `Request failed with status ${response.status}`
+        response.data.message || `Request failed with status ${response.status}`
       );
     }
 
-    const permissionsData = await response.json();
+    const permissionsData = await response.data;
     return permissionsData;
   } catch (error) {
-    console.error("Failed to fetch role data:", error);
+    console.error("Failed to fetch permissions data:", error);
     throw error;
   }
 }
-export async function AddCard(payload: PaymentCard, token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function AddCard(payload: PaymentCard) {
 
-  const response = await fetch(`${API_URL}/payment-methods`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  const response = await api.post(`/payment-methods`, payload);
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (response.status !== 200) {
     const error = new Error(data.message || "Request failed");
     (error as FetchErrors).errors = data.errors;
     throw error;
@@ -329,47 +263,32 @@ export async function AddCard(payload: PaymentCard, token: string) {
 
   return data;
 }
-export async function DeleteCard(uuid: string, token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function DeleteCard(uuid: string) {
 
-  const response = await fetch(`${API_URL}/payment-methods/${uuid}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ _method: "DELETE" }),
+  const response = await api.post(`/payment-methods/${uuid}`, {
+    _method: "DELETE",
   });
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (response.status !== 200) {
     throw new Error(data.message || "Failed to delete payment method");
   }
 
   return data;
 }
-export async function GetPaymentMethod(token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+export async function GetPaymentMethod() {
 
   try {
-    const response = await fetch(`${API_URL}/payment-methods`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+    const response = await api.get(`/payment-methods`);
+    if (response.status !== 200) {
       throw new Error(
-        error.message || `Request failed with status ${response.status}`
+        response.data.message || `Request failed with status ${response.status}`
       );
     }
 
-    const paymentMethod = await response.json();
-    console.log("paymentMethod", paymentMethod);
+    const paymentMethod = await response.data;
 
     return paymentMethod;
   } catch (error) {
@@ -377,27 +296,20 @@ export async function GetPaymentMethod(token: string) {
     throw error;
   }
 }
+
 export async function ResetPasswordAgent(
   payload: ResetPassword,
   userId: string,
-  token: string
 ) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  const response = await fetch(`${API_URL}/agents/${userId}/password`, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  const response = await api.put(`/agents/${userId}/password`, payload);
 
-  const data = await response.json();
+  const data = await response.data;
 
-  if (!response.ok) {
+  if (response.status !== 200) {
     throw new Error(data.message || "Failed to update password");
   }
 
   return data;
 }
+

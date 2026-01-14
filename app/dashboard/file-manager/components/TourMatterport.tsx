@@ -27,6 +27,13 @@ const TourMatterport = () => {
         });
     };
 
+    if ((!brandedLinks || brandedLinks.length === 0) && (!unbrandedLinks || unbrandedLinks.length === 0)) {
+        return (
+            <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
+                <p>No Matterport links found — please add links or select a Matterport service.</p>
+            </div>
+        );
+    }
 
     return (
         <div className='font-alexandria w-full'>

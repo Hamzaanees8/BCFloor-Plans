@@ -280,7 +280,7 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
         </div>
 
         <Button className='bg-[#4290E9] hover:bg-[#4999f4]' variant="default" onClick={() => setOpenAddExtraDialog(true)}>
-          Add a Custom Field
+          Add a Custom Area
         </Button>
         <AddExtraDialog
           open={openAddExtraDialog}

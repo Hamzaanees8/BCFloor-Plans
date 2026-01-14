@@ -131,7 +131,7 @@ export async function Get(token: string) {
     if (!response.ok) {
       throw new Error(
         SubAccountData.message ||
-          `Request failed with status ${response.status}`
+        `Request failed with status ${response.status}`
       );
     }
 

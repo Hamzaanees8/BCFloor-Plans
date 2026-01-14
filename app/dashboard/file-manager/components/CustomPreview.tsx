@@ -12,6 +12,7 @@ interface CustomSlideshowProps {
   audioUrl?: string;
   transition?: string;
   api_images?: Files[]
+  watermarkUrl?: string;
 }
 
 const transitionClasses = [
@@ -40,6 +41,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   audioUrl,
   transition,
   api_images,
+  watermarkUrl
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [transitionIndex, setTransitionIndex] = useState(0);
@@ -49,20 +51,18 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
 
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
-const allImages = [
-  ...(images?.map((img) => ({
-    src: URL.createObjectURL(img.file),
-    isLocal: true,
-  })) || []),
-  ...(api_images?.map((img) => ({
-    src: `${API_URL}/${img.file_path}`,
-    isLocal: false,
-  })) || []),
-];
+  const allImages = [
+    ...(images?.map((img) => ({
+      src: URL.createObjectURL(img.file),
+      isLocal: true,
+    })) || []),
+    ...(api_images?.map((img) => ({
+      src: `${API_URL}/${img.file_path}`,
+      isLocal: false,
+    })) || []),
+  ];
 
 
-  console.log('allImages',allImages);
-  
 
 
   const getTransitionClass = () =>
@@ -99,7 +99,7 @@ const allImages = [
 
 
   return (
-    <div className="relative w-full h-[700px] overflow-hidden bg-black">
+    <div className="relative w-full h-[100vh] overflow-hidden bg-black">
       {/* Audio */}
       {audioUrl && (
         <audio ref={audioRef} key={audioUrl} autoPlay loop>
@@ -120,7 +120,13 @@ const allImages = [
           alt={`Slide ${idx}`}
         />
       ))}
-
+      {watermarkUrl && (
+        <img
+          src={watermarkUrl}
+          alt="Watermark"
+          className="absolute bottom-6 right-6 w-24 h-auto opacity-60 pointer-events-none select-none z-[999]"
+        />
+      )}
       <div
         onClick={togglePlayback}
         className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-50 opacity-10 hover:opacity-50 transition-opacity duration-300"

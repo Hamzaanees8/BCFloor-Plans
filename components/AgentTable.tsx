@@ -12,6 +12,7 @@ import {
     getSortedRowModel,
     useReactTable,
 } from "@tanstack/react-table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
     Table,
@@ -28,6 +29,9 @@ import { toast } from "sonner";
 import { AgentData } from "@/app/dashboard/agents/page";
 import { UpdateAgentStatus } from "@/app/dashboard/agents/agents";
 import { useAppContext } from "@/app/context/AppContext";
+import { Button } from "./ui/button";
+import { UploadRightIcon } from "./Icons";
+import Link from "next/link";
 
 export type Agent = {
     uuid?: string;
@@ -58,7 +62,7 @@ export type Agent = {
 interface AgentTableProps {
     showHeader: boolean;
     setShowHeader: React.Dispatch<React.SetStateAction<boolean>>;
-    onQuickView: (type: string, data: AgentData) => void;
+    onQuickView: (data: AgentData) => void;
     onConfirmAction1?: () => void;
     onConfirmAction2?: () => void;
     setAgentData?: React.Dispatch<React.SetStateAction<Agent[]>>;
@@ -72,17 +76,15 @@ export default function AgentTable({ setAgentData, onQuickView, agentData, onDel
     const router = useRouter();
     const { userType } = useAppContext();
 
-    console.log("agent data", agentData)
     const handleUpdateStatus = async (uuid: string, status: boolean) => {
         try {
-            const token = localStorage.getItem('token') || '';
 
             const payload = {
                 status: status,
                 _method: 'PUT'
             };
 
-            const result = await UpdateAgentStatus(uuid, payload, token);
+            const result = await UpdateAgentStatus(uuid, payload);
             toast.success('Agent Status updated successfully');
             console.log('result', result);
 
@@ -126,7 +128,7 @@ export default function AgentTable({ setAgentData, onQuickView, agentData, onDel
                             ? [{ id: roles[0].id, name: roles[0].name }] as { id: number; name: string }[]
                             : undefined;
 
-                    onQuickView("agents", {
+                    onQuickView({
                         ...rest,
                         first_name,
                         last_name,
@@ -231,46 +233,57 @@ export default function AgentTable({ setAgentData, onQuickView, agentData, onDel
 
                 return (
                     userType !== "vendor" &&
-                    <DropdownActions
-                        options={[
-                            {
-                                label: "Edit",
-                                onClick: () => {
-                                    const uuid = row.original.uuid;
-                                    if (uuid) {
-                                        router.push(`/dashboard/agents/create/${uuid}`);
-                                    }
-                                },
-                            },
-                            {
-                                label: "Quick View",
-                                onClick: () => {
-                                    const { roles, ...rest } = row.original;
-                                    const mappedRoles =
-                                        roles && roles.length > 0
-                                            ? [{ id: roles[0].id, name: roles[0].name }] as { id: number; name: string; }[]
-                                            : undefined;
-                                    onQuickView("agents", { ...rest, roles: mappedRoles });
-                                },
-                            },
-                            ...(selectedRowCount === 2
-                                ? [{
-                                    label: "Merge",
+                    <div className="flex gap-2 justify-center items-center">
+                        <Link
+                            className={`w-[90px]  h-[30px]   justify-center rounded-[6px] border-[1px] ${userType}-border ${userType}-bg text-[12px]  font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg hover:opacity-95`}
+                            href={`/dashboard/listings${row.original.uuid ? `?agent=${row.original.uuid}` : ''}`}
+                        >
+                            <span>Tour</span>
+                            <UploadRightIcon size={14} color="#fff" />
+                        </Link>
+
+                        <DropdownActions
+                            options={[
+                                {
+                                    label: "Edit",
                                     onClick: () => {
-                                        console.log("Merge!")
-                                        toast.success('Agents merged ')
+                                        const uuid = row.original.uuid;
+                                        if (uuid) {
+                                            router.push(`/dashboard/agents/create/${uuid}`);
+                                        }
                                     },
-                                    confirm2: true,
-                                }]
-                                : []),
-                            {
-                                label: "Delete",
-                                onClick: () => onDelete(row.original.uuid ?? ""),
-                                confirm1: true,
-                            }
-                        ]}
-                        data={selectedAgents}
-                    />
+                                },
+                                {
+                                    label: "Quick View",
+                                    onClick: () => {
+                                        const { roles, ...rest } = row.original;
+                                        const mappedRoles =
+                                            roles && roles.length > 0
+                                                ? [{ id: roles[0].id, name: roles[0].name }] as { id: number; name: string; }[]
+                                                : undefined;
+                                        onQuickView({ ...rest, roles: mappedRoles });
+                                    },
+                                },
+                                ...(selectedRowCount === 2
+                                    ? [{
+                                        label: "Merge",
+                                        onClick: () => {
+                                            console.log("Merge!")
+                                            toast.success('Agents merged ')
+                                        },
+                                        confirm2: true,
+                                    }]
+                                    : []),
+                                {
+                                    label: "Delete",
+                                    onClick: () => onDelete(row.original.uuid ?? ""),
+                                    confirm1: true,
+                                }
+                            ]}
+                            data={selectedAgents}
+                        />
+
+                    </div>
                 );
             },
         }
@@ -285,9 +298,22 @@ export default function AgentTable({ setAgentData, onQuickView, agentData, onDel
         userType === "vendor" ? { status: false } : {}
     );
     const [rowSelection, setRowSelection] = React.useState({});
+    const [pagination, setPagination] = React.useState({
+        pageIndex: 0,
+        pageSize: 10,
+    });
+
     const table = useReactTable({
         data: agentData,
         columns,
+        state: {
+            sorting,
+            columnFilters,
+            columnVisibility,
+            rowSelection,
+            pagination,
+        },
+        onPaginationChange: setPagination,
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
         getCoreRowModel: getCoreRowModel(),
@@ -296,12 +322,6 @@ export default function AgentTable({ setAgentData, onQuickView, agentData, onDel
         getFilteredRowModel: getFilteredRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
-        state: {
-            sorting,
-            columnFilters,
-            columnVisibility,
-            rowSelection,
-        },
     });
     return (
         <div>
@@ -313,7 +333,7 @@ export default function AgentTable({ setAgentData, onQuickView, agentData, onDel
                                 <TableRow key={headerGroup.id}>
                                     {headerGroup.headers.map((header) => {
                                         return (
-                                            <TableHead key={header.id} className="text-sm text-[#666666] font-bold h-[54px] bg-[#E4E4E4]">
+                                            <TableHead key={header.id} className="text-sm text-[#666666] font-bold h-[54px]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
                                                 {header.isPlaceholder
                                                     ? null
                                                     : flexRender(
@@ -327,7 +347,17 @@ export default function AgentTable({ setAgentData, onQuickView, agentData, onDel
                             ))}
                         </TableHeader>
                         <TableBody className="text-[15px] font-normal">
-                            {table.getRowModel().rows?.length ? (
+                            {loading ? (
+                                Array.from({ length: 5 }).map((_, index) => (
+                                    <TableRow key={index} className="h-[54px] bg-white border-b border-[#E4E4E4]">
+                                        {columns.map((_, colIndex) => (
+                                            <TableCell key={colIndex}>
+                                                <Skeleton className="h-4 w-auto bg-gray-200" />
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))
+                            ) : table.getRowModel().rows?.length ? (
                                 table.getRowModel().rows.map((row) => (
                                     <TableRow
                                         key={row.id}
@@ -343,24 +373,64 @@ export default function AgentTable({ setAgentData, onQuickView, agentData, onDel
                                         ))}
                                     </TableRow>
                                 ))
+                            ) : error ? (
+                                <TableRow>
+                                    <TableCell colSpan={columns.length} className="h-24 text-center text-red-500">
+                                        Failed to load agents.
+                                    </TableCell>
+                                </TableRow>
                             ) : (
-                                loading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={columns.length} className="h-24 text-center">
-                                            Loading Agents ...
-                                        </TableCell>
-                                    </TableRow>
-                                ) : error ? (
-                                    <TableRow>
-                                        <TableCell colSpan={columns.length} className="h-24 text-center">
-                                            No Agent Found.
-                                        </TableCell>
-                                    </TableRow>
-                                ) : null
+                                <TableRow>
+                                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                                        No Agents Available
+                                    </TableCell>
+                                </TableRow>
                             )}
                         </TableBody>
                     </Table>
                 </div>
+                {agentData.length > 0 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t">
+                        <div className="text-sm text-[#666666]">
+                            Showing {table.getRowModel().rows.length} of{" "}
+                            {agentData.length} Agents
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => table.previousPage()}
+                                disabled={!table.getCanPreviousPage()}
+                                className="text-[#666666]"
+                            >
+                                Previous
+                            </Button>
+                            <div className="flex items-center gap-1">
+                                {Array.from({ length: table.getPageCount() }, (_, i) => i + 1).map((page) => (
+                                    <Button
+                                        key={page}
+                                        variant={table.getState().pagination.pageIndex === page - 1 ? "default" : "outline"}
+                                        size="sm"
+                                        onClick={() => table.setPageIndex(page - 1)}
+                                        className={`min-w-[40px] ${table.getState().pagination.pageIndex === page - 1 ? `${userType}-bg text-white` : 'text-[#666666]'}`}
+                                    >
+                                        {page}
+                                    </Button>
+                                ))}
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => table.nextPage()}
+                                disabled={!table.getCanNextPage()}
+                                className="text-[#666666]"
+                            >
+                                Next
+                            </Button>
+                        </div>
+
+                    </div>
+                )}
             </div>
         </div>
 

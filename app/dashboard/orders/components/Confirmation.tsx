@@ -1,10 +1,9 @@
+'use client'
 import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import { useOrderContext } from '../context/OrderContext';
 import ConfirmationCard from './ConfirmationCard';
-import { Services } from '../../services/page';
-import { GetServices } from '../../services/services';
 import { Input } from '@/components/ui/input';
-import { Plus, TriangleAlert } from 'lucide-react';
+import { Plus, TriangleAlert, Loader2 } from 'lucide-react';
 import { GetDiscount } from '../../global-settings/global-settings';
 import { toast } from 'sonner';
 import { Create, Edit, GetOneOrder, GetVendors, OrderPayload } from '../orders';
@@ -21,17 +20,16 @@ export type Discount = {
     name: string | null;
     code_key: string | null;
     description: string | null;
-    percentage: string; // assuming it's a string like "40.00"
+    percentage: string;
     quantity: number | null;
     status: boolean;
-    expiry_date: string | null; // ISO string
+    expiry_date: string | null;
     created_at: string;
     updated_at: string;
     services: {
         id: number;
         uuid: string;
         name?: string;
-        // Add more fields if needed from service
     }[];
 };
 export type OrderConfirmationHandle = {
@@ -57,34 +55,20 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         isSubmitted,
         setIsSubmitted,
         isLoading,
-        setIsLoading
+        setIsLoading,
+        activePackage,
+        servicesData: services
     } = useOrderContext();
     const { userType } = useAppContext()
-    const [services, setServices] = useState<Services[]>([]);
+
     const [discounts, setDiscounts] = React.useState<Discount[]>([]);
     const [vendorsData, setVendorsData] = React.useState<VendorData[]>([]);
-    const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
     const [createdOrderUuid, setCreatedOrderUuid] = useState<string>("");
     const [orderData, setOrderData] = React.useState<Order | null>(null);
     const [amount, setAmount] = React.useState('');
     const params = useParams();
     const userId = params?.id as string;
-    useEffect(() => {
-        const token = localStorage.getItem("token");
 
-        if (!token) {
-            console.log("Token not found.");
-            return;
-        }
-
-        GetServices(token)
-            .then((data) => {
-                setServices(Array.isArray(data.data) ? data.data : []);
-            })
-            .catch(err => {
-                console.log(err.message);
-            });
-    }, []);
     useEffect(() => {
         const token = localStorage.getItem("token");
 
@@ -122,7 +106,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             return;
         }
 
-        GetDiscount(token)
+        GetDiscount()
             .then((data) => setDiscounts(Array.isArray(data.data) ? data.data : []))
             .catch((err) => console.log(err.message));
     }, []);
@@ -186,8 +170,15 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             newTotal += finalPrice;
         });
 
+        if (activePackage && (activePackage.discount || 0) > 0) {
+            const rawShopTotal = selectedServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+            const pkgDiscount = (rawShopTotal * (activePackage.discount || 0)) / 100;
+            // Ensure we don't go below zero?
+            newTotal = Math.max(0, newTotal - pkgDiscount);
+        }
+
         setTotal(newTotal);
-    }, [selectedServices, services, appliedCodeDiscount, appliedQuantityDiscounts, setTotal]);
+    }, [selectedServices, services, appliedCodeDiscount, appliedQuantityDiscounts, setTotal, activePackage]);
     const handleApplyDiscount = () => {
         const matched = discounts.find(
             (d) => d.type === "code" && d.code_key?.toLowerCase() === discountCode.toLowerCase()
@@ -218,7 +209,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     const buildDiscountPayload = () => {
         const discountPayload: {
             discount_id: string;
-            type: 'code' | 'quantity' | 'manual';
+            type: 'code' | 'quantity' | 'manual' | 'package';
             value: number;
             service_id?: string;
         }[] = [];
@@ -259,51 +250,79 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         return discountPayload;
     };
 
+
     const handleSubmitOrder = async (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
-        const discounts = buildDiscountPayload();
-        const servicesPayload = selectedServices
-            .map(service => ({
-                service_id: service.uuid as string,
-                option_id: service.option_id ?? undefined,
-                amount: service.price as number,
-                custom: service.custom ?? undefined
-            }));
-        const slotsPayload = selectedSlots.map((slot) => ({
-            service_id: slot.service_id,
-            vendor_id: slot.vendor_id,
-            show_all_vendors: slot.show_all_vendors ? 1 : 0,
-            schedule_override: slot.schedule_override ? 1 : 0,
-            recommend_time: slot.recommend_time ? 1 : 0,
-            travel: slot.travel ?? undefined,
-            start_time: slot.start_time,
-            end_time: slot.end_time,
-            est_time: slot.est_time ?? null,
-            distance: slot.distance ?? null,
-            km_price: slot.km_price ?? null,
-            date: slot.date
-        }));
-        console.log('slots payload', slotsPayload)
-        console.log('discount', discounts)
-        console.log('payload services', servicesPayload)
+        if (isLoading) return;
+
+        setIsLoading(true);
+
         try {
+            const discounts = buildDiscountPayload();
             const token = localStorage.getItem('token') || '';
 
             const payload: OrderPayload = {
-                agent_id: selectedAgentId || "",
-                property_id: selectedListingId || "",
+                agent_id: selectedAgentId ?? '',
+                property_id: selectedListingId ?? '',
                 amount: total,
                 order_status: "Processing",
                 payment_status: "UNPAID",
                 split_invoice: isSplitInvoice ? 1 : 0,
                 co_agents: coAgents,
-                notes: agentNotes.map((note) => ({
+                notes: agentNotes.map(note => ({
                     ...note,
                     date: new Date(note.date).toISOString().split("T")[0],
                 })),
-                services: servicesPayload,
-                discounts: discounts,
-                slots: slotsPayload
+                services: selectedServices
+                    .map(service => {
+                        const originalPrice = Number(service.price) || 0;
+
+                        const codeDiscount = appliedCodeDiscount?.services?.some(d => d.uuid === service.uuid)
+                            ? appliedCodeDiscount
+                            : null;
+
+                        const quantityDiscounts = appliedQuantityDiscounts.filter(d =>
+                            d.services?.some(s => s.uuid === service.uuid)
+                        );
+
+                        const allDiscounts: Discount[] = [];
+                        if (codeDiscount) allDiscounts.push(codeDiscount);
+                        allDiscounts.push(...quantityDiscounts);
+
+                        const bestDiscount = allDiscounts.reduce((best, curr) => {
+                            const currPercent = parseFloat(curr.percentage ?? "0");
+                            const bestPercent = best ? parseFloat(best.percentage ?? "0") : 0;
+                            return currPercent > bestPercent ? curr : best;
+                        }, null as Discount | null);
+
+                        const finalPrice = bestDiscount
+                            ? originalPrice * ((100 - parseFloat(bestDiscount.percentage ?? "0")) / 100)
+                            : originalPrice;
+
+                        return {
+                            ...(service.service_uuid && { uuid: service.service_uuid }), // Include uuid for existing services
+                            service_id: service.uuid as string,
+                            option_id: service.option_id ?? undefined,
+                            amount: Number(finalPrice.toFixed(2)),
+                            custom: service.custom ?? undefined
+                        };
+                    }),
+                discounts,
+                slots: selectedSlots.map((slot) => ({
+                    ...(slot.uuid && { uuid: slot.uuid }),
+                    service_id: slot.service_id,
+                    vendor_id: slot.vendor_id,
+                    show_all_vendors: slot.show_all_vendors ? 1 : 0,
+                    schedule_override: slot.schedule_override ? 1 : 0,
+                    recommend_time: slot.recommend_time ? 1 : 0,
+                    travel: slot.travel ?? undefined,
+                    start_time: slot.start_time,
+                    end_time: slot.end_time,
+                    est_time: slot.est_time ?? null,
+                    distance: slot.distance ?? null,
+                    km_price: slot.km_price ?? null,
+                    date: slot.date
+                }))
             };
 
             let response;
@@ -315,50 +334,18 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                 response = await Create(payload, token);
             }
 
-            // ✅ Check success flag before proceeding
-            if (response?.success) {
-                toast.success(userId ? 'Order updated successfully' : 'Order created successfully');
-                setIsLoading(true);
-                const uuid = response?.data?.uuid;
-                if (uuid) {
-                    setCreatedOrderUuid(uuid);
-                    setIsSubmitted(true);
-                }
-            } else {
-                setIsLoading(false);
-                setIsSubmitted(false);
-                toast.error("Something went wrong");
-            }
-        } catch (error) {
-            setIsLoading(false);
+            if (!response?.success) throw new Error("Order failed");
+
+            setCreatedOrderUuid(response.data.uuid);
+            setIsSubmitted(true);
+        } catch (err) {
+            console.error("Failed to submit order", err);
             setIsSubmitted(false);
-            console.log('Raw error:', error);
-
-            setFieldErrors({});
-            const apiError = error as { message?: string; errors?: Record<string, string[]> };
-
-            if (apiError.errors && typeof apiError.errors === 'object') {
-                const normalizedErrors: Record<string, string[]> = {};
-
-                Object.entries(apiError.errors).forEach(([key, messages]) => {
-                    const normalizedKey = key.split('.')[0];
-                    if (!normalizedErrors[normalizedKey]) {
-                        normalizedErrors[normalizedKey] = [];
-                    }
-                    normalizedErrors[normalizedKey].push(...messages);
-                });
-
-                setFieldErrors(normalizedErrors);
-
-                // const firstError = Object.values(normalizedErrors).flat()[0];
-                // toast.error(firstError || 'Validation error');
-            } else if (error instanceof Error) {
-                toast.error(error.message);
-            } else {
-                toast.error('Failed to submit order data');
-            }
+        } finally {
+            setIsLoading(false); // ✅ ALWAYS LAST
         }
     };
+
     const totalServiceAmount = orderData?.services?.reduce((sum, s) => {
         return sum + parseFloat(s.amount || "0");
     }, 0) ?? 0;
@@ -386,15 +373,12 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     useImperativeHandle(ref, () => ({
         handleSubmitOrder,
     }));
-    console.log('field Errors', fieldErrors)
-    console.log('orderdata', orderData)
-    console.log('agentnotes', agentNotes)
     return (
         <div className="w-full space-y-4">
             <div className="grid gap-4">
                 <div className='w-full flex flex-col items-center'>
                     <div className='w-full md:w-[370px] pt-[60px] pb-[100px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                        {(isSubmitted && createdOrderUuid) ? (
+                        {(isSubmitted && createdOrderUuid && !isLoading) ? (
                             <div className="w-full md:w-[450px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[48px] text-[#424242] text-[14px] font-[400]">
                                 <div className='flex justify-between gap-[12px]'>
                                     <div className='flex gap-[12px] items-center'>
@@ -612,24 +596,51 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                 })}
 
                                 <div className='col-span-2'>
-                                    <div className='flex items-center justify-between px-2'>
-                                        <p className='font-normal text-[20px] text-[#424242]'>Total</p>
-                                        <p className='font-normal text-[20px] text-[#424242]'>
-                                            ${total.toFixed(2)}
-                                        </p>
+                                    <div className='flex flex-col gap-2 px-2'>
+                                        {activePackage && (activePackage.discount || 0) > 0 && (
+                                            <div className='flex items-center justify-between'>
+                                                <p className='font-normal text-[14px] text-green-600'>
+                                                    Package: {activePackage.name} ({activePackage.discount}%)
+                                                </p>
+                                                <p className='font-normal text-[14px] text-green-600'>
+                                                    - ${(
+                                                        (selectedServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0) * (activePackage.discount || 0)) / 100
+                                                    ).toFixed(2)}
+                                                </p>
+                                            </div>
+                                        )}
+                                        <div className='flex items-center justify-between'>
+                                            <p className='font-normal text-[20px] text-[#424242]'>Total</p>
+                                            <p className='font-normal text-[20px] text-[#424242]'>
+                                                ${total.toFixed(2)}
+                                            </p>
 
+                                        </div>
                                     </div>
                                 </div>
+                                {!userType &&
+                                    <div className='col-span-2'>
+                                        <button
+                                            disabled={isLoading}
+                                            type="button"
+                                            onClick={handleSubmitOrder}
+                                            className={`bg-[#4290E9] font-raleway text-white rounded-[3px] hover:bg-[#4290E9] w-full h-[30px] font-[600] text-[14px] flex items-center justify-center gap-2`}
+                                        >
+                                            {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Submit Order"}
+                                        </button>
+                                    </div>
+                                }
                                 <div className='col-span-2'>
                                     <button
                                         disabled={isLoading}
                                         type="button"
                                         onClick={handleSubmitOrder}
-                                        className={`${userType}-bg font-raleway text-white rounded-[3px] hover-${userType}-bg w-full h-[30px] font-[600] text-[14px]`}
+                                        className={`${userType}-bg font-raleway text-white rounded-[3px] hover-${userType}-bg w-full h-[30px] font-[600] text-[14px] flex items-center justify-center gap-2`}
                                     >
-                                        Submit Order
+                                        {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Submit Order"}
                                     </button>
                                 </div>
+
                             </div>
                         )}
 

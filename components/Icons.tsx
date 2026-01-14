@@ -1,175 +1,428 @@
 const WarningIcon = ({ width = 48, height = 48, fill = "#E06D5E" }) => (
-    <svg
-        width={width}
-        height={height}
-        viewBox="0 0 48 48"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-    >
-        <path
-            d="M20.58 7.71992L3.64004 35.9999C3.29078 36.6048 3.10598 37.2905 3.10402 37.989C3.10206 38.6874 3.28302 39.3742 3.62889 39.981C3.97477 40.5878 4.47349 41.0934 5.07546 41.4476C5.67742 41.8018 6.36164 41.9922 7.06004 41.9999H40.94C41.6384 41.9922 42.3227 41.8018 42.9246 41.4476C43.5266 41.0934 44.0253 40.5878 44.3712 39.981C44.7171 39.3742 44.898 38.6874 44.8961 37.989C44.8941 37.2905 44.7093 36.6048 44.36 35.9999L27.42 7.71992C27.0635 7.13213 26.5615 6.64616 25.9624 6.30889C25.3634 5.97162 24.6875 5.79443 24 5.79443C23.3126 5.79443 22.6367 5.97162 22.0377 6.30889C21.4386 6.64616 20.9366 7.13213 20.58 7.71992Z"
-            fill={fill}
-            stroke="#F2F2F2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        />
-        <path
-            d="M24 18V26"
-            stroke="#F2F2F2"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        />
-        <path
-            d="M24 34H24.02"
-            stroke="#F2F2F2"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        />
-    </svg>
+  <svg
+    width={width}
+    height={height}
+    viewBox="0 0 48 48"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M20.58 7.71992L3.64004 35.9999C3.29078 36.6048 3.10598 37.2905 3.10402 37.989C3.10206 38.6874 3.28302 39.3742 3.62889 39.981C3.97477 40.5878 4.47349 41.0934 5.07546 41.4476C5.67742 41.8018 6.36164 41.9922 7.06004 41.9999H40.94C41.6384 41.9922 42.3227 41.8018 42.9246 41.4476C43.5266 41.0934 44.0253 40.5878 44.3712 39.981C44.7171 39.3742 44.898 38.6874 44.8961 37.989C44.8941 37.2905 44.7093 36.6048 44.36 35.9999L27.42 7.71992C27.0635 7.13213 26.5615 6.64616 25.9624 6.30889C25.3634 5.97162 24.6875 5.79443 24 5.79443C23.3126 5.79443 22.6367 5.97162 22.0377 6.30889C21.4386 6.64616 20.9366 7.13213 20.58 7.71992Z"
+      fill={fill}
+      stroke="#F2F2F2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M24 18V26"
+      stroke="#F2F2F2"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M24 34H24.02"
+      stroke="#F2F2F2"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
 );
 
 export default WarningIcon;
 
 export const Listings = () => (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M1.25 5.75L8 0.5L14.75 5.75V14C14.75 14.3978 14.592 14.7794 14.3107 15.0607C14.0294 15.342 13.6478 15.5 13.25 15.5H2.75C2.35218 15.5 1.97064 15.342 1.68934 15.0607C1.40804 14.7794 1.25 14.3978 1.25 14V5.75Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M1.25 5.75L8 0.5L14.75 5.75V14C14.75 14.3978 14.592 14.7794 14.3107 15.0607C14.0294 15.342 13.6478 15.5 13.25 15.5H2.75C2.35218 15.5 1.97064 15.342 1.68934 15.0607C1.40804 14.7794 1.25 14.3978 1.25 14V5.75Z"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
 );
 
 export const SubAccounts = () => (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 15.75V14.25C12 13.4544 11.6839 12.6913 11.1213 12.1287C10.5587 11.5661 9.79565 11.25 9 11.25H3.75C2.95435 11.25 2.19129 11.5661 1.62868 12.1287C1.06607 12.6913 0.75 13.4544 0.75 14.25V15.75" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M6.375 8.25C8.03185 8.25 9.375 6.90685 9.375 5.25C9.375 3.59315 8.03185 2.25 6.375 2.25C4.71815 2.25 3.375 3.59315 3.375 5.25C3.375 6.90685 4.71815 8.25 6.375 8.25Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M15 5.25C15.1786 5.25 15.3433 5.3454 15.4326 5.5L17.3818 8.875C17.4711 9.02964 17.4711 9.22036 17.3818 9.375C17.2925 9.5297 17.1269 9.625 16.9482 9.625H13.0518C12.8731 9.625 12.7075 9.5297 12.6182 9.375C12.5289 9.22036 12.5289 9.02964 12.6182 8.875L14.5674 5.5L14.6035 5.44531C14.6974 5.32314 14.8435 5.25 15 5.25Z" stroke="currentColor" strokeLinejoin="round" />
-    </svg>
-
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 18 18"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M12 15.75V14.25C12 13.4544 11.6839 12.6913 11.1213 12.1287C10.5587 11.5661 9.79565 11.25 9 11.25H3.75C2.95435 11.25 2.19129 11.5661 1.62868 12.1287C1.06607 12.6913 0.75 13.4544 0.75 14.25V15.75"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M6.375 8.25C8.03185 8.25 9.375 6.90685 9.375 5.25C9.375 3.59315 8.03185 2.25 6.375 2.25C4.71815 2.25 3.375 3.59315 3.375 5.25C3.375 6.90685 4.71815 8.25 6.375 8.25Z"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M15 5.25C15.1786 5.25 15.3433 5.3454 15.4326 5.5L17.3818 8.875C17.4711 9.02964 17.4711 9.22036 17.3818 9.375C17.2925 9.5297 17.1269 9.625 16.9482 9.625H13.0518C12.8731 9.625 12.7075 9.5297 12.6182 9.375C12.5289 9.22036 12.5289 9.02964 12.6182 8.875L14.5674 5.5L14.6035 5.44531C14.6974 5.32314 14.8435 5.25 15 5.25Z"
+      stroke="currentColor"
+      strokeLinejoin="round"
+    />
+  </svg>
 );
 
 export const Vendors = () => (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 15.75V14.25C12 13.4544 11.6839 12.6913 11.1213 12.1287C10.5587 11.5661 9.79565 11.25 9 11.25H3.75C2.95435 11.25 2.19129 11.5661 1.62868 12.1287C1.06607 12.6913 0.75 13.4544 0.75 14.25V15.75" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M6.375 8.25C8.03185 8.25 9.375 6.90685 9.375 5.25C9.375 3.59315 8.03185 2.25 6.375 2.25C4.71815 2.25 3.375 3.59315 3.375 5.25C3.375 6.90685 4.71815 8.25 6.375 8.25Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M15 6V10.5" stroke="currentColor" strokeLinecap="square" strokeLinejoin="round" />
-        <path d="M17.25 8.25H12.75" stroke="currentColor" strokeLinecap="square" strokeLinejoin="round" />
-        <path d="M13.4092 6.65894L16.5912 9.84092" stroke="currentColor" strokeLinecap="square" strokeLinejoin="round" />
-        <path d="M16.5912 6.65908L13.4092 9.84106" stroke="currentColor" strokeLinecap="square" strokeLinejoin="round" />
-        <path d="M15 9.5C15.8284 9.5 16.5 8.82843 16.5 8C16.5 7.17157 15.8284 6.5 15 6.5C14.1716 6.5 13.5 7.17157 13.5 8C13.5 8.82843 14.1716 9.5 15 9.5Z" fill="#F2F2F2" />
-    </svg>
-
-
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 18 18"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M12 15.75V14.25C12 13.4544 11.6839 12.6913 11.1213 12.1287C10.5587 11.5661 9.79565 11.25 9 11.25H3.75C2.95435 11.25 2.19129 11.5661 1.62868 12.1287C1.06607 12.6913 0.75 13.4544 0.75 14.25V15.75"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M6.375 8.25C8.03185 8.25 9.375 6.90685 9.375 5.25C9.375 3.59315 8.03185 2.25 6.375 2.25C4.71815 2.25 3.375 3.59315 3.375 5.25C3.375 6.90685 4.71815 8.25 6.375 8.25Z"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M15 6V10.5"
+      stroke="currentColor"
+      strokeLinecap="square"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M17.25 8.25H12.75"
+      stroke="currentColor"
+      strokeLinecap="square"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M13.4092 6.65894L16.5912 9.84092"
+      stroke="currentColor"
+      strokeLinecap="square"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M16.5912 6.65908L13.4092 9.84106"
+      stroke="currentColor"
+      strokeLinecap="square"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M15 9.5C15.8284 9.5 16.5 8.82843 16.5 8C16.5 7.17157 15.8284 6.5 15 6.5C14.1716 6.5 13.5 7.17157 13.5 8C13.5 8.82843 14.1716 9.5 15 9.5Z"
+      fill="#F2F2F2"
+    />
+  </svg>
 );
 
 export const Admin = () => (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 15.75V14.25C12 13.4544 11.6839 12.6913 11.1213 12.1287C10.5587 11.5661 9.79565 11.25 9 11.25H3.75C2.95435 11.25 2.19129 11.5661 1.62868 12.1287C1.06607 12.6913 0.75 13.4544 0.75 14.25V15.75" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M6.375 8.25C8.03185 8.25 9.375 6.90685 9.375 5.25C9.375 3.59315 8.03185 2.25 6.375 2.25C4.71815 2.25 3.375 3.59315 3.375 5.25C3.375 6.90685 4.71815 8.25 6.375 8.25Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M15 6V10.5" stroke="currentColor" strokeLinecap="square" strokeLinejoin="round" />
-        <path d="M17.25 8.25H12.75" stroke="currentColor" strokeLinecap="square" strokeLinejoin="round" />
-        <path d="M13.4092 6.65894L16.5912 9.84092" stroke="currentColor" strokeLinecap="square" strokeLinejoin="round" />
-        <path d="M16.5912 6.65908L13.4092 9.84106" stroke="currentColor" strokeLinecap="square" strokeLinejoin="round" />
-        <path d="M15 9.5C15.8284 9.5 16.5 8.82843 16.5 8C16.5 7.17157 15.8284 6.5 15 6.5C14.1716 6.5 13.5 7.17157 13.5 8C13.5 8.82843 14.1716 9.5 15 9.5Z" fill="#F2F2F2" />
-    </svg>
-
-
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 18 18"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M12 15.75V14.25C12 13.4544 11.6839 12.6913 11.1213 12.1287C10.5587 11.5661 9.79565 11.25 9 11.25H3.75C2.95435 11.25 2.19129 11.5661 1.62868 12.1287C1.06607 12.6913 0.75 13.4544 0.75 14.25V15.75"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M6.375 8.25C8.03185 8.25 9.375 6.90685 9.375 5.25C9.375 3.59315 8.03185 2.25 6.375 2.25C4.71815 2.25 3.375 3.59315 3.375 5.25C3.375 6.90685 4.71815 8.25 6.375 8.25Z"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M15 6V10.5"
+      stroke="currentColor"
+      strokeLinecap="square"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M17.25 8.25H12.75"
+      stroke="currentColor"
+      strokeLinecap="square"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M13.4092 6.65894L16.5912 9.84092"
+      stroke="currentColor"
+      strokeLinecap="square"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M16.5912 6.65908L13.4092 9.84106"
+      stroke="currentColor"
+      strokeLinecap="square"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M15 9.5C15.8284 9.5 16.5 8.82843 16.5 8C16.5 7.17157 15.8284 6.5 15 6.5C14.1716 6.5 13.5 7.17157 13.5 8C13.5 8.82843 14.1716 9.5 15 9.5Z"
+      fill="#F2F2F2"
+    />
+  </svg>
 );
-export const ArrowUp = ({className = ""}) => (
-    <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-        <path d="M14 7.42969L7 0.429688L0 7.42969L14 7.42969Z" fill="" />
-    </svg>
+export const ArrowUp = ({ className = "" }) => (
+  <svg
+    width="14"
+    height="8"
+    viewBox="0 0 14 8"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path d="M14 7.42969L7 0.429688L0 7.42969L14 7.42969Z" fill="" />
+  </svg>
 );
-export const ArrowDown = ({className = ""}) => (
-    <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-        <path d="M0 0.429687L7 7.42969L14 0.429688L0 0.429687Z" fill="" />
-    </svg>
+export const ArrowDown = ({ className = "" }) => (
+  <svg
+    width="14"
+    height="8"
+    viewBox="0 0 14 8"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path d="M0 0.429687L7 7.42969L14 0.429688L0 0.429687Z" fill="" />
+  </svg>
 );
-export const DropDownArrow = ({ className = ''}) => (
-    <svg width="14" height="9" viewBox="0 0 14 9" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-        <path d="M1 1.42969L7 7.42969L13 1.42969" stroke="#4290E9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+export const DropDownArrow = ({ className = "" }) => (
+  <svg
+    width="14"
+    height="9"
+    viewBox="0 0 14 9"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path
+      d="M1 1.42969L7 7.42969L13 1.42969"
+      stroke="#4290E9"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
 );
 export const BackArrow = () => (
-    <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M7 13L1 7L7 1" stroke="#F2F2F2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+  <svg
+    width="8"
+    height="14"
+    viewBox="0 0 8 14"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M7 13L1 7L7 1"
+      stroke="#F2F2F2"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
 );
 
 export const Eye = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <g clip-path="url(#clip0_463_7138)">
-            <path d="M17.94 17.94C16.2306 19.243 14.1491 19.9649 12 20C5 20 1 12 1 12C2.24389 9.68192 3.96914 7.65663 6.06 6.06003M9.9 4.24002C10.5883 4.0789 11.2931 3.99836 12 4.00003C19 4.00003 23 12 23 12C22.393 13.1356 21.6691 14.2048 20.84 15.19M14.12 14.12C13.8454 14.4148 13.5141 14.6512 13.1462 14.8151C12.7782 14.9791 12.3809 15.0673 11.9781 15.0744C11.5753 15.0815 11.1752 15.0074 10.8016 14.8565C10.4281 14.7056 10.0887 14.4811 9.80385 14.1962C9.51897 13.9113 9.29439 13.572 9.14351 13.1984C8.99262 12.8249 8.91853 12.4247 8.92563 12.0219C8.93274 11.6191 9.02091 11.2219 9.18488 10.8539C9.34884 10.4859 9.58525 10.1547 9.88 9.88003" stroke="#666666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M1 1L23 23" stroke="#666666" strokeLinecap="round" strokeLinejoin="round" />
-        </g>
-        <defs>
-            <clipPath id="clip0_463_7138">
-                <rect width="24" height="24" fill="white" />
-            </clipPath>
-        </defs>
-    </svg>
-
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <g clip-path="url(#clip0_463_7138)">
+      <path
+        d="M17.94 17.94C16.2306 19.243 14.1491 19.9649 12 20C5 20 1 12 1 12C2.24389 9.68192 3.96914 7.65663 6.06 6.06003M9.9 4.24002C10.5883 4.0789 11.2931 3.99836 12 4.00003C19 4.00003 23 12 23 12C22.393 13.1356 21.6691 14.2048 20.84 15.19M14.12 14.12C13.8454 14.4148 13.5141 14.6512 13.1462 14.8151C12.7782 14.9791 12.3809 15.0673 11.9781 15.0744C11.5753 15.0815 11.1752 15.0074 10.8016 14.8565C10.4281 14.7056 10.0887 14.4811 9.80385 14.1962C9.51897 13.9113 9.29439 13.572 9.14351 13.1984C8.99262 12.8249 8.91853 12.4247 8.92563 12.0219C8.93274 11.6191 9.02091 11.2219 9.18488 10.8539C9.34884 10.4859 9.58525 10.1547 9.88 9.88003"
+        stroke="#666666"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M1 1L23 23"
+        stroke="#666666"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </g>
+    <defs>
+      <clipPath id="clip0_463_7138">
+        <rect width="24" height="24" fill="white" />
+      </clipPath>
+    </defs>
+  </svg>
 );
-export const PreviewImage = ({ className = '' }) => (
-    <svg width="24" height="25" viewBox="0 0 24 25" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-        <path d="M19 3.5H5C3.89543 3.5 3 4.39543 3 5.5V19.5C3 20.6046 3.89543 21.5 5 21.5H19C20.1046 21.5 21 20.6046 21 19.5V5.5C21 4.39543 20.1046 3.5 19 3.5Z" stroke="#4290E9" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M8.5 10.5C9.32843 10.5 10 9.82843 10 9C10 8.17157 9.32843 7.5 8.5 7.5C7.67157 7.5 7 8.17157 7 9C7 9.82843 7.67157 10.5 8.5 10.5Z" stroke="#4290E9" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M21 15.5L16 10.5L5 21.5" stroke="#4290E9" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-
+export const PreviewImage = ({ className = "" }) => (
+  <svg
+    width="24"
+    height="25"
+    viewBox="0 0 24 25"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path
+      d="M19 3.5H5C3.89543 3.5 3 4.39543 3 5.5V19.5C3 20.6046 3.89543 21.5 5 21.5H19C20.1046 21.5 21 20.6046 21 19.5V5.5C21 4.39543 20.1046 3.5 19 3.5Z"
+      stroke="#4290E9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M8.5 10.5C9.32843 10.5 10 9.82843 10 9C10 8.17157 9.32843 7.5 8.5 7.5C7.67157 7.5 7 8.17157 7 9C7 9.82843 7.67157 10.5 8.5 10.5Z"
+      stroke="#4290E9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M21 15.5L16 10.5L5 21.5"
+      stroke="#4290E9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
 );
 export const ArrowUpOrange = () => (
-    <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M14 7.59375L7 0.59375L0 7.59375L14 7.59375Z" fill="#DC9600" />
-    </svg>
-)
+  <svg
+    width="14"
+    height="8"
+    viewBox="0 0 14 8"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M14 7.59375L7 0.59375L0 7.59375L14 7.59375Z" fill="#DC9600" />
+  </svg>
+);
 export const ArrowDownOrange = () => (
-    <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M0 0.593749L7 7.59375L14 0.59375L0 0.593749Z" fill="#DC9600" />
-    </svg>
-)
+  <svg
+    width="14"
+    height="8"
+    viewBox="0 0 14 8"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M0 0.593749L7 7.59375L14 0.59375L0 0.593749Z" fill="#DC9600" />
+  </svg>
+);
 export const ChevronDownIcon = () => (
-    <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M13 7.09375L7 1.09375L1 7.09375" stroke="#4290E9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-
-)
+  <svg
+    width="14"
+    height="8"
+    viewBox="0 0 14 8"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M13 7.09375L7 1.09375L1 7.09375"
+      stroke="#4290E9"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 export const EditIcon3 = () => (
-    <svg width="56" height="42" viewBox="0 0 56 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="0.458824" y="0.458824" width="55.0824" height="41.0824" rx="5.54118" fill="#EEEEEE" />
-        <rect x="0.458824" y="0.458824" width="55.0824" height="41.0824" rx="5.54118" stroke="#BBBBBB" strokeWidth="0.917647" />
-        <g clipPath="url(#clip0_43_40609)">
-            <path d="M19 26.2496V29.9996H22.75L33.81 18.9396L30.06 15.1896L19 26.2496ZM36.71 16.0396C37.1 15.6496 37.1 15.0196 36.71 14.6296L34.37 12.2896C33.98 11.8996 33.35 11.8996 32.96 12.2896L31.13 14.1196L34.88 17.8696L36.71 16.0396Z" fill="#7D7D7D" />
-        </g>
-        <defs>
-            <clipPath id="clip0_43_40609">
-                <rect width="24" height="24" fill="white" transform="translate(16 9)" />
-            </clipPath>
-        </defs>
-    </svg>
+  <svg
+    width="56"
+    height="42"
+    viewBox="0 0 56 42"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <rect
+      x="0.458824"
+      y="0.458824"
+      width="55.0824"
+      height="41.0824"
+      rx="5.54118"
+      fill="#EEEEEE"
+    />
+    <rect
+      x="0.458824"
+      y="0.458824"
+      width="55.0824"
+      height="41.0824"
+      rx="5.54118"
+      stroke="#BBBBBB"
+      strokeWidth="0.917647"
+    />
+    <g clipPath="url(#clip0_43_40609)">
+      <path
+        d="M19 26.2496V29.9996H22.75L33.81 18.9396L30.06 15.1896L19 26.2496ZM36.71 16.0396C37.1 15.6496 37.1 15.0196 36.71 14.6296L34.37 12.2896C33.98 11.8996 33.35 11.8996 32.96 12.2896L31.13 14.1196L34.88 17.8696L36.71 16.0396Z"
+        fill="#7D7D7D"
+      />
+    </g>
+    <defs>
+      <clipPath id="clip0_43_40609">
+        <rect width="24" height="24" fill="white" transform="translate(16 9)" />
+      </clipPath>
+    </defs>
+  </svg>
 );
 
-export const DownloadIcon = ({ width, height, fill }: { width: string; height: string; fill: string }) => (
-    <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill={fill}
-        width={width}
-        height={height}
-        viewBox="0 0 24 24"
-    >
-        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
-    </svg>
+export const DownloadIcon = ({
+  width,
+  height,
+  fill,
+}: {
+  width: string;
+  height: string;
+  fill: string;
+}) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill={fill}
+    width={width}
+    height={height}
+    viewBox="0 0 24 24"
+  >
+    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+  </svg>
 );
 
 export const AddImage = () => (
-  <svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M76 12H20C15.5817 12 12 15.5817 12 20V76C12 80.4183 15.5817 84 20 84H76C80.4183 84 84 80.4183 84 76V20C84 15.5817 80.4183 12 76 12Z" stroke="#8E8E8E" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M48 32V64" stroke="#8E8E8E" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M32 48H64" stroke="#8E8E8E" strokeLinecap="round" strokeLinejoin="round" />
+  <svg
+    width="96"
+    height="96"
+    viewBox="0 0 96 96"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M76 12H20C15.5817 12 12 15.5817 12 20V76C12 80.4183 15.5817 84 20 84H76C80.4183 84 84 80.4183 84 76V20C84 15.5817 80.4183 12 76 12Z"
+      stroke="#8E8E8E"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M48 32V64"
+      stroke="#8E8E8E"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M32 48H64"
+      stroke="#8E8E8E"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
-
-)
-
+);
 
 export const CameraIcon = ({ width = 63, height = 63 }) => (
   <svg
@@ -235,473 +488,745 @@ export const CameraIcon = ({ width = 63, height = 63 }) => (
 );
 
 export const PriceTag = () => (
- <svg
-  width="57"
-  height="56"
-  viewBox="0 0 57 56"
-  fill="none"
-  xmlns="http://www.w3.org/2000/svg"
- >
-  <path
-   d="M48.5432 31.2893L31.8132 48.0193C31.3798 48.4532 30.8651 48.7974 30.2986 49.0323C29.732 49.2671 29.1248 49.388 28.5115 49.388C27.8982 49.388 27.291 49.2671 26.7244 49.0323C26.1579 48.7974 25.6432 48.4532 25.2098 48.0193L5.1665 27.9993V4.66602H28.4998L48.5432 24.7093C49.4123 25.5837 49.9002 26.7665 49.9002 27.9993C49.9002 29.2322 49.4123 30.415 48.5432 31.2893Z"
-   stroke="#1E6FCC"
-   stroke-linecap="round"
-   stroke-linejoin="round"
-  />
-  <path
-   d="M16.8335 16.334H16.8568"
-   stroke="#1E6FCC"
-   stroke-linecap="round"
-   stroke-linejoin="round"
-  />
- </svg>
+  <svg
+    width="57"
+    height="56"
+    viewBox="0 0 57 56"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M48.5432 31.2893L31.8132 48.0193C31.3798 48.4532 30.8651 48.7974 30.2986 49.0323C29.732 49.2671 29.1248 49.388 28.5115 49.388C27.8982 49.388 27.291 49.2671 26.7244 49.0323C26.1579 48.7974 25.6432 48.4532 25.2098 48.0193L5.1665 27.9993V4.66602H28.4998L48.5432 24.7093C49.4123 25.5837 49.9002 26.7665 49.9002 27.9993C49.9002 29.2322 49.4123 30.415 48.5432 31.2893Z"
+      stroke="#1E6FCC"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M16.8335 16.334H16.8568"
+      stroke="#1E6FCC"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
 );
 export const BedIcon = ({ className = "" }) => (
- <svg
-  width="73"
-  height="62"
-  viewBox="0 0 73 62"
-  fill="none"
-  xmlns="http://www.w3.org/2000/svg"
-  className={className}
- >
-  <path
-   d="M1.20605 46.8828H71.7944V53.9416H1.20605V46.8828Z"
-   stroke="#1E6FCC"
-   stroke-linejoin="round"
-  />
-  <path
-   d="M1.20605 30.2363C1.20605 29.684 1.65377 29.2363 2.20605 29.2363H70.7944C71.3467 29.2363 71.7944 29.684 71.7944 30.2363V46.8834H1.20605V30.2363Z"
-   stroke="#1E6FCC"
-   stroke-linejoin="round"
-  />
-  <rect
-   x="32.9697"
-   y="15.1172"
-   width="14.1176"
-   height="21.1765"
-   rx="1"
-   transform="rotate(90 32.9697 15.1172)"
-   stroke="#1E6FCC"
-   stroke-linejoin="round"
-  />
-  <rect
-   x="61.2061"
-   y="15.1172"
-   width="14.1176"
-   height="21.1765"
-   rx="1"
-   transform="rotate(90 61.2061 15.1172)"
-   stroke="#1E6FCC"
-   stroke-linejoin="round"
-  />
-  <path
-   d="M67.2651 1C67.8174 1 68.2651 1.44772 68.2651 2L68.2651 29.2353L4.73561 29.2353L4.73561 2C4.73561 1.44771 5.18332 0.999997 5.73561 0.999997L67.2651 1Z"
-   stroke="#1E6FCC"
-   stroke-linejoin="round"
-  />
-  <path
-   d="M61.2061 53.9414H68.2649V61.0002H64.7355L61.2061 53.9414Z"
-   stroke="#1E6FCC"
-   stroke-linejoin="round"
-  />
-  <path
-   d="M4.73535 53.9414H11.7942L8.26477 61.0002H4.73535V53.9414Z"
-   stroke="#1E6FCC"
-   stroke-linejoin="round"
-  />
- </svg>
+  <svg
+    width="73"
+    height="62"
+    viewBox="0 0 73 62"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path
+      d="M1.20605 46.8828H71.7944V53.9416H1.20605V46.8828Z"
+      stroke="#1E6FCC"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M1.20605 30.2363C1.20605 29.684 1.65377 29.2363 2.20605 29.2363H70.7944C71.3467 29.2363 71.7944 29.684 71.7944 30.2363V46.8834H1.20605V30.2363Z"
+      stroke="#1E6FCC"
+      stroke-linejoin="round"
+    />
+    <rect
+      x="32.9697"
+      y="15.1172"
+      width="14.1176"
+      height="21.1765"
+      rx="1"
+      transform="rotate(90 32.9697 15.1172)"
+      stroke="#1E6FCC"
+      stroke-linejoin="round"
+    />
+    <rect
+      x="61.2061"
+      y="15.1172"
+      width="14.1176"
+      height="21.1765"
+      rx="1"
+      transform="rotate(90 61.2061 15.1172)"
+      stroke="#1E6FCC"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M67.2651 1C67.8174 1 68.2651 1.44772 68.2651 2L68.2651 29.2353L4.73561 29.2353L4.73561 2C4.73561 1.44771 5.18332 0.999997 5.73561 0.999997L67.2651 1Z"
+      stroke="#1E6FCC"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M61.2061 53.9414H68.2649V61.0002H64.7355L61.2061 53.9414Z"
+      stroke="#1E6FCC"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M4.73535 53.9414H11.7942L8.26477 61.0002H4.73535V53.9414Z"
+      stroke="#1E6FCC"
+      stroke-linejoin="round"
+    />
+  </svg>
 );
 
 export const BathIcon = ({ className = "" }) => (
- <svg
-  width="61"
-  height="62"
-  viewBox="0 0 61 62"
-  fill="none"
-  xmlns="http://www.w3.org/2000/svg"
-  className={className}
- >
-  <path
-   d="M39.3502 7C36.0917 7 33.4502 9.68629 33.4502 13H45.2502C45.2502 9.68629 42.6087 7 39.3502 7Z"
-   stroke="#1E6FCC"
-   stroke-linejoin="round"
-  />
-  <path
-   d="M54.0996 34V8.375C54.0996 4.3019 50.7977 1 46.7246 1H46.2246C42.4277 1 39.3496 4.07804 39.3496 7.875V7.875"
-   stroke="#1E6FCC"
-   stroke-linejoin="round"
-  />
-  <rect
-   x="15.75"
-   y="31"
-   width="11.8"
-   height="15"
-   stroke="#1E6FCC"
-   stroke-linejoin="round"
-  />
-  <path
-   d="M15.75 41.5H27.55"
-   stroke="#1E6FCC"
-   stroke-linecap="round"
-   stroke-linejoin="round"
-  />
-  <path
-   d="M27.55 34H59C59.5523 34 60 34.4477 60 35V37.5C60 38.0523 59.5523 38.5 59 38.5H27.55M15.75 38.5H2C1.44771 38.5 1 38.0523 1 37.5V35C1 34.4477 1.44772 34 2 34H15.75"
-   stroke="#1E6FCC"
-  />
-  <path
-   d="M57.0418 40C57.1134 46 57.0418 58 42.9882 58C30.496 58 21.1269 58 18.0039 58C7.07745 58 3.9502 47.5 3.9502 40"
-   stroke="#1E6FCC"
-   stroke-linecap="round"
-   stroke-linejoin="round"
-  />
-  <path
-   d="M18.7 58V60C18.7 60.5523 18.2523 61 17.7 61H16.75C16.1977 61 15.75 60.5523 15.75 60V58"
-   stroke="#1E6FCC"
-  />
-  <path
-   d="M48.2 58V60C48.2 60.5523 47.7523 61 47.2 61H46.25C45.6977 61 45.25 60.5523 45.25 60V58"
-   stroke="#1E6FCC"
-  />
- </svg>
+  <svg
+    width="61"
+    height="62"
+    viewBox="0 0 61 62"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path
+      d="M39.3502 7C36.0917 7 33.4502 9.68629 33.4502 13H45.2502C45.2502 9.68629 42.6087 7 39.3502 7Z"
+      stroke="currentColor"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M54.0996 34V8.375C54.0996 4.3019 50.7977 1 46.7246 1H46.2246C42.4277 1 39.3496 4.07804 39.3496 7.875V7.875"
+      stroke="currentColor"
+      stroke-linejoin="round"
+    />
+    <rect
+      x="15.75"
+      y="31"
+      width="11.8"
+      height="15"
+      stroke="currentColor"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M15.75 41.5H27.55"
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M27.55 34H59C59.5523 34 60 34.4477 60 35V37.5C60 38.0523 59.5523 38.5 59 38.5H27.55M15.75 38.5H2C1.44771 38.5 1 38.0523 1 37.5V35C1 34.4477 1.44772 34 2 34H15.75"
+      stroke="currentColor"
+    />
+    <path
+      d="M57.0418 40C57.1134 46 57.0418 58 42.9882 58C30.496 58 21.1269 58 18.0039 58C7.07745 58 3.9502 47.5 3.9502 40"
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M18.7 58V60C18.7 60.5523 18.2523 61 17.7 61H16.75C16.1977 61 15.75 60.5523 15.75 60V58"
+      stroke="currentColor"
+    />
+    <path
+      d="M48.2 58V60C48.2 60.5523 47.7523 61 47.2 61H46.25C45.6977 61 45.25 60.5523 45.25 60V58"
+      stroke="currentColor"
+    />
+  </svg>
 );
 
 export const HomeIcon = () => (
- <svg
-  width="69"
-  height="69"
-  viewBox="0 0 69 69"
-  fill="none"
-  xmlns="http://www.w3.org/2000/svg"
- >
-  <path
-   d="M5 24.1671L34.5 1.22266L64 24.1671V60.2227C64 61.9613 63.3093 63.6287 62.0799 64.8581C60.8505 66.0875 59.1831 66.7782 57.4444 66.7782H11.5556C9.81691 66.7782 8.14948 66.0875 6.92008 64.8581C5.69067 63.6287 5 61.9613 5 60.2227V24.1671Z"
-   stroke="#1E6FCC"
-   stroke-linecap="round"
-   stroke-linejoin="round"
-  />
-  <path
-   d="M28 67V42H42V67"
-   stroke="#1E6FCC"
-   stroke-linecap="round"
-   stroke-linejoin="round"
-  />
- </svg>
+  <svg
+    width="69"
+    height="69"
+    viewBox="0 0 69 69"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M5 24.1671L34.5 1.22266L64 24.1671V60.2227C64 61.9613 63.3093 63.6287 62.0799 64.8581C60.8505 66.0875 59.1831 66.7782 57.4444 66.7782H11.5556C9.81691 66.7782 8.14948 66.0875 6.92008 64.8581C5.69067 63.6287 5 61.9613 5 60.2227V24.1671Z"
+      stroke="#1E6FCC"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M28 67V42H42V67"
+      stroke="#1E6FCC"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
 );
 
 export const LotIcon = () => (
- <svg
-  width="63"
-  height="62"
-  viewBox="0 0 63 62"
-  fill="none"
-  xmlns="http://www.w3.org/2000/svg"
- >
-  <path
-   d="M0.730469 11.7692L6.88432 1L13.0382 11.7692V61H0.730469V11.7692Z"
-   stroke="#1E6FCC"
-   stroke-linejoin="round"
-  />
-  <path
-   d="M25.3457 11.7692L31.4995 1L37.6534 11.7692V61H25.3457V11.7692Z"
-   stroke="#1E6FCC"
-   stroke-linejoin="round"
-  />
-  <path
-   d="M49.9609 11.7692L56.1148 1L62.2686 11.7692V61H49.9609V11.7692Z"
-   stroke="#1E6FCC"
-   stroke-linejoin="round"
-  />
-  <rect
-   x="13.0371"
-   y="17.9219"
-   width="12.3077"
-   height="9.23077"
-   stroke="#1E6FCC"
-  />
-  <rect
-   x="13.0371"
-   y="42.5391"
-   width="12.3077"
-   height="9.23077"
-   stroke="#1E6FCC"
-  />
-  <rect
-   x="37.6533"
-   y="17.9219"
-   width="12.3077"
-   height="9.23077"
-   stroke="#1E6FCC"
-  />
-  <rect
-   x="37.6533"
-   y="42.5391"
-   width="12.3077"
-   height="9.23077"
-   stroke="#1E6FCC"
-  />
-  <circle
-   cx="6.88416"
-   cy="22.5385"
-   r="1.03846"
-   fill="#303030"
-   stroke="#1E6FCC"
-  />
-  <circle
-   cx="31.4994"
-   cy="22.5385"
-   r="1.03846"
-   fill="#303030"
-   stroke="#1E6FCC"
-  />
-  <circle
-   cx="56.1146"
-   cy="22.5385"
-   r="1.03846"
-   fill="#303030"
-   stroke="#1E6FCC"
-  />
-  <circle
-   cx="6.88416"
-   cy="47.1556"
-   r="1.03846"
-   fill="#303030"
-   stroke="#1E6FCC"
-  />
-  <circle
-   cx="31.4994"
-   cy="47.1556"
-   r="1.03846"
-   fill="#303030"
-   stroke="#1E6FCC"
-  />
-  <circle
-   cx="56.1146"
-   cy="47.1556"
-   r="1.03846"
-   fill="#303030"
-   stroke="#1E6FCC"
-  />
- </svg>
+  <svg
+    width="63"
+    height="62"
+    viewBox="0 0 63 62"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M0.730469 11.7692L6.88432 1L13.0382 11.7692V61H0.730469V11.7692Z"
+      stroke="#1E6FCC"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M25.3457 11.7692L31.4995 1L37.6534 11.7692V61H25.3457V11.7692Z"
+      stroke="#1E6FCC"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M49.9609 11.7692L56.1148 1L62.2686 11.7692V61H49.9609V11.7692Z"
+      stroke="#1E6FCC"
+      stroke-linejoin="round"
+    />
+    <rect
+      x="13.0371"
+      y="17.9219"
+      width="12.3077"
+      height="9.23077"
+      stroke="#1E6FCC"
+    />
+    <rect
+      x="13.0371"
+      y="42.5391"
+      width="12.3077"
+      height="9.23077"
+      stroke="#1E6FCC"
+    />
+    <rect
+      x="37.6533"
+      y="17.9219"
+      width="12.3077"
+      height="9.23077"
+      stroke="#1E6FCC"
+    />
+    <rect
+      x="37.6533"
+      y="42.5391"
+      width="12.3077"
+      height="9.23077"
+      stroke="#1E6FCC"
+    />
+    <circle
+      cx="6.88416"
+      cy="22.5385"
+      r="1.03846"
+      fill="#303030"
+      stroke="#1E6FCC"
+    />
+    <circle
+      cx="31.4994"
+      cy="22.5385"
+      r="1.03846"
+      fill="#303030"
+      stroke="#1E6FCC"
+    />
+    <circle
+      cx="56.1146"
+      cy="22.5385"
+      r="1.03846"
+      fill="#303030"
+      stroke="#1E6FCC"
+    />
+    <circle
+      cx="6.88416"
+      cy="47.1556"
+      r="1.03846"
+      fill="#303030"
+      stroke="#1E6FCC"
+    />
+    <circle
+      cx="31.4994"
+      cy="47.1556"
+      r="1.03846"
+      fill="#303030"
+      stroke="#1E6FCC"
+    />
+    <circle
+      cx="56.1146"
+      cy="47.1556"
+      r="1.03846"
+      fill="#303030"
+      stroke="#1E6FCC"
+    />
+  </svg>
 );
 
 export const HelpIcon = () => (
- <svg
-  width="61"
-  height="60"
-  viewBox="0 0 61 60"
-  fill="none"
-  xmlns="http://www.w3.org/2000/svg"
- >
-  <path
-   d="M30.5 55C44.3071 55 55.5 43.8071 55.5 30C55.5 16.1929 44.3071 5 30.5 5C16.6929 5 5.5 16.1929 5.5 30C5.5 43.8071 16.6929 55 30.5 55Z"
-   stroke="#1E6FCC"
-   stroke-linecap="round"
-   stroke-linejoin="round"
-  />
-  <path
-   d="M23.2246 22.4995C23.8124 20.8286 24.9725 19.4197 26.4995 18.5223C28.0265 17.6249 29.8218 17.2968 31.5675 17.5963C33.3133 17.8957 34.8966 18.8033 36.0373 20.1583C37.178 21.5133 37.8022 23.2283 37.7996 24.9995C37.7996 29.9995 30.2996 32.4995 30.2996 32.4995"
-   stroke="#1E6FCC"
-   stroke-linecap="round"
-   stroke-linejoin="round"
-  />
-  <path
-   d="M30.5 42.5H30.525"
-   stroke="#1E6FCC"
-   stroke-width="2"
-   stroke-linecap="round"
-   stroke-linejoin="round"
-  />
- </svg>
+  <svg
+    width="61"
+    height="60"
+    viewBox="0 0 61 60"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M30.5 55C44.3071 55 55.5 43.8071 55.5 30C55.5 16.1929 44.3071 5 30.5 5C16.6929 5 5.5 16.1929 5.5 30C5.5 43.8071 16.6929 55 30.5 55Z"
+      stroke="#1E6FCC"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M23.2246 22.4995C23.8124 20.8286 24.9725 19.4197 26.4995 18.5223C28.0265 17.6249 29.8218 17.2968 31.5675 17.5963C33.3133 17.8957 34.8966 18.8033 36.0373 20.1583C37.178 21.5133 37.8022 23.2283 37.7996 24.9995C37.7996 29.9995 30.2996 32.4995 30.2996 32.4995"
+      stroke="#1E6FCC"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M30.5 42.5H30.525"
+      stroke="#1E6FCC"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
 );
 
 export const TypoeIcon = () => (
- <svg
-  width="69"
-  height="69"
-  viewBox="0 0 69 69"
-  fill="none"
-  xmlns="http://www.w3.org/2000/svg"
- >
-  <path
-   d="M5 24.1671L34.5 1.22266L64 24.1671V60.2227C64 61.9613 63.3093 63.6287 62.0799 64.8581C60.8505 66.0875 59.1831 66.7782 57.4444 66.7782H11.5556C9.81691 66.7782 8.14948 66.0875 6.92008 64.8581C5.69067 63.6287 5 61.9613 5 60.2227V24.1671Z"
-   stroke="#1E6FCC"
-   stroke-linecap="round"
-   stroke-linejoin="round"
-  />
- </svg>
+  <svg
+    width="69"
+    height="69"
+    viewBox="0 0 69 69"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M5 24.1671L34.5 1.22266L64 24.1671V60.2227C64 61.9613 63.3093 63.6287 62.0799 64.8581C60.8505 66.0875 59.1831 66.7782 57.4444 66.7782H11.5556C9.81691 66.7782 8.14948 66.0875 6.92008 64.8581C5.69067 63.6287 5 61.9613 5 60.2227V24.1671Z"
+      stroke="#1E6FCC"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
 );
 
-export const ReltorIcon = ({ className = ""}) => (
-<svg width="104" height="100" viewBox="0 0 104 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-<rect x="2" y="2" width="100" height="96" rx="14" stroke="#F2F2F2" stroke-width="4"/>
-<path d="M53.1722 20H57.6765V54.9129L66.0764 47.289H72.9698L63.5808 55.689L73.5633 65.2454H66.8069L60.1265 58.7781L57.6765 60.9693V65.2454H53.1722V20Z" fill="#F2F2F2"/>
-<path d="M78.5403 71.1177H80.5429V72.2678C80.9849 71.9386 81.4517 71.6544 81.9433 71.4154C82.4349 71.1763 82.9243 70.9937 83.4114 70.8674L84 72.7008C83.2287 72.7775 82.55 72.9511 81.9636 73.2217C81.3818 73.4878 80.9082 73.8645 80.5429 74.3516V79.1009H78.5403V71.1177Z" fill="#F2F2F2"/>
-<path d="M66.5854 75.1093C66.5854 74.5365 66.7004 73.9998 66.9304 73.4991C67.165 72.9985 67.4965 72.561 67.9249 72.1866C68.3579 71.8123 68.8788 71.5169 69.4877 71.3004C70.1011 71.0839 70.7889 70.9756 71.5512 70.9756C72.3134 70.9756 72.999 71.0839 73.6079 71.3004C74.2212 71.5169 74.7422 71.8123 75.1707 72.1866C75.6036 72.561 75.9351 72.9985 76.1652 73.4991C76.3997 73.9998 76.517 74.5365 76.517 75.1093C76.517 75.6821 76.3997 76.2188 76.1652 76.7194C75.9351 77.2201 75.6036 77.6576 75.1707 78.0319C74.7422 78.4063 74.2212 78.7017 73.6079 78.9182C72.999 79.1347 72.3134 79.2429 71.5512 79.2429C70.7889 79.2429 70.1011 79.1347 69.4877 78.9182C68.8788 78.7017 68.3579 78.4063 67.9249 78.0319C67.4965 77.6576 67.165 77.2201 66.9304 76.7194C66.7004 76.2188 66.5854 75.6821 66.5854 75.1093ZM68.6894 75.1093C68.6894 75.4295 68.7526 75.734 68.8788 76.0226C69.0096 76.3068 69.1968 76.5593 69.4404 76.7803C69.6884 76.9968 69.9884 77.1705 70.3402 77.3013C70.6965 77.4276 71.1001 77.4907 71.5512 77.4907C72.0022 77.4907 72.4036 77.4276 72.7554 77.3013C73.1117 77.1705 73.4117 76.9968 73.6552 76.7803C73.9033 76.5593 74.0904 76.3068 74.2167 76.0226C74.3475 75.734 74.4129 75.4295 74.4129 75.1093C74.4129 74.7891 74.3475 74.4846 74.2167 74.196C74.0904 73.9073 73.9033 73.6547 73.6552 73.4382C73.4117 73.2172 73.1117 73.0436 72.7554 72.9173C72.4036 72.7865 72.0022 72.7211 71.5512 72.7211C71.1001 72.7211 70.6965 72.7865 70.3402 72.9173C69.9884 73.0436 69.6884 73.2172 69.4404 73.4382C69.1968 73.6547 69.0096 73.9073 68.8788 74.196C68.7526 74.4846 68.6894 74.7891 68.6894 75.1093Z" fill="#F2F2F2"/>
-<path d="M61.3568 72.6186H59.4286V71.1167H61.3568V68.6338H63.3593V71.1167H65.2875V72.6186H63.3593V79.0998H61.3568V72.6186Z" fill="#F2F2F2"/>
-<path d="M55.5786 67.876H57.5812V79.0998H55.5786V67.876Z" fill="#F2F2F2"/>
-<path d="M43.631 76.5841C43.631 76.2008 43.7144 75.8512 43.8813 75.5355C44.0482 75.2198 44.2985 74.9492 44.6322 74.7237C44.966 74.4936 45.3809 74.3177 45.8771 74.196C46.3777 74.0697 46.9595 74.0065 47.6225 74.0065C48.1142 74.0065 48.6306 74.0426 49.1718 74.1148C49.7175 74.1869 50.2791 74.2974 50.8564 74.4463C50.8338 74.1937 50.7572 73.9614 50.6264 73.7494C50.4956 73.5329 50.3129 73.348 50.0784 73.1947C49.8483 73.0368 49.5687 72.915 49.2395 72.8293C48.9147 72.7437 48.5449 72.7008 48.1299 72.7008C47.9044 72.7008 47.6564 72.7143 47.3857 72.7414C47.1151 72.7685 46.8355 72.8091 46.5468 72.8632C46.2582 72.9173 45.9718 72.985 45.6876 73.0661C45.408 73.1473 45.1464 73.2443 44.9029 73.357L44.294 71.7131C44.5962 71.6048 44.9186 71.5056 45.2614 71.4154C45.6087 71.3252 45.9628 71.2485 46.3236 71.1854C46.6844 71.1177 47.0452 71.0658 47.406 71.0298C47.7669 70.9937 48.1164 70.9756 48.4547 70.9756C49.9476 70.9756 51.0571 71.3567 51.7832 72.119C52.5094 72.8812 52.8725 74.0494 52.8725 75.6234V79.1009H50.8699V78.3499C50.6624 78.4717 50.4347 78.5867 50.1866 78.6949C49.9431 78.8032 49.677 78.8979 49.3883 78.9791C49.0996 79.0603 48.7884 79.1234 48.4547 79.1685C48.1254 79.2181 47.7759 79.2429 47.406 79.2429C46.7836 79.2429 46.2356 79.1753 45.7621 79.04C45.293 78.9047 44.9006 78.7175 44.5849 78.4784C44.2692 78.2394 44.0301 77.9598 43.8677 77.6395C43.7099 77.3148 43.631 76.963 43.631 76.5841ZM45.7418 76.5165C45.7418 76.6473 45.7756 76.7736 45.8432 76.8953C45.9109 77.0126 46.0191 77.1186 46.168 77.2133C46.3168 77.3035 46.5062 77.3779 46.7363 77.4366C46.9708 77.4907 47.2527 77.5178 47.5819 77.5178C47.9337 77.5178 48.2743 77.4862 48.6035 77.423C48.9328 77.3599 49.2395 77.2765 49.5236 77.1727C49.8078 77.069 50.0648 76.9495 50.2949 76.8142C50.5249 76.6788 50.7166 76.539 50.8699 76.3947V76.0429C50.5632 75.9572 50.2588 75.885 49.9566 75.8264C49.6589 75.7678 49.3725 75.7227 49.0974 75.6911C48.8268 75.655 48.5697 75.6302 48.3261 75.6167C48.0871 75.6032 47.8774 75.5964 47.697 75.5964C47.3226 75.5964 47.0114 75.6212 46.7633 75.6708C46.5153 75.7204 46.3146 75.7881 46.1612 75.8738C46.0079 75.955 45.8996 76.0519 45.8365 76.1647C45.7733 76.2774 45.7418 76.3947 45.7418 76.5165Z" fill="#F2F2F2"/>
-<path d="M32.0486 75.0822C32.0486 74.541 32.1591 74.0246 32.3801 73.5329C32.6011 73.0368 32.9191 72.5993 33.334 72.2205C33.749 71.8416 34.2564 71.5394 34.8563 71.3139C35.4606 71.0884 36.1462 70.9756 36.9129 70.9756C37.6752 70.9756 38.3607 71.0906 38.9696 71.3207C39.583 71.5462 40.1017 71.8574 40.5257 72.2543C40.9541 72.6512 41.2811 73.118 41.5066 73.6547C41.7367 74.1914 41.8517 74.7665 41.8517 75.3799C41.8517 75.4566 41.8494 75.54 41.8449 75.6302C41.8449 75.7159 41.8404 75.7948 41.8314 75.867H34.2812C34.3669 76.106 34.5045 76.3248 34.6939 76.5232C34.8878 76.7217 35.1291 76.8931 35.4178 77.0374C35.7064 77.1817 36.0402 77.2945 36.4191 77.3757C36.7979 77.4524 37.2174 77.4907 37.6774 77.4907C38.1375 77.4907 38.5953 77.4433 39.0508 77.3486C39.5063 77.2494 39.9416 77.1254 40.3565 76.9765L41.0331 78.5055C40.7715 78.6273 40.5054 78.7355 40.2347 78.8302C39.9686 78.9204 39.689 78.9971 39.3958 79.0603C39.1072 79.1189 38.8027 79.164 38.4825 79.1956C38.1668 79.2271 37.833 79.2429 37.4812 79.2429C36.5837 79.2429 35.7966 79.1347 35.1201 78.9182C34.4436 78.7017 33.8775 78.4063 33.422 78.0319C32.9665 77.6576 32.6237 77.2178 32.3937 76.7127C32.1636 76.2075 32.0486 75.664 32.0486 75.0822ZM39.7273 74.3042C39.6552 74.0832 39.5424 73.878 39.3891 73.6885C39.2402 73.4946 39.0531 73.3277 38.8275 73.1879C38.602 73.0436 38.3404 72.9308 38.0428 72.8496C37.7451 72.7685 37.4181 72.7279 37.0618 72.7279C36.6829 72.7279 36.3379 72.7707 36.0267 72.8564C35.7155 72.9421 35.4426 73.0571 35.2081 73.2014C34.9735 73.3458 34.7773 73.5126 34.6195 73.7021C34.4661 73.8915 34.3534 74.0922 34.2812 74.3042H39.7273Z" fill="#F2F2F2"/>
-<path d="M20 68.5255H25.3785C26.1903 68.5255 26.8939 68.6112 27.4893 68.7826C28.0846 68.9495 28.5785 69.193 28.9709 69.5133C29.3633 69.8335 29.6542 70.2236 29.8436 70.6837C30.0376 71.1437 30.1345 71.6647 30.1345 72.2465C30.1345 72.6389 30.0872 73.0132 29.9925 73.3695C29.8978 73.7213 29.7512 74.0461 29.5527 74.3438C29.3588 74.6414 29.113 74.9075 28.8153 75.1421C28.5176 75.3721 28.1681 75.5638 27.7667 75.7171L30.0669 79.0998H27.4419L25.4529 76.096H25.392L22.1446 76.0892V79.0998H20V68.5255ZM25.4326 74.2355C25.8385 74.2355 26.1926 74.1881 26.4948 74.0934C26.8015 73.9987 27.0563 73.8657 27.2593 73.6943C27.4667 73.5229 27.6201 73.3154 27.7193 73.0719C27.823 72.8238 27.8749 72.5487 27.8749 72.2465C27.8749 71.6556 27.6719 71.2001 27.266 70.8799C26.8601 70.5551 26.249 70.3928 25.4326 70.3928H22.1446V74.2355H25.4326Z" fill="#F2F2F2"/>
-<path d="M49.5689 20H45.0646V54.9129L36.6647 47.289H29.7713L39.1603 55.689L29.1778 65.2454H35.9343L42.6146 58.7781L45.0646 60.9693V65.2454H49.5689V20Z" fill="#F2F2F2"/>
-</svg>
-
+export const ReltorIcon = ({ className = "" }) => (
+  <svg
+    width="104"
+    height="100"
+    viewBox="0 0 104 100"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <rect
+      x="2"
+      y="2"
+      width="100"
+      height="96"
+      rx="14"
+      stroke="#F2F2F2"
+      stroke-width="4"
+    />
+    <path
+      d="M53.1722 20H57.6765V54.9129L66.0764 47.289H72.9698L63.5808 55.689L73.5633 65.2454H66.8069L60.1265 58.7781L57.6765 60.9693V65.2454H53.1722V20Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M78.5403 71.1177H80.5429V72.2678C80.9849 71.9386 81.4517 71.6544 81.9433 71.4154C82.4349 71.1763 82.9243 70.9937 83.4114 70.8674L84 72.7008C83.2287 72.7775 82.55 72.9511 81.9636 73.2217C81.3818 73.4878 80.9082 73.8645 80.5429 74.3516V79.1009H78.5403V71.1177Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M66.5854 75.1093C66.5854 74.5365 66.7004 73.9998 66.9304 73.4991C67.165 72.9985 67.4965 72.561 67.9249 72.1866C68.3579 71.8123 68.8788 71.5169 69.4877 71.3004C70.1011 71.0839 70.7889 70.9756 71.5512 70.9756C72.3134 70.9756 72.999 71.0839 73.6079 71.3004C74.2212 71.5169 74.7422 71.8123 75.1707 72.1866C75.6036 72.561 75.9351 72.9985 76.1652 73.4991C76.3997 73.9998 76.517 74.5365 76.517 75.1093C76.517 75.6821 76.3997 76.2188 76.1652 76.7194C75.9351 77.2201 75.6036 77.6576 75.1707 78.0319C74.7422 78.4063 74.2212 78.7017 73.6079 78.9182C72.999 79.1347 72.3134 79.2429 71.5512 79.2429C70.7889 79.2429 70.1011 79.1347 69.4877 78.9182C68.8788 78.7017 68.3579 78.4063 67.9249 78.0319C67.4965 77.6576 67.165 77.2201 66.9304 76.7194C66.7004 76.2188 66.5854 75.6821 66.5854 75.1093ZM68.6894 75.1093C68.6894 75.4295 68.7526 75.734 68.8788 76.0226C69.0096 76.3068 69.1968 76.5593 69.4404 76.7803C69.6884 76.9968 69.9884 77.1705 70.3402 77.3013C70.6965 77.4276 71.1001 77.4907 71.5512 77.4907C72.0022 77.4907 72.4036 77.4276 72.7554 77.3013C73.1117 77.1705 73.4117 76.9968 73.6552 76.7803C73.9033 76.5593 74.0904 76.3068 74.2167 76.0226C74.3475 75.734 74.4129 75.4295 74.4129 75.1093C74.4129 74.7891 74.3475 74.4846 74.2167 74.196C74.0904 73.9073 73.9033 73.6547 73.6552 73.4382C73.4117 73.2172 73.1117 73.0436 72.7554 72.9173C72.4036 72.7865 72.0022 72.7211 71.5512 72.7211C71.1001 72.7211 70.6965 72.7865 70.3402 72.9173C69.9884 73.0436 69.6884 73.2172 69.4404 73.4382C69.1968 73.6547 69.0096 73.9073 68.8788 74.196C68.7526 74.4846 68.6894 74.7891 68.6894 75.1093Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M61.3568 72.6186H59.4286V71.1167H61.3568V68.6338H63.3593V71.1167H65.2875V72.6186H63.3593V79.0998H61.3568V72.6186Z"
+      fill="#F2F2F2"
+    />
+    <path d="M55.5786 67.876H57.5812V79.0998H55.5786V67.876Z" fill="#F2F2F2" />
+    <path
+      d="M43.631 76.5841C43.631 76.2008 43.7144 75.8512 43.8813 75.5355C44.0482 75.2198 44.2985 74.9492 44.6322 74.7237C44.966 74.4936 45.3809 74.3177 45.8771 74.196C46.3777 74.0697 46.9595 74.0065 47.6225 74.0065C48.1142 74.0065 48.6306 74.0426 49.1718 74.1148C49.7175 74.1869 50.2791 74.2974 50.8564 74.4463C50.8338 74.1937 50.7572 73.9614 50.6264 73.7494C50.4956 73.5329 50.3129 73.348 50.0784 73.1947C49.8483 73.0368 49.5687 72.915 49.2395 72.8293C48.9147 72.7437 48.5449 72.7008 48.1299 72.7008C47.9044 72.7008 47.6564 72.7143 47.3857 72.7414C47.1151 72.7685 46.8355 72.8091 46.5468 72.8632C46.2582 72.9173 45.9718 72.985 45.6876 73.0661C45.408 73.1473 45.1464 73.2443 44.9029 73.357L44.294 71.7131C44.5962 71.6048 44.9186 71.5056 45.2614 71.4154C45.6087 71.3252 45.9628 71.2485 46.3236 71.1854C46.6844 71.1177 47.0452 71.0658 47.406 71.0298C47.7669 70.9937 48.1164 70.9756 48.4547 70.9756C49.9476 70.9756 51.0571 71.3567 51.7832 72.119C52.5094 72.8812 52.8725 74.0494 52.8725 75.6234V79.1009H50.8699V78.3499C50.6624 78.4717 50.4347 78.5867 50.1866 78.6949C49.9431 78.8032 49.677 78.8979 49.3883 78.9791C49.0996 79.0603 48.7884 79.1234 48.4547 79.1685C48.1254 79.2181 47.7759 79.2429 47.406 79.2429C46.7836 79.2429 46.2356 79.1753 45.7621 79.04C45.293 78.9047 44.9006 78.7175 44.5849 78.4784C44.2692 78.2394 44.0301 77.9598 43.8677 77.6395C43.7099 77.3148 43.631 76.963 43.631 76.5841ZM45.7418 76.5165C45.7418 76.6473 45.7756 76.7736 45.8432 76.8953C45.9109 77.0126 46.0191 77.1186 46.168 77.2133C46.3168 77.3035 46.5062 77.3779 46.7363 77.4366C46.9708 77.4907 47.2527 77.5178 47.5819 77.5178C47.9337 77.5178 48.2743 77.4862 48.6035 77.423C48.9328 77.3599 49.2395 77.2765 49.5236 77.1727C49.8078 77.069 50.0648 76.9495 50.2949 76.8142C50.5249 76.6788 50.7166 76.539 50.8699 76.3947V76.0429C50.5632 75.9572 50.2588 75.885 49.9566 75.8264C49.6589 75.7678 49.3725 75.7227 49.0974 75.6911C48.8268 75.655 48.5697 75.6302 48.3261 75.6167C48.0871 75.6032 47.8774 75.5964 47.697 75.5964C47.3226 75.5964 47.0114 75.6212 46.7633 75.6708C46.5153 75.7204 46.3146 75.7881 46.1612 75.8738C46.0079 75.955 45.8996 76.0519 45.8365 76.1647C45.7733 76.2774 45.7418 76.3947 45.7418 76.5165Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M32.0486 75.0822C32.0486 74.541 32.1591 74.0246 32.3801 73.5329C32.6011 73.0368 32.9191 72.5993 33.334 72.2205C33.749 71.8416 34.2564 71.5394 34.8563 71.3139C35.4606 71.0884 36.1462 70.9756 36.9129 70.9756C37.6752 70.9756 38.3607 71.0906 38.9696 71.3207C39.583 71.5462 40.1017 71.8574 40.5257 72.2543C40.9541 72.6512 41.2811 73.118 41.5066 73.6547C41.7367 74.1914 41.8517 74.7665 41.8517 75.3799C41.8517 75.4566 41.8494 75.54 41.8449 75.6302C41.8449 75.7159 41.8404 75.7948 41.8314 75.867H34.2812C34.3669 76.106 34.5045 76.3248 34.6939 76.5232C34.8878 76.7217 35.1291 76.8931 35.4178 77.0374C35.7064 77.1817 36.0402 77.2945 36.4191 77.3757C36.7979 77.4524 37.2174 77.4907 37.6774 77.4907C38.1375 77.4907 38.5953 77.4433 39.0508 77.3486C39.5063 77.2494 39.9416 77.1254 40.3565 76.9765L41.0331 78.5055C40.7715 78.6273 40.5054 78.7355 40.2347 78.8302C39.9686 78.9204 39.689 78.9971 39.3958 79.0603C39.1072 79.1189 38.8027 79.164 38.4825 79.1956C38.1668 79.2271 37.833 79.2429 37.4812 79.2429C36.5837 79.2429 35.7966 79.1347 35.1201 78.9182C34.4436 78.7017 33.8775 78.4063 33.422 78.0319C32.9665 77.6576 32.6237 77.2178 32.3937 76.7127C32.1636 76.2075 32.0486 75.664 32.0486 75.0822ZM39.7273 74.3042C39.6552 74.0832 39.5424 73.878 39.3891 73.6885C39.2402 73.4946 39.0531 73.3277 38.8275 73.1879C38.602 73.0436 38.3404 72.9308 38.0428 72.8496C37.7451 72.7685 37.4181 72.7279 37.0618 72.7279C36.6829 72.7279 36.3379 72.7707 36.0267 72.8564C35.7155 72.9421 35.4426 73.0571 35.2081 73.2014C34.9735 73.3458 34.7773 73.5126 34.6195 73.7021C34.4661 73.8915 34.3534 74.0922 34.2812 74.3042H39.7273Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M20 68.5255H25.3785C26.1903 68.5255 26.8939 68.6112 27.4893 68.7826C28.0846 68.9495 28.5785 69.193 28.9709 69.5133C29.3633 69.8335 29.6542 70.2236 29.8436 70.6837C30.0376 71.1437 30.1345 71.6647 30.1345 72.2465C30.1345 72.6389 30.0872 73.0132 29.9925 73.3695C29.8978 73.7213 29.7512 74.0461 29.5527 74.3438C29.3588 74.6414 29.113 74.9075 28.8153 75.1421C28.5176 75.3721 28.1681 75.5638 27.7667 75.7171L30.0669 79.0998H27.4419L25.4529 76.096H25.392L22.1446 76.0892V79.0998H20V68.5255ZM25.4326 74.2355C25.8385 74.2355 26.1926 74.1881 26.4948 74.0934C26.8015 73.9987 27.0563 73.8657 27.2593 73.6943C27.4667 73.5229 27.6201 73.3154 27.7193 73.0719C27.823 72.8238 27.8749 72.5487 27.8749 72.2465C27.8749 71.6556 27.6719 71.2001 27.266 70.8799C26.8601 70.5551 26.249 70.3928 25.4326 70.3928H22.1446V74.2355H25.4326Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M49.5689 20H45.0646V54.9129L36.6647 47.289H29.7713L39.1603 55.689L29.1778 65.2454H35.9343L42.6146 58.7781L45.0646 60.9693V65.2454H49.5689V20Z"
+      fill="#F2F2F2"
+    />
+  </svg>
 );
 
 export const Featuresheet2Hbar = ({ className = "" }) => (
-  <svg width="344" height="108" viewBox="0 0 344 108" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-<path d="M343.637 0.90564C247.797 37.2239 73.9817 16.0383 0 0.90564L0.00492599 107.465H343.637V0.90564Z" fill="#2E353D"/>
-</svg>
+  <svg
+    width="344"
+    height="108"
+    viewBox="0 0 344 108"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path
+      d="M343.637 0.90564C247.797 37.2239 73.9817 16.0383 0 0.90564L0.00492599 107.465H343.637V0.90564Z"
+      fill="#2E353D"
+    />
+  </svg>
 );
 
 export const Bedrooms = ({ className = "" }) => (
-  <svg width="26" height="20" viewBox="0 0 26 20" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-<path d="M25.7311 10C25.7311 8.42857 24.6061 7.14286 23.2311 7.14286V2.85714C23.2311 1.28571 22.1061 0 20.7311 0H5.73108C4.35608 0 3.23108 1.28571 3.23108 2.85714V7.14286C1.85608 7.14286 0.731079 8.42857 0.731079 10V17.1429H2.39358L3.23108 20H4.48108L5.31858 17.1429H21.1561L21.9811 20H23.2311L24.0686 17.1429H25.7311V10ZM20.7311 7.14286H14.4811V2.85714H20.7311V7.14286ZM5.73108 2.85714H11.9811V7.14286H5.73108V2.85714ZM3.23108 10H23.2311V14.2857H3.23108V10Z" fill="#323232"/>
-</svg>
-
+  <svg
+    width="26"
+    height="20"
+    viewBox="0 0 26 20"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path
+      d="M25.7311 10C25.7311 8.42857 24.6061 7.14286 23.2311 7.14286V2.85714C23.2311 1.28571 22.1061 0 20.7311 0H5.73108C4.35608 0 3.23108 1.28571 3.23108 2.85714V7.14286C1.85608 7.14286 0.731079 8.42857 0.731079 10V17.1429H2.39358L3.23108 20H4.48108L5.31858 17.1429H21.1561L21.9811 20H23.2311L24.0686 17.1429H25.7311V10ZM20.7311 7.14286H14.4811V2.85714H20.7311V7.14286ZM5.73108 2.85714H11.9811V7.14286H5.73108V2.85714ZM3.23108 10H23.2311V14.2857H3.23108V10Z"
+      fill="#323232"
+    />
+  </svg>
 );
 
 export const Bathrooms = ({ className = "" }) => (
-  <svg width="26" height="20" viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-<path d="M2.95957 3.76191C3.53995 3.76191 4.01045 3.29142 4.01045 2.71103C4.01045 2.13065 3.53995 1.66016 2.95957 1.66016C2.37919 1.66016 1.90869 2.13065 1.90869 2.71103C1.90869 3.29142 2.37919 3.76191 2.95957 3.76191Z" fill="#323232"/>
-<path d="M9.79029 5.86185V1.56902C9.79029 0.749338 9.12298 0.0820312 8.3033 0.0820312C7.90922 0.0820312 7.5309 0.239663 7.25242 0.518145L6.59562 1.17494C6.51155 1.14867 6.42223 1.13291 6.32765 1.13291C6.11748 1.13291 5.92306 1.19596 5.76018 1.30105L7.21039 2.75126C7.31548 2.58837 7.37853 2.39396 7.37853 2.18379C7.37853 2.08921 7.36276 2.00514 7.34175 1.91581L7.99855 1.25901C8.07736 1.1802 8.1877 1.13291 8.3033 1.13291C8.545 1.13291 8.73941 1.32732 8.73941 1.56902V5.86185H5.14016C4.98253 5.75151 4.84066 5.62541 4.7093 5.48354L3.97369 4.66911C3.87385 4.55877 3.74775 4.46944 3.61113 4.40639C3.44825 4.32757 3.2696 4.28554 3.0857 4.28554C2.43415 4.29079 1.90871 4.81623 1.90871 5.46778V5.86185H0.332397V9.01449C0.332397 9.59247 0.805292 10.0654 1.38327 10.0654C1.38327 10.3544 1.61972 10.5908 1.90871 10.5908H9.26485C9.55384 10.5908 9.79029 10.3544 9.79029 10.0654C10.3683 10.0654 10.8412 9.59247 10.8412 9.01449V5.86185H9.79029ZM9.79029 9.01449H1.38327V6.91273H9.79029V9.01449Z" fill="#323232"/>
-</svg>
+  <svg
+    width="26"
+    height="20"
+    viewBox="0 0 11 11"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path
+      d="M2.95957 3.76191C3.53995 3.76191 4.01045 3.29142 4.01045 2.71103C4.01045 2.13065 3.53995 1.66016 2.95957 1.66016C2.37919 1.66016 1.90869 2.13065 1.90869 2.71103C1.90869 3.29142 2.37919 3.76191 2.95957 3.76191Z"
+      fill="#323232"
+    />
+    <path
+      d="M9.79029 5.86185V1.56902C9.79029 0.749338 9.12298 0.0820312 8.3033 0.0820312C7.90922 0.0820312 7.5309 0.239663 7.25242 0.518145L6.59562 1.17494C6.51155 1.14867 6.42223 1.13291 6.32765 1.13291C6.11748 1.13291 5.92306 1.19596 5.76018 1.30105L7.21039 2.75126C7.31548 2.58837 7.37853 2.39396 7.37853 2.18379C7.37853 2.08921 7.36276 2.00514 7.34175 1.91581L7.99855 1.25901C8.07736 1.1802 8.1877 1.13291 8.3033 1.13291C8.545 1.13291 8.73941 1.32732 8.73941 1.56902V5.86185H5.14016C4.98253 5.75151 4.84066 5.62541 4.7093 5.48354L3.97369 4.66911C3.87385 4.55877 3.74775 4.46944 3.61113 4.40639C3.44825 4.32757 3.2696 4.28554 3.0857 4.28554C2.43415 4.29079 1.90871 4.81623 1.90871 5.46778V5.86185H0.332397V9.01449C0.332397 9.59247 0.805292 10.0654 1.38327 10.0654C1.38327 10.3544 1.61972 10.5908 1.90871 10.5908H9.26485C9.55384 10.5908 9.79029 10.3544 9.79029 10.0654C10.3683 10.0654 10.8412 9.59247 10.8412 9.01449V5.86185H9.79029ZM9.79029 9.01449H1.38327V6.91273H9.79029V9.01449Z"
+      fill="#323232"
+    />
+  </svg>
 );
 
 export const Parking = ({ className = "" }) => (
-  <svg width="26" height="23" viewBox="0 0 26 23" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-    <path d="M22.1781 1.52938C21.9003 0.718125 21.1226 0.140625 20.2059 0.140625H4.92813C4.01146 0.140625 3.24757 0.718125 2.95591 1.52938L0.0670166 9.76562V20.7656C0.0670166 21.5219 0.692017 22.1406 1.45591 22.1406H2.84479C3.60868 22.1406 4.23368 21.5219 4.23368 20.7656V19.3906H20.9003V20.7656C20.9003 21.5219 21.5253 22.1406 22.2892 22.1406H23.6781C24.442 22.1406 25.067 21.5219 25.067 20.7656V9.76562L22.1781 1.52938ZM5.41424 2.89062H19.7059L21.2059 7.16687H3.91424L5.41424 2.89062ZM22.2892 16.6406H2.84479V9.76562H22.2892V16.6406Z" fill="#323232"/>
-    <path d="M6.31728 15.2629C7.46788 15.2629 8.40062 14.3395 8.40062 13.2004C8.40062 12.0614 7.46788 11.1379 6.31728 11.1379C5.16669 11.1379 4.23395 12.0614 4.23395 13.2004C4.23395 14.3395 5.16669 15.2629 6.31728 15.2629Z" fill="#323232"/>
-    <path d="M18.8172 15.2629C19.9678 15.2629 20.9006 14.3395 20.9006 13.2004C20.9006 12.0614 19.9678 11.1379 18.8172 11.1379C17.6666 11.1379 16.7339 12.0614 16.7339 13.2004C16.7339 14.3395 17.6666 15.2629 18.8172 15.2629Z" fill="#323232"/>
-    </svg>
+  <svg
+    width="26"
+    height="23"
+    viewBox="0 0 26 23"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path
+      d="M22.1781 1.52938C21.9003 0.718125 21.1226 0.140625 20.2059 0.140625H4.92813C4.01146 0.140625 3.24757 0.718125 2.95591 1.52938L0.0670166 9.76562V20.7656C0.0670166 21.5219 0.692017 22.1406 1.45591 22.1406H2.84479C3.60868 22.1406 4.23368 21.5219 4.23368 20.7656V19.3906H20.9003V20.7656C20.9003 21.5219 21.5253 22.1406 22.2892 22.1406H23.6781C24.442 22.1406 25.067 21.5219 25.067 20.7656V9.76562L22.1781 1.52938ZM5.41424 2.89062H19.7059L21.2059 7.16687H3.91424L5.41424 2.89062ZM22.2892 16.6406H2.84479V9.76562H22.2892V16.6406Z"
+      fill="#323232"
+    />
+    <path
+      d="M6.31728 15.2629C7.46788 15.2629 8.40062 14.3395 8.40062 13.2004C8.40062 12.0614 7.46788 11.1379 6.31728 11.1379C5.16669 11.1379 4.23395 12.0614 4.23395 13.2004C4.23395 14.3395 5.16669 15.2629 6.31728 15.2629Z"
+      fill="#323232"
+    />
+    <path
+      d="M18.8172 15.2629C19.9678 15.2629 20.9006 14.3395 20.9006 13.2004C20.9006 12.0614 19.9678 11.1379 18.8172 11.1379C17.6666 11.1379 16.7339 12.0614 16.7339 13.2004C16.7339 14.3395 17.6666 15.2629 18.8172 15.2629Z"
+      fill="#323232"
+    />
+  </svg>
 );
 
 export const UtilitiesIncluded = ({ className = "" }) => (
-  <svg width="26" height="23" viewBox="0 0 14 12" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-<path d="M6.84811 0.359375L0.542847 6.03411H2.43443V11.0783H11.2618V6.03411H13.1534L6.84811 0.359375ZM3.69548 9.81727V4.89286L6.84811 2.05549L10.0007 4.89286V9.81727H3.69548ZM8.10916 7.29516C8.10916 7.98874 7.54169 8.55621 6.84811 8.55621C6.15453 8.55621 5.58706 7.98874 5.58706 7.29516C5.58706 6.60158 6.84811 4.77306 6.84811 4.77306C6.84811 4.77306 8.10916 6.60158 8.10916 7.29516Z" fill="#323232"/>
-</svg>
-
+  <svg
+    width="26"
+    height="23"
+    viewBox="0 0 14 12"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path
+      d="M6.84811 0.359375L0.542847 6.03411H2.43443V11.0783H11.2618V6.03411H13.1534L6.84811 0.359375ZM3.69548 9.81727V4.89286L6.84811 2.05549L10.0007 4.89286V9.81727H3.69548ZM8.10916 7.29516C8.10916 7.98874 7.54169 8.55621 6.84811 8.55621C6.15453 8.55621 5.58706 7.98874 5.58706 7.29516C5.58706 6.60158 6.84811 4.77306 6.84811 4.77306C6.84811 4.77306 8.10916 6.60158 8.10916 7.29516Z"
+      fill="#323232"
+    />
+  </svg>
 );
 
 export const LinkedIcon = ({ className = "" }) => (
-  <svg width="30" height="30" viewBox="0 0 8 9" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+  <svg
+    width="30"
+    height="30"
+    viewBox="0 0 8 9"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
     <g clip-path="url(#clip0_3386_77464)">
-    <path d="M4.96452 3.44531C5.45744 3.44531 5.93018 3.64113 6.27872 3.98967C6.62727 4.33822 6.82309 4.81095 6.82309 5.30388V7.4722H5.58404V5.30388C5.58404 5.13957 5.51877 4.98199 5.40259 4.86581C5.28641 4.74963 5.12883 4.68436 4.96452 4.68436C4.80021 4.68436 4.64264 4.74963 4.52645 4.86581C4.41027 4.98199 4.345 5.13957 4.345 5.30388V7.4722H3.10596V5.30388C3.10596 4.81095 3.30177 4.33822 3.65032 3.98967C3.99887 3.64113 4.4716 3.44531 4.96452 3.44531Z" fill="#F2F2F2"/>
-    <path d="M1.86685 3.75781H0.627808V7.47494H1.86685V3.75781Z" fill="#F2F2F2"/>
-    <path d="M1.24733 2.82889C1.58948 2.82889 1.86685 2.55152 1.86685 2.20937C1.86685 1.86721 1.58948 1.58984 1.24733 1.58984C0.905177 1.58984 0.627808 1.86721 0.627808 2.20937C0.627808 2.55152 0.905177 2.82889 1.24733 2.82889Z" fill="#F2F2F2"/>
+      <path
+        d="M4.96452 3.44531C5.45744 3.44531 5.93018 3.64113 6.27872 3.98967C6.62727 4.33822 6.82309 4.81095 6.82309 5.30388V7.4722H5.58404V5.30388C5.58404 5.13957 5.51877 4.98199 5.40259 4.86581C5.28641 4.74963 5.12883 4.68436 4.96452 4.68436C4.80021 4.68436 4.64264 4.74963 4.52645 4.86581C4.41027 4.98199 4.345 5.13957 4.345 5.30388V7.4722H3.10596V5.30388C3.10596 4.81095 3.30177 4.33822 3.65032 3.98967C3.99887 3.64113 4.4716 3.44531 4.96452 3.44531Z"
+        fill="#F2F2F2"
+      />
+      <path
+        d="M1.86685 3.75781H0.627808V7.47494H1.86685V3.75781Z"
+        fill="#F2F2F2"
+      />
+      <path
+        d="M1.24733 2.82889C1.58948 2.82889 1.86685 2.55152 1.86685 2.20937C1.86685 1.86721 1.58948 1.58984 1.24733 1.58984C0.905177 1.58984 0.627808 1.86721 0.627808 2.20937C0.627808 2.55152 0.905177 2.82889 1.24733 2.82889Z"
+        fill="#F2F2F2"
+      />
     </g>
     <defs>
-    <clipPath id="clip0_3386_77464">
-    <rect width="7.43426" height="7.43426" fill="white" transform="translate(0.00830078 0.96875)"/>
-    </clipPath>
+      <clipPath id="clip0_3386_77464">
+        <rect
+          width="7.43426"
+          height="7.43426"
+          fill="white"
+          transform="translate(0.00830078 0.96875)"
+        />
+      </clipPath>
     </defs>
   </svg>
-
 );
 
-export const AgentLoginIcon = ({ width, height }: { width: string; height: string }) => (
+export const AgentLoginIcon = ({
+  width,
+  height,
+}: {
+  width: string;
+  height: string;
+}) => (
+  <svg
+    width={width}
+    height={height}
+    viewBox="0 0 104 100"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <rect
+      x="2"
+      y="2"
+      width="100"
+      height="96"
+      rx="14"
+      stroke="#6BAE41"
+      stroke-width="4"
+    />
+    <path
+      d="M53.1722 20H57.6765V54.9129L66.0764 47.289H72.9698L63.5808 55.689L73.5633 65.2454H66.8069L60.1265 58.7781L57.6765 60.9693V65.2454H53.1722V20Z"
+      fill="#6BAE41"
+    />
+    <path
+      d="M78.5403 71.1177H80.5429V72.2678C80.9849 71.9386 81.4517 71.6544 81.9433 71.4154C82.4349 71.1763 82.9243 70.9937 83.4114 70.8674L84 72.7008C83.2287 72.7775 82.55 72.9511 81.9636 73.2217C81.3818 73.4878 80.9082 73.8645 80.5429 74.3516V79.1009H78.5403V71.1177Z"
+      fill="#6BAE41"
+    />
+    <path
+      d="M66.5854 75.1093C66.5854 74.5365 66.7004 73.9998 66.9304 73.4991C67.165 72.9985 67.4965 72.561 67.9249 72.1866C68.3579 71.8123 68.8788 71.5169 69.4877 71.3004C70.1011 71.0839 70.7889 70.9756 71.5512 70.9756C72.3134 70.9756 72.999 71.0839 73.6079 71.3004C74.2212 71.5169 74.7422 71.8123 75.1707 72.1866C75.6036 72.561 75.9351 72.9985 76.1652 73.4991C76.3997 73.9998 76.517 74.5365 76.517 75.1093C76.517 75.6821 76.3997 76.2188 76.1652 76.7194C75.9351 77.2201 75.6036 77.6576 75.1707 78.0319C74.7422 78.4063 74.2212 78.7017 73.6079 78.9182C72.999 79.1347 72.3134 79.2429 71.5512 79.2429C70.7889 79.2429 70.1011 79.1347 69.4877 78.9182C68.8788 78.7017 68.3579 78.4063 67.9249 78.0319C67.4965 77.6576 67.165 77.2201 66.9304 76.7194C66.7004 76.2188 66.5854 75.6821 66.5854 75.1093ZM68.6894 75.1093C68.6894 75.4295 68.7526 75.734 68.8788 76.0226C69.0096 76.3068 69.1968 76.5593 69.4404 76.7803C69.6884 76.9968 69.9884 77.1705 70.3402 77.3013C70.6965 77.4276 71.1001 77.4907 71.5512 77.4907C72.0022 77.4907 72.4036 77.4276 72.7554 77.3013C73.1117 77.1705 73.4117 76.9968 73.6552 76.7803C73.9033 76.5593 74.0904 76.3068 74.2167 76.0226C74.3475 75.734 74.4129 75.4295 74.4129 75.1093C74.4129 74.7891 74.3475 74.4846 74.2167 74.196C74.0904 73.9073 73.9033 73.6547 73.6552 73.4382C73.4117 73.2172 73.1117 73.0436 72.7554 72.9173C72.4036 72.7865 72.0022 72.7211 71.5512 72.7211C71.1001 72.7211 70.6965 72.7865 70.3402 72.9173C69.9884 73.0436 69.6884 73.2172 69.4404 73.4382C69.1968 73.6547 69.0096 73.9073 68.8788 74.196C68.7526 74.4846 68.6894 74.7891 68.6894 75.1093Z"
+      fill="#6BAE41"
+    />
+    <path
+      d="M61.3568 72.6186H59.4286V71.1167H61.3568V68.6338H63.3593V71.1167H65.2875V72.6186H63.3593V79.0998H61.3568V72.6186Z"
+      fill="#6BAE41"
+    />
+    <path d="M55.5786 67.876H57.5812V79.0998H55.5786V67.876Z" fill="#6BAE41" />
+    <path
+      d="M43.631 76.5841C43.631 76.2008 43.7144 75.8512 43.8813 75.5355C44.0482 75.2198 44.2985 74.9492 44.6322 74.7237C44.966 74.4936 45.3809 74.3177 45.8771 74.196C46.3777 74.0697 46.9595 74.0065 47.6225 74.0065C48.1142 74.0065 48.6306 74.0426 49.1718 74.1148C49.7175 74.1869 50.2791 74.2974 50.8564 74.4463C50.8338 74.1937 50.7572 73.9614 50.6264 73.7494C50.4956 73.5329 50.3129 73.348 50.0784 73.1947C49.8483 73.0368 49.5687 72.915 49.2395 72.8293C48.9147 72.7437 48.5449 72.7008 48.1299 72.7008C47.9044 72.7008 47.6564 72.7143 47.3857 72.7414C47.1151 72.7685 46.8355 72.8091 46.5468 72.8632C46.2582 72.9173 45.9718 72.985 45.6876 73.0661C45.408 73.1473 45.1464 73.2443 44.9029 73.357L44.294 71.7131C44.5962 71.6048 44.9186 71.5056 45.2614 71.4154C45.6087 71.3252 45.9628 71.2485 46.3236 71.1854C46.6844 71.1177 47.0452 71.0658 47.406 71.0298C47.7669 70.9937 48.1164 70.9756 48.4547 70.9756C49.9476 70.9756 51.0571 71.3567 51.7832 72.119C52.5094 72.8812 52.8725 74.0494 52.8725 75.6234V79.1009H50.8699V78.3499C50.6624 78.4717 50.4347 78.5867 50.1866 78.6949C49.9431 78.8032 49.677 78.8979 49.3883 78.9791C49.0996 79.0603 48.7884 79.1234 48.4547 79.1685C48.1254 79.2181 47.7759 79.2429 47.406 79.2429C46.7836 79.2429 46.2356 79.1753 45.7621 79.04C45.293 78.9047 44.9006 78.7175 44.5849 78.4784C44.2692 78.2394 44.0301 77.9598 43.8677 77.6395C43.7099 77.3148 43.631 76.963 43.631 76.5841ZM45.7418 76.5165C45.7418 76.6473 45.7756 76.7736 45.8432 76.8953C45.9109 77.0126 46.0191 77.1186 46.168 77.2133C46.3168 77.3035 46.5062 77.3779 46.7363 77.4366C46.9708 77.4907 47.2527 77.5178 47.5819 77.5178C47.9337 77.5178 48.2743 77.4862 48.6035 77.423C48.9328 77.3599 49.2395 77.2765 49.5236 77.1727C49.8078 77.069 50.0648 76.9495 50.2949 76.8142C50.5249 76.6788 50.7166 76.539 50.8699 76.3947V76.0429C50.5632 75.9572 50.2588 75.885 49.9566 75.8264C49.6589 75.7678 49.3725 75.7227 49.0974 75.6911C48.8268 75.655 48.5697 75.6302 48.3261 75.6167C48.0871 75.6032 47.8774 75.5964 47.697 75.5964C47.3226 75.5964 47.0114 75.6212 46.7633 75.6708C46.5153 75.7204 46.3146 75.7881 46.1612 75.8738C46.0079 75.955 45.8996 76.0519 45.8365 76.1647C45.7733 76.2774 45.7418 76.3947 45.7418 76.5165Z"
+      fill="#6BAE41"
+    />
+    <path
+      d="M32.0486 75.0822C32.0486 74.541 32.1591 74.0246 32.3801 73.5329C32.6011 73.0368 32.9191 72.5993 33.334 72.2205C33.749 71.8416 34.2564 71.5394 34.8563 71.3139C35.4606 71.0884 36.1462 70.9756 36.9129 70.9756C37.6752 70.9756 38.3607 71.0906 38.9696 71.3207C39.583 71.5462 40.1017 71.8574 40.5257 72.2543C40.9541 72.6512 41.2811 73.118 41.5066 73.6547C41.7367 74.1914 41.8517 74.7665 41.8517 75.3799C41.8517 75.4566 41.8494 75.54 41.8449 75.6302C41.8449 75.7159 41.8404 75.7948 41.8314 75.867H34.2812C34.3669 76.106 34.5045 76.3248 34.6939 76.5232C34.8878 76.7217 35.1291 76.8931 35.4178 77.0374C35.7064 77.1817 36.0402 77.2945 36.4191 77.3757C36.7979 77.4524 37.2174 77.4907 37.6774 77.4907C38.1375 77.4907 38.5953 77.4433 39.0508 77.3486C39.5063 77.2494 39.9416 77.1254 40.3565 76.9765L41.0331 78.5055C40.7715 78.6273 40.5054 78.7355 40.2347 78.8302C39.9686 78.9204 39.689 78.9971 39.3958 79.0603C39.1072 79.1189 38.8027 79.164 38.4825 79.1956C38.1668 79.2271 37.833 79.2429 37.4812 79.2429C36.5837 79.2429 35.7966 79.1347 35.1201 78.9182C34.4436 78.7017 33.8775 78.4063 33.422 78.0319C32.9665 77.6576 32.6237 77.2178 32.3937 76.7127C32.1636 76.2075 32.0486 75.664 32.0486 75.0822ZM39.7273 74.3042C39.6552 74.0832 39.5424 73.878 39.3891 73.6885C39.2402 73.4946 39.0531 73.3277 38.8275 73.1879C38.602 73.0436 38.3404 72.9308 38.0428 72.8496C37.7451 72.7685 37.4181 72.7279 37.0618 72.7279C36.6829 72.7279 36.3379 72.7707 36.0267 72.8564C35.7155 72.9421 35.4426 73.0571 35.2081 73.2014C34.9735 73.3458 34.7773 73.5126 34.6195 73.7021C34.4661 73.8915 34.3534 74.0922 34.2812 74.3042H39.7273Z"
+      fill="#6BAE41"
+    />
+    <path
+      d="M20 68.5255H25.3785C26.1903 68.5255 26.8939 68.6112 27.4893 68.7826C28.0846 68.9495 28.5785 69.193 28.9709 69.5133C29.3633 69.8335 29.6542 70.2236 29.8436 70.6837C30.0376 71.1437 30.1345 71.6647 30.1345 72.2465C30.1345 72.6389 30.0872 73.0132 29.9925 73.3695C29.8978 73.7213 29.7512 74.0461 29.5527 74.3438C29.3588 74.6414 29.113 74.9075 28.8153 75.1421C28.5176 75.3721 28.1681 75.5638 27.7667 75.7171L30.0669 79.0998H27.4419L25.4529 76.096H25.392L22.1446 76.0892V79.0998H20V68.5255ZM25.4326 74.2355C25.8385 74.2355 26.1926 74.1881 26.4948 74.0934C26.8015 73.9987 27.0563 73.8657 27.2593 73.6943C27.4667 73.5229 27.6201 73.3154 27.7193 73.0719C27.823 72.8238 27.8749 72.5487 27.8749 72.2465C27.8749 71.6556 27.6719 71.2001 27.266 70.8799C26.8601 70.5551 26.249 70.3928 25.4326 70.3928H22.1446V74.2355H25.4326Z"
+      fill="#6BAE41"
+    />
+    <path
+      d="M49.5689 20H45.0646V54.9129L36.6647 47.289H29.7713L39.1603 55.689L29.1778 65.2454H35.9343L42.6146 58.7781L45.0646 60.9693V65.2454H49.5689V20Z"
+      fill="#6BAE41"
+    />
+  </svg>
+);
+
+export const VendorLoginIcon = ({
+  width,
+  height,
+}: {
+  width: string;
+  height: string;
+}) => (
+  <svg
+    width={width}
+    height={height}
+    viewBox="0 0 104 100"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <rect
+      x="2"
+      y="2"
+      width="100"
+      height="96"
+      rx="14"
+      stroke="#DC9600"
+      stroke-width="4"
+    />
+    <path
+      d="M53.1722 20H57.6765V54.9129L66.0764 47.289H72.9698L63.5808 55.689L73.5633 65.2454H66.8069L60.1265 58.7781L57.6765 60.9693V65.2454H53.1722V20Z"
+      fill="#DC9600"
+    />
+    <path
+      d="M78.5403 71.1177H80.5429V72.2678C80.9849 71.9386 81.4517 71.6544 81.9433 71.4154C82.4349 71.1763 82.9243 70.9937 83.4114 70.8674L84 72.7008C83.2287 72.7775 82.55 72.9511 81.9636 73.2217C81.3818 73.4878 80.9082 73.8645 80.5429 74.3516V79.1009H78.5403V71.1177Z"
+      fill="#DC9600"
+    />
+    <path
+      d="M66.5854 75.1093C66.5854 74.5365 66.7004 73.9998 66.9304 73.4991C67.165 72.9985 67.4965 72.561 67.9249 72.1866C68.3579 71.8123 68.8788 71.5169 69.4877 71.3004C70.1011 71.0839 70.7889 70.9756 71.5512 70.9756C72.3134 70.9756 72.999 71.0839 73.6079 71.3004C74.2212 71.5169 74.7422 71.8123 75.1707 72.1866C75.6036 72.561 75.9351 72.9985 76.1652 73.4991C76.3997 73.9998 76.517 74.5365 76.517 75.1093C76.517 75.6821 76.3997 76.2188 76.1652 76.7194C75.9351 77.2201 75.6036 77.6576 75.1707 78.0319C74.7422 78.4063 74.2212 78.7017 73.6079 78.9182C72.999 79.1347 72.3134 79.2429 71.5512 79.2429C70.7889 79.2429 70.1011 79.1347 69.4877 78.9182C68.8788 78.7017 68.3579 78.4063 67.9249 78.0319C67.4965 77.6576 67.165 77.2201 66.9304 76.7194C66.7004 76.2188 66.5854 75.6821 66.5854 75.1093ZM68.6894 75.1093C68.6894 75.4295 68.7526 75.734 68.8788 76.0226C69.0096 76.3068 69.1968 76.5593 69.4404 76.7803C69.6884 76.9968 69.9884 77.1705 70.3402 77.3013C70.6965 77.4276 71.1001 77.4907 71.5512 77.4907C72.0022 77.4907 72.4036 77.4276 72.7554 77.3013C73.1117 77.1705 73.4117 76.9968 73.6552 76.7803C73.9033 76.5593 74.0904 76.3068 74.2167 76.0226C74.3475 75.734 74.4129 75.4295 74.4129 75.1093C74.4129 74.7891 74.3475 74.4846 74.2167 74.196C74.0904 73.9073 73.9033 73.6547 73.6552 73.4382C73.4117 73.2172 73.1117 73.0436 72.7554 72.9173C72.4036 72.7865 72.0022 72.7211 71.5512 72.7211C71.1001 72.7211 70.6965 72.7865 70.3402 72.9173C69.9884 73.0436 69.6884 73.2172 69.4404 73.4382C69.1968 73.6547 69.0096 73.9073 68.8788 74.196C68.7526 74.4846 68.6894 74.7891 68.6894 75.1093Z"
+      fill="#DC9600"
+    />
+    <path
+      d="M61.3568 72.6186H59.4286V71.1167H61.3568V68.6338H63.3593V71.1167H65.2875V72.6186H63.3593V79.0998H61.3568V72.6186Z"
+      fill="#DC9600"
+    />
+    <path d="M55.5786 67.876H57.5812V79.0998H55.5786V67.876Z" fill="#DC9600" />
+    <path
+      d="M43.631 76.5841C43.631 76.2008 43.7144 75.8512 43.8813 75.5355C44.0482 75.2198 44.2985 74.9492 44.6322 74.7237C44.966 74.4936 45.3809 74.3177 45.8771 74.196C46.3777 74.0697 46.9595 74.0065 47.6225 74.0065C48.1142 74.0065 48.6306 74.0426 49.1718 74.1148C49.7175 74.1869 50.2791 74.2974 50.8564 74.4463C50.8338 74.1937 50.7572 73.9614 50.6264 73.7494C50.4956 73.5329 50.3129 73.348 50.0784 73.1947C49.8483 73.0368 49.5687 72.915 49.2395 72.8293C48.9147 72.7437 48.5449 72.7008 48.1299 72.7008C47.9044 72.7008 47.6564 72.7143 47.3857 72.7414C47.1151 72.7685 46.8355 72.8091 46.5468 72.8632C46.2582 72.9173 45.9718 72.985 45.6876 73.0661C45.408 73.1473 45.1464 73.2443 44.9029 73.357L44.294 71.7131C44.5962 71.6048 44.9186 71.5056 45.2614 71.4154C45.6087 71.3252 45.9628 71.2485 46.3236 71.1854C46.6844 71.1177 47.0452 71.0658 47.406 71.0298C47.7669 70.9937 48.1164 70.9756 48.4547 70.9756C49.9476 70.9756 51.0571 71.3567 51.7832 72.119C52.5094 72.8812 52.8725 74.0494 52.8725 75.6234V79.1009H50.8699V78.3499C50.6624 78.4717 50.4347 78.5867 50.1866 78.6949C49.9431 78.8032 49.677 78.8979 49.3883 78.9791C49.0996 79.0603 48.7884 79.1234 48.4547 79.1685C48.1254 79.2181 47.7759 79.2429 47.406 79.2429C46.7836 79.2429 46.2356 79.1753 45.7621 79.04C45.293 78.9047 44.9006 78.7175 44.5849 78.4784C44.2692 78.2394 44.0301 77.9598 43.8677 77.6395C43.7099 77.3148 43.631 76.963 43.631 76.5841ZM45.7418 76.5165C45.7418 76.6473 45.7756 76.7736 45.8432 76.8953C45.9109 77.0126 46.0191 77.1186 46.168 77.2133C46.3168 77.3035 46.5062 77.3779 46.7363 77.4366C46.9708 77.4907 47.2527 77.5178 47.5819 77.5178C47.9337 77.5178 48.2743 77.4862 48.6035 77.423C48.9328 77.3599 49.2395 77.2765 49.5236 77.1727C49.8078 77.069 50.0648 76.9495 50.2949 76.8142C50.5249 76.6788 50.7166 76.539 50.8699 76.3947V76.0429C50.5632 75.9572 50.2588 75.885 49.9566 75.8264C49.6589 75.7678 49.3725 75.7227 49.0974 75.6911C48.8268 75.655 48.5697 75.6302 48.3261 75.6167C48.0871 75.6032 47.8774 75.5964 47.697 75.5964C47.3226 75.5964 47.0114 75.6212 46.7633 75.6708C46.5153 75.7204 46.3146 75.7881 46.1612 75.8738C46.0079 75.955 45.8996 76.0519 45.8365 76.1647C45.7733 76.2774 45.7418 76.3947 45.7418 76.5165Z"
+      fill="#DC9600"
+    />
+    <path
+      d="M32.0486 75.0822C32.0486 74.541 32.1591 74.0246 32.3801 73.5329C32.6011 73.0368 32.9191 72.5993 33.334 72.2205C33.749 71.8416 34.2564 71.5394 34.8563 71.3139C35.4606 71.0884 36.1462 70.9756 36.9129 70.9756C37.6752 70.9756 38.3607 71.0906 38.9696 71.3207C39.583 71.5462 40.1017 71.8574 40.5257 72.2543C40.9541 72.6512 41.2811 73.118 41.5066 73.6547C41.7367 74.1914 41.8517 74.7665 41.8517 75.3799C41.8517 75.4566 41.8494 75.54 41.8449 75.6302C41.8449 75.7159 41.8404 75.7948 41.8314 75.867H34.2812C34.3669 76.106 34.5045 76.3248 34.6939 76.5232C34.8878 76.7217 35.1291 76.8931 35.4178 77.0374C35.7064 77.1817 36.0402 77.2945 36.4191 77.3757C36.7979 77.4524 37.2174 77.4907 37.6774 77.4907C38.1375 77.4907 38.5953 77.4433 39.0508 77.3486C39.5063 77.2494 39.9416 77.1254 40.3565 76.9765L41.0331 78.5055C40.7715 78.6273 40.5054 78.7355 40.2347 78.8302C39.9686 78.9204 39.689 78.9971 39.3958 79.0603C39.1072 79.1189 38.8027 79.164 38.4825 79.1956C38.1668 79.2271 37.833 79.2429 37.4812 79.2429C36.5837 79.2429 35.7966 79.1347 35.1201 78.9182C34.4436 78.7017 33.8775 78.4063 33.422 78.0319C32.9665 77.6576 32.6237 77.2178 32.3937 76.7127C32.1636 76.2075 32.0486 75.664 32.0486 75.0822ZM39.7273 74.3042C39.6552 74.0832 39.5424 73.878 39.3891 73.6885C39.2402 73.4946 39.0531 73.3277 38.8275 73.1879C38.602 73.0436 38.3404 72.9308 38.0428 72.8496C37.7451 72.7685 37.4181 72.7279 37.0618 72.7279C36.6829 72.7279 36.3379 72.7707 36.0267 72.8564C35.7155 72.9421 35.4426 73.0571 35.2081 73.2014C34.9735 73.3458 34.7773 73.5126 34.6195 73.7021C34.4661 73.8915 34.3534 74.0922 34.2812 74.3042H39.7273Z"
+      fill="#DC9600"
+    />
+    <path
+      d="M20 68.5255H25.3785C26.1903 68.5255 26.8939 68.6112 27.4893 68.7826C28.0846 68.9495 28.5785 69.193 28.9709 69.5133C29.3633 69.8335 29.6542 70.2236 29.8436 70.6837C30.0376 71.1437 30.1345 71.6647 30.1345 72.2465C30.1345 72.6389 30.0872 73.0132 29.9925 73.3695C29.8978 73.7213 29.7512 74.0461 29.5527 74.3438C29.3588 74.6414 29.113 74.9075 28.8153 75.1421C28.5176 75.3721 28.1681 75.5638 27.7667 75.7171L30.0669 79.0998H27.4419L25.4529 76.096H25.392L22.1446 76.0892V79.0998H20V68.5255ZM25.4326 74.2355C25.8385 74.2355 26.1926 74.1881 26.4948 74.0934C26.8015 73.9987 27.0563 73.8657 27.2593 73.6943C27.4667 73.5229 27.6201 73.3154 27.7193 73.0719C27.823 72.8238 27.8749 72.5487 27.8749 72.2465C27.8749 71.6556 27.6719 71.2001 27.266 70.8799C26.8601 70.5551 26.249 70.3928 25.4326 70.3928H22.1446V74.2355H25.4326Z"
+      fill="#DC9600"
+    />
+    <path
+      d="M49.5689 20H45.0646V54.9129L36.6647 47.289H29.7713L39.1603 55.689L29.1778 65.2454H35.9343L42.6146 58.7781L45.0646 60.9693V65.2454H49.5689V20Z"
+      fill="#DC9600"
+    />
+  </svg>
+);
+
+export const MatterportIcon = ({ className = "" }) => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path d="M8.5 2C8.78 2 9 2.22 9 2.5V4.5H15V10.5H17C17.28 10.5 17.5 10.72 17.5 11C17.5 11.28 17.28 11.5 17 11.5H15V17.5H12.88C12.2 15.75 10.49 14.5 8.5 14.5C6.51 14.5 4.8 15.75 4.12 17.5H2V15.38C3.75 14.7 5 12.99 5 11C5 9.01 3.76 7.3 2.01 6.62L2 4.5H8V2.5C8 2.22 8.22 2 8.5 2ZM8.5 0C7.12 0 6 1.12 6 2.5H2C0.9 2.5 0.00999999 3.4 0.00999999 4.5V8.3H0.3C1.79 8.3 3 9.51 3 11C3 12.49 1.79 13.7 0.3 13.7H0V17.5C0 18.6 0.9 19.5 2 19.5H5.8V19.2C5.8 17.71 7.01 16.5 8.5 16.5C9.99 16.5 11.2 17.71 11.2 19.2V19.5H15C16.1 19.5 17 18.6 17 17.5V13.5C18.38 13.5 19.5 12.38 19.5 11C19.5 9.62 18.38 8.5 17 8.5V4.5C17 3.4 16.1 2.5 15 2.5H11C11 1.12 9.88 0 8.5 0Z" />
+  </svg>
+);
+
+export const BCFLogo = () => (
+  <svg
+    width="90"
+    height="86"
+    viewBox="0 0 90 86"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <circle
+      cx="44.9711"
+      cy="42.8168"
+      r="38.5073"
+      stroke="#F2F2F2"
+      stroke-width="2.15425"
+    />
+    <path
+      d="M66.0023 23.9753C65.7526 23.043 65.1504 22.7048 64.196 22.9605L62.3316 23.4601L64.4102 31.2175L66.2746 30.7179C67.229 30.4622 67.5814 29.8682 67.3316 28.936L66.0023 23.9753ZM56.1445 20.479L63.6689 18.4629C65.4667 17.9811 66.9921 18.0363 68.2451 18.6283C69.5202 19.2145 70.3838 20.3509 70.8358 22.0378L72.4862 28.1971C72.9382 29.884 72.7586 31.3 71.9473 32.4452C71.1582 33.5844 69.8648 34.3949 68.0669 34.8766L65.5699 35.5457L67.3541 42.2044L62.3268 43.5515L56.1445 20.479Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M42.6094 24.105L54.0291 21.0451L55.1977 25.4065L48.8387 27.1104L50.3641 32.8037L56.2238 31.2336L57.4192 35.6949L51.5596 37.265L53.8522 45.8214L48.7916 47.1774L42.6094 24.105Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M29.9178 33.3585C29.442 31.5829 29.6837 30.0432 30.6427 28.7395C31.6181 27.4076 33.3487 26.4087 35.8346 25.7426C37.4771 25.3025 38.9171 25.0831 40.1545 25.0846L41.3856 29.6791C40.0415 29.6349 38.7591 29.7763 37.5384 30.1034C36.3398 30.4245 35.6016 30.777 35.3238 31.1607C35.04 31.5222 34.9695 31.9693 35.1122 32.502L38.1097 43.6886C38.3952 44.754 39.3702 45.0637 41.0349 44.6176C42.7218 44.1656 44.0644 43.6275 45.0628 43.0031L46.2671 47.4977C45.1578 48.1518 43.7486 48.7078 42.0395 49.1658C39.5536 49.8319 37.5694 49.8402 36.0869 49.1907C34.6267 48.5352 33.6587 47.3197 33.1829 45.544L29.9178 33.3585Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M27.2306 33.8987L27.8105 36.0628C28.3874 38.2157 27.9533 39.7475 26.5083 40.6581C28.3244 40.5997 29.5358 41.7024 30.1424 43.9664L30.7758 46.3302C31.7214 49.8594 30.3076 52.1295 26.5343 53.1405L18.444 55.3083L12.2617 32.2358L20.1523 30.1216C23.9256 29.1105 26.285 30.3696 27.2306 33.8987ZM20.444 34.5396L18.3798 35.0927L19.7269 40.12L21.7911 39.5669C22.8343 39.2874 23.228 38.6704 22.9723 37.716L22.3924 35.5519C22.1367 34.5975 21.4872 34.2601 20.444 34.5396ZM25.7591 47.3176L25.1257 44.9538C24.87 43.9994 24.2205 43.6619 23.1773 43.9414L20.9134 44.5481L22.314 49.7752L24.5779 49.1685C25.6211 48.889 26.0149 48.272 25.7591 47.3176Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M74.0009 48.7361C73.8596 48.2089 73.929 47.756 74.2089 47.3773C74.487 46.9921 74.9588 46.7103 75.6244 46.5319C76.2965 46.3518 76.8158 46.2868 77.1823 46.3369L77.5637 47.7602C77.1159 47.6966 76.635 47.7337 76.121 47.8714C75.8574 47.942 75.691 48.0325 75.6217 48.1429C75.5506 48.2467 75.5354 48.3744 75.576 48.5259L75.6157 48.6742C75.6652 48.8587 75.7319 48.9891 75.8159 49.0655C75.9048 49.1335 76.0696 49.1952 76.3105 49.2507L77.6068 49.5814C78.2265 49.7331 78.6159 50.1055 78.7748 50.6986L78.939 51.3114C79.082 51.8451 78.9947 52.3099 78.677 52.7058C78.3576 53.0951 77.8387 53.3859 77.1205 53.5784C76.4088 53.7691 75.8515 53.8372 75.4485 53.7828L75.0645 52.3496C75.5637 52.4206 76.0967 52.3802 76.6634 52.2284C77.2301 52.0765 77.4702 51.8391 77.3837 51.5163L77.3439 51.368C77.3033 51.2165 77.2404 51.1133 77.155 51.0584C77.0746 50.9953 76.9363 50.9405 76.7402 50.8941L75.529 50.6043C74.7945 50.4197 74.3408 50.0045 74.1677 49.3588L74.0009 48.7361Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M71.3629 47.7282L72.8258 47.3362L74.6611 54.1859L73.2378 54.5672C71.5952 52.3378 70.6292 50.9864 70.34 50.513C70.6178 50.9965 70.9271 51.8741 71.2679 53.1458L71.7552 54.9645L70.2924 55.3565L68.457 48.5068L69.9199 48.1149L71.4337 50.167C72.079 51.0464 72.5355 51.7221 72.8032 52.1942C72.4804 51.5956 72.1539 50.6802 71.8238 49.448L71.3629 47.7282Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M68.2775 55.8958L67.5671 54.3912L66.213 54.754L66.3699 56.4069L64.9564 56.7857L64.4653 49.5759L66.5311 49.0223L69.6909 55.5171L68.2775 55.8958ZM66.0842 53.4431L67.0133 53.1942L65.8291 50.6724L66.0842 53.4431Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M59.5898 50.8818L61.0922 50.4793L62.5939 56.0835L64.4224 55.5936L64.7561 56.839L61.4252 57.7315L59.5898 50.8818Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M57.7703 53.1913C57.6961 52.9145 57.5174 52.8141 57.234 52.89L56.6805 53.0383L57.2976 55.3413L57.8511 55.193C58.1345 55.1171 58.2391 54.9407 58.1649 54.664L57.7703 53.1913ZM54.8438 52.1533L57.0775 51.5548C57.6113 51.4118 58.0641 51.4281 58.4361 51.6039C58.8147 51.7779 59.071 52.1153 59.2052 52.6161L59.6952 54.4446C59.8294 54.9454 59.776 55.3658 59.5352 55.7058C59.3009 56.044 58.9169 56.2846 58.3832 56.4276L57.6419 56.6262L58.1716 58.603L56.6791 59.003L54.8438 52.1533Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M50.6871 57.9599L51.3492 60.4309L49.8666 60.8282L48.0312 53.9785L50.265 53.38C50.8054 53.2352 51.2615 53.2507 51.6335 53.4265C52.0055 53.6022 52.2577 53.9372 52.3901 54.4314L52.7291 55.6966C52.9409 56.4873 52.8032 57.0539 52.3158 57.3963L54.0871 59.6973L52.4562 60.1343L50.8749 57.9096L50.6871 57.9599ZM49.8529 54.8464L50.3719 56.7837L50.9551 56.6274C51.1067 56.5868 51.2033 56.5256 51.2449 56.4438C51.2866 56.362 51.2853 56.2388 51.2412 56.0741L50.9419 54.9572C50.9031 54.8122 50.8436 54.7222 50.7636 54.6871C50.6836 54.6521 50.5744 54.6531 50.436 54.6902L49.8529 54.8464Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M46.1228 56.3664C46.0345 56.0369 45.7927 55.9251 45.3973 56.0311C45.0086 56.1352 44.8583 56.3521 44.9466 56.6815L45.8444 60.0322C45.9327 60.3617 46.1712 60.4743 46.56 60.3702C46.9554 60.2642 47.1089 60.0465 47.0206 59.717L46.1228 56.3664ZM43.4428 56.9997C43.298 56.4594 43.3579 55.9843 43.6224 55.5744C43.8851 55.158 44.3558 54.8588 45.0345 54.6769C45.7132 54.4951 46.2704 54.5188 46.7062 54.7481C47.1468 54.9691 47.4394 55.3497 47.5842 55.89L48.5244 59.3989C48.6692 59.9392 48.6069 60.4185 48.3376 60.8367C48.0731 61.2465 47.6015 61.5424 46.9228 61.7243C46.2441 61.9061 45.6878 61.8857 45.2538 61.663C44.8181 61.4337 44.5278 61.0489 44.383 60.5085L43.4428 56.9997Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M41.1814 57.6896C41.0931 57.3601 40.8513 57.2484 40.4559 57.3543C40.0672 57.4585 39.9169 57.6753 40.0052 58.0048L40.903 61.3554C40.9913 61.6849 41.2298 61.7976 41.6186 61.6934C42.014 61.5875 42.1675 61.3698 42.0792 61.0403L41.1814 57.6896ZM38.5014 58.323C38.3566 57.7826 38.4165 57.3075 38.681 56.8977C38.9437 56.4812 39.4144 56.182 40.0931 56.0002C40.7718 55.8183 41.329 55.8421 41.7648 56.0714C42.2054 56.2923 42.498 56.6729 42.6428 57.2133L43.583 60.7221C43.7278 61.2624 43.6655 61.7417 43.3962 62.1599C43.1317 62.5698 42.6601 62.8657 41.9814 63.0475C41.3027 63.2294 40.7464 63.2089 40.3124 62.9862C39.8766 62.7569 39.5864 62.3721 39.4416 61.8318L38.5014 58.323Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M34.2266 57.6777L35.7289 57.2752L37.2306 62.8794L39.0591 62.3895L39.3928 63.6349L36.0619 64.5274L34.2266 57.6777Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M30.1367 58.7739L33.5269 57.8655L33.8739 59.1603L31.986 59.6662L32.4389 61.3563L34.1785 60.8902L34.5334 62.2147L32.7938 62.6808L33.4744 65.221L31.9721 65.6236L30.1367 58.7739Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M24.3538 62.06C24.2126 61.5329 24.2843 61.0758 24.5691 60.6888C24.8586 60.2934 25.3724 59.9968 26.1104 59.7991C26.598 59.6684 27.0255 59.6033 27.3929 59.6037L27.7583 60.9677C27.3593 60.9546 26.9786 60.9966 26.6162 61.0937C26.2604 61.189 26.0412 61.2936 25.9587 61.4076C25.8745 61.5149 25.8536 61.6476 25.8959 61.8058L26.7858 65.1268C26.8706 65.4431 27.16 65.535 27.6542 65.4026C28.155 65.2684 28.5536 65.1086 28.85 64.9233L29.2075 66.2576C28.8782 66.4518 28.4598 66.6169 27.9525 66.7528C27.2145 66.9506 26.6254 66.953 26.1853 66.7602C25.7518 66.5656 25.4644 66.2048 25.3232 65.6776L24.3538 62.06Z"
+      fill="#F2F2F2"
+    />
+    <path
+      d="M23.4869 62.2402L23.659 62.8827C23.8303 63.5219 23.7014 63.9766 23.2724 64.2469C23.8116 64.2296 24.1712 64.557 24.3513 65.2291L24.5393 65.9309C24.8201 66.9786 24.4003 67.6525 23.2801 67.9527L20.8783 68.5962L19.043 61.7466L21.3855 61.1189C22.5057 60.8188 23.2061 61.1925 23.4869 62.2402ZM21.4721 62.4305L20.8593 62.5947L21.2592 64.0872L21.872 63.923C22.1817 63.84 22.2986 63.6568 22.2227 63.3735L22.0505 62.731C21.9746 62.4477 21.7818 62.3475 21.4721 62.4305ZM23.05 66.224L22.862 65.5222C22.7861 65.2389 22.5932 65.1387 22.2835 65.2217L21.6114 65.4018L22.0272 66.9536L22.6993 66.7735C23.009 66.6905 23.1259 66.5073 23.05 66.224Z"
+      fill="#F2F2F2"
+    />
+  </svg>
+);
+
+export const Sqft = ({ className = "" }) => (
+  <svg
+    width="33"
+    height="33"
+    viewBox="0 0 33 33"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <circle
+      cx="16.0192"
+      cy="16.0191"
+      r="16.0094"
+      transform="rotate(0.0347055 16.0192 16.0191)"
+      fill="white"
+    />
+    <path
+      d="M12.1186 13.0909V14.5114H6.23793V13.0909H12.1186ZM7.99929 24V11.5852C7.99929 10.9602 8.14607 10.4394 8.43963 10.0227C8.73319 9.60606 9.11435 9.29356 9.5831 9.08523C10.0518 8.87689 10.5466 8.77273 11.0675 8.77273C11.4794 8.77273 11.8156 8.80587 12.076 8.87216C12.3364 8.93845 12.5305 9 12.6584 9.05682L12.1754 10.5057C12.0902 10.4773 11.9718 10.4418 11.8203 10.3991C11.6735 10.3565 11.4794 10.3352 11.2379 10.3352C10.6839 10.3352 10.2839 10.4749 10.0376 10.7543C9.79616 11.0336 9.67543 11.4432 9.67543 11.983V24H7.99929ZM18.0401 13.0909V14.5114H12.3867V13.0909H18.0401ZM14.0344 10.4773H15.7106V20.875C15.7106 21.3485 15.7792 21.7036 15.9165 21.9403C16.0586 22.1723 16.2385 22.3286 16.4563 22.4091C16.6789 22.4848 16.9132 22.5227 17.1594 22.5227C17.3441 22.5227 17.4956 22.5133 17.614 22.4943C17.7324 22.4706 17.8271 22.4517 17.8981 22.4375L18.239 23.9432C18.1254 23.9858 17.9667 24.0284 17.7631 24.071C17.5595 24.1184 17.3015 24.142 16.989 24.142C16.5155 24.142 16.0515 24.0402 15.5969 23.8366C15.1471 23.633 14.7731 23.3229 14.4748 22.9062C14.1812 22.4896 14.0344 21.964 14.0344 21.3295V10.4773ZM18.8498 16.7273V15.6193L22.1737 12.6648C22.5051 12.3712 22.7821 12.1084 23.0046 11.8764C23.2272 11.6444 23.3952 11.4195 23.5089 11.2017C23.6225 10.9839 23.6793 10.7519 23.6793 10.5057C23.6793 10.0795 23.516 9.741 23.1893 9.49006C22.8626 9.23911 22.4577 9.11364 21.9748 9.11364C21.4634 9.11364 21.0515 9.25095 20.739 9.52557C20.4265 9.79545 20.2702 10.1506 20.2702 10.5909H18.793C18.793 9.78125 19.0936 9.13021 19.695 8.63778C20.2963 8.14062 21.0657 7.89205 22.0032 7.89205C22.6282 7.89205 23.1774 8.00568 23.6509 8.23295C24.1244 8.45549 24.4937 8.76326 24.7589 9.15625C25.024 9.54451 25.1566 9.98485 25.1566 10.4773C25.1566 10.8655 25.0785 11.2254 24.9222 11.5568C24.766 11.8883 24.5221 12.2315 24.1907 12.5866C23.8593 12.9418 23.4331 13.3466 22.9123 13.8011L21.0657 15.4205V15.4773H25.4123V16.7273H18.8498Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+export function UploadRightIcon({
+  size = 24,
+  color = "currentColor",
+  ...props
+}) {
+  return (
     <svg
-        width={width}
-        height={height}
-        viewBox="0 0 104 100"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ transform: "rotate(90deg)" }}
+      {...props}
     >
-        <rect
-            x="2"
-            y="2"
-            width="100"
-            height="96"
-            rx="14"
-            stroke="#6BAE41"
-            stroke-width="4"
-        />
-        <path
-            d="M53.1722 20H57.6765V54.9129L66.0764 47.289H72.9698L63.5808 55.689L73.5633 65.2454H66.8069L60.1265 58.7781L57.6765 60.9693V65.2454H53.1722V20Z"
-            fill="#6BAE41"
-        />
-        <path
-            d="M78.5403 71.1177H80.5429V72.2678C80.9849 71.9386 81.4517 71.6544 81.9433 71.4154C82.4349 71.1763 82.9243 70.9937 83.4114 70.8674L84 72.7008C83.2287 72.7775 82.55 72.9511 81.9636 73.2217C81.3818 73.4878 80.9082 73.8645 80.5429 74.3516V79.1009H78.5403V71.1177Z"
-            fill="#6BAE41"
-        />
-        <path
-            d="M66.5854 75.1093C66.5854 74.5365 66.7004 73.9998 66.9304 73.4991C67.165 72.9985 67.4965 72.561 67.9249 72.1866C68.3579 71.8123 68.8788 71.5169 69.4877 71.3004C70.1011 71.0839 70.7889 70.9756 71.5512 70.9756C72.3134 70.9756 72.999 71.0839 73.6079 71.3004C74.2212 71.5169 74.7422 71.8123 75.1707 72.1866C75.6036 72.561 75.9351 72.9985 76.1652 73.4991C76.3997 73.9998 76.517 74.5365 76.517 75.1093C76.517 75.6821 76.3997 76.2188 76.1652 76.7194C75.9351 77.2201 75.6036 77.6576 75.1707 78.0319C74.7422 78.4063 74.2212 78.7017 73.6079 78.9182C72.999 79.1347 72.3134 79.2429 71.5512 79.2429C70.7889 79.2429 70.1011 79.1347 69.4877 78.9182C68.8788 78.7017 68.3579 78.4063 67.9249 78.0319C67.4965 77.6576 67.165 77.2201 66.9304 76.7194C66.7004 76.2188 66.5854 75.6821 66.5854 75.1093ZM68.6894 75.1093C68.6894 75.4295 68.7526 75.734 68.8788 76.0226C69.0096 76.3068 69.1968 76.5593 69.4404 76.7803C69.6884 76.9968 69.9884 77.1705 70.3402 77.3013C70.6965 77.4276 71.1001 77.4907 71.5512 77.4907C72.0022 77.4907 72.4036 77.4276 72.7554 77.3013C73.1117 77.1705 73.4117 76.9968 73.6552 76.7803C73.9033 76.5593 74.0904 76.3068 74.2167 76.0226C74.3475 75.734 74.4129 75.4295 74.4129 75.1093C74.4129 74.7891 74.3475 74.4846 74.2167 74.196C74.0904 73.9073 73.9033 73.6547 73.6552 73.4382C73.4117 73.2172 73.1117 73.0436 72.7554 72.9173C72.4036 72.7865 72.0022 72.7211 71.5512 72.7211C71.1001 72.7211 70.6965 72.7865 70.3402 72.9173C69.9884 73.0436 69.6884 73.2172 69.4404 73.4382C69.1968 73.6547 69.0096 73.9073 68.8788 74.196C68.7526 74.4846 68.6894 74.7891 68.6894 75.1093Z"
-            fill="#6BAE41"
-        />
-        <path
-            d="M61.3568 72.6186H59.4286V71.1167H61.3568V68.6338H63.3593V71.1167H65.2875V72.6186H63.3593V79.0998H61.3568V72.6186Z"
-            fill="#6BAE41"
-        />
-        <path d="M55.5786 67.876H57.5812V79.0998H55.5786V67.876Z" fill="#6BAE41" />
-        <path
-            d="M43.631 76.5841C43.631 76.2008 43.7144 75.8512 43.8813 75.5355C44.0482 75.2198 44.2985 74.9492 44.6322 74.7237C44.966 74.4936 45.3809 74.3177 45.8771 74.196C46.3777 74.0697 46.9595 74.0065 47.6225 74.0065C48.1142 74.0065 48.6306 74.0426 49.1718 74.1148C49.7175 74.1869 50.2791 74.2974 50.8564 74.4463C50.8338 74.1937 50.7572 73.9614 50.6264 73.7494C50.4956 73.5329 50.3129 73.348 50.0784 73.1947C49.8483 73.0368 49.5687 72.915 49.2395 72.8293C48.9147 72.7437 48.5449 72.7008 48.1299 72.7008C47.9044 72.7008 47.6564 72.7143 47.3857 72.7414C47.1151 72.7685 46.8355 72.8091 46.5468 72.8632C46.2582 72.9173 45.9718 72.985 45.6876 73.0661C45.408 73.1473 45.1464 73.2443 44.9029 73.357L44.294 71.7131C44.5962 71.6048 44.9186 71.5056 45.2614 71.4154C45.6087 71.3252 45.9628 71.2485 46.3236 71.1854C46.6844 71.1177 47.0452 71.0658 47.406 71.0298C47.7669 70.9937 48.1164 70.9756 48.4547 70.9756C49.9476 70.9756 51.0571 71.3567 51.7832 72.119C52.5094 72.8812 52.8725 74.0494 52.8725 75.6234V79.1009H50.8699V78.3499C50.6624 78.4717 50.4347 78.5867 50.1866 78.6949C49.9431 78.8032 49.677 78.8979 49.3883 78.9791C49.0996 79.0603 48.7884 79.1234 48.4547 79.1685C48.1254 79.2181 47.7759 79.2429 47.406 79.2429C46.7836 79.2429 46.2356 79.1753 45.7621 79.04C45.293 78.9047 44.9006 78.7175 44.5849 78.4784C44.2692 78.2394 44.0301 77.9598 43.8677 77.6395C43.7099 77.3148 43.631 76.963 43.631 76.5841ZM45.7418 76.5165C45.7418 76.6473 45.7756 76.7736 45.8432 76.8953C45.9109 77.0126 46.0191 77.1186 46.168 77.2133C46.3168 77.3035 46.5062 77.3779 46.7363 77.4366C46.9708 77.4907 47.2527 77.5178 47.5819 77.5178C47.9337 77.5178 48.2743 77.4862 48.6035 77.423C48.9328 77.3599 49.2395 77.2765 49.5236 77.1727C49.8078 77.069 50.0648 76.9495 50.2949 76.8142C50.5249 76.6788 50.7166 76.539 50.8699 76.3947V76.0429C50.5632 75.9572 50.2588 75.885 49.9566 75.8264C49.6589 75.7678 49.3725 75.7227 49.0974 75.6911C48.8268 75.655 48.5697 75.6302 48.3261 75.6167C48.0871 75.6032 47.8774 75.5964 47.697 75.5964C47.3226 75.5964 47.0114 75.6212 46.7633 75.6708C46.5153 75.7204 46.3146 75.7881 46.1612 75.8738C46.0079 75.955 45.8996 76.0519 45.8365 76.1647C45.7733 76.2774 45.7418 76.3947 45.7418 76.5165Z"
-            fill="#6BAE41"
-        />
-        <path
-            d="M32.0486 75.0822C32.0486 74.541 32.1591 74.0246 32.3801 73.5329C32.6011 73.0368 32.9191 72.5993 33.334 72.2205C33.749 71.8416 34.2564 71.5394 34.8563 71.3139C35.4606 71.0884 36.1462 70.9756 36.9129 70.9756C37.6752 70.9756 38.3607 71.0906 38.9696 71.3207C39.583 71.5462 40.1017 71.8574 40.5257 72.2543C40.9541 72.6512 41.2811 73.118 41.5066 73.6547C41.7367 74.1914 41.8517 74.7665 41.8517 75.3799C41.8517 75.4566 41.8494 75.54 41.8449 75.6302C41.8449 75.7159 41.8404 75.7948 41.8314 75.867H34.2812C34.3669 76.106 34.5045 76.3248 34.6939 76.5232C34.8878 76.7217 35.1291 76.8931 35.4178 77.0374C35.7064 77.1817 36.0402 77.2945 36.4191 77.3757C36.7979 77.4524 37.2174 77.4907 37.6774 77.4907C38.1375 77.4907 38.5953 77.4433 39.0508 77.3486C39.5063 77.2494 39.9416 77.1254 40.3565 76.9765L41.0331 78.5055C40.7715 78.6273 40.5054 78.7355 40.2347 78.8302C39.9686 78.9204 39.689 78.9971 39.3958 79.0603C39.1072 79.1189 38.8027 79.164 38.4825 79.1956C38.1668 79.2271 37.833 79.2429 37.4812 79.2429C36.5837 79.2429 35.7966 79.1347 35.1201 78.9182C34.4436 78.7017 33.8775 78.4063 33.422 78.0319C32.9665 77.6576 32.6237 77.2178 32.3937 76.7127C32.1636 76.2075 32.0486 75.664 32.0486 75.0822ZM39.7273 74.3042C39.6552 74.0832 39.5424 73.878 39.3891 73.6885C39.2402 73.4946 39.0531 73.3277 38.8275 73.1879C38.602 73.0436 38.3404 72.9308 38.0428 72.8496C37.7451 72.7685 37.4181 72.7279 37.0618 72.7279C36.6829 72.7279 36.3379 72.7707 36.0267 72.8564C35.7155 72.9421 35.4426 73.0571 35.2081 73.2014C34.9735 73.3458 34.7773 73.5126 34.6195 73.7021C34.4661 73.8915 34.3534 74.0922 34.2812 74.3042H39.7273Z"
-            fill="#6BAE41"
-        />
-        <path
-            d="M20 68.5255H25.3785C26.1903 68.5255 26.8939 68.6112 27.4893 68.7826C28.0846 68.9495 28.5785 69.193 28.9709 69.5133C29.3633 69.8335 29.6542 70.2236 29.8436 70.6837C30.0376 71.1437 30.1345 71.6647 30.1345 72.2465C30.1345 72.6389 30.0872 73.0132 29.9925 73.3695C29.8978 73.7213 29.7512 74.0461 29.5527 74.3438C29.3588 74.6414 29.113 74.9075 28.8153 75.1421C28.5176 75.3721 28.1681 75.5638 27.7667 75.7171L30.0669 79.0998H27.4419L25.4529 76.096H25.392L22.1446 76.0892V79.0998H20V68.5255ZM25.4326 74.2355C25.8385 74.2355 26.1926 74.1881 26.4948 74.0934C26.8015 73.9987 27.0563 73.8657 27.2593 73.6943C27.4667 73.5229 27.6201 73.3154 27.7193 73.0719C27.823 72.8238 27.8749 72.5487 27.8749 72.2465C27.8749 71.6556 27.6719 71.2001 27.266 70.8799C26.8601 70.5551 26.249 70.3928 25.4326 70.3928H22.1446V74.2355H25.4326Z"
-            fill="#6BAE41"
-        />
-        <path
-            d="M49.5689 20H45.0646V54.9129L36.6647 47.289H29.7713L39.1603 55.689L29.1778 65.2454H35.9343L42.6146 58.7781L45.0646 60.9693V65.2454H49.5689V20Z"
-            fill="#6BAE41"
-        />
+      <path d="M12 3v12" />
+      <path d="m17 8-5-5-5 5" />
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
     </svg>
-);
+  );
+}
 
-export const VendorLoginIcon = ({ width, height }: { width: string; height: string }) => (
-    <svg
-        width={width}
-        height={height}
-        viewBox="0 0 104 100"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-    >
-        <rect
-            x="2"
-            y="2"
-            width="100"
-            height="96"
-            rx="14"
-            stroke="#DC9600"
-            stroke-width="4"
-        />
-        <path
-            d="M53.1722 20H57.6765V54.9129L66.0764 47.289H72.9698L63.5808 55.689L73.5633 65.2454H66.8069L60.1265 58.7781L57.6765 60.9693V65.2454H53.1722V20Z"
-            fill="#DC9600"
-        />
-        <path
-            d="M78.5403 71.1177H80.5429V72.2678C80.9849 71.9386 81.4517 71.6544 81.9433 71.4154C82.4349 71.1763 82.9243 70.9937 83.4114 70.8674L84 72.7008C83.2287 72.7775 82.55 72.9511 81.9636 73.2217C81.3818 73.4878 80.9082 73.8645 80.5429 74.3516V79.1009H78.5403V71.1177Z"
-            fill="#DC9600"
-        />
-        <path
-            d="M66.5854 75.1093C66.5854 74.5365 66.7004 73.9998 66.9304 73.4991C67.165 72.9985 67.4965 72.561 67.9249 72.1866C68.3579 71.8123 68.8788 71.5169 69.4877 71.3004C70.1011 71.0839 70.7889 70.9756 71.5512 70.9756C72.3134 70.9756 72.999 71.0839 73.6079 71.3004C74.2212 71.5169 74.7422 71.8123 75.1707 72.1866C75.6036 72.561 75.9351 72.9985 76.1652 73.4991C76.3997 73.9998 76.517 74.5365 76.517 75.1093C76.517 75.6821 76.3997 76.2188 76.1652 76.7194C75.9351 77.2201 75.6036 77.6576 75.1707 78.0319C74.7422 78.4063 74.2212 78.7017 73.6079 78.9182C72.999 79.1347 72.3134 79.2429 71.5512 79.2429C70.7889 79.2429 70.1011 79.1347 69.4877 78.9182C68.8788 78.7017 68.3579 78.4063 67.9249 78.0319C67.4965 77.6576 67.165 77.2201 66.9304 76.7194C66.7004 76.2188 66.5854 75.6821 66.5854 75.1093ZM68.6894 75.1093C68.6894 75.4295 68.7526 75.734 68.8788 76.0226C69.0096 76.3068 69.1968 76.5593 69.4404 76.7803C69.6884 76.9968 69.9884 77.1705 70.3402 77.3013C70.6965 77.4276 71.1001 77.4907 71.5512 77.4907C72.0022 77.4907 72.4036 77.4276 72.7554 77.3013C73.1117 77.1705 73.4117 76.9968 73.6552 76.7803C73.9033 76.5593 74.0904 76.3068 74.2167 76.0226C74.3475 75.734 74.4129 75.4295 74.4129 75.1093C74.4129 74.7891 74.3475 74.4846 74.2167 74.196C74.0904 73.9073 73.9033 73.6547 73.6552 73.4382C73.4117 73.2172 73.1117 73.0436 72.7554 72.9173C72.4036 72.7865 72.0022 72.7211 71.5512 72.7211C71.1001 72.7211 70.6965 72.7865 70.3402 72.9173C69.9884 73.0436 69.6884 73.2172 69.4404 73.4382C69.1968 73.6547 69.0096 73.9073 68.8788 74.196C68.7526 74.4846 68.6894 74.7891 68.6894 75.1093Z"
-            fill="#DC9600"
-        />
-        <path
-            d="M61.3568 72.6186H59.4286V71.1167H61.3568V68.6338H63.3593V71.1167H65.2875V72.6186H63.3593V79.0998H61.3568V72.6186Z"
-            fill="#DC9600"
-        />
-        <path d="M55.5786 67.876H57.5812V79.0998H55.5786V67.876Z" fill="#DC9600" />
-        <path
-            d="M43.631 76.5841C43.631 76.2008 43.7144 75.8512 43.8813 75.5355C44.0482 75.2198 44.2985 74.9492 44.6322 74.7237C44.966 74.4936 45.3809 74.3177 45.8771 74.196C46.3777 74.0697 46.9595 74.0065 47.6225 74.0065C48.1142 74.0065 48.6306 74.0426 49.1718 74.1148C49.7175 74.1869 50.2791 74.2974 50.8564 74.4463C50.8338 74.1937 50.7572 73.9614 50.6264 73.7494C50.4956 73.5329 50.3129 73.348 50.0784 73.1947C49.8483 73.0368 49.5687 72.915 49.2395 72.8293C48.9147 72.7437 48.5449 72.7008 48.1299 72.7008C47.9044 72.7008 47.6564 72.7143 47.3857 72.7414C47.1151 72.7685 46.8355 72.8091 46.5468 72.8632C46.2582 72.9173 45.9718 72.985 45.6876 73.0661C45.408 73.1473 45.1464 73.2443 44.9029 73.357L44.294 71.7131C44.5962 71.6048 44.9186 71.5056 45.2614 71.4154C45.6087 71.3252 45.9628 71.2485 46.3236 71.1854C46.6844 71.1177 47.0452 71.0658 47.406 71.0298C47.7669 70.9937 48.1164 70.9756 48.4547 70.9756C49.9476 70.9756 51.0571 71.3567 51.7832 72.119C52.5094 72.8812 52.8725 74.0494 52.8725 75.6234V79.1009H50.8699V78.3499C50.6624 78.4717 50.4347 78.5867 50.1866 78.6949C49.9431 78.8032 49.677 78.8979 49.3883 78.9791C49.0996 79.0603 48.7884 79.1234 48.4547 79.1685C48.1254 79.2181 47.7759 79.2429 47.406 79.2429C46.7836 79.2429 46.2356 79.1753 45.7621 79.04C45.293 78.9047 44.9006 78.7175 44.5849 78.4784C44.2692 78.2394 44.0301 77.9598 43.8677 77.6395C43.7099 77.3148 43.631 76.963 43.631 76.5841ZM45.7418 76.5165C45.7418 76.6473 45.7756 76.7736 45.8432 76.8953C45.9109 77.0126 46.0191 77.1186 46.168 77.2133C46.3168 77.3035 46.5062 77.3779 46.7363 77.4366C46.9708 77.4907 47.2527 77.5178 47.5819 77.5178C47.9337 77.5178 48.2743 77.4862 48.6035 77.423C48.9328 77.3599 49.2395 77.2765 49.5236 77.1727C49.8078 77.069 50.0648 76.9495 50.2949 76.8142C50.5249 76.6788 50.7166 76.539 50.8699 76.3947V76.0429C50.5632 75.9572 50.2588 75.885 49.9566 75.8264C49.6589 75.7678 49.3725 75.7227 49.0974 75.6911C48.8268 75.655 48.5697 75.6302 48.3261 75.6167C48.0871 75.6032 47.8774 75.5964 47.697 75.5964C47.3226 75.5964 47.0114 75.6212 46.7633 75.6708C46.5153 75.7204 46.3146 75.7881 46.1612 75.8738C46.0079 75.955 45.8996 76.0519 45.8365 76.1647C45.7733 76.2774 45.7418 76.3947 45.7418 76.5165Z"
-            fill="#DC9600"
-        />
-        <path
-            d="M32.0486 75.0822C32.0486 74.541 32.1591 74.0246 32.3801 73.5329C32.6011 73.0368 32.9191 72.5993 33.334 72.2205C33.749 71.8416 34.2564 71.5394 34.8563 71.3139C35.4606 71.0884 36.1462 70.9756 36.9129 70.9756C37.6752 70.9756 38.3607 71.0906 38.9696 71.3207C39.583 71.5462 40.1017 71.8574 40.5257 72.2543C40.9541 72.6512 41.2811 73.118 41.5066 73.6547C41.7367 74.1914 41.8517 74.7665 41.8517 75.3799C41.8517 75.4566 41.8494 75.54 41.8449 75.6302C41.8449 75.7159 41.8404 75.7948 41.8314 75.867H34.2812C34.3669 76.106 34.5045 76.3248 34.6939 76.5232C34.8878 76.7217 35.1291 76.8931 35.4178 77.0374C35.7064 77.1817 36.0402 77.2945 36.4191 77.3757C36.7979 77.4524 37.2174 77.4907 37.6774 77.4907C38.1375 77.4907 38.5953 77.4433 39.0508 77.3486C39.5063 77.2494 39.9416 77.1254 40.3565 76.9765L41.0331 78.5055C40.7715 78.6273 40.5054 78.7355 40.2347 78.8302C39.9686 78.9204 39.689 78.9971 39.3958 79.0603C39.1072 79.1189 38.8027 79.164 38.4825 79.1956C38.1668 79.2271 37.833 79.2429 37.4812 79.2429C36.5837 79.2429 35.7966 79.1347 35.1201 78.9182C34.4436 78.7017 33.8775 78.4063 33.422 78.0319C32.9665 77.6576 32.6237 77.2178 32.3937 76.7127C32.1636 76.2075 32.0486 75.664 32.0486 75.0822ZM39.7273 74.3042C39.6552 74.0832 39.5424 73.878 39.3891 73.6885C39.2402 73.4946 39.0531 73.3277 38.8275 73.1879C38.602 73.0436 38.3404 72.9308 38.0428 72.8496C37.7451 72.7685 37.4181 72.7279 37.0618 72.7279C36.6829 72.7279 36.3379 72.7707 36.0267 72.8564C35.7155 72.9421 35.4426 73.0571 35.2081 73.2014C34.9735 73.3458 34.7773 73.5126 34.6195 73.7021C34.4661 73.8915 34.3534 74.0922 34.2812 74.3042H39.7273Z"
-            fill="#DC9600"
-        />
-        <path
-            d="M20 68.5255H25.3785C26.1903 68.5255 26.8939 68.6112 27.4893 68.7826C28.0846 68.9495 28.5785 69.193 28.9709 69.5133C29.3633 69.8335 29.6542 70.2236 29.8436 70.6837C30.0376 71.1437 30.1345 71.6647 30.1345 72.2465C30.1345 72.6389 30.0872 73.0132 29.9925 73.3695C29.8978 73.7213 29.7512 74.0461 29.5527 74.3438C29.3588 74.6414 29.113 74.9075 28.8153 75.1421C28.5176 75.3721 28.1681 75.5638 27.7667 75.7171L30.0669 79.0998H27.4419L25.4529 76.096H25.392L22.1446 76.0892V79.0998H20V68.5255ZM25.4326 74.2355C25.8385 74.2355 26.1926 74.1881 26.4948 74.0934C26.8015 73.9987 27.0563 73.8657 27.2593 73.6943C27.4667 73.5229 27.6201 73.3154 27.7193 73.0719C27.823 72.8238 27.8749 72.5487 27.8749 72.2465C27.8749 71.6556 27.6719 71.2001 27.266 70.8799C26.8601 70.5551 26.249 70.3928 25.4326 70.3928H22.1446V74.2355H25.4326Z"
-            fill="#DC9600"
-        />
-        <path
-            d="M49.5689 20H45.0646V54.9129L36.6647 47.289H29.7713L39.1603 55.689L29.1778 65.2454H35.9343L42.6146 58.7781L45.0646 60.9693V65.2454H49.5689V20Z"
-            fill="#DC9600"
-        />
-    </svg>
-);

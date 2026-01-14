@@ -6,14 +6,11 @@ import {
     DialogHeader,
     DialogTitle
 } from "@/components/ui/dialog";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Order } from "../../orders/page";
-import EditAppointmentTab from "./EditAppointmentTab";
-import EditSquareFootage from "./EditSquareFootage";
 import { Agent } from "@/components/AgentTable";
 import { toast } from "sonner";
-import { Services } from "../../services/page";
 import { GetServices } from "../../orders/orders";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import WarningIcon from "@/components/Icons";
@@ -22,6 +19,9 @@ import { EditOrder } from "../../calendar/calendar";
 import HistoryTab from "../../calendar/components/HistoryTab";
 import NotificationModal from "../../calendar/components/NotificationModal";
 import { useOrderContext } from "../context/OrderContext";
+import EditAppointmentTab from "../../calendar/components/EditAppointmentTab";
+import EditSquareFootage from "../../calendar/components/EditSquareFootage";
+import { Services } from "../../services/page";
 
 interface OrderDetailViewProps {
     open: boolean;
@@ -46,6 +46,7 @@ export interface OrderPayload {
     co_agents?: CoAgent[];
     notes: AgentNote[];
     services: {
+        uuid?: string;
         service_id: string;
         option_id?: string;
         amount: number;
@@ -93,7 +94,6 @@ export interface Area {
 export default function OrderDetailView({ open, onClose, orderId, serviceId, orderData, agentData }: OrderDetailViewProps) {
     const { userType } = useAppContext();
     const [activeTab, setActiveTab] = useState<'appointment' | 'square_footage' | 'history'>('appointment');
-    const [servicesData, setServicesData] = useState<Services[]>([]);
     const [notes, setNotes] = useState<Notes[]>([]);
     const [coAgent, setCoAgent] = useState<CoAgent[]>([]);
     const [area, setArea] = useState<Area[]>([]);
@@ -127,71 +127,74 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
         }
     };
 
-    const { calendarServices, selectedSlots, OrderServices, setOrderServices, setSelectedSlots, setCalendarServices } = useOrderContext();
+    const { calendarServices, selectedSlots, OrderServices, setOrderServices, setSelectedSlots, setCalendarServices, isLoading, setIsLoading, servicesData: contextServicesData, setServicesData: setContextServicesData } = useOrderContext();
 
 
     useEffect(() => {
         const token = localStorage.getItem("token");
 
-        if (!token) {
+        if (!token || contextServicesData.length > 0) {
             return;
         }
 
         GetServices(token)
             .then((data) => {
-                setServicesData(data.data);
+                setContextServicesData(data.data);
             })
             .catch((err) => console.log(err.message));
-    }, []);
+    }, [contextServicesData.length, setContextServicesData]);
+
+    useEffect(() => {
+        if (open && currentOrder) {
+            setOrderServices(currentOrder.services || []);
+        }
+    }, [open, currentOrder, setOrderServices]);
     const handleSubmitOrder = async (e: React.MouseEvent<HTMLButtonElement>) => {
+        setIsLoading(true);
         e.preventDefault()
         const calendarServicesPayload = calendarServices
             .map(service => {
-                const matchedService = servicesData.find(s =>
+                const matchedService = contextServicesData.find((s: Services) =>
                     s.id === service.serviceId
                 );
 
                 if (!matchedService) return null;
 
                 return {
+                    ...(service.uuid && { uuid: service.uuid }),
                     service_id: matchedService.uuid,
                     option_id: service.optionId,
                     amount: Number(service.price),
                 };
             })
-            .filter((s): s is { service_id: string; option_id: string; amount: number } => !!s); // filter nulls
+            .filter((s): s is { uuid?: string; service_id: string; option_id: string; amount: number } => !!s);
 
 
         const orderServicesPayload = [...(OrderServices || [])]
             .map(service => ({
+                ...(service.uuid && { uuid: service.uuid }),
                 service_id: service.service?.uuid as string,
                 option_id: service?.option?.uuid ?? undefined,
                 amount: Number(service?.amount) as number,
             }));
 
+        const calendarServiceUuids = calendarServices.map((s) => {
+            const matchedService = contextServicesData.find((sd: Services) => sd.id === s.serviceId);
+            return matchedService?.uuid;
+        }).filter(Boolean);
+
+        const orderServiceUuids = OrderServices.map(s => s.service?.uuid).filter(Boolean);
+        const validServiceUuids = [...calendarServiceUuids, ...orderServiceUuids];
         const servicesPayload = [...orderServicesPayload, ...calendarServicesPayload]
 
-        const calendarServiceIds = calendarServices.map(s => s.serviceId?.toString());
-        const orderServiceIds = OrderServices.map(s =>
-            (s.service_id ?? s.service?.id)?.toString()
-        );
-
-        const validServiceIds = [...calendarServiceIds, ...orderServiceIds];
-
         const validSlots = selectedSlots?.filter(slot =>
-            validServiceIds.includes(String(slot.service_id))
+            validServiceUuids.includes(slot.service_id)
         );
-
 
         const slotsPayload = validSlots.map((slot) => {
-
-            const matchedService = servicesData?.find((service) => {
-
-                return service.id == Number(slot.service_id)
-            });
-
             return {
-                service_id: matchedService?.uuid ?? '',
+                ...(slot.uuid && { uuid: slot.uuid }),
+                service_id: slot.service_id,
                 vendor_id: slot.vendor && slot.vendor.uuid
                     ? slot.vendor.uuid
                     : slot.vendor_id || "",
@@ -266,6 +269,8 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
             } else {
                 toast.error('Failed to submit order data');
             }
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -330,32 +335,32 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                     )}
 
                     {activeTab === 'history' && (
-                        <HistoryTab currentOrder={currentOrder} servicesData={servicesData} />
+                        <HistoryTab currentOrder={currentOrder} servicesData={contextServicesData} />
                     )}
-                        <div className="w-full flex justify-end gap-[10px] mt-[40px]">
-                            <Button
-                                onClick={() => {
-                                    onClose()
-                                }}
-                                className={`bg-transparent border-[1px] text-[14px] flex justify-center items-center ${userType}-border ${userType}-text  w-[132px] h-[42px] ${userType}-button hover-${userType}-bg`}
+                    <div className="w-full flex justify-end gap-[10px] mt-[40px]">
+                        <Button
+                            onClick={() => {
+                                onClose()
+                            }}
+                            className={`bg-transparent border-[1px] text-[14px] flex justify-center items-center ${userType}-border ${userType}-text  w-[132px] h-[42px] ${userType}-button hover-${userType}-bg`}
 
-                            >
+                        >
 
-                                Close
-                            </Button>
-                            <Button
-                                onClick={(e) => {
-                                    handleSubmitOrder(e)
-                                    setShowConfirmation(true)
-                                }}
-                                className={`${userType}-bg ${userType}-border text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff]  w-[132px] h-[42px] hover:text-white hover-${userType}-bg hover:opacity-95`}
+                            Close
+                        </Button>
+                        <Button
+                            onClick={(e) => {
+                                handleSubmitOrder(e)
+                                setShowConfirmation(true)
+                            }}
+                            className={`${userType}-bg ${userType}-border text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff]  w-[132px] h-[42px] hover:text-white hover-${userType}-bg hover:opacity-95`}
 
-                            >
-                                Save Changes
-                            </Button>
-                        </div>
-                    
-                   
+                        >
+                            {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Save Changes"}
+                        </Button>
+                    </div>
+
+
                 </div>
             </DialogContent>
             <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>

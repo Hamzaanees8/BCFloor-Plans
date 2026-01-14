@@ -1,3 +1,6 @@
+import { SelectedService } from "@/components/WorkHours";
+import { api } from "@/lib/api";
+
 export interface VendorService {
   uuid?: string;
   service_id: string; // UUID of the selected service
@@ -16,7 +19,7 @@ export interface VendorSettings {
 export interface VendorCompany {
   name: string;
   website: string;
-  vendor_id?: number
+  vendor_id?: number;
   // company_logo: File | null;
   // company_banner: File | null;
 }
@@ -28,16 +31,25 @@ export interface VendorAddress {
   province: string;
   country: string;
 }
+interface WorkDay {
+  day: string;
+  start_time: string | undefined;
+  end_time: string | undefined;
+  is_off: boolean;
+  is_twilight: boolean;
+}
+
 export interface WorkHours {
-  start_time: string;
-  end_time: string;
-  work_days: string[];
+  start_time?: string; // Make optional
+  end_time?: string;   // Make optional
+  work_days: WorkDay[];
   repeat_weekly: string;
   break_start?: string | null;
   break_end?: string | null;
   commute_minutes?: number;
   timezone?: string;
 }
+
 export interface VendorPayload {
   first_name: string;
   last_name: string;
@@ -58,10 +70,14 @@ export interface VendorPayload {
   company_banner?: File | null;
   company?: VendorCompany;
   settings?: VendorSettings;
-  services?: VendorService[];
+  services?: SelectedService[];
   addresses?: VendorAddress[];
   work_hours?: WorkHours;
   coordinates?: string;
+  payment_per_km?: number;
+  portfolio_images?: (File | string)[];
+  pay_outside: number;
+  stripe_connect: number;
 }
 
 export interface FetchErrors {
@@ -82,105 +98,97 @@ export interface ResetPassword {
   password_confirmation: string;
   current_password: string;
 }
-// function payloadToFormData(payload: VendorPayload): FormData {
-//   const formData = new FormData();
 
-//   Object.entries(payload).forEach(([key, value]) => {
-//     if (value !== undefined && value !== null) {
-//       if (value instanceof File) {
-//         formData.append(key, value);
-//       } else if (Array.isArray(value)) {
-//         if (key === "co_agents") {
-//           value.forEach((agent, index) => {
-//             formData.append(`${key}[${index}][name]`, agent.name);
-//             formData.append(`${key}[${index}][email]`, agent.email);
-//             formData.append(
-//               `${key}[${index}][primary_phone]`,
-//               agent.primary_phone
-//             );
-//           });
-//         } else {
-//           value.forEach((val) => {
-//             formData.append(key + "[]", val);
-//           });
-//         }
-//       } else if (typeof value === "object") {
-//         formData.append(key, JSON.stringify(value));
-//       } else {
-//         formData.append(key, value);
-//       }
-//     }
-//   });
-
-//   return formData;
-// }
 function payloadToFormData(payload: VendorPayload): FormData {
   const formData = new FormData();
 
   Object.entries(payload).forEach(([key, value]) => {
     if (value === undefined || value === null) return;
 
-    if (value instanceof File) {
-      formData.append(key, value);
-    } else if (Array.isArray(value)) {
-      if (key === "addresses") {
+    if (Array.isArray(value)) {
+      if (key === "portfolio_images") {
+        value.forEach((item, index) => {
+          if (item instanceof File) {
+            formData.append(`${key}[${index}]`, item);
+          } else if (typeof item === 'string') {
+            formData.append(`${key}[${index}]`, item);
+          }
+        });
+      } else if (key === "addresses") {
         value.forEach((address, index) => {
           Object.entries(address).forEach(([k, v]) => {
-            formData.append(
-              `${key}[${index}][${k}]`,
-              v !== null && v !== undefined ? String(v) : ""
-            );
+            formData.append(`${key}[${index}][${k}]`, v != null ? String(v) : "");
           });
         });
       } else if (key === "services") {
         value.forEach((service, index) => {
-          formData.append(
-            `${key}[${index}][service_id]`,
-            String(service.service_id)
-          );
-          formData.append(
-            `${key}[${index}][hourly_rate]`,
-            String(service.hourly_rate)
-          );
-          formData.append(
-            `${key}[${index}][time_needed]`,
-            String(service.time_needed)
+          formData.append(`services[${index}][service_id]`, String(service.service_id));
+          service.options?.forEach(
+            (opt: { uuid?: string; option_uuid: string; vendor_price: number; adjustment_time: string }, optIndex: number
+            ) => {
+              formData.append(
+                `services[${index}][options][${optIndex}][option_uuid]`,
+                String(opt.option_uuid)
+              );
+              formData.append(
+                `services[${index}][options][${optIndex}][vendor_price]`,
+                String(opt.vendor_price)
+              );
+              formData.append(
+                `services[${index}][options][${optIndex}][adjustment_time]`,
+                String(opt.adjustment_time)
+              );
+            }
           );
         });
       } else if (key === "coordinates") {
         formData.append(key, JSON.stringify(value));
+      }
+      else if (key === "sync_email") {
+        formData.append(key, String(value));
+      }
 
-      }
-    } else if (typeof value === "object") {
-      if (key === "work_hours") {
-        Object.entries(value).forEach(([k, v]) => {
-          if (Array.isArray(v)) {
-            v.forEach((val) => {
-              formData.append(`${key}[${k}][]`, String(val));
+    } else if (key === "work_hours") {
+      Object.entries(value).forEach(([k, v]) => {
+        if (Array.isArray(v) && k === "work_days") {
+          // Properly handle work_days array
+          v.forEach((dayObj, index) => {
+            Object.entries(dayObj).forEach(([dayKey, dayValue]) => {
+              if (dayValue !== null && dayValue !== undefined) {
+                // Convert boolean values to 1/0 for form data
+                let finalValue;
+                if (typeof dayValue === 'boolean') {
+                  finalValue = dayValue ? '1' : '0';
+                } else {
+                  finalValue = String(dayValue);
+                }
+                formData.append(
+                  `${key}[${k}][${index}][${dayKey}]`,
+                  finalValue
+                );
+              }
             });
+          });
+        } else if (v !== null && v !== undefined) {
+          // Also handle boolean values in other work_hours fields
+          let finalValue;
+          if (typeof v === 'boolean') {
+            finalValue = v ? '1' : '0';
           } else {
-            formData.append(
-              `${key}[${k}]`,
-              v !== null && v !== undefined ? String(v) : ""
-            );
+            finalValue = String(v);
           }
-        });
-      } else if (key === "company") {
-        Object.entries(value).forEach(([k, v]) => {
-          if (v instanceof File) {
-            formData.append(`${key}[${k}]`, v);
-          } else if (v !== null && v !== undefined) {
-            formData.append(`${key}[${k}]`, String(v));
-          }
-        });
-      } else if (key === "settings") {
-        Object.entries(value).forEach(([k, v]) => {
-          formData.append(`${key}[${k}]`, String(v));
-        });
-      } else {
-        // fallback — stringify non-File, non-special objects
-        formData.append(key, JSON.stringify(value));
-      }
+          formData.append(`${key}[${k}]`, finalValue);
+        }
+      });
+    } else if (key === "settings") {
+      Object.entries(value).forEach(([k, v]) => {
+        if (v !== null && v !== undefined) {
+          const finalValue =
+            typeof v === "boolean" ? (v ? "1" : "0") : String(v);
+
+          formData.append(`${key}[${k}]`, finalValue);
+        }
+      });
     } else {
       formData.append(key, String(value));
     }
@@ -189,25 +197,12 @@ function payloadToFormData(payload: VendorPayload): FormData {
   return formData;
 }
 
-export async function Create(payload: VendorPayload, token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function Create(payload: VendorPayload) {
   const formData = payloadToFormData(payload);
 
-  const response = await fetch(`${API_URL}/vendors`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
+  const response = await api.post(`/vendors`, formData);
 
-  const data = await response.json();
-
-  if (!response.ok) {
-    const error = new Error(data.message || "Request failed");
-    (error as FetchErrors).errors = data.errors;
-    throw error;
-  }
+  const data = await response.data;
 
   return data;
 }
@@ -215,50 +210,22 @@ export async function Create(payload: VendorPayload, token: string) {
 export async function Edit(
   userId: string,
   payload: VendorPayload,
-  token: string
 ) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const formData = payloadToFormData(payload);
 
-  const response = await fetch(`${API_URL}/vendors/${userId}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
+  const response = await api.post(`/vendors/${userId}`, formData);
 
-  const data = await response.json();
-
-  if (!response.ok) {
-    const error = new Error(data.message || "Request failed");
-    (error as FetchErrors).errors = data.errors;
-    throw error;
-  }
+  const data = await response.data;
 
   return data;
 }
 
-export async function Get(token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function Get() {
 
   try {
-    const response = await fetch(`${API_URL}/vendors`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await api.get(`/vendors`);
 
-    const SubAccountData = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        SubAccountData.message ||
-        `Request failed with status ${response.status}`
-      );
-    }
+    const SubAccountData = response.data;
 
     return SubAccountData;
   } catch (error) {
@@ -276,125 +243,61 @@ export async function UpdateStatus(
   payload: UpdateSubAccountPayload,
   token: string
 ) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-  const response = await fetch(`${API_URL}/vendors/${userId}/status`, {
-    method: "POST",
+  const response = await api.post(`/vendors/${userId}/status`, payload, {
     headers: {
       Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
   });
 
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Failed to update vendor");
-  }
+  const data = await response.data;
 
   return data;
+
 }
 
-export async function GetOne(token: string, userId: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
+export async function GetOne(userId: string) {
   try {
-    const response = await fetch(`${API_URL}/vendors/${userId}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await api.get(`/vendors/${userId}`);
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(
-        error.message || `Request failed with status ${response.status}`
-      );
-    }
-
-    const adminData = await response.json();
+    const adminData = await response.data;
     return adminData;
   } catch (error) {
     console.error("Failed to fetch vendor data:", error);
     throw error;
   }
 }
-export async function Delete(userId: string, token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function Delete(userId: string) {
 
-  const response = await fetch(`${API_URL}/vendors/${userId}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ _method: "DELETE" }),
-  });
+  const response = await api.delete(`/vendors/${userId}`);
 
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Failed to delete user");
-  }
+  const data = await response.data;
 
   return data;
 }
 
 export async function ResetPasswordVendor(
   payload: ResetPassword,
-  userId: string,
-  token: string
+  userId: string
 ) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  const response = await fetch(`${API_URL}/vendors/${userId}/password`, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  const response = await api.put(`/vendors/${userId}/password`, payload);
 
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Failed to update password");
-  }
+  const data = await response.data;
 
   return data;
 }
-export async function GetServices(token: string) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function GetServices() {
 
   try {
-    const response = await fetch(`${API_URL}/services`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await api.get(`/services`);
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(
-        error.message || `Request failed with status ${response.status}`
-      );
-    }
-
-    const adminData = await response.json();
+    const adminData = await response.data;
     return adminData;
   } catch (error) {
     console.error("Failed to fetch admin data:", error);
     throw error;
   }
 }
-
-
 
 // utils/distanceCalculator.ts
 export async function calculateDistance(
@@ -462,7 +365,6 @@ export async function calculateDistance(
   }
 }
 
-
 // lib/api/stripeAPI.ts
 
 export interface StripeConnectResponse {
@@ -472,24 +374,15 @@ export interface StripeConnectResponse {
   error?: string;
 }
 
-export const connectStripe = async (token: string): Promise<StripeConnectResponse> => {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export const connectStripe = async (
+  vendorId: string
+): Promise<StripeConnectResponse> => {
 
   try {
-    const response = await fetch(`${API_URL}/vendor/stripe/connect`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
+    const response = await api.post(`/vendor/stripe/connect`, { vendor_id: vendorId });
 
-    });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await response.data;
 
     return {
       success: true,
@@ -499,10 +392,63 @@ export const connectStripe = async (token: string): Promise<StripeConnectRespons
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    console.error('Stripe connect error:', error);
+    console.error("Stripe connect error:", error);
     return {
       success: false,
-      error: error.message || 'Failed to connect Stripe',
+      error: error.message || "Failed to connect Stripe",
     };
+  }
+};
+
+
+export async function DeleteVendorBreak(uuid: string) {
+
+  const response = await api.delete(`/vendor-breaks/${uuid}`);
+
+  const data = await response.data;
+
+  return data;
+}
+
+export async function DeleteVendorService(uuid: string, service_id: string) {
+
+  const response = await api.delete(`/vendors/${uuid}/services/${service_id}`);
+
+  const data = await response.data;
+
+  return data;
+}
+
+export async function VendorTourMedia(uuid: string) {
+
+  const response = await api.get(`/vendor/tour-media-settings?vendor_uuid=${uuid}`);
+
+  const data = await response.data;
+
+  return data;
+}
+
+export const connectGoogleCalendar = async () => {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  try {
+    const response = await api.get(`${API_URL}/vendor/calendar/connect`);
+
+    const data = await response.data;
+    return data;
+  } catch (error) {
+    console.error('Failed to connect calendar:', error);
+    return error;
+  }
+};
+export const VerifyGoogleCalendar = async (body: { state: string, code: string }) => {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  try {
+    const response = await api.post(`${API_URL}/auth/google/callback`, body);
+
+    const data = await response.data;
+    return data;
+  } catch (error) {
+    console.error('Failed to verify calendar:', error);
+    return error;
   }
 };

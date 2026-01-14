@@ -1,7 +1,7 @@
 // components/DropdownActions.tsx
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -26,21 +26,49 @@ type Props = {
   data?: Admin[]
 }
 
+const STORAGE_KEY_DELETE = 'confirmation_dialog_delete_show_again';
+const STORAGE_KEY_MERGE = 'confirmation_dialog_merge_show_again';
+
 const DropdownActions: React.FC<Props> = ({ options, data }) => {
   const [confirmOpen1, setConfirmOpen1] = useState(false)
   const [pendingAction1, setPendingAction1] = useState<(() => void) | null>(null)
   const [showAgain1, setShowAgain1] = useState(true)
+
   const [confirmOpen2, setConfirmOpen2] = useState(false)
   const [pendingAction2, setPendingAction2] = useState<(() => void) | null>(null)
   const [showAgain2, setShowAgain2] = useState(true)
-  const handleItemClick1 = (option: Option) => {
-    if (option.confirm1 && showAgain1) {
-      setPendingAction1(() => option.onClick)
-      setConfirmOpen1(true)
+
+  // LOAD FROM LOCALSTORAGE ON MOUNT
+  useEffect(() => {
+    const savedDelete = localStorage.getItem(STORAGE_KEY_DELETE);
+    if (savedDelete !== null) {
+      setShowAgain1(JSON.parse(savedDelete));
     }
-    else if (option.confirm2 && showAgain2) {
-      setPendingAction2(() => option.onClick)
-      setConfirmOpen2(true)
+
+    const savedMerge = localStorage.getItem(STORAGE_KEY_MERGE);
+    if (savedMerge !== null) {
+      setShowAgain2(JSON.parse(savedMerge));
+    }
+  }, []);
+
+  const handleItemClick1 = (option: Option) => {
+    if (option.confirm1 && option.onClick) {
+      if (showAgain1) {
+        setPendingAction1(() => option.onClick)
+        setConfirmOpen1(true)
+      } else {
+        // EXECUTE IMMEDIATELY IF "DON'T SHOW AGAIN" IS CHECKED
+        option.onClick()
+      }
+    }
+    else if (option.confirm2 && option.onClick) {
+      if (showAgain2) {
+        setPendingAction2(() => option.onClick)
+        setConfirmOpen2(true)
+      } else {
+        // EXECUTE IMMEDIATELY IF "DON'T SHOW AGAIN" IS CHECKED
+        option.onClick()
+      }
     }
     else {
       option.onClick?.()
@@ -51,12 +79,23 @@ const DropdownActions: React.FC<Props> = ({ options, data }) => {
     pendingAction1?.()
     setPendingAction1(null)
   }
+
   const confirmAndExecute2 = () => {
     pendingAction2?.()
     setPendingAction2(null)
   }
 
+  const handleToggleShowAgain1 = () => {
+    const newValue = !showAgain1;
+    setShowAgain1(newValue);
+    localStorage.setItem(STORAGE_KEY_DELETE, JSON.stringify(newValue));
+  }
 
+  const handleToggleShowAgain2 = () => {
+    const newValue = !showAgain2;
+    setShowAgain2(newValue);
+    localStorage.setItem(STORAGE_KEY_MERGE, JSON.stringify(newValue));
+  }
 
   return (
     <>
@@ -84,14 +123,14 @@ const DropdownActions: React.FC<Props> = ({ options, data }) => {
         setOpen={setConfirmOpen1}
         onConfirm={confirmAndExecute1}
         showAgain={showAgain1}
-        toggleShowAgain={() => setShowAgain1(!showAgain1)}
+        toggleShowAgain={handleToggleShowAgain1} // CHANGED THIS
       />
       <MergeDialog
         open={confirmOpen2}
         setOpen={setConfirmOpen2}
         onConfirm={confirmAndExecute2}
         showAgain={showAgain2}
-        toggleShowAgain={() => setShowAgain2(!showAgain2)}
+        toggleShowAgain={handleToggleShowAgain2} // CHANGED THIS
         data={data ?? []}
       />
     </>

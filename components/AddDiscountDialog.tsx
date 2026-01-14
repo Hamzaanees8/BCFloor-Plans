@@ -18,6 +18,7 @@ import { Calendar } from "./ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover"
 import { CreateCode, CreateDiscount, EditCode, EditDiscount, GetOne, GetServices } from "@/app/dashboard/global-settings/global-settings"
 import { toast } from "sonner"
+import { useAppContext } from "@/app/context/AppContext"
 
 type Props = {
     type?: string;
@@ -34,6 +35,7 @@ const AddDiscountDialog: React.FC<Props> = ({
     uuid,
     type
 }) => {
+    const { userType } = useAppContext();
     console.log('id', uuid);
     console.log('type', type)
     const [activeTab, setActiveTab] = useState('discounts');
@@ -65,9 +67,8 @@ const AddDiscountDialog: React.FC<Props> = ({
     )
     const [startmonth, setStartMonth] = React.useState<Date | undefined>(date)
     const [isEligible, setIsEligible] = useState(false);
-console.log('startdate',startdate);
+    console.log('startdate', startdate);
 
-    // Function to handle tab clicks
     const handleTabClick = (tabName: string) => {
         setActiveTab(tabName);
     };
@@ -86,7 +87,7 @@ console.log('startdate',startdate);
         }
 
         if (type === "code") {
-            GetOne(token, uuid)
+            GetOne(uuid)
                 .then((data) => {
                     const discount = data.data;
                     setCodeKey(discount.code_key || "");
@@ -108,7 +109,7 @@ console.log('startdate',startdate);
             //setSelectedServices([]);
             setDateValue("");
         } else if (type === "quantity") {
-            GetOne(token, uuid)
+            GetOne(uuid)
                 .then((data) => {
                     const discount = data.data;
                     setDiscountName(discount.name || "");
@@ -168,9 +169,8 @@ console.log('startdate',startdate);
                     services: selectedServicesCode,
                 };
                 if (payload) {
-                    const result = await EditCode(payload, token, uuid);
+                    await EditCode(payload, uuid);
                     toast.success('Code Edited successfully');
-                    console.log('Code Edited successfully:', result);
                     setOpen(false);
 
                 }
@@ -222,9 +222,8 @@ console.log('startdate',startdate);
                     services: selectedServicesCode,
                 };
                 if (payload) {
-                    const result = await CreateCode(payload, token);
+                    await CreateCode(payload);
                     toast.success('Code created successfully');
-                    console.log('Code created successfully:', result);
                     setOpen(false);
                 }
                 if (onSuccess) onSuccess();
@@ -307,9 +306,8 @@ console.log('startdate',startdate);
                     services: selectedServices,
                 };
                 if (payload) {
-                    const result = await EditDiscount(payload, token, uuid);
+                    await EditDiscount(payload, uuid);
                     toast.success('Discount Edited successfully');
-                    console.log('Discount Edited successfully:', result);
                     setOpen(false);
                 }
                 if (onSuccess) onSuccess();
@@ -373,9 +371,8 @@ console.log('startdate',startdate);
 
                 // If editing or if any files exist, use FormData
                 if (payload) {
-                    const result = await CreateDiscount(payload, token);
+                    await CreateDiscount(payload);
                     toast.success('Discount created successfully');
-                    console.log('Discount created successfully:', result);
                     setOpen(false);
                 }
                 if (onSuccess) onSuccess();
@@ -386,8 +383,6 @@ console.log('startdate',startdate);
                 setSelectedServices([]);
                 setDateValue("");
             } catch (error) {
-                console.log('Raw error:', error);
-
                 setFieldErrors({});
                 const apiError = error as { message?: string; errors?: Record<string, string[]> };
 
@@ -436,7 +431,7 @@ console.log('startdate',startdate);
             return;
         }
 
-        GetServices(token)
+        GetServices()
             .then(data => setServiceCategories(Array.isArray(data.data) ? data.data : []))
             .catch(err => console.log(err.message));
     }, []);
@@ -507,10 +502,11 @@ console.log('startdate',startdate);
                                 flex-1 px-5 py-3 text-sm rounded-[6px] font-semibold cursor-pointer transition-all duration-300 ease-in-out
                                 ${activeTab === 'discounts'
                                         ? 'bg-[#4290E9] text-white'
-                                        : 'bg-[#E4E4E4] text-[#666666] hover:bg-gray-200'}
+                                        : 'text-[#666666] hover:bg-gray-200'}
                                 ${type === 'code' ? 'opacity-50 cursor-not-allowed' : ''}
                                 mr-2.5
                             `}
+                                style={{ backgroundColor: activeTab === 'discounts' ? '' : `var(--${userType}-page-bg, #E4E4E4)` }}
                                 onClick={(e) => {
                                     if (type !== 'code') {
                                         handleTabClick('discounts');
@@ -527,9 +523,10 @@ console.log('startdate',startdate);
                                     flex-1 px-5 py-3 text-sm rounded-[6px] font-semibold cursor-pointer transition-all duration-300 ease-in-out
                                     ${activeTab === 'codes'
                                         ? 'bg-[#4290E9] text-white'
-                                        : 'bg-[#E4E4E4] text-[#666666] hover:bg-gray-200'}
+                                        : 'text-[#666666] hover:bg-gray-200'}
                                     ${type === 'quantity' ? 'opacity-50 cursor-not-allowed' : ''}
                                 `}
+                                style={{ backgroundColor: activeTab === 'codes' ? '' : `var(--${userType}-page-bg, #E4E4E4)` }}
                                 onClick={(e) => {
                                     if (type !== 'quantity') {
                                         handleTabClick('codes');
@@ -550,7 +547,10 @@ console.log('startdate',startdate);
                                             <label className="text-[#424242]" htmlFor="">Percentage</label>
                                             <Input value={discountPercentage} required
                                                 min={0}
-                                                onChange={(e) => setDiscountPercentage(Math.max(0, Number(e.target.value)))} className='h-[42px] text-[#666666] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="number" placeholder="20" />
+                                                onChange={(e) => setDiscountPercentage(Math.max(0, Number(e.target.value)))}
+                                                className='h-[42px] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                type="number" placeholder="20" />
                                             {fieldErrors.percentage && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.percentage[0]}</p>}
                                         </div>
                                         <div>
@@ -559,13 +559,19 @@ console.log('startdate',startdate);
                                                 onChange={(e) => {
                                                     const val = Number(e.target.value);
                                                     setDiscountQuantity(val < 0 ? 0 : val);
-                                                }} className='h-[42px] text-[#666666] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="number" placeholder="6" />
+                                                }}
+                                                className='h-[42px] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                type="number" placeholder="6" />
                                             {fieldErrors.quantity && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.quantity[0]}</p>}
                                         </div>
                                         <div className="col-span-2">
                                             <label htmlFor="" className='text-[16px] font-normal text-[#424242]'>Name</label>
                                             <Input value={discountName}
-                                                onChange={(e) => setDiscountName(e.target.value)} className='h-[42px] bg-[#EEEEEE] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                onChange={(e) => setDiscountName(e.target.value)}
+                                                className='h-[42px] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                type="text" />
                                             {fieldErrors.name && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.name[0]}</p>}
                                         </div>
                                         <div className="col-span-2">
@@ -576,7 +582,8 @@ console.log('startdate',startdate);
                                                 <Input
                                                     id="date"
                                                     value={startdateValue}
-                                                    className="h-[42px] w-full bg-[#EEEEEE] border-[1px] text-[#666666] border-[#BBBBBB] mt-[12px] pr-10"
+                                                    className="h-[42px] w-full border-[1px] text-[#666666] border-[#BBBBBB] mt-[12px] pr-10"
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                     onChange={(e) => {
                                                         setStartDateValue(e.target.value);
                                                         const parsed = parseDate(e.target.value);
@@ -633,7 +640,8 @@ console.log('startdate',startdate);
                                                 <Input
                                                     id="date"
                                                     value={dateValue}
-                                                    className="h-[42px] w-full bg-[#EEEEEE] border-[1px] text-[#666666] border-[#BBBBBB] mt-[12px] pr-10"
+                                                    className="h-[42px] w-full border-[1px] text-[#666666] border-[#BBBBBB] mt-[12px] pr-10"
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                     onChange={(e) => {
                                                         setDateValue(e.target.value);
                                                         const parsed = parseDate(e.target.value);
@@ -711,7 +719,8 @@ console.log('startdate',startdate);
                                                 </div>
                                                 {openDrowndown && (
                                                     <div
-                                                        className="absolute shadow-lg border border-[#BBBBBB] z-10 mt-2 w-72 md:w-80 lg:w-[400px] bg-[#EEEEEE] text-[#666666] overflow-hidden"
+                                                        className="absolute shadow-lg border border-[#BBBBBB] z-10 mt-2 w-72 md:w-80 lg:w-[400px] text-[#666666] overflow-hidden"
+                                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                         role="menu"
                                                         aria-orientation="vertical"
                                                         onClick={(e) => e.stopPropagation()}
@@ -747,7 +756,8 @@ console.log('startdate',startdate);
                                                 return (
                                                     <p
                                                         key={index}
-                                                        className="h-[42px] bg-[#EEEEEE] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px] w-full rounded-[6px] flex items-center px-3"
+                                                        className="h-[42px] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px] w-full rounded-[6px] flex items-center px-3"
+                                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                     >
                                                         {service?.name || `Service ID: ${serviceId}`}
                                                     </p>
@@ -756,12 +766,12 @@ console.log('startdate',startdate);
                                         </div>
 
                                         <div className="col-span-2">
-                                            <label htmlFor="" className='text-[16px] font-normal text-[#666666]'>Description</label>
                                             <textarea
                                                 id="discount-description"
                                                 value={discountDescription}
                                                 onChange={(e) => setDiscountDescription(e.target.value)}
-                                                className="h-[200px] w-full p-3 rounded-[6px] bg-[#EEEEEE] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                className="h-[200px] w-full p-3 rounded-[6px] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                             />
                                             {fieldErrors.description && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.description[0]}</p>}
                                         </div>
@@ -787,14 +797,20 @@ console.log('startdate',startdate);
                                             <label className="text-[#424242]" htmlFor="">CODE Key</label>
                                             <Input value={codeKey}
                                                 onClick={(e) => e.stopPropagation()}
-                                                onChange={(e) => setCodeKey(e.target.value)} className='h-[42px] bg-[#EEEEEE] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                onChange={(e) => setCodeKey(e.target.value)}
+                                                className='h-[42px] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                type="text" />
                                             {fieldErrors.code_key && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.code_key[0]}</p>}
                                         </div>
                                         <div>
                                             <label className="text-[#424242]" htmlFor="">Percentage</label>
                                             <Input value={codePercentage}
                                                 onClick={(e) => e.stopPropagation()}
-                                                onChange={(e) => setCodePercentage(Math.max(0, Number(e.target.value)))} className='h-[42px] text-[#666666] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="number" placeholder="20" />
+                                                onChange={(e) => setCodePercentage(Math.max(0, Number(e.target.value)))}
+                                                className='h-[42px] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                type="number" placeholder="20" />
                                             {fieldErrors.percentage && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.percentage[0]}</p>}
                                         </div>
                                         <div className="col-span-2">
@@ -808,7 +824,8 @@ console.log('startdate',startdate);
                                                 </div>
                                                 {openDrowndown && (
                                                     <div
-                                                        className="absolute shadow-lg border border-[#BBBBBB] z-10 mt-2 w-72 md:w-80 lg:w-[400px] bg-[#EEEEEE] text-[#666666] overflow-hidden"
+                                                        className="absolute shadow-lg border border-[#BBBBBB] z-10 mt-2 w-72 md:w-80 lg:w-[400px] text-[#666666] overflow-hidden"
+                                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                         role="menu"
                                                         aria-orientation="vertical"
                                                         onClick={(e) => e.stopPropagation()}

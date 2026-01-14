@@ -2,13 +2,20 @@ import React, { useState } from 'react'
 import { useFileManagerContext } from '../FileManagerContext ';
 import { Check, X } from 'lucide-react';
 
+import { useAppContext } from "@/app/context/AppContext";
+
 function TourVideos() {
+    const { userType } = useAppContext();
     const { selectedVideoFiles, setSelectedVideoFiles, filesData } = useFileManagerContext();
     const [mainVideo, setMainVideo] = useState<string | null>(null);
 
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
-    const currentServiceFiles = filesData?.files?.filter(file => file.type === "video");
+    let currentServiceFiles = filesData?.files?.filter(file => file.type === "video");
+
+    if (userType === 'agent') {
+        currentServiceFiles = currentServiceFiles?.filter(file => file.is_admin_approved);
+    }
 
     const mainVideoSrc =
         mainVideo ??
@@ -17,6 +24,14 @@ function TourVideos() {
             : currentServiceFiles?.[0]
                 ? `${API_URL}/${currentServiceFiles[0].file_path}`
                 : undefined);
+
+    if (!currentServiceFiles || currentServiceFiles?.length === 0) {
+        return (
+            <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
+                <p>No Video found — please add Video or select a Video service.</p>
+            </div>
+        );
+    }
     return (
         <div className="p-4">
             <div className="mb-6 h-[95vh] w-full bg-black rounded overflow-hidden">

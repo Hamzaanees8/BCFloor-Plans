@@ -12,6 +12,7 @@ import {
     getSortedRowModel,
     useReactTable,
 } from "@tanstack/react-table";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     Table,
     TableBody,
@@ -22,11 +23,16 @@ import {
 } from "@/components/ui/table";
 import DropdownActions from "../../../../components/DropdownActions";
 import { AgentData } from "@/app/dashboard/agents/page";
-import { VendorData } from "@/components/QuickViewCard";
-import { Order, Slot } from "../page";
+import { Order } from "../page";
 import { useRouter } from "next/navigation";
 import { useOrderContext } from "../context/OrderContext";
 import { useAppContext } from "@/app/context/AppContext";
+import { Button } from "@/components/ui/button";
+import { ChevronDown, ChevronsUpDown, ChevronUp } from "lucide-react";
+import { Pagination } from "@/components/TablePagination";
+import { PERMISSIONS } from "@/lib/permissions";
+import { usePermissions } from "@/app/hooks/usePermissions";
+import { VendorData } from "@/components/QuickViewCard";
 
 interface OrderTableProps {
     showHeader: boolean;
@@ -43,27 +49,56 @@ interface OrderTableProps {
 
 }
 
-export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickView1, loading, error }: OrderTableProps) {
+
+export default function OrderTable({ OrderData, onDelete, onQuickView1, loading, error }: OrderTableProps) {
     const router = useRouter();
     const { userType } = useAppContext();
+    const { hasPermission } = usePermissions();
     const {
         setIsSubmitted,
     } = useOrderContext();
-    console.log("Order", OrderData)
+
+
     const columns: ColumnDef<Order>[] = [
         {
             accessorKey: "id",
-            header: "ORDER",
+
+            header: ({ column }) => {
+                const isSorted = column.getIsSorted();
+
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() => {
+                            if (isSorted === "asc") {
+                                column.toggleSorting(true); // to desc
+                            } else if (isSorted === "desc") {
+                                column.clearSorting(); // clear
+                            } else {
+                                column.toggleSorting(false); // to asc
+                            }
+                        }}
+                        className="p-0 hover:bg-transparent flex items-center gap-1 "
+                    >
+                        ORDER
+                        {isSorted === "asc" && <span><ChevronUp className="text-blue-500" strokeWidth={3} /></span>}
+                        {isSorted === "desc" && <span><ChevronDown className="text-blue-500" strokeWidth={3} /></span>}
+                        {!isSorted && <span className="text-gray-400"><ChevronsUpDown className="text-gray-400" strokeWidth={3} /></span>}
+                    </Button>
+                )
+            },
+
+            enableSorting: true,
+
             cell: ({ row }) => {
                 const id = row.original.id;
+
                 return (
                     <div
                         className={`${userType}-text cursor-pointer ml-[5px]`}
                         onClick={() => {
                             const uuid = row.original.uuid;
-                            if (uuid) {
-                                router.push(`/dashboard/orders/${uuid}`);
-                            }
+                            if (uuid) router.push(`/dashboard/orders/${uuid}`);
                         }}
                     >
                         {id}
@@ -71,77 +106,32 @@ export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickVi
                 );
             },
         },
+        // {
+        //     accessorKey: "property_location",
+        //     header: "LOCATION",
+        //     cell: ({ row }) => {
+        //         const location = row.original.property_location;
+        //         return (
+        //             <div className="text-[#666666]">
+        //                 {location}
+        //             </div>
+        //         );
+        //     },
+        // },
         {
-            accessorKey: "location",
-            header: "LOCATION",
-            cell: ({ row }) => {
-                const location = row.original.property_location;
-                return (
-
-                    <div
-                        className="text-[#666666]"
-                    >
-                        {location}
-                    </div>
-                );
-            },
-        },
-        {
-            accessorKey: "address",
+            accessorKey: "property_address",
             header: "ADDRESS",
             cell: ({ row }) => {
                 const address = row.original.property_address;
-                return (
+                const location = row.original.property_location;
 
-                    <div
-                        className="text-[#666666]"
-                    >
-                        {address}
+                return (
+                    <div className="text-[#666666] truncate">
+                        {`${address}, ${location}`}
                     </div>
                 );
             },
         },
-        {
-            accessorKey: "vendor",
-            header: "VENDOR",
-            cell: ({ row }) => {
-                const slots: Slot[] = row.original.slots ?? [];
-
-                // Use Map to ensure unique vendors by UUID
-                const uniqueVendorsMap = new Map<string, Slot["vendor"]>();
-
-                slots.forEach((slot) => {
-                    const vendor = slot.vendor;
-                    if (vendor?.uuid) {
-                        uniqueVendorsMap.set(vendor.uuid, vendor);
-                    }
-                });
-
-                const uniqueVendors = Array.from(uniqueVendorsMap.values());
-
-                return (
-                    <div className={`flex flex-wrap gap-x-1 ${userType}-text`}>
-                        {uniqueVendors.map((vendor, index) => {
-                            const fullName = `${vendor.first_name ?? ""} ${vendor.last_name ?? ""}`.trim();
-                            return (
-                                <span
-                                    key={vendor.uuid}
-                                    className="cursor-pointer hover:underline"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onQuickView("vendor", vendor);
-                                    }}
-                                >
-                                    {fullName}
-                                    {index < uniqueVendors.length - 1 && ', '}
-                                </span>
-                            );
-                        })}
-                    </div>
-                );
-            }
-        }
-        ,
         {
             accessorKey: "agent",
             header: "AGENT",
@@ -150,7 +140,6 @@ export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickVi
                 const first_name = agent?.first_name ?? "";
                 const last_name = agent?.last_name ?? "";
                 return (
-
                     <div onClick={() => {
                         onQuickView1("agent", agent);
                     }} className={`${userType}-text cursor-pointer`}>{first_name} {last_name}</div>
@@ -171,7 +160,31 @@ export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickVi
         },
         {
             accessorKey: "created_at",
-            header: "ADDED",
+            header: ({ column }) => {
+                // Get current sort state
+                const isSorted = column.getIsSorted();
+
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() => {
+                            if (isSorted === "asc") {
+                                column.toggleSorting(true); // Set to desc
+                            } else if (isSorted === "desc") {
+                                column.clearSorting(); // Clear sorting
+                            } else {
+                                column.toggleSorting(false); // Set to asc
+                            }
+                        }}
+                        className="p-0 hover:bg-transparent flex items-center gap-1"
+                    >
+                        ADDED
+                        {isSorted === "asc" && <span><ChevronUp className="text-blue-500" strokeWidth={3} /></span>}
+                        {isSorted === "desc" && <span><ChevronDown className="text-blue-500" strokeWidth={3} /></span>}
+                        {!isSorted && <span className="text-gray-400"><ChevronsUpDown className="text-gray-400" strokeWidth={3} /></span>}
+                    </Button>
+                )
+            },
             cell: ({ row }) => {
                 const date = new Date(row.getValue("created_at")).toLocaleDateString("en-US", {
                     year: "numeric",
@@ -180,9 +193,11 @@ export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickVi
                 });
                 return <div className="text-[#666666]">{date}</div>;
             },
+            // Optional: Enable sorting for this column
+            enableSorting: true,
         },
         {
-            accessorKey: "status",
+            accessorKey: "payment_status",
             header: "STATUS",
             cell: ({ row }) => {
                 const status = row.original.payment_status;
@@ -197,8 +212,7 @@ export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickVi
                     </div>
                 );
             },
-        }
-        ,
+        },
         {
             id: "actions",
             enableHiding: false,
@@ -208,47 +222,48 @@ export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickVi
                     .filter(r => selectedRowIds.includes(r.id))
                     .map(r => r.original);
 
+                const canEdit = userType !== "admin" || hasPermission(PERMISSIONS.EDIT_ORDERS);
+
+                const options = [
+                    ...(canEdit ? [{
+                        label: "Edit",
+                        onClick: () => {
+                            setIsSubmitted(false);
+                            const uuid = row.original.uuid;
+                            if (uuid) {
+                                router.push(`/dashboard/orders/create/${uuid}`);
+                            }
+                        },
+                    }] : []),
+                    {
+                        label: "Quick View",
+                        onClick: () => {
+                            const uuid = row.original.uuid;
+                            if (uuid) {
+                                router.push(`/dashboard/orders/${uuid}`);
+                            }
+                        },
+                    },
+                    {
+                        label: "Delete",
+                        onClick: () => onDelete(row.original.uuid ?? ""),
+                        confirm1: true,
+                    }
+                ];
+
                 return (
                     userType !== "vendor" && (
                         <DropdownActions
-                            options={[
-                                {
-                                    label: "Edit",
-                                    onClick: () => {
-                                        setIsSubmitted(false);
-                                        const uuid = row.original.uuid;
-                                        if (uuid) {
-                                            router.push(`/dashboard/orders/create/${uuid}`);
-                                        }
-                                    },
-                                },
-                                {
-                                    label: "Quick View",
-                                    onClick: () => {
-                                        const uuid = row.original.uuid;
-                                        if (uuid) {
-                                            router.push(`/dashboard/orders/${uuid}`);
-                                        }
-                                    },
-                                },
-                                {
-                                    label: "Delete",
-                                    onClick: () => onDelete(row.original.uuid ?? ""),
-                                    confirm1: true,
-                                }
-                            ]}
+                            options={options}
                             data={selectedOrder}
                         />)
                 );
             },
         }
-
     ];
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
-    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-        []
-    );
+    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
         userType === "agent"
             ? { agent: false }
@@ -257,14 +272,25 @@ export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickVi
                 : {}
     );
     const [rowSelection, setRowSelection] = React.useState({});
+
+    const [pagination, setPagination] = React.useState({
+        pageIndex: 0,
+        pageSize: 10,
+    });
+
     const table = useReactTable({
         data: OrderData,
         columns,
-        initialState: {
-            pagination: {
-                pageSize: 1000, 
-            },
+        // Add pagination to state
+        state: {
+            sorting,
+            columnFilters,
+            columnVisibility,
+            rowSelection,
+            pagination, // Use the pagination state
         },
+        // Add onPaginationChange handler
+        onPaginationChange: setPagination,
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
         getCoreRowModel: getCoreRowModel(),
@@ -273,12 +299,6 @@ export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickVi
         getFilteredRowModel: getFilteredRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
-        state: {
-            sorting,
-            columnFilters,
-            columnVisibility,
-            rowSelection,
-        },
     });
     return (
         <div>
@@ -290,7 +310,7 @@ export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickVi
                                 <TableRow key={headerGroup.id}>
                                     {headerGroup.headers.map((header) => {
                                         return (
-                                            <TableHead key={header.id} className="text-sm text-[#666666] font-bold h-[54px] bg-[#E4E4E4]">
+                                            <TableHead key={header.id} className="text-sm text-[#666666] font-bold h-[54px]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
                                                 {header.isPlaceholder
                                                     ? null
                                                     : flexRender(
@@ -304,7 +324,18 @@ export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickVi
                             ))}
                         </TableHeader>
                         <TableBody className="text-[15px] font-normal">
-                            {table.getRowModel().rows?.length ? (
+                            {loading ? (
+                                // Skeleton Loading State
+                                Array.from({ length: 5 }).map((_, index) => (
+                                    <TableRow key={index} className="h-[54px] bg-white border-b border-[#E4E4E4]">
+                                        {columns.map((_, colIndex) => (
+                                            <TableCell key={colIndex}>
+                                                <Skeleton className="h-4 w-auto bg-gray-200" />
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))
+                            ) : table.getRowModel().rows?.length ? (
                                 table.getRowModel().rows.map((row) => (
                                     <TableRow
                                         key={row.id}
@@ -320,27 +351,30 @@ export default function OrderTable({ onQuickView, OrderData, onDelete, onQuickVi
                                         ))}
                                     </TableRow>
                                 ))
+                            ) : error ? (
+                                <TableRow>
+                                    <TableCell colSpan={columns.length} className="h-24 text-center text-red-500">
+                                        Failed to load orders.
+                                    </TableCell>
+                                </TableRow>
                             ) : (
-                                loading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={columns.length} className="h-24 text-center">
-                                            Loading Orders ...
-                                        </TableCell>
-                                    </TableRow>
-                                ) : error ? (
-                                    <TableRow>
-                                        <TableCell colSpan={columns.length} className="h-24 text-center">
-                                            No Order Found.
-                                        </TableCell>
-                                    </TableRow>
-                                ) : null
+                                <TableRow>
+                                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                                        No Orders Available
+                                    </TableCell>
+                                </TableRow>
                             )}
                         </TableBody>
                     </Table>
                 </div>
+                <Pagination<Order>
+                    table={table}
+                    data={OrderData}
+                    dataName="Orders"
+                    userType={userType}
+                />
             </div>
+
         </div>
-
-
     );
 }

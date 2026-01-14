@@ -124,7 +124,7 @@ const AddListingDialog: React.FC<Props> = ({
         }
 
         if (open && uuid) {
-            GetOneListing(token, uuid)
+            GetOneListing(uuid)
                 .then(data => setCurrentListing(data.data))
                 .catch(err => console.log(err.message));
         } else {
@@ -140,7 +140,7 @@ const AddListingDialog: React.FC<Props> = ({
         }
 
         if (token) {
-            Get(token)
+            Get()
                 .then(data => setAgent(data.data))
                 .catch(err => console.log(err.message));
         } else {
@@ -175,7 +175,6 @@ const AddListingDialog: React.FC<Props> = ({
         e.preventDefault();
 
         try {
-            const token = localStorage.getItem('token') || '';
             const payload = {
                 listing_price: Number(listingPrice),
                 mls_number: mls,
@@ -201,7 +200,7 @@ const AddListingDialog: React.FC<Props> = ({
             if (uuid) {
                 // Add _method: 'PUT' to payload for method override
                 const updatedPayload = { ...payload, _method: 'PUT' };
-                await EditListings(uuid, updatedPayload, token);
+                await EditListings(uuid, updatedPayload);
                 toast.success('Listing updated successfully');
                 resetForm();
                 setIsLoading(true)
@@ -211,7 +210,7 @@ const AddListingDialog: React.FC<Props> = ({
                 setOpenSaveDialog(false)
                 if (onSuccess) onSuccess();
             } else {
-                await CreateListings(payload, token);
+                await CreateListings(payload);
                 toast.success('Listing created successfully');
                 resetForm();
                 setIsLoading(true)

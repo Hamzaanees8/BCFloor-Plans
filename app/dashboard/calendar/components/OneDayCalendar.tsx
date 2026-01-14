@@ -9,15 +9,22 @@ import { useOrderContext } from '../../orders/context/OrderContext';
 import { VendorData } from '../../orders/[id]/page';
 import { Get, GetVendors } from '../../orders/orders';
 import { useAppContext } from '@/app/context/AppContext';
-import { Order, Slot } from '../../orders/page';
+import { Order } from '../../orders/page';
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
 
 interface WorkHours {
-  start_time: string;
-  end_time: string;
+  start_time?: string;
+  end_time?: string;
   break_start: string;
   break_end: string;
+  work_days?: {
+    day: string;
+    start_time: string;
+    end_time: string;
+    is_off: string | number | boolean;
+    is_twilight: string | number | boolean;
+  }[];
 }
 
 interface Slots {
@@ -59,28 +66,79 @@ interface CalendarProps {
 }
 
 
+interface MinimalSlot {
+  date: string;
+  start_time: string;
+  end_time: string;
+  vendor_id?: string;
+  vendor?: { uuid: string };
+}
+
+interface VendorTimeOff {
+  id?: number;
+  uuid?: string;
+  vendor_id?: number;
+  title: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  address?: string;
+  start_date?: string;
+  end_date?: string;
+}
+
+interface CalendarEvent {
+  id: string;
+  summary: string;
+  description?: string;
+  start: string;
+  end: string;
+  start_formatted?: string;
+  end_formatted?: string;
+  all_day: boolean;
+  status: string;
+  location?: string;
+  created?: string;
+  updated?: string;
+}
 
 function generateMarkedSlots(
   date: string,
   workHours: WorkHours,
   vendorId: string,
-  allBookedSlots: Slot[],
+  allBookedSlots: MinimalSlot[],
+  otherServiceSlots: MinimalSlot[] = [],
+  vendorTimeOffs: VendorTimeOff[] = [],
+  calendarEvents: CalendarEvent[] = [],
   interval = 15
 ): Slots[] {
   if (!workHours) return [];
 
+  const dayOfWeek = dayjs(date).format('ddd').toLowerCase();
+  const daySchedule = workHours.work_days?.find(d => d.day === dayOfWeek);
+
+  // If vendor has work_days and is off today, return no slots
+  if (daySchedule && (daySchedule.is_off === '1' || daySchedule.is_off === 1 || daySchedule.is_off === true)) {
+    return [];
+  }
+
+  const effectiveStartTime = daySchedule?.start_time || workHours.start_time;
+  const effectiveEndTime = daySchedule?.end_time || workHours.end_time;
+
+  if (!effectiveStartTime || !effectiveEndTime) return [];
+
   const slots = [];
-  const start = dayjs(`${date}T${workHours.start_time}`);
-  const end = dayjs(`${date}T${workHours.end_time}`);
-  const breakStart = dayjs(`${date}T${workHours.break_start}`);
-  const breakEnd = dayjs(`${date}T${workHours.break_end}`);
+  const start = dayjs(`${date}T${effectiveStartTime}`);
+  const end = dayjs(`${date}T${effectiveEndTime}`);
+  const breakStart = workHours.break_start ? dayjs(`${date}T${workHours.break_start}`) : null;
+  const breakEnd = workHours.break_end ? dayjs(`${date}T${workHours.break_end}`) : null;
 
   let current = start;
 
   while (current.isBefore(end)) {
     const next = current.add(interval, 'minute');
 
-    const inBreak = next.isAfter(breakStart) && current.isBefore(breakEnd);
+    const inBreak = breakStart && breakEnd && next.isAfter(breakStart) && current.isBefore(breakEnd);
 
     // Check if this slot is already booked for this vendor
     const isBooked = allBookedSlots?.some(bookedSlot => {
@@ -89,15 +147,97 @@ function generateMarkedSlots(
       const bookedStart = dayjs(`${bookedSlot.date}T${bookedSlot.start_time}`);
       const bookedEnd = dayjs(`${bookedSlot.date}T${bookedSlot.end_time}`);
 
+      // Check both vendor_id and vendor.uuid to handle different slot formats
+      const bookedVendorId = bookedSlot.vendor?.uuid || bookedSlot.vendor_id;
+
       return (
-        bookedSlot.vendor_id === vendorId &&
+        bookedVendorId === vendorId &&
         bookedSlot.date === date &&
         current.isSame(bookedStart) &&
         next.isSame(bookedEnd)
       );
     }) || false;
 
-    if (!inBreak && !isBooked) {
+    // Check for conflicts with locally selected slots for other services for the same vendor
+    const isConflict = otherServiceSlots.some(conflictSlot => {
+      const conflictStart = dayjs(`${conflictSlot.date}T${conflictSlot.start_time}`);
+      return (
+        (conflictSlot.vendor?.uuid === vendorId || conflictSlot.vendor_id === vendorId) &&
+        conflictSlot.date === date &&
+        current.isSame(conflictStart)
+      );
+    });
+
+    const isTimeOff = vendorTimeOffs?.some(timeOff => {
+      if (!timeOff) return false;
+
+      const timeOffStartDate = timeOff.start_date || timeOff.date;
+      const timeOffEndDate = timeOff.end_date || timeOff.date;
+
+      const currentDateObj = dayjs(date);
+      const startDateObj = dayjs(timeOffStartDate);
+      const endDateObj = dayjs(timeOffEndDate);
+
+      const isDateInRange = currentDateObj.isSameOrAfter(startDateObj, 'day') &&
+        currentDateObj.isSameOrBefore(endDateObj, 'day');
+
+      if (!isDateInRange) return false;
+
+      const isSingleDay = startDateObj.isSame(endDateObj, 'day');
+      const isStartDay = currentDateObj.isSame(startDateObj, 'day');
+      const isEndDay = currentDateObj.isSame(endDateObj, 'day');
+
+      if (isSingleDay) {
+        const timeOffStart = dayjs(`${date}T${timeOff.start_time}`);
+        const timeOffEnd = dayjs(`${date}T${timeOff.end_time}`);
+
+        return (
+          (current.isSameOrAfter(timeOffStart) && current.isBefore(timeOffEnd)) ||
+          (next.isAfter(timeOffStart) && next.isSameOrBefore(timeOffEnd)) ||
+          (current.isBefore(timeOffStart) && next.isAfter(timeOffEnd))
+        );
+      } else {
+        if (isStartDay && isEndDay) {
+          const timeOffStart = dayjs(`${date}T${timeOff.start_time}`);
+          const timeOffEnd = dayjs(`${date}T${timeOff.end_time}`);
+          return (
+            (current.isSameOrAfter(timeOffStart) && current.isBefore(timeOffEnd)) ||
+            (next.isAfter(timeOffStart) && next.isSameOrBefore(timeOffEnd)) ||
+            (current.isBefore(timeOffStart) && next.isAfter(timeOffEnd))
+          );
+        } else if (isStartDay) {
+          const timeOffStart = dayjs(`${date}T${timeOff.start_time}`);
+          return current.isSameOrAfter(timeOffStart);
+        } else if (isEndDay) {
+          const timeOffEnd = dayjs(`${date}T${timeOff.end_time}`);
+          return current.isBefore(timeOffEnd);
+        } else {
+          return true;
+        }
+      }
+    }) || false;
+
+    // Check if slot conflicts with Google Calendar events
+    const isCalendarEvent = calendarEvents?.some(event => {
+      if (!event || event.status === 'cancelled') return false;
+
+      // Parse event times (they are in UTC ISO format)
+      const eventStart = dayjs(event.start);
+      const eventEnd = dayjs(event.end);
+
+      // Check if the event is on the current date
+      const eventDate = eventStart.format('YYYY-MM-DD');
+      if (eventDate !== date) return false;
+
+      // Check if current slot overlaps with the calendar event
+      return (
+        (current.isSameOrAfter(eventStart) && current.isBefore(eventEnd)) ||
+        (next.isAfter(eventStart) && next.isSameOrBefore(eventEnd)) ||
+        (current.isBefore(eventStart) && next.isAfter(eventEnd))
+      );
+    }) || false;
+
+    if (!inBreak && !isBooked && !isConflict && !isTimeOff && !isCalendarEvent) {
       slots.push({
         id: current.toISOString(),
         start: current.toISOString(),
@@ -199,7 +339,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedListingId, sel
     }
 
     if (selectedListingId) {
-      GetOneListing(token, selectedListingId)
+      GetOneListing(selectedListingId)
         .then(data => setDestinationAddress(data.data.address))
         .catch(err => console.log(err.message));
     } else {
@@ -211,7 +351,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedListingId, sel
 
   useEffect(() => {
     const matchingSlot = selectedSlots.find(
-      (slot) => Number(slot.service_id) === service.service.id
+      (slot) => slot.service_id === service.service.uuid
     );
 
     if (matchingSlot) {
@@ -241,10 +381,24 @@ export default function OneDayCalendar({ setSelectedDate, selectedListingId, sel
     const fullDaySlots = generateAllDaySlots(date, 15);
     const availableSlotMap = new Map<string, Slots>();
 
+    // Identify slots selected for OTHER services (to block them)
+    const otherServiceSlots = selectedSlots.filter(s =>
+      s.service_id !== service.service.uuid && s.date === date
+    );
+
     filteredVendors.forEach((vendor) => {
       if (!vendor.work_hours) return;
 
-      const vendorSlots = generateMarkedSlots(date, vendor.work_hours, vendor.company.vendor_id, AllBookedSlots, 15);
+      const vendorSlots = generateMarkedSlots(
+        date,
+        vendor.work_hours,
+        vendor.uuid ?? '',
+        AllBookedSlots as unknown as MinimalSlot[],
+        otherServiceSlots as unknown as MinimalSlot[],
+        vendor.additional_breaks || [],
+        vendor.calendar_events || [],
+        15
+      );
       vendorSlots.forEach((slot) => {
         const key = `${slot.start}_${slot.end}`;
         availableSlotMap.set(key, {
@@ -262,7 +416,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedListingId, sel
         // Check if already selected
         const matchingSelected = selectedSlots.find(
           (s) =>
-            Number(s.service_id) === service.service.id &&
+            s.service_id === service.service.uuid &&
             dayjs(`${s.date}T${s.start_time}`).toISOString() === slot.start &&
             dayjs(`${s.date}T${s.end_time}`).toISOString() === slot.end
         );
@@ -371,7 +525,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedListingId, sel
 
     const isAlreadySelected = selectedSlots.find(
       (slot) =>
-        Number(slot.service_id) === service.service.id &&
+        slot.service_id === service.service.uuid &&
         slot.start_time === dayjs(clicked.start).format('HH:mm:ss') &&
         slot.end_time === dayjs(clicked.end).format('HH:mm:ss') &&
         slot.date === selectedDate
@@ -382,7 +536,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedListingId, sel
         prev.filter(
           (slot) =>
             !(
-              Number(slot.service_id) === service.service.id &&
+              slot.service_id === service.service.uuid &&
               slot.start_time === dayjs(clicked.start).format('HH:mm:ss') &&
               slot.end_time === dayjs(clicked.end).format('HH:mm:ss') &&
               slot.date === selectedDate
@@ -415,23 +569,34 @@ export default function OneDayCalendar({ setSelectedDate, selectedListingId, sel
 
       if (!vendor.work_hours) return false;
 
-      const { start_time, end_time, break_start, break_end } = vendor.work_hours;
+      const dayOfWeek = dayjs(selectedDate).format('ddd').toLowerCase();
+      const daySchedule = vendor.work_hours.work_days?.find(d => d.day === dayOfWeek);
+
+      if (daySchedule && (daySchedule.is_off === '1' || daySchedule.is_off === 1 || daySchedule.is_off === true)) {
+        return false;
+      }
+
+      const effectiveStartTime = daySchedule?.start_time || vendor.work_hours.start_time;
+      const effectiveEndTime = daySchedule?.end_time || vendor.work_hours.end_time;
+
+      if (!effectiveStartTime || !effectiveEndTime) return false;
+
       const eventStart = dayjs(`2000-01-01T${slotStart}`);
       const eventEnd = dayjs(`2000-01-01T${slotEnd}`);
-      const workStart = dayjs(`2000-01-01T${start_time}`);
-      const workEnd = dayjs(`2000-01-01T${end_time}`);
-      const breakStartTime = dayjs(`2000-01-01T${break_start}`);
-      const breakEndTime = dayjs(`2000-01-01T${break_end}`);
+      const workStart = dayjs(`2000-01-01T${effectiveStartTime}`);
+      const workEnd = dayjs(`2000-01-01T${effectiveEndTime}`);
+      const breakStartTime = vendor.work_hours.break_start ? dayjs(`2000-01-01T${vendor.work_hours.break_start}`) : null;
+      const breakEndTime = vendor.work_hours.break_end ? dayjs(`2000-01-01T${vendor.work_hours.break_end}`) : null;
 
       const isWithinWorkingHours = eventStart.isSameOrAfter(workStart) && eventEnd.isSameOrBefore(workEnd);
-      const isNotDuringBreak = eventEnd.isSameOrBefore(breakStartTime) || eventStart.isSameOrAfter(breakEndTime);
+      const isNotDuringBreak = !breakStartTime || !breakEndTime || (eventEnd.isSameOrBefore(breakStartTime) || eventStart.isSameOrAfter(breakEndTime));
 
       return isWithinWorkingHours && isNotDuringBreak;
     });
 
 
     if (matching.length === 1) {
-      console.log('Single vendor match, auto-assigning:', matching[0]);
+      //('Single vendor match, auto-assigning:', matching[0]);
       handleAssignVendor(matching[0], clicked);
     }
     else if (matching.length > 1) {
@@ -440,7 +605,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedListingId, sel
       setShowVendorModal(true);
     }
     else {
-      console.log('No vendors available for this service at selected time');
+      //('No vendors available for this service at selected time');
     }
   };
   const handleAssignVendor = async (vendor: VendorData, slot: { start: string; end: string }) => {
@@ -465,7 +630,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedListingId, sel
 
     setEvents(updatedEvents);
     const newSlot = {
-      service_id: String(service.service.id) ?? '',
+      service_id: service.service.uuid ?? '',
       vendor_id: vendor.uuid ? vendor.uuid : '',
       show_all_vendors: showAllVendorsMap[calendarIdx] ?? 0,
       schedule_override: scheduleOverrideMap[calendarIdx] ?? 0,

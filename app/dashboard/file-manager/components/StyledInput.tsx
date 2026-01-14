@@ -1,15 +1,69 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Bold, Italic, Underline, ChevronDown } from "lucide-react";
 
-type StyledInputProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
+type StyledInputProps = {
+  className?: string;
+  value?: string;
+  onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  placeholder?: string;
+  [key: string]: any;
+};
+
+// --- ⭐ CARET SAVE / RESTORE FIX ---
+function saveCaretPosition(el: HTMLElement) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return null;
+
+  const range = selection.getRangeAt(0);
+  const preCaretRange = range.cloneRange();
+
+  preCaretRange.selectNodeContents(el);
+  preCaretRange.setEnd(range.endContainer, range.endOffset);
+
+  return preCaretRange.toString().length;
+}
+
+function restoreCaretPosition(el: HTMLElement, offset: number) {
+  const selection = window.getSelection();
+  if (!selection) return;
+
+  let charIndex = 0;
+  const range = document.createRange();
+  range.setStart(el, 0);
+  range.collapse(true);
+
+  const nodeStack: Node[] = [el];
+  let node: Node | undefined;
+
+  while ((node = nodeStack.pop())) {
+    if (node.nodeType === 3) {
+      const textLength = node.textContent?.length ?? 0;
+
+      if (charIndex + textLength >= offset) {
+        range.setStart(node, offset - charIndex);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return;
+      }
+
+      charIndex += textLength;
+    } else {
+      let i = node.childNodes.length;
+      while (i--) nodeStack.push(node.childNodes[i]);
+    }
+  }
+}
 
 export default function StyledInput({
   className,
   value,
   onChange,
+  placeholder,
   ...props
 }: StyledInputProps) {
   const [fontWeight, setFontWeight] = useState("font-normal");
@@ -18,76 +72,197 @@ export default function StyledInput({
   const [underline, setUnderline] = useState(false);
   const [textAlign, setTextAlign] = useState<"left" | "center" | "right">("center");
   const [fontFamily, setFontFamily] = useState<string>("font-sans");
+  const [internalValue, setInternalValue] = useState(value || "");
+  const [isFocused, setIsFocused] = useState(false);
+  const [showPlaceholder, setShowPlaceholder] = useState(!value);
 
   const [showMenu, setShowMenu] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
+  const editableRef = useRef<HTMLParagraphElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const hoverRef = useRef(false);
 
   useEffect(() => {
+    if (value !== undefined) {
+      setInternalValue(value);
+      setShowPlaceholder(!value);
+      if (editableRef.current && editableRef.current.textContent !== value) {
+        editableRef.current.textContent = value;
+      }
+    }
+  }, [value]);
+
+  useEffect(() => {
     if (className) {
       const match = className.match(/text-\[(\d+)px\]/);
-      if (match) {
-        setFontSize(`${match[1]}px`);
-      }
+      if (match) setFontSize(`${match[1]}px`);
       if (className.includes("text-left")) setTextAlign("left");
       if (className.includes("text-right")) setTextAlign("right");
       if (className.includes("text-center")) setTextAlign("center");
     }
   }, [className]);
 
-  const handleMouseEnter = (key: string) => {
-    setActiveDropdown(key);
+  // ⭐ FIXED HANDLE_INPUT WITH CARET PRESERVATION
+  const handleInput = useCallback(() => {
+    const el = editableRef.current;
+    if (!el) return;
+
+    const caret = saveCaretPosition(el); // <-- save caret
+
+    const newValue = el.textContent || "";
+    setInternalValue(newValue);
+    setShowPlaceholder(newValue.length === 0);
+
+    if (onChange) {
+      const syntheticEvent = {
+        target: {
+          value: newValue,
+          name: props.name,
+          type: "text",
+        },
+      } as React.ChangeEvent<HTMLInputElement>;
+      onChange(syntheticEvent);
+    }
+
+    requestAnimationFrame(() => {
+      if (editableRef.current && caret !== null) {
+        restoreCaretPosition(editableRef.current, caret); // <-- restore caret
+      }
+    });
+  }, [onChange, props.name]);
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    setShowMenu(true);
+    setShowPlaceholder(false);
   };
 
-  const handleMouseLeave = (key: string) => {
-    if (activeDropdown === key) setActiveDropdown(null);
+  const handleBlur = () => {
+    setIsFocused(false);
+    setShowPlaceholder(internalValue.length === 0);
+
+    if (!hoverRef.current) {
+      setShowMenu(false);
+      setActiveDropdown(null);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      editableRef.current?.blur();
+    }
+  };
+
+  const handleMouseEnter = (key: string) => setActiveDropdown(key);
+  const handleMouseLeave = (key: string) => activeDropdown === key && setActiveDropdown(null);
+
+  const applyStyle = (style: string, value: any) => {
+    if (!editableRef.current) return;
+
+    switch (style) {
+      case "fontWeight": setFontWeight(value); break;
+      case "fontSize": setFontSize(value); break;
+      case "italic": setItalic(value); break;
+      case "underline": setUnderline(value); break;
+      case "textAlign": setTextAlign(value); break;
+      case "fontFamily": setFontFamily(value); break;
+    }
+  };
+
+  const getFontWeightStyle = () => {
+    switch (fontWeight) {
+      case "font-thin": return "100";
+      case "font-normal": return "400";
+      case "font-medium": return "500";
+      case "font-bold": return "700";
+      case "font-extrabold": return "800";
+      default: return "400";
+    }
+  };
+
+  const getFontFamilyStyle = () => {
+    switch (fontFamily) {
+      case "font-alexandria": return "Alexandria, sans-serif";
+      case "font-raleway": return "Raleway, sans-serif";
+      case "font-sans": return "sans-serif";
+      default: return "sans-serif";
+    }
   };
 
   return (
     <div
       ref={wrapperRef}
-      className="relative inline-block w-full"
+      className="relative inline-block w-full content-center"
       onMouseEnter={() => (hoverRef.current = true)}
       onMouseLeave={() => {
         hoverRef.current = false;
-        if (
-          document.activeElement !== wrapperRef.current?.querySelector("textarea")
-        ) {
+        if (!isFocused) {
           setShowMenu(false);
           setActiveDropdown(null);
         }
       }}
     >
-      <textarea
-        value={value}
-        onChange={onChange}
-        onFocus={() => setShowMenu(true)}
-        onBlur={() => {
-          if (!hoverRef.current) {
-            setShowMenu(false);
-            setActiveDropdown(null);
-          }
-        }}
-        style={{ fontSize, textAlign }}
-        className={cn(
-          "placeholder-gray-400 border rounded w-full resize-none focus:outline-none border-none overflow-hidden",
-          className,
-          fontWeight,
-          fontFamily,
-          italic && "italic",
-          underline && "underline"
+      <div className="relative">
+        <p
+          ref={editableRef}
+          contentEditable
+          onInput={handleInput}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          style={{
+            fontSize,
+            textAlign,
+            fontWeight: getFontWeightStyle(),
+            fontStyle: italic ? "italic" : "normal",
+            textDecoration: underline ? "underline" : "none",
+            fontFamily: getFontFamilyStyle(),
+            lineHeight: "100%",
+            minHeight: `calc(${fontSize} + 10px)`,
+            outline: "none",
+            alignContent: "center",
+          }}
+          className={cn(
+            "placeholder-gray-400 border rounded w-full resize-none focus:outline-none border-none  px-2",
+            "whitespace-pre-wrap break-words",
+            className,
+            isFocused && "ring-2 ring-blue-500"
+          )}
+          suppressContentEditableWarning={true}
+          {...props}
+        >
+          {internalValue}
+        </p>
+
+        {showPlaceholder && placeholder && (
+          <div
+            className="absolute top-0 left-0 right-0 px-2 pointer-events-none"
+            style={{
+              fontSize,
+              textAlign,
+              fontWeight: getFontWeightStyle(),
+              fontStyle: italic ? "italic" : "normal",
+              fontFamily: getFontFamilyStyle(),
+              lineHeight: "100%",
+              minHeight: `calc(${fontSize} + 10px)`,
+              color: "#575a60",
+              alignContent: "center",
+              backgroundColor: "#cccccc3b",
+            }}
+          >
+            {placeholder}
+          </div>
         )}
-        {...props}
-      />
+      </div>
 
       {showMenu && (
         <div
-          className="absolute z-[999] top-full left-1/2 transform -translate-x-1/2 bg-white border shadow-lg rounded-md p-2 w-auto flex gap-2"
+          className="absolute z-[999] top-full left-1/2 transform -translate-x-1/2 bg-white border shadow-lg rounded-md p-2 w-auto flex gap-2 mt-1"
           onMouseDown={(e) => e.preventDefault()}
         >
-          {/* Font Weight */}
+          {/* Weight */}
           <div
             className="relative"
             onMouseEnter={() => handleMouseEnter("weight")}
@@ -95,20 +270,20 @@ export default function StyledInput({
           >
             <button
               type="button"
-              className="px-2 py-2 text-xs text-black border w-fit text-nowrap rounded flex items-center gap-1 hover:bg-gray-100"
+              className="px-2 py-2 text-xs text-black border rounded flex items-center gap-1 hover:bg-gray-100"
             >
-              {
-                {
-                  "font-thin": "Thin",
-                  "font-normal": "Normal",
-                  "font-medium": "Medium",
-                  "font-bold": "Bold",
-                  "font-extrabold": "Extra Bold",
-                }[fontWeight]
-              } <ChevronDown className="w-3 h-3" />
+              {{
+                "font-thin": "Thin",
+                "font-normal": "Normal",
+                "font-medium": "Medium",
+                "font-bold": "Bold",
+                "font-extrabold": "Extra Bold",
+              }[fontWeight]}{" "}
+              <ChevronDown className="w-3 h-3" />
             </button>
+
             {activeDropdown === "weight" && (
-              <div className="absolute left-0  bg-white border rounded shadow-md z-[999] w-28">
+              <div className="absolute left-0 bg-white border rounded shadow-md z-[999] w-28">
                 {[
                   { label: "Thin", value: "font-thin" },
                   { label: "Normal", value: "font-normal" },
@@ -118,13 +293,12 @@ export default function StyledInput({
                 ].map((fw) => (
                   <button
                     key={fw.value}
-                    type="button"
                     className={cn(
-                      "block w-[90%] justify-self-center m-1 text-black rounded-[2px] text-left px-2 py-1 text-[12px] font-[400] bg-gray-100 hover:bg-gray-800 hover:text-white",
+                      "block w-[90%] m-1 text-black rounded px-2 py-1 text-[12px] bg-gray-100 hover:bg-gray-800 hover:text-white",
                       fontWeight === fw.value && "bg-gray-800 text-white"
                     )}
                     onClick={() => {
-                      setFontWeight(fw.value);
+                      applyStyle("fontWeight", fw.value);
                       setActiveDropdown(null);
                     }}
                   >
@@ -135,7 +309,7 @@ export default function StyledInput({
             )}
           </div>
 
-          {/* Font Size */}
+          {/* Size */}
           <div
             className="relative"
             onMouseEnter={() => handleMouseEnter("size")}
@@ -143,22 +317,22 @@ export default function StyledInput({
           >
             <button
               type="button"
-              className="px-2 py-2 text-xs text-black border w-fit text-nowrap rounded flex items-center gap-1 hover:bg-gray-100"
+              className="px-2 py-2 text-xs text-black border rounded flex items-center gap-1 hover:bg-gray-100"
             >
               {fontSize.replace("px", "")} px <ChevronDown className="w-3 h-3" />
             </button>
+
             {activeDropdown === "size" && (
-              <div className="absolute left-0  bg-white border rounded shadow-md z-[999] w-28 max-h-40 overflow-auto">
+              <div className="absolute left-0 bg-white border rounded shadow-md z-[999] w-28 max-h-40 overflow-auto">
                 {[8, 12, 14, 16, 18, 24, 28, 36, 40, 48].map((size) => (
                   <button
                     key={size}
-                    type="button"
                     className={cn(
-                      "block w-[90%] justify-self-center m-1 text-black rounded-[2px] text-left px-2 py-1 text-[12px] font-[400] bg-gray-100 hover:bg-gray-800 hover:text-white",
+                      "block w-[90%] m-1 text-black rounded px-2 py-1 text-[12px] bg-gray-100 hover:bg-gray-800 hover:text-white",
                       fontSize === `${size}px` && "bg-gray-800 text-white"
                     )}
                     onClick={() => {
-                      setFontSize(`${size}px`);
+                      applyStyle("fontSize", `${size}px`);
                       setActiveDropdown(null);
                     }}
                   >
@@ -169,7 +343,7 @@ export default function StyledInput({
             )}
           </div>
 
-          {/* Font Family */}
+          {/* Family */}
           <div
             className="relative"
             onMouseEnter={() => handleMouseEnter("family")}
@@ -177,18 +351,18 @@ export default function StyledInput({
           >
             <button
               type="button"
-              className="px-2 py-2 text-xs text-black border w-fit text-nowrap rounded flex items-center gap-1 hover:bg-gray-100"
+              className="px-2 py-2 text-xs text-black border rounded flex items-center gap-1 hover:bg-gray-100"
             >
-              {
-                {
-                  "font-alexandria": "Alexandria",
-                  "font-raleway": "Raleway",
-                  "font-sans": "Sans Serif",
-                }[fontFamily]
-              } <ChevronDown className="w-3 h-3" />
+              {{
+                "font-alexandria": "Alexandria",
+                "font-raleway": "Raleway",
+                "font-sans": "Sans Serif",
+              }[fontFamily]}{" "}
+              <ChevronDown className="w-3 h-3" />
             </button>
+
             {activeDropdown === "family" && (
-              <div className="absolute left-0  bg-white border rounded shadow-md z-[999] w-32">
+              <div className="absolute left-0 bg-white border rounded shadow-md z-[999] w-32">
                 {[
                   { label: "Alexandria", value: "font-alexandria" },
                   { label: "Raleway", value: "font-raleway" },
@@ -196,13 +370,12 @@ export default function StyledInput({
                 ].map((ff) => (
                   <button
                     key={ff.value}
-                    type="button"
                     className={cn(
-                      "block w-[90%] justify-self-center m-1 text-black rounded-[2px] text-left px-2 py-1 text-[12px] font-[400] bg-gray-100 hover:bg-gray-800 hover:text-white",
+                      "block w-[90%] m-1 text-black rounded px-2 py-1 text-[12px] bg-gray-100 hover:bg-gray-800 hover:text-white",
                       fontFamily === ff.value && "bg-gray-800 text-white"
                     )}
                     onClick={() => {
-                      setFontFamily(ff.value);
+                      applyStyle("fontFamily", ff.value);
                       setActiveDropdown(null);
                     }}
                   >
@@ -221,27 +394,29 @@ export default function StyledInput({
                 "p-2 border rounded text-gray-800 hover:bg-gray-800 hover:text-gray-100",
                 italic && "bg-gray-800 text-white"
               )}
-              onClick={() => setItalic(!italic)}
+              onClick={() => applyStyle("italic", !italic)}
             >
               <Italic className="h-4 w-4" />
             </button>
+
             <button
               type="button"
               className={cn(
                 "p-1 border rounded text-gray-800 hover:bg-gray-800 hover:text-gray-100",
                 underline && "bg-gray-800 text-white"
               )}
-              onClick={() => setUnderline(!underline)}
+              onClick={() => applyStyle("underline", !underline)}
             >
               <Underline className="h-4 w-4" />
             </button>
+
             <button
               type="button"
               className={cn(
                 "p-2 border rounded text-gray-800 hover:bg-gray-800 hover:text-gray-100",
                 fontWeight === "font-bold" && "bg-gray-800 text-white"
               )}
-              onClick={() => setFontWeight("font-bold")}
+              onClick={() => applyStyle("fontWeight", "font-bold")}
             >
               <Bold className="h-4 w-4" />
             </button>

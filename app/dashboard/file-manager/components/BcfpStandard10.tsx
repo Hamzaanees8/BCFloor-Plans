@@ -1,14 +1,16 @@
-import { House, Pencil, Trash } from "lucide-react";
+import { House, Pencil, Trash, ZoomIn, ZoomOut } from "lucide-react";
 import Image from "next/image";
 import React, { useRef, useState } from "react";
 import { Order } from "../../orders/page";
 import "../../../globals.css";
 import StyledInput from "./StyledInput";
+import ImageSourceModal from "./ImageSourceModal";
+import FileManagerGallery from "./fileManagerGallery";
 
 interface BcfpStandard {
   orderData: Order | null;
 }
-const BcfpStandard = ({}: BcfpStandard) => {
+const BcfpStandard = ({ orderData }: BcfpStandard) => {
   const [byLawRestrictions, setByLawRestrictions] = useState("");
   const [maintFees, setMaintFees] = useState("");
   const [maintFeesInclude, setMaintFeesInclude] = useState("");
@@ -30,24 +32,115 @@ const BcfpStandard = ({}: BcfpStandard) => {
   const [sqft, setSqft] = useState("");
   const [builtYear, setBuiltYear] = useState("");
 
-  // --- States ---
-  const [image1, setImage1] = useState<string | null>(null);
-  const [image2, setImage2] = useState<string | null>(null);
-  const [image3, setImage3] = useState<string | null>(null);
-  const [image4, setImage4] = useState<string | null>(null);
-  const [image5, setImage5] = useState<string | null>(null);
-  const [image6, setImage6] = useState<string | null>(null);
-  const [image7, setImage7] = useState<string | null>(null);
-  const [image8, setImage8] = useState<string | null>(null);
-  const [image9, setImage9] = useState<string | null>(null);
-  const [image10, setImage10] = useState<string | null>(null);
-  const [image11, setImage11] = useState<string | null>(null);
-  const [image12, setImage12] = useState<string | null>(null);
-  const [image13, setImage13] = useState<string | null>(null);
-  const [image14, setImage14] = useState<string | null>(null);
-  const [image15, setImage15] = useState<string | null>(null);
-  const [image16, setImage16] = useState<string | null>(null);
+  // --- images States ---
+  const [images, setImages] = useState({
+    image1: null as string | null,
+    image2: null as string | null,
+    image3: null as string | null,
+    image4: null as string | null,
+    image5: null as string | null,
+    image6: null as string | null,
+    image7: null as string | null,
+    image8: null as string | null,
+    image9: null as string | null,
+    image10: null as string | null,
+    image11: null as string | null,
+    image12: null as string | null,
+    image13: null as string | null,
+    image14: null as string | null,
+    image15: null as string | null,
+    image16: null as string | null,
+    image17: null as string | null,
+    image18: null as string | null,
+  });
+   
 
+  const [scale, setScale] = useState({
+    image1: 1,
+    image2: 1,
+    image3: 1,
+    image4: 1,
+    image5: 1,
+    image6: 1,
+    image7: 1,
+    image8: 1,
+    image9: 1,
+    image10: 1,
+    image11: 1,
+    image12: 1,
+    image13: 1,
+    image14: 1,
+    image15: 1,
+    image16: 1,
+    image17: 1,
+    image18: 1,
+  });
+
+  const [position, setPosition] = useState({
+    image1: { x: 0, y: 0 },
+    image2: { x: 0, y: 0 },
+    image3: { x: 0, y: 0 },
+    image4: { x: 0, y: 0 },
+    image5: { x: 0, y: 0 },
+    image6: { x: 0, y: 0 },
+    image7: { x: 0, y: 0 },
+    image8: { x: 0, y: 0 },
+    image9: { x: 0, y: 0 },
+    image10: { x: 0, y: 0 },
+    image11: { x: 0, y: 0 },
+    image12: { x: 0, y: 0 },
+    image13: { x: 0, y: 0 },
+    image14: { x: 0, y: 0 },
+    image15: { x: 0, y: 0 },
+    image16: { x: 0, y: 0 },
+    image17: { x: 0, y: 0 },
+    image18: { x: 0, y: 0 },
+  });
+
+  const [dragging, setDragging] = useState({
+    image1: false,
+    image2: false,
+    image3: false,
+    image4: false,
+    image5: false,
+    image6: false,
+    image7: false,
+    image8: false,
+    image9: false,
+    image10: false,
+    image11: false,
+    image12: false,
+    image13: false,
+    image14: false,
+    image15: false,
+    image16: false,
+    image17: false,
+    image18: false,
+  });
+
+  const lastPosition = useRef({
+    image1: { x: 0, y: 0 },
+    image2: { x: 0, y: 0 },
+    image3: { x: 0, y: 0 },
+    image4: { x: 0, y: 0 },
+    image5: { x: 0, y: 0 },
+    image6: { x: 0, y: 0 },
+    image7: { x: 0, y: 0 },
+    image8: { x: 0, y: 0 },
+    image9: { x: 0, y: 0 },
+    image10: { x: 0, y: 0 },
+    image11: { x: 0, y: 0 },
+    image12: { x: 0, y: 0 },
+    image13: { x: 0, y: 0 },
+    image14: { x: 0, y: 0 },
+    image15: { x: 0, y: 0 },
+    image16: { x: 0, y: 0 },
+    image17: { x: 0, y: 0 },
+    image18: { x: 0, y: 0 },
+  });
+  const [showImageSourceModal, setShowImageSourceModal] = useState(false);
+  const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(null);
+  const [showGallery, setShowGallery] = useState(false);
   // --- Refs ---
   const fileInputRef1 = useRef<HTMLInputElement | null>(null);
   const fileInputRef2 = useRef<HTMLInputElement | null>(null);
@@ -65,227 +158,292 @@ const BcfpStandard = ({}: BcfpStandard) => {
   const fileInputRef14 = useRef<HTMLInputElement | null>(null);
   const fileInputRef15 = useRef<HTMLInputElement | null>(null);
   const fileInputRef16 = useRef<HTMLInputElement | null>(null);
+  const fileInputRef17 = useRef<HTMLInputElement | null>(null);
+  const fileInputRef18 = useRef<HTMLInputElement | null>(null);
+  console.log("orderData", orderData);
+   
 
   // --- Handlers ---
-  const handleDelete1 = () => {
-    setImage1(null);
-    if (fileInputRef1.current) fileInputRef1.current.value = "";
-  };
-  const handleImageChange1 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setImage1(imageURL);
+  const handleImageChange = (
+    key: keyof typeof images,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const url = URL.createObjectURL(file);
+      setImages((prev) => ({ ...prev, [key]: url }));
     }
   };
 
-  const handleDelete2 = () => {
-    setImage2(null);
-    if (fileInputRef2.current) fileInputRef2.current.value = "";
+  const handleDelete = (
+    key: keyof typeof images,
+    ref: React.RefObject<HTMLInputElement | null>
+  ) => {
+    setImages((prev) => ({ ...prev, [key]: null }));
+    setScale((prev) => ({ ...prev, [key]: 1 }));
+    setPosition((prev) => ({ ...prev, [key]: { x: 0, y: 0 } }));
+    if (ref.current) ref.current.value = "";
   };
-  const handleImageChange2 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setImage2(imageURL);
+
+  const handleZoom = (key: keyof typeof images, direction: "in" | "out") => {
+    setScale((prev) => {
+      const newScale = direction === "in" ? prev[key] + 0.1 : prev[key] - 0.1;
+      const bounded = Math.min(Math.max(newScale, 1), 3);
+      if (bounded <= 1) {
+        setPosition((p) => ({ ...p, [key]: { x: 0, y: 0 } }));
+      }
+      return { ...prev, [key]: bounded };
+    });
+  };
+
+  const handleMouseDown = (key: keyof typeof images, e: React.MouseEvent) => {
+    if (scale[key] <= 1) return;
+    setDragging((prev) => ({ ...prev, [key]: true }));
+    lastPosition.current[key] = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMouseMove = (key: keyof typeof images, e: React.MouseEvent) => {
+    if (!dragging[key]) return;
+    const dx = e.clientX - lastPosition.current[key].x;
+    const dy = e.clientY - lastPosition.current[key].y;
+
+    setPosition((prev) => ({
+      ...prev,
+      [key]: { x: prev[key].x + dx, y: prev[key].y + dy },
+    }));
+
+    lastPosition.current[key] = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMouseUp = (key: keyof typeof images) => {
+    setDragging((prev) => ({ ...prev, [key]: false }));
+  };
+
+  const handleMouseLeave = (key: keyof typeof images) => {
+    setDragging((prev) => ({ ...prev, [key]: false }));
+  };
+
+  const handleImageSourceSelect = (source: "local" | "gallery") => {
+    setShowImageSourceModal(false);
+
+    if (source === "local") {
+      switch (currentImageSlot) {
+        case "image1":
+          fileInputRef1.current?.click();
+          break;
+        case "image2":
+          fileInputRef2.current?.click();
+          break;
+        case "image3":
+          fileInputRef3.current?.click();
+          break;
+        case "image4":
+          fileInputRef4.current?.click();
+          break;
+        case "image5":
+          fileInputRef5.current?.click();
+          break;
+        case "image6":
+          fileInputRef6.current?.click();
+          break;
+        case "image7":
+          fileInputRef7.current?.click();
+          break;
+        case "image8":
+          fileInputRef8.current?.click();
+          break;
+        case "image9":
+          fileInputRef9.current?.click();
+          break;
+        case "image10":
+          fileInputRef10.current?.click();
+          break;
+        case "image11":
+          fileInputRef11.current?.click();
+          break;
+        case "image12":
+          fileInputRef12.current?.click();
+          break;
+        case "image13":
+          fileInputRef13.current?.click();
+          break;
+        case "image14":
+          fileInputRef14.current?.click();
+          break;
+        case "image15":
+          fileInputRef15.current?.click();
+          break;
+        case "image16":
+          fileInputRef16.current?.click();
+          break;
+        case "image17":
+          fileInputRef17.current?.click();
+          break;
+        case "image18":
+          fileInputRef18.current?.click();
+          break;
+        default:
+          break;
+      }
+    } else if (source === "gallery") {
+      setShowGallery(true);
     }
   };
 
-  const handleDelete3 = () => {
-    setImage3(null);
-    if (fileInputRef3.current) fileInputRef3.current.value = "";
-  };
-  const handleImageChange3 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setImage3(imageURL);
+  const handleGalleryImageSelect = (imageUrl: string) => {
+    if (!currentImageSlot) return;
+     
+
+    switch (currentImageSlot) {
+      case "image1":
+        setImages((prev) => ({ ...prev, image1: imageUrl }));
+        break;
+      case "image2":
+        setImages((prev) => ({ ...prev, image2: imageUrl }));
+        break;
+      case "image3":
+        setImages((prev) => ({ ...prev, image3: imageUrl }));
+        break;
+      case "image4":
+        setImages((prev) => ({ ...prev, image4: imageUrl }));
+        break;
+      case "image5":
+        setImages((prev) => ({ ...prev, image5: imageUrl }));
+        break;
+      case "image6":
+        setImages((prev) => ({ ...prev, image6: imageUrl }));
+        break;
+      case "image7":
+        setImages((prev) => ({ ...prev, image7: imageUrl }));
+        break;
+      case "image8":
+        setImages((prev) => ({ ...prev, image8: imageUrl }));
+        break;
+      case "image9":
+        setImages((prev) => ({ ...prev, image9: imageUrl }));
+        break;
+      case "image10":
+        setImages((prev) => ({ ...prev, image10: imageUrl }));
+        break;
+      case "image11":
+        setImages((prev) => ({ ...prev, image11: imageUrl }));
+        break;
+      case "image12":
+        setImages((prev) => ({ ...prev, image12: imageUrl }));
+        break;
+      case "image13":
+        setImages((prev) => ({ ...prev, image13: imageUrl }));
+        break;
+      case "image14":
+        setImages((prev) => ({ ...prev, image14: imageUrl }));
+        break;
+      case "image15":
+        setImages((prev) => ({ ...prev, image15: imageUrl }));
+        break;
+      case "image16":
+        setImages((prev) => ({ ...prev, image16: imageUrl }));
+        break;
+      case "image17":
+        setImages((prev) => ({ ...prev, image17: imageUrl }));
+        break;
+      case "image18":
+        setImages((prev) => ({ ...prev, image18: imageUrl }));
+        break;
+      default:
+        break;
     }
+    setShowGallery(false);
+    setCurrentImageSlot(null);
   };
 
-  const handleDelete4 = () => {
-    setImage4(null);
-    if (fileInputRef4.current) fileInputRef4.current.value = "";
-  };
-  const handleImageChange4 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setImage4(imageURL);
-    }
-  };
-
-  const handleDelete5 = () => {
-    setImage5(null);
-    if (fileInputRef5.current) fileInputRef5.current.value = "";
-  };
-  const handleImageChange5 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setImage5(imageURL);
-    }
-  };
-
-  const handleDelete6 = () => {
-    setImage6(null);
-    if (fileInputRef6.current) fileInputRef6.current.value = "";
-  };
-  const handleImageChange6 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setImage6(imageURL);
-    }
-  };
-
-  const handleDelete7 = () => {
-    setImage7(null);
-    if (fileInputRef7.current) fileInputRef7.current.value = "";
-  };
-  const handleImageChange7 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setImage7(imageURL);
-    }
-  };
-
-  const handleDelete8 = () => {
-    setImage8(null);
-    if (fileInputRef8.current) fileInputRef8.current.value = "";
-  };
-  const handleImageChange8 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setImage8(imageURL);
-    }
-  };
-
-  const handleDelete9 = () => {
-    setImage9(null);
-    if (fileInputRef9.current) fileInputRef9.current.value = "";
-  };
-  const handleImageChange9 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setImage9(imageURL);
-    }
-  };
-
-  const handleDelete10 = () => {
-    setImage10(null);
-    if (fileInputRef10.current) fileInputRef10.current.value = "";
-  };
-  const handleImageChange10 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setImage10(imageURL);
-    }
-  };
-
-  const handleDelete11 = () => {
-    setImage11(null);
-    if (fileInputRef11.current) fileInputRef11.current.value = "";
-  };
-  const handleImageChange11 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setImage11(imageURL);
-    }
-  };
-
-  const handleDelete12 = () => {
-    setImage12(null);
-    if (fileInputRef12.current) fileInputRef12.current.value = "";
-  };
-  const handleImageChange12 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setImage12(imageURL);
-    }
-  };
-
-  const handleDelete13 = () => {
-    setImage13(null);
-    if (fileInputRef13.current) fileInputRef13.current.value = "";
-  };
-  const handleImageChange13 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setImage13(imageURL);
-    }
-  };
-
-  const handleDelete14 = () => {
-    setImage14(null);
-    if (fileInputRef14.current) fileInputRef14.current.value = "";
-  };
-  const handleImageChange14 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setImage14(imageURL);
-    }
-  };
-
-  const handleDelete15 = () => {
-    setImage15(null);
-    if (fileInputRef15.current) fileInputRef15.current.value = "";
-  };
-  const handleImageChange15 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setImage15(imageURL);
-    }
-  };
-
-  const handleDelete16 = () => {
-    setImage15(null);
-    if (fileInputRef15.current) fileInputRef15.current.value = "";
-  };
-  const handleImageChange16 = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const imageURL = URL.createObjectURL(file);
-      setImage16(imageURL);
-    }
+  const openImageSourceModal = (imageSlot: string) => {
+    setCurrentImageSlot(imageSlot);
+    setShowImageSourceModal(true);
   };
 
 
   return (
     <>
+      {showImageSourceModal && (
+        <ImageSourceModal
+          onClose={() => setShowImageSourceModal(false)}
+          onSelectSource={handleImageSourceSelect}
+        />
+      )}
+
+      {showGallery && (
+        <FileManagerGallery
+          isOpen={showGallery}
+          onClose={() => {
+            setShowGallery(false);
+            setCurrentImageSlot(null);
+          }}
+          onImageSelect={handleGalleryImageSelect}
+        />
+      )}
       <div className="flex gap-10  px-[50px] py-[40px] bg-[#2E4F23] relative">
         <div className="w-1/2 flex flex-col gap-4 relative z-[1]">
-          <div className="w-full h-[600px] bg-white border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group">
-            {image1 ? (
+          <div 
+            className="w-full h-[600px] bg-white border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
+            onMouseDown={(e) => handleMouseDown("image1", e)}
+            onMouseMove={(e) => handleMouseMove("image1", e)}
+            onMouseUp={() => handleMouseUp("image1")}
+            onMouseLeave={() => handleMouseLeave("image1")}
+          >
+            {images.image1 ? (
               <>
                 <Image
-                  src={image1}
-                  alt="uploaded"
+                  unoptimized
+                  src={images.image1}
+                  alt="selected"
                   width={200}
                   height={300}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform duration-150"
+                  style={{
+                    transform: `scale(${scale.image1}) translate(${position.image1.x}px, ${position.image1.y}px)`,
+                    cursor: dragging.image1
+                      ? "grabbing"
+                      : scale.image1 > 1
+                      ? "grab"
+                      : "default",
+                  }}
                 />
+
+                {/* Zoom Controls */}
+                <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleZoom("image1", "in")}
+                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                    title="Zoom In"
+                  >
+                    <ZoomIn className="w-4 h-4 text-gray-700" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleZoom("image1", "out")}
+                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                    title="Zoom Out"
+                  >
+                    <ZoomOut className="w-4 h-4 text-gray-700" />
+                  </button>
+                </div>
+
+                {/* Edit Button */}
                 <button
                   type="button"
-                  onClick={() => fileInputRef1.current?.click()}
-                  className="absolute top-5 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                  onClick={() => openImageSourceModal("image1")}
+                  className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                   title="Edit image"
                 >
                   <Pencil className="w-4 h-4 text-gray-700" />
                 </button>
+
+                {/* Delete Button */}
                 <button
                   type="button"
-                  onClick={handleDelete1}
-                  className="absolute top-5 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                  onClick={() => handleDelete("image1", fileInputRef1)}
+                  className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                   title="Delete image"
                 >
                   <Trash className="w-4 h-4 text-red-500" />
@@ -293,17 +451,18 @@ const BcfpStandard = ({}: BcfpStandard) => {
               </>
             ) : (
               <div
-                onClick={() => fileInputRef1.current?.click()}
+                onClick={() => openImageSourceModal("image1")}
                 className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
               >
                 Select Image
               </div>
             )}
+
             <input
               type="file"
               accept="image/*"
               ref={fileInputRef1}
-              onChange={handleImageChange1}
+              onChange={(e) => handleImageChange("image1", e)}
               className="hidden"
             />
           </div>
@@ -313,13 +472,13 @@ const BcfpStandard = ({}: BcfpStandard) => {
               <StyledInput
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className=" text-[20px] text-[#B3B394] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                className=" text-[20px] text-[#B3B394] h-[22px] bg-transparent text-left w-[350px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
                 placeholder="FIRSTNAME LASTNAME"
               />
               <StyledInput
                 value={propertyName}
                 onChange={(e) => setPropertyName(e.target.value)}
-                className=" text-[20px] font-thin h-[22px] font- bg-transparent text-left text-white w-full focus:outline-none border-none placeholder-white placeholder:font-[200]"
+                className=" text-[20px] font-thin h-[22px] font- bg-transparent text-left text-white w-[350px] focus:outline-none border-none placeholder-white placeholder:font-[200]"
                 placeholder="MACDONALD  Realty"
               />
               <div className="flex gap-2 font-normal text-[20px] text-white">
@@ -327,7 +486,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 <StyledInput
                   value={number}
                   onChange={(e) => setNumber(e.target.value)}
-                  className="font-thin text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                  className="font-thin text-[20px] h-[22px] bg-transparent text-left w-[350px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
                   placeholder="604.000.0000"
                 />
               </div>
@@ -336,7 +495,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 <StyledInput
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="font-thin text-[20px] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white placeholder:font-[200]"
+                  className="font-thin text-[20px] h-[22px] bg-transparent text-left w-[350px] focus:outline-none border-none placeholder-white placeholder:font-[200]"
                   placeholder="Enter email here"
                 />
               </div>
@@ -406,30 +565,66 @@ const BcfpStandard = ({}: BcfpStandard) => {
             </div>
             
             <div className="group z-10">
-              <div className="w-[200px] h-[110px] relative bg-white shadow-md">
-                {/* logo */}
-                {image2 ? (
+              <div 
+                className="w-[200px] h-[110px] relative bg-white shadow-md overflow-hidden group"
+                onMouseDown={(e) => handleMouseDown("image2", e)}
+                onMouseMove={(e) => handleMouseMove("image2", e)}
+                onMouseUp={() => handleMouseUp("image2")}
+                onMouseLeave={() => handleMouseLeave("image2")}
+              >
+                {images.image2 ? (
                   <>
                     <Image
-                      src={image2}
+                      unoptimized
+                      src={images.image2}
                       alt="selected"
                       width={200}
                       height={300}
-                      className="w-full h-full object-cover "
+                      className="w-full h-full object-cover transition-transform duration-150"
+                      style={{
+                        transform: `scale(${scale.image2}) translate(${position.image2.x}px, ${position.image2.y}px)`,
+                        cursor: dragging.image2
+                          ? "grabbing"
+                          : scale.image2 > 1
+                          ? "grab"
+                          : "default",
+                      }}
                     />
 
+                    {/* Zoom Controls */}
+                    <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image2", "in")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom In"
+                      >
+                        <ZoomIn className="w-4 h-4 text-gray-700" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image2", "out")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut className="w-4 h-4 text-gray-700" />
+                      </button>
+                    </div>
+
+                    {/* Edit Button */}
                     <button
                       type="button"
-                      onClick={() => fileInputRef2.current?.click()}
-                      className="absolute top-2 right-10 z-8 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => openImageSourceModal("image2")}
+                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Edit image"
                     >
                       <Pencil className="w-4 h-4 text-gray-700" />
                     </button>
 
+                    {/* Delete Button */}
                     <button
                       type="button"
-                      onClick={handleDelete2}
+                      onClick={() => handleDelete("image2", fileInputRef2)}
                       className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Delete image"
                     >
@@ -438,8 +633,8 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   </>
                 ) : (
                   <div
-                    onClick={() => fileInputRef2.current?.click()}
-                    className="w-[200px] h-full bg-gray-200  text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                    onClick={() => openImageSourceModal("image2")}
+                    className="w-[200px] h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                   >
                     Select Image
                   </div>
@@ -449,7 +644,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   type="file"
                   accept="image/*"
                   ref={fileInputRef2}
-                  onChange={handleImageChange2}
+                  onChange={(e) => handleImageChange("image2", e)}
                   className="hidden"
                 />
               </div>
@@ -460,28 +655,67 @@ const BcfpStandard = ({}: BcfpStandard) => {
 
         <div className="w-1/2 flex flex-col relative z-[1] gap-4">
           <div className="relative">
-            <div className="w-full h-[450px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group">
-              {image3 ? (
+            <div 
+              className="w-full h-[450px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
+              onMouseDown={(e) => handleMouseDown("image3", e)}
+              onMouseMove={(e) => handleMouseMove("image3", e)}
+              onMouseUp={() => handleMouseUp("image3")}
+              onMouseLeave={() => handleMouseLeave("image3")}
+            >
+              {images.image3 ? (
                 <>
                   <Image
-                    src={image3}
-                    alt="uploaded"
+                    unoptimized
+                    src={images.image3}
+                    alt="selected"
                     width={200}
                     height={300}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform duration-150"
+                    style={{
+                      transform: `scale(${scale.image3}) translate(${position.image3.x}px, ${position.image3.y}px)`,
+                      cursor: dragging.image3
+                        ? "grabbing"
+                        : scale.image3 > 1
+                        ? "grab"
+                        : "default",
+                    }}
                   />
+
+                  {/* Zoom Controls */}
+                  <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                    <button
+                      type="button"
+                      onClick={() => handleZoom("image3", "in")}
+                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                      title="Zoom In"
+                    >
+                      <ZoomIn className="w-4 h-4 text-gray-700" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleZoom("image3", "out")}
+                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut className="w-4 h-4 text-gray-700" />
+                    </button>
+                  </div>
+
+                  {/* Edit Button */}
                   <button
                     type="button"
-                    onClick={() => fileInputRef3.current?.click()}
-                    className="absolute top-24 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    onClick={() => openImageSourceModal("image3")}
+                    className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                     title="Edit image"
                   >
                     <Pencil className="w-4 h-4 text-gray-700" />
                   </button>
+
+                  {/* Delete Button */}
                   <button
                     type="button"
-                    onClick={handleDelete3}
-                    className="absolute top-24 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    onClick={() => handleDelete("image3", fileInputRef3)}
+                    className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                     title="Delete image"
                   >
                     <Trash className="w-4 h-4 text-red-500" />
@@ -489,7 +723,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 </>
               ) : (
                 <div
-                  onClick={() => fileInputRef3.current?.click()}
+                  onClick={() => openImageSourceModal("image3")}
                   className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                 >
                   Select Image
@@ -499,7 +733,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 type="file"
                 accept="image/*"
                 ref={fileInputRef3}
-                onChange={handleImageChange3}
+                onChange={(e) => handleImageChange("image3", e)}
                 className="hidden"
               />
             </div>
@@ -529,7 +763,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 <StyledInput
                   value={cityLine}
                   onChange={(e) => setCityLine(e.target.value)}
-                  className="text-white text-[10px] h-[20px] bg-transparent text-left w-[150px] focus:outline-none border-none placeholder-[#2E4F23] placeholder:font-[200]"
+                  className="text-white text-[10px] h-[20px] bg-transparent text-center w-[250px] focus:outline-none border-none placeholder-[#2E4F23] placeholder:font-[200]"
                   placeholder="BRIGHOUSE SOUTH, RICHMOND"
                 />
               </div>
@@ -538,28 +772,67 @@ const BcfpStandard = ({}: BcfpStandard) => {
 
           <div className="flex flex-col relative top-[-48px] justify-center items-center">
             <div className="grid grid-cols-2 gap-3 w-[70%]">
-              <div className="w-full h-[160px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group">
-                {image4 ? (
+              <div 
+                className="w-full h-[160px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
+                onMouseDown={(e) => handleMouseDown("image4", e)}
+                onMouseMove={(e) => handleMouseMove("image4", e)}
+                onMouseUp={() => handleMouseUp("image4")}
+                onMouseLeave={() => handleMouseLeave("image4")}
+              >
+                {images.image4 ? (
                   <>
                     <Image
-                      src={image4}
-                      alt="uploaded"
+                      unoptimized
+                      src={images.image4}
+                      alt="selected"
                       width={200}
                       height={300}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-150"
+                      style={{
+                        transform: `scale(${scale.image4}) translate(${position.image4.x}px, ${position.image4.y}px)`,
+                        cursor: dragging.image4
+                          ? "grabbing"
+                          : scale.image4 > 1
+                          ? "grab"
+                          : "default",
+                      }}
                     />
+
+                    {/* Zoom Controls */}
+                    <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image4", "in")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom In"
+                      >
+                        <ZoomIn className="w-4 h-4 text-gray-700" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image4", "out")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut className="w-4 h-4 text-gray-700" />
+                      </button>
+                    </div>
+
+                    {/* Edit Button */}
                     <button
                       type="button"
-                      onClick={() => fileInputRef4.current?.click()}
-                      className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => openImageSourceModal("image4")}
+                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Edit image"
                     >
                       <Pencil className="w-4 h-4 text-gray-700" />
                     </button>
+
+                    {/* Delete Button */}
                     <button
                       type="button"
-                      onClick={handleDelete4}
-                      className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => handleDelete("image4", fileInputRef4)}
+                      className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Delete image"
                     >
                       <Trash className="w-4 h-4 text-red-500" />
@@ -567,7 +840,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   </>
                 ) : (
                   <div
-                    onClick={() => fileInputRef4.current?.click()}
+                    onClick={() => openImageSourceModal("image4")}
                     className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                   >
                     Select Image
@@ -577,32 +850,71 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   type="file"
                   accept="image/*"
                   ref={fileInputRef4}
-                  onChange={handleImageChange4}
+                  onChange={(e) => handleImageChange("image4", e)}
                   className="hidden"
                 />
               </div>
-              <div className="w-full h-[160px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group">
-                {image5 ? (
+              <div 
+                className="w-full h-[160px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
+                onMouseDown={(e) => handleMouseDown("image5", e)}
+                onMouseMove={(e) => handleMouseMove("image5", e)}
+                onMouseUp={() => handleMouseUp("image5")}
+                onMouseLeave={() => handleMouseLeave("image5")}
+              >
+                {images.image5 ? (
                   <>
                     <Image
-                      src={image5}
-                      alt="uploaded"
+                      unoptimized
+                      src={images.image5}
+                      alt="selected"
                       width={200}
                       height={300}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-150"
+                      style={{
+                        transform: `scale(${scale.image5}) translate(${position.image5.x}px, ${position.image5.y}px)`,
+                        cursor: dragging.image5
+                          ? "grabbing"
+                          : scale.image5 > 1
+                          ? "grab"
+                          : "default",
+                      }}
                     />
+
+                    {/* Zoom Controls */}
+                    <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image5", "in")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom In"
+                      >
+                        <ZoomIn className="w-4 h-4 text-gray-700" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image5", "out")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut className="w-4 h-4 text-gray-700" />
+                      </button>
+                    </div>
+
+                    {/* Edit Button */}
                     <button
                       type="button"
-                      onClick={() => fileInputRef5.current?.click()}
-                      className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => openImageSourceModal("image5")}
+                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Edit image"
                     >
                       <Pencil className="w-4 h-4 text-gray-700" />
                     </button>
+
+                    {/* Delete Button */}
                     <button
                       type="button"
-                      onClick={handleDelete5}
-                      className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => handleDelete("image5", fileInputRef5)}
+                      className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Delete image"
                     >
                       <Trash className="w-4 h-4 text-red-500" />
@@ -610,7 +922,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   </>
                 ) : (
                   <div
-                    onClick={() => fileInputRef5.current?.click()}
+                    onClick={() => openImageSourceModal("image5")}
                     className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                   >
                     Select Image
@@ -620,32 +932,71 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   type="file"
                   accept="image/*"
                   ref={fileInputRef5}
-                  onChange={handleImageChange5}
+                  onChange={(e) => handleImageChange("image5", e)}
                   className="hidden"
                 />
               </div>
-              <div className="w-full h-[160px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group">
-                {image6 ? (
+              <div 
+                className="w-full h-[160px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
+                onMouseDown={(e) => handleMouseDown("image6", e)}
+                onMouseMove={(e) => handleMouseMove("image6", e)}
+                onMouseUp={() => handleMouseUp("image6")}
+                onMouseLeave={() => handleMouseLeave("image6")}
+              >
+                {images.image6 ? (
                   <>
                     <Image
-                      src={image6}
-                      alt="uploaded"
+                      unoptimized
+                      src={images.image6}
+                      alt="selected"
                       width={200}
                       height={300}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-150"
+                      style={{
+                        transform: `scale(${scale.image6}) translate(${position.image6.x}px, ${position.image6.y}px)`,
+                        cursor: dragging.image6
+                          ? "grabbing"
+                          : scale.image6 > 1
+                          ? "grab"
+                          : "default",
+                      }}
                     />
+
+                    {/* Zoom Controls */}
+                    <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image6", "in")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom In"
+                      >
+                        <ZoomIn className="w-4 h-4 text-gray-700" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image6", "out")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut className="w-4 h-4 text-gray-700" />
+                      </button>
+                    </div>
+
+                    {/* Edit Button */}
                     <button
                       type="button"
-                      onClick={() => fileInputRef6.current?.click()}
-                      className="absolute top-4 left-2 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => openImageSourceModal("image6")}
+                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Edit image"
                     >
                       <Pencil className="w-4 h-4 text-gray-700" />
                     </button>
+
+                    {/* Delete Button */}
                     <button
                       type="button"
-                      onClick={handleDelete6}
-                      className="absolute top-4 left-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => handleDelete("image6", fileInputRef6)}
+                      className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Delete image"
                     >
                       <Trash className="w-4 h-4 text-red-500" />
@@ -653,7 +1004,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   </>
                 ) : (
                   <div
-                    onClick={() => fileInputRef6.current?.click()}
+                    onClick={() => openImageSourceModal("image6")}
                     className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                   >
                     Select Image
@@ -663,32 +1014,71 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   type="file"
                   accept="image/*"
                   ref={fileInputRef6}
-                  onChange={handleImageChange6}
+                  onChange={(e) => handleImageChange("image6", e)}
                   className="hidden"
                 />
               </div>
-              <div className="w-full h-[160px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group">
-                {image7 ? (
+              <div 
+                className="w-full h-[160px] border-[2px] border-white shadow-sm place-self-center relative overflow-hidden flex items-center justify-center group"
+                onMouseDown={(e) => handleMouseDown("image7", e)}
+                onMouseMove={(e) => handleMouseMove("image7", e)}
+                onMouseUp={() => handleMouseUp("image7")}
+                onMouseLeave={() => handleMouseLeave("image7")}
+              >
+                {images.image7 ? (
                   <>
                     <Image
-                      src={image7}
-                      alt="uploaded"
+                      unoptimized
+                      src={images.image7}
+                      alt="selected"
                       width={200}
                       height={300}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-150"
+                      style={{
+                        transform: `scale(${scale.image7}) translate(${position.image7.x}px, ${position.image7.y}px)`,
+                        cursor: dragging.image7
+                          ? "grabbing"
+                          : scale.image7 > 1
+                          ? "grab"
+                          : "default",
+                      }}
                     />
+
+                    {/* Zoom Controls */}
+                    <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image7", "in")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom In"
+                      >
+                        <ZoomIn className="w-4 h-4 text-gray-700" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image7", "out")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut className="w-4 h-4 text-gray-700" />
+                      </button>
+                    </div>
+
+                    {/* Edit Button */}
                     <button
                       type="button"
-                      onClick={() => fileInputRef7.current?.click()}
-                      className="absolute top-4 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => openImageSourceModal("image7")}
+                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Edit image"
                     >
                       <Pencil className="w-4 h-4 text-gray-700" />
                     </button>
+
+                    {/* Delete Button */}
                     <button
                       type="button"
-                      onClick={handleDelete7}
-                      className="absolute top-4 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => handleDelete("image7", fileInputRef7)}
+                      className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Delete image"
                     >
                       <Trash className="w-4 h-4 text-red-500" />
@@ -696,7 +1086,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   </>
                 ) : (
                   <div
-                    onClick={() => fileInputRef7.current?.click()}
+                    onClick={() => openImageSourceModal("image7")}
                     className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                   >
                     Select Image
@@ -706,36 +1096,72 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   type="file"
                   accept="image/*"
                   ref={fileInputRef7}
-                  onChange={handleImageChange7}
+                  onChange={(e) => handleImageChange("image7", e)}
                   className="hidden"
                 />
               </div>
             </div>
             <div className="absolute  group z-10">
-              <div className="w-[200px] h-[110px] relative bg-white shadow-md">
-                {/* logo */}
-                {image8 ? (
+              <div 
+                className="w-[200px] h-[110px] relative bg-white shadow-md overflow-hidden group"
+                onMouseDown={(e) => handleMouseDown("image8", e)}
+                onMouseMove={(e) => handleMouseMove("image8", e)}
+                onMouseUp={() => handleMouseUp("image8")}
+                onMouseLeave={() => handleMouseLeave("image8")}
+              >
+                {images.image8 ? (
                   <>
                     <Image
-                      src={image8}
+                      unoptimized
+                      src={images.image8}
                       alt="selected"
                       width={200}
                       height={300}
-                      className="w-full h-full object-cover "
+                      className="w-full h-full object-cover transition-transform duration-150"
+                      style={{
+                        transform: `scale(${scale.image8}) translate(${position.image8.x}px, ${position.image8.y}px)`,
+                        cursor: dragging.image8
+                          ? "grabbing"
+                          : scale.image8 > 1
+                          ? "grab"
+                          : "default",
+                      }}
                     />
 
+                    {/* Zoom Controls */}
+                    <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image8", "in")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom In"
+                      >
+                        <ZoomIn className="w-4 h-4 text-gray-700" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image8", "out")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut className="w-4 h-4 text-gray-700" />
+                      </button>
+                    </div>
+
+                    {/* Edit Button */}
                     <button
                       type="button"
-                      onClick={() => fileInputRef8.current?.click()}
-                      className="absolute top-2 right-10 z-8 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => openImageSourceModal("image8")}
+                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Edit image"
                     >
                       <Pencil className="w-4 h-4 text-gray-700" />
                     </button>
 
+                    {/* Delete Button */}
                     <button
                       type="button"
-                      onClick={handleDelete8}
+                      onClick={() => handleDelete("image8", fileInputRef8)}
                       className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Delete image"
                     >
@@ -744,8 +1170,8 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   </>
                 ) : (
                   <div
-                    onClick={() => fileInputRef8.current?.click()}
-                    className="w-[200px] h-full bg-gray-200  text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                    onClick={() => openImageSourceModal("image8")}
+                    className="w-[200px] h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                   >
                     Select Image
                   </div>
@@ -755,7 +1181,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   type="file"
                   accept="image/*"
                   ref={fileInputRef8}
-                  onChange={handleImageChange8}
+                  onChange={(e) => handleImageChange("image8", e)}
                   className="hidden"
                 />
               </div>
@@ -778,28 +1204,67 @@ const BcfpStandard = ({}: BcfpStandard) => {
       <div className="flex gap-4 bg-[#2E4F23] p-[40px] relative">
         <div className="w-1/2 flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4">
-            <div className="h-[200px] border-[2px] border-white shadow-sm relative z-10 group">
-              {image10 ? (
+            <div 
+              className="h-[200px] border-[2px] border-white shadow-sm relative z-10 group overflow-hidden"
+              onMouseDown={(e) => handleMouseDown("image10", e)}
+              onMouseMove={(e) => handleMouseMove("image10", e)}
+              onMouseUp={() => handleMouseUp("image10")}
+              onMouseLeave={() => handleMouseLeave("image10")}
+            >
+              {images.image10 ? (
                 <>
                   <Image
-                    src={image10}
-                    alt="uploaded"
+                    unoptimized
+                    src={images.image10}
+                    alt="selected"
                     width={200}
                     height={300}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform duration-150"
+                    style={{
+                      transform: `scale(${scale.image10}) translate(${position.image10.x}px, ${position.image10.y}px)`,
+                      cursor: dragging.image10
+                        ? "grabbing"
+                        : scale.image10 > 1
+                        ? "grab"
+                        : "default",
+                    }}
                   />
+
+                  {/* Zoom Controls */}
+                  <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                    <button
+                      type="button"
+                      onClick={() => handleZoom("image10", "in")}
+                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                      title="Zoom In"
+                    >
+                      <ZoomIn className="w-4 h-4 text-gray-700" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleZoom("image10", "out")}
+                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut className="w-4 h-4 text-gray-700" />
+                    </button>
+                  </div>
+
+                  {/* Edit Button */}
                   <button
                     type="button"
-                    onClick={() => fileInputRef10.current?.click()}
-                    className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    onClick={() => openImageSourceModal("image10")}
+                    className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                     title="Edit image"
                   >
                     <Pencil className="w-4 h-4 text-gray-700" />
                   </button>
+
+                  {/* Delete Button */}
                   <button
                     type="button"
-                    onClick={handleDelete10}
-                    className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    onClick={() => handleDelete("image10", fileInputRef10)}
+                    className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                     title="Delete image"
                   >
                     <Trash className="w-4 h-4 text-red-500" />
@@ -807,7 +1272,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 </>
               ) : (
                 <div
-                  onClick={() => fileInputRef10.current?.click()}
+                  onClick={() => openImageSourceModal("image10")}
                   className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                 >
                   Select Image
@@ -817,32 +1282,71 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 type="file"
                 accept="image/*"
                 ref={fileInputRef10}
-                onChange={handleImageChange10}
+                onChange={(e) => handleImageChange("image10", e)}
                 className="hidden"
               />
             </div>
-            <div className="h-[200px] border-[2px] border-white shadow-sm relative z-10 group">
-              {image11 ? (
+            <div 
+              className="h-[200px] border-[2px] border-white shadow-sm relative z-10 group overflow-hidden"
+              onMouseDown={(e) => handleMouseDown("image11", e)}
+              onMouseMove={(e) => handleMouseMove("image11", e)}
+              onMouseUp={() => handleMouseUp("image11")}
+              onMouseLeave={() => handleMouseLeave("image11")}
+            >
+              {images.image11 ? (
                 <>
                   <Image
-                    src={image11}
-                    alt="uploaded"
+                    unoptimized
+                    src={images.image11}
+                    alt="selected"
                     width={200}
                     height={300}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform duration-150"
+                    style={{
+                      transform: `scale(${scale.image11}) translate(${position.image11.x}px, ${position.image11.y}px)`,
+                      cursor: dragging.image11
+                        ? "grabbing"
+                        : scale.image11 > 1
+                        ? "grab"
+                        : "default",
+                    }}
                   />
+
+                  {/* Zoom Controls */}
+                  <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                    <button
+                      type="button"
+                      onClick={() => handleZoom("image11", "in")}
+                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                      title="Zoom In"
+                    >
+                      <ZoomIn className="w-4 h-4 text-gray-700" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleZoom("image11", "out")}
+                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut className="w-4 h-4 text-gray-700" />
+                    </button>
+                  </div>
+
+                  {/* Edit Button */}
                   <button
                     type="button"
-                    onClick={() => fileInputRef11.current?.click()}
-                    className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    onClick={() => openImageSourceModal("image11")}
+                    className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                     title="Edit image"
                   >
                     <Pencil className="w-4 h-4 text-gray-700" />
                   </button>
+
+                  {/* Delete Button */}
                   <button
                     type="button"
-                    onClick={handleDelete11}
-                    className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    onClick={() => handleDelete("image11", fileInputRef11)}
+                    className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                     title="Delete image"
                   >
                     <Trash className="w-4 h-4 text-red-500" />
@@ -850,7 +1354,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 </>
               ) : (
                 <div
-                  onClick={() => fileInputRef11.current?.click()}
+                  onClick={() => openImageSourceModal("image11")}
                   className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                 >
                   Select Image
@@ -860,7 +1364,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 type="file"
                 accept="image/*"
                 ref={fileInputRef11}
-                onChange={handleImageChange11}
+                onChange={(e) => handleImageChange("image11", e)}
                 className="hidden"
               />
             </div>
@@ -869,10 +1373,10 @@ const BcfpStandard = ({}: BcfpStandard) => {
             value={description}
             rows={5}
             onChange={(e) => setDescription(e.target.value)}
-            className="font-normal text-[10px] max-h-[300px] z-20 text-white leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
+            className="font-normal text-[10px] h-[70px] z-20 text-white leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
             placeholder="This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS overlooking Brighouse Park & to the South
               and South Westproviding unhindered privacy. The perfect floorplan with open concept living and cross unit bedrooms. Dark laminate flooring,
-              S/S appliances, Gas range and a large open ‘den/nook’ area perfect for the home office. Huge private balcony, great building amenities
+              S/S appliances, Gas range and a large open 'den/nook' area perfect for the home office. Huge private balcony, great building amenities
               including exercise room, sauna, roof top courtyard and outdoor kids playground. With parking, and storage locker and balance of the the 5-10
               warranty, this home provides nothing but exceptional value. Call today to set up your viewing. MLS # 000000"
           />
@@ -964,28 +1468,67 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 </div>
               </div>
           </div>
-          <div className="w-full h-[420px] border-[2px] border-white shadow-sm place-self-center z-10 relative overflow-hidden flex items-center justify-center group">
-            {image9 ? (
+          <div 
+            className="w-full h-[420px] border-[2px] border-white shadow-sm place-self-center z-10 relative overflow-hidden flex items-center justify-center group"
+            onMouseDown={(e) => handleMouseDown("image9", e)}
+            onMouseMove={(e) => handleMouseMove("image9", e)}
+            onMouseUp={() => handleMouseUp("image9")}
+            onMouseLeave={() => handleMouseLeave("image9")}
+          >
+            {images.image9 ? (
               <>
                 <Image
-                  src={image9}
-                  alt="uploaded"
+                  unoptimized
+                  src={images.image9}
+                  alt="selected"
                   width={200}
                   height={300}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform duration-150"
+                  style={{
+                    transform: `scale(${scale.image9}) translate(${position.image9.x}px, ${position.image9.y}px)`,
+                    cursor: dragging.image9
+                      ? "grabbing"
+                      : scale.image9 > 1
+                      ? "grab"
+                      : "default",
+                  }}
                 />
+
+                {/* Zoom Controls */}
+                <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleZoom("image9", "in")}
+                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                    title="Zoom In"
+                  >
+                    <ZoomIn className="w-4 h-4 text-gray-700" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleZoom("image9", "out")}
+                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                    title="Zoom Out"
+                  >
+                    <ZoomOut className="w-4 h-4 text-gray-700" />
+                  </button>
+                </div>
+
+                {/* Edit Button */}
                 <button
                   type="button"
-                  onClick={() => fileInputRef9.current?.click()}
-                  className="absolute top-24 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                  onClick={() => openImageSourceModal("image9")}
+                  className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                   title="Edit image"
                 >
                   <Pencil className="w-4 h-4 text-gray-700" />
                 </button>
+
+                {/* Delete Button */}
                 <button
                   type="button"
-                  onClick={handleDelete9}
-                  className="absolute top-24 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                  onClick={() => handleDelete("image9", fileInputRef9)}
+                  className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                   title="Delete image"
                 >
                   <Trash className="w-4 h-4 text-red-500" />
@@ -993,7 +1536,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
               </>
             ) : (
               <div
-                onClick={() => fileInputRef9.current?.click()}
+                onClick={() => openImageSourceModal("image9")}
                 className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
               >
                 Select Image
@@ -1003,7 +1546,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
               type="file"
               accept="image/*"
               ref={fileInputRef9}
-              onChange={handleImageChange9}
+              onChange={(e) => handleImageChange("image9", e)}
               className="hidden"
             />
             <div className="absolute top-4 place-items-center w-[80%] m-auto place-self-center">
@@ -1051,28 +1594,67 @@ const BcfpStandard = ({}: BcfpStandard) => {
         <div className="w-1/2 flex gap-4">
           <div className="w-full flex flex-col gap-4 ">
             <div className="grid grid-cols-2 gap-4">
-              <div className="h-[200px] relative z-10 group border-[2px] border-white shadow-sm">
-                {image12 ? (
+              <div 
+                className="h-[200px] relative z-10 group border-[2px] border-white shadow-sm overflow-hidden"
+                onMouseDown={(e) => handleMouseDown("image12", e)}
+                onMouseMove={(e) => handleMouseMove("image12", e)}
+                onMouseUp={() => handleMouseUp("image12")}
+                onMouseLeave={() => handleMouseLeave("image12")}
+              >
+                {images.image12 ? (
                   <>
                     <Image
-                      src={image12}
-                      alt="uploaded"
+                      unoptimized
+                      src={images.image12}
+                      alt="selected"
                       width={200}
                       height={300}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-150"
+                      style={{
+                        transform: `scale(${scale.image12}) translate(${position.image12.x}px, ${position.image12.y}px)`,
+                        cursor: dragging.image12
+                          ? "grabbing"
+                          : scale.image12 > 1
+                          ? "grab"
+                          : "default",
+                      }}
                     />
+
+                    {/* Zoom Controls */}
+                    <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image12", "in")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom In"
+                      >
+                        <ZoomIn className="w-4 h-4 text-gray-700" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image12", "out")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut className="w-4 h-4 text-gray-700" />
+                      </button>
+                    </div>
+
+                    {/* Edit Button */}
                     <button
                       type="button"
-                      onClick={() => fileInputRef12.current?.click()}
-                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => openImageSourceModal("image12")}
+                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Edit image"
                     >
                       <Pencil className="w-4 h-4 text-gray-700" />
                     </button>
+
+                    {/* Delete Button */}
                     <button
                       type="button"
-                      onClick={handleDelete12}
-                      className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => handleDelete("image12", fileInputRef12)}
+                      className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Delete image"
                     >
                       <Trash className="w-4 h-4 text-red-500" />
@@ -1080,7 +1662,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   </>
                 ) : (
                   <div
-                    onClick={() => fileInputRef12.current?.click()}
+                    onClick={() => openImageSourceModal("image12")}
                     className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                   >
                     Select Image
@@ -1090,32 +1672,71 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   type="file"
                   accept="image/*"
                   ref={fileInputRef12}
-                  onChange={handleImageChange12}
+                  onChange={(e) => handleImageChange("image12", e)}
                   className="hidden"
                 />
               </div>
-              <div className="h-[200px] relative z-10 group border-[2px] border-white shadow-sm">
-                {image13 ? (
+              <div 
+                className="h-[200px] relative z-10 group border-[2px] border-white shadow-sm overflow-hidden"
+                onMouseDown={(e) => handleMouseDown("image13", e)}
+                onMouseMove={(e) => handleMouseMove("image13", e)}
+                onMouseUp={() => handleMouseUp("image13")}
+                onMouseLeave={() => handleMouseLeave("image13")}
+              >
+                {images.image13 ? (
                   <>
                     <Image
-                      src={image13}
-                      alt="uploaded"
+                      unoptimized
+                      src={images.image13}
+                      alt="selected"
                       width={200}
                       height={300}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-150"
+                      style={{
+                        transform: `scale(${scale.image13}) translate(${position.image13.x}px, ${position.image13.y}px)`,
+                        cursor: dragging.image13
+                          ? "grabbing"
+                          : scale.image13 > 1
+                          ? "grab"
+                          : "default",
+                      }}
                     />
+
+                    {/* Zoom Controls */}
+                    <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image13", "in")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom In"
+                      >
+                        <ZoomIn className="w-4 h-4 text-gray-700" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image13", "out")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut className="w-4 h-4 text-gray-700" />
+                      </button>
+                    </div>
+
+                    {/* Edit Button */}
                     <button
                       type="button"
-                      onClick={() => fileInputRef13.current?.click()}
-                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => openImageSourceModal("image13")}
+                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Edit image"
                     >
                       <Pencil className="w-4 h-4 text-gray-700" />
                     </button>
+
+                    {/* Delete Button */}
                     <button
                       type="button"
-                      onClick={handleDelete13}
-                      className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => handleDelete("image13", fileInputRef13)}
+                      className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Delete image"
                     >
                       <Trash className="w-4 h-4 text-red-500" />
@@ -1123,7 +1744,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   </>
                 ) : (
                   <div
-                    onClick={() => fileInputRef13.current?.click()}
+                    onClick={() => openImageSourceModal("image13")}
                     className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                   >
                     Select Image
@@ -1133,33 +1754,72 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   type="file"
                   accept="image/*"
                   ref={fileInputRef13}
-                  onChange={handleImageChange13}
+                  onChange={(e) => handleImageChange("image13", e)}
                   className="hidden"
                 />
               </div>
             </div>
-            <div className="h-[440px] relative z-10 group border-[2px] border-white shadow-sm">
-              {image14 ? (
+            <div 
+              className="h-[440px] relative z-10 group border-[2px] border-white shadow-sm overflow-hidden"
+              onMouseDown={(e) => handleMouseDown("image14", e)}
+              onMouseMove={(e) => handleMouseMove("image14", e)}
+              onMouseUp={() => handleMouseUp("image14")}
+              onMouseLeave={() => handleMouseLeave("image14")}
+            >
+              {images.image14 ? (
                 <>
                   <Image
-                    src={image14}
-                    alt="uploaded"
+                    unoptimized
+                    src={images.image14}
+                    alt="selected"
                     width={200}
                     height={300}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform duration-150"
+                    style={{
+                      transform: `scale(${scale.image14}) translate(${position.image14.x}px, ${position.image14.y}px)`,
+                      cursor: dragging.image14
+                        ? "grabbing"
+                        : scale.image14 > 1
+                        ? "grab"
+                        : "default",
+                    }}
                   />
+
+                  {/* Zoom Controls */}
+                  <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                    <button
+                      type="button"
+                      onClick={() => handleZoom("image14", "in")}
+                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                      title="Zoom In"
+                    >
+                      <ZoomIn className="w-4 h-4 text-gray-700" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleZoom("image14", "out")}
+                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut className="w-4 h-4 text-gray-700" />
+                    </button>
+                  </div>
+
+                  {/* Edit Button */}
                   <button
                     type="button"
-                    onClick={() => fileInputRef14.current?.click()}
-                    className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    onClick={() => openImageSourceModal("image14")}
+                    className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                     title="Edit image"
                   >
                     <Pencil className="w-4 h-4 text-gray-700" />
                   </button>
+
+                  {/* Delete Button */}
                   <button
                     type="button"
-                    onClick={handleDelete14}
-                    className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    onClick={() => handleDelete("image14", fileInputRef14)}
+                    className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                     title="Delete image"
                   >
                     <Trash className="w-4 h-4 text-red-500" />
@@ -1167,7 +1827,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 </>
               ) : (
                 <div
-                  onClick={() => fileInputRef14.current?.click()}
+                  onClick={() => openImageSourceModal("image14")}
                   className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                 >
                   Select Image
@@ -1177,33 +1837,72 @@ const BcfpStandard = ({}: BcfpStandard) => {
                 type="file"
                 accept="image/*"
                 ref={fileInputRef14}
-                onChange={handleImageChange14}
+                onChange={(e) => handleImageChange("image14", e)}
                 className="hidden"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="h-[200px] relative z-10 group border-[2px] border-white shadow-sm">
-                {image15 ? (
+              <div 
+                className="h-[200px] relative z-10 group border-[2px] border-white shadow-sm overflow-hidden"
+                onMouseDown={(e) => handleMouseDown("image15", e)}
+                onMouseMove={(e) => handleMouseMove("image15", e)}
+                onMouseUp={() => handleMouseUp("image15")}
+                onMouseLeave={() => handleMouseLeave("image15")}
+              >
+                {images.image15 ? (
                   <>
                     <Image
-                      src={image15}
-                      alt="uploaded"
+                      unoptimized
+                      src={images.image15}
+                      alt="selected"
                       width={200}
                       height={300}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-150"
+                      style={{
+                        transform: `scale(${scale.image15}) translate(${position.image15.x}px, ${position.image15.y}px)`,
+                        cursor: dragging.image15
+                          ? "grabbing"
+                          : scale.image15 > 1
+                          ? "grab"
+                          : "default",
+                      }}
                     />
+
+                    {/* Zoom Controls */}
+                    <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image15", "in")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom In"
+                      >
+                        <ZoomIn className="w-4 h-4 text-gray-700" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image15", "out")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut className="w-4 h-4 text-gray-700" />
+                      </button>
+                    </div>
+
+                    {/* Edit Button */}
                     <button
                       type="button"
-                      onClick={() => fileInputRef15.current?.click()}
-                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => openImageSourceModal("image15")}
+                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Edit image"
                     >
                       <Pencil className="w-4 h-4 text-gray-700" />
                     </button>
+
+                    {/* Delete Button */}
                     <button
                       type="button"
-                      onClick={handleDelete15}
-                      className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => handleDelete("image15", fileInputRef15)}
+                      className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Delete image"
                     >
                       <Trash className="w-4 h-4 text-red-500" />
@@ -1211,7 +1910,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   </>
                 ) : (
                   <div
-                    onClick={() => fileInputRef15.current?.click()}
+                    onClick={() => openImageSourceModal("image15")}
                     className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                   >
                     Select Image
@@ -1221,32 +1920,71 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   type="file"
                   accept="image/*"
                   ref={fileInputRef15}
-                  onChange={handleImageChange15}
+                  onChange={(e) => handleImageChange("image15", e)}
                   className="hidden"
                 />
               </div>
-              <div className="h-[200px] relative z-10 group border-[2px] border-white shadow-sm">
-                {image16 ? (
+              <div 
+                className="h-[200px] relative z-10 group border-[2px] border-white shadow-sm overflow-hidden"
+                onMouseDown={(e) => handleMouseDown("image16", e)}
+                onMouseMove={(e) => handleMouseMove("image16", e)}
+                onMouseUp={() => handleMouseUp("image16")}
+                onMouseLeave={() => handleMouseLeave("image16")}
+              >
+                {images.image16 ? (
                   <>
                     <Image
-                      src={image16}
-                      alt="uploaded"
+                      unoptimized
+                      src={images.image16}
+                      alt="selected"
                       width={200}
                       height={300}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-150"
+                      style={{
+                        transform: `scale(${scale.image16}) translate(${position.image16.x}px, ${position.image16.y}px)`,
+                        cursor: dragging.image16
+                          ? "grabbing"
+                          : scale.image16 > 1
+                          ? "grab"
+                          : "default",
+                      }}
                     />
+
+                    {/* Zoom Controls */}
+                    <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image16", "in")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom In"
+                      >
+                        <ZoomIn className="w-4 h-4 text-gray-700" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleZoom("image16", "out")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut className="w-4 h-4 text-gray-700" />
+                      </button>
+                    </div>
+
+                    {/* Edit Button */}
                     <button
                       type="button"
-                      onClick={() => fileInputRef16.current?.click()}
-                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => openImageSourceModal("image16")}
+                      className="absolute top-2 right-10 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Edit image"
                     >
                       <Pencil className="w-4 h-4 text-gray-700" />
                     </button>
+
+                    {/* Delete Button */}
                     <button
                       type="button"
-                      onClick={handleDelete16}
-                      className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      onClick={() => handleDelete("image16", fileInputRef16)}
+                      className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       title="Delete image"
                     >
                       <Trash className="w-4 h-4 text-red-500" />
@@ -1254,7 +1992,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   </>
                 ) : (
                   <div
-                    onClick={() => fileInputRef16.current?.click()}
+                    onClick={() => openImageSourceModal("image16")}
                     className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                   >
                     Select Image
@@ -1264,7 +2002,7 @@ const BcfpStandard = ({}: BcfpStandard) => {
                   type="file"
                   accept="image/*"
                   ref={fileInputRef16}
-                  onChange={handleImageChange16}
+                  onChange={(e) => handleImageChange("image16", e)}
                   className="hidden"
                 />
               </div>

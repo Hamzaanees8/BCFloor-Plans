@@ -21,7 +21,6 @@ export default function ConfirmationCard({ title, service, selectedService, slot
         selectedOptions,
         customPrices,
         customServiceNames,
-        selectedSlots,
     } = useOrderContext();
     const selectedOption = selectedOptions[service.uuid] || "";
     const customPrice = customPrices[service.uuid] || "";
@@ -29,8 +28,6 @@ export default function ConfirmationCard({ title, service, selectedService, slot
 
     const isCustom = selectedOption === "custom";
     const numericPrice = Number(selectedService.price);
-    console.log('slots', selectedSlots)
-    console.log('selected option', selectedOptions)
     return (
         <Card className="!w-full h-fit border-[#6BAE41] mt-[22px] bg-[#f5f5f5] border-2 rounded-[6px] px-2 py-4 text-[#333] gap-2">
             <CardContent className="p-0">
@@ -65,19 +62,19 @@ export default function ConfirmationCard({ title, service, selectedService, slot
                             </AccordionTrigger>
                             <AccordionContent className="text-[#666666] text-[12px] font-[400]">
                                 <div className="flex flex-col items-center justify-between gap-[10px]">
-                                    {service.product_options.map((option, idx) => (
-                                        <div
-                                            key={idx}
-                                            className="w-full flex items-center justify-between"
-                                        >
+                                    {service.product_options
+                                        .filter(option => option.title === selectedOption)
+                                        .map((option, idx) => (
                                             <div
-                                                className={`w-[18px] h-[18px] rounded-[3px] border border-gray-400 flex items-center justify-center
-                          ${selectedOption === option.title ? "bg-[#4290E9]" : ""}`}
-                                            />
-                                            <label className="">{option.title}</label>
-                                            <span>${Number(option.amount).toFixed(2)}</span>
-                                        </div>
-                                    ))}
+                                                key={idx}
+                                                className="w-full flex items-center justify-between"
+                                            >
+                                                <div className="w-[18px] h-[18px] rounded-[3px] border border-gray-400 flex items-center justify-center bg-[#4290E9]" />
+                                                <label>{option.title}</label>
+                                                <span>${Number(option.amount).toFixed(2)}</span>
+                                            </div>
+                                        ))}
+
                                 </div>
 
                                 <div className="mt-2 text-[#666666] text-[12px] font-[400]">
@@ -88,7 +85,7 @@ export default function ConfirmationCard({ title, service, selectedService, slot
                                         <div className="flex items-center justify-between gap-2 mt-2">
                                             <div
                                                 className={`w-[18px] h-[18px] rounded-[3px] border border-gray-400 flex items-center justify-center
-                        ${isCustom ? "bg-[#4290E9]" : ""}`}
+                                                          ${isCustom ? "bg-[#4290E9]" : ""}`}
                                             />
                                             <p className="text-[#666666] text-[12px] font-[400]">
                                                 {customServiceName || "N/A"}

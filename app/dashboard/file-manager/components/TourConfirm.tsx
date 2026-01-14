@@ -24,6 +24,7 @@ import {
   LotIcon,
   PriceTag,
   TypoeIcon,
+  UploadRightIcon,
 } from "@/components/Icons";
 import { Order } from "../../orders/page";
 import DynamicMap from "@/components/DYnamicMap";
@@ -35,10 +36,12 @@ interface TourConfimation {
   orderData: Order | null;
 }
 
+import { useAppContext } from "@/app/context/AppContext";
+
 const TourConfirm = ({ orderData }: TourConfimation) => {
+  const { userType } = useAppContext();
   const { selectedFiles, delay, transition, audioUrl, links, filesData } =
     useFileManagerContext();
-  console.log(orderData);
   const uploadedImages = selectedFiles?.filter((f) => f.upload) || [];
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState("Home");
@@ -46,12 +49,29 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
   const [mainVideo, setMainVideo] = useState<string | null>(null);
   // const [confirmFloor, setConfirmFloor] = useState(false);
   const [open, setOpen] = useState(false);
-  const currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === "photo");
+  let currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === "photo");
 
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
-  const currentVideoFiles = filesData?.files?.filter(file => file.type === "video");
+  let currentVideoFiles = filesData?.files?.filter(file => file.type === "video");
 
+  if (userType === 'agent') {
+    currentTourPhotos = currentTourPhotos?.filter(file => file.is_admin_approved);
+    currentVideoFiles = currentVideoFiles?.filter(file => file.is_admin_approved);
+  }
+  const currentPath = window.location.href;
+
+  function getMainURL(url: string) {
+    try {
+      const urlObj = new URL(url);
+      return `${urlObj.protocol}//${urlObj.host}`;
+    } catch (error) {
+      console.error('Invalid URL:', error);
+      return null;
+    }
+  }
+  const mainUrl = getMainURL(currentPath);
+  console.log('mainUrl', mainUrl);
 
   const handlePrev = () => {
     setCurrentImageIndex((prev) =>
@@ -88,20 +108,28 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
   const brandedLinks = links.filter(l => l.type === 'branded');
   const unbrandedLinks = links.filter(l => l.type === 'unbranded');
   return (
-    <div className="w-full">
+    <div className="w-full font-alexandria">
       {/* Tour Link Input */}
       <div className="flex  items-center justify-center py-4">
         <div className="flex flex-col gap-4 ">
           <div className="">Tour Link</div>
-          <Input
-            type="text"
-            value="Tour.link@linkns.com/235263"
-            className=" w-[410px] border border-[#8E8E8E] text-[#666666]"
-            readOnly
-          />
+          <div className="flex justify-between">
+            <Input
+              type="text"
+              value={`${mainUrl}/tour/${orderData?.property_address}-${orderData?.property_location}/${orderData?.uuid}`}
+              className=" w-[410px] border border-[#8E8E8E] text-[#666666]"
+              readOnly
+            />
+            <a
+              target="_blank"
+              href={`${mainUrl}/tour/${orderData?.property_address}-${orderData?.property_location}/${orderData?.uuid}`}
+              className="w-fit px-3 bg-[#6BAE41] h-[35px] text-[14px] rounded-[8px] flex items-center justify-center gap-2 text-white ml-4">
+              <span>View Tour</span> <UploadRightIcon size={18} />
+            </a>
+          </div>
           <div className="flex items-center gap-x-3">
             <Button className="w-[185px] bg-[#6BAE41]">Post Tour</Button>
-            <Button onClick={() => setOpen(true)} className="w-[100px] bg-[#4290E9]">Stats</Button>
+            <Button onClick={() => setOpen(true)} className={`w-[100px] ${userType}-bg`}>Stats</Button>
           </div>
 
         </div>
@@ -121,7 +149,7 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                       key={tab}
                       onClick={() => setActiveTab(tab)}
                       className={`text-[13px] w-[179px] font-bold  px-4 py-2 rounded-md uppercase ${activeTab === tab
-                        ? "bg-[#4290E9] text-white"
+                        ? `${userType}-bg text-white`
                         : "bg-gray-200 text-[#666666]"
                         }`}
                     >
@@ -160,7 +188,7 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4 px-4 py-12 text-center text-sm">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4 px-4 py-12 mt-10 text-center text-sm">
                     {[
                       {
                         label: "PRICE",
@@ -309,60 +337,63 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
               )}
               {activeTab === "Photos" && (
                 <div className="">
+                  {(uploadedImages.length > 0 || (currentTourPhotos?.length ?? 0) > 0) ? (
+                    <>
+                      <CustomSlideshow
+                        images={uploadedImages}
+                        delay={delay}
+                        transition={transition}
+                        audioUrl={audioUrl}
+                        api_images={currentTourPhotos}
+                      />
 
-                  <CustomSlideshow
-                    images={uploadedImages}
-                    delay={delay}
-                    transition={transition}
-                    audioUrl={audioUrl}
-                    api_images={currentTourPhotos}
-                  />
-                  {(uploadedImages.length > 0 || (currentTourPhotos?.length ?? 0) > 0) && (
-                    <div className="grid grid-cols-6 gap-2 mt-4">
-                      {uploadedImages.map((image, index) => (
-                        <div
-                          key={index}
-                          className="w-full aspect-square overflow-hidden"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={URL.createObjectURL(image.file)}
-                            alt={`Uploaded ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ))}
-                      {currentTourPhotos?.map((image, index) => (
-                        <div
-                          key={index}
-                          className="w-full aspect-square overflow-hidden"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={`${API_URL}/${image.file_path}`}
-                            alt={`Uploaded ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ))}
+                      <div className="grid grid-cols-6 gap-2 mt-4">
+                        {uploadedImages.map((image, index) => (
+                          <div key={`uploaded-${index}`} className="w-full aspect-square overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={URL.createObjectURL(image.file)}
+                              alt={`Uploaded ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ))}
+                        {currentTourPhotos?.map((image, index) => (
+                          <div key={`api-${index}`} className="w-full aspect-square overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={`${API_URL}/${image.file_path}`}
+                              alt={`Uploaded ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
+                      <p>No photos found — please upload photos or select a photo service.</p>
                     </div>
                   )}
                 </div>
               )}
+
               {activeTab === "Videos" && (
                 <div className="w-full ">
                   <div className="p-4 pt-0">
                     {/* Main video preview */}
-                    <div className="mb-6 h-[95vh] w-full bg-black overflow-hidden">
-                      <video
-                        src={mainVideo || undefined}
-                        className="w-full h-full object-contain"
-                        controls
-                      />
-                    </div>
+                    {mainVideo &&
+                      <div className="mb-6 h-[95vh] w-full bg-black overflow-hidden">
+                        <video
+                          src={mainVideo || undefined}
+                          className="w-full h-full object-contain"
+                          controls
+                        />
+                      </div>
+                    }
 
                     {/* Local uploaded videos */}
-                    {(selectedVideoFiles.length > 0 || (currentVideoFiles?.length ?? 0) > 0) && (
+                    {(selectedVideoFiles.length > 0 || (currentVideoFiles?.length ?? 0) > 0) ? (
                       <div className="mt-4 w-full grid grid-cols-3 gap-5 p-3">
                         {selectedVideoFiles.map((file, idx) => {
                           const thumbSrc = URL.createObjectURL(file.file);
@@ -399,7 +430,10 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                           );
                         })}
                       </div>
-                    )}
+                    ) :
+                      <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
+                        <p>No Video found — please add Video or select a Video service.</p>
+                      </div>}
 
                   </div>
                 </div>
@@ -412,31 +446,39 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
               )}
               {activeTab === "Matterport" && (
                 <div className="w-full flex flex-col items-center gap-10">
-                  {brandedLinks.map(
-                    (link, idx) =>
-                      isValidUrl(link.link) && (
-                        <iframe
-                          key={`preview-branded-${idx}`}
-                          src={link.link}
-                          className="w-[80%] h-[500px] border"
-                          allowFullScreen
-                        ></iframe>
-                      )
-                  )}
-
-                  {unbrandedLinks.map(
-                    (link, idx) =>
-                      isValidUrl(link.link) && (
-                        <iframe
-                          key={`preview-unbranded-${idx}`}
-                          src={link.link}
-                          className="w-[80%] h-[500px] border"
-                          allowFullScreen
-                        ></iframe>
-                      )
+                  {(!brandedLinks?.length && !unbrandedLinks?.length) ? (
+                    <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
+                      <p>No Matterport links found — please add links or select a Matterport service.</p>
+                    </div>
+                  ) : (
+                    <>
+                      {brandedLinks?.map(
+                        (link, idx) =>
+                          isValidUrl(link.link) && (
+                            <iframe
+                              key={`preview-branded-${idx}`}
+                              src={link.link}
+                              className="w-[80%] h-[500px] border"
+                              allowFullScreen
+                            ></iframe>
+                          )
+                      )}
+                      {unbrandedLinks?.map(
+                        (link, idx) =>
+                          isValidUrl(link.link) && (
+                            <iframe
+                              key={`preview-unbranded-${idx}`}
+                              src={link.link}
+                              className="w-[80%] h-[500px] border"
+                              allowFullScreen
+                            ></iframe>
+                          )
+                      )}
+                    </>
                   )}
                 </div>
               )}
+
             </div>
           </AccordionContent>
         </AccordionItem>

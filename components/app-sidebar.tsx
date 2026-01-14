@@ -11,16 +11,21 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Calendar, File, LogOut, PanelTop, Search, Settings, Sliders, UserCheck } from "lucide-react"
+import { Bell, Calendar, File, House, LogOut, PanelLeftClose, PanelLeftOpen, PanelTop, Search, Settings, Sliders, UserCheck } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Admin, BackArrow, Listings, SubAccounts, Vendors } from "./Icons";
+import { Admin, BackArrow, MatterportIcon, SubAccounts, Vendors } from "./Icons";
+import Image from "next/image";
 import { Logout } from "@/app/(auth)/logout";
 import { useAppContext } from "@/app/context/AppContext";
 import SafeLink from "./SafeLink";
 import { useUnsaved } from "@/app/context/UnsavedContext";
+import { usePermissions } from "@/app/hooks/usePermissions";
+import { PERMISSIONS } from "@/lib/permissions";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
 
 // This is sample data.
 const data = {
@@ -38,7 +43,7 @@ const data = {
         {
           title: "Listings",
           url: "/dashboard/listings",
-          icon: Listings,
+          icon: House,
         },
         {
           title: "Orders",
@@ -49,6 +54,11 @@ const data = {
           title: "Services",
           url: "/dashboard/services",
           icon: Settings,
+        },
+        {
+          title: "Matterport",
+          url: "/dashboard/matterport",
+          icon: MatterportIcon,
         },
         {
           title: "Notifications",
@@ -107,6 +117,11 @@ const data = {
           url: "/dashboard/global-settings",
           icon: Sliders,
         },
+        {
+          title: "White Label",
+          url: "/dashboard/white-label",
+          icon: Settings,
+        },
       ],
     },
   ],
@@ -122,6 +137,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { confirmNavigation } = useUnsaved();
   //const parentPath = `/${pathSegments.slice(0, -1).join('/')}`;
   const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+  const { hasPermission } = usePermissions();
+  const { state, toggleSidebar } = useSidebar();
+  const isCollapsed = state === "collapsed";
+  const { appliedSettings } = useWhiteLabel();
+  const role = (userType as string) || 'admin';
+  const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
 
   async function logoutUser() {
     const token = localStorage.getItem("token");
@@ -131,11 +152,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       return;
     }
 
+    const redirectUrl = userType === "agent"
+      ? "/agent/login"
+      : userType === "vendor"
+        ? "/vendor/login"
+        : "/login";
+
     try {
       localStorage.removeItem("token");
       localStorage.removeItem("userType");
       localStorage.removeItem("userInfo");
-      router.push("/login-user");
+      router.push(redirectUrl);
       await Logout(token);
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -164,7 +191,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       ...group,
       title: userType === "agent" && group.title === "GENERAL" ? "SETTINGS" : group.title,
       items: group.items.filter(item => {
-        // Special handling for Sub Accounts
+
+        if (item.url === "/dashboard/matterport" && userType !== "admin") {
+          return false;
+        }
+        if (item.url === "/dashboard/billing" && userType !== "admin") {
+          return false;
+        }
+        if (item.url === "/dashboard/vendor-billing" && userType !== "admin") {
+          return false;
+        }
+
+
         if (item.url === "/dashboard/sub-accounts") {
           return (userType === "admin" && group.title === "PEOPLE") ||
             (userType === "agent" && group.title === "DATA");
@@ -174,7 +212,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           item.title = "Settings";
         }
 
-        // Existing filters for agent
+        if (userType === "admin") {
+          if (item.url === "/dashboard/billing" && !hasPermission(PERMISSIONS.ACCESS_BILLING)) {
+            return false;
+          }
+
+          if (item.url === "/dashboard/vendor-billing" && !hasPermission(PERMISSIONS.ACCESS_BILLING)) {
+            return false;
+          }
+
+          if (item.url === "/dashboard/notifications" && !hasPermission(PERMISSIONS.RECEIVE_NOTIFICATIONS)) {
+            return false;
+          }
+
+          if (item.url === "/dashboard/services" && !hasPermission(PERMISSIONS.CREATE_SERVICES)) {
+            return false;
+          }
+
+          if (item.url === "/dashboard/admin" && !hasPermission(PERMISSIONS.VIEW_ADMIN)) {
+            return false;
+          }
+        }
+
         if (userType === "agent") {
           const restrictedUrls = [
             "/dashboard/admin",
@@ -198,31 +257,91 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       })
     }));
   return (
-    <Sidebar {...props} className="p-0 bg-[#E4E4E4] font-alexandria border border-[#BBBBBB]">
-      <SidebarHeader className={`${userType}-bg p-0 h-[80px]`}>
-        <div className="flex items-center p-4 gap-x-2.5">
-          <Avatar className="h-8 w-8">
-            <AvatarImage
-              src={
-                userInfo?.avatar_url
-                  ? `${userInfo.avatar_url}`
-                  : "https://github.com/shadcn.png"
-              }
-            />
-            <AvatarFallback>CN</AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="text-[14px] font-normal text-white font-alexandria leading-4">BC Floor Plans</p>
-            <p className="text-[14px] font-normal text-white font-alexandria leading-4">Media Company Owner</p>
-            <p className="text-[12px] font-normal text-white font-alexandria leading-4">{userInfo.first_name} {userInfo.last_name}</p>
+    <Sidebar
+      {...props}
+      collapsible="icon"
+      className="p-0 font-alexandria border border-[#BBBBBB] z-20"
+      style={{
+        backgroundColor: roleSettings.sidebarBg,
+        ['--sidebar-hover-bg' as string]: roleSettings.sidebarHoverBg,
+        ['--sidebar-hover-text' as string]: roleSettings.sidebarHoverText,
+      } as React.CSSProperties}
+    >
+      <SidebarHeader
+        className="p-0 h-fit"
+        style={{ backgroundColor: roleSettings.pageTabColor }}
+      >
+        <div className="flex flex-col p-4 w-full h-[80px]">
+          <div className="flex items-center gap-x-2.5">
+            {roleSettings.logo ? (
+              <Image
+                src={roleSettings.logo}
+                alt="Logo"
+                width={Number(roleSettings.logoWidth)}
+                height={50}
+                style={{ width: `${roleSettings.logoWidth}px`, height: 'auto' }}
+                className="shrink-0"
+              />
+            ) : (
+              <Avatar className="h-8 w-8 shrink-0">
+                <AvatarImage
+                  src={
+                    userInfo?.avatar_url
+                      ? `${userInfo.avatar_url}`
+                      : "https://github.com/shadcn.png"
+                  }
+                />
+                <AvatarFallback>CN</AvatarFallback>
+              </Avatar>
+            )}
+            {!isCollapsed && (
+              <div className="overflow-hidden">
+                <p className="text-[14px] font-normal text-white font-alexandria leading-4 truncate">BC Floor Plans</p>
+                {userType !== 'admin' && (
+                  <p className="text-[14px] font-normal text-white font-alexandria leading-4 truncate">Media Company Owner</p>
+                )}
+                <p className="text-[12px] font-normal text-white font-alexandria leading-4 truncate">{userInfo.first_name} {userInfo.last_name}</p>
+              </div>
+            )}
           </div>
+
+
         </div>
       </SidebarHeader>
-      <SidebarContent className="bg-[#E4E4E4] pt-[20px] px-[25px] sidebar-scroll">
+      <button
+        onClick={toggleSidebar}
+        aria-label="Toggle sidebar"
+        className={`
+        absolute top-[55px]
+        -right-3
+        z-[70]
+        flex items-center justify-center
+        h-5 w-7
+        rounded-[4px]
+        bg-white
+        border border-[#D1D5DB]
+        shadow-sm
+        text-[#6B7280]
+        transition-all
+  `}
+      >
+        {isCollapsed ? (
+          <PanelLeftOpen className="h-3" />
+        ) : (
+          <PanelLeftClose className="h-3" />
+        )}
+      </button>
+
+      <SidebarContent
+        className={`pt-[20px] custom-scroll transition-all duration-200 !overflow-y-auto ${isCollapsed ? 'px-0' : 'px-[25px]'}`}
+        style={{ backgroundColor: roleSettings.sidebarBg }}
+      >
         <div >
-          {showBackButton ? (
+
+          {showBackButton && !isCollapsed ? (
             <div
-              className={`min-h-[32px] w-[200px] flex items-center cursor-pointer rounded-[24px] ${userType}-bg`}
+              className={`min-h-[32px] w-full flex items-center cursor-pointer rounded-[24px]`}
+              style={{ backgroundColor: roleSettings.pageTabColor }}
               onClick={goToDashboardSection}
             >
               <div className="flex items-center px-[14px] py-[4px] gap-x-[10px]">
@@ -231,12 +350,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </div>
             </div>
           ) : (
-            <div className="h-[32px]" />
+            <div className={`${!isCollapsed ? 'h-[32px]' : ''}`} />
           )}
         </div>
         {filteredNavMain.map((item) => (
           <SidebarGroup key={item.title}>
-            <SidebarGroupLabel className="font-extrabold text-[12px] text-[#BBBBBB]">{item.title}</SidebarGroupLabel>
+            {!isCollapsed && (
+              <SidebarGroupLabel
+                className="font-extrabold text-[12px] mb-2"
+                style={{ color: roleSettings.sidebarText, opacity: 0.7 }}
+              >
+                {item.title}
+              </SidebarGroupLabel>
+            )}
             <SidebarGroupContent>
               {item?.items && (
                 <SidebarMenu>
@@ -244,22 +370,43 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     const isActive = pathname === subItem.url || pathname.startsWith(`${subItem.url}/`);
 
                     return (
-                      <SidebarMenuItem key={subItem.title}>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={isActive}
-                          className={`text-[16px] font-normal flex items-center gap-2 
-                             ${isActive ? `${userType}-text !font-bold` : "text-[#7D7D7D] hover:text-[#7D7D7D]"}`}
-                        >
-                          <SafeLink href={subItem.url} className="flex items-center gap-2 w-full">
-                            {subItem.icon && (
-                              <subItem.icon
-                                className={`h-4 w-4 ${isActive ? `${userType}-text` : "text-[#7D7D7D]"}`}
-                              />
+                      <SidebarMenuItem
+                        className="!justify-items-center"
+                        key={subItem.title}>
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <SidebarMenuButton
+                                asChild
+                                isActive={isActive}
+                                className={`text-[16px] font-normal !justify-items-center flex gap-2 role-sidebar-item`}
+                                style={{
+                                  color: isActive ? roleSettings.activeColor : roleSettings.sidebarText,
+                                  fontWeight: isActive ? 'bold' : 'normal',
+                                  backgroundColor: isActive ? roleSettings.sidebarHoverBg : 'transparent'
+                                }}
+                              >
+                                <SafeLink href={subItem.url} className="flex items-center gap-2 w-full">
+                                  {subItem.icon && (
+                                    <subItem.icon
+                                      className={`h-4 w-4 shrink-0`}
+                                      style={{ color: isActive ? roleSettings.activeColor : roleSettings.sidebarText }}
+                                    />
+                                  )}
+                                  {!isCollapsed && <span>{subItem.title}</span>}
+                                </SafeLink>
+                              </SidebarMenuButton>
+                            </TooltipTrigger>
+                            {isCollapsed && (
+                              <TooltipContent
+                                side="right"
+                                className="bg-white border border-[#BBBBBB] text-[#424242] font-alexandria text-[14px] shadow-md"
+                              >
+                                {subItem.title}
+                              </TooltipContent>
                             )}
-                            <span>{subItem.title}</span>
-                          </SafeLink>
-                        </SidebarMenuButton>
+                          </Tooltip>
+                        </TooltipProvider>
                       </SidebarMenuItem>
 
 
@@ -271,27 +418,66 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
-        <SidebarGroup>
-          <SidebarGroupLabel className="font-extrabold text-[12px] text-[#BBBBBB]">SEARCH</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm border w-full max-w-sm">
-
-              <input
-                type="text"
-                placeholder="This page..."
-                className="bg-transparent outline-none w-full text-sm text-gray-700 placeholder-gray-400"
-              />
-              <Search className={`h-5 w-5 ${userType}-text`} />
-            </div>
-            <div onClick={logoutUser} className="flex items-center gap-x-2.5 pt-[196px] pb-[24px] cursor-pointer">
-              <LogOut className="text-[#7D7D7D] h-[18px] w-[18px]" />
-              <p className="text-[#7D7D7D] text-[16px] font-normal">Log Out</p>
-            </div>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {!isCollapsed && (
+          <SidebarGroup>
+            <SidebarGroupLabel
+              className="font-extrabold text-[12px] mb-2"
+              style={{ color: roleSettings.sidebarText, opacity: 0.7 }}
+            >
+              SEARCH
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <div
+                className="flex items-center gap-2 px-3 py-2 rounded-lg shadow-sm border w-full max-w-sm"
+                style={{ backgroundColor: 'white', borderColor: roleSettings.sidebarText + '33' }}
+              >
+                <input
+                  type="text"
+                  placeholder="This page..."
+                  className="bg-transparent outline-none w-full text-sm placeholder-gray-400"
+                  style={{ color: roleSettings.sidebarText }}
+                />
+                <Search
+                  className={`h-5 w-5 shrink-0`}
+                  style={{ color: roleSettings.activeColor }}
+                />
+              </div>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+        <TooltipProvider delayDuration={0}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                onClick={logoutUser}
+                className={`flex items-center gap-x-2.5 pb-[20px] cursor-pointer ${isCollapsed ? 'justify-center pt-4' : 'pt-[196px] px-[25px]'}`}
+              >
+                <LogOut
+                  className="h-[18px] w-[18px] shrink-0"
+                  style={{ color: roleSettings.sidebarText }}
+                />
+                {!isCollapsed && (
+                  <p
+                    className="text-[16px] font-normal"
+                    style={{ color: roleSettings.sidebarText }}
+                  >
+                    Log Out
+                  </p>
+                )}
+              </div>
+            </TooltipTrigger>
+            {isCollapsed && (
+              <TooltipContent
+                side="right"
+                className="bg-white border border-[#BBBBBB] text-[#424242] font-alexandria text-[14px] shadow-md"
+              >
+                Log Out
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </SidebarContent>
 
-      <SidebarRail />
     </Sidebar>
   )
 }

@@ -19,8 +19,13 @@ import {
 import { Switch } from "@/components/ui/switch";
 import CustomSlideshow from "./CustomPreview";
 import { Label } from "@/components/ui/label";
+import { Order } from "../../orders/page";
+import { DownloadFile } from "../file-manager";
 
-function TourPicture() {
+import { useAppContext } from "@/app/context/AppContext";
+
+function TourPicture({ orderData }: { orderData: Order | null }) {
+  const { userType } = useAppContext();
   const {
     selectedFiles,
     setSelectedFiles,
@@ -35,9 +40,14 @@ function TourPicture() {
     filesData,
   } = useFileManagerContext();
   const [autoPlay, setAutoPlay] = useState<boolean>(true);
+  const [branding, setBranding] = useState<string>("none");
 
 
-  const currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === "photo");
+  let currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === "photo");
+
+  if (userType === 'agent') {
+    currentTourPhotos = currentTourPhotos?.filter(file => file.is_admin_approved);
+  }
 
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
@@ -64,6 +74,40 @@ function TourPicture() {
     return files.upload === true;
   });
 
+  if ((!currentTourPhotos || currentTourPhotos?.length === 0) && (!selectedFiles || selectedFiles.length === 0)) {
+    return (
+      <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
+        <p>No Photo found — please add Photos or select a Photo service.</p>
+      </div>
+    );
+  }
+
+  const handledownloadFile = async (fileUuid: string, fileName: string) => {
+    try {
+      const token = localStorage.getItem('token') ?? "";
+
+      const response = await DownloadFile(token, fileUuid);
+
+      if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
+
+      // Convert the response directly to blob
+      const blob = await response.blob();
+
+      // Create a temporary URL and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+    } catch (err) {
+      console.error('Download error:', err);
+      alert('Download failed. Please try again.');
+    }
+  };
   return (
     <div>
       <Accordion
@@ -73,7 +117,7 @@ function TourPicture() {
       >
         <AccordionItem value="item-1">
           <AccordionTrigger className="px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current">
-            Arrange Photos (26)
+            Arrange Photos ({selectedFiles.length + (currentTourPhotos?.length ?? 0)})
           </AccordionTrigger>
           <AccordionContent>
             <div>
@@ -166,7 +210,9 @@ function TourPicture() {
                           <p className="text-[#8E8E8E] mt-1">
                             Exterior ({idx + 1} of {selectedFiles.length})
                           </p>
-                          <span className="flex w-[24px] h-[24px] cursor-pointer">
+                          <span
+                            onClick={() => handledownloadFile(file.uuid, file.name)}
+                            className="flex w-[24px] h-[24px] cursor-pointer">
                             <DownloadIcon
                               width="24px"
                               height="24px"
@@ -292,14 +338,13 @@ function TourPicture() {
                 <div className="grid grid-cols-2 gap-[16px]">
                   <div className="col-span-2">
                     <label htmlFor="">Video Overlay</label>
-                    <Select>
+                    <Select value={branding} onValueChange={setBranding}>
                       <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
-                        <SelectValue placeholder="Select Slide Duration" />
+                        <SelectValue placeholder="Select Branding Option" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Realtor Branding">
-                          Realtor Branding
-                        </SelectItem>
+                        <SelectItem value="none">No Branding</SelectItem>
+                        <SelectItem value="realtor">Realtor Branding</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -327,6 +372,11 @@ function TourPicture() {
                 transition={transition}
                 audioUrl={audioUrl}
                 api_images={currentTourPhotos}
+                watermarkUrl={
+                  branding === "realtor" && orderData?.agent?.company_logo_url
+                    ? `${orderData.agent.company_logo_url}`
+                    : undefined
+                }
               />
             </div>
           </AccordionContent>

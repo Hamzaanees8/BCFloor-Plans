@@ -6,6 +6,9 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import AgentTable, { Agent } from '@/components/AgentTable';
 import { useAppContext } from '@/app/context/AppContext';
+import { useWhiteLabel } from '@/app/context/Whitelabel';
+import { usePermissions } from '@/app/hooks/usePermissions';
+import { PERMISSIONS } from '@/lib/permissions';
 export interface AgentData {
     uuid?: string;
     first_name: string;
@@ -25,9 +28,12 @@ export interface AgentData {
     activity?: string;
 }
 const Page = () => {
-    const [showForm, setShowForm] = useState(false)
+    const { userType } = useAppContext();
+    const { appliedSettings } = useWhiteLabel();
+    const role = (userType as string) || 'admin';
+    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+
     const [showCard, setShowCard] = React.useState(false);
-    const [type, setType] = React.useState('');
     const [showHeader, setShowHeader] = useState(true)
     const [agentData, setAgentData] = useState<Agent[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -35,8 +41,6 @@ const Page = () => {
 
     const [selectedData, setSelectedData] = useState<AgentData | null>(null);
 
-    console.log('type', type)
-    console.log(showForm);
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -51,7 +55,7 @@ const Page = () => {
         setLoading(true);
         setError(false);
 
-        Get(token)
+        Get()
             .then(data => setAgentData(Array.isArray(data.data) ? data.data : []))
             .catch(err => {
                 console.log(err.message);
@@ -64,8 +68,7 @@ const Page = () => {
 
     const handleDelete = async (uuid: string) => {
         try {
-            const token = localStorage.getItem('token') || '';
-            await Delete(uuid, token);
+            await Delete(uuid);
             toast.success('Agent deleted successfully');
             setAgentData(prev => prev.filter(agent => agent.uuid !== uuid));
         } catch (error) {
@@ -78,19 +81,28 @@ const Page = () => {
             }
         }
     };
-    console.log('agents', agentData);
     const agentlength = agentData.length;
-    const { userType } = useAppContext();
+    const { hasPermission } = usePermissions();
+
+    // Check if user can create agents
+    const canCreateAgent = userType !== 'admin' || hasPermission(PERMISSIONS.CREATE_AGENT);
+
     return (
         <div>
-            <div className='w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center' style={{ boxShadow: "0px 4px 4px #0000001F" }} >
-                <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}>Agents ({agentlength})</p>
-                {userType !== 'vendor' &&
-                    <Link href={'/dashboard/agents/create'} onClick={() => {
-                        setShowHeader(false)
-                        setShowForm(true)
-                    }} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px]  justify-center rounded-[6px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg hover:opacity-95`}>+ New Agent</Link>
-                }
+            <div className='w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center' style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }} >
+                <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>Agents ({agentlength})</p>
+                {(userType !== 'vendor' && canCreateAgent) && (
+                    <Link
+                        href={'/dashboard/agents/create'}
+                        onClick={() => {
+                            setShowHeader(false)
+                        }}
+                        className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] justify-center rounded-[6px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:brightness-110'
+                        style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+                    >
+                        + New Agent
+                    </Link>
+                )}
             </div>
 
             <div className="w-full">
@@ -99,16 +111,15 @@ const Page = () => {
                     showHeader={showHeader}
                     setAgentData={setAgentData}
                     setShowHeader={setShowHeader}
-                    onQuickView={(selectedType, data) => {
+                    onQuickView={(data) => {
                         setShowCard(true);
-                        setType(selectedType);
                         setSelectedData(data);
                     }}
                     onDelete={handleDelete}
                     loading={loading}
                     error={error}
                 />
-                {showCard && selectedData  && (
+                {showCard && selectedData && (
                     <QuickViewCard
                         type="agent"
                         data={selectedData}

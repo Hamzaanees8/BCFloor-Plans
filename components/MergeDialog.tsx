@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { CheckCircle, Circle, Trash, X } from "lucide-react"
 import { Admin } from "./AdminTable"
+import { useAppContext } from "@/app/context/AppContext"
 
 type Props = {
     open: boolean
@@ -30,9 +31,13 @@ const MergeDialog: React.FC<Props> = ({
     onConfirm,
     data
 }) => {
+    const { userType } = useAppContext();
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent className="w-[320px] md:w-[593px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria max-w-[593px]">
+            <AlertDialogContent
+                className="w-[320px] md:w-[593px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria max-w-[593px]"
+                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+            >
                 <AlertDialogHeader className="mb-2">
                     <AlertDialogTitle className="flex items-center justify-between text-[#4290E9] text-[18px] font-[600] border-b-[1px] border-[#E4E4E4]">
                         MERGE CONTACTS?

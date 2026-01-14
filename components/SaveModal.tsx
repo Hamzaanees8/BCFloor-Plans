@@ -29,10 +29,13 @@ export function SaveModal({
   backLink,
   title,
 }: SaveModalProps) {
-  const {userType} = useAppContext(); 
+  const { userType } = useAppContext();
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
-      <AlertDialogContent className="max-w-sm text-center font-alexandria py-6 px-6">
+      <AlertDialogContent
+        className="max-w-sm text-center font-alexandria py-6 px-6"
+        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>
             <h2 className={`font-semibold text-lg ${userType}-text`}>
@@ -87,7 +90,7 @@ export function SaveModal({
               </span>
             )}
           </Button>
-          
+
         )}
       </AlertDialogContent>
     </AlertDialog>

@@ -1,3 +1,4 @@
+import { api } from "@/lib/api";
 
 export interface CategoryPayload {
     title?: string | null;
@@ -57,6 +58,12 @@ interface ServicePayload {
     id?: number;
     updated_at?: string;
     add_ons?: AddOns[]
+}
+interface PackagePayload {
+    name: string;
+    discount: number;
+    service_ids: string[];
+    status?: boolean | number;
 }
 export interface UpdateServicePayload {
     status?: boolean,
@@ -137,27 +144,46 @@ export function categoryPayloadToFormData(payload: CategoryPayload): FormData {
 
     return formData;
 }
+export function packagePayloadToFormData(payload: PackagePayload): FormData {
+    const formData = new FormData();
+
+    for (const [key, value] of Object.entries(payload)) {
+        if (
+            value === undefined ||
+            value === null ||
+            value === '' ||
+            (Array.isArray(value) && value.length === 0)
+        ) {
+            continue;
+        }
+
+        if (Array.isArray(value)) {
+            value.forEach((item, index) => {
+                formData.append(`${key}[${index}]`, item);
+            });
+        } else {
+            formData.append(key, String(value));
+        }
+    }
+
+    return formData;
+}
 
 
 export async function GetServices(token: string) {
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
     try {
-        const response = await fetch(`${API_URL}/services`, {
-            method: 'GET',
+        const response = await api.get(`/services`, {
             headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
             },
         });
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || `Request failed with status ${response.status}`);
+        if (response.status !== 200) {
+            throw new Error(response.data.message || `Request failed with status ${response.status}`);
         }
 
-        const adminData = await response.json();
+        const adminData = await response.data;
         return adminData;
     } catch (error) {
         console.error("Failed to fetch admin data:", error);
@@ -167,23 +193,18 @@ export async function GetServices(token: string) {
 
 export async function GetCategories(token: string) {
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
     try {
-        const response = await fetch(`${API_URL}/service-categories`, {
-            method: 'GET',
+        const response = await api.get(`/service-categories`, {
             headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
             },
         });
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || `Request failed with status ${response.status}`);
+        if (response.status !== 200) {
+            throw new Error(response.data.message || `Request failed with status ${response.status}`);
         }
 
-        const adminData = await response.json();
+        const adminData = await response.data;
         return adminData;
     } catch (error) {
         console.error("Failed to fetch admin data:", error);
@@ -192,95 +213,139 @@ export async function GetCategories(token: string) {
 }
 
 export async function CreateCategory(payload: CategoryPayload, token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
     const formData = categoryPayloadToFormData(payload)
-    const response = await fetch(`${API_URL}/service-categories`, {
-        method: 'POST',
+    const response = await api.post(`/service-categories`, formData, {
         headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
         },
-        body: formData,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        const error = new Error(data.message || 'Request failed');
-        (error as FetchErrors).errors = data.errors;
-        throw error;
+    if (response.status !== 200) {
+        throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
-    return data;
+    return response.data;
 }
 
 export async function CreateService(payload: ServicePayload, token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
-    console.log('payload', payload);
-
     const formData = payloadToFormData(payload)
-    const response = await fetch(`${API_URL}/services`, {
-        method: 'POST',
+    const response = await api.post(`/services`, formData, {
         headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
         },
-        body: formData,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        const error = new Error(data.message || 'Request failed');
-        (error as FetchErrors).errors = data.errors;
-        throw error;
+    if (response.status !== 200) {
+        throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
-    return data;
+    return response.data;
+}
+
+export async function GetPackages(token: string) {
+
+    try {
+        const response = await api.get(`/packages`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        if (response.status !== 200) {
+            throw new Error(response.data.message || `Request failed with status ${response.status}`);
+        }
+
+        const adminData = await response.data;
+        return adminData;
+    } catch (error) {
+        console.error("Failed to fetch admin data:", error);
+        throw error;
+    }
+}
+
+export async function CreatePackage(payload: PackagePayload, token: string) {
+    const formData = packagePayloadToFormData(payload)
+    const response = await api.post(`/packages`, formData, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+
+    if (response.status !== 200) {
+        throw new Error(response.data.message || `Request failed with status ${response.status}`);
+    }
+
+    return response.data;
+}
+
+export async function UpdatePackage(payload: PackagePayload, token: string, packageId: string) {
+
+    const formData = packagePayloadToFormData(payload)
+    formData.append('_method', "PUT")
+    const response = await api.post(`/packages/${packageId}`, formData, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+
+    if (response.status !== 200) {
+        throw new Error(response.data.message || `Request failed with status ${response.status}`);
+    }
+
+    return response.data;
 }
 
 export async function UpdateService(payload: ServicePayload, token: string, serviceId: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
-    console.log('payload', payload);
 
     const formData = payloadToFormData(payload)
     formData.append('_method', "PUT")
-    const response = await fetch(`${API_URL}/services/${serviceId}`, {
-        method: 'POST',
+    const response = await api.post(`/services/${serviceId}`, formData, {
         headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
         },
-        body: formData,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        const error = new Error(data.message || 'Request failed');
-        (error as FetchErrors).errors = data.errors;
-        throw error;
+    if (response.status !== 200) {
+        throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
-    return data;
+    return response.data;
 }
 
 export async function GetOneService(token: string, serviceId: string) {
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
     try {
-        const response = await fetch(`${API_URL}/services/${serviceId}`, {
-            method: 'GET',
+        const response = await api.get(`/services/${serviceId}`, {
             headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
             },
         });
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || `Request failed with status ${response.status}`);
+        if (response.status !== 200) {
+            throw new Error(response.data.message || `Request failed with status ${response.status}`);
         }
 
-        const serviceData = await response.json();
+        const serviceData = await response.data;
+        return serviceData;
+    } catch (error) {
+        console.error("Failed to fetch admin data:", error);
+        throw error;
+    }
+}
+export async function GetOnePackage(token: string, packageId: string) {
+
+    try {
+        const response = await api.get(`/packages/${packageId}`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        if (response.status !== 200) {
+            throw new Error(response.data.message || `Request failed with status ${response.status}`);
+        }
+
+        const serviceData = await response.data;
         return serviceData;
     } catch (error) {
         console.error("Failed to fetch admin data:", error);
@@ -289,85 +354,59 @@ export async function GetOneService(token: string, serviceId: string) {
 }
 
 export async function UpdateServiceStatus(listingId: string, payload: UpdateServicePayload, token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-    const response = await fetch(`${API_URL}/services/${listingId}/status`, {
-        method: 'PUT',
+    const response = await api.put(`/services/${listingId}/status`, payload, {
         headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.message || 'Failed to update user');
+    if (response.status !== 200) {
+        throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
-    return data;
+    return response.data;
 }
 
 export async function UpdateVendorServiceStatus(vendorServiceId: string, payload: UpdateServicePayload, token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-    const response = await fetch(`${API_URL}/vendors/${vendorServiceId}/service-status`, {
-        method: 'PUT',
+    const response = await api.put(`/vendors/${vendorServiceId}/service-status`, payload, {
         headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.message || 'Failed to update user');
+    if (response.status !== 200) {
+        throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
-    return data;
+    return response.data;
 }
 
 export async function DeleteService(setviceId: string, token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-    const response = await fetch(`${API_URL}/services/${setviceId}`, {
-        method: 'POST',
+    const response = await api.delete(`/services/${setviceId}`, {
         headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ _method: 'DELETE' }),
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.message || 'Failed to delete user');
+    if (response.status !== 200) {
+        throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
-    return data;
+    return response.data;
 }
 
 export async function DeleteVendorService(vendorServiceId: string, token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-    const response = await fetch(`${API_URL}/vendors/${vendorServiceId}/service`, {
-        method: 'DELETE',
+    const response = await api.delete(`/vendors/${vendorServiceId}/service`, {
         headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ _method: 'DELETE' }),
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.message || 'Failed to delete user');
+    if (response.status !== 200) {
+        throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
-    return data;
+    return response.data;
 }

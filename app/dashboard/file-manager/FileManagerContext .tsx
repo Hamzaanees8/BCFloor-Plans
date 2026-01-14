@@ -7,14 +7,14 @@ type PreviewFile = {
 }
 
 export type DroppedMarker = {
-  x: number;
-  y: number;
-  file?: File;      
-  file_path?: string; 
-  floorImageUrl: string;
-  name?: string;
-  description?: string;
-  isApi?: boolean;
+    x: number;
+    y: number;
+    file?: File;
+    file_path?: string;
+    floorImageUrl: string;
+    name?: string;
+    description?: string;
+    isApi?: boolean;
 };
 
 export type Files = {
@@ -31,6 +31,9 @@ export type Files = {
     sort_order: number;
     created_at: string;
     updated_at: string;
+    is_featured?: boolean;
+    is_admin_approved?: boolean;
+    is_agent_approved?: boolean;
 
 }
 export type SnapShots = {
@@ -52,8 +55,11 @@ export type FilesData = {
     order_id: number;
     files: Files[]
     links: {
+        uuid?: string;
         link: string;
         type: string
+        expiry_date?: string;
+        service_id?: number | string;
         service?: { id: number; uuid: string };
     }[]
     snapshots: SnapShots[]
@@ -68,9 +74,11 @@ export type FilesData = {
 };
 
 type LinkItem = {
+    uuid?: string;
     type: "branded" | "unbranded";
     service_id: string;
     link: string;
+    expiry_date?: string;
 };
 
 type FormData = {
@@ -146,6 +154,9 @@ type FileManagerContextType = {
 
     filesData: FilesData | null;
     setFilesData: Dispatch<SetStateAction<FilesData | null>>;
+
+    changedFileUuids: Set<string>;
+    setChangedFileUuids: Dispatch<SetStateAction<Set<string>>>;
 };
 
 const FileManagerContext = createContext<FileManagerContextType | undefined>(undefined);
@@ -165,8 +176,8 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
     const [audioUrl, setAudioUrl] = useState<string | undefined>(undefined);
     const [selectedAudioTrack, setSelectedAudioTrack] = useState<string | undefined>("none");
     const [filesData, setFilesData] = useState<FilesData | null>(null);
+    const [changedFileUuids, setChangedFileUuids] = useState<Set<string>>(new Set());
 
-    console.log('droppedMarkers', droppedMarkers);
 
     const [formData, setFormData] = useState<FormData>({
         background: "",
@@ -224,7 +235,9 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
             setFormData,
             updateFormData,
             filesData,
-            setFilesData
+            setFilesData,
+            changedFileUuids,
+            setChangedFileUuids
         }}>
             {children}
         </FileManagerContext.Provider>

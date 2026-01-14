@@ -17,11 +17,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Calendar } from "lucide-react";
+import { Calendar, Copy } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { TagsInput } from "@/components/TagsInput";
 import { toast } from "sonner";
-import { CreateListings, EditListings, GetOneListing } from "../listing";
+import { CreateListings, EditListings, fetchMlsData, GetOneListing } from "../listing";
 import { useParams, useRouter } from "next/navigation";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { Listings } from "../page";
@@ -33,6 +33,8 @@ import { ArrowDown, ArrowUp } from "@/components/Icons";
 import { useAppContext } from "@/app/context/AppContext";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
+import Link from "next/link";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const ListingsFrom = () => {
   const { userType } = useAppContext();
@@ -84,13 +86,15 @@ const ListingsFrom = () => {
   const [showAgain1, setShowAgain1] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [origin, setOrigin] = useState("");
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   const { isDirty, setIsDirty } = useUnsaved();
   useUnsavedChangesWarning(isDirty)
   const isPopulatingData = useRef(false);
-
-  console.log("states", states);
-  console.log("province", province);
 
   const confirmAndExecute1 = () => {
     pendingAction1?.();
@@ -111,7 +115,7 @@ const ListingsFrom = () => {
     }
 
     if (token) {
-      Get(token)
+      Get()
         .then(data => setAgent(data.data))
         .catch(err => console.log(err.message));
     } else {
@@ -127,10 +131,9 @@ const ListingsFrom = () => {
     }
 
     if (listingId) {
-      GetOneListing(token, listingId)
+      GetOneListing(listingId)
         .then((res) => {
           const data = res.data;
-          console.log("data.province", data.province);
 
           if (data) {
 
@@ -184,7 +187,6 @@ const ListingsFrom = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listingId]);
-  console.log("currentListing", currentListing);
 
   useEffect(() => {
     if (states.length && currentListing && currentListing?.province) {
@@ -207,8 +209,49 @@ const ListingsFrom = () => {
   }, [country]);
 
   const handleSubmit = async () => {
+    const validationErrors: Record<string, string[]> = {};
+
+    // Validate required fields
+    if (!listingPrice || isNaN(Number(listingPrice)) || Number(listingPrice) < 0) validationErrors.listing_price = ["Listing Price is required and must be a positive number"];
+    if (!mls) validationErrors.mls_number = ["MLS Number is required"];
+    if (userType !== 'agent' && !connectedAgent) validationErrors.agent_id = ["Agent is required"];
+    if (bedrooms === '' || isNaN(Number(bedrooms)) || Number(bedrooms) < 0 || Number(bedrooms) > 20) validationErrors.bedrooms = ["Bedrooms must be between 0 and 20"];
+    if (bathrooms === '' || isNaN(Number(bathrooms)) || Number(bathrooms) < 0 || Number(bathrooms) > 20) validationErrors.bathrooms = ["Bathrooms must be between 0 and 20"];
+    if (squareFootage === '' || isNaN(Number(squareFootage)) || Number(squareFootage) < 0) validationErrors.square_footage = ["Square Footage must be a positive number"];
+    if (!lotSize) validationErrors.lot_size = ["Lot Size is required"];
+    const currentYear = new Date().getFullYear();
+    if (yearConstructed === '' || isNaN(Number(yearConstructed)) || Number(yearConstructed) < 1800 || Number(yearConstructed) > currentYear) validationErrors.year_constructed = [`Year Constructed must be between 1800 and ${currentYear}`];
+    if (parkingSpots === '' || isNaN(Number(parkingSpots)) || Number(parkingSpots) < 0 || Number(parkingSpots) > 50) validationErrors.parking_spots = ["Parking Spots must be between 0 and 50"];
+    if (!propertyType) validationErrors.property_type = ["Property Type is required"];
+    if (!propertyStatus) validationErrors.property_status = ["Property Status is required"];
+    if (!heading) validationErrors.heading = ["Heading is required"];
+    if (!description) validationErrors.description = ["Description is required"];
+    if (!address) validationErrors.address = ["Address is required"];
+    if (!city) validationErrors.city = ["City is required"];
+    if (!province) validationErrors.province = ["Province is required"];
+    if (!postalCode) validationErrors.postal_code = ["Postal Code is required"];
+    if (!occupancy) validationErrors.occupancy = ["Occupancy is required"];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (!publishDate) {
+      validationErrors.publish_date = ["Publish Date is required"];
+    } else {
+      const selectedDate = new Date(publishDate + 'T00:00:00');
+      if (selectedDate < today) {
+        validationErrors.publish_date = ["Publish Date cannot be in the past"];
+      }
+    }
+
+    if (Object.keys(validationErrors).length > 0) {
+      setFieldErrors(validationErrors);
+      const firstError = Object.values(validationErrors).flat()[0];
+      toast.error(firstError || "Please fill in all required fields correctly.");
+      return;
+    }
+
     try {
-      const token = localStorage.getItem("token") || "";
       const payload = {
         listing_price: Number(listingPrice),
         mls_number: mls,
@@ -247,32 +290,29 @@ const ListingsFrom = () => {
       // });
 
       if (listingId) {
-        const result = await EditListings(listingId, payload, token);
+        const result = await EditListings(listingId, payload);
         if (result.status) {
           toast.success("Listing updated successfully");
           setIsLoading(true);
           setOpen(true);
           setIsDirty(false)
           router.push('/dashboard/listings')
-          console.log("User updated successfully:", result);
         }
         setIsLoading(false);
       } else {
-        const result = await CreateListings(payload, token);
+        const result = await CreateListings(payload);
         if (result.status) {
           toast.success("Listings created successfully");
           setIsLoading(true);
           setOpen(true);
           setIsDirty(false)
           router.push('/dashboard/listings')
-          console.log("User created successfully:", result);
         }
         setIsLoading(false);
       }
     } catch (error) {
       setIsLoading(false);
       setOpen(false);
-      console.log("Raw error:", error);
       setFieldErrors({});
       const apiError = error as {
         message?: string;
@@ -302,6 +342,257 @@ const ListingsFrom = () => {
       }
     }
   };
+
+
+  async function handleMlsFetch(e: React.MouseEvent<HTMLButtonElement>) {
+    e.preventDefault();
+
+    if (!mls) {
+      toast.error("Please enter an MLS number first");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await fetchMlsData(mls);
+
+      const mls_data = response.mls || response;
+
+      if (mls_data && !mls_data.error) {
+        isPopulatingData.current = true;
+
+
+        setListingPrice(mls_data.listPrice?.toString() || "");
+        setBedrooms(mls_data.details?.numBedrooms?.toString() || "");
+        setBathrooms(mls_data.details?.numBathrooms?.toString() || "");
+
+        const style = mls_data.details?.style || "";
+        if (style.includes("Single Family Residence")) {
+          setPropertyType("Detached Home");
+        } else if (style.includes("Townhouse") || style.includes("Townhome")) {
+          setPropertyType("Townhouse");
+        } else if (style.includes("Condo") || style.includes("Condominium")) {
+          setPropertyType("Condo");
+        } else if (style.includes("Apartment")) {
+          setPropertyType("Apartment");
+        } else if (style.includes("Commercial")) {
+          setPropertyType("Commercial");
+        }
+
+        setSquareFootage(mls_data.details?.sqft?.toString() || "");
+
+        setYearConstructed(mls_data.details?.yearBuilt?.toString() || "");
+
+        const parkingSpots =
+          mls_data.details?.numParkingSpaces ||
+          mls_data.details?.numDrivewaySpaces;
+        setParkingSpots(parkingSpots?.toString() || "");
+
+        const standardStatus = mls_data.standardStatus || "";
+        if (standardStatus.includes("Active Under Contract")) {
+          setPropertyStatus("Under contract");
+        } else if (mls_data.status === "A") {
+          setPropertyStatus("Just listed");
+        } else if (mls_data.status === "S" || mls_data.status === "Sld") {
+          setPropertyStatus("Sold");
+        } else if (mls_data.status === "P") {
+          setPropertyStatus("Pending");
+        }
+
+        const addressParts = [];
+        if (mls_data.address?.streetNumber)
+          addressParts.push(mls_data.address.streetNumber);
+        if (mls_data.address?.streetName)
+          addressParts.push(mls_data.address.streetName);
+        if (mls_data.address?.streetSuffix)
+          addressParts.push(mls_data.address.streetSuffix);
+
+        const fullAddress = addressParts.join(" ");
+        setAddress(fullAddress.trim());
+
+        setCity(mls_data.address?.city || "");
+        setPostalCode(mls_data.address?.zip || "");
+
+        if (mls_data.address?.state === "NC") {
+          setCountry("US");
+          setProvince("NC");
+        } else if (
+          mls_data.address?.country === "US" ||
+          mls_data.address?.state
+        ) {
+          setCountry("US");
+          if (mls_data.address?.state) {
+            setProvince(mls_data.address.state);
+          }
+        }
+
+        if (mls_data.lot?.size) {
+          setLotSize(mls_data.lot.size.toString());
+        } else if (mls_data.lot?.squareFeet) {
+          const acres = mls_data.lot.squareFeet / 43560;
+          setLotSize(acres.toFixed(2));
+        } else if (mls_data.lot?.acres) {
+          setLotSize(mls_data.lot.acres.toString());
+        }
+
+        setDescription(mls_data.details?.description || "");
+
+        if (!heading || heading.trim() === "") {
+          const generatedHeading = `${mls_data.address?.streetNumber || ""} ${mls_data.address?.streetName || ""
+            } ${mls_data.details?.style || "Property"}`;
+          setHeading(generatedHeading.trim());
+        }
+
+        if (mls_data.address?.unitNumber) {
+          setSuite(mls_data.address.unitNumber);
+        }
+
+        if (mls_data.listDate) {
+          try {
+            const date = new Date(mls_data.listDate);
+            if (!isNaN(date.getTime())) {
+              const formattedDate = date.toISOString().split("T")[0];
+              setPublishDate(formattedDate);
+            }
+          } catch (error) {
+            console.error("Error parsing listDate:", error);
+          }
+        }
+
+        if (mls_data.details?.virtualTourUrl) {
+          setPropertyWebsite(mls_data.details.virtualTourUrl);
+        } else if (mls_data.details?.alternateURLVideoLink) {
+          setPropertyWebsite(mls_data.details.alternateURLVideoLink);
+        }
+
+        setMlsProperty(`MLS#: ${mls_data.mlsNumber || mls}`);
+
+        if (mls_data.occupancy) {
+          const occupancyLower = mls_data.occupancy.toLowerCase();
+          if (occupancyLower.includes("owner")) {
+            setOccupancy("Owner Occupied");
+          } else if (occupancyLower.includes("tenant")) {
+            setOccupancy("Tenant Occupied");
+          } else if (occupancyLower.includes("vacant")) {
+            setOccupancy("Single Vacant");
+          }
+        }
+
+        const extras = (mls_data.details?.extras || "").toLowerCase();
+        const descriptionText = (
+          mls_data.details?.description || ""
+        ).toLowerCase();
+
+        if (extras.includes("lockbox") || descriptionText.includes("lockbox")) {
+          setMediaCreatorAccess("Lockbox");
+        } else if (extras.includes("key") || descriptionText.includes("key")) {
+          setMediaCreatorAccess("Key");
+        } else if (
+          descriptionText.includes("access code") ||
+          descriptionText.includes("code access")
+        ) {
+          setMediaCreatorAccess("Access Code");
+        } else if (
+          descriptionText.includes("listing agent") ||
+          descriptionText.includes("agent only")
+        ) {
+          setMediaCreatorAccess("Listing Agent Only");
+        } else {
+          setMediaCreatorAccess("Appointment Only");
+        }
+
+        const additionalInstructions = [];
+
+        if (mls_data.details?.zoning) {
+          additionalInstructions.push(`Zoning: ${mls_data.details.zoning}`);
+        }
+
+        if (mls_data.details?.waterSource) {
+          additionalInstructions.push(
+            `Water Source: ${mls_data.details.waterSource}`
+          );
+        }
+
+        if (mls_data.details?.sewer) {
+          additionalInstructions.push(`Sewer: ${mls_data.details.sewer}`);
+        }
+
+        if (mls_data.details?.extras) {
+          additionalInstructions.push(
+            `Included Extras: ${mls_data.details.extras}`
+          );
+        }
+
+        if (additionalInstructions.length > 0) {
+          const currentInstructions = instructions || "";
+          const newInstructions = additionalInstructions.join("\n");
+          setInstructions(
+            currentInstructions
+              ? `${currentInstructions}\n${newInstructions}`
+              : newInstructions
+          );
+        }
+
+        // Animals on property
+        const descriptionLower = (
+          mls_data.details?.description || ""
+        ).toLowerCase();
+        if (
+          descriptionLower.includes("pet") ||
+          descriptionLower.includes("dog") ||
+          descriptionLower.includes("cat")
+        ) {
+          if (
+            descriptionLower.includes("no pet") ||
+            descriptionLower.includes("no animal")
+          ) {
+            setAnimalsOnProperty(false);
+          } else {
+            setAnimalsOnProperty(true);
+          }
+        }
+
+        // Co-agents from agents array
+        if (mls_data.agents && mls_data.agents.length > 0) {
+          // Define the agent type
+          type MlsAgent = {
+            email?: string;
+            name?: string;
+            agentId?: string;
+            phones?: string[];
+          };
+
+          const agentEmails = (mls_data.agents as MlsAgent[])
+            .map((agent: MlsAgent) => agent.email)
+            .filter(
+              (email: string | undefined): email is string =>
+                email !== undefined && email !== "REDACTED"
+            );
+
+          if (agentEmails.length > 0) {
+            const newCoAgents = [...new Set([...coAgents, ...agentEmails])];
+            setCoAgents(newCoAgents);
+          }
+        }
+
+        toast.success("MLS data fetched and populated successfully!");
+
+        requestAnimationFrame(() => {
+          isPopulatingData.current = false;
+        });
+        setIsDirty(true);
+      } else {
+        toast.error("Failed to fetch MLS data or no data returned");
+      }
+    } catch (error) {
+      console.error("Error fetching MLS data:", error);
+      toast.error(
+        "Error fetching MLS data. Please check the MLS number and try again."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -333,29 +624,6 @@ const ListingsFrom = () => {
             }}
             className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button`}
           >
-            {/* {isLoading ? (
-                            <div role="status">
-                                <svg
-                                    aria-hidden="true"
-                                    className="w-[28px] h-[28px] text-gray-600 animate-spin fill-[#fff]"
-                                    viewBox="0 0 100 101"
-                                    fill="none"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                >
-                                    <path
-                                        d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
-                                        fill="currentColor"
-                                    />
-                                    <path
-                                        d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
-                                        fill="currentFill"
-                                    />
-                                </svg>
-                                <span className="sr-only">Loading...</span>
-                            </div>
-                        ) : (
-                            ""
-                        )} */}
             Save Changes{" "}
           </Button>
           <ConfirmationDialog
@@ -378,6 +646,41 @@ const ListingsFrom = () => {
           BC Floor Plans
         </p>
       </div>
+      {listingId &&
+        <div className="w-full h-[60px] bg-[#E4E4E4] font-alexandria pr-5 z-10 flex items-center border-b border-[#BBBBBB]">
+          <div className="flex items-center justify-center w-full">
+            <div className="flex items-center justify-center gap-x-6 w-full">
+              <Link
+                href={`/dashboard/file-manager/${(currentListing as Listings)?.orders?.[0]?.uuid}?listingId=${currentListing?.uuid}`}
+
+                className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${false
+                  ? `${userType}-bg text-white font-[700] ${userType}-border`
+                  : `bg-[#fff] text-[#666666] font-[700] `
+                  }`}
+              >
+                Media
+              </Link>
+              <div
+                className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${true
+                  ? `${userType}-bg text-white font-[700] ${userType}-border`
+                  : `bg-[#fff] text-[#666666] font-[700] `
+                  }`}
+              >
+                Property details
+              </div>
+              <Link
+                href={`/dashboard/orders/${currentListing?.orders?.[0]?.uuid}`}
+
+                className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${false
+                  ? `${userType}-bg text-white font-[700] ${userType}-border`
+                  : `bg-[#fff] text-[#666666] font-[700] `
+                  }`}
+              >
+                Order details
+              </Link>
+            </div>
+          </div>
+        </div>}
       <div>
         <form
           onChange={() => {
@@ -408,8 +711,15 @@ const ListingsFrom = () => {
                       {userType != 'agent' &&
                         <div className='col-span-2'>
                           <label htmlFor="">Connected Agents <span className="text-red-500">*</span></label>
-                          <Select value={connectedAgent} onValueChange={(val) => setConnectedAgent(val)}>
-                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                          <Select value={connectedAgent} onValueChange={(val) => {
+                            setConnectedAgent(val);
+                            if (fieldErrors.agent_id) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.agent_id;
+                              setFieldErrors(newErrors);
+                            }
+                          }}>
+                            <SelectTrigger className={`w-full h-[42px] bg-[#EEEEEE] mt-[12px] border ${fieldErrors.agent_id ? 'border-red-500' : 'border-[#BBBBBB]'}`}>
                               <SelectValue placeholder="Select Agent" />
                             </SelectTrigger>
                             <SelectContent>
@@ -426,22 +736,39 @@ const ListingsFrom = () => {
                       }
 
                       <div>
-                        <label htmlFor="">Listing Price (CAD)</label>
+                        <label htmlFor="">Listing Price (CAD) <span className="text-red-500">*</span></label>
                         <Input
                           value={listingPrice}
-                          onChange={(e) => setListingPrice(e.target.value)}
+                          onChange={(e) => {
+                            setListingPrice(e.target.value);
+                            if (fieldErrors.listing_price) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.listing_price;
+                              setFieldErrors(newErrors);
+                            }
+                          }}
                           placeholder="e.g 844,500"
-                          className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.listing_price ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                           type="text"
                         />
+                        {fieldErrors.listing_price && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.listing_price[0]}</p>}
                       </div>
                       <div>
-                        <label htmlFor="">MLS# <span className="text-red-500">*</span></label>
+                        <label htmlFor="">
+                          MLS# <span className="text-red-500">*</span>
+                        </label>
                         <Input
                           value={mls}
-                          onChange={(e) => setMls(e.target.value)}
+                          onChange={(e) => {
+                            setMls(e.target.value);
+                            if (fieldErrors.mls_number) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.mls_number;
+                              setFieldErrors(newErrors);
+                            }
+                          }}
                           placeholder="e.g A2206608"
-                          className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.mls_number ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                           type="text"
                         />
 
@@ -450,10 +777,21 @@ const ListingsFrom = () => {
                             {fieldErrors.mls_number[0]}
                           </p>
                         )}
+                        <span>
+                          <button
+                            type="button"
+                            onClick={(e) => handleMlsFetch(e)}
+                            disabled={isLoading || !mls}
+                            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                          >
+                            {isLoading ? "Syncing..." : "Sync MLS Data"}
+                          </button>
+                        </span>
+
                       </div>
                       <div className={`relative w-full `}>
                         <label htmlFor="bedroom" className="block text-sm font-normal">
-                          Bedrooms
+                          Bedrooms <span className="text-red-500">*</span>
                         </label>
                         <Input
                           id="bedroom"
@@ -463,6 +801,11 @@ const ListingsFrom = () => {
                           value={bedrooms === '' ? '' : bedrooms}
                           onChange={(e) => {
                             const value = e.target.value;
+                            if (fieldErrors.bedrooms) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.bedrooms;
+                              setFieldErrors(newErrors);
+                            }
 
                             if (value === '') {
                               setBedrooms(''); // Allow clearing the input
@@ -474,8 +817,9 @@ const ListingsFrom = () => {
                               setBedrooms(numeric); // Only valid numbers >= 0
                             }
                           }}
-                          className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          className={`h-[42px] w-full bg-[#EEEEEE] border text-[16px] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${fieldErrors.bedrooms ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                         />
+                        {fieldErrors.bedrooms && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.bedrooms[0]}</p>}
 
                         <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
                           <button type="button" onClick={() => setBedrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) + 1))} className={`${userType}-fill-svg`}><ArrowUp /></button>
@@ -484,7 +828,7 @@ const ListingsFrom = () => {
                       </div>
                       <div className="relative w-full">
                         <label htmlFor="bathroom" className="block text-sm font-normal">
-                          Bathrooms
+                          Bathrooms <span className="text-red-500">*</span>
                         </label>
                         <Input
                           id="bathroom"
@@ -494,9 +838,14 @@ const ListingsFrom = () => {
                           value={bathrooms === '' ? '' : bathrooms}
                           onChange={(e) => {
                             const value = e.target.value;
+                            if (fieldErrors.bathrooms) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.bathrooms;
+                              setFieldErrors(newErrors);
+                            }
 
                             if (value === '') {
-                              setBathrooms(''); // Allow clearing the input
+                              setBathrooms('');
                               return;
                             }
 
@@ -505,8 +854,9 @@ const ListingsFrom = () => {
                               setBathrooms(numeric); // Only valid numbers >= 0
                             }
                           }}
-                          className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          className={`h-[42px] w-full bg-[#EEEEEE] border text-[16px] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${fieldErrors.bathrooms ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                         />
+                        {fieldErrors.bathrooms && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.bathrooms[0]}</p>}
 
                         <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
                           <button type="button" onClick={() => setBathrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) + 1))} className={`${userType}-fill-svg`}><ArrowUp /></button>
@@ -514,22 +864,37 @@ const ListingsFrom = () => {
                         </div>
                       </div>
                       <div>
-                        <label htmlFor="">Square Footage</label>
+                        <label htmlFor="">Square Footage <span className="text-red-500">*</span></label>
                         <Input
                           value={squareFootage}
-                          onChange={(e) => setSquareFootage(e.target.value)}
+                          onChange={(e) => {
+                            setSquareFootage(e.target.value);
+                            if (fieldErrors.square_footage) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.square_footage;
+                              setFieldErrors(newErrors);
+                            }
+                          }}
                           placeholder="e.g 2230 sq. ft."
-                          className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.square_footage ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                           type="text"
                         />
+                        {fieldErrors.square_footage && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.square_footage[0]}</p>}
                       </div>
                       <div>
                         <label htmlFor="">Lot Size (Acres) <span className="text-red-500">*</span></label>
                         <Input
                           value={lotSize}
-                          onChange={(e) => setLotSize(e.target.value)}
+                          onChange={(e) => {
+                            setLotSize(e.target.value);
+                            if (fieldErrors.lot_size) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.lot_size;
+                              setFieldErrors(newErrors);
+                            }
+                          }}
                           placeholder="e.g 0-4,050 sq. ft."
-                          className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.lot_size ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                           type="text"
                         />
                         {fieldErrors.lot_size && (
@@ -542,9 +907,16 @@ const ListingsFrom = () => {
                         <label htmlFor="">Year Contstructed <span className="text-red-500">*</span></label>
                         <Input
                           value={yearConstructed}
-                          onChange={(e) => setYearConstructed(e.target.value)}
+                          onChange={(e) => {
+                            setYearConstructed(e.target.value);
+                            if (fieldErrors.year_constructed) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.year_constructed;
+                              setFieldErrors(newErrors);
+                            }
+                          }}
                           placeholder="e.g 2020"
-                          className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.year_constructed ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                           type="text"
                         />
                         {fieldErrors.year_constructed && (
@@ -554,22 +926,37 @@ const ListingsFrom = () => {
                         )}
                       </div>
                       <div>
-                        <label htmlFor="">Parking Spots</label>
+                        <label htmlFor="">Parking Spots <span className="text-red-500">*</span></label>
                         <Input
                           value={parkingSpots}
-                          onChange={(e) => setParkingSpots(e.target.value)}
+                          onChange={(e) => {
+                            setParkingSpots(e.target.value);
+                            if (fieldErrors.parking_spots) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.parking_spots;
+                              setFieldErrors(newErrors);
+                            }
+                          }}
                           placeholder="e.g 3"
-                          className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.parking_spots ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                           type="text"
                         />
+                        {fieldErrors.parking_spots && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.parking_spots[0]}</p>}
                       </div>
                       <div className="col-span-2">
                         <label htmlFor="">Property Type <span className="text-red-500">*</span></label>
                         <Select
                           value={propertyType}
-                          onValueChange={(value) => setPropertyType(value)}
+                          onValueChange={(value) => {
+                            setPropertyType(value);
+                            if (fieldErrors.property_type) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.property_type;
+                              setFieldErrors(newErrors);
+                            }
+                          }}
                         >
-                          <SelectTrigger className="w-full  h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
+                          <SelectTrigger className={`w-full  h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.property_type ? 'border-red-500' : 'border-[#BBBBBB]'}`}>
                             <SelectValue placeholder="Select Property Type" />
                           </SelectTrigger>
                           <SelectContent>
@@ -594,9 +981,16 @@ const ListingsFrom = () => {
                         <label htmlFor="">Property Status <span className="text-red-500">*</span></label>
                         <Select
                           value={propertyStatus}
-                          onValueChange={(value) => setPropertyStatus(value)}
+                          onValueChange={(value) => {
+                            setPropertyStatus(value);
+                            if (fieldErrors.property_status) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.property_status;
+                              setFieldErrors(newErrors);
+                            }
+                          }}
                         >
-                          <SelectTrigger className="w-full  h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
+                          <SelectTrigger className={`w-full  h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.property_status ? 'border-red-500' : 'border-[#BBBBBB]'}`}>
                             <SelectValue placeholder="Select Property Status" />
                           </SelectTrigger>
                           <SelectContent>
@@ -624,9 +1018,16 @@ const ListingsFrom = () => {
                         <label htmlFor="">Heading <span className="text-red-500">*</span></label>
                         <Input
                           value={heading}
-                          onChange={(e) => setHeading(e.target.value)}
+                          onChange={(e) => {
+                            setHeading(e.target.value);
+                            if (fieldErrors.heading) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.heading;
+                              setFieldErrors(newErrors);
+                            }
+                          }}
                           placeholder="e.g Single Family Detached Starter Home"
-                          className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.heading ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                           type="text"
                         />
                         {fieldErrors.heading && (
@@ -640,9 +1041,16 @@ const ListingsFrom = () => {
                         {/* <Input placeholder='Single Family Detached Starter Home' className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" /> */}
                         <Textarea
                           value={description}
-                          onChange={(e) => setDescription(e.target.value)}
+                          onChange={(e) => {
+                            setDescription(e.target.value);
+                            if (fieldErrors.description) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.description;
+                              setFieldErrors(newErrors);
+                            }
+                          }}
                           placeholder="write some description of your listing"
-                          className="w-full resize-none h-[200px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                          className={`w-full resize-none h-[200px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.description ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                         />
                         {fieldErrors.description && (
                           <p className="text-red-500 text-[10px]">
@@ -667,9 +1075,16 @@ const ListingsFrom = () => {
                           <label htmlFor="">Address <span className="text-red-500">*</span></label>
                           <Input
                             value={address}
-                            onChange={(e) => setAddress(e.target.value)}
+                            onChange={(e) => {
+                              setAddress(e.target.value);
+                              if (fieldErrors.address) {
+                                const newErrors = { ...fieldErrors };
+                                delete newErrors.address;
+                                setFieldErrors(newErrors);
+                              }
+                            }}
                             placeholder="e.g 4445 Parker St"
-                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                            className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.address ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                             type="text"
                           />
                           {fieldErrors.address && (
@@ -683,9 +1098,16 @@ const ListingsFrom = () => {
                         <label htmlFor="">City <span className="text-red-500">*</span></label>
                         <Input
                           value={city}
-                          onChange={(e) => setCity(e.target.value)}
+                          onChange={(e) => {
+                            setCity(e.target.value);
+                            if (fieldErrors.city) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.city;
+                              setFieldErrors(newErrors);
+                            }
+                          }}
                           placeholder="e.g Burnaby"
-                          className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.city ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                           type="text"
                         />
                         {fieldErrors.city && (
@@ -698,10 +1120,17 @@ const ListingsFrom = () => {
                         <label htmlFor="">Province <span className="text-red-500">*</span></label>
                         <Select
                           value={province}
-                          onValueChange={(val) => setProvince(val)}
+                          onValueChange={(val) => {
+                            setProvince(val);
+                            if (fieldErrors.province) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.province;
+                              setFieldErrors(newErrors);
+                            }
+                          }}
                           disabled={!states.length}
                         >
-                          <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                          <SelectTrigger className={`w-full h-[42px] bg-[#EEEEEE] mt-[12px] border ${fieldErrors.province ? 'border-red-500' : 'border-[#BBBBBB]'}`}>
                             <SelectValue placeholder="Select Province" />
                           </SelectTrigger>
                           <SelectContent>
@@ -722,9 +1151,16 @@ const ListingsFrom = () => {
                         <label htmlFor="">Postal Code <span className="text-red-500">*</span></label>
                         <Input
                           value={postalCode}
-                          onChange={(e) => setPostalCode(e.target.value)}
+                          onChange={(e) => {
+                            setPostalCode(e.target.value);
+                            if (fieldErrors.postal_code) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.postal_code;
+                              setFieldErrors(newErrors);
+                            }
+                          }}
                           placeholder="e.g V5H 0H4"
-                          className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.postal_code ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                           type="text"
                         />
 
@@ -757,16 +1193,7 @@ const ListingsFrom = () => {
                     </div>
                   </div>
                   <div className="w-full h-[200px] md:h-[560px]">
-                    {/* <iframe
-                      src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d83357.52320128103!2d-123.04024198044628!3d49.23995664757976!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x548677a8219c8373%3A0xdd0a72738752b169!2sBurnaby%2C%20BC%2C%20Canada!5e0!3m2!1sen!2s!4v1748548645299!5m2!1sen!2s"
-                      width="100%"
-                      height="100%"
-                      allowFullScreen
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                      className="border-0"
-                      title="Google Map - Burnaby, BC"
-                    ></iframe> */}
+
                     <DynamicMap
                       address={address}
                       city={city}
@@ -785,39 +1212,36 @@ const ListingsFrom = () => {
               <AccordionContent className="grid gap-4">
                 <div className="w-full flex flex-col items-center">
                   <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
-                    {/* <div className='p-[8px] flex flex-col items-center justify-center border-[1px] border-dashed border-[#BBBBBB] rounded-[6px]'>
-                                            <Button className='bg-[#BBBBBB] text-[20px] text-[#F2F2F2] font-[600] w-[330px] h-[44px] ' disabled>Processing</Button>
-                                            <p className='text-[#7D7D7D] text-[14px]'>Orders are being processed. You will receive and email notification when file are uploaded for your to review.</p>
-                                        </div> */}
-                    {/* <div >
-                                            <Table className={` ${currentListing && currentListing?.orders ? 'flex' : 'hidden'} font-alexandria px-0 overflow-x-auto whitespace-nowrap`}>
-                                                <TableHeader >
-                                                    <TableRow className='bg-[#E4E4E4] font-alexandria h-[54px] hover:bg-[#E4E4E4]'>
-                                                        <TableHead className="pl-[20px] text-[14px] font-[700] text-[#666666]">Order</TableHead>
-                                                        <TableHead className="text-[14px] font-[700] text-[#666666]">Total</TableHead>
-                                                        <TableHead className="text-[14px] font-[700] text-[#666666]">Added</TableHead>
-                                                        <TableHead className="text-[14px] font-[700] text-[#666666]">Status</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    <TableRow className='text-[15px] text-[#666666]'>
-                                                        <TableCell className="pl-[20px] text-[15px] py-[19px] font-[400] text-[#4290E9]">0145</TableCell>
-                                                        <TableCell className="text-[15px] py-[19px] font-[400] ">$960.00</TableCell>
-                                                        <TableCell className="text-[15px] py-[19px] font-[400] ">Mar 14, 2025</TableCell>
-                                                        <TableCell className="text-[10px] py-[19px] font-[400] "><span className='uppercase bg-[#E06D5E] text-[#F2F2F2] rounded-[10px] px-[7px] py-[2px]'>unpaid</span></TableCell>
-                                                    </TableRow>
-                                                    <TableRow className='text-[15px] text-[#666666]'>
-                                                        <TableCell className="pl-[20px] text-[15px] py-[19px] font-[400] text-[#4290E9]">0134</TableCell>
-                                                        <TableCell className="text-[15px] py-[19px] font-[400] ">$60.00</TableCell>
-                                                        <TableCell className="text-[15px] py-[19px] font-[400] ">Mar 10, 2025</TableCell>
-                                                        <TableCell className="text-[10px] py-[19px] font-[400] "><span className='uppercase bg-[#E06D5E] text-[#F2F2F2] rounded-[10px] px-[7px] py-[2px]'>unpaid</span></TableCell>
-                                                    </TableRow>
+                    <div className='p-[8px] flex flex-col items-center justify-center border-[1px] border-dashed border-[#BBBBBB] rounded-[6px]'>
+                      <Button className='bg-[#BBBBBB] text-[20px] text-[#F2F2F2] font-[600] w-[330px] h-[44px] ' disabled>Processing</Button>
+                      <p className='text-[#7D7D7D] text-[14px]'>Orders are being processed. You will receive and email notification when file are uploaded for your to review.</p>
+                    </div>
+                    <div className="w-full py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
+                      <Table className={`${currentListing && (currentListing?.orders?.length ?? 0) > 0 ? 'table' : 'hidden'} font-alexandria px-0 overflow-x-auto whitespace-nowrap table-auto w-full`}>
+                        <TableHeader>
+                          <TableRow className='bg-[#E4E4E4] font-alexandria h-[54px] hover:bg-[#E4E4E4] table-row'>
+                            <TableHead className="pl-[20px] text-[14px] font-[700] text-[#666666] table-cell">Order</TableHead>
+                            <TableHead className="text-[14px] font-[700] text-[#666666] table-cell">Total</TableHead>
+                            <TableHead className="text-[14px] font-[700] text-[#666666] table-cell">Added</TableHead>
+                            <TableHead className="text-[14px] font-[700] text-[#666666] table-cell">Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody className="table-row-group">
+                          {currentListing?.orders?.map((order, index) => {
 
-
-                                                </TableBody>
-                                            </Table>
-                                            <p className={`${currentListing && currentListing?.orders ? 'hidden' : 'flex'} text-[24px] flex justify-center items-center my-[20px]`}> No Order Found</p>
-                                        </div> */}
+                            return <TableRow key={index} className='text-[15px] text-[#666666] table-row'>
+                              <TableCell className="pl-[20px] text-[15px] py-[19px] font-[400] text-[#4290E9] table-cell">{order.id}</TableCell>
+                              <TableCell className="text-[15px] py-[19px] font-[400] table-cell">{order.amount}</TableCell>
+                              <TableCell className="text-[15px] py-[19px] font-[400] table-cell">{new Date(order.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</TableCell>
+                              <TableCell className="text-[10px] py-[19px] font-[400] table-cell">
+                                <span className='uppercase bg-[#E06D5E] text-[#F2F2F2] rounded-[10px] px-[7px] py-[2px]'>{order.payment_status}</span>
+                              </TableCell>
+                            </TableRow>
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <p className={`${currentListing && currentListing?.orders?.length === 0 ? 'flex' : 'hidden'} text-[24px] flex justify-center items-center my-[20px]`}> No Order Found</p>
                     {(userType === 'admin' || userType === 'agent') && (
                       <div className="flex items-center gap-[16px]">
                         <Switch
@@ -831,28 +1255,23 @@ const ListingsFrom = () => {
                       </div>
                     )}
                     <div className="text-[#424242] w-full text-[14px] flex flex-col gap-[16px]">
-                      {/* <div className="w-full">
-                                                <Label>Schedule Publish Date</Label>
-                                                <div className='relative w-full '>
-                                                    <Input
-                                                        value={publishDate}
-                                                        onChange={(e) => setPublishDate(e.target.value)}
-                                                        type="date"
-                                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'
-                                                    />
-                                                    <Calendar className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 text-[#4290E9] h-[24px] w-[24px]" strokeWidth={1} />
-                                                </div>
-                                            </div> */}
                       {(userType === 'admin' || userType === 'agent') && (
                         <div className="w-full">
-                          <Label>Schedule Publish Date</Label>
+                          <Label>Schedule Publish Date <span className="text-red-500">*</span></Label>
                           <div className="relative w-full">
                             <Input
                               ref={inputRef}
                               value={publishDate}
-                              onChange={(e) => setPublishDate(e.target.value)}
+                              onChange={(e) => {
+                                setPublishDate(e.target.value);
+                                if (fieldErrors.publish_date) {
+                                  const newErrors = { ...fieldErrors };
+                                  delete newErrors.publish_date;
+                                  setFieldErrors(newErrors);
+                                }
+                              }}
                               type="date"
-                              className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] appearance-none pr-10"
+                              className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] appearance-none pr-10 ${fieldErrors.publish_date ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                             />
                             <Calendar
                               onClick={openCalendar}
@@ -868,19 +1287,40 @@ const ListingsFrom = () => {
                         </div>)}
                       <div className=" w-full">
                         <Label>Property Website</Label>
-                        <div className="relative w-full ">
-                          <Input
-                            value={propertyWebsite}
-                            onChange={(e) => setPropertyWebsite(e.target.value)}
-                            type="text"
-                            placeholder="company.bcfp.com/vendor/id=88392"
-                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                          />
-                          {/* <Copy
+                        {currentListing?.orders?.[0]?.uuid ? (
+                          <div className="relative w-full">
+                            <Input
+                              value={`${origin}/tour/${currentListing?.address?.replace(/\s+/g, '-')}/${currentListing?.orders?.[0]?.uuid}`}
+                              readOnly
+                              type="text"
+                              className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] pr-10 truncate"
+                            />
+                            <Copy
+                              onClick={() => {
+                                const url = `${origin}/tour/${currentListing?.address?.replace(/\s+/g, '-')}/${currentListing?.orders?.[0]?.uuid}`;
+                                navigator.clipboard.writeText(url);
+                                toast.success("Tour link copied to clipboard");
+                              }}
+                              className="cursor-pointer absolute right-3 top-[calc(50%+6px)] -translate-y-1/2 text-[#4290E9] h-[20px] w-[20px]"
+                              strokeWidth={1}
+                            />
+                          </div>
+                        ) : (
+                          <div className="relative w-full ">
+                            <Input
+                              value={propertyWebsite}
+                              onChange={(e) => setPropertyWebsite(e.target.value)}
+                              type="text"
+                              readOnly
+                              placeholder="company.bcfp.com/vendor/id=88392"
+                              className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                            />
+                            {/* <Copy
                             className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 text-[#4290E9] h-[24px] w-[24px]"
                             strokeWidth={1}
                           /> */}
-                        </div>
+                          </div>
+                        )}
                         {fieldErrors.property_website && (
                           <p className="text-red-500 text-[10px]">
                             {fieldErrors.property_website[0]}
@@ -915,9 +1355,16 @@ const ListingsFrom = () => {
                         <label htmlFor="">Occupancy <span className="text-red-500">*</span></label>
                         <Select
                           value={occupancy}
-                          onValueChange={(value) => setOccupancy(value)}
+                          onValueChange={(value) => {
+                            setOccupancy(value);
+                            if (fieldErrors.occupancy) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.occupancy;
+                              setFieldErrors(newErrors);
+                            }
+                          }}
                         >
-                          <SelectTrigger className="w-full  h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
+                          <SelectTrigger className={`w-full  h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.occupancy ? 'border-red-500' : 'border-[#BBBBBB]'}`}>
                             <SelectValue placeholder="Select Occupancy" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1091,7 +1538,7 @@ const ListingsFrom = () => {
         backLink="/dashboard/listings"
         title="Listing"
       />
-    </div>
+    </div >
   );
 };
 

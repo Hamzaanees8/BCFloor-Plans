@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import Script from "next/script";
 import { AppProvider } from "./context/AppContext";
+import { OrderProvider } from "./dashboard/orders/context/OrderContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,9 +46,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${alexandria.variable} ${raleway.variable} antialiased`}
       >
-        <AppProvider>
-          {children}
-        </AppProvider>
+        <OrderProvider>
+          <AppProvider>
+            {children}
+          </AppProvider>
+        </OrderProvider>
         <Toaster position="bottom-right" />
       </body>
     </html>

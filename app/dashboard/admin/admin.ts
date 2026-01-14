@@ -1,3 +1,5 @@
+import { api } from "@/lib/api";
+
 export interface UserPayload {
     first_name: string;
     last_name: string;
@@ -49,22 +51,15 @@ function payloadToFormData(payload: UserPayload): FormData {
     return formData;
 }
 
-export async function Create(payload: UserPayload, token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function Create(payload: UserPayload) {
     const formData = payloadToFormData(payload);
 
-    const response = await fetch(`${API_URL}/users`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
-    });
+    const response = await api.post(`/users`, formData);
 
-    const data = await response.json();
+    const data = await response.data;
 
-    if (!response.ok) {
-        const error = new Error(data.message || 'Request failed');
+    if (data.status !== true) {
+        const error = new Error(data.errors || 'Request failed');
         (error as FetchErrors).errors = data.errors;
         throw error;
     }
@@ -74,21 +69,14 @@ export async function Create(payload: UserPayload, token: string) {
 
 
 
-export async function Edit(userId: string, payload: UserPayload, token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function Edit(userId: string, payload: UserPayload) {
     const formData = payloadToFormData(payload);
 
-    const response = await fetch(`${API_URL}/users/${userId}`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
-    });
+    const response = await api.post(`/users/${userId}`, formData);
 
-    const data = await response.json();
+    const data = await response.data;
 
-    if (!response.ok) {
+    if (data.status !== true) {
         const error = new Error(data.message || 'Request failed');
         (error as FetchErrors).errors = data.errors;
         throw error;
@@ -98,21 +86,13 @@ export async function Edit(userId: string, payload: UserPayload, token: string) 
 }
 
 
-export async function Get(token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
+export async function Get() {
     try {
-        const response = await fetch(`${API_URL}/users`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-        });
+        const response = await api.get(`/users`);
 
-        const adminData = await response.json();
+        const adminData = await response.data;
 
-        if (!response.ok) {
+        if (adminData.status !== true) {
             throw new Error(adminData.message || `Request failed with status ${response.status}`);
         }
 
@@ -127,91 +107,55 @@ export interface UpdateUserPayload {
     status?: boolean,
 }
 
-export async function UpdateStatus(userId: string, payload: UpdateUserPayload, token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function UpdateStatus(userId: string, payload: UpdateUserPayload) {
 
-    const response = await fetch(`${API_URL}/users/${userId}/status`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-    });
+    const response = await api.post(`/users/${userId}/status`, payload);
 
-    const data = await response.json();
+    const data = await response.data;
 
-    if (!response.ok) {
+    if (data.status !== true) {
         throw new Error(data.message || 'Failed to update user');
     }
 
     return data;
 }
 
-export async function GetOne(token: string, userId: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
+export async function GetOne(userId: string) {
     try {
-        const response = await fetch(`${API_URL}/users/${userId}`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-        });
+        const response = await api.get(`/users/${userId}`);
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || `Request failed with status ${response.status}`);
+        const adminData = await response.data;
+
+        if (adminData.status !== true) {
+            throw new Error(adminData.message || `Request failed with status ${response.status}`);
         }
 
-        const adminData = await response.json();
         return adminData;
     } catch (error) {
         console.error("Failed to fetch admin data:", error);
         throw error;
     }
 }
-export async function Delete(userId: string, token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-    const response = await fetch(`${API_URL}/users/${userId}`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ _method: 'DELETE' }),
+export async function Delete(userId: string) {
+    const response = await api.post(`/users/${userId}`, {
+        _method: 'DELETE',
     });
 
-    const data = await response.json();
+    const data = await response.data;
 
-    if (!response.ok) {
+    if (data.status !== true) {
         throw new Error(data.message || 'Failed to delete user');
     }
 
     return data;
 }
 
-export async function GetRole(token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
+export async function GetRole() {
     try {
-        const response = await fetch(`${API_URL}/roles`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-        });
+        const response = await api.get(`/roles`);
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || `Request failed with status ${response.status}`);
-        }
-
-        const rolesData = await response.json();
-        console.log('rolesData', rolesData);
+        const rolesData = await response.data;
 
         return rolesData;
     } catch (error) {
@@ -219,24 +163,12 @@ export async function GetRole(token: string) {
         throw error;
     }
 }
-export async function GetPermissions(token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function GetPermissions() {
 
     try {
-        const response = await fetch(`${API_URL}/permissions`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-        });
+        const response = await api.get(`/permissions`);
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || `Request failed with status ${response.status}`);
-        }
-
-        const permissionsData = await response.json();
+        const permissionsData = await response.data;
         return permissionsData;
     } catch (error) {
         console.error("Failed to fetch role data:", error);
@@ -250,21 +182,13 @@ export interface ResetPassword {
     _method?: string,
 }
 
-export async function ResetPassword(payload: ResetPassword, userId: string, token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function ResetPassword(payload: ResetPassword, userId: string) {
 
-    const response = await fetch(`${API_URL}/users/${userId}/password`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-    });
+    const response = await api.post(`/users/${userId}/password`, payload);
 
-    const data = await response.json();
+    const data = await response.data;
 
-    if (!response.ok) {
+    if (data.status !== true) {
         throw new Error(data.message || 'Failed to delete user');
     }
 

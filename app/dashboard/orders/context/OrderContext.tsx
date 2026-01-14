@@ -5,8 +5,11 @@ import { createContext, useContext, useState, ReactNode } from 'react';
 import { SelectedService } from '../components/Services';
 import { Dispatch, SetStateAction } from 'react';
 import { Discount } from '../components/Confirmation';
-import { OrderService } from '../page';
+import { Order, OrderService } from '../page';
 import { Listings } from '../../listings/page';
+import { Agent } from '@/components/AgentTable';
+import { Services, Packages } from '../../services/page';
+import { VendorData } from '../[id]/page';
 type CoAgent = {
     name: string;
     email: string;
@@ -26,8 +29,9 @@ type CalendarServices = {
     price: string;
     uuid?: string;
 };
-type Slot = {
+export type Slot = {
     id?: number;
+    uuid?: string;
     vendor?: {
         uuid?: string;
     }
@@ -109,6 +113,27 @@ type OrderContextType = {
 
     initComplete: boolean;
     setInitComplete: (value: boolean) => void;
+
+    agentsData: Agent[];
+    setAgentsData: Dispatch<SetStateAction<Agent[]>>;
+
+    listingsData: Listings[];
+    setListingsData: Dispatch<SetStateAction<Listings[]>>;
+
+    servicesData: Services[];
+    setServicesData: Dispatch<SetStateAction<Services[]>>;
+
+    vendorsData: VendorData[];
+    setVendorsData: Dispatch<SetStateAction<VendorData[]>>;
+
+    ordersData: Order[];
+    setOrdersData: Dispatch<SetStateAction<Order[]>>;
+
+    packagesData: Packages[];
+    setPackagesData: Dispatch<SetStateAction<Packages[]>>;
+
+    activePackage: Packages | null;
+    setActivePackage: Dispatch<SetStateAction<Packages | null>>;
 };
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -137,6 +162,14 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     const [selectedSlots, setSelectedSlots] = useState<Slot[]>([]);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+
+    const [agentsData, setAgentsData] = useState<Agent[]>([]);
+    const [listingsData, setListingsData] = useState<Listings[]>([]);
+    const [servicesData, setServicesData] = useState<Services[]>([]);
+    const [vendorsData, setVendorsData] = useState<VendorData[]>([]);
+    const [ordersData, setOrdersData] = useState<Order[]>([]);
+    const [packagesData, setPackagesData] = useState<Packages[]>([]);
+    const [activePackage, setActivePackage] = useState<Packages | null>(null);
 
     return (
         <OrderContext.Provider
@@ -182,7 +215,21 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
                 OrderServices,
                 setOrderServices,
                 internal,
-                setInternal
+                setInternal,
+                agentsData,
+                setAgentsData,
+                listingsData,
+                setListingsData,
+                servicesData,
+                setServicesData,
+                vendorsData,
+                setVendorsData,
+                ordersData,
+                setOrdersData,
+                packagesData,
+                setPackagesData,
+                activePackage,
+                setActivePackage
             }}
         >
             {children}

@@ -61,11 +61,9 @@ const PaymentDialog: React.FC<Props> = ({
                 cardholder_name: nameOnCard,
                 is_primary: isPrimary,
             };
-            console.log("payload for payment", payload)
             if (payload) {
-                const result = await AddCard(payload, token);
+                await AddCard(payload);
                 toast.success('Card Added successfully');
-                console.log('Discount created successfully:', result);
                 setCardNumber("")
                 setExpiryDate("")
                 setCvc("")

@@ -1,3 +1,4 @@
+import { api } from "@/lib/api";
 
 export interface ListingsPayload {
     address?: string | null;
@@ -15,44 +16,32 @@ export interface UpdateListingPayload {
 }
 
 export async function GetListing(token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
     try {
-        const response = await fetch(`${API_URL}/properties`, {
-            method: 'GET',
+        const response = await api.get(`/properties`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
             },
         });
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || `Request failed with status ${response.status}`);
+        const listingsData = await response.data;
+        if (listingsData.status !== true) {
+            throw new Error(listingsData.message || `Request failed with status ${response.status}`);
         }
 
-        const adminData = await response.json();
-        return adminData;
+        return listingsData;
     } catch (error) {
         console.error("Failed to fetch admin data:", error);
         throw error;
     }
 }
-export async function CreateListings(payload: ListingsPayload, token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function CreateListings(payload: ListingsPayload) {
 
-    const response = await fetch(`${API_URL}/properties`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-    });
+    const response = await api.post(`/properties`, payload);
 
-    const data = await response.json();
+    const data = await response.data;
 
-    if (!response.ok) {
+    if (data.status !== true) {
         const error = new Error(data.message || 'Request failed');
         (error as FetchErrors).errors = data.errors;
         throw error;
@@ -60,26 +49,18 @@ export async function CreateListings(payload: ListingsPayload, token: string) {
 
     return data;
 }
-export async function EditListings(userId: string, payload: ListingsPayload, token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function EditListings(userId: string, payload: ListingsPayload) {
 
     const updatedPayload = {
         ...payload,
         _method: 'PUT',
     };
 
-    const response = await fetch(`${API_URL}/properties/${userId}`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedPayload),
-    });
+    const response = await api.post(`/properties/${userId}`, updatedPayload);
 
-    const data = await response.json();
+    const data = await response.data;
 
-    if (!response.ok) {
+    if (data.status !== true) {
         const error = new Error(data.message || 'Request failed');
         (error as FetchErrors).errors = data.errors;
         throw error;
@@ -88,69 +69,59 @@ export async function EditListings(userId: string, payload: ListingsPayload, tok
 
     return data;
 }
-export async function GetOneListing(token: string, userId: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function GetOneListing(userId: string) {
 
     try {
-        const response = await fetch(`${API_URL}/properties/${userId}`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-        });
+        const response = await api.get(`/properties/${userId}`);
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || `Request failed with status ${response.status}`);
+        const listingData = await response.data;
+
+        if (listingData.status !== true) {
+            throw new Error(listingData.message || `Request failed with status ${response.status}`);
         }
 
-        const adminData = await response.json();
-        return adminData;
+        return listingData;
     } catch (error) {
         console.error("Failed to fetch admin data:", error);
         throw error;
     }
 }
 
-export async function UpdateListingStatus(listingId: string, payload: UpdateListingPayload, token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function UpdateListingStatus(listingId: string, payload: UpdateListingPayload) {
 
-    const response = await fetch(`${API_URL}/properties/${listingId}/status`, {
-        method: 'PUT',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-    });
+    const response = await api.put(`/properties/${listingId}/status`, payload);
 
-    const data = await response.json();
+    const data = await response.data;
 
-    if (!response.ok) {
+    if (data.status !== true) {
         throw new Error(data.message || 'Failed to update user');
     }
 
     return data;
 }
 
-export async function DeleteListing(listingId: string, token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export async function DeleteListing(listingId: string) {
 
-    const response = await fetch(`${API_URL}/properties/${listingId}`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ _method: 'DELETE' }),
-    });
+    const response = await api.delete(`/properties/${listingId}`);
 
-    const data = await response.json();
+    const data = await response.data;
 
-    if (!response.ok) {
+    if (data.status !== true) {
         throw new Error(data.message || 'Failed to delete user');
     }
 
     return data;
+}
+export async function fetchMlsData(mls_id: string) {
+    try {
+        const response = await api.get(`/vendor/fetch-mls-data/?mls_number=${mls_id}`);
+        const mlsData = await response.data;
+        if (mlsData.status !== true) {
+            throw new Error(mlsData.message || `Request failed with status ${response.status}`);
+        }
+        return mlsData;
+    } catch (error) {
+        console.error("Failed to fetch MLS data:", error);
+        return error;
+    }
 }

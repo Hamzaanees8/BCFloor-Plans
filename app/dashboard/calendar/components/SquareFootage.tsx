@@ -1,9 +1,11 @@
 import React from 'react'
 import { Order } from '../../orders/page'
+import { useAppContext } from '@/app/context/AppContext';
 interface SquareFootageProps {
     currentOrder: Order | undefined
 }
 function SquareFootage({ currentOrder }: SquareFootageProps) {
+    const { userType } = useAppContext();
     const areas = currentOrder?.areas || []
 
     const levelAreas = areas?.filter(area =>
@@ -21,7 +23,10 @@ function SquareFootage({ currentOrder }: SquareFootageProps) {
         items.reduce((sum, area) => sum + (area.footage || 0), 0)
 
     return (
-        <div className="bg-[#F5F5F5] p-4 rounded border border-gray-300 text-[14px] text-[#666666] font-alexandria space-y-2">
+        <div
+            className="p-4 rounded border border-gray-300 text-[14px] text-[#666666] font-alexandria space-y-2"
+            style={{ backgroundColor: `var(--${userType}-page-bg, #F5F5F5)` }}
+        >
             <div>{currentOrder?.property_address}, {currentOrder?.property_location}</div>
             <div className="space-y-1 !mt-4">
                 {levelAreas.map(area => (

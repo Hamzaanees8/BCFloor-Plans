@@ -2,11 +2,13 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import React from 'react'
 import { Order } from '../../orders/page'
 import { Services } from '../../services/page';
+import { useAppContext } from '@/app/context/AppContext';
 interface HistoryProps {
     currentOrder: Order | undefined
     servicesData: Services[]
 }
 function HistoryTab({ currentOrder, servicesData }: HistoryProps) {
+    const { userType } = useAppContext();
     console.log(currentOrder, servicesData);
 
     return (
@@ -45,8 +47,8 @@ function HistoryTab({ currentOrder, servicesData }: HistoryProps) {
                                 ["3D Tour", "1 Tour"]
                             ].map(([service, option], i) => (
                                 <div key={i} className="mb-3 grid grid-cols-6 gap-x-3 px-4">
-                                    <p className='border border-[#BBBBBB] bg-[#EEEEEE] rounded-[6px] col-span-4 h-[42px] px-[10px] flex items-center'>{service}</p>
-                                    <p className='border border-[#BBBBBB] bg-[#EEEEEE] rounded-[6px] col-span-2 h-[42px] px-[10px] flex items-center'>{option}</p>
+                                    <p className='border border-[#BBBBBB] rounded-[6px] col-span-4 h-[42px] px-[10px] flex items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>{service}</p>
+                                    <p className='border border-[#BBBBBB] rounded-[6px] col-span-2 h-[42px] px-[10px] flex items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>{option}</p>
                                 </div>
                             ))}
 
@@ -61,8 +63,8 @@ function HistoryTab({ currentOrder, servicesData }: HistoryProps) {
                                 ["3D Tour", "1 Tour"]
                             ].map(([service, option], i) => (
                                 <div key={`old1-${i}`} className="mb-3 grid grid-cols-6 gap-x-3 px-4">
-                                    <p className='border border-[#BBBBBB] bg-[#EEEEEE]  rounded-[6px] col-span-4 h-[42px] px-[10px] flex items-center'>{service}</p>
-                                    <p className='border border-[#BBBBBB] bg-[#EEEEEE]  rounded-[6px] col-span-2 h-[42px] px-[10px] flex items-center'>{option}</p>
+                                    <p className='border border-[#BBBBBB] rounded-[6px] col-span-4 h-[42px] px-[10px] flex items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>{service}</p>
+                                    <p className='border border-[#BBBBBB] rounded-[6px] col-span-2 h-[42px] px-[10px] flex items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>{option}</p>
                                 </div>
                             ))}
                         </div>
@@ -94,8 +96,8 @@ function HistoryTab({ currentOrder, servicesData }: HistoryProps) {
                                 ["3D Tour", "1 Tour"]
                             ].map(([service, option], i) => (
                                 <div key={i} className="mb-3 grid grid-cols-6 gap-x-3 px-4">
-                                    <p className='border border-[#BBBBBB] bg-[#EEEEEE] rounded-[6px] col-span-4 h-[42px] px-[10px] flex items-center'>{service}</p>
-                                    <p className='border border-[#BBBBBB] bg-[#EEEEEE] rounded-[6px] col-span-2 h-[42px] px-[10px] flex items-center'>{option}</p>
+                                    <p className='border border-[#BBBBBB] rounded-[6px] col-span-4 h-[42px] px-[10px] flex items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>{service}</p>
+                                    <p className='border border-[#BBBBBB] rounded-[6px] col-span-2 h-[42px] px-[10px] flex items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>{option}</p>
                                 </div>
                             ))}
 
@@ -109,8 +111,8 @@ function HistoryTab({ currentOrder, servicesData }: HistoryProps) {
                                 ["3D Tour", "1 Tour"]
                             ].map(([service, option], i) => (
                                 <div key={`old2-${i}`} className="mb-3 grid grid-cols-6 gap-x-3 px-4">
-                                    <p className='border border-[#BBBBBB] bg-[#EEEEEE]  rounded-[6px] col-span-4 h-[42px] px-[10px] flex items-center'>{service}</p>
-                                    <p className='border border-[#BBBBBB] bg-[#EEEEEE]  rounded-[6px] col-span-2 h-[42px] px-[10px] flex items-center'>{option}</p>
+                                    <p className='border border-[#BBBBBB] rounded-[6px] col-span-4 h-[42px] px-[10px] flex items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>{service}</p>
+                                    <p className='border border-[#BBBBBB] rounded-[6px] col-span-2 h-[42px] px-[10px] flex items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>{option}</p>
                                 </div>
                             ))}
                         </div>
@@ -141,8 +143,8 @@ function HistoryTab({ currentOrder, servicesData }: HistoryProps) {
                                 ["HDR Still Photos", "20 Photos"]
                             ].map(([service, option], i) => (
                                 <div key={i} className="mb-3 grid grid-cols-6 gap-x-3 px-4">
-                                    <p className='border border-[#BBBBBB] bg-[#EEEEEE] rounded-[6px] col-span-4 h-[42px] px-[10px] flex items-center'>{service}</p>
-                                    <p className='border border-[#BBBBBB] bg-[#EEEEEE] rounded-[6px] col-span-2 h-[42px] px-[10px] flex items-center'>{option}</p>
+                                    <p className='border border-[#BBBBBB] rounded-[6px] col-span-4 h-[42px] px-[10px] flex items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>{service}</p>
+                                    <p className='border border-[#BBBBBB] rounded-[6px] col-span-2 h-[42px] px-[10px] flex items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>{option}</p>
                                 </div>
                             ))}
 
@@ -152,8 +154,8 @@ function HistoryTab({ currentOrder, servicesData }: HistoryProps) {
                                 <h1 className='col-span-2'>Option</h1>
                             </div>
                             <div className="mb-3 grid grid-cols-6 gap-x-3 px-4">
-                                <p className='border border-[#BBBBBB] bg-[#EEEEEE]  rounded-[6px] col-span-4 h-[42px] px-[10px] flex items-center'>HDR Still Photos</p>
-                                <p className='border border-[#BBBBBB] bg-[#EEEEEE]  rounded-[6px] col-span-2 h-[42px] px-[10px] flex items-center'>20 Photos</p>
+                                <p className='border border-[#BBBBBB] rounded-[6px] col-span-4 h-[42px] px-[10px] flex items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>HDR Still Photos</p>
+                                <p className='border border-[#BBBBBB] rounded-[6px] col-span-2 h-[42px] px-[10px] flex items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>20 Photos</p>
                             </div>
                         </div>
                     </AccordionContent>

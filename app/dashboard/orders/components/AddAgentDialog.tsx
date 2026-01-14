@@ -76,10 +76,7 @@ const AddAgentDialog: React.FC<Props> = ({
     setOpen,
     uuid,
     onSuccess,
-    type
 }) => {
-    console.log('id', uuid);
-    console.log('type', type)
     const [currentUser, setCurrentUser] = useState<CurrentAgent | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [coAgents, setCoAgents] = useState<{ name: string; email: string; primary_phone: string; split: string }[]>([]);
@@ -124,8 +121,6 @@ const AddAgentDialog: React.FC<Props> = ({
             })
             .catch(err => console.log(err.message));
     }, []);
-    console.log('roles', roles)
-    // console.log("DEBUG effect deps:", uuid, open);
     useEffect(() => {
         if (open && !uuid) {
             resetForm();
@@ -141,14 +136,11 @@ const AddAgentDialog: React.FC<Props> = ({
         }
 
         if (open && uuid) {
-            GetOne(token, uuid)
+            GetOne(uuid)
                 .then(data => setCurrentUser(data.data))
                 .catch(err => console.log(err.message));
-        } else {
-            console.log('Agent ID is undefined.');
         }
     }, [uuid, open]);
-    console.log('current user', currentUser)
     useEffect(() => {
         if (currentUser) {
             setFirstName(currentUser.first_name || "");
@@ -179,13 +171,11 @@ const AddAgentDialog: React.FC<Props> = ({
         e.preventDefault();
 
         try {
-            const token = localStorage.getItem('token') || '';
-            console.log(token)
+
             let formattedWebsite = companyWebsite?.trim();
             if (formattedWebsite && !/^https?:\/\//i.test(formattedWebsite)) {
                 formattedWebsite = 'https://' + formattedWebsite;
             }
-            console.log("co-agent payload", coAgents)
 
             const sanitizedCoAgents = coAgents.map(({ name, email, primary_phone, split }) => {
                 const agent: { name: string; email: string; primary_phone: string; split?: string } = { name, email, primary_phone };
@@ -194,7 +184,6 @@ const AddAgentDialog: React.FC<Props> = ({
                 }
                 return agent;
             });
-            console.log("sanitizedCoAgents", sanitizedCoAgents);
 
             const payload: AgentPayload = {
                 first_name: firstName,
@@ -218,7 +207,7 @@ const AddAgentDialog: React.FC<Props> = ({
             if (uuid) {
                 // Add _method: 'PUT' to payload for method override
                 const updatedPayload = { ...payload, _method: 'PUT' };
-                await EditAgent(uuid, updatedPayload, token);
+                await EditAgent(uuid, updatedPayload);
                 toast.success('Agent updated successfully');
                 resetForm();
                 setIsLoading(true)
@@ -228,7 +217,7 @@ const AddAgentDialog: React.FC<Props> = ({
                 setOpenSaveDialog(false)
                 if (onSuccess) onSuccess();
             } else {
-                await CreateAgent(payload, token);
+                await CreateAgent(payload);
                 toast.success('Agent created successfully');
                 resetForm();
                 setIsLoading(true)
@@ -240,7 +229,6 @@ const AddAgentDialog: React.FC<Props> = ({
             }
 
         } catch (error) {
-            console.log('Raw error:', error);
             setIsLoading(false)
             setOpenSaveDialog(false)
             setFieldErrors({});
@@ -458,7 +446,6 @@ const AddAgentDialog: React.FC<Props> = ({
                                         setOpen={setOpenAddCoAgentDialog}
                                         onSuccess={(agent) => {
                                             setCoAgents((prev) => [...prev, agent]);
-                                            console.log('Agent added:', agent);
                                         }}
                                     />
                                 </div>

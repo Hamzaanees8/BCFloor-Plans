@@ -9,6 +9,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/app/context/AppContext";
 import { GetNotifications } from "./notification";
 
@@ -17,67 +18,114 @@ const Page = () => {
     const [selectedNotification, setSelectedNotification] =
         React.useState<NotificationData | null>(null);
     const [notificationData, setNotificationData] = React.useState<NotificationData[]>([]);
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState(false);
     const { userType } = useAppContext();
+
+    const [searchAddress, setSearchAddress] = React.useState("");
+    const [searchName, setSearchName] = React.useState("");
+    const [filterReadStatus, setFilterReadStatus] = React.useState("all");
 
     useEffect(() => {
         const token = localStorage.getItem("token");
 
         if (!token) return;
 
+        setLoading(true);
+        setError(false);
+
         GetNotifications(token)
             .then((res) => {
                 const data = res.data;
                 setNotificationData(data);
+                setLoading(false);
             })
-            .catch((err) => console.log(err.message));
+            .catch((err) => {
+                console.log(err.message);
+                setError(true);
+                setLoading(false);
+            });
     }, []);
 
+    const filteredNotifications = notificationData.filter((notification) => {
+        const addressSearch = searchAddress.toLowerCase();
+        const nameSearch = searchName.toLowerCase();
+
+        const matchesAddress =
+            addressSearch === "" ||
+            notification.order?.property_address?.toLowerCase().includes(addressSearch) ||
+            notification.order?.property_location?.toLowerCase().includes(addressSearch) ||
+            notification.order?.id === Number(addressSearch);
+
+        const matchesName =
+            nameSearch === "" ||
+            notification.created_by_name?.toLowerCase().includes(nameSearch);
+
+        const matchesReadStatus =
+            filterReadStatus === "all" ||
+            (filterReadStatus === "read" && !!notification.read_at) ||
+            (filterReadStatus === "unread" && !notification.read_at);
+
+        return matchesAddress && matchesName && matchesReadStatus;
+    });
+
     return (
-        <div>
+        <div style={{ backgroundColor: `var(--${userType}-page-bg, #F2F2F2)` }}>
             <div
-                className="w-full h-[80px] bg-[#E4E4E4] font-alexandria z-10 relative flex justify-between px-[20px] items-center"
-                style={{ boxShadow: "0px 4px 4px #0000001F" }}
+                className="w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center"
+                style={{
+                    backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+                    boxShadow: "0px 4px 4px #0000001F"
+                }}
             >
                 <p
                     className={`text-[16px] md:text-[24px] font-[400] ${userType}-text`}
                 >
-                    Notifications
+                    Notifications ({filteredNotifications.length})
                 </p>
-                <Select onValueChange={(value) => console.log(value)}>
+
+            </div>
+
+            <div
+                className="w-full px-4 py-3 border-b border-gray-200 border border-b-gray-300 grid grid-cols-3 gap-4 h-[60px] font-alexandria"
+                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+            >
+                <Input
+                    placeholder="Search Address, Order ID..."
+                    className="h-[38px] w-full"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchAddress(e.target.value)}
+                    value={searchAddress}
+                />
+
+                <Input
+                    placeholder="Search Name..."
+                    className="h-[38px] w-full"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchName(e.target.value)}
+                    value={searchName}
+                />
+
+                <Select onValueChange={(value) => setFilterReadStatus(value)} defaultValue="all">
                     <SelectTrigger
-                        className={`w-[283px] h-[42px] bg-[#EEEEEE] text-[#666666] border-[1px] border-[#BBBBBB] ${userType === "admin"
-                            ? "[&>svg]:text-[#4290E9]"
-                            : "[&>svg]:text-[#6BAE41]"
-                            } [&>svg]:opacity-100 `}
+                        className="w-full h-[38px]"
+                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     >
-                        <SelectValue placeholder="Show All" />
+                        <SelectValue placeholder="Status" />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#EEEEEE] rounded-none w-full py-[12px] text-[#666666]">
-                        <SelectItem
-                            value="all"
-                            className="p-0 px-[16px] mb-[9px] hover:!bg-transparent focus:!bg-transparent cursor-pointer"
-                        >
-                            Show All
-                        </SelectItem>
-                        <SelectItem
-                            value="unpaid"
-                            className="p-0 px-[16px] mb-[9px] hover:!bg-transparent focus:!bg-transparent cursor-pointer"
-                        >
-                            Read
-                        </SelectItem>
-                        <SelectItem
-                            value="draft"
-                            className="p-0 px-[16px] hover:!bg-transparent focus:!bg-transparent cursor-pointer"
-                        >
-                            Unread
-                        </SelectItem>
+                    <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="read">Read</SelectItem>
+                        <SelectItem value="unread">Unread</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
 
             <div className="w-full">
                 <NotificationTable
-                    data={notificationData}
+                    data={filteredNotifications}
+                    loading={loading}
+                    error={error}
                     onQuickView={(notification) => {
                         setSelectedNotification(notification);
                         setShowCard(true);

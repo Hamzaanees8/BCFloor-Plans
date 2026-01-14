@@ -1,18 +1,17 @@
-export async function GetNotifications(token: string) {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+import { api } from "@/lib/api";
 
+export async function GetNotifications(token: string) {
     try {
-        const response = await fetch(`${API_URL}/notifications`, {
-            method: 'GET',
+        const response = await api.get(`/notifications`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
             },
         });
 
-        const notificationData = await response.json();
+        const notificationData = await response.data;
 
-        if (!response.ok) {
+        if (response.status !== 200) {
             throw new Error(notificationData.message || `Request failed with status ${response.status}`);
         }
 

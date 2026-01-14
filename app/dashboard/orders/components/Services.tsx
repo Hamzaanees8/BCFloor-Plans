@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from 'react'
+import { Skeleton } from '@/components/ui/skeleton'
 import PricingCard from './PricingCard'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Services } from '../../services/page'
-import { GetServices } from '../orders'
 import { useOrderContext } from '../context/OrderContext'
 import { Listings } from '../../listings/page'
-import { GetListing } from '../../listings/listing'
+
 
 export interface SelectedService {
     title?: string;
     id?: string;
     uuid?: string;
+    service_uuid?: string;
     price?: number;
     custom?: string;
     quantity?: number;
@@ -19,128 +20,118 @@ export interface SelectedService {
     optionName: string;
 }
 
-const DISCOUNT_PACKAGES = [
-    {
-        name: "Floor Plans Package",
-        ids: [
-            "1f431801-c4cc-4849-b9d2-5f9956b52882",
-            "45b4eb35-954c-4330-9c82-c0d12a0f185d",
-            "8aff43aa-a2ab-412d-85ca-8ced91bf64cd"
-        ],
-        discountRate: 0.20
-    },
-    {
-        name: "HDR Still Package",
-        ids: [
-            "5bb87846-e54e-499a-a404-bba735b0afdc",
-            "52c2c81a-7508-4095-b509-8c683eaf7d69",
-            "06ccdacc-8059-4a1e-8e9d-705b2bf91d99"
-        ],
-        discountRate: 0.15
-    }
-];
 
 
-const Services = () => {
+
+
+
+const PricingCardSkeleton = () => (
+    <div className="!w-[250px] h-[190px] border-[#BBBBBB] bg-[#f5f5f5] border-2 rounded-[6px] px-2 py-4">
+        <div className="flex items-start justify-between mb-2">
+            <div className="flex justify-between gap-2 w-full items-center">
+                <Skeleton className="w-6 h-6 rounded-md bg-gray-300" />
+                <Skeleton className="h-4 w-24 bg-gray-300" />
+                <Skeleton className="h-6 w-24 bg-gray-300" />
+            </div>
+        </div>
+        <div className="space-y-2 mt-4">
+            <Skeleton className="h-3 w-full bg-gray-300" />
+            <Skeleton className="h-3 w-3/4 bg-gray-300" />
+            <Skeleton className="h-3 w-1/2 bg-gray-300" />
+        </div>
+        <div className="flex flex-col justify-start gap-4 mt-4">
+            <Skeleton className="h-3 w-[60px] bg-gray-300" />
+            <div className="flex gap-4">
+                <Skeleton className="h-5 w-[60px] bg-gray-300" />
+                <Skeleton className="h-5 flex-1 bg-gray-300" />
+                <Skeleton className="h-5 w-[40px] bg-gray-300" />
+            </div>
+        </div>
+    </div>
+);
+
+const Services = ({ showAll }: { showAll: boolean }) => {
     const {
         selectedServices,
         setSelectedServices,
         selectedListingId,
+        servicesData: contextServicesData,
+        listingsData: contextListingsData,
+        packagesData,
+        activePackage,
+        setActivePackage
     } = useOrderContext();
     const [selected, setSelected] = React.useState('Alphabetically')
     const [servicesData, setServicesData] = useState<Services[]>([]);
     const [accordionDefaults, setAccordionDefaults] = useState<string[]>([]);
-    const [listingData, setListingData] = useState<Listings>();
+    const [listingData, setListingData] = useState<Listings | undefined>(undefined);
 
-    const selectedServiceIds = selectedServices.map(s => s.uuid);
 
-    let activePackage = null;
-
-    for (const pkg of DISCOUNT_PACKAGES) {
-        const hasPackage =
-            selectedServiceIds.length === pkg.ids.length &&
-            pkg.ids.every(id => selectedServiceIds.includes(id));
-
-        if (hasPackage) {
-            activePackage = pkg;
-            break;
-        }
-    }
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        const selectedIds = selectedServices.map(s => s.uuid);
+        let foundPackage = null;
 
-        if (!token) {
-            console.log("Token not found.");
-            return;
+        for (const pkg of packagesData) {
+            const pkgServiceIds = pkg.services.map(s => s.uuid);
+            const isMatch =
+                pkgServiceIds.length > 0 &&
+                pkgServiceIds.length === selectedIds.length &&
+                pkgServiceIds.every(id => selectedIds.includes(id));
+
+            if (isMatch) {
+                foundPackage = pkg;
+                break;
+            }
         }
-
-        GetServices(token)
-            .then((data) => {
-                const fetched = Array.isArray(data.data) ? data.data : [];
-                console.log('fetched services', fetched);
-                // const filteredServices = fetched.filter((service: Services) => service.status !== false);
-
-                const filteredServices = fetched.filter((service: Services) => {
-                    if (service.status === false) return false;
-                    const hasMatchingOption = service.product_options?.some((option) => {
-                        if (!option.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
-
-                        const [minStr, maxStr] = option.sq_ft_range.split("-").map((s) => s.trim());
-
-                        const min = parseInt(minStr, 10);
-                        const max = parseInt(maxStr, 10);
-
-
-                        if (isNaN(min) || isNaN(max)) return false;
-
-                        return (
-                            listingData && listingData?.square_footage >= min &&
-                            listingData?.square_footage <= max
-                        );
-                    });
-
-                    return hasMatchingOption;
-                });
-
-                setServicesData(filteredServices);
-
-                const grouped = filteredServices.reduce((acc: Record<string, Services[]>, service: Services) => {
-                    const category = service.category?.name ?? "";
-                    if (!acc[category]) {
-                        acc[category] = [];
-                    }
-                    acc[category].push(service);
-                    return acc;
-                }, {} as Record<string, Services[]>);
-
-                const defaults = Object.keys(grouped).map((_, idx) => `group-${idx}`);
-                setAccordionDefaults(defaults);
-            })
-            .catch((err) => console.log(err.message));
-    }, [listingData]);
+        setActivePackage(foundPackage);
+    }, [selectedServices, packagesData, setActivePackage]);
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        const filteredListings = contextListingsData.find(
+            (listing: Listings) => listing.status !== false && listing.uuid === selectedListingId
+        );
+        setListingData(filteredListings);
+    }, [contextListingsData, selectedListingId]);
 
-        if (!token) {
-            console.log("Token not found.");
-            return;
-        }
+    useEffect(() => {
+        const fetched = contextServicesData;
 
-        GetListing(token)
-            .then((data) => {
-                const allListings = Array.isArray(data.data) ? data.data : [];
-                const filteredListings = allListings.find(
-                    (listing: Listings) => listing.status !== false && listing.uuid === selectedListingId
+        const filteredServices = fetched.filter((service: Services) => {
+            if (service.status === false) return false;
+
+            const hasMatchingOption = service.product_options?.some((option) => {
+                if (!option.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
+
+                const [minStr, maxStr] = option.sq_ft_range.split("-").map((s) => s.trim());
+                const min = parseInt(minStr, 10);
+                const max = parseInt(maxStr, 10);
+
+                if (isNaN(min) || isNaN(max)) return false;
+
+                return (
+                    listingData &&
+                    listingData.square_footage >= min &&
+                    listingData.square_footage <= max
                 );
+            });
 
-                setListingData(filteredListings);
-            })
-            .catch((err) => console.log(err.message));
-    }, [selectedListingId]);
+            return hasMatchingOption;
+        });
 
+        const finalData = showAll ? fetched : filteredServices;
+        setServicesData(finalData);
 
+        const grouped = finalData.reduce((acc: Record<string, Services[]>, service: Services) => {
+            const category = service.category?.name ?? "";
+            if (!acc[category]) acc[category] = [];
+            acc[category].push(service);
+            return acc;
+        }, {});
+
+        const defaults = Object.keys(grouped).map((_, idx) => `group-${idx}`);
+        setAccordionDefaults(defaults);
+    }, [contextServicesData, listingData, showAll]);
 
     const groupedByCategory = servicesData?.reduce((acc, service) => {
         const category = service.category?.name ?? "";
@@ -156,14 +147,11 @@ const Services = () => {
     }, 0);
 
     const discount = activePackage
-        ? rawTotalPrice * activePackage.discountRate
+        ? rawTotalPrice * ((activePackage.discount || 0) / 100)
         : 0;
 
     const totalPrice = rawTotalPrice - discount;
 
-
-    console.log('servicesData', servicesData);
-    console.log('selected Service', selectedServices)
     return (
         <div className='px-[10px] flex flex-col gap-[15px] font-alexandria'>
 
@@ -216,6 +204,7 @@ const Services = () => {
                                                     setSelectedServices={setSelectedServices}
                                                     service={service}
                                                     squareFootage={listingData?.square_footage ?? 0}
+                                                    showAll={showAll}
                                                 />
                                             ))}
                                         </div>
@@ -224,7 +213,19 @@ const Services = () => {
                             ))}
                     </Accordion>
                 ) : (
-                    <div className="w-full text-center text-gray-500">Loading services...</div>)}
+                    <div className="w-full md:w-[70%] space-y-8 mt-4">
+                        {[1, 2, 3].map((groupIndex) => (
+                            <div key={groupIndex} className="space-y-4">
+                                <Skeleton className="h-8 w-48 mb-4 ml-2 bg-gray-200" />
+                                <div className="grid grid-cols-[repeat(auto-fill,250px)] gap-4">
+                                    {[1, 2, 3, 4].map((cardIndex) => (
+                                        <PricingCardSkeleton key={cardIndex} />
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
 
                 {/* <Accordion type="multiple" defaultValue={['hdr0', 'hdr', 'hdr1', 'hdr2']} className='w-full md:w-[70%]'>
                     {groupedByCategory &&
@@ -341,7 +342,7 @@ const Services = () => {
                                                 <span>{activePackage.name}</span>
                                             </div>
                                             <div className="flex justify-between text-[11px] text-green-600 font-[500]">
-                                                <span>Discount ({activePackage.discountRate * 100}%)</span>
+                                                <span>Discount ({activePackage.discount}%)</span>
                                                 <span>- ${discount.toFixed(2)}</span>
                                             </div>
                                         </>

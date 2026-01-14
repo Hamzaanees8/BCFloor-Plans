@@ -1,6 +1,7 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Loader2 } from 'lucide-react';
 import { GetOne } from '../orders';
 import { useParams, useRouter } from 'next/navigation';
 import Property from '@/app/dashboard/orders/components/Property';
@@ -10,6 +11,8 @@ import Contact from '@/app/dashboard/orders/components/Contact';
 import Confirmation, { OrderConfirmationHandle } from '@/app/dashboard/orders/components/Confirmation';
 import { useOrderContext } from '../context/OrderContext';
 import { Order } from '../page';
+import { Get } from '../../agents/agents';
+import { GetServices, GetPackages } from '../../services/services';
 import { useAppContext } from '@/app/context/AppContext';
 const OrderForm = () => {
     const confirmationRef = useRef<OrderConfirmationHandle>(null);
@@ -69,8 +72,23 @@ const OrderForm = () => {
         setAppliedCodeDiscount,
         setAppliedQuantityDiscounts,
         setInitComplete,
-        //isLoading
+        isLoading,
+        setServicesData,
+        setAgentsData,
+        setPackagesData
     } = useOrderContext();
+
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+        if (token) {
+            // Fetch global data
+            Promise.all([
+                GetServices(token).then(res => setServicesData(Array.isArray(res.data) ? res.data : [])),
+                Get().then(res => setAgentsData(Array.isArray(res.data) ? res.data : [])),
+                GetPackages(token).then(res => setPackagesData(Array.isArray(res.data) ? res.data : []))
+            ]).catch(err => console.log("Error fetching global data:", err));
+        }
+    }, [setServicesData, setAgentsData, setPackagesData]);
     const handleDoneClick = () => {
         router.push('/dashboard/orders');
         setSelectedAgentId(null);
@@ -97,7 +115,8 @@ const OrderForm = () => {
             setSelectedServices(() => {
                 return (currentUser.services || []).map((s) => ({
                     title: s.service.name,
-                    uuid: s.service.uuid,
+                    uuid: s.service.uuid, // Service template UUID
+                    service_uuid: s.uuid, // Order service UUID for updates
                     price: Number(s.amount),
                     quantity: s.option?.quantity ?? 1,
                     option_id: s.option?.uuid,
@@ -211,6 +230,24 @@ const OrderForm = () => {
         }
     };
 
+    const handleTabClick = (tabName: string) => {
+        const currentIndex = tabs.indexOf(active);
+        const targetIndex = tabs.indexOf(tabName);
+
+        // Allow moving backward freely
+        if (targetIndex < currentIndex) {
+            setActive(tabName);
+        }
+        // For moving forward, validate current tab
+        else if (targetIndex > currentIndex && isValid()) {
+            setActive(tabName);
+        }
+        // If on same tab, allow click
+        else if (targetIndex === currentIndex) {
+            setActive(tabName);
+        }
+    };
+
     const handleBack = () => {
         const currentIndex = tabs.indexOf(active);
         const prevIndex = currentIndex - 1;
@@ -242,13 +279,37 @@ const OrderForm = () => {
         return false;
     };
 
-    console.log('active', active);
-    console.log('currentUser', currentUser);
-    console.log('selectedSlots from edit', selectedSlots);
+    const headerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const header = headerRef.current;
+        if (!header) return;
+
+        // Find the closest ancestor with overflow-x-hidden that might be blocking sticky
+        // The layout has a div with "flex-1 overflow-x-hidden"
+        let ancestor = header.parentElement;
+        while (ancestor) {
+            const style = window.getComputedStyle(ancestor);
+            if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+                ancestor.style.setProperty('overflow-x', 'visible', 'important');
+                ancestor.style.setProperty('overflow-y', 'visible', 'important'); // Ensure Y isn't affected negatively if needed, though usually x-hidden causes block
+                // Actually, cleaning up 'overflow' shorthand might be safer, but specifically we want to kill the 'hidden' effect
+
+                // We keep a reference to clean up
+                const target = ancestor;
+                return () => {
+                    target.style.removeProperty('overflow-x');
+                    target.style.removeProperty('overflow-y');
+                };
+            }
+            ancestor = ancestor.parentElement;
+        }
+    }, []);
+
     return (
         // <OrderProvider>
         <div className='font-alexandria'>
-            <div className='w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center' style={{ boxShadow: "0px 4px 4px #0000001F" }} >
+            <div ref={headerRef} className='w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}> Orders
                     {currentUser ? ` › ${currentUser.id} ${`(${currentUser?.property?.address})`}` : ' › Add New Order'}</p>
                 <div className='flex gap-2'>
@@ -278,52 +339,52 @@ const OrderForm = () => {
                         </Button>
                     ) : (
                         <Button
-                            //disabled={isLoading}
+                            disabled={isLoading}
                             onClick={async (e) => {
                                 await confirmationRef.current?.handleSubmitOrder(e);
                                 setIsSubmitted(true);
                             }}
-                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-white flex gap-[5px] items-center hover:bg-[#4290E9]`}
+                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-white flex gap-[5px] items-center justify-center hover:bg-[#4290E9]`}
                         >
-                            Submit
+                            {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Submit"}
                         </Button>
                     )}
                 </div>
 
 
             </div>
-            <div className='flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600]' >
+            <div className='flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600]' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }} >
                 <div className="flex gap-2">
                     <button
-                        //onClick={() => setActive("property")}
+                        onClick={() => handleTabClick("property")}
                         className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
           ${active === "property" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
                     >
                         PROPERTY
                     </button>
                     <button
-                        //onClick={() => setActive("services")}
+                        onClick={() => handleTabClick("services")}
                         className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
                 ${active === "services" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
                     >
                         SERVICES
                     </button>
                     <button
-                        //onClick={() => setActive("schedule")}
+                        onClick={() => handleTabClick("schedule")}
                         className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
           ${active === "schedule" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
                     >
                         SCHEDULE
                     </button>
                     <button
-                        //onClick={() => setActive("contact")}
+                        onClick={() => handleTabClick("contact")}
                         className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
           ${active === "contact" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
                     >
                         CONTACT
                     </button>
                     <button
-                        //onClick={() => setActive("order")}
+                        onClick={() => handleTabClick("order")}
                         className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[230px] h-[35px]
           ${active === "order" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
                     >
@@ -341,7 +402,7 @@ const OrderForm = () => {
                 )}
                 {active === "services" && (
                     <div>
-                        <Services />
+                        <Services showAll={false} />
                     </div>
                 )}
                 {active === "schedule" && (

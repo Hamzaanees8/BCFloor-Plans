@@ -17,9 +17,10 @@ interface PricingCardProps {
   selectedServices?: SelectedService[];
   service: Services;
   squareFootage: number
+  showAll?: boolean
 }
 
-export default function PricingCard({ title, pricingOptions, setSelectedServices, service, selectedServices, squareFootage }: PricingCardProps) {
+export default function PricingCard({ title, pricingOptions, setSelectedServices, service, selectedServices, squareFootage, showAll }: PricingCardProps) {
   const {
     selectedOptions,
     setSelectedOptions,
@@ -49,32 +50,36 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     return found?.amount ?? null;
   }, [selectedOptions, customPrices, pricingOptions, service.uuid]);
 
-  console.log('selected option', selectedOption);
-  console.log('pricingoption', pricingOptions)
 
-  useEffect(() => {
-    if (selectedOption === "custom") return;
+ useEffect(() => {
+  if (!pricingOptions || pricingOptions.length === 0) return;
+  if (selectedOption === "custom") return;
 
-    const FilteredOptions = pricingOptions?.filter((option) => {
+  let FilteredOptions = [];
+
+  if (showAll) {
+    FilteredOptions = pricingOptions;
+  } else {
+    FilteredOptions = pricingOptions.filter((option) => {
       if (!option?.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
       const [minStr, maxStr] = option.sq_ft_range.split("-").map(s => s.trim());
       const min = parseInt(minStr, 10);
       const max = parseInt(maxStr, 10);
       if (isNaN(min) || isNaN(max)) return false;
       return squareFootage >= min && squareFootage <= max;
-    }) ?? [];
+    });
+  }
 
-    const isValid = FilteredOptions.some(opt => opt.title === selectedOption);
+  const isValid = FilteredOptions.some(opt => opt.title === selectedOption);
 
-    if (!isValid && FilteredOptions.length > 0) {
-      const defaultVal = FilteredOptions[0].title ?? '';
-      setSelectedOptions(prev => ({
-        ...prev,
-        [service.uuid]: defaultVal,
-      }));
-    }
-  }, [pricingOptions, selectedOption, service.uuid, setSelectedOptions, selectedListingId, squareFootage]);
-
+  if (!isValid && FilteredOptions.length > 0) {
+    const defaultVal = FilteredOptions[0].title ?? '';
+    setSelectedOptions(prev => ({
+      ...prev,
+      [service.uuid]: defaultVal,
+    }));
+  }
+}, [pricingOptions, selectedOption, service.uuid, setSelectedOptions, selectedListingId, squareFootage, showAll]);
 
   const handleSelectService = (optionValue?: string, customVal?: string) => {
     const currentOption = optionValue ?? selectedOption;
@@ -101,19 +106,14 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
       setSelectedServices(prev => {
         const alreadySelected = prev.some(item => item.uuid === service.uuid);
         if (alreadySelected) {
-          // Only update price for the selected service
           return prev.map(item =>
             item.uuid === service.uuid ? { ...item, price, quantity, option_id, custom, optionName } : item
           );
         }
-        // If not already selected, do nothing
         return prev;
       });
     }
   };
-  console.log("seeeee", selectedPrice)
-  console.log('selectedService', selectedServices)
-  console.log('selected option', selectedOption)
   return (
     <Card
       className={`!w-[250px] h-fit ${isSelected ? "border-[#6BAE41]" : "border-[#BBBBBB]"
@@ -202,15 +202,20 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                   className="flex flex-col ">
                   <div className="flex flex-col items-center justify-between gap-[10px]">
                     {pricingOptions?.filter((option) => {
-                      if (!option.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
+                      if (showAll) {
+                        return true
+                      } else {
 
-                      const [minStr, maxStr] = option.sq_ft_range.split("-").map(s => s.trim());
-                      const min = parseInt(minStr, 10);
-                      const max = parseInt(maxStr, 10);
+                        if (!option.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
 
-                      if (isNaN(min) || isNaN(max)) return false;
+                        const [minStr, maxStr] = option.sq_ft_range.split("-").map(s => s.trim());
+                        const min = parseInt(minStr, 10);
+                        const max = parseInt(maxStr, 10);
 
-                      return squareFootage >= min && squareFootage <= max;
+                        if (isNaN(min) || isNaN(max)) return false;
+
+                        return squareFootage >= min && squareFootage <= max;
+                      }
                     }).map((option, idx) => (
                       <div key={idx} className="w-full flex items-center justify-between">
                         <RadioGroupItem

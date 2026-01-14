@@ -55,7 +55,7 @@ const ChangePasswordDialog: React.FC<Props> = ({
                 password_confirmation: confirmPassword,
             };
             if (type === "agents" && payload) {
-                await ResetPasswordAgent(payload, userId, token);
+                await ResetPasswordAgent(payload, userId);
                 toast.success('Password Changed successfully');
                 setConfirmPassword("");
                 setCurrentPassword("");
@@ -64,7 +64,7 @@ const ChangePasswordDialog: React.FC<Props> = ({
                 setOpen(false);
             }
             if (type === "vendor" && payload) {
-                await ResetPasswordVendor(payload, userId, token);
+                await ResetPasswordVendor(payload, userId);
                 toast.success('Password Changed successfully');
                 setConfirmPassword("");
                 setCurrentPassword("");
@@ -111,7 +111,7 @@ const ChangePasswordDialog: React.FC<Props> = ({
         }
 
     }
-    const {userType} = useAppContext(); 
+    const { userType } = useAppContext();
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
             <AlertDialogContent className="w-[320px] md:w-[416px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria">
@@ -133,7 +133,8 @@ const ChangePasswordDialog: React.FC<Props> = ({
                                     type={showCurrentPassword ? "text" : "password"}
                                     value={currentPassword}
                                     onChange={(e) => setCurrentPassword(e.target.value)}
-                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                 />
                                 <span
                                     className="absolute right-3 top-2.5 cursor-pointer"
@@ -151,7 +152,8 @@ const ChangePasswordDialog: React.FC<Props> = ({
                                     type={showNewPassword ? "text" : "password"}
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
-                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                 />
                                 <span
                                     className="absolute right-3 top-2.5 cursor-pointer"
@@ -169,7 +171,8 @@ const ChangePasswordDialog: React.FC<Props> = ({
                                     type={showConfirmPassword ? "text" : "password"}
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                 />
                                 <span
                                     className="absolute right-3 top-2.5 cursor-pointer"
@@ -183,14 +186,18 @@ const ChangePasswordDialog: React.FC<Props> = ({
                         <div className='flex items-center gap-[10px] col-span-2'>
                             <Input
                                 checked={isShowAgain}
-                                onChange={(e) => setIsShowAgain(e.target.checked)} type='checkbox' className='h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' />
+                                onChange={(e) => setIsShowAgain(e.target.checked)}
+                                type='checkbox'
+                                className='h-[20px] w-[20px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                            />
                             <p className='text-[16px] font-normal text-[#666666] mt-[12px]'>Do not show again</p>
                         </div>
                     </div>
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
                     <AlertDialogFooter className="flex flex-col md:flex-row md:justify-between gap-[5px]  mt-2 font-alexandria">
-                        <AlertDialogCancel 
-                        className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400] border ${userType}-border ${userType}-text hover-${userType}-bg ${userType}-button`}
+                        <AlertDialogCancel
+                            className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400] border ${userType}-border ${userType}-text hover-${userType}-bg ${userType}-button`}
                         >
                             Cancel
                         </AlertDialogCancel>

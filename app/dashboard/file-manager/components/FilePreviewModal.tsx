@@ -16,6 +16,7 @@ interface AddLevelDialogProps {
     files: File[];
     type: string;
     serviceUuid: string;
+    reviewFilesEnabled?: boolean;
 }
 
 const mediaOptions = [
@@ -37,6 +38,7 @@ export default function FilePreviewModal({
     setSelectedFiles,
     type,
     serviceUuid,
+    reviewFilesEnabled,
 }: AddLevelDialogProps) {
     const [localFiles, setLocalFiles] = useState<File[]>(files);
     const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
@@ -74,6 +76,7 @@ export default function FilePreviewModal({
                 group: selectedIndexes.includes(index) ? groupLabel : "",
                 upload: true,
                 service_id: serviceUuid,
+                is_admin_approved: userType === 'admin' ? true : (reviewFilesEnabled ? false : true),
             };
         });
 

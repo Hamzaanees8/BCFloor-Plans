@@ -13,6 +13,7 @@ import {
 import { CircleCheckBig, X } from "lucide-react"
 import { Button } from "./ui/button"
 import Link from "next/link"
+import { useAppContext } from "@/app/context/AppContext"
 
 type Props = {
     open: boolean
@@ -23,9 +24,13 @@ const SaveDialog: React.FC<Props> = ({
     open,
     setOpen,
 }) => {
+    const { userType } = useAppContext();
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent className="w-[320px] md:w-[416px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria">
+            <AlertDialogContent
+                className="w-[320px] md:w-[416px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria"
+                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+            >
                 <AlertDialogHeader>
                     <AlertDialogTitle className="flex items-center justify-between text-[#4290E9] text-[18px] font-[600]">
                         SAVING .....

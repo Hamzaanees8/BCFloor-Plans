@@ -41,7 +41,7 @@ function LoginUser() {
 
             console.log('Login successful:', response);
             toast.success('Login successfully')
-            router.push('/dashboard')
+            router.push('/dashboard/global-settings');
             localStorage.setItem('token', response.data.token);
             setIsLoading(false)
             setUserType(response.data.type === 'user' ? 'admin' : response.data.type)

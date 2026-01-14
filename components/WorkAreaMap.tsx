@@ -38,7 +38,7 @@ export default function WorkAreaMap({
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
 
 
-
+  const parsedCoord = JSON.parse(JSON.stringify(coords));
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_PLACES_API_KEY || "",
     libraries: ["drawing"],
@@ -128,7 +128,6 @@ export default function WorkAreaMap({
 
           setmap_coordinates(coords);
           setIsDirty(true);
-          console.log("Polygon completed. Coordinates saved:", coords);
 
           google.maps.event.addListener(polygonRef.current.getPath(), "set_at", () => {
             const updated = polygonRef.current!
@@ -178,7 +177,7 @@ export default function WorkAreaMap({
       coords.push({ ...coords[0] });
     }
     setmap_coordinates(coords)
-    console.log('coords', coords);
+
 
   };
 
@@ -188,7 +187,7 @@ export default function WorkAreaMap({
 
     try {
       const data = {
-        coordinates: coords
+        coordinates: parsedCoord
       };
 
       if (!data?.coordinates || data.coordinates.length === 0) {
@@ -214,10 +213,9 @@ export default function WorkAreaMap({
         map.setZoom(13);
       });
 
-      console.log(":white_check_mark: Polygon + pin loaded successfully");
     } catch (err) {
       console.error(":x: Error loading polygon:", err);
-      alert("Error loading polygon");
+      // alert("Error loading polygon");
     }
   };
 
@@ -246,7 +244,6 @@ export default function WorkAreaMap({
       drawingManagerRef.current.setMap(map);
     }
 
-    console.log("Fence reset (both in-progress and completed)");
   };
 
 

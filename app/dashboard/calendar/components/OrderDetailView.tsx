@@ -18,7 +18,6 @@ import { Agent } from "@/components/AgentTable";
 import { useOrderContext } from "../../orders/context/OrderContext";
 import { toast } from "sonner";
 import { EditOrder } from "../calendar";
-import { Services } from "../../services/page";
 import { GetServices } from "../../orders/orders";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import WarningIcon from "@/components/Icons";
@@ -48,6 +47,7 @@ export interface OrderPayload {
     co_agents?: CoAgent[];
     notes: AgentNote[];
     services: {
+        uuid?: string;
         service_id: string;
         option_id?: string;
         amount: number;
@@ -96,7 +96,6 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
     const { userType } = useAppContext();
     const [activeTab, setActiveTab] = useState<'appointment' | 'square_footage' | 'history'>('appointment');
     const [isEdit, setIsEdit] = useState(false);
-    const [servicesData, setServicesData] = useState<Services[]>([]);
     const [notes, setNotes] = useState<Notes[]>([]);
     const [coAgent, setCoAgent] = useState<CoAgent[]>([]);
     const [area, setArea] = useState<Area[]>([]);
@@ -132,13 +131,22 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
 
 
 
-    const { calendarServices, selectedSlots, OrderServices, setOrderServices, setSelectedSlots, setCalendarServices } = useOrderContext();
+    const {
+        calendarServices,
+        selectedSlots,
+        OrderServices,
+        setOrderServices,
+        setSelectedSlots,
+        setCalendarServices,
+        servicesData,
+        setServicesData
+    } = useOrderContext();
 
 
     useEffect(() => {
         const token = localStorage.getItem("token");
 
-        if (!token) {
+        if (!token || servicesData.length > 0) {
             return;
         }
 
@@ -147,7 +155,13 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                 setServicesData(data.data);
             })
             .catch((err) => console.log(err.message));
-    }, []);
+    }, [servicesData.length, setServicesData]);
+
+    useEffect(() => {
+        if (open && currentOrder) {
+            setOrderServices(currentOrder.services || []);
+        }
+    }, [open, currentOrder, setOrderServices]);
     const handleSubmitOrder = async (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault()
         const calendarServicesPayload = calendarServices
@@ -159,44 +173,40 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                 if (!matchedService) return null;
 
                 return {
+                    ...(service.uuid && { uuid: service.uuid }),
                     service_id: matchedService.uuid,
                     option_id: service.optionId,
                     amount: Number(service.price),
                 };
             })
-            .filter((s): s is { service_id: string; option_id: string; amount: number } => !!s); // filter nulls
+            .filter((s): s is { uuid?: string; service_id: string; option_id: string; amount: number } => !!s);
 
 
         const orderServicesPayload = [...(OrderServices || [])]
             .map(service => ({
+                ...(service.uuid && { uuid: service.uuid }),
                 service_id: service.service?.uuid as string,
                 option_id: service?.option?.uuid ?? undefined,
                 amount: Number(service?.amount) as number,
             }));
 
+        const calendarServiceUuids = calendarServices.map(s => {
+            const matchedService = servicesData.find(sd => sd.id === s.serviceId);
+            return matchedService?.uuid;
+        }).filter(Boolean);
+
+        const orderServiceUuids = OrderServices.map(s => s.service?.uuid).filter(Boolean);
+        const validServiceUuids = [...calendarServiceUuids, ...orderServiceUuids];
         const servicesPayload = [...orderServicesPayload, ...calendarServicesPayload]
 
-        const calendarServiceIds = calendarServices.map(s => s.serviceId?.toString());
-        const orderServiceIds = OrderServices.map(s =>
-            (s.service_id ?? s.service?.id)?.toString()
-        );
-
-        const validServiceIds = [...calendarServiceIds, ...orderServiceIds];
-
         const validSlots = selectedSlots?.filter(slot =>
-            validServiceIds.includes(String(slot.service_id))
+            validServiceUuids.includes(slot.service_id)
         );
-
 
         const slotsPayload = validSlots.map((slot) => {
-
-            const matchedService = servicesData?.find((service) => {
-
-                return service.id == Number(slot.service_id)
-            });
-
             return {
-                service_id: matchedService?.uuid ?? '',
+                ...(slot.uuid && { uuid: slot.uuid }),
+                service_id: slot.service_id,
                 vendor_id: slot.vendor && slot.vendor.uuid
                     ? slot.vendor.uuid
                     : slot.vendor_id || "",
@@ -307,21 +317,24 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                             <Button
                                 variant={activeTab === 'appointment' ? 'default' : 'outline'}
                                 onClick={() => setActiveTab('appointment')}
-                                className={`${activeTab === 'appointment' ? `${userType}-bg text-white` : 'bg-[#E4E4E4]'} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
+                                className={`${activeTab === 'appointment' ? `${userType}-bg text-white` : ''} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
+                                style={{ backgroundColor: activeTab !== 'appointment' ? `var(--${userType}-page-bg, #E4E4E4)` : undefined }}
                             >
                                 Appointment
                             </Button>
                             <Button
                                 variant={activeTab === 'square_footage' ? 'default' : 'outline'}
                                 onClick={() => setActiveTab('square_footage')}
-                                className={`${activeTab === 'square_footage' ? `${userType}-bg text-white` : 'bg-[#E4E4E4]'} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
+                                className={`${activeTab === 'square_footage' ? `${userType}-bg text-white` : ''} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
+                                style={{ backgroundColor: activeTab !== 'square_footage' ? `var(--${userType}-page-bg, #E4E4E4)` : undefined }}
                             >
                                 Square Footage
                             </Button>
                             <Button
                                 variant={activeTab === 'history' ? 'default' : 'outline'}
                                 onClick={() => setActiveTab('history')}
-                                className={`${activeTab === 'history' ? `${userType}-bg text-white` : 'bg-[#E4E4E4]'} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
+                                className={`${activeTab === 'history' ? `${userType}-bg text-white` : ''} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
+                                style={{ backgroundColor: activeTab !== 'history' ? `var(--${userType}-page-bg, #E4E4E4)` : undefined }}
 
                             >
                                 History

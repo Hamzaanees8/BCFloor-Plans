@@ -1,5 +1,4 @@
-"use client";
-import QuickViewCard, { AgentData, VendorData } from '@/components/QuickViewCard';
+'use client'
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -7,7 +6,13 @@ import OrderTable from './components/OrdersTable';
 import { Delete, Get } from './orders';
 import { Address } from '@/components/VendorTable';
 import { useOrderContext } from './context/OrderContext';
+import { useWhiteLabel } from '@/app/context/Whitelabel';
 import { useAppContext } from '@/app/context/AppContext';
+import { useSearchParams } from 'next/navigation';
+import { usePermissions } from '@/app/hooks/usePermissions';
+import { PERMISSIONS } from '@/lib/permissions';
+import QuickViewCard, { VendorData } from '@/components/QuickViewCard';
+import { AgentData } from '../agents/page';
 export type Order = {
     id: number;
     uuid: string;
@@ -51,6 +56,7 @@ export type Order = {
         date: Date;
     }[];
     co_agents: CoAgent[];
+    vendor?: Vendor;
     areas: {
         footage: number;
         type: string;
@@ -177,6 +183,8 @@ export type OrderService = {
     optionName: string;
     service_id: number;
     uuid: string;
+    payment_status?: string;
+    is_completed?: boolean | number;
     option: {
         id: number;
         uuid: string;
@@ -250,7 +258,10 @@ type Property = {
 
 const Page = () => {
     const { userType } = useAppContext()
-    const [showForm, setShowForm] = useState(false)
+    const { appliedSettings } = useWhiteLabel();
+    const role = (userType as string) || 'admin';
+    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+
     const [showCard, setShowCard] = React.useState(false);
     const [type, setType] = React.useState('');
     const [showHeader, setShowHeader] = useState(true)
@@ -261,6 +272,11 @@ const Page = () => {
 
     const [selectedData, setSelectedData] = useState<VendorData | null>(null);
     const [selectedData1, setSelectedData1] = useState<AgentData | null>(null);
+    const [search, setSearch] = useState<string>('');
+    const searchParams = useSearchParams();
+    const agentIdFromUrl = searchParams.get('agentId'); // Get agentId from query params
+    const agentName = searchParams.get('agentName'); // Get agentId from query params
+    const { hasPermission } = usePermissions();
 
     const {
         setSelectedAgentId,
@@ -296,11 +312,9 @@ const Page = () => {
         setSelectedOptions({});
         setTotal(0);
         setShowHeader(false);
-        setShowForm(true);
         setIsSubmitted(false);
         setIsLoading(false);
     };
-    console.log(showForm);
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -348,20 +362,60 @@ const Page = () => {
             }
         }
     };
-    const length = orderData.length;
-    console.log("subaccount data", orderData)
+
+    const filteredOrderData = orderData.filter(order => {
+        const property_address = order.property_address + ' ' + order.property_location;
+        const agentName = order.agent?.first_name + ' ' + order.agent?.last_name;
+        const orderId = order.id.toString();
+        return property_address.toLowerCase().includes(search.toLowerCase()) ||
+            agentName.toLowerCase().includes(search.toLowerCase()) ||
+            orderId.includes(search)
+    }
+    ).filter(order => {
+        if (agentIdFromUrl) {
+            return order.agent.uuid === agentIdFromUrl;
+        } else {
+            return true;
+        }
+    });
+
+    const length = filteredOrderData.length;
+
+    // Check if user can create orders
+    const canCreateOrder = userType !== 'vendor' && (userType !== 'admin' || hasPermission(PERMISSIONS.CREATE_ORDERS));
+
     return (
         <div>
 
-            <div className='w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center' style={{ boxShadow: "0px 4px 4px #0000001F" }} >
-                <p className={`text-[16px] md:text-[24px] font-[400] ${userType}-text`}>Orders ({length})</p>
-                {userType !== 'vendor' &&
-                    <Link href={'/dashboard/orders/create'} onClick={handleClick} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px]  justify-center rounded-[6px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>+ New Order</Link>}
-            </div>
+            <div className='w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center' style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }} >
+                <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>{agentName} {agentName && '›'} Orders ({length})</p>
+
+                <div className='flex justify-end items-center gap-2'>
+                    <div className='w-[300px]'>
+                        <input
+                            type="text"
+                            placeholder="Search address..."
+                            value={search || ''}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-0"
+                        />
+                    </div>
+
+                    {canCreateOrder &&
+                        <Link
+                            href={'/dashboard/orders/create'}
+                            onClick={handleClick}
+                            className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] justify-center rounded-[6px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:brightness-110'
+                            style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+                        >
+                            + New Order
+                        </Link>}
+
+                </div>    </div>
 
             <div className="w-full">
                 <OrderTable
-                    OrderData={orderData}
+                    OrderData={filteredOrderData}
                     showHeader={showHeader}
                     setShowHeader={setShowHeader}
                     onQuickView={(selectedType, data) => {

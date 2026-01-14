@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { X } from "lucide-react"
 import WarningIcon from "./Icons"
+import { useAppContext } from "@/app/context/AppContext"
 
 type Props = {
     open: boolean
@@ -26,9 +27,13 @@ const CloseDialog: React.FC<Props> = ({
     setOpen,
     onConfirm,
 }) => {
+    const { userType } = useAppContext();
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent className="w-[320px] md:w-[563px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria">
+            <AlertDialogContent
+                className="w-[320px] md:w-[563px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria"
+                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+            >
                 <AlertDialogHeader className="mb-2">
                     <AlertDialogTitle className="flex items-center justify-between text-[#4290E9] text-[18px] font-[600] border-b-[1px] border-[#E4E4E4]">
                         CONFIRM CLOSING YOUR ACCOUNT

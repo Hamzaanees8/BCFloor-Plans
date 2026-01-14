@@ -2,16 +2,17 @@
 import { AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { AlertDialog } from '@radix-ui/react-alert-dialog';
 import { Eye, Minus, Plus, EyeOff, X, Trash, Edit2Icon } from 'lucide-react';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { AgentNote, useOrderContext } from '../context/OrderContext';
-import { Get } from '../../agents/agents';
-import { Agent } from '@/components/AgentTable';
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowDown, ArrowUp, DropDownArrow } from '@/components/Icons';
 import { GetUser } from '../orders';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useAppContext } from '@/app/context/AppContext';
+import { Button } from '@/components/ui/button';
+import { RealtorSignInModal } from '@/app/agent/book-now/components/RealtorLogin';
 
 const Contact = () => {
     const {
@@ -24,13 +25,14 @@ const Contact = () => {
         isSplitInvoice,
         setIsSplitInvoice,
         internal,
-        setInternal
+        setInternal,
+        agentsData
     } = useOrderContext();
     const { userType } = useAppContext()
-    const [agentData, setAgentData] = useState<Agent[]>([]);
+
     const selectedAgent = useMemo(() => {
-        return agentData.find((agent) => agent.uuid === selectedAgentId) || null;
-    }, [agentData, selectedAgentId]);
+        return agentsData.find((agent) => agent.uuid === selectedAgentId) || null;
+    }, [agentsData, selectedAgentId]);
     const [draftCoAgents, setDraftCoAgents] = useState<typeof coAgents>([]);
     const [percentage, setPercentage] = useState<number | ''>('');
     const [activeTab, setActiveTab] = useState("appointment");
@@ -43,6 +45,11 @@ const Contact = () => {
     const [openAddNotesDialog, setOpenAddNotesDialog] = useState(false);
     const [editingNote, setEditingNote] = useState<AgentNote | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+    const [showSignIn, setShowSignIn] = useState(false);
+
+
+    const token = localStorage.getItem('token')
+
     const removeAdmin = () => setAdminEmail("");
     const handleAdd = () => {
         const email = coAgentEmail.trim();
@@ -73,7 +80,6 @@ const Contact = () => {
         setPercentage('');
     };
 
-    console.log('agentNotes', agentNotes);
 
 
     const handleRemove = (index: number) => {
@@ -143,35 +149,35 @@ const Contact = () => {
     }, []);
 
 
-    const fetchAgents = useCallback(() => {
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-            console.log("Token not found.");
-            return;
-        }
-
-        Get(token)
-            .then((data) => setAgentData(Array.isArray(data.data) ? data.data : []))
-            .catch((err) => console.log("Error fetching data:", err.message));
-    }, []);
 
     useEffect(() => {
-        fetchAgents();
-    }, [fetchAgents]);
-    // useEffect(() => {
-    //     if (selectedAgent) {
-    //         if (Array.isArray(selectedAgent.co_agents)) {
-    //             setCoAgents(selectedAgent.co_agents);
-    //         } else {
-    //             setCoAgents([]);
-    //         }
-    //         setAgentNotes(selectedAgent.notes ?? "");
-    //     } else {
-    //         setCoAgents([]);
-    //         setAgentNotes("");
-    //     }
-    // }, [selectedAgent, setAgentNotes, setCoAgents]);
+        if (selectedAgent) {
+            setCoAgents(selectedAgent.co_agents || []);
+
+            // Check if agent has notes and if they haven't been added yet (simple duplicate check)
+            if (selectedAgent.notes) {
+                setAgentNotes(prev => {
+                    const noteExists = prev.some(n => n.note === selectedAgent.notes);
+                    if (!noteExists) {
+                        return [
+                            ...prev,
+                            {
+                                note: selectedAgent.notes,
+                                name: `${selectedAgent.first_name} ${selectedAgent.last_name}`,
+                                date: new Date(),
+                                internal: "false" // Or based on requirements
+                            }
+                        ];
+                    }
+                    return prev;
+                });
+            }
+        } else {
+            setCoAgents([]);
+            // Optional: Clear notes when agent is deselected?
+            // setAgentNotes([]); 
+        }
+    }, [selectedAgent, setAgentNotes, setCoAgents]);
     const filteredNotes = useMemo(() => {
 
         const filtered = agentNotes.filter(note => {
@@ -247,6 +253,15 @@ const Contact = () => {
             <div className="grid gap-4">
                 <div className='w-full flex flex-col items-center'>
                     <div className='w-full md:w-[410px] pt-[32px] pb-[100px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                        <div>
+                            {!token &&
+                                <Button
+                                    onClick={() => setShowSignIn(true)}
+                                    className='bg-[#4290E9] w-[180px] h-[35px] rounded-[6px] hover:bg-[#509ffa]'>
+                                    Login
+                                </Button>
+                            }
+                        </div>
                         <div className='grid grid-cols-2 gap-[32px]'>
                             {openDropdown && (
                                 <div className='col-span-2'>
@@ -264,7 +279,7 @@ const Contact = () => {
                                         </SelectTrigger>
 
                                         <SelectContent>
-                                            {agentData.map((agent) => (
+                                            {agentsData.map((agent) => (
                                                 <SelectItem key={agent.uuid ?? ''} value={agent.uuid ?? ''}>
                                                     {agent.first_name} {agent.last_name} – {agent.company_name}
                                                 </SelectItem>
@@ -303,24 +318,26 @@ const Contact = () => {
                             )
 
                             }
-                            <div className='col-span-2 flex items-center justify-between'>
-                                <label className='flex items-center gap-x-[10px] cursor-pointer'>
-                                    <input
-                                        type="checkbox"
-                                        checked={isSplitInvoice}
-                                        onChange={(e) => {
-                                            setIsSplitInvoice(e.target.checked);
-                                            setDraftCoAgents([]);
-                                            setCoAgents([]);
-                                        }}
+                            {token != null &&
+                                <div className='col-span-2 flex items-center justify-between'>
+                                    <label className='flex items-center gap-x-[10px] cursor-pointer'>
+                                        <input
+                                            type="checkbox"
+                                            checked={isSplitInvoice}
+                                            onChange={(e) => {
+                                                setIsSplitInvoice(e.target.checked);
+                                                setDraftCoAgents([]);
+                                                setCoAgents([]);
+                                            }}
 
-                                        className={`w-[18px] h-[18px] ${userType === 'admin' ? 'accent-[#4290E9]' : 'accent-[#6BAE41]'}  rounded-sm border border-[#CCCCCC]`}
-                                    />
-                                    <span className='text-base font-semibold font-raleway text-[#666666]'>
-                                        Split Invoice
-                                    </span>
-                                </label>
-                            </div>
+                                            className={`w-[18px] h-[18px] ${userType === 'admin' ? 'accent-[#4290E9]' : 'accent-[#6BAE41]'}  rounded-sm border border-[#CCCCCC]`}
+                                        />
+                                        <span className='text-base font-semibold font-raleway text-[#666666]'>
+                                            Split Invoice
+                                        </span>
+                                    </label>
+                                </div>
+                            }
                             <div className="col-span-2">
                                 <div className='flex items-center justify-between'>
                                     <p >Co Agents</p>
@@ -590,25 +607,28 @@ const Contact = () => {
                                                                     className="w-full h-[42px] p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] text-[#666666] font-medium"
                                                                     value={userName}
                                                                 />
-                                                                {isEditing ? (
-                                                                    editingNote?.internal === "true" ? (
-                                                                        <p className="text-[#7D7D7D] text-[16px]">
-                                                                            This note is for Internal Use only. Agent will not be able to see or access Note.
-                                                                        </p>
-                                                                    ) : (
-                                                                        <p className="text-[#E06D5E] text-[16px]">
-                                                                            These notes will be viewable by AGENT.
-                                                                        </p>
-                                                                    )
-                                                                ) : activeTab === "appointment" ? (
-                                                                    <p className="text-[#E06D5E] text-[16px]">
-                                                                        These notes will be viewable by AGENT.
-                                                                    </p>
-                                                                ) : (
-                                                                    <p className="text-[#7D7D7D] text-[16px]">
-                                                                        This note is for Internal Use only. Agent will not be able to see or access Note.
-                                                                    </p>
-                                                                )}
+                                                                {token && userType !== 'agent' &&
+                                                                    (
+                                                                        isEditing ? (
+                                                                            editingNote?.internal === "true" ? (
+                                                                                <p className="text-[#7D7D7D] text-[16px]">
+                                                                                    This note is for Internal Use only. Agent will not be able to see or access Note.
+                                                                                </p>
+                                                                            ) : (
+                                                                                <p className="text-[#E06D5E] text-[16px]">
+                                                                                    These notes will be viewable by AGENT.
+                                                                                </p>
+                                                                            )
+                                                                        ) : activeTab === "appointment" ? (
+                                                                            <p className="text-[#E06D5E] text-[16px]">
+                                                                                These notes will be viewable by AGENT.
+                                                                            </p>
+                                                                        ) : (
+                                                                            <p className="text-[#7D7D7D] text-[16px]">
+                                                                                This note is for Internal Use only. Agent will not be able to see or access Note.
+                                                                            </p>
+                                                                        ))
+                                                                }
                                                                 <textarea
                                                                     className="h-[180px] w-full p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] text-[#666666]"
                                                                     value={tempNotes}
@@ -647,7 +667,7 @@ const Contact = () => {
                                                 setInternal(false);
                                             }}
                                             className={`px-5 py-1 text-[13px] rounded-[6px] font-bold rounded-l-md transition-colors duration-200 h-[30px]
-  ${activeTab === "appointment" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
+                                            ${activeTab === "appointment" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
                                         >
 
                                             Appointment Notes
@@ -658,7 +678,7 @@ const Contact = () => {
                                                 setInternal(true);
                                             }}
                                             className={`px-5 py-1 text-[13px] rounded-[6px] font-bold rounded-l-md transition-colors duration-200 h-[30px]
-  ${activeTab === "agent" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
+                                            ${activeTab === "agent" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
                                         >
 
                                             Notes on Agent
@@ -717,6 +737,7 @@ const Contact = () => {
                     </div>
                 </div >
             </div >
+            <RealtorSignInModal open={showSignIn} setOpen={setShowSignIn} />
         </div >
     )
 }

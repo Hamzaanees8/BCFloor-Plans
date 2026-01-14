@@ -2,50 +2,84 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import ScrollToTop from "@/components/ScrollToTop";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { usePathname, useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import React, { useEffect, useState, Suspense } from "react";
 import { OrderProvider } from "./orders/context/OrderContext";
 import ProtectedAdminRoute from "@/components/ProtectedAdminRoute";
 import { UnsavedProvider } from "../context/UnsavedContext";
+import { WhiteLabelProvider, useWhiteLabel } from "../context/Whitelabel";
+import { useAppContext } from "@/app/context/AppContext";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-    const router = useRouter();
+const DashboardLayoutContentInternal = ({ children }: { children: React.ReactNode }) => {
+    const { userType } = useAppContext();
+    const { appliedSettings } = useWhiteLabel();
+    const role = (userType as string) || 'admin';
+    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+
     const pathname = usePathname();
-    const [isCheckingAuth, setIsCheckingAuth] = useState(true); // Block rendering initially
-    //const hideSidebarRoutes = ["/dashboard/file-manager"];
-    const shouldHideSidebar = pathname.includes("/file-manager");
+    const searchParams = useSearchParams();
+
+    const shouldHideSidebar = (() => {
+        const isFileManagerRoute = pathname.includes("/file-manager");
+        if (!isFileManagerRoute) return false;
+        const isListing = searchParams.get('listingId');
+        return !isListing;
+    })();
+
+    return (
+        <SidebarProvider>
+            {!shouldHideSidebar && <AppSidebar variant="inset" />}
+            <SidebarInset
+                className="flex-1 font-alexandria m-0"
+                style={{ backgroundColor: roleSettings.pageBg }}
+            >
+                <ProtectedAdminRoute>
+                    {children}
+                </ProtectedAdminRoute>
+                <ScrollToTop />
+            </SidebarInset>
+        </SidebarProvider>
+    );
+};
+
+function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
+    const router = useRouter();
+    const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
     useEffect(() => {
         const token = localStorage.getItem("token");
-
         if (!token) {
-            router.replace("/login"); // Prevent back button showing /dashboard
+            router.replace("/login");
         } else {
-            setIsCheckingAuth(false); // Allow rendering
+            setIsCheckingAuth(false);
         }
     }, [router]);
 
-    // Show nothing (or a loader) while checking
     if (isCheckingAuth) {
-        return null; // or return <LoadingSpinner />
+        return null;
     }
 
     return (
         <div className="flex min-h-screen w-full">
-            <UnsavedProvider>
-                <OrderProvider>
-                    <SidebarProvider>
-                        {!shouldHideSidebar && <AppSidebar variant="inset" />}
-                        <div className="flex-1 overflow-x-hidden font-alexandria">
-                            <SidebarInset />
-                            <ProtectedAdminRoute>
-                                {children}
-                            </ProtectedAdminRoute>
-                            <ScrollToTop />
-                        </div>
-                    </SidebarProvider>
-                </OrderProvider>
-            </UnsavedProvider>
+            <WhiteLabelProvider>
+                <UnsavedProvider>
+                    <OrderProvider>
+                        <DashboardLayoutContentInternal>
+                            {children}
+                        </DashboardLayoutContentInternal>
+                    </OrderProvider>
+                </UnsavedProvider>
+            </WhiteLabelProvider>
         </div>
+    );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <DashboardLayoutContent>
+                {children}
+            </DashboardLayoutContent>
+        </Suspense>
     );
 }

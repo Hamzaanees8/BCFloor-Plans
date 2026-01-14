@@ -12,6 +12,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
@@ -27,6 +28,7 @@ import { useRouter } from "next/navigation";
 import { UpdateStatus } from "@/app/dashboard/admin/admin";
 import { toast } from "sonner";
 import { AdminData } from "./QuickViewCard";
+import { Pagination } from "./TablePagination";
 
 export type Admin = {
   uuid?: string;
@@ -66,14 +68,13 @@ export default function AdminTable({ setAdminData, onQuickView, adminData, onDel
 
   const handleUpdateStatus = async (userId: string, status: boolean) => {
     try {
-      const token = localStorage.getItem('token') || '';
 
       const payload = {
         status: status,
         _method: 'PUT'
       };
 
-      const result = await UpdateStatus(userId, payload, token);
+      const result = await UpdateStatus(userId, payload);
       toast.success('User updated successfully');
       console.log('result', result);
 
@@ -269,9 +270,22 @@ export default function AdminTable({ setAdminData, onQuickView, adminData, onDel
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
+  const [pagination, setPagination] = React.useState({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+
   const table = useReactTable({
     data: adminData,
     columns,
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      rowSelection,
+      pagination, // Add this
+    },
+    onPaginationChange: setPagination, // Add this
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
@@ -280,13 +294,8 @@ export default function AdminTable({ setAdminData, onQuickView, adminData, onDel
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
-    state: {
-      sorting,
-      columnFilters,
-      columnVisibility,
-      rowSelection,
-    },
   });
+
   return (
     <div>
       <div className="w-full">
@@ -297,7 +306,7 @@ export default function AdminTable({ setAdminData, onQuickView, adminData, onDel
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => {
                     return (
-                      <TableHead key={header.id} className="text-sm text-[#666666] font-bold h-[54px] bg-[#E4E4E4]">
+                      <TableHead key={header.id} className="text-sm text-[#666666] font-bold h-[54px]" style={{ backgroundColor: `var(--admin-page-bg, #E4E4E4)` }}>
                         {header.isPlaceholder
                           ? null
                           : flexRender(
@@ -311,7 +320,18 @@ export default function AdminTable({ setAdminData, onQuickView, adminData, onDel
               ))}
             </TableHeader>
             <TableBody className="text-[15px] font-normal">
-              {table.getRowModel().rows?.length ? (
+              {loading ? (
+                // Skeleton Loading State
+                Array.from({ length: 5 }).map((_, index) => (
+                  <TableRow key={index} className="h-[54px] bg-white border-b border-[#E4E4E4]">
+                    {columns.map((_, colIndex) => (
+                      <TableCell key={colIndex}>
+                        <Skeleton className="h-4 w-[100px] bg-gray-200" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
                   <TableRow
                     key={row.id}
@@ -327,25 +347,36 @@ export default function AdminTable({ setAdminData, onQuickView, adminData, onDel
                     ))}
                   </TableRow>
                 ))
+              ) : error ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center text-red-500"
+                  >
+                    Failed to load admins.
+                  </TableCell>
+                </TableRow>
               ) : (
-                loading ? (
-                  <TableRow>
-                    <TableCell colSpan={columns.length} className="h-24 text-center">
-                      Loading Admins ...
-                    </TableCell>
-                  </TableRow>
-                ) : error ? (
-                  <TableRow>
-                    <TableCell colSpan={columns.length} className="h-24 text-center">
-                      No Admin Found.
-                    </TableCell>
-                  </TableRow>
-                ) : null
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    No Admins Available
+                  </TableCell>
+                </TableRow>
               )}
             </TableBody>
           </Table>
         </div>
+
       </div>
+      <Pagination<Admin>
+        table={table}
+        data={adminData}
+        dataName="Admins"
+        userType="admin"
+      />
     </div>
 
 

@@ -154,6 +154,7 @@
   pointer-events: none !important;
   text-align: center;
 }
+
 .slot-unavailable .fc-event-title {
   color: #bbbbbb !important;
 }
@@ -302,8 +303,10 @@
   text-transform: uppercase;
   word-spacing: 4px;
 }
+
 .sidebar-scroll::-webkit-scrollbar {
-  width: 6px; /* :point_left: Change this value for width */
+  width: 6px;
+  /* :point_left: Change this value for width */
 }
 
 .sidebar-scroll::-webkit-scrollbar-track {
@@ -317,7 +320,8 @@
 
 /* Firefox */
 .sidebar-scroll {
-  scrollbar-width: thick; /* Options: auto | thin | none */
+  scrollbar-width: thick;
+  /* Options: auto | thin | none */
   scrollbar-color: #7d7d7d #e4e4e4;
 }
 
@@ -326,10 +330,12 @@
   padding-top: 16px;
   padding-bottom: 16px;
 }
+
 .sun-editor .sun-editor-editable {
   min-height: 600px !important;
   background-color: #ffffff !important;
 }
+
 .se-btn-module,
 .se-btn-module-border {
   border: none !important;
@@ -337,13 +343,16 @@
   box-shadow: none !important;
   background-color: transparent !important;
 }
+
 .sun-editor .se-toolbar {
   background-color: #ffffff !important;
   outline: none !important;
 }
+
 .se-btn-tray {
   background-color: #ffffff !important;
 }
+
 .sun-editor-editable hr {
   border-color: #cccccc !important;
 }
@@ -358,94 +367,143 @@ input[type="date"]::-moz-calendar-picker-indicator {
   display: none;
 }
 
-.admin-bg { 
-  background-color: #4290E9;
+.admin-bg {
+  background-color: var(--admin-bg-color, #4290E9);
 }
-.hover-admin-bg:hover { 
-  background-color: #4290E9 !important;
+
+.hover-admin-bg:hover {
+  background-color: var(--admin-bg-color, #4290E9) !important;
 }
 
 .agent-bg {
-  background-color: #6BAE41;
+  background-color: var(--agent-bg-color, #6BAE41);
 }
+
 .hover-agent-bg:hover {
-  background-color: #6BAE41 !important;
+  background-color: var(--agent-bg-color, #6BAE41) !important;
 }
 
 .vendor-bg {
-  background-color: #DC9600;
+  background-color: var(--vendor-bg-color, #DC9600);
 }
+
 .hover-vendor-bg:hover {
-  background-color: #DC9600 !important;
+  background-color: var(--vendor-bg-color, #DC9600) !important;
 }
 
 
-.admin-text { 
-  color: #4290E9 !important;
+.admin-text {
+  color: var(--admin-text-color, #4290E9) !important;
 }
 
 .agent-text {
-  color: #6BAE41 !important;
+  color: var(--agent-text-color, #6BAE41) !important;
 }
 
 .vendor-text {
-  color: #DC9600 !important;
+  color: var(--vendor-text-color, #DC9600) !important;
 }
 
 .admin-border {
-  border: 1px solid #4290E9 !important;
+  border: 1px solid var(--admin-bg-color, #4290E9) !important;
 }
+
 .agent-border {
-  border: 1px solid #6BAE41 !important;
+  border: 1px solid var(--agent-bg-color, #6BAE41) !important;
 }
+
 .vendor-border {
-  border: 1px solid #DC9600 !important;
+  border: 1px solid var(--vendor-bg-color, #DC9600) !important;
 }
 
 .admin-accent {
-  accent-color: #4290E9 !important;
+  accent-color: var(--admin-bg-color, #4290E9) !important;
   color: #fff !important;
 }
+
 .agent-accent {
-  accent-color: #6BAE41 !important;
+  accent-color: var(--agent-bg-color, #6BAE41) !important;
   color: #fff !important;
 }
+
 .vendor-accent {
-  accent-color: #DC9600 !important;
+  accent-color: var(--vendor-bg-color, #DC9600) !important;
   color: #fff !important;
 }
 
-.admin-text-svg > svg {
-  color: #4290E9;
-}
-.agent-text-svg > svg {
-  color: #6bae41;
-}
-.vendor-text-svg > svg {
-  color: #DC9600;
+.admin-text-svg>svg {
+  color: var(--admin-text-color, #4290E9);
 }
 
-.admin-fill-svg > svg {
-  fill: #4290E9;
+.agent-text-svg>svg {
+  color: var(--agent-text-color, #6bae41);
 }
-.agent-fill-svg > svg {
-  fill: #6bae41;
+
+.vendor-text-svg>svg {
+  color: var(--vendor-text-color, #DC9600);
 }
-.vendor-fill-svg > svg {
-  fill: #DC9600;
+
+.admin-fill-svg>svg {
+  fill: var(--admin-bg-color, #4290E9);
+}
+
+.agent-fill-svg>svg {
+  fill: var(--agent-bg-color, #6bae41);
+}
+
+.vendor-fill-svg>svg {
+  fill: var(--vendor-bg-color, #DC9600);
+}
+
+/* White Label Hover Logic */
+.role-sidebar-item {
+  transition: all 0.2s ease;
+}
+
+.role-sidebar-item:hover {
+  background-color: var(--sidebar-hover-bg) !important;
+  color: var(--sidebar-hover-text) !important;
+}
+
+.role-sidebar-item:hover svg {
+  color: var(--sidebar-hover-text) !important;
 }
 
 .agent-button:hover {
-    color: #fff !important;
-}
-.vendor-button:hover {
-    color: #fff !important;
-}
-.admin-button:hover {
-    color: #fff !important;
+  color: #fff !important;
 }
 
-.agent-order-1,.vendor-order-1 {
+.vendor-button:hover {
+  color: #fff !important;
+}
+
+.admin-button:hover {
+  color: #fff !important;
+}
+
+.agent-order-1,
+.vendor-order-1 {
   order: -1;
 }
 
+
+.custom-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background-color: #c1c1c1;
+  border-radius: 10px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: #a8a8a8;
+}
+
+.custom-scroll::-webkit-scrollbar-button {
+  display: none;
+}

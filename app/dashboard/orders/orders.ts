@@ -14,6 +14,7 @@ export interface OrderPayload {
   }[];
   notes: AgentNote[];
   services: {
+    uuid?: string; // Order service UUID (for updates)
     service_id: string;
     option_id?: string;
     amount: number;
@@ -40,6 +41,15 @@ export interface OrderPayload {
     date: string;
   }[];
 }
+export interface EditOrderPayload {
+  order_status?: "Processing" | "Completed" | "Cancelled" | string;
+  payment_status?: "UNPAID" | "PAID" | string;
+  lock_materials?: boolean,
+  property_website?: string,
+  mls_property?: string,
+  vendor_uuid?: string,
+
+}
 type AgentNote = {
   note: string;
   name: string;
@@ -65,6 +75,46 @@ export interface ResetPassword {
   current_password: string;
 }
 function payloadToFormData(payload: OrderPayload): FormData {
+  const formData = new FormData();
+
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+
+    if (value instanceof File) {
+      formData.append(key, value);
+    } else if (Array.isArray(value)) {
+      value.forEach((item, index) => {
+        if (
+          key === "co_agents" ||
+          key === "services" ||
+          key === "discounts" ||
+          key === "notes" ||
+          key === "slots"
+        ) {
+          Object.entries(item).forEach(([subKey, subVal]) => {
+            if (subVal !== undefined && subVal !== null) {
+              formData.append(`${key}[${index}][${subKey}]`, String(subVal));
+            }
+          });
+        } else {
+          // ✅ Handles notes and any other string array like notes[0], notes[1]
+          formData.append(`${key}[${index}]`, String(item));
+        }
+      });
+    } else if (typeof value === "object") {
+      Object.entries(value).forEach(([subKey, subVal]) => {
+        if (subVal !== undefined && subVal !== null) {
+          formData.append(`${key}[${subKey}]`, String(subVal));
+        }
+      });
+    } else {
+      formData.append(key, String(value));
+    }
+  });
+
+  return formData;
+}
+function EditOrderPayloadToFormData(payload: EditOrderPayload): FormData {
   const formData = new FormData();
 
   Object.entries(payload).forEach(([key, value]) => {
@@ -135,6 +185,32 @@ export async function Edit(
 ) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const formData = payloadToFormData(payload);
+
+  const response = await fetch(`${API_URL}/orders/${orderId}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = new Error(data.message || "Request failed");
+    (error as FetchErrors).errors = data.errors;
+    throw error;
+  }
+
+  return data;
+}
+export async function EditOrderStatus(
+  orderId: string,
+  payload: EditOrderPayload,
+  token: string
+) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const formData = EditOrderPayloadToFormData(payload);
 
   const response = await fetch(`${API_URL}/orders/${orderId}`, {
     method: "POST",
@@ -280,7 +356,6 @@ export async function GetRole(token: string) {
     }
 
     const rolesData = await response.json();
-    console.log("rolesData", rolesData);
 
     return rolesData;
   } catch (error) {
@@ -476,7 +551,9 @@ export async function fetchTwilightTime(address: string, date: string): Promise<
     const twilightRes = await fetch(
       `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lng}&date=${date}&formatted=0`
     );
+
     const twilightData = await twilightRes.json();
+    console.log('twilightData', twilightData);
 
     if (twilightData.status !== "OK") throw new Error("Failed to fetch twilight data");
 
@@ -499,3 +576,265 @@ export async function fetchTwilightTime(address: string, date: string): Promise<
   }
 }
 
+// /utils/getPropertyTimezone.ts
+
+export interface Coordinate {
+  lat: number;
+  lng: number;
+}
+
+// orders.ts
+export interface PropertyLocation {
+  lat: number;
+  lng: number;
+  timeZoneId: string;
+  timeZoneName: string;
+}
+
+export async function getPropertyTimezone(address: string): Promise<PropertyLocation | null> {
+  try {
+    const API_KEY = process.env.NEXT_PUBLIC_PLACES_API_KEY;
+    if (!API_KEY) throw new Error('Google Maps API key is missing');
+
+    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+      address
+    )}&key=${API_KEY}`;
+
+    const geoRes = await fetch(geocodeUrl);
+    const geoData = await geoRes.json();
+
+    if (geoData.status !== 'OK' || !geoData.results?.length) {
+      console.error('Geocoding failed:', geoData.status, geoData.error_message);
+      return null;
+    }
+
+    const location = geoData.results[0].geometry.location;
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const timezoneUrl = `https://maps.googleapis.com/maps/api/timezone/json?location=${location.lat},${location.lng}&timestamp=${timestamp}&key=${API_KEY}`;
+
+    const tzRes = await fetch(timezoneUrl);
+    const tzData = await tzRes.json();
+
+    if (tzData.status !== 'OK') {
+      console.error('Timezone API failed:', tzData.status, tzData.errorMessage);
+      return null;
+    }
+
+    return {
+      lat: location.lat,
+      lng: location.lng,
+      timeZoneId: tzData.timeZoneId,
+      timeZoneName: tzData.timeZoneName,
+    };
+  } catch (err) {
+    console.error('Error fetching property timezone:', err);
+    return null;
+  }
+}
+
+/**
+ * Convert time from one timezone to UTC
+ * @param date - The date string (YYYY-MM-DD)
+ * @param time - The time string (HH:mm:ss or HH:mm)
+ * @param fromTimezone - Source timezone (e.g., "America/Edmonton")
+ * @returns ISO string in UTC
+ */
+export function convertTimeToUTC(date: string, time: string, fromTimezone: string): string {
+  // Ensure time has seconds
+  const timeParts = time.split(':');
+  const normalizedTime = timeParts.length === 2 ? `${time}:00` : time;
+
+  const [year, month, day] = date.split('-');
+  const [hour, minute, second] = normalizedTime.split(':');
+
+  // Create a string representation that would be interpreted as the source timezone
+  // We'll use a hack: create a date formatter for the source TZ and use it to understand the offset
+
+  // Step 1: Create a Date object for this exact moment in UTC (as a reference)
+  const utcReferenceDate = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), parseInt(second)));
+
+  // Step 2: Format this UTC reference date in the source timezone to see what time it shows there
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: fromTimezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+
+  const parts = formatter.formatToParts(utcReferenceDate);
+  const partsMap: Record<string, string> = {};
+  parts.forEach(part => {
+    if (part.type !== 'literal') {
+      partsMap[part.type] = part.value;
+    }
+  });
+
+  // Step 3: Calculate the difference between what we want and what we got
+  const displayedInTZ = new Date(
+    parseInt(partsMap.year),
+    parseInt(partsMap.month) - 1,
+    parseInt(partsMap.day),
+    parseInt(partsMap.hour),
+    parseInt(partsMap.minute),
+    parseInt(partsMap.second)
+  );
+
+  const desired = new Date(
+    parseInt(year),
+    parseInt(month) - 1,
+    parseInt(day),
+    parseInt(hour),
+    parseInt(minute),
+    parseInt(second)
+  );
+
+  const offset = desired.getTime() - displayedInTZ.getTime();
+
+  //Step 4: Apply the offset to get the correct UTC time
+  const correctUTC = new Date(utcReferenceDate.getTime() + offset);
+
+  return correctUTC.toISOString();
+}
+
+/**
+ * Convert UTC time to a specific timezone
+ * @param utcTime - ISO string in UTC
+ * @param toTimezone - Target timezone (e.g., "America/Los_Angeles")
+ * @returns Time string in format HH:mm:ss
+ */
+export function convertUTCToTimezone(utcTime: string, toTimezone: string): string {
+  const date = new Date(utcTime);
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: toTimezone,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+
+  return formatter.format(date);
+}
+
+/**
+ * Convert vendor work hours from vendor timezone to property timezone
+ * @param date - The date string (YYYY-MM-DD)
+ * @param workHours - Vendor's work hours object
+ * @param vendorTimezone - Vendor's timezone
+ * @param propertyTimezone - Property's timezone
+ * @returns Converted work hours with times in property timezone
+ */
+export function convertVendorWorkHoursToPropertyTimezone(
+  date: string,
+  workHours: {
+    start_time?: string;
+    end_time?: string;
+    break_start?: string;
+    break_end?: string;
+    work_days?: {
+      day: string;
+      start_time: string;
+      end_time: string;
+      is_off: string | number | boolean;
+      is_twilight: string | number | boolean;
+    }[];
+  },
+  vendorTimezone: string,
+  propertyTimezone: string
+): {
+  start_time?: string;
+  end_time?: string;
+  break_start?: string;
+  break_end?: string;
+  work_days?: {
+    day: string;
+    start_time: string;
+    end_time: string;
+    is_off: string | number | boolean;
+    is_twilight: string | number | boolean;
+  }[];
+} {
+  // If timezones are the same, no conversion needed
+  if (vendorTimezone === propertyTimezone) {
+    return workHours;
+  }
+
+  console.log('🔄 CONVERSION FUNCTION CALLED - NEW CODE VERSION!');
+  console.log('Input date:', date);
+  console.log('Vendor TZ:', vendorTimezone, 'Property TZ:', propertyTimezone);
+
+  const converted: typeof workHours = { ...workHours };
+
+  // Convert general start/end times if they exist
+  if (workHours.start_time) {
+    const utcTime = convertTimeToUTC(date, workHours.start_time, vendorTimezone);
+    converted.start_time = convertUTCToTimezone(utcTime, propertyTimezone);
+  }
+
+  if (workHours.end_time) {
+    const utcTime = convertTimeToUTC(date, workHours.end_time, vendorTimezone);
+    converted.end_time = convertUTCToTimezone(utcTime, propertyTimezone);
+  }
+
+  // Convert break times
+  if (workHours.break_start) {
+    const utcTime = convertTimeToUTC(date, workHours.break_start, vendorTimezone);
+    converted.break_start = convertUTCToTimezone(utcTime, propertyTimezone);
+  }
+
+  if (workHours.break_end) {
+    const utcTime = convertTimeToUTC(date, workHours.break_end, vendorTimezone);
+    converted.break_end = convertUTCToTimezone(utcTime, propertyTimezone);
+  }
+
+  // Convert work_days times
+  if (workHours.work_days && Array.isArray(workHours.work_days)) {
+    converted.work_days = workHours.work_days.map(day => {
+      // Check if this day is off (handle string "0", "1", number 0, 1, or boolean)
+      const isDayOff = day.is_off === '1' || day.is_off === 1 || day.is_off === true;
+      if (isDayOff) {
+        console.log(`Skipping ${day.day} - day is off`);
+        return day; // No need to convert times for off days
+      }
+
+      // Calculate the date for this specific day of the week
+      // We need to find the next occurrence of this day from the given date
+      const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+      const targetDayIndex = dayNames.indexOf(day.day.toLowerCase());
+      const currentDate = new Date(date);
+      const currentDayIndex = currentDate.getDay();
+
+      // Calculate days difference
+      let daysDiff = targetDayIndex - currentDayIndex;
+      if (daysDiff < 0) {
+        daysDiff += 7; // Move to next week if target day has passed
+      }
+
+      // Create the date for this specific day
+      const dayDate = new Date(currentDate);
+      dayDate.setDate(currentDate.getDate() + daysDiff);
+      const dayDateStr = dayDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+      console.log(`Converting ${day.day}: ${day.start_time}-${day.end_time} using date ${dayDateStr}`);
+      const startUtc = convertTimeToUTC(dayDateStr, day.start_time, vendorTimezone);
+      const endUtc = convertTimeToUTC(dayDateStr, day.end_time, vendorTimezone);
+
+      const convertedStartTime = convertUTCToTimezone(startUtc, propertyTimezone);
+      const convertedEndTime = convertUTCToTimezone(endUtc, propertyTimezone);
+      console.log(`  Original: ${day.start_time}-${day.end_time}, Converted: ${convertedStartTime}-${convertedEndTime}`);
+
+      return {
+        ...day,
+        start_time: convertedStartTime,
+        end_time: convertedEndTime,
+      };
+    });
+  }
+
+  return converted;
+}
