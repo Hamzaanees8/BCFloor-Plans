@@ -22,6 +22,12 @@ type Props = {
     setOpen: (open: boolean) => void;
     onSuccess: (agent: { name: string; email: string; primary_phone: string; split: string }) => void;
     uuid?: string;
+    agent?: {
+        name: string;
+        email: string;
+        primary_phone: string;
+        split: string;
+    } | null;
 }
 
 const AddCoAgentDialog: React.FC<Props> = ({
@@ -29,6 +35,7 @@ const AddCoAgentDialog: React.FC<Props> = ({
     setOpen,
     onSuccess,
     uuid,
+    agent,
 }) => {
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
     const [name, setName] = useState('');
@@ -40,6 +47,22 @@ const AddCoAgentDialog: React.FC<Props> = ({
         'Different Split for all parties',
         'Custom Split'
     ];
+
+    React.useEffect(() => {
+        if (open && agent) {
+            setName(agent.name || '');
+            setEmail(agent.email || '');
+            setPhoneNumber(agent.primary_phone || '');
+            setInvoice(agent.split || '');
+        } else if (open && !agent) {
+            // Reset fields when opening in "Add" mode
+            setName('');
+            setEmail('');
+            setPhoneNumber('');
+            setInvoice('');
+            setFieldErrors({});
+        }
+    }, [open, agent]);
 
     const handleAddAgent = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -53,8 +76,8 @@ const AddCoAgentDialog: React.FC<Props> = ({
                     onChange={(e) => e.stopPropagation()}>
                     <AlertDialogHeader>
                         <AlertDialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
-                            {uuid ? (
-                                <span>View Co-Agent</span>
+                            {uuid || agent ? (
+                                <span>Edit Co-Agent</span>
                             ) : (
                                 <span>Add/Invite Co-Agent</span>
                             )}
@@ -193,12 +216,12 @@ const AddCoAgentDialog: React.FC<Props> = ({
                                                 // Close the modal
                                                 setOpen(false);
                                             } else {
-                                                handleAddAgent(e); // for edit/view
+                                                handleAddAgent(e); // for legacy uuid edit case
                                             }
                                         }}
                                         className={`${userType}-bg text-white hover-${userType}-bg hover:opacity-85 w-full md:w-[176px] h-[44px] font-[400] text-[20px]`}
                                     >
-                                        {uuid ? 'Done' : 'Add'}
+                                        {uuid ? 'Done' : (agent ? 'Update' : 'Add')}
                                     </AlertDialogAction>
 
                                 </AlertDialogFooter>

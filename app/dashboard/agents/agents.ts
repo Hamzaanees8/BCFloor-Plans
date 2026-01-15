@@ -29,6 +29,16 @@ export interface AgentPayload {
     split?: string;
   }[];
   default_music?: string | null;
+  agent_discount?: {
+    uuid?: string;
+    name?: string;
+    description?: string;
+    expiry_date: string | null;
+    amount?: number;
+    is_percentage?: 1 | 0;
+    minimum_orders?: number;
+    minimum_spend?: number;
+  };
 }
 
 export interface FetchErrors {
@@ -59,49 +69,48 @@ export function payloadToFormData(payload: AgentPayload): FormData {
         formData.append(key, value);
       } else if (Array.isArray(value)) {
         if (key === 'co_agents') {
-          value.forEach((agent, index) => {
-            formData.append(`${key}[${index}][name]`, agent.name);
-            formData.append(`${key}[${index}][email]`, agent.email);
-            formData.append(`${key}[${index}][primary_phone]`, agent.primary_phone);
-          });
+          // For empty co_agents array, send an empty value
+          // Laravel will interpret this as an empty array
+          if (value.length === 0) {
+            // Send as empty array notation
+            formData.append('co_agents[]', ''); // This creates an empty array
+          } else {
+            value.forEach((agent, index) => {
+              formData.append(`${key}[${index}][name]`, agent.name || '');
+              formData.append(`${key}[${index}][email]`, agent.email || '');
+              formData.append(`${key}[${index}][primary_phone]`, agent.primary_phone || '');
+              if (agent.split) {
+                formData.append(`${key}[${index}][split]`, agent.split || '');
+              }
+            });
+          }
         } else {
           value.forEach(val => {
             formData.append(key + "[]", val);
           });
         }
       } else if (typeof value === "object") {
-        formData.append(key, JSON.stringify(value));
+        if (key === 'agent_discount') {
+          Object.entries(value).forEach(([subKey, subValue]) => {
+            if (subValue !== undefined && subValue !== null) {
+              let valueToAppend = subValue;
+              if (subKey === 'is_percentage' && typeof subValue === 'boolean') {
+                valueToAppend = subValue ? 1 : 0;
+              }
+              formData.append(`${key}[${subKey}]`, String(valueToAppend));
+            }
+          });
+        } else {
+          formData.append(key, JSON.stringify(value));
+        }
       } else {
-        formData.append(key, value);
+        formData.append(key, String(value));
       }
     }
   });
 
   return formData;
 }
-
-// function payloadToFormData(payload: AgentPayload): FormData {
-//   const formData = new FormData();
-
-//   Object.entries(payload).forEach(([key, value]) => {
-//     if (value !== undefined && value !== null) {
-//       if (value instanceof File) {
-//         formData.append(key, value);
-//       } else if (Array.isArray(value)) {
-//         value.forEach((val) => {
-//           formData.append(key + "[]", val);
-//         });
-//       } else if (typeof value === "object") {
-//         // serialize object values
-//         formData.append(key, JSON.stringify(value));
-//       } else {
-//         formData.append(key, value);
-//       }
-//     }
-//   });
-
-//   return formData;
-// }
 
 export async function CreateAgent(payload: AgentPayload) {
   const formData = payloadToFormData(payload);
@@ -159,6 +168,7 @@ export async function Get() {
 
 export interface UpdateStatusPayload {
   status?: boolean;
+  _method?: string;
 }
 
 export async function UpdateAgentStatus(

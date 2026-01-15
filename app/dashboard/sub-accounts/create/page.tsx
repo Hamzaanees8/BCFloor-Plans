@@ -142,7 +142,7 @@ const OrdersForm = () => {
             .then(data => {
                 if (Array.isArray(data.data)) {
                     const filtered = data.data.filter((role: { name: string }) =>
-                        role.name === 'Co Agent' || role.name === 'Assistant'
+                        role.name.toLowerCase() === 'co agent' || role.name.toLowerCase() === 'assistant' || role.name.toLowerCase() === 'admin'
                     );
                     setRoles(filtered);
                 } else {
@@ -298,9 +298,47 @@ const OrdersForm = () => {
         }
 
         GetPermissions(token)
-            .then(data => setPermissions(Array.isArray(data.data) ? data.data : []))
+            .then(data => {
+                const allowedPermissions = [
+                    "create orders",
+                    "edit orders",
+                    "view all orders",
+                    "view only orders for co-agent",
+                    "receive notifications",
+                    "access billing",
+                    "create sub-accounts",
+                ];
+                setPermissions(Array.isArray(data.data) ? data.data.filter((p: { name: string }) => allowedPermissions.includes(p.name.toLowerCase())) : [])
+            })
             .catch(err => console.log(err.message));
     }, []);
+    useEffect(() => {
+        if (!role || !permissions.length) return;
+
+        const selectedRole = roles.find((r) => String(r.id) === role);
+        if (!selectedRole) return;
+
+        const roleName = selectedRole.name.toLowerCase();
+
+        let newPermissions: number[] = [];
+
+        if (roleName === 'admin') {
+            newPermissions = permissions.map((p) => Number(p.id));
+        } else if (roleName === 'co agent') {
+            const allowed = ['create orders', 'edit orders', 'view only orders for co-agent'];
+            newPermissions = permissions
+                .filter((p) => allowed.includes(p.name.toLowerCase()))
+                .map((p) => Number(p.id));
+        } else if (roleName === 'assistant') {
+            const allowed = ['create orders', 'edit orders', 'view all orders'];
+            newPermissions = permissions
+                .filter((p) => allowed.includes(p.name.toLowerCase()))
+                .map((p) => Number(p.id));
+        }
+
+        setSelectedPermissions(newPermissions);
+
+    }, [role, permissions, roles]);
 
     const validateForm = () => {
         const errors: Record<string, string[]> = {};
@@ -481,9 +519,11 @@ const OrdersForm = () => {
 
                 setFieldErrors(normalizedErrors);
 
-                // const firstError = Object.values(normalizedErrors).flat()[0];
-                // toast.error(firstError || 'Validation error');
-                toast.error('Validation error kindly re-check your form');
+                if (normalizedErrors.primary_email && normalizedErrors.primary_email.some(msg => msg.toLowerCase().includes('already been taken'))) {
+                    toast.error('Email is already connected as a co-agent. Either deactivate that account or create a new one using a different email address.');
+                } else {
+                    toast.error('Validation error kindly re-check your form');
+                }
             } else if (error instanceof Error) {
                 toast.error(error.message);
             } else {
@@ -593,35 +633,6 @@ const OrdersForm = () => {
                                                     {fieldErrors.agent_id && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.agent_id[0]}</p>}
                                                 </div>
                                             }
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Role <span className="text-red-500">*</span></label>
-                                                <Select
-                                                    value={String(role)}
-                                                    onValueChange={(val) => {
-                                                        setRole(val);
-                                                        if (fieldErrors.role_id) {
-                                                            setFieldErrors(prev => {
-                                                                const newErrors = { ...prev };
-                                                                delete newErrors.role_id;
-                                                                return newErrors;
-                                                            });
-                                                        }
-                                                    }}
-                                                >
-                                                    <SelectTrigger className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.role_id ? 'border-red-500' : ''}`}>
-                                                        <SelectValue placeholder="Select a role" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {roles?.map((role) => (
-                                                            <SelectItem key={role.id} value={String(role.id)}>
-                                                                {role.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-
-                                                {fieldErrors.role_id && <p className='text-red-500 text-[10px]'>{fieldErrors.role_id[0]}</p>}
-                                            </div>
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Email <span className="text-red-500">*</span></label>
                                                 <Input value={email}
@@ -806,6 +817,35 @@ const OrdersForm = () => {
                             >PERMISSION ACCESS</AccordionTrigger>
                             <AccordionContent className="grid gap-4">
                                 <div className='w-full flex flex-col items-center'>
+                                    <div className='flex flex-col w-full md:w-[410px] mt-[20px] px-[10px] md:px-0'>
+                                        <label htmlFor="">Role <span className="text-red-500">*</span></label>
+                                        <Select
+                                            value={String(role)}
+                                            onValueChange={(val) => {
+                                                setRole(val);
+                                                if (fieldErrors.role_id) {
+                                                    setFieldErrors(prev => {
+                                                        const newErrors = { ...prev };
+                                                        delete newErrors.role_id;
+                                                        return newErrors;
+                                                    });
+                                                }
+                                            }}
+                                        >
+                                            <SelectTrigger className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.role_id ? 'border-red-500' : ''}`}>
+                                                <SelectValue placeholder="Select a role" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {roles?.map((role) => (
+                                                    <SelectItem key={role.id} value={String(role.id)}>
+                                                        {role.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+
+                                        {fieldErrors.role_id && <p className='text-red-500 text-[10px]'>{fieldErrors.role_id[0]}</p>}
+                                    </div>
                                     <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
                                         {permissions?.map((permission) => (
                                             <div key={permission.id} className="flex items-center justify-between">

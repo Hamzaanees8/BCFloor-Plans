@@ -253,8 +253,17 @@ const GlobalSettings = () => {
     const [openChangePasswordDialog, setOpenChangePasswordDialog] = useState(false);
     const [openAddAgentDialog, setOpenAddAgentDialog] = useState(false);
     const [coAgents, setCoAgents] = useState<{ name: string; email: string; primary_phone: string; split: string }[]>([]);
-    const [agentdiscounts, setAgentDiscounts] = useState<{ id: number; discount_code: string; expiry_date: string; description: string }[]
-    >([]);
+    const [agentdiscounts, setAgentDiscounts] = useState<{
+        id: number;
+        discount_code?: string;
+        expiry_date: string | null;
+        description?: string;
+        name?: string;
+        amount?: number;
+        is_percentage?: 1 | 0;
+        minimum_orders?: number;
+        minimum_spend?: number;
+    }[]>([]);
     const [quickBookStatus, setQuickBookStatus] = useState(false);
 
     const [openDiscount, setOpenDiscount] = useState(false);
@@ -587,7 +596,6 @@ const GlobalSettings = () => {
                 }
             }
         } catch (error) {
-            console.log('Raw error:', error);
 
             setFieldErrors({});
             const apiError = error as { message?: string; errors?: Record<string, string[]> };
@@ -783,9 +791,14 @@ const GlobalSettings = () => {
     const [activeTab, setActiveTab] = useState('Profile Settings');
 
     const addDiscount = (discount: {
-        discount_code: string;
-        expiry_date: string;
-        description: string;
+        discount_code?: string;
+        expiry_date: string | null;
+        description?: string;
+        name?: string;
+        amount?: number;
+        is_percentage?: 1 | 0;
+        minimum_orders?: number;
+        minimum_spend?: number;
     }) => {
         const nextId = discounts.length > 0 ? discounts[discounts.length - 1].id + 1 : 1;
 
@@ -1855,9 +1868,9 @@ const GlobalSettings = () => {
                                                     <div key={discount.id} className='flex flex-col gap-y-3 mt-2'>
                                                         <div className="flex justify-between items-center w-full text-[16px] font-normal text-[#666666]">
                                                             <div className='basis-[80%] flex items-center justify-between w-full gap-x-2.5'>
-                                                                <p className="text-[#4290E9]">{capitalizeFirst(discount.discount_code)}</p>
+                                                                <p className="text-[#4290E9]">{capitalizeFirst(discount.discount_code || "")}</p>
 
-                                                                <p className="text-[12px] font-[300] text-[#666666]">Expires {discount.expiry_date}</p>
+                                                                {discount.expiry_date && <p className="text-[12px] font-[300] text-[#666666]">Expires {discount.expiry_date}</p>}
                                                             </div>
 
                                                             <div className="basis-[20%] w-full flex gap-x-4 items-center justify-end">

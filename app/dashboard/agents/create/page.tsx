@@ -2,15 +2,23 @@
 import React, { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 //import ToggleButtons from '@/components/ui/toogle'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
-import { AgentPayload, CreateAgent, EditAgent, GetOne, GetRole, } from '../agents'
+import { AgentPayload, CreateAgent, EditAgent, GetOne, GetRole, UpdateAgentStatus } from '../agents'
 import { useParams, useRouter } from 'next/navigation'
-import { Plus, X } from 'lucide-react'
+import { Pencil, Plus, X } from 'lucide-react'
 //import PaymentDialog from '@/components/PaymentDialog'
 //import CloseDialog from '@/components/CloseDialog'
 //import SaveDialog from '@/components/SaveDialog'
@@ -77,7 +85,16 @@ type CurrentAgent = {
     certifications: string[];
     created_at: string;
     updated_at: string;
-    properties: Listings[]
+    properties: Listings[];
+    agent_discount: {
+        uuid?: string;
+        name: string;
+        expiry_date: string | null;
+        amount: number | string;
+        is_percentage: 1 | 0 | string;
+        minimum_orders?: number | string;
+        minimum_spend?: number | string;
+    } | null;
 };
 
 const AgentForm = () => {
@@ -88,6 +105,8 @@ const AgentForm = () => {
     const [emailCC, setEmailCC] = useState("");
     const [certificationText, setCertificationText] = useState<string>("");
     //const [openSaveDialog, setOpenSaveDialog] = useState(false);
+    const [selectedCoAgent, setSelectedCoAgent] = useState<CoAgent | null>(null);
+    const [selectedCoAgentIndex, setSelectedCoAgentIndex] = useState<number | null>(null);
     //const [openCloseDialog, setOpenCloseDialog] = useState(false);
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
@@ -251,6 +270,15 @@ const AgentForm = () => {
                 }));
                 setCoAgents(formattedAgents);
             }
+            if (currentUser.agent_discount) {
+                setAgentDiscount({
+                    ...currentUser.agent_discount,
+                    amount: Number(currentUser.agent_discount.amount),
+                    is_percentage: Number(currentUser.agent_discount.is_percentage) as 1 | 0,
+                    minimum_orders: currentUser.agent_discount.minimum_orders ? Number(currentUser.agent_discount.minimum_orders) : undefined,
+                    minimum_spend: currentUser.agent_discount.minimum_spend ? Number(currentUser.agent_discount.minimum_spend) : undefined,
+                });
+            }
             setAgentNotes(currentUser.notes || "")
 
             requestAnimationFrame(() => {
@@ -261,7 +289,6 @@ const AgentForm = () => {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser]);
-    console.log("co-agent", coAgents)
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (file) {
@@ -340,7 +367,6 @@ const AgentForm = () => {
             console.log('Agent ID is undefined.');
         }
     }, [userId]);
-    console.log('currentser', currentUser)
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -405,12 +431,10 @@ const AgentForm = () => {
 
         try {
             const token = localStorage.getItem('token') || '';
-            console.log(token)
             let formattedWebsite = companyWebsite?.trim();
             if (formattedWebsite && !/^https?:\/\//i.test(formattedWebsite)) {
                 formattedWebsite = 'https://' + formattedWebsite;
             }
-            console.log("co-agent payload", coAgents)
 
             const sanitizedCoAgents = coAgents.map(({ name, email, primary_phone, split }) => {
                 const agent: { name: string; email: string; primary_phone: string; split?: string } = { name, email, primary_phone };
@@ -419,7 +443,6 @@ const AgentForm = () => {
                 }
                 return agent;
             });
-            console.log("sanitizedCoAgents", sanitizedCoAgents);
 
             const payload: AgentPayload = {
                 first_name: firstName,
@@ -441,7 +464,8 @@ const AgentForm = () => {
                 license_number: agentLicense,
                 co_agents: sanitizedCoAgents,
                 requires_payment: isPaymentRequired ? 1 : 0,
-                default_music: selectedMp3.startsWith('custom-') && mp3File ? mp3File.name : selectedMp3 || undefined
+                default_music: selectedMp3.startsWith('custom-') && mp3File ? mp3File.name : selectedMp3 || undefined,
+                agent_discount: agentDiscount || undefined,
             };
 
             if (userId) {
@@ -455,7 +479,10 @@ const AgentForm = () => {
                 setIsLoading(false)
                 setIsDirty(false)
             } else {
-                await CreateAgent(payload);
+                const response = await CreateAgent(payload);
+                if (response?.data?.uuid) {
+                    await UpdateAgentStatus(response.data.uuid, { status: true, _method: 'PUT' });
+                }
                 toast.success('Agent created successfully');
                 setIsLoading(true)
                 setOpen(true)
@@ -465,7 +492,6 @@ const AgentForm = () => {
             }
 
         } catch (error) {
-            console.log('Raw error:', error);
             setIsLoading(false)
             setOpen(false)
             setFieldErrors({});
@@ -541,34 +567,31 @@ const AgentForm = () => {
         const updatedAgents = coAgents.filter((_, i) => i !== index);
         setCoAgents(updatedAgents);
     };
-    console.log("errors", fieldErrors)
 
-    const [agentdiscounts, setAgentDiscounts] = useState<{ id: number; discount_code: string; expiry_date: string; description: string }[]
-    >([]);
+    interface AgentDiscountData {
+        uuid?: string;
+        name?: string;
+        expiry_date: string | null;
+        amount?: number;
+        is_percentage?: 1 | 0;
+        minimum_orders?: number;
+        minimum_spend?: number;
+        discount_code?: string;
+        description?: string;
+    }
+
+    const [agentDiscount, setAgentDiscount] = useState<AgentDiscountData | null>(null);
 
     const [discounts, setDiscounts] = React.useState<Discount[]>([]);
     const [openDiscount, setOpenDiscount] = useState(false);
-    const addDiscount = (discount: {
-        discount_code: string;
-        expiry_date: string;
-        description: string;
-    }) => {
-        const nextId = discounts.length > 0 ? discounts[discounts.length - 1].id + 1 : 1;
-
-        setAgentDiscounts([
-            ...agentdiscounts,
-            {
-                id: nextId,
-                ...discount,
-            },
-        ]);
+    const addDiscount = (discount: AgentDiscountData) => {
+        setAgentDiscount(discount);
     };
 
-    const removeDiscount = (id: number) => {
-        setAgentDiscounts(agentdiscounts.filter((d) => d.id !== id));
+    const removeDiscount = () => {
+        setAgentDiscount(null);
     };
-    console.log(setDiscounts);
-
+    console.log("currentUser", currentUser)
     return (
         <div className='font-alexandria'>
             <div className='w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }} >
@@ -606,16 +629,18 @@ const AgentForm = () => {
                         >
                             DETAILS
                         </button>
-                        <button
-                            onClick={() => setActiveTab("sub_accounts")}
-                            className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                        {userId && (
+                            <button
+                                onClick={() => setActiveTab("sub_accounts")}
+                                className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
                             ${activeTab === "sub_accounts"
-                                    ? `${userType}-bg text-white`
-                                    : "bg-[#F2F2F2] text-[#666666]"
-                                }`}
-                        >
-                            SUB ACCOUNTS
-                        </button>
+                                        ? `${userType}-bg text-white`
+                                        : "bg-[#F2F2F2] text-[#666666]"
+                                    }`}
+                            >
+                                SUB ACCOUNTS
+                            </button>
+                        )}
 
                     </div>
                 </div>
@@ -823,7 +848,11 @@ const AgentForm = () => {
                                                 <div className="col-span-2">
                                                     <div className='flex items-center justify-between'>
                                                         <p >Assistants/Co Agents</p>
-                                                        <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => setOpenAddAgentDialog(true)}>
+                                                        <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => {
+                                                            setSelectedCoAgent(null);
+                                                            setSelectedCoAgentIndex(null);
+                                                            setOpenAddAgentDialog(true);
+                                                        }}>
                                                             <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
                                                             <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm ' />
                                                         </div>
@@ -831,29 +860,48 @@ const AgentForm = () => {
                                                             open={openAddAgentDialog}
                                                             setOpen={setOpenAddAgentDialog}
                                                             onSuccess={(agent) => {
-                                                                setCoAgents((prev) => [...prev, agent]);
-                                                                console.log('Agent added:', agent);
+                                                                if (selectedCoAgentIndex !== null) {
+                                                                    setCoAgents((prev) => {
+                                                                        const newAgents = [...prev];
+                                                                        newAgents[selectedCoAgentIndex] = agent;
+                                                                        return newAgents;
+                                                                    });
+                                                                } else {
+                                                                    setCoAgents((prev) => [...prev, agent]);
+                                                                }
                                                             }}
+                                                            agent={selectedCoAgent}
                                                         />
                                                     </div>
-                                                    <div className="border border-[#BBBBBB] mt-[12px] px-[6px] py-[8px] rounded-[6px] bg-[#EEEEEE] flex flex-wrap gap-[6px] min-h-[67px]">
-                                                        {coAgents.map((coagent, index) => (
-                                                            <div
-                                                                key={index}
-                                                                className="flex items-center bg-[#E4E4E4] px-[6px] h-[24px] py-1.5 rounded-[10px] shadow-sm max-w-full break-words cursor-pointer overflow-hidden"
-                                                                style={{ maxWidth: '100%' }}
-                                                            >
-                                                                <span className="text-sm font-normal text-[#7D7D7D] break-words whitespace-pre-wrap overflow-hidden text-ellipsis" onClick={() => setOpenAddAgentDialog(true)}>
-                                                                    {coagent.name} &lt;{coagent.email}&gt;
-                                                                </span>
-                                                                <button
-                                                                    onClick={() => removeAgent(index)}
-                                                                    className="text-red-500 hover:text-red-700 ml-2 flex-shrink-0"
-                                                                >
-                                                                    <X size={18} />
-                                                                </button>
+                                                    <div className="border border-[#BBBBBB] mt-[12px] bg-white overflow-hidden w-full rounded-[10px]">
+                                                        <div className="grid grid-cols-6 gap-2 px-2 py-3 text-sm text-[#666666] font-semibold items-center border-b border-[#BBBBBB]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                                                            <div className="col-span-2">NAME</div>
+                                                            <div className="col-span-3">EMAIL</div>
+                                                            <div className="col-span-1">ACTIONS</div>
+                                                        </div>
+
+                                                        {coAgents.length > 0 ? (
+                                                            coAgents.map((coagent, index) => (
+                                                                <div key={index} className="grid grid-cols-6 gap-2 px-2 py-3 border-b border-[#BBBBBB] items-center hover:bg-[#F9F9F9]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                                                                    <div className="col-span-2 text-[#666666] text-xs break-words truncate cursor-pointer" title={coagent.name}>{coagent.name}</div>
+                                                                    <div className="col-span-3 text-[#666666] text-xs truncate cursor-pointer" title={coagent.email}>{coagent.email}</div>
+                                                                    <div className="col-span-1">
+                                                                        <div className="flex items-center gap-3 justify-center">
+                                                                            <span className={`cursor-pointer ${userType}-text`} onClick={() => {
+                                                                                setSelectedCoAgent(coagent);
+                                                                                setSelectedCoAgentIndex(index);
+                                                                                setOpenAddAgentDialog(true);
+                                                                            }}><Pencil className="w-[14px] h-[14px]" /></span>
+                                                                            <span className="cursor-pointer text-red-500 hover:text-red-700" onClick={() => removeAgent(index)}><X className="w-[16px] h-[16px]" /></span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <div className="flex justify-center items-center h-20 text-[#666666] text-xs" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                                                                No co-agents added yet.
                                                             </div>
-                                                        ))}
+                                                        )}
                                                     </div>
 
 
@@ -1362,7 +1410,7 @@ const AgentForm = () => {
                                 </AccordionContent>
                             </AccordionItem>
 
-                            <AccordionItem value="payment" className='border-none'>
+                            {userType === 'admin' && <AccordionItem value="payment" className='border-none'>
                                 <AccordionTrigger
                                     className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#6BAE41]'}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                     style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
@@ -1372,31 +1420,36 @@ const AgentForm = () => {
                                         <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
                                             <div className='flex items-center justify-between'>
                                                 <p className='font-bold text-sm text-[#666666]'>Discounts</p>
-                                                <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => setOpenDiscount(true)}>
-                                                    <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
-                                                    <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm' />
-                                                </div>
+                                                {!agentDiscount && (
+                                                    <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => setOpenDiscount(true)}>
+                                                        <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
+                                                        <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm' />
+                                                    </div>
+                                                )}
                                                 <AgentDiscount
                                                     open={openDiscount}
                                                     setOpen={setOpenDiscount}
                                                     addDiscount={addDiscount}
-
+                                                    isDetailed={true}
+                                                    initialData={agentDiscount}
                                                 />
                                             </div>
 
                                             <div className="col-span-2">
-                                                {agentdiscounts.map((discount) => (
-                                                    <div key={discount.id} className='flex flex-col gap-y-3 mt-2'>
-                                                        <div className="flex justify-between items-center w-full text-[16px] font-normal text-[#666666]">
-                                                            <div className='basis-[80%] flex items-center justify-between w-full gap-x-2.5'>
-                                                                <p className="text-[#4290E9]">{(discount.discount_code)}</p>
+                                                {agentDiscount && (
+                                                    <div className='flex flex-col gap-y-3 mt-2'>
+                                                        <div className="flex justify-between items-center w-full text-[16px] font-normal text-[#666666] cursor-pointer">
+                                                            <div onClick={() => setOpenDiscount(true)} className='basis-[80%] flex items-center justify-between w-full gap-x-2.5'>
+                                                                <div className="flex flex-col">
+                                                                    <p className="text-[#4290E9]">{agentDiscount.name || agentDiscount.discount_code}</p>
+                                                                </div>
 
-                                                                <p className="text-[12px] font-[300] text-[#666666]">Expires {discount.expiry_date}</p>
+                                                                {agentDiscount.expiry_date && <p className="text-[12px] font-[300] text-[#666666]">Expires {agentDiscount.expiry_date}</p>}
                                                             </div>
 
                                                             <div className="basis-[20%] w-full flex gap-x-4 items-center justify-end">
                                                                 <X
-                                                                    onClick={() => removeDiscount(discount.id)}
+                                                                    onClick={() => removeDiscount()}
                                                                     className="text-[#E06D5E] w-6 h-6 cursor-pointer hover:scale-110 transition-transform"
                                                                 />
                                                             </div>
@@ -1404,12 +1457,13 @@ const AgentForm = () => {
 
                                                         <hr />
                                                     </div>
-                                                ))}
+                                                )}
                                             </div>
                                         </div>
                                     </div>
                                 </AccordionContent>
-                            </AccordionItem>                        {currentUser && (
+                            </AccordionItem>}
+                            {currentUser && (
                                 <AccordionItem value="account" className='border-none'>
                                     <AccordionTrigger
                                         className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
@@ -1472,7 +1526,7 @@ const AgentForm = () => {
                             }
                         </Accordion>
                     </form>
-                </div>
+                </div >
             )
             }
             {

@@ -331,28 +331,26 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <PanelLeftClose className="h-3" />
         )}
       </button>
-
+      <div className="pt-[20px] px-[25px]" style={{ backgroundColor: roleSettings.sidebarBg }}>
+        {showBackButton && !isCollapsed ? (
+          <div
+            className={`min-h-[32px] w-full flex items-center cursor-pointer rounded-[24px]`}
+            style={{ backgroundColor: roleSettings.pageTabColor }}
+            onClick={goToDashboardSection}
+          >
+            <div className="flex items-center px-[14px] py-[4px] gap-x-[10px]">
+              <BackArrow />
+              <p className="text-[16px] font-semibold text-white font-alexandria">BACK</p>
+            </div>
+          </div>
+        ) : (
+          <div className={`${!isCollapsed ? 'h-[32px]' : ''}`} />
+        )}
+      </div>
       <SidebarContent
         className={`pt-[20px] custom-scroll transition-all duration-200 !overflow-y-auto ${isCollapsed ? 'px-0' : 'px-[25px]'}`}
         style={{ backgroundColor: roleSettings.sidebarBg }}
       >
-        <div >
-
-          {showBackButton && !isCollapsed ? (
-            <div
-              className={`min-h-[32px] w-full flex items-center cursor-pointer rounded-[24px]`}
-              style={{ backgroundColor: roleSettings.pageTabColor }}
-              onClick={goToDashboardSection}
-            >
-              <div className="flex items-center px-[14px] py-[4px] gap-x-[10px]">
-                <BackArrow />
-                <p className="text-[16px] font-semibold text-white font-alexandria">BACK</p>
-              </div>
-            </div>
-          ) : (
-            <div className={`${!isCollapsed ? 'h-[32px]' : ''}`} />
-          )}
-        </div>
         {filteredNavMain.map((item) => (
           <SidebarGroup key={item.title}>
             {!isCollapsed && (
@@ -418,7 +416,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
-        {!isCollapsed && (
+        {/* {!isCollapsed && (
           <SidebarGroup>
             <SidebarGroupLabel
               className="font-extrabold text-[12px] mb-2"
@@ -444,13 +442,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </div>
             </SidebarGroupContent>
           </SidebarGroup>
-        )}
+        )} */}
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>
               <div
                 onClick={logoutUser}
-                className={`flex items-center gap-x-2.5 pb-[20px] cursor-pointer ${isCollapsed ? 'justify-center pt-4' : 'pt-[196px] px-[25px]'}`}
+                className={`flex items-center gap-x-2.5 pb-[20px] cursor-pointer ${isCollapsed ? 'justify-center pt-4' : 'pt-[120px] px-[25px]'}`}
               >
                 <LogOut
                   className="h-[18px] w-[18px] shrink-0"
