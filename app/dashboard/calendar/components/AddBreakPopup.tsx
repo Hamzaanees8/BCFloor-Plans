@@ -15,7 +15,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { addVendorBreak, updateVendorBreak } from '../calendar';
 import { toast } from 'sonner';
 import { CurrentUser } from '@/components/WorkHours';
-import GooglePlacesAutocomplete from './AutoCompleteInput';
+import GooglePlacesAutocomplete, { AddressComponents } from './AutoCompleteInput';
 
 interface Break {
     id?: number;
@@ -167,7 +167,7 @@ export default function AddBreakPopup({
         suggestions: ' border-gray-400'
     });
 
-    const GOOGLE_API_KEY = 'AIzaSyAhveaQIMPOQqMhtLb05Gy9axsvm0a5t5Y';
+    const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
 
     const handleAddressChange = (value: string) => {
         setAddress(value);
@@ -194,17 +194,14 @@ export default function AddBreakPopup({
         if (currentBreak) {
             setTitle(currentBreak.title);
 
-            // Check if it's a Break type by looking for start_time/end_time properties
             const isBreakType = 'start_time' in currentBreak;
 
             if (isBreakType) {
-                // This is a Break type with start_date/end_date and start_time/end_time
                 if (currentBreak.start_date) setFromDate(new Date(currentBreak.start_date));
                 if (currentBreak.end_date) setToDate(new Date(currentBreak.end_date));
                 setFromTime(currentBreak.start_time || '09:00');
                 setToTime(currentBreak.end_time || '10:00');
             } else {
-                // This is a CalendarEvent type with start/end dates
                 const breakAsEvent = currentBreak as CalendarEvent;
                 setFromDate(new Date(breakAsEvent.start));
                 setToDate(new Date(breakAsEvent.end));
@@ -219,9 +216,25 @@ export default function AddBreakPopup({
             setToDate(new Date());
             setFromTime('09:00');
             setToTime('10:00');
-            setAddress('');
-            setSelectedVendor(null);
+
+            if (userType === 'vendor') {
+                const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+                const vendor = vendorData.find(v => v.uuid === userInfo.uuid) || null;
+                setSelectedVendor(vendor);
+                if (vendor?.addresses?.[0]) {
+                    const addr = `${vendor.addresses[0].address_line_1 || ''}, ${vendor.addresses[0].city || ''}, ${vendor.addresses[0].province || ''}, ${vendor.addresses[0].country || ''}`.trim();
+                    setAddress(
+                        addr === ', , ,' ? '' : addr.replace(/^,\s*|,\s*$/g, '').replace(/,\s*,/g, ',')
+                    );
+                } else {
+                    setAddress('');
+                }
+            } else {
+                setAddress('');
+                setSelectedVendor(null);
+            }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentBreak]);
     const updateVendorBreakInUI = (updatedBreak: Break) => {
 
@@ -461,20 +474,15 @@ export default function AddBreakPopup({
                         </div>
                     </div>
 
-                    {/* ✅ Address */}
                     <Label>Address</Label>
-                    {/* <Input
-                        className="bg-white h-[42px] border-[#BBBBBB]"
-                        placeholder="Enter Address"
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                    /> */}
-
                     <GooglePlacesAutocomplete
-                        apiKey={GOOGLE_API_KEY}
+                        apiKey={GOOGLE_API_KEY ?? ''}
                         placeholder="Type address here..."
                         value={address}
                         onChange={handleAddressChange}
+                        onAddressComponents={(components: AddressComponents) => {
+                            setAddress(components.full_address);
+                        }}
                         className="w-full"
                         inputClassName={customStyles.input}
                         suggestionsContainerClassName={customStyles.suggestions}

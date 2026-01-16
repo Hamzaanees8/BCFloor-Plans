@@ -10,12 +10,12 @@ function page() {
                     <AgentLoginIcon width='110px' height='110px' />
                 </div>
 
-                <Link href={'#'} className='flex justify-center items-center bg-[#6BAE41] hover:bg-[#7dc550] rounded-[6px] h-[44px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
+                <Link href={'#'} className='hidden flex justify-center items-center bg-[#6BAE41] hover:bg-[#7dc550] rounded-[6px] h-[44px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <Link href={'/agent/login-user'} className='flex justify-center items-center bg-[#fff] hover:bg-[#6BAE41] hover:text-[#fff]  border-[1px] border-[#6BAE41] text-[#6BAE41] rounded-[6px] h-[44px] font-[600] text-[20px]'>Continue with Email</Link>
                 <div className='flex justify-center'>
                     <Link href="/agent/forget-password" className='w-fit text-[#6BAE41] border-b-[1px] leading-[18px] border-[#6BAE41] text-[16px] font-[400] text-center'>Forgot Password</Link>
                 </div>
-                <p className='text-[10px] text-[#666666] font-[400] mx-auto'>Powered by Tojuco Software 2025</p>
+                <p className='text-[10px] text-[#666666] font-[400] mx-auto'>Powered by Tojuco Software {new Date().getFullYear()}</p>
             </div>
         </div>
     )

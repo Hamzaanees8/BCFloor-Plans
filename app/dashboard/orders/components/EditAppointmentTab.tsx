@@ -16,15 +16,6 @@ import AddNotesDialog from '../../calendar/components/AddNotesDialog';
 import { useOrderContext } from '../context/OrderContext';
 import Schedule from '../../calendar/components/Schedule';
 
-// interface Notes {
-//     name: string;
-//     note: string;
-//     date: string
-// }
-// interface CoAgent {
-//     name: string;
-//     email?: string
-// }
 interface AppointmentTab {
     currentOrder?: Order;
     serviceId: number;
@@ -57,7 +48,6 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
     const [servicesData, setServicesData] = useState<Services[]>([]);
 
     const { setCalendarServices, calendarServices } = useOrderContext();
-    console.log('currentOrder', currentOrder);
 
     useEffect(() => {
 
@@ -360,7 +350,15 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
                                                 value={item.optionId ?? ''}
                                                 onValueChange={(val) => {
                                                     const selectedOption = selectedService?.product_options?.find(opt => opt.uuid === val);
-                                                    const newPrice = selectedOption?.amount?.toString() ?? '';
+                                                    let newPrice = selectedOption?.amount?.toString() ?? '';
+
+                                                    if (selectedOption?.sq_ft_rate && parseFloat(selectedOption.sq_ft_rate) > 0) {
+                                                        const sqFt = parseFloat(squareFootage);
+                                                        if (!isNaN(sqFt)) {
+                                                            const calculated = parseFloat(selectedOption.sq_ft_rate) * sqFt;
+                                                            newPrice = (selectedOption.min_price ? Math.max(calculated, selectedOption.min_price) : calculated).toFixed(2);
+                                                        }
+                                                    }
 
                                                     setCalendarServices((prev) =>
                                                         prev.map((srv, i) =>

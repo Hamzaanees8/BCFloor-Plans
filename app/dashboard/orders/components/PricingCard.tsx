@@ -47,39 +47,55 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     }
 
     const found = pricingOptions?.find(opt => opt.title === option);
+    if (found?.sq_ft_rate && parseFloat(found.sq_ft_rate) > 0) {
+      const calculated = parseFloat(found.sq_ft_rate) * squareFootage;
+      return found.min_price ? Math.max(calculated, found.min_price) : calculated;
+    }
     return found?.amount ?? null;
-  }, [selectedOptions, customPrices, pricingOptions, service.uuid]);
+  }, [selectedOptions, customPrices, pricingOptions, service.uuid, squareFootage]);
 
 
- useEffect(() => {
-  if (!pricingOptions || pricingOptions.length === 0) return;
-  if (selectedOption === "custom") return;
+  useEffect(() => {
+    if (!pricingOptions || pricingOptions.length === 0) return;
+    if (selectedOption === "custom") return;
 
-  let FilteredOptions = [];
+    let FilteredOptions = [];
 
-  if (showAll) {
-    FilteredOptions = pricingOptions;
-  } else {
-    FilteredOptions = pricingOptions.filter((option) => {
-      if (!option?.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
-      const [minStr, maxStr] = option.sq_ft_range.split("-").map(s => s.trim());
-      const min = parseInt(minStr, 10);
-      const max = parseInt(maxStr, 10);
-      if (isNaN(min) || isNaN(max)) return false;
-      return squareFootage >= min && squareFootage <= max;
-    });
-  }
+    if (showAll) {
+      FilteredOptions = pricingOptions;
+    } else {
+      const isPhotoService = service.name?.toLowerCase().includes('photo') ||
+        service.category?.name?.toLowerCase().includes('photo') ||
+        service.name?.toLowerCase().includes('twilight') ||
+        service.category?.name?.toLowerCase().includes('twilight');
 
-  const isValid = FilteredOptions.some(opt => opt.title === selectedOption);
+      if (isPhotoService) {
+        FilteredOptions = pricingOptions;
+      } else {
+        FilteredOptions = pricingOptions.filter((option) => {
+          // Add check for sq_ft_rate
+          if (option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0) return true;
 
-  if (!isValid && FilteredOptions.length > 0) {
-    const defaultVal = FilteredOptions[0].title ?? '';
-    setSelectedOptions(prev => ({
-      ...prev,
-      [service.uuid]: defaultVal,
-    }));
-  }
-}, [pricingOptions, selectedOption, service.uuid, setSelectedOptions, selectedListingId, squareFootage, showAll]);
+          if (!option?.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
+          const [minStr, maxStr] = option.sq_ft_range.split("-").map(s => s.trim());
+          const min = parseInt(minStr, 10);
+          const max = parseInt(maxStr, 10);
+          if (isNaN(min) || isNaN(max)) return false;
+          return squareFootage >= min && squareFootage <= max;
+        });
+      }
+    }
+
+    const isValid = FilteredOptions.some(opt => opt.title === selectedOption);
+
+    if (!isValid && FilteredOptions.length > 0) {
+      const defaultVal = FilteredOptions[0].title ?? '';
+      setSelectedOptions(prev => ({
+        ...prev,
+        [service.uuid]: defaultVal,
+      }));
+    }
+  }, [pricingOptions, selectedOption, service.uuid, setSelectedOptions, selectedListingId, squareFootage, showAll, service.name, service.category?.name]);
 
   const handleSelectService = (optionValue?: string, customVal?: string) => {
     const currentOption = optionValue ?? selectedOption;
@@ -99,7 +115,13 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
       custom = customServiceName;
       optionName = customServiceName;
     } else {
-      price = pricingOptions?.find(opt => opt.title === currentOption)?.amount ?? undefined;
+      const opt = pricingOptions?.find(opt => opt.title === currentOption);
+      if (opt?.sq_ft_rate && parseFloat(opt.sq_ft_rate) > 0) {
+        const calculated = parseFloat(opt.sq_ft_rate) * squareFootage;
+        price = opt.min_price ? Math.max(calculated, opt.min_price) : calculated;
+      } else {
+        price = opt?.amount ?? undefined;
+      }
     }
 
     if (setSelectedServices) {
@@ -139,7 +161,12 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                   custom = customServiceName;
                 } else {
                   const selectedOptionData = pricingOptions?.find(opt => opt.title === selectedOption);
-                  price = pricingOptions?.find(opt => opt.title === selectedOption)?.amount ?? undefined;
+                  if (selectedOptionData?.sq_ft_rate && parseFloat(selectedOptionData.sq_ft_rate) > 0) {
+                    const calculated = parseFloat(selectedOptionData.sq_ft_rate) * squareFootage;
+                    price = selectedOptionData.min_price ? Math.max(calculated, selectedOptionData.min_price) : calculated;
+                  } else {
+                    price = selectedOptionData?.amount ?? undefined;
+                  }
                   quantity = selectedOptionData?.quantity ?? 1;
                   option_id = selectedOptionData?.uuid;
                   optionName = selectedOptionData?.title || "";
@@ -205,6 +232,15 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                       if (showAll) {
                         return true
                       } else {
+                        const isPhotoService = service.name?.toLowerCase().includes('photo') ||
+                          service.category?.name?.toLowerCase().includes('photo') ||
+                          service.name?.toLowerCase().includes('twilight') ||
+                          service.category?.name?.toLowerCase().includes('twilight');
+
+                        if (isPhotoService) return true;
+
+                        // Check for sq_ft_rate
+                        if (option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0) return true;
 
                         if (!option.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
 
@@ -240,7 +276,11 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                         <label htmlFor={`option-${idx}`} className="">
                           {option?.title ?? ''}
                         </label>
-                        <span className="">${Number(option?.amount).toFixed(2)}</span>
+                        <span className="">${
+                          option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0
+                            ? (option.min_price ? Math.max(parseFloat(option.sq_ft_rate) * squareFootage, option.min_price) : parseFloat(option.sq_ft_rate) * squareFootage).toFixed(2)
+                            : Number(option?.amount).toFixed(2)
+                        }</span>
                       </div>
                     ))}
                   </div>

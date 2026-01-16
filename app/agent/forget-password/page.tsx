@@ -97,7 +97,7 @@ function ForgotPassword() {
                 <div className='flex justify-center'>
                     <Link href="agent/login-user" className='w-fit text-[#6BAE41] border-b-[1px] leading-[18px] border-[#6BAE41] text-[16px] font-[400] text-center'>Back to Login</Link>
                 </div>
-                <p className='text-[10px] text-[#666666] font-[400] mx-auto'>Powered by Tojuco Software 2025</p>
+                <p className='text-[10px] text-[#666666] font-[400] mx-auto'>Powered by Tojuco Software {new Date().getFullYear()}</p>
             </div>
         </div >
     )

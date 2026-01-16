@@ -67,9 +67,8 @@ const FileManager = () => {
   const params = useParams();
   const searchParams = useSearchParams();
   const orderId = params?.id as string;
-  const listingId = searchParams.get('listingId');
+  const listingId = searchParams.get("listingId");
   const isListing = listingId ? true : false;
-
 
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [currentListing, setCurrentListing] = useState<Listings | null>(null);
@@ -77,7 +76,6 @@ const FileManager = () => {
   const serviceIdFromURL = searchParams.get("serviceId");
   const fullUrl = `/dashboard${pathname.replace("/dashboard", "")}${searchParams.toString() ? `?${searchParams.toString()}` : ""
     }`;
-
 
   useEffect(() => {
     const fetchListing = async () => {
@@ -216,6 +214,14 @@ const FileManager = () => {
       })
       .catch((err) => console.log(err.message));
   }, [orderId]);
+  const activeService = servicesData?.find((srv) => srv.uuid === activeTab);
+  const activeSlot = orderData?.slots?.find(
+    (slot) => slot.service_id === activeService?.id
+  );
+  const reviewFilesEnabled = Boolean(
+    activeSlot?.vendor?.review_files ?? orderData?.vendor?.review_files
+  );
+
   const renderContent = () => {
     if (activeTab === "tour") {
       return <TourTabs orderData={orderData} />;
@@ -224,50 +230,91 @@ const FileManager = () => {
     if (activeTab === "CreateFeatureSheet") {
       return <CreateFeatureSheet orderData={orderData} />;
     }
-    const currentService = servicesData?.find((srv) => srv.uuid === activeTab);
-    const currentSlot = orderData?.slots?.find(slot => slot.service_id === currentService?.id);
-    const reviewFilesEnabled = Boolean(currentSlot?.vendor?.review_files ?? orderData?.vendor?.review_files);
-
-    const category = currentService?.category?.name;
+    const category = activeService?.category?.name;
 
     switch (category) {
       case "Video":
         return (
           <div>
-            <Video currentService={currentService} orderData={orderData} isListing={isListing} reviewFilesEnabled={reviewFilesEnabled} />
+            <Video
+              currentService={activeService}
+              orderData={orderData}
+              isListing={isListing}
+              reviewFilesEnabled={reviewFilesEnabled}
+            />
           </div>
         );
       case "Floor Plan":
         return (
-          <Service orderData={orderData} currentService={currentService} isListing={isListing} reviewFilesEnabled={reviewFilesEnabled} />
+          <Service
+            orderData={orderData}
+            currentService={activeService}
+            isListing={false}
+            reviewFilesEnabled={reviewFilesEnabled}
+          />
         );
       case "HDR Photos":
         return (
-          <FileTab1 currentService={currentService} orderData={orderData} isListing={isListing} reviewFilesEnabled={reviewFilesEnabled} />
+          <FileTab1
+            currentService={activeService}
+            orderData={orderData}
+            isListing={false}
+            reviewFilesEnabled={reviewFilesEnabled}
+          />
         );
       case "3d rendering":
         return (
-          <FileTab2 currentService={currentService} orderData={orderData} isListing={isListing} reviewFilesEnabled={reviewFilesEnabled} />
+          <FileTab2
+            currentService={activeService}
+            orderData={orderData}
+            isListing={false}
+            reviewFilesEnabled={reviewFilesEnabled}
+          />
         );
       case "drone":
         return (
-          <FileTab1 currentService={currentService} orderData={orderData} isListing={isListing} reviewFilesEnabled={reviewFilesEnabled} />
+          <FileTab1
+            currentService={activeService}
+            orderData={orderData}
+            isListing={false}
+            reviewFilesEnabled={reviewFilesEnabled}
+          />
         );
       case "Staging":
         return (
-          <FileTab2 currentService={currentService} orderData={orderData} isListing={isListing} reviewFilesEnabled={reviewFilesEnabled} />
+          <FileTab2
+            currentService={activeService}
+            orderData={orderData}
+            isListing={false}
+            reviewFilesEnabled={reviewFilesEnabled}
+          />
         );
       case "Standard Photos":
         return (
-          <FileTab1 currentService={currentService} orderData={orderData} isListing={isListing} reviewFilesEnabled={reviewFilesEnabled} />
+          <FileTab1
+            currentService={activeService}
+            orderData={orderData}
+            isListing={false}
+            reviewFilesEnabled={reviewFilesEnabled}
+          />
         );
       case "Twilight Photos":
         return (
-          <FileTab1 currentService={currentService} orderData={orderData} isListing={isListing} reviewFilesEnabled={reviewFilesEnabled} />
+          <FileTab1
+            currentService={activeService}
+            orderData={orderData}
+            isListing={false}
+            reviewFilesEnabled={reviewFilesEnabled}
+          />
         );
       case "3D Tour":
         return (
-          <FileTab2 currentService={currentService} orderData={orderData} isListing={isListing} reviewFilesEnabled={reviewFilesEnabled} />
+          <FileTab2
+            currentService={activeService}
+            orderData={orderData}
+            isListing={false}
+            reviewFilesEnabled={reviewFilesEnabled}
+          />
         );
       default:
         return (
@@ -346,23 +393,21 @@ const FileManager = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderData]);
 
-
   async function handleUpload() {
     const token = localStorage.getItem("token");
     if (!token) return;
 
     try {
-
       if (filesData) {
         // Filter only the files that have changed (featured status changed)
-        const changedFiles = filesData.files.filter(file =>
+        const changedFiles = filesData.files.filter((file) =>
           changedFileUuids.has(file.uuid)
         );
 
         await UpdateFilesData(
           token,
           filesData?.uuid || "",
-          [...selectedFiles, ...floorFiles, ...selectedVideoFiles],
+          [...selectedFiles, ...floorFiles, ...selectedVideoFiles].filter(f => !f.is_deleted),
           links,
           droppedMarkers,
           delay,
@@ -377,7 +422,7 @@ const FileManager = () => {
         await UploadFilesData(
           token,
           orderData?.uuid || "",
-          [...selectedFiles, ...floorFiles, ...selectedVideoFiles],
+          [...selectedFiles, ...floorFiles, ...selectedVideoFiles].filter(f => !f.is_deleted),
           links,
           droppedMarkers,
           delay,
@@ -396,8 +441,6 @@ const FileManager = () => {
     }
   }
 
-
-
   return (
     <div>
       <div
@@ -415,7 +458,7 @@ const FileManager = () => {
           url={fullUrl}
         />
         <div className="flex items-center gap-x-4">
-          {!isListing &&
+          {!isListing && (
             <div
               className={`flex items-center p-4 gap-x-2.5 ${userType}-bg h-full w-[240px]`}
             >
@@ -431,15 +474,20 @@ const FileManager = () => {
                   Media Company Owner
                 </p>
                 <p className="text-[12px] font-normal text-white font-alexandria leading-4">
-                  Taylor Tayburn
+                  {(() => {
+                    const vendor = activeSlot?.vendor || orderData?.vendor;
+                    return vendor ? `${vendor.first_name} ${vendor.last_name}` : "Taylor Tayburn";
+                  })()}
                 </p>
               </div>
             </div>
-          }
+          )}
           <p
             className={`text-[16px] md:text-[24px] font-[400] pl-5 ${userType}-text`}
           >
-            {isListing ? `Listings › ${currentListing?.address || ""}` : `File Manager › Order #${orderData?.id || ""}`}
+            {isListing
+              ? `Listings › ${currentListing?.address || ""}`
+              : `File Manager › Order #${orderData?.id || ""}`}
           </p>
         </div>
         <div className="flex items-center gap-x-2.5">
@@ -471,10 +519,10 @@ const FileManager = () => {
         <div
           className={`w-full h-[160px] ${userType}-bg flex flex-col md:flex-row justify-between items-start py-[32px] px-[25px] relative overflow-hidden`}
           style={{
-            backgroundImage: `url('${process.env.NEXT_PUBLIC_FILES_API_URL}/${filesData?.files[0].file_path}')`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
+            backgroundImage: `url('${process.env.NEXT_PUBLIC_FILES_API_URL}/${filesData?.files[0]?.file_path}')`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
           }}
         >
           {/* Dark overlay to ensure text is readable */}
@@ -483,7 +531,10 @@ const FileManager = () => {
           <div className="relative z-10 w-full flex flex-col md:flex-row justify-between items-start md:items-center">
             <div>
               <p className="text-[14px] md:text-[20px] font-[500] text-white">
-                {currentListing?.address && currentListing?.province && currentListing?.postal_code && currentListing?.country
+                {currentListing?.address &&
+                  currentListing?.province &&
+                  currentListing?.postal_code &&
+                  currentListing?.country
                   ? `${currentListing?.address}, ${currentListing?.province}, ${currentListing?.postal_code}, ${currentListing?.country}`
                   : `Create Your Property Listing`}
               </p>
@@ -496,7 +547,7 @@ const FileManager = () => {
           </div>
         </div>
       )}
-      {isListing &&
+      {isListing && (
         <div
           className="w-full h-[60px] font-alexandria pr-5 z-10 flex items-center border-b border-[#BBBBBB]"
           style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
@@ -508,7 +559,11 @@ const FileManager = () => {
                   ? `${userType}-bg text-white font-[700] ${userType}-border`
                   : `text-[#666666] font-[700]`
                   }`}
-                style={{ backgroundColor: true ? `var(--${userType}-page-bg, #FFFFFF)` : '#FFFFFF' }}
+                style={{
+                  backgroundColor: true
+                    ? `var(--${userType}-page-bg, #FFFFFF)`
+                    : "#FFFFFF",
+                }}
               >
                 Media
               </div>
@@ -518,47 +573,56 @@ const FileManager = () => {
                   ? `${userType}-bg text-white font-[700] ${userType}-border`
                   : `text-[#666666] font-[700]`
                   }`}
-                style={{ backgroundColor: true ? `var(--${userType}-page-bg, #FFFFFF)` : '#FFFFFF' }}
+                style={{
+                  backgroundColor: true
+                    ? `var(--${userType}-page-bg, #FFFFFF)`
+                    : "#FFFFFF",
+                }}
               >
                 Property details
               </Link>
               <Link
                 href={`/dashboard/orders/${orderId}`}
-
                 className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${false
                   ? `${userType}-bg text-white font-[700] ${userType}-border`
                   : `text-[#666666] font-[700]`
                   }`}
-                style={{ backgroundColor: true ? `var(--${userType}-page-bg, #FFFFFF)` : '#FFFFFF' }}
+                style={{
+                  backgroundColor: true
+                    ? `var(--${userType}-page-bg, #FFFFFF)`
+                    : "#FFFFFF",
+                }}
               >
                 Order details
               </Link>
             </div>
           </div>
         </div>
-      }
+      )}
       <div
         className="w-full h-[90px] font-alexandria pr-5 z-10 flex items-center border-b border-[#BBBBBB]"
         style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
       >
         <div className="px-[26px]">
-          {!isListing && <div
-            className={`min-h-[32px] w-[115px] flex items-center cursor-pointer rounded-[24px] ${userType}-bg`}
-            onClick={() => {
-              if (isListing) {
-                router.back();
-              } else {
-                router.push(`/dashboard/orders/${orderData?.uuid}`);
-              }
-            }}
-          >
-            <div className="flex items-center px-[14px] py-[4px] gap-x-[10px]">
-              <BackArrow />
-              <p className="text-[16px] font-semibold text-white font-alexandria">
-                BACK
-              </p>
+          {!isListing && (
+            <div
+              className={`min-h-[32px] w-[115px] flex items-center cursor-pointer rounded-[24px] ${userType}-bg`}
+              onClick={() => {
+                if (isListing) {
+                  router.back();
+                } else {
+                  router.push(`/dashboard/orders/${orderData?.uuid}`);
+                }
+              }}
+            >
+              <div className="flex items-center px-[14px] py-[4px] gap-x-[10px]">
+                <BackArrow />
+                <p className="text-[16px] font-semibold text-white font-alexandria">
+                  BACK
+                </p>
+              </div>
             </div>
-          </div>}
+          )}
         </div>
         <div className="flex items-center justify-center w-full">
           <div className="flex items-center gap-x-6">
@@ -577,7 +641,11 @@ const FileManager = () => {
                     ? `${userType}-bg text-white ${userType}-border`
                     : `${userType}-text ${userType}-border`
                     }`}
-                  style={{ backgroundColor: isActive ? undefined : `var(--${userType}-page-bg, #F2F2F2)` }}
+                  style={{
+                    backgroundColor: isActive
+                      ? undefined
+                      : `var(--${userType}-page-bg, #F2F2F2)`,
+                  }}
                 >
                   {service.service.name}
                 </div>
@@ -596,7 +664,12 @@ const FileManager = () => {
                 ? `${userType}-bg text-white ${userType}-border`
                 : `${userType}-text  ${userType}-border`
                 }`}
-              style={{ backgroundColor: activeTab === "tour" ? undefined : `var(--${userType}-page-bg, #F2F2F2)` }}
+              style={{
+                backgroundColor:
+                  activeTab === "tour"
+                    ? undefined
+                    : `var(--${userType}-page-bg, #F2F2F2)`,
+              }}
             >
               Tour
             </div>
@@ -613,7 +686,12 @@ const FileManager = () => {
                   ? `${userType}-bg text-white ${userType}-border`
                   : `${userType}-text  ${userType}-border`
                   }`}
-                style={{ backgroundColor: activeTab === "CreateFeatureSheet" ? undefined : `var(--${userType}-page-bg, #F2F2F2)` }}
+                style={{
+                  backgroundColor:
+                    activeTab === "CreateFeatureSheet"
+                      ? undefined
+                      : `var(--${userType}-page-bg, #F2F2F2)`,
+                }}
               >
                 Create Feature Sheet
               </div>
@@ -622,7 +700,7 @@ const FileManager = () => {
         </div>
       </div>
       <div>{renderContent()}</div>
-    </div >
+    </div>
   );
 };
 

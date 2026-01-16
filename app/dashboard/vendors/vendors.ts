@@ -15,6 +15,7 @@ export interface VendorSettings {
   payment_per_km: number;
   enable_service_area: number;
   force_service_area: number;
+  is_kilometers: number;
 }
 export interface VendorCompany {
   name: string;
@@ -41,7 +42,7 @@ interface WorkDay {
 
 export interface WorkHours {
   start_time?: string; // Make optional
-  end_time?: string;   // Make optional
+  end_time?: string; // Make optional
   work_days: WorkDay[];
   repeat_weekly: string;
   break_start?: string | null;
@@ -75,6 +76,7 @@ export interface VendorPayload {
   work_hours?: WorkHours;
   coordinates?: string;
   payment_per_km?: number;
+  is_kilometers?: number;
   portfolio_images?: (File | string)[];
   pay_outside: number;
   stripe_connect: number;
@@ -110,21 +112,34 @@ function payloadToFormData(payload: VendorPayload): FormData {
         value.forEach((item, index) => {
           if (item instanceof File) {
             formData.append(`${key}[${index}]`, item);
-          } else if (typeof item === 'string') {
+          } else if (typeof item === "string") {
             formData.append(`${key}[${index}]`, item);
           }
         });
       } else if (key === "addresses") {
         value.forEach((address, index) => {
           Object.entries(address).forEach(([k, v]) => {
-            formData.append(`${key}[${index}][${k}]`, v != null ? String(v) : "");
+            formData.append(
+              `${key}[${index}][${k}]`,
+              v != null ? String(v) : ""
+            );
           });
         });
       } else if (key === "services") {
         value.forEach((service, index) => {
-          formData.append(`services[${index}][service_id]`, String(service.service_id));
+          formData.append(
+            `services[${index}][service_id]`,
+            String(service.service_id)
+          );
           service.options?.forEach(
-            (opt: { uuid?: string; option_uuid: string; vendor_price: number; adjustment_time: string }, optIndex: number
+            (
+              opt: {
+                uuid?: string;
+                option_uuid: string;
+                vendor_price: number;
+                adjustment_time: string;
+              },
+              optIndex: number
             ) => {
               formData.append(
                 `services[${index}][options][${optIndex}][option_uuid]`,
@@ -143,11 +158,9 @@ function payloadToFormData(payload: VendorPayload): FormData {
         });
       } else if (key === "coordinates") {
         formData.append(key, JSON.stringify(value));
-      }
-      else if (key === "sync_email") {
+      } else if (key === "sync_email") {
         formData.append(key, String(value));
       }
-
     } else if (key === "work_hours") {
       Object.entries(value).forEach(([k, v]) => {
         if (Array.isArray(v) && k === "work_days") {
@@ -157,8 +170,8 @@ function payloadToFormData(payload: VendorPayload): FormData {
               if (dayValue !== null && dayValue !== undefined) {
                 // Convert boolean values to 1/0 for form data
                 let finalValue;
-                if (typeof dayValue === 'boolean') {
-                  finalValue = dayValue ? '1' : '0';
+                if (typeof dayValue === "boolean") {
+                  finalValue = dayValue ? "1" : "0";
                 } else {
                   finalValue = String(dayValue);
                 }
@@ -172,8 +185,8 @@ function payloadToFormData(payload: VendorPayload): FormData {
         } else if (v !== null && v !== undefined) {
           // Also handle boolean values in other work_hours fields
           let finalValue;
-          if (typeof v === 'boolean') {
-            finalValue = v ? '1' : '0';
+          if (typeof v === "boolean") {
+            finalValue = v ? "1" : "0";
           } else {
             finalValue = String(v);
           }
@@ -207,10 +220,7 @@ export async function Create(payload: VendorPayload) {
   return data;
 }
 
-export async function Edit(
-  userId: string,
-  payload: VendorPayload,
-) {
+export async function Edit(userId: string, payload: VendorPayload) {
   const formData = payloadToFormData(payload);
 
   const response = await api.post(`/vendors/${userId}`, formData);
@@ -221,7 +231,6 @@ export async function Edit(
 }
 
 export async function Get() {
-
   try {
     const response = await api.get(`/vendors`);
 
@@ -252,7 +261,6 @@ export async function UpdateStatus(
   const data = await response.data;
 
   return data;
-
 }
 
 export async function GetOne(userId: string) {
@@ -267,7 +275,6 @@ export async function GetOne(userId: string) {
   }
 }
 export async function Delete(userId: string) {
-
   const response = await api.delete(`/vendors/${userId}`);
 
   const data = await response.data;
@@ -279,7 +286,6 @@ export async function ResetPasswordVendor(
   payload: ResetPassword,
   userId: string
 ) {
-
   const response = await api.put(`/vendors/${userId}/password`, payload);
 
   const data = await response.data;
@@ -287,7 +293,6 @@ export async function ResetPasswordVendor(
   return data;
 }
 export async function GetServices() {
-
   try {
     const response = await api.get(`/services`);
 
@@ -377,10 +382,10 @@ export interface StripeConnectResponse {
 export const connectStripe = async (
   vendorId: string
 ): Promise<StripeConnectResponse> => {
-
   try {
-    const response = await api.post(`/vendor/stripe/connect`, { vendor_id: vendorId });
-
+    const response = await api.post(`/vendor/stripe/connect`, {
+      vendor_id: vendorId,
+    });
 
     const data = await response.data;
 
@@ -400,9 +405,7 @@ export const connectStripe = async (
   }
 };
 
-
 export async function DeleteVendorBreak(uuid: string) {
-
   const response = await api.delete(`/vendor-breaks/${uuid}`);
 
   const data = await response.data;
@@ -411,7 +414,6 @@ export async function DeleteVendorBreak(uuid: string) {
 }
 
 export async function DeleteVendorService(uuid: string, service_id: string) {
-
   const response = await api.delete(`/vendors/${uuid}/services/${service_id}`);
 
   const data = await response.data;
@@ -420,8 +422,9 @@ export async function DeleteVendorService(uuid: string, service_id: string) {
 }
 
 export async function VendorTourMedia(uuid: string) {
-
-  const response = await api.get(`/vendor/tour-media-settings?vendor_uuid=${uuid}`);
+  const response = await api.get(
+    `/vendor/tour-media-settings?vendor_uuid=${uuid}`
+  );
 
   const data = await response.data;
 
@@ -436,11 +439,14 @@ export const connectGoogleCalendar = async () => {
     const data = await response.data;
     return data;
   } catch (error) {
-    console.error('Failed to connect calendar:', error);
+    console.error("Failed to connect calendar:", error);
     return error;
   }
 };
-export const VerifyGoogleCalendar = async (body: { state: string, code: string }) => {
+export const VerifyGoogleCalendar = async (body: {
+  state: string;
+  code: string;
+}) => {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   try {
     const response = await api.post(`${API_URL}/auth/google/callback`, body);
@@ -448,7 +454,7 @@ export const VerifyGoogleCalendar = async (body: { state: string, code: string }
     const data = await response.data;
     return data;
   } catch (error) {
-    console.error('Failed to verify calendar:', error);
+    console.error("Failed to verify calendar:", error);
     return error;
   }
 };

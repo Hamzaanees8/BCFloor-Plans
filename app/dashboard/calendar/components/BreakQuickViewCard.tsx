@@ -120,7 +120,7 @@ export default function BreakQuickViewCard({ data, onClose, vendorData, breakAct
                                 <div className="flex items-center space-x-[18px]">
                                     <MapPin className="w-[24px] text-[#666666]" strokeWidth={1} />
                                     <p className={`hover:underline text-[15px] font-[400] leading-[32px] ${userType}-text truncate max-w-[300px]`}>
-                                        <span>Vendor:</span> {data.address}
+                                        <span>Address:</span> {data.address}
                                     </p>
                                 </div>
                             }

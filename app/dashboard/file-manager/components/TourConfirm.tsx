@@ -105,6 +105,26 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
     }
   }, [selectedVideoFiles, currentVideoFiles, mainVideo, API_URL]);
 
+  const hasPhotos = orderData?.services.some(s => s.service.name.toLowerCase().includes('photo'));
+  const hasVideos = orderData?.services.some(s => s.service.name.toLowerCase().includes('video') || s.service.name.toLowerCase().includes('reel'));
+  const hasMatterport = orderData?.services.some(s => s.service.name.toLowerCase().includes('matterport') || s.service.name.toLowerCase().includes('3d tour'));
+  const hasFloorPlans = orderData?.services.some(s => s.service.name.toLowerCase().includes('floor plan'));
+
+  const previewTabs = React.useMemo(() => {
+    const tabs = ['Home'];
+    if (hasPhotos) tabs.push('Photos');
+    if (hasVideos) tabs.push('Videos');
+    if (hasFloorPlans) tabs.push('Floorplan');
+    if (hasMatterport) tabs.push('Matterport');
+    return tabs;
+  }, [hasPhotos, hasVideos, hasFloorPlans, hasMatterport]);
+
+  useEffect(() => {
+    if (!previewTabs.includes(activeTab)) {
+      setActiveTab('Home');
+    }
+  }, [previewTabs, activeTab]);
+
   const brandedLinks = links.filter(l => l.type === 'branded');
   const unbrandedLinks = links.filter(l => l.type === 'unbranded');
   return (
@@ -143,20 +163,18 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
             <div className="w-full flex flex-col gap-6 px-6 pb-6 relative ">
               {/* Tabs */}
               <div className="flex justify-center space-x-4 py-2 absolute top-3 z-50 place-self-center">
-                {["Home", "Photos", "Videos", "Floorplan", "Matterport"].map(
-                  (tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={`text-[13px] w-[179px] font-bold  px-4 py-2 rounded-md uppercase ${activeTab === tab
-                        ? `${userType}-bg text-white`
-                        : "bg-gray-200 text-[#666666]"
-                        }`}
-                    >
-                      {tab}
-                    </button>
-                  )
-                )}
+                {previewTabs.map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`text-[13px] w-[179px] font-bold  px-4 py-2 rounded-md uppercase ${activeTab === tab
+                      ? `${userType}-bg text-white`
+                      : "bg-gray-200 text-[#666666]"
+                      }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
               </div>
 
               {activeTab === "Home" && (

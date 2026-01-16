@@ -380,15 +380,18 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                     <div className='w-full md:w-[370px] pt-[60px] pb-[100px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
                         {(isSubmitted && createdOrderUuid && !isLoading) ? (
                             <div className="w-full md:w-[450px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[48px] text-[#424242] text-[14px] font-[400]">
-                                <div className='flex justify-between gap-[12px]'>
-                                    <div className='flex gap-[12px] items-center'>
-                                        <TriangleAlert className='text-[#4290E9] h-[24px]w-[30px]  md:h-[36px] md:w-[40px]' />
-                                        <p className='text-[#4290E9] text-[24px] md:text-[36px] font-[400]'>{orderData?.id}</p>
+                                <div className='flex flex-col gap-[10px]'>
+                                    <div className='flex justify-between gap-[12px]'>
+                                        <div className='flex gap-[12px] items-center'>
+                                            <TriangleAlert className='text-[#4290E9] h-[24px]w-[30px]  md:h-[36px] md:w-[40px]' />
+                                            <p className='text-[#4290E9] text-[24px] md:text-[36px] font-[400]'>Order {orderData?.id}</p>
+                                        </div>
+                                        <div className='flex items-center gap-[12px]'>
+                                            <Switch className=' data-[state=checked]:bg-[#6BAE41] ' />
+                                            <p className='text-[#666666] text-[16px]'>Open</p>
+                                        </div>
                                     </div>
-                                    <div className='flex items-center gap-[12px]'>
-                                        <Switch className=' data-[state=checked]:bg-[#6BAE41] ' />
-                                        <p className='text-[#666666] text-[16px]'>Open</p>
-                                    </div>
+                                    <p className='text-[#666666] text-[16px] font-[400]'>This is only a quote. Invoiced amount will likely change based on actual measured area.</p>
                                 </div>
                                 <div className='text-[#666666] flex gap-x-[20px]'>
                                     <div className='flex flex-col gap-y-[20px] w-1/2 text-wrap'>

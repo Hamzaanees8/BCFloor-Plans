@@ -25,7 +25,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 //import CloseDialog from '@/components/CloseDialog'
 import ChangePasswordDialog from "@/components/ChangePasswordDialog";
 import {
-  connectGoogleCalendar,
+  // connectGoogleCalendar,
   connectStripe,
   Create,
   Edit,
@@ -40,9 +40,7 @@ import {
 } from "../vendors";
 import { SaveModal } from "@/components/SaveModal";
 import { Plus, X } from "lucide-react";
-import {
-  PaymentCard,
-} from "@/components/GlobalSettings";
+import { PaymentCard } from "@/components/GlobalSettings";
 import TravelTable from "@/components/TravelTable";
 import { useAppContext } from "@/app/context/AppContext";
 import PaymentDialog from "@/components/PaymentDialog";
@@ -53,8 +51,12 @@ import {
 import WorkAreaMap, { LatLng } from "@/components/WorkAreaMap";
 import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
 import { useUnsaved } from "@/app/context/UnsavedContext";
-import VendorWorkHours, { SelectedService, WorkHoursData } from "@/components/WorkHours";
+import VendorWorkHours, {
+  SelectedService,
+  WorkHoursData,
+} from "@/components/WorkHours";
 import { VendorsTourMedia } from "@/components/vendorWorkGallery";
+// import { tree } from "next/dist/build/templates/app-page";
 interface VendorCompany {
   company_name: string;
   company_website: string;
@@ -119,15 +121,14 @@ export interface VendorPortfolioImage {
 }
 
 const daysOfWeek = [
-  { key: 'mon', label: 'Monday' },
-  { key: 'tue', label: 'Tuesday' },
-  { key: 'wed', label: 'Wednesday' },
-  { key: 'thu', label: 'Thursday' },
-  { key: 'fri', label: 'Friday' },
-  { key: 'sat', label: 'Saturday' },
-  { key: 'sun', label: 'Sunday' },
+  { key: "mon", label: "Monday" },
+  { key: "tue", label: "Tuesday" },
+  { key: "wed", label: "Wednesday" },
+  { key: "thu", label: "Thursday" },
+  { key: "fri", label: "Friday" },
+  { key: "sat", label: "Saturday" },
+  { key: "sun", label: "Sunday" },
 ];
-
 
 const VendorForm = () => {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -151,7 +152,9 @@ const VendorForm = () => {
   const [companyName, setCompanyName] = useState("");
   const [companyWebsite, setCompanyWebsite] = useState("");
   const [active, setActive] = useState("details");
-  const [countries, setCountries] = useState<{ name: string; isoCode: string }[]>([]);
+  const [countries, setCountries] = useState<
+    { name: string; isoCode: string }[]
+  >([]);
   const [states, setStates] = useState<{ name: string; isoCode: string }[]>([]);
   const [companyAddress, setCompanyAddress] = useState("");
   const [companyCity, setCompanyCity] = useState("");
@@ -162,7 +165,8 @@ const VendorForm = () => {
   const [billingProvince, setBillingProvince] = useState("");
   const [billingCountry, setBillingCountry] = useState("CA");
   const [password, setPassword] = useState("");
-  const [openChangePasswordDialog, setOpenChangePasswordDialog] = useState(false);
+  const [openChangePasswordDialog, setOpenChangePasswordDialog] =
+    useState(false);
   const CompanyLogofileInputRef = useRef(null);
   const [CompanyLogofileName, setCompanyLogoFileName] = useState("");
   const [CompanyLogoUrl, setCompanyLogoUrl] = useState("");
@@ -181,12 +185,12 @@ const VendorForm = () => {
   const [isSyncToGoogle, setIsSyncToGoogle] = useState(false);
   const [syncEmailType, setSyncEmailType] = useState("primary");
   const [workHours, setWorkHours] = useState<WorkHoursData>({
-    work_days: daysOfWeek.map(day => ({
+    work_days: daysOfWeek.map((day) => ({
       day: day.key,
       start_time: "08:00",
       end_time: "17:00",
-      is_off: day.key === 'sun' || day.key === 'sat', // weekends off by default
-      is_twilight: ['mon', 'tue', 'wed', 'thu', 'fri'].includes(day.key)
+      is_off: day.key === "sun" || day.key === "sat", // weekends off by default
+      is_twilight: ["mon", "tue", "wed", "thu", "fri"].includes(day.key),
     })),
     break_start: "13:00",
     break_end: "14:00",
@@ -197,21 +201,28 @@ const VendorForm = () => {
     googleSyncEnabled: false,
     emailType: "",
   });
-  const [selectedServices, setSelectedServices] = useState<SelectedService[]>([]);
+  const [selectedServices, setSelectedServices] = useState<SelectedService[]>(
+    []
+  );
   const [vendorServices, setVendorServices] = useState<SelectedService[]>([]);
   const [servicesData, setServicesData] = useState<Services[]>([]);
   const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
   const [cards, setCards] = useState<PaymentCard[]>([]);
   const [map_coordinates, setmap_coordinates] = useState<LatLng[]>([]);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
-  const [isCalendarLoading, setIsCalendarLoading] = useState(false);
+  // const [isCalendarLoading, setIsCalendarLoading] = useState(false);
   const [portfolioImages, setPortfolioImages] = useState<File[]>([]);
-  const [portfolioImagesUrls, setPortfolioImagesUrl] = useState<VendorPortfolioImage[]>([]);
+  const [portfolioImagesUrls, setPortfolioImagesUrl] = useState<
+    VendorPortfolioImage[]
+  >([]);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
-  const [vendorTourMedia, setVendorTourMedia] = useState<VendorsTourMedia[]>([]);
+  const [vendorTourMedia, setVendorTourMedia] = useState<VendorsTourMedia[]>(
+    []
+  );
   const [allowConnectStripe, setAllowConnectStripe] = useState<boolean>(false);
   const [payOutsidePlatform, setPayOutsidePlatform] = useState<boolean>(false);
-
+  const [inkilometers, setInKilometers] = useState<boolean>(true);
+  // const [inmiles, setInMiles] = useState<boolean>(false);
   const { userType } = useAppContext();
   const { isDirty, setIsDirty } = useUnsaved();
   useUnsavedChangesWarning(isDirty);
@@ -224,8 +235,8 @@ const VendorForm = () => {
   const params = useParams();
   const searchParams = useSearchParams();
   const userId = params?.id as string;
-  const state = searchParams.get('state');
-  const code = searchParams.get('code');
+  const state = searchParams.get("state");
+  const code = searchParams.get("code");
 
   useEffect(() => {
     setCountries(Country.getAllCountries());
@@ -364,8 +375,8 @@ const VendorForm = () => {
         typeof currentUser?.coordinates === "string"
           ? JSON.parse(currentUser.coordinates)
           : Array.isArray(currentUser?.coordinates)
-            ? currentUser.coordinates
-            : []
+          ? currentUser.coordinates
+          : []
       );
 
       if (currentUser.avatar_url) setAvatarUrl(currentUser.avatar_url);
@@ -404,6 +415,7 @@ const VendorForm = () => {
         setPaymentPerKm(currentUser.settings.payment_per_km || 0);
         setEnableServiceArea(!!currentUser.settings.enable_service_area);
         setForceServiceArea(!!currentUser.settings.force_service_area);
+        setInKilometers(!!currentUser.settings.is_kilometers);
       }
       if (currentUser.company) {
         setCompanyLogoUrl(currentUser.company.company_logo_url);
@@ -417,15 +429,17 @@ const VendorForm = () => {
         setPortfolioImagesUrl(currentUser.portfolio_images);
       }
       if (currentUser.vendor_services) {
-        const transformedServices: SelectedService[] = currentUser.vendor_services.map(vs => ({
-          service_id: vs.service?.uuid || '',
-          vendor_service_id: vs.uuid,
-          options: vs.options?.map(opt => ({
-            option_uuid: opt.uuid ?? '',
-            vendor_price: Number(opt.vendor_price) || 0,
-            adjustment_time: opt.adjustment_time || 'no adjustment'
-          })) || []
-        }));
+        const transformedServices: SelectedService[] =
+          currentUser.vendor_services.map((vs) => ({
+            service_id: vs.service?.uuid || "",
+            vendor_service_id: vs.uuid,
+            options:
+              vs.options?.map((opt) => ({
+                option_uuid: opt.uuid ?? "",
+                vendor_price: Number(opt.vendor_price) || 0,
+                adjustment_time: opt.adjustment_time || "no adjustment",
+              })) || [],
+          }));
         setVendorServices(transformedServices);
       }
       if (currentUser?.work_hours?.work_days) {
@@ -438,36 +452,44 @@ const VendorForm = () => {
           parsed = currentUser.work_hours.work_days;
         }
 
-        const transformedWorkDays = parsed.map(dayObj => ({
+        const transformedWorkDays = parsed.map((dayObj) => ({
           day: dayObj.day, // 'mon', 'tue', etc.
           start_time: dayObj.start_time || "08:00",
           end_time: dayObj.end_time || "17:00",
           is_off: dayObj.is_off === "1" || dayObj.is_off === true,
-          is_twilight: dayObj.is_twilight === "1" || dayObj.is_twilight === true,
+          is_twilight:
+            dayObj.is_twilight === "1" || dayObj.is_twilight === true,
         }));
 
-        setWorkHours(prev => ({
+        setWorkHours((prev) => ({
           ...prev,
-          work_days: transformedWorkDays
+          work_days: transformedWorkDays,
         }));
 
         if (currentUser?.work_hours) {
-          setWorkHours(prev => ({
+          setWorkHours((prev) => ({
             ...prev,
             timezone: currentUser.work_hours?.timezone || "America/Edmonton",
             break_start: currentUser.work_hours?.break_start || "",
             break_end: currentUser.work_hours?.break_end || "",
             commuteTime: currentUser.work_hours?.commute_minutes || 0,
-            repeat: currentUser.work_hours?.repeat_weekly === "1" || currentUser.work_hours?.repeat_weekly === "true",
+            repeat:
+              currentUser.work_hours?.repeat_weekly === "1" ||
+              currentUser.work_hours?.repeat_weekly === "true",
             googleSync: currentUser.sync_google ?? false,
             googleSyncEnabled: currentUser.sync_google_calendar ?? false,
-            emailType: currentUser.sync_email || ""
+            emailType: currentUser.sync_email || "",
           }));
         }
-
       }
-      setPayOutsidePlatform(currentUser.pay_outside ?? false);
-      setAllowConnectStripe(currentUser.stripe_connect ?? false);
+      setPayOutsidePlatform(
+        currentUser.pay_outside || !currentUser.stripe_account_id ? true : false
+      );
+      setAllowConnectStripe(
+        currentUser.stripe_connect || currentUser.stripe_account_id
+          ? true
+          : false
+      );
       setShowVendorName(currentUser.name_on_booking);
       setAdminReviewRequired(currentUser.review_files);
       setIsEnableGoogle(currentUser.sync_google_calendar);
@@ -550,24 +572,38 @@ const VendorForm = () => {
     e.preventDefault();
     const validationErrors: Record<string, string[]> = {};
 
-    if (!firstName?.trim()) validationErrors.first_name = ["First Name is required"];
-    if (!lastName?.trim()) validationErrors.last_name = ["Last Name is required"];
+    if (!firstName?.trim())
+      validationErrors.first_name = ["First Name is required"];
+    if (!lastName?.trim())
+      validationErrors.last_name = ["Last Name is required"];
     if (!email?.trim()) validationErrors.email = ["Email is required"];
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) validationErrors.email = ["Invalid email format"];
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      validationErrors.email = ["Invalid email format"];
 
-    if (!userId && !password) validationErrors.password = ["Password is required"];
-    if (password && password.length < 8) validationErrors.password = ["Password must be at least 8 characters"];
+    if (!userId && !password && userType != "vendor")
+      validationErrors.password = ["Password is required"];
+    if (password && password.length < 8)
+      validationErrors.password = ["Password must be at least 8 characters"];
 
-    if (!primaryPhone?.trim()) validationErrors.primary_phone = ["Primary Phone is required"];
+    if (!primaryPhone?.trim())
+      validationErrors.primary_phone = ["Primary Phone is required"];
 
+    if (!companyAddress?.trim())
+      validationErrors.company_address = ["Headquarter Address is required"];
+    if (!companyCity?.trim())
+      validationErrors.company_city = ["Headquarter City is required"];
+    if (!companyProvince?.trim())
+      validationErrors.company_province = ["Headquarter Province is required"];
 
-    if (!companyAddress?.trim()) validationErrors.company_address = ["Headquarter Address is required"];
-    if (!companyCity?.trim()) validationErrors.company_city = ["Headquarter City is required"];
-    if (!companyProvince?.trim()) validationErrors.company_province = ["Headquarter Province is required"];
+    if (!startLocation?.trim())
+      validationErrors[`addresses.1.address_line_1`] = [
+        "Start Location is required",
+      ];
 
-    if (!startLocation?.trim()) validationErrors[`addresses.1.address_line_1`] = ["Start Location is required"];
-
-    if (!billingAddress1?.trim()) validationErrors[`addresses.2.address_line_1`] = ["Billing Address is required"];
+    if (!billingAddress1?.trim())
+      validationErrors[`addresses.2.address_line_1`] = [
+        "Billing Address is required",
+      ];
 
     if (!billingCity?.trim()) {
       validationErrors[`addresses.1.city`] = ["City is required"];
@@ -582,26 +618,46 @@ const VendorForm = () => {
       validationErrors.sync_email = ["The selected sync email is invalid."];
     }
 
-    if (paymentPerKm === '' || isNaN(Number(paymentPerKm)) || Number(paymentPerKm) < 0) {
-      validationErrors.payment_per_km = ["Payment per KM must be a positive number"];
+    if (
+      paymentPerKm === "" ||
+      isNaN(Number(paymentPerKm)) ||
+      Number(paymentPerKm) < 0
+    ) {
+      validationErrors.payment_per_km = [
+        "Payment per KM must be a positive number",
+      ];
+    }
+    if (!map_coordinates || map_coordinates.length < 3) {
+      validationErrors.map_coordinates = [
+        "Map coordinates are required and must have at least 3 points",
+      ];
     }
 
-    if (!workHours.timezone) validationErrors.timezone = ["Timezone is required"];
+    if (!workHours.timezone)
+      validationErrors.timezone = ["Timezone is required"];
 
-    if (!userId && userType !== 'vendor') {
+    if (!userId && userType !== "vendor") {
       if (selectedServices.length === 0) {
         validationErrors.services = ["At least one service must be selected"];
       } else {
         selectedServices.forEach((service, index) => {
           if (!service.service_id) {
-            validationErrors[`services[${index}].service_id`] = ["Service ID is required"];
+            validationErrors[`services[${index}].service_id`] = [
+              "Service ID is required",
+            ];
           }
           if (!service.options || service.options.length === 0) {
-            validationErrors[`services[${index}].options`] = [`Options are required for selected service`];
+            validationErrors[`services[${index}].options`] = [
+              `Options are required for selected service`,
+            ];
           } else {
             service.options.forEach((opt) => {
-              if (opt.vendor_price === undefined || opt.vendor_price === null || isNaN(Number(opt.vendor_price)) || Number(opt.vendor_price) < 0) {
-
+              if (
+                opt.vendor_price === undefined ||
+                opt.vendor_price === null ||
+                isNaN(Number(opt.vendor_price)) ||
+                Number(opt.vendor_price) < 0
+              ) {
               }
             });
           }
@@ -612,7 +668,9 @@ const VendorForm = () => {
     if (Object.keys(validationErrors).length > 0) {
       setFieldErrors(validationErrors);
       const firstError = Object.values(validationErrors).flat()[0];
-      toast.error(firstError || "Please fill in all required fields correctly.");
+      toast.error(
+        firstError || "Please fill in all required fields correctly."
+      );
       return;
     }
 
@@ -669,27 +727,36 @@ const VendorForm = () => {
           },
         ],
         work_hours: {
-          work_days: workHours.work_days.map(daySchedule => ({
+          work_days: workHours.work_days.map((daySchedule) => ({
             day: daySchedule.day,
-            start_time: daySchedule.is_off ? undefined : convertTo24HourFormat(daySchedule.start_time),
-            end_time: daySchedule.is_off ? undefined : convertTo24HourFormat(daySchedule.end_time),
+            start_time: daySchedule.is_off
+              ? undefined
+              : convertTo24HourFormat(daySchedule.start_time),
+            end_time: daySchedule.is_off
+              ? undefined
+              : convertTo24HourFormat(daySchedule.end_time),
             is_off: daySchedule.is_off,
-            is_twilight: daySchedule.is_twilight
+            is_twilight: daySchedule.is_twilight,
           })),
           break_start: convertTo24HourFormat(workHours.break_start),
           break_end: convertTo24HourFormat(workHours.break_end),
           timezone: workHours.timezone,
           commute_minutes: workHours.commuteTime,
-          repeat_weekly: workHours.repeat ? "1" : "0"
+          repeat_weekly: workHours.repeat ? "1" : "0",
         },
         payment_per_km: Number(paymentPerKm),
+        is_kilometers: inkilometers ? 1 : 0,
         services: selectedServices,
         settings: {
           payment_per_km: Number(paymentPerKm),
           enable_service_area: enableServiceArea ? 1 : 0,
           force_service_area: forceServiceArea ? 1 : 0,
+          is_kilometers: inkilometers ? 1 : 0,
         },
-        portfolio_images: [...portfolioImages, ...galleryImages].length > 0 ? [...portfolioImages, ...galleryImages] : undefined,
+        portfolio_images:
+          [...portfolioImages, ...galleryImages].length > 0
+            ? [...portfolioImages, ...galleryImages]
+            : undefined,
         pay_outside: payOutsidePlatform ? 1 : 0,
         stripe_connect: allowConnectStripe ? 1 : 0,
       };
@@ -714,7 +781,6 @@ const VendorForm = () => {
       }
       if (idToUse) {
         const updatedPayload = { ...payload, _method: "PUT" };
-
 
         await Edit(idToUse, updatedPayload);
         setIsLoading(true);
@@ -846,23 +912,23 @@ const VendorForm = () => {
       setIsStripeLoading(false);
     }
   };
-  const handleConnectCalendar = async (
-    e: React.MouseEvent<HTMLButtonElement>
-  ) => {
-    e.preventDefault();
-    setIsCalendarLoading(true);
-    const data = await connectGoogleCalendar()
+  // const handleConnectCalendar = async (
+  //   e: React.MouseEvent<HTMLButtonElement>
+  // ) => {
+  //   e.preventDefault();
+  //   setIsCalendarLoading(true);
+  //   const data = await connectGoogleCalendar();
 
-    if (data.success) {
-      toast.success("Redirecting to Google Calendar...");
-      if (data.auth_url) {
-        window.location.href = data.auth_url;
-      }
-    } else {
-      toast.error(data.error || "Failed to connect Google Calendar");
-    }
-    setIsCalendarLoading(false);
-  }
+  //   if (data.success) {
+  //     toast.success("Redirecting to Google Calendar...");
+  //     if (data.auth_url) {
+  //       window.location.href = data.auth_url;
+  //     }
+  //   } else {
+  //     toast.error(data.error || "Failed to connect Google Calendar");
+  //   }
+  //   setIsCalendarLoading(false);
+  // };
   useEffect(() => {
     if (state && code) {
       VerifyGoogleCalendar({ state, code });
@@ -872,8 +938,11 @@ const VendorForm = () => {
   return (
     <div className="font-alexandria">
       <div
-        className="w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center"
-        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }}
+        className="w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center sticky top-0"
+        style={{
+          backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+          boxShadow: "0px 4px 4px #0000001F",
+        }}
       >
         {userType === "vendor" && (
           <p
@@ -926,25 +995,30 @@ const VendorForm = () => {
         title={"Vendors"}
       />
       {
-        <div className="flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+        <div
+          className="flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600]"
+          style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+        >
           <div className="flex gap-2">
             <button
               onClick={() => setActive("details")}
               className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                            ${active === "details"
-                  ? `text-white ${userType}-bg`
-                  : "bg-[#F2F2F2] text-[#666666]"
-                }`}
+                            ${
+                              active === "details"
+                                ? `text-white ${userType}-bg`
+                                : "bg-[#F2F2F2] text-[#666666]"
+                            }`}
             >
               DETAILS
             </button>
             <button
               onClick={() => setActive("work hours")}
               className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                            ${active === "work hours"
-                  ? `text-white ${userType}-bg`
-                  : "bg-[#F2F2F2] text-[#666666]"
-                }`}
+                            ${
+                              active === "work hours"
+                                ? `text-white ${userType}-bg`
+                                : "bg-[#F2F2F2] text-[#666666]"
+                            }`}
             >
               WORK HOURS
             </button>
@@ -952,10 +1026,11 @@ const VendorForm = () => {
               <button
                 onClick={() => setActive("travel")}
                 className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                                ${active === "travel"
-                    ? `text-white ${userType}-bg`
-                    : "bg-[#F2F2F2] text-[#666666]"
-                  }`}
+                                ${
+                                  active === "travel"
+                                    ? `text-white ${userType}-bg`
+                                    : "bg-[#F2F2F2] text-[#666666]"
+                                }`}
               >
                 TRAVEL
               </button>
@@ -974,6 +1049,23 @@ const VendorForm = () => {
               }
             }}
           >
+            <div
+              style={{ position: "absolute", left: "-9999px", top: "-9999px" }}
+              aria-hidden="true"
+            >
+              <input
+                type="text"
+                name="fake-username"
+                tabIndex={-1}
+                autoComplete="off"
+              />
+              <input
+                type="password"
+                name="fake-password"
+                tabIndex={-1}
+                autoComplete="off"
+              />
+            </div>
             <Accordion
               type="multiple"
               defaultValue={[
@@ -992,7 +1084,9 @@ const VendorForm = () => {
               <AccordionItem value="profile">
                 <AccordionTrigger
                   className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                  style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                  style={{
+                    backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+                  }}
                 >
                   PROFILE
                 </AccordionTrigger>
@@ -1001,7 +1095,9 @@ const VendorForm = () => {
                     <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
                       <div className="grid grid-cols-2 gap-[16px]">
                         <div className="flex-1">
-                          <Label>First Name <span className="text-red-500">*</span></Label>
+                          <Label>
+                            First Name <span className="text-red-500">*</span>
+                          </Label>
                           <Input
                             placeholder="e.g. John"
                             value={firstName}
@@ -1013,12 +1109,22 @@ const VendorForm = () => {
                                 setFieldErrors(newErrors);
                               }
                             }}
-                            className={`h-[42px] mt-3 ${fieldErrors.first_name ? 'border-red-500' : 'bg-[#EEEEEE] border-[#BBBBBB]'}`}
+                            className={`h-[42px] mt-3 ${
+                              fieldErrors.first_name
+                                ? "border-red-500"
+                                : "bg-[#EEEEEE] border-[#BBBBBB]"
+                            }`}
                           />
-                          {fieldErrors.first_name && <p className="text-red-500 text-xs mt-1">{fieldErrors.first_name[0]}</p>}
+                          {fieldErrors.first_name && (
+                            <p className="text-red-500 text-xs mt-1">
+                              {fieldErrors.first_name[0]}
+                            </p>
+                          )}
                         </div>
                         <div className="flex-1">
-                          <Label>Last Name <span className="text-red-500">*</span></Label>
+                          <Label>
+                            Last Name <span className="text-red-500">*</span>
+                          </Label>
                           <Input
                             placeholder="e.g. Doe"
                             value={lastName}
@@ -1030,15 +1136,26 @@ const VendorForm = () => {
                                 setFieldErrors(newErrors);
                               }
                             }}
-                            className={`h-[42px] mt-3 ${fieldErrors.last_name ? 'border-red-500' : 'bg-[#EEEEEE] border-[#BBBBBB]'}`}
+                            className={`h-[42px] mt-3 ${
+                              fieldErrors.last_name
+                                ? "border-red-500"
+                                : "bg-[#EEEEEE] border-[#BBBBBB]"
+                            }`}
                           />
-                          {fieldErrors.last_name && <p className="text-red-500 text-xs mt-1">{fieldErrors.last_name[0]}</p>}
+                          {fieldErrors.last_name && (
+                            <p className="text-red-500 text-xs mt-1">
+                              {fieldErrors.last_name[0]}
+                            </p>
+                          )}
                         </div>
                         <div className="col-span-2">
                           <div className="flex-1">
-                            <Label>Email <span className="text-red-500">*</span></Label>
+                            <Label>
+                              Email <span className="text-red-500">*</span>
+                            </Label>
                             <Input
                               placeholder="e.g. johndoe@gmail.com"
+                              autoComplete="off"
                               value={email}
                               onChange={(e) => {
                                 setEmail(e.target.value);
@@ -1048,15 +1165,24 @@ const VendorForm = () => {
                                   setFieldErrors(newErrors);
                                 }
                               }}
-                              className={`h-[42px] mt-3 ${fieldErrors.email ? 'border-red-500' : 'bg-[#EEEEEE] border-[#BBBBBB]'}`}
+                              className={`h-[42px] mt-3 ${
+                                fieldErrors.email
+                                  ? "border-red-500"
+                                  : "bg-[#EEEEEE] border-[#BBBBBB]"
+                              }`}
                             />
-                            {fieldErrors.email && <p className="text-red-500 text-xs mt-1">{fieldErrors.email[0]}</p>}
+                            {fieldErrors.email && (
+                              <p className="text-red-500 text-xs mt-1">
+                                {fieldErrors.email[0]}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div className="col-span-2">
                           <label htmlFor="">Email Secondary</label>
                           <Input
                             value={secondaryEmail}
+                            autoComplete="off"
                             onChange={(e) => setSecondaryEmail(e.target.value)}
                             className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                             type="email"
@@ -1098,7 +1224,10 @@ const VendorForm = () => {
                         </div>
                         <div>
                           <div className="flex-1">
-                            <Label>Primary Phone <span className="text-red-500">*</span></Label>
+                            <Label>
+                              Primary Phone{" "}
+                              <span className="text-red-500">*</span>
+                            </Label>
                             <Input
                               placeholder="e.g. +1 (555) 555-5555"
                               value={primaryPhone}
@@ -1110,9 +1239,17 @@ const VendorForm = () => {
                                   setFieldErrors(newErrors);
                                 }
                               }}
-                              className={`h-[42px] mt-3 ${fieldErrors.primary_phone ? 'border-red-500' : 'bg-[#EEEEEE] border-[#BBBBBB]'}`}
+                              className={`h-[42px] mt-3 ${
+                                fieldErrors.primary_phone
+                                  ? "border-red-500"
+                                  : "bg-[#EEEEEE] border-[#BBBBBB]"
+                              }`}
                             />
-                            {fieldErrors.primary_phone && <p className="text-red-500 text-xs mt-1">{fieldErrors.primary_phone[0]}</p>}
+                            {fieldErrors.primary_phone && (
+                              <p className="text-red-500 text-xs mt-1">
+                                {fieldErrors.primary_phone[0]}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div>
@@ -1224,11 +1361,17 @@ const VendorForm = () => {
                         {!currentUser && (
                           <div className="col-span-2">
                             <div className="flex-1">
-                              <Label>Password {!userId && <span className="text-red-500">*</span>}</Label>
+                              <Label>
+                                Password{" "}
+                                {!userId && (
+                                  <span className="text-red-500">*</span>
+                                )}
+                              </Label>
                               <div className="relative">
                                 <Input
                                   placeholder="e.g. ************"
                                   value={password}
+                                  autoComplete="new-password"
                                   type="password"
                                   onChange={(e) => {
                                     setPassword(e.target.value);
@@ -1238,9 +1381,17 @@ const VendorForm = () => {
                                       setFieldErrors(newErrors);
                                     }
                                   }}
-                                  className={`h-[42px] mt-3 ${fieldErrors.password ? 'border-red-500' : 'bg-[#EEEEEE] border-[#BBBBBB]'}`}
+                                  className={`h-[42px] mt-3 ${
+                                    fieldErrors.password
+                                      ? "border-red-500"
+                                      : "bg-[#EEEEEE] border-[#BBBBBB]"
+                                  }`}
                                 />
-                                {fieldErrors.password && <p className="text-red-500 text-xs mt-1">{fieldErrors.password[0]}</p>}
+                                {fieldErrors.password && (
+                                  <p className="text-red-500 text-xs mt-1">
+                                    {fieldErrors.password[0]}
+                                  </p>
+                                )}
                                 {/* <div className="absolute top-[25px] right-3">
                                             <GeneratePassword />
                                         </div> */}
@@ -1291,7 +1442,9 @@ const VendorForm = () => {
               <AccordionItem value="location" className="border-none">
                 <AccordionTrigger
                   className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                  style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                  style={{
+                    backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+                  }}
                 >
                   LOCATION
                 </AccordionTrigger>
@@ -1314,7 +1467,11 @@ const VendorForm = () => {
                                 setFieldErrors(newErrors);
                               }
                             }}
-                            className={`h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] mt-[12px] ${fieldErrors[`addresses.1.address_line_1`] ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                            className={`h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] mt-[12px] ${
+                              fieldErrors[`addresses.1.address_line_1`]
+                                ? "border-red-500"
+                                : "border-[#BBBBBB]"
+                            }`}
                             type="text"
                             placeholder="7458 Burrard Street"
                           />
@@ -1356,7 +1513,12 @@ const VendorForm = () => {
                                 setFieldErrors(newErrors);
                               }
                             }}
-                            className={`h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] mt-[12px] ${fieldErrors[`addresses.1.city`] || fieldErrors[`addresses.2.city`] ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                            className={`h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] mt-[12px] ${
+                              fieldErrors[`addresses.1.city`] ||
+                              fieldErrors[`addresses.2.city`]
+                                ? "border-red-500"
+                                : "border-[#BBBBBB]"
+                            }`}
                             type="text"
                             placeholder="Burnaby"
                           />
@@ -1383,7 +1545,14 @@ const VendorForm = () => {
                             }}
                             disabled={!states.length}
                           >
-                            <SelectTrigger className={`w-full h-[42px] bg-[#EEEEEE] mt-[12px] border data-[placeholder]:text-[#9ca3af] ${fieldErrors[`addresses.1.province`] || fieldErrors[`addresses.2.province`] ? 'border-red-500' : 'border-[#BBBBBB]'}`}>
+                            <SelectTrigger
+                              className={`w-full h-[42px] bg-[#EEEEEE] mt-[12px] border data-[placeholder]:text-[#9ca3af] ${
+                                fieldErrors[`addresses.1.province`] ||
+                                fieldErrors[`addresses.2.province`]
+                                  ? "border-red-500"
+                                  : "border-[#BBBBBB]"
+                              }`}
+                            >
                               <SelectValue placeholder="Select Province" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1438,7 +1607,11 @@ const VendorForm = () => {
                                 setFieldErrors(newErrors);
                               }
                             }}
-                            className={`h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] mt-[12px] ${fieldErrors[`addresses.2.address_line_1`] ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                            className={`h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] mt-[12px] ${
+                              fieldErrors[`addresses.2.address_line_1`]
+                                ? "border-red-500"
+                                : "border-[#BBBBBB]"
+                            }`}
                             type="text"
                             placeholder="7458 Burrard Street"
                           />
@@ -1470,7 +1643,9 @@ const VendorForm = () => {
               <AccordionItem value="branding">
                 <AccordionTrigger
                   className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                  style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                  style={{
+                    backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+                  }}
                 >
                   Branding Assets
                 </AccordionTrigger>
@@ -1520,93 +1695,97 @@ const VendorForm = () => {
                           Avatar 96 x 96, PNG or JPG
                         </p>
                       </div>
-                      <div className="flex flex-col gap-y-[6px]">
-                        <div className="flex items-end gap-x-[6px]">
-                          {CompanyLogoUrl ? (
-                            <Image
-                              unoptimized
-                              src={CompanyLogoUrl}
-                              alt="Avatar"
-                              width={64}
-                              height={64}
-                              className="h-16 w-16 object-cover border"
-                            />
-                          ) : (
-                            <div className="w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]"></div>
-                          )}
-                          <div className="flex-1">
-                            <Label className="text-sm  text-gray-600">
-                              Company Logo
-                            </Label>
-                            <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
-                              <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">
-                                {CompanyLogofileName}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={triggerFileInput1}
-                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                              >
-                                Replace
-                              </button>
+                      {userType === "Admin" && (
+                        <>
+                          <div className="flex flex-col gap-y-[6px]">
+                            <div className="flex items-end gap-x-[6px]">
+                              {CompanyLogoUrl ? (
+                                <Image
+                                  unoptimized
+                                  src={CompanyLogoUrl}
+                                  alt="Avatar"
+                                  width={64}
+                                  height={64}
+                                  className="h-16 w-16 object-cover border"
+                                />
+                              ) : (
+                                <div className="w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]"></div>
+                              )}
+                              <div className="flex-1">
+                                <Label className="text-sm  text-gray-600">
+                                  Company Logo
+                                </Label>
+                                <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
+                                  <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">
+                                    {CompanyLogofileName}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={triggerFileInput1}
+                                    className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                  >
+                                    Replace
+                                  </button>
+                                </div>
+                                <input
+                                  type="file"
+                                  accept="image/png, image/jpeg"
+                                  ref={CompanyLogofileInputRef}
+                                  onChange={handleFileChange1}
+                                  className="hidden"
+                                />
+                              </div>
                             </div>
-                            <input
-                              type="file"
-                              accept="image/png, image/jpeg"
-                              ref={CompanyLogofileInputRef}
-                              onChange={handleFileChange1}
-                              className="hidden"
-                            />
+                            <p className={`text-[10px] ${userType}-text`}>
+                              Company logo 512 x 512, PNG or JPG
+                            </p>
                           </div>
-                        </div>
-                        <p className={`text-[10px] ${userType}-text`}>
-                          Company logo 512 x 512, PNG or JPG
-                        </p>
-                      </div>
-                      <div className="flex flex-col gap-y-[6px]">
-                        <div className="flex items-end gap-x-[6px] flex-1">
-                          {CompanyBannerUrl ? (
-                            <Image
-                              unoptimized
-                              src={CompanyBannerUrl}
-                              alt="Avatar"
-                              width={64}
-                              height={64}
-                              className="h-16 w-16 object-cover border"
-                            />
-                          ) : (
-                            <div className="w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]"></div>
-                          )}
-                          <div className="flex-1">
-                            <Label className="text-sm font-normal">
-                              Company Banner
-                            </Label>
-                            <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
-                              <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">
-                                {CompanyBannerfileName}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={triggerFileInput2}
-                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                              >
-                                Browse
-                              </button>
-                            </div>
+                          <div className="flex flex-col gap-y-[6px]">
+                            <div className="flex items-end gap-x-[6px] flex-1">
+                              {CompanyBannerUrl ? (
+                                <Image
+                                  unoptimized
+                                  src={CompanyBannerUrl}
+                                  alt="Avatar"
+                                  width={64}
+                                  height={64}
+                                  className="h-16 w-16 object-cover border"
+                                />
+                              ) : (
+                                <div className="w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]"></div>
+                              )}
+                              <div className="flex-1">
+                                <Label className="text-sm font-normal">
+                                  Company Banner
+                                </Label>
+                                <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
+                                  <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">
+                                    {CompanyBannerfileName}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={triggerFileInput2}
+                                    className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                  >
+                                    Browse
+                                  </button>
+                                </div>
 
-                            <input
-                              type="file"
-                              accept="image/png, image/jpeg"
-                              ref={CompanyBannerfileInputRef}
-                              onChange={handleFileChange2}
-                              className="hidden"
-                            />
+                                <input
+                                  type="file"
+                                  accept="image/png, image/jpeg"
+                                  ref={CompanyBannerfileInputRef}
+                                  onChange={handleFileChange2}
+                                  className="hidden"
+                                />
+                              </div>
+                            </div>
+                            <p className={`text-[10px] ${userType}-text`}>
+                              Company banner 1600 x 720, PNG or JPG
+                            </p>
                           </div>
-                        </div>
-                        <p className={`text-[10px] ${userType}-text`}>
-                          Company banner 1600 x 720, PNG or JPG
-                        </p>
-                      </div>
+                        </>
+                      )}
                       <p className="text-[#666666] text-sm font-normal pt-4">
                         Explanation of where these assets are used and
                         leveraged, recommended/specify dimensions, color
@@ -1620,10 +1799,11 @@ const VendorForm = () => {
               {(userType === "vendor" || userType === "admin") && (
                 <AccordionItem value="payment" className="border-none">
                   <AccordionTrigger
-                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === "vendor"
-                      ? "[&>svg]:text-[#6BAE41]"
-                      : "[&>svg]:text-[#6BAE41]"
-                      }  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${
+                      userType === "vendor"
+                        ? "[&>svg]:text-[#6BAE41]"
+                        : "[&>svg]:text-[#6BAE41]"
+                    }  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                   >
                     PAYMENT
                   </AccordionTrigger>
@@ -1686,28 +1866,38 @@ const VendorForm = () => {
                               </div>
                             ))}
                           </div>
-                          <div className='w-full flex flex-col col-span-2 items-start gap-4'>
-                            <div className="w-full">
-                              <div className="flex items-center justify-between">
-                                <p className="text-[#666666]">Allow Connect Stripe</p>
-                                <Switch
-                                  checked={allowConnectStripe}
-                                  onCheckedChange={setAllowConnectStripe}
-                                  className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
-                                />
-                              </div>
-                            </div>
-                            <div className="w-full">
-                              <div className="flex items-center justify-between">
-                                <p className="text-[#666666]">Pay Outside of Platform</p>
-                                <Switch
-                                  checked={payOutsidePlatform}
-                                  onCheckedChange={setPayOutsidePlatform}
-                                  className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
-                                />
-                              </div>
-                            </div>
-                            {/* Stripe Button */}
+
+                          <div className="w-full flex flex-col col-span-2 items-start gap-4 mt-5 margin-top-5 border-t pt-5">
+                            {userType === "admin" && (
+                              <>
+                                <div className="w-full">
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-[#666666]">
+                                      Allow Connect Stripe
+                                    </p>
+                                    <Switch
+                                      checked={
+                                        allowConnectStripe ? true : false
+                                      }
+                                      onCheckedChange={setAllowConnectStripe}
+                                      className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="w-full">
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-[#666666]">
+                                      Pay Outside of Platform
+                                    </p>
+                                    <Switch
+                                      checked={payOutsidePlatform}
+                                      onCheckedChange={setPayOutsidePlatform}
+                                      className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
+                                    />
+                                  </div>
+                                </div>
+                              </>
+                            )}
                             <button
                               onClick={(e) => {
                                 handleConnectStripe(e);
@@ -1716,7 +1906,11 @@ const VendorForm = () => {
                                 isStripeLoading ||
                                 !!currentUser?.stripe_account_id
                               }
-                              className={`px-6 py-3 w-auto ${currentUser?.stripe_account_id ? 'bg-[#6BAE41] hover:bg-[#6BAE41]/80' : 'bg-[#4290E9] hover:bg-[#4290E9]/80'} text-white font-medium rounded-lg shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
+                              className={`px-6 py-3 w-auto ${
+                                currentUser?.stripe_account_id
+                                  ? "bg-[#6BAE41] hover:bg-[#6BAE41]/80"
+                                  : "bg-[#4290E9] hover:bg-[#4290E9]/80"
+                              } text-white font-medium rounded-lg shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
                             >
                               {isStripeLoading ? (
                                 <>
@@ -1750,7 +1944,7 @@ const VendorForm = () => {
                             </button>
 
                             {/* Calendar Button */}
-                            <button
+                            {/* <button
 
                               onClick={(e) => {
                                 handleConnectCalendar(e);
@@ -1791,8 +1985,7 @@ const VendorForm = () => {
                               ) : (
                                 "Connect with Calendar"
                               )}
-                            </button>
-
+                            </button> */}
                           </div>
                         </div>
                       </div>
@@ -1801,32 +1994,70 @@ const VendorForm = () => {
                 </AccordionItem>
               )}
 
-              <AccordionItem value="vendor" className='border-none'>
+              <AccordionItem value="vendor" className="border-none">
                 <AccordionTrigger
                   className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                  style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-                >VENDOR RATE SETTINGS</AccordionTrigger>
+                  style={{
+                    backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+                  }}
+                >
+                  VENDOR RATE SETTINGS
+                </AccordionTrigger>
                 <AccordionContent className="grid gap-4">
-                  <div className='w-full flex flex-col items-center'>
-                    <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                      <div className='grid grid-cols-2 gap-[16px] py-[32px]'>
-                        <div className='col-span-2'>
-                          <p className='text-sm font-normal text-[#666666]'>Set rate for all vendors commute reimbursement value.</p>
+                  <div className="w-full flex flex-col items-center">
+                    <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
+                      <div className="grid grid-cols-2 gap-[16px] py-[32px]">
+                        <div className="col-span-2">
+                          <p className="text-sm font-normal text-[#666666]">
+                            Set rate for all vendors commute reimbursement
+                            value.
+                          </p>
                         </div>
-                        <div className='col-span-2'>
+                        <div className="w-full">
+                          <div className="flex items-center gap-x-4">
+                            <p className="text-[#666666]">In Kilometers</p>
+                            <Switch
+                              checked={inkilometers ? true : false}
+                              onCheckedChange={(val) => {
+                                setInKilometers(val);
+                              }}
+                              className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
+                            />
+                          </div>
+                        </div>
+                        {/* <div className="w-full">
+                          <div className="flex items-center gap-x-4">
+                            <p className="text-[#666666]">In Miles</p>
+                            <Switch
+                              checked={inmiles ? true : false}
+                              onCheckedChange={(val) => {
+                                setInMiles(val);
+                                if (val) {
+                                  setInKilometers(false);
+                                } else {
+                                  setInKilometers(true);
+                                }
+                              }}
+                              className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
+                            />
+                          </div>
+                        </div> */}
+                        <div className="col-span-2">
                           <div>
-                            <Label htmlFor="">Payment per kilometer</Label>
+                            <Label htmlFor="">
+                              Payment per {inkilometers ? "kilometer" : "mile"}
+                            </Label>
                             <Input
                               type="number"
-                              value={paymentPerKm === '' ? '' : paymentPerKm}
+                              value={paymentPerKm === "" ? "" : paymentPerKm}
                               min={0}
                               step="any"
                               onChange={(e) => {
                                 const value = e.target.value;
 
                                 // Allow empty string to let user clear the input
-                                if (value === '') {
-                                  setPaymentPerKm('');
+                                if (value === "") {
+                                  setPaymentPerKm("");
                                 } else {
                                   const numeric = Number(value);
                                   if (!isNaN(numeric) && numeric >= 0) {
@@ -1834,10 +2065,14 @@ const VendorForm = () => {
                                   }
                                 }
                               }}
-                              className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'
+                              className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                             />
 
-                            {fieldErrors.payment_per_km && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.payment_per_km[0]}</p>}
+                            {fieldErrors.payment_per_km && (
+                              <p className="text-red-500 text-[10px] mt-1">
+                                {fieldErrors.payment_per_km[0]}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1845,41 +2080,60 @@ const VendorForm = () => {
                   </div>
                 </AccordionContent>
               </AccordionItem>
-              <AccordionItem value="service-area" className='border-none'>
+              <AccordionItem value="service-area" className="border-none">
                 <AccordionTrigger
                   className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                  style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-                >SERVICE AREA</AccordionTrigger>
+                  style={{
+                    backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+                  }}
+                >
+                  SERVICE AREA
+                </AccordionTrigger>
                 <AccordionContent className="grid gap-4">
-                  <div className='flex flex-col gap-y-4 py-[16px]'>
-                    {userType === 'admin' && (
-                      <div className='pl-[18px] flex items-center gap-[10px]'>
-                        <Input
-                          type='checkbox'
-                          checked={enableServiceArea}
-                          onChange={(e) => setEnableServiceArea(e.target.checked)}
-                          className='h-[16px] w-[16px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'
-                        />
-                        <p className='text-[16px] font-normal text-[#666666] mt-[12px]'>
-                          Enable Service Area
-                        </p>
+                  <div className="flex flex-col gap-y-4 py-[16px]">
+                    {(userType === "admin" || userType === "vendor") && (
+                      /* Change: Container is now flex-col so children stack vertically */
+                      <div className="pl-[18px] flex flex-col items-start">
+                        {/* Row 1: Checkbox and Label */}
+                        <div className="flex items-center gap-[10px]">
+                          <input
+                            type="checkbox"
+                            checked={enableServiceArea}
+                            onChange={(e) => console.log(e.target.checked)}
+                            className="h-[16px] w-[16px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                          />
+                          <p className="text-[16px] font-normal text-[#666666] mt-[12px]">
+                            Enable Service Area
+                          </p>
+                        </div>
+
+                        {/* Row 2: Warning (Only shows if map_coordinates is falsy) */}
+                        {!map_coordinates && (
+                          <div className="flex items-center gap-1.5 mt-2 ml-[26px] text-red-500">
+                            <span className="text-[12px] font-medium">
+                              You must set your service area.
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
-                    {userType === 'admin' && (
-
-                      <div className='pl-[18px] flex items-center gap-[10px]'>
+                    {(userType === "admin" || userType === "vendor") && (
+                      <div className="pl-[18px] flex items-center gap-[10px]">
                         <Input
-                          type='checkbox'
+                          type="checkbox"
                           checked={forceServiceArea}
-                          onChange={(e) => setForceServiceArea(e.target.checked)}
-                          className='h-[16px] w-[16px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'
+                          onChange={(e) =>
+                            setForceServiceArea(e.target.checked)
+                          }
+                          className="h-[16px] w-[16px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                         />
-                        <p className='text-[16px] font-normal text-[#666666] mt-[12px]'>
+                        <p className="text-[16px] font-normal text-[#666666] mt-[12px]">
                           Force Service Area
                         </p>
                       </div>
                     )}
-                    {(userType === "admin" || (userType === "vendor" && enableServiceArea)) && (
+                    {(userType === "admin" ||
+                      (userType === "vendor" && enableServiceArea)) && (
                       <WorkAreaMap
                         providerId={idToUse}
                         address={companyAddress}
@@ -1890,9 +2144,7 @@ const VendorForm = () => {
                         setmap_coordinates={setmap_coordinates}
                       />
                     )}
-
                   </div>
-
                 </AccordionContent>
               </AccordionItem>
               {currentUser && (
@@ -1941,8 +2193,6 @@ const VendorForm = () => {
                     </div>
                   </AccordionContent>
                 </AccordionItem>
-
-
               )}
             </Accordion>
           </form>

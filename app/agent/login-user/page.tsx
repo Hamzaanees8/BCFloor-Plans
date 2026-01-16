@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { AgentLoginIcon } from '@/components/Icons'
 import { useAppContext } from '@/app/context/AppContext'
+import { Eye, EyeOff } from 'lucide-react'
 
 function LoginUser() {
     const [email, setEmail] = React.useState('')
@@ -17,6 +18,7 @@ function LoginUser() {
         password: false,
     })
     const [isLoading, setIsLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const { setUserType } = useAppContext();
     const router = useRouter();
 
@@ -37,11 +39,11 @@ function LoginUser() {
         if (hasError) return
         setIsLoading(true)
         try {
-            const response = await login({ email, password,role:'agent' });
+            const response = await login({ email, password, role: 'agent' });
 
             console.log('Login successful:', response);
             toast.success('Login successfully')
-            router.push('/dashboard/global-settings');
+            router.push('/dashboard/calendar');
             localStorage.setItem('token', response.data.token);
             setIsLoading(false)
             setUserType(response.data.type === 'user' ? 'admin' : response.data.type)
@@ -60,11 +62,11 @@ function LoginUser() {
 
     return (
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
-            <div className='w-[400px] flex flex-col gap-[25px]'>
+            <form onSubmit={handleLogin} className='w-[400px] flex flex-col gap-[25px]'>
                 <div className='flex justify-center'>
                     <AgentLoginIcon width='110px' height='110px' />
                 </div>
-                <Link href={'#'} className='flex justify-center items-center bg-[#6BAE41] hover:bg-[#7ec652] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
+                <Link href={'#'} className='hidden flex justify-center items-center bg-[#6BAE41] hover:bg-[#7ec652] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.email ? 'text-red-500' : ''}`} htmlFor="email">Email Address</label>
                     <Input
@@ -89,23 +91,32 @@ function LoginUser() {
                     <label
                         className={`text-[14px] font-[500] ${errors.password ? 'text-red-500' : ''}`}
                         htmlFor="password">Password</label>
-                    <Input
-                        id='password'
-                        name='password'
-                        type='password'
-                        placeholder='********'
-                        className={`h-[42px] border-[2px] border-solid border-[#BBBBBB] rounded-[6px] ${errors.password ? 'border-red-500' : 'border-[#BBBBBB]'}`}
-                        value={password}
-                        onChange={(e) => {
-                            setPassword(e.target.value)
-                            if (errors.password && e.target.value.trim() !== '') {
-                                setErrors(prev => ({ ...prev, password: false }))
-                            }
-                        }}
-                    />
+                    <div className="relative">
+                        <Input
+                            id='password'
+                            name='password'
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder='********'
+                            className={`h-[42px] border-[2px] border-solid border-[#BBBBBB] rounded-[6px] ${errors.password ? 'border-red-500' : 'border-[#BBBBBB]'} pr-10`}
+                            value={password}
+                            onChange={(e) => {
+                                setPassword(e.target.value)
+                                if (errors.password && e.target.value.trim() !== '') {
+                                    setErrors(prev => ({ ...prev, password: false }))
+                                }
+                            }}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        >
+                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                    </div>
                 </div>
                 <Button
-                    onClick={(e) => handleLogin(e)}
+                    type='submit'
                     disabled={isLoading}
                     className={`flex justify-center items-center ${isLoading ? 'bg-[#6BAE41]' : 'bg-[#fff]'}  hover:bg-[#6BAE41] hover:text-[#fff] border-[1px] border-[#6BAE41] text-[#6BAE41] rounded-[6px] h-[42px] font-[600] text-[20px]`}>
                     {isLoading ? (
@@ -135,8 +146,8 @@ function LoginUser() {
                 <div className='flex justify-center'>
                     <Link href="/agent/forget-password" className='w-fit text-[#6BAE41] border-b-[1px] leading-[18px] border-[#6BAE41] text-[16px] font-[400] text-center'>Forgot Password</Link>
                 </div>
-                <p className='text-[10px] text-[#666666] font-[400] mx-auto'>Powered by Tojuco Software 2025</p>
-            </div>
+                <p className='text-[10px] text-[#666666] font-[400] mx-auto'>Powered by Tojuco Software {new Date().getFullYear()}</p>
+            </form>
         </div>
     )
 }

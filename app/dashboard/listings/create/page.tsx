@@ -21,7 +21,12 @@ import { Calendar, Copy } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { TagsInput } from "@/components/TagsInput";
 import { toast } from "sonner";
-import { CreateListings, EditListings, fetchMlsData, GetOneListing } from "../listing";
+import {
+  CreateListings,
+  EditListings,
+  fetchMlsData,
+  GetOneListing,
+} from "../listing";
 import { useParams, useRouter } from "next/navigation";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { Listings } from "../page";
@@ -34,7 +39,14 @@ import { useAppContext } from "@/app/context/AppContext";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
 import Link from "next/link";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const ListingsFrom = () => {
   const { userType } = useAppContext();
@@ -67,7 +79,13 @@ const ListingsFrom = () => {
   const [instructions, setInstructions] = useState("");
   const [animalsOnProperty, setAnimalsOnProperty] = useState(false);
   const [coAgents, setCoAgents] = useState<string[]>([]);
-  type Agent = { uuid: string; first_name: string; last_name: string; email: string; created_at: string };
+  type Agent = {
+    uuid: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    created_at: string;
+  };
   const [agent, setAgent] = useState<Agent[]>([]);
   const [Isstaticmail, setIsStaticmail] = useState(false);
   const [emailFrequency, setEmailFrequency] = useState<string>("");
@@ -93,7 +111,7 @@ const ListingsFrom = () => {
   }, []);
 
   const { isDirty, setIsDirty } = useUnsaved();
-  useUnsavedChangesWarning(isDirty)
+  useUnsavedChangesWarning(isDirty);
   const isPopulatingData = useRef(false);
 
   const confirmAndExecute1 = () => {
@@ -104,22 +122,22 @@ const ListingsFrom = () => {
   const router = useRouter();
   const params = useParams();
   const listingId = params?.id as string;
-  const userInfo = JSON.parse(localStorage.getItem('userInfo') || '');
+  const userInfo = JSON.parse(localStorage.getItem("userInfo") || "");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      console.log('Token not found.')
+      console.log("Token not found.");
       return;
     }
 
     if (token) {
       Get()
-        .then(data => setAgent(data.data))
-        .catch(err => console.log(err.message));
+        .then((data) => setAgent(data.data))
+        .catch((err) => console.log(err.message));
     } else {
-      console.log('User ID is undefined.');
+      console.log("User ID is undefined.");
     }
   }, []);
   useEffect(() => {
@@ -136,7 +154,6 @@ const ListingsFrom = () => {
           const data = res.data;
 
           if (data) {
-
             isPopulatingData.current = true;
             setCurrentListing(data);
             setConnectedAgent(data.agent.uuid);
@@ -212,20 +229,66 @@ const ListingsFrom = () => {
     const validationErrors: Record<string, string[]> = {};
 
     // Validate required fields
-    if (!listingPrice || isNaN(Number(listingPrice)) || Number(listingPrice) < 0) validationErrors.listing_price = ["Listing Price is required and must be a positive number"];
+    if (
+      !listingPrice ||
+      isNaN(Number(listingPrice)) ||
+      Number(listingPrice) < 0
+    )
+      validationErrors.listing_price = [
+        "Listing Price is required and must be a positive number",
+      ];
     if (!mls) validationErrors.mls_number = ["MLS Number is required"];
-    if (userType !== 'agent' && !connectedAgent) validationErrors.agent_id = ["Agent is required"];
-    if (bedrooms === '' || isNaN(Number(bedrooms)) || Number(bedrooms) < 0 || Number(bedrooms) > 20) validationErrors.bedrooms = ["Bedrooms must be between 0 and 20"];
-    if (bathrooms === '' || isNaN(Number(bathrooms)) || Number(bathrooms) < 0 || Number(bathrooms) > 20) validationErrors.bathrooms = ["Bathrooms must be between 0 and 20"];
-    if (squareFootage === '' || isNaN(Number(squareFootage)) || Number(squareFootage) < 0) validationErrors.square_footage = ["Square Footage must be a positive number"];
+    if (userType !== "agent" && !connectedAgent)
+      validationErrors.agent_id = ["Agent is required"];
+    if (
+      bedrooms === "" ||
+      isNaN(Number(bedrooms)) ||
+      Number(bedrooms) < 0 ||
+      Number(bedrooms) > 20
+    )
+      validationErrors.bedrooms = ["Bedrooms must be between 0 and 20"];
+    if (
+      bathrooms === "" ||
+      isNaN(Number(bathrooms)) ||
+      Number(bathrooms) < 0 ||
+      Number(bathrooms) > 20
+    )
+      validationErrors.bathrooms = ["Bathrooms must be between 0 and 20"];
+    if (
+      squareFootage === "" ||
+      isNaN(Number(squareFootage)) ||
+      Number(squareFootage) < 0
+    )
+      validationErrors.square_footage = [
+        "Square Footage must be a positive number",
+      ];
     if (!lotSize) validationErrors.lot_size = ["Lot Size is required"];
     const currentYear = new Date().getFullYear();
-    if (yearConstructed === '' || isNaN(Number(yearConstructed)) || Number(yearConstructed) < 1800 || Number(yearConstructed) > currentYear) validationErrors.year_constructed = [`Year Constructed must be between 1800 and ${currentYear}`];
-    if (parkingSpots === '' || isNaN(Number(parkingSpots)) || Number(parkingSpots) < 0 || Number(parkingSpots) > 50) validationErrors.parking_spots = ["Parking Spots must be between 0 and 50"];
-    if (!propertyType) validationErrors.property_type = ["Property Type is required"];
-    if (!propertyStatus) validationErrors.property_status = ["Property Status is required"];
+    if (
+      yearConstructed === "" ||
+      isNaN(Number(yearConstructed)) ||
+      Number(yearConstructed) < 1800 ||
+      Number(yearConstructed) > currentYear
+    )
+      validationErrors.year_constructed = [
+        `Year Constructed must be between 1800 and ${currentYear}`,
+      ];
+    if (
+      parkingSpots === "" ||
+      isNaN(Number(parkingSpots)) ||
+      Number(parkingSpots) < 0 ||
+      Number(parkingSpots) > 50
+    )
+      validationErrors.parking_spots = [
+        "Parking Spots must be between 0 and 50",
+      ];
+    if (!propertyType)
+      validationErrors.property_type = ["Property Type is required"];
+    if (!propertyStatus)
+      validationErrors.property_status = ["Property Status is required"];
     if (!heading) validationErrors.heading = ["Heading is required"];
-    if (!description) validationErrors.description = ["Description is required"];
+    if (!description)
+      validationErrors.description = ["Description is required"];
     if (!address) validationErrors.address = ["Address is required"];
     if (!city) validationErrors.city = ["City is required"];
     if (!province) validationErrors.province = ["Province is required"];
@@ -238,7 +301,7 @@ const ListingsFrom = () => {
     if (!publishDate) {
       validationErrors.publish_date = ["Publish Date is required"];
     } else {
-      const selectedDate = new Date(publishDate + 'T00:00:00');
+      const selectedDate = new Date(publishDate + "T00:00:00");
       if (selectedDate < today) {
         validationErrors.publish_date = ["Publish Date cannot be in the past"];
       }
@@ -247,7 +310,9 @@ const ListingsFrom = () => {
     if (Object.keys(validationErrors).length > 0) {
       setFieldErrors(validationErrors);
       const firstError = Object.values(validationErrors).flat()[0];
-      toast.error(firstError || "Please fill in all required fields correctly.");
+      toast.error(
+        firstError || "Please fill in all required fields correctly."
+      );
       return;
     }
 
@@ -256,7 +321,7 @@ const ListingsFrom = () => {
         listing_price: Number(listingPrice),
         mls_number: mls,
         bedrooms: Number(bedrooms),
-        agent_id: userType === 'agent' ? userInfo?.uuid : connectedAgent,
+        agent_id: userType === "agent" ? userInfo?.uuid : connectedAgent,
         bathrooms: Number(bathrooms),
         square_footage: Number(squareFootage),
         lot_size: lotSize,
@@ -295,8 +360,8 @@ const ListingsFrom = () => {
           toast.success("Listing updated successfully");
           setIsLoading(true);
           setOpen(true);
-          setIsDirty(false)
-          router.push('/dashboard/listings')
+          setIsDirty(false);
+          router.push("/dashboard/listings");
         }
         setIsLoading(false);
       } else {
@@ -305,8 +370,8 @@ const ListingsFrom = () => {
           toast.success("Listings created successfully");
           setIsLoading(true);
           setOpen(true);
-          setIsDirty(false)
-          router.push('/dashboard/listings')
+          setIsDirty(false);
+          router.push("/dashboard/listings");
         }
         setIsLoading(false);
       }
@@ -334,7 +399,7 @@ const ListingsFrom = () => {
 
         // const firstError = Object.values(normalizedErrors).flat()[0];
         // toast.error(firstError || "Validation error");
-        toast.error('Validation error kindly re-check your form');
+        toast.error("Validation error kindly re-check your form");
       } else if (error instanceof Error) {
         toast.error(error.message);
       } else {
@@ -342,7 +407,6 @@ const ListingsFrom = () => {
       }
     }
   };
-
 
   async function handleMlsFetch(e: React.MouseEvent<HTMLButtonElement>) {
     e.preventDefault();
@@ -360,7 +424,6 @@ const ListingsFrom = () => {
 
       if (mls_data && !mls_data.error) {
         isPopulatingData.current = true;
-
 
         setListingPrice(mls_data.listPrice?.toString() || "");
         setBedrooms(mls_data.details?.numBedrooms?.toString() || "");
@@ -606,7 +669,9 @@ const ListingsFrom = () => {
         className="w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center"
         style={{ boxShadow: "0px 4px 4px #0000001F" }}
       >
-        <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}>
+        <p
+          className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}
+        >
           Listings &#62; {address ? `${address}` : `create`}
         </p>
         <div className="flex gap-[18px]">
@@ -636,7 +701,9 @@ const ListingsFrom = () => {
         </div>
       </div>
 
-      <div className={`w-full h-[160px] ${userType}-bg flex flex-col md:flex-row justify-between items-start py-[32px] px-[25px]`}>
+      <div
+        className={`w-full h-[160px] ${userType}-bg flex flex-col md:flex-row justify-between items-start py-[32px] px-[25px]`}
+      >
         <p className="text-[14px] md:text-[20px] font-[500] text-[#F2F2F2]">
           {address && province && postalCode && country
             ? `${address}, ${province}, ${postalCode}, ${country}`
@@ -646,48 +713,62 @@ const ListingsFrom = () => {
           BC Floor Plans
         </p>
       </div>
-      {listingId &&
+      {listingId && (
         <div className="w-full h-[60px] bg-[#E4E4E4] font-alexandria pr-5 z-10 flex items-center border-b border-[#BBBBBB]">
           <div className="flex items-center justify-center w-full">
             <div className="flex items-center justify-center gap-x-6 w-full">
               <Link
-                href={`/dashboard/file-manager/${(currentListing as Listings)?.orders?.[0]?.uuid}?listingId=${currentListing?.uuid}`}
-
-                className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${false
-                  ? `${userType}-bg text-white font-[700] ${userType}-border`
-                  : `bg-[#fff] text-[#666666] font-[700] `
+                href={
+                  (currentListing as Listings)?.orders?.[0]?.uuid
+                    ? `/dashboard/file-manager/${(currentListing as Listings)?.orders?.[0]?.uuid
+                    }?listingId=${currentListing?.uuid}`
+                    : "#"
+                }
+                className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${!(currentListing as Listings)?.orders?.[0]?.uuid
+                    ? "opacity-50 pointer-events-none"
+                    : ""
+                  } ${false
+                    ? `${userType}-bg text-white font-[700] ${userType}-border`
+                    : `bg-[#fff] text-[#666666] font-[700] `
                   }`}
               >
                 Media
               </Link>
               <div
                 className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${true
-                  ? `${userType}-bg text-white font-[700] ${userType}-border`
-                  : `bg-[#fff] text-[#666666] font-[700] `
+                    ? `${userType}-bg text-white font-[700] ${userType}-border`
+                    : `bg-[#fff] text-[#666666] font-[700] `
                   }`}
               >
                 Property details
               </div>
               <Link
-                href={`/dashboard/orders/${currentListing?.orders?.[0]?.uuid}`}
-
-                className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${false
-                  ? `${userType}-bg text-white font-[700] ${userType}-border`
-                  : `bg-[#fff] text-[#666666] font-[700] `
+                href={
+                  currentListing?.orders?.[0]?.uuid
+                    ? `/dashboard/orders/${currentListing?.orders?.[0]?.uuid}`
+                    : "#"
+                }
+                className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${!currentListing?.orders?.[0]?.uuid
+                    ? "opacity-50 pointer-events-none"
+                    : ""
+                  } ${false
+                    ? `${userType}-bg text-white font-[700] ${userType}-border`
+                    : `bg-[#fff] text-[#666666] font-[700] `
                   }`}
               >
                 Order details
               </Link>
             </div>
           </div>
-        </div>}
+        </div>
+      )}
       <div>
         <form
           onChange={() => {
             if (!isPopulatingData.current && listingId) {
               setIsDirty(true);
             } else if (!listingId) {
-              setIsDirty(true)
+              setIsDirty(true);
             }
           }}
           onSubmit={() => {
@@ -700,7 +781,9 @@ const ListingsFrom = () => {
             className="w-full space-y-4"
           >
             <AccordionItem value="property">
-              <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>
+              <AccordionTrigger
+                className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+              >
                 Property Details
               </AccordionTrigger>
               <AccordionContent className="grid gap-4">
@@ -708,18 +791,29 @@ const ListingsFrom = () => {
                   <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
                     <p>Add all requires details for listing</p>
                     <div className="grid grid-cols-2 gap-[16px]">
-                      {userType != 'agent' &&
-                        <div className='col-span-2'>
-                          <label htmlFor="">Connected Agents <span className="text-red-500">*</span></label>
-                          <Select value={connectedAgent} onValueChange={(val) => {
-                            setConnectedAgent(val);
-                            if (fieldErrors.agent_id) {
-                              const newErrors = { ...fieldErrors };
-                              delete newErrors.agent_id;
-                              setFieldErrors(newErrors);
-                            }
-                          }}>
-                            <SelectTrigger className={`w-full h-[42px] bg-[#EEEEEE] mt-[12px] border ${fieldErrors.agent_id ? 'border-red-500' : 'border-[#BBBBBB]'}`}>
+                      {userType != "agent" && (
+                        <div className="col-span-2">
+                          <label htmlFor="">
+                            Connected Agents{" "}
+                            <span className="text-red-500">*</span>
+                          </label>
+                          <Select
+                            value={connectedAgent}
+                            onValueChange={(val) => {
+                              setConnectedAgent(val);
+                              if (fieldErrors.agent_id) {
+                                const newErrors = { ...fieldErrors };
+                                delete newErrors.agent_id;
+                                setFieldErrors(newErrors);
+                              }
+                            }}
+                          >
+                            <SelectTrigger
+                              className={`w-full h-[42px] bg-[#EEEEEE] mt-[12px] border ${fieldErrors.agent_id
+                                  ? "border-red-500"
+                                  : "border-[#BBBBBB]"
+                                }`}
+                            >
                               <SelectValue placeholder="Select Agent" />
                             </SelectTrigger>
                             <SelectContent>
@@ -731,12 +825,19 @@ const ListingsFrom = () => {
                             </SelectContent>
                           </Select>
 
-                          {fieldErrors.agent_id && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.agent_id[0]}</p>}
+                          {fieldErrors.agent_id && (
+                            <p className="text-red-500 text-[10px] mt-1">
+                              {fieldErrors.agent_id[0]}
+                            </p>
+                          )}
                         </div>
-                      }
+                      )}
 
                       <div>
-                        <label htmlFor="">Listing Price (CAD) <span className="text-red-500">*</span></label>
+                        <label htmlFor="">
+                          Listing Price (CAD){" "}
+                          <span className="text-red-500">*</span>
+                        </label>
                         <Input
                           value={listingPrice}
                           onChange={(e) => {
@@ -748,10 +849,17 @@ const ListingsFrom = () => {
                             }
                           }}
                           placeholder="e.g 844,500"
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.listing_price ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.listing_price
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
+                            }`}
                           type="text"
                         />
-                        {fieldErrors.listing_price && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.listing_price[0]}</p>}
+                        {fieldErrors.listing_price && (
+                          <p className="text-red-500 text-[10px] mt-1">
+                            {fieldErrors.listing_price[0]}
+                          </p>
+                        )}
                       </div>
                       <div>
                         <label htmlFor="">
@@ -768,7 +876,10 @@ const ListingsFrom = () => {
                             }
                           }}
                           placeholder="e.g A2206608"
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.mls_number ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.mls_number
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
+                            }`}
                           type="text"
                         />
 
@@ -787,10 +898,12 @@ const ListingsFrom = () => {
                             {isLoading ? "Syncing..." : "Sync MLS Data"}
                           </button>
                         </span>
-
                       </div>
                       <div className={`relative w-full `}>
-                        <label htmlFor="bedroom" className="block text-sm font-normal">
+                        <label
+                          htmlFor="bedroom"
+                          className="block text-sm font-normal"
+                        >
                           Bedrooms <span className="text-red-500">*</span>
                         </label>
                         <Input
@@ -798,7 +911,7 @@ const ListingsFrom = () => {
                           type="number"
                           placeholder="3"
                           min={0}
-                          value={bedrooms === '' ? '' : bedrooms}
+                          value={bedrooms === "" ? "" : bedrooms}
                           onChange={(e) => {
                             const value = e.target.value;
                             if (fieldErrors.bedrooms) {
@@ -807,8 +920,8 @@ const ListingsFrom = () => {
                               setFieldErrors(newErrors);
                             }
 
-                            if (value === '') {
-                              setBedrooms(''); // Allow clearing the input
+                            if (value === "") {
+                              setBedrooms(""); // Allow clearing the input
                               return;
                             }
 
@@ -817,17 +930,53 @@ const ListingsFrom = () => {
                               setBedrooms(numeric); // Only valid numbers >= 0
                             }
                           }}
-                          className={`h-[42px] w-full bg-[#EEEEEE] border text-[16px] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${fieldErrors.bedrooms ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                          className={`h-[42px] w-full bg-[#EEEEEE] border text-[16px] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${fieldErrors.bedrooms
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
+                            }`}
                         />
-                        {fieldErrors.bedrooms && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.bedrooms[0]}</p>}
+                        {fieldErrors.bedrooms && (
+                          <p className="text-red-500 text-[10px] mt-1">
+                            {fieldErrors.bedrooms[0]}
+                          </p>
+                        )}
 
                         <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                          <button type="button" onClick={() => setBedrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) + 1))} className={`${userType}-fill-svg`}><ArrowUp /></button>
-                          <button type="button" onClick={() => setBedrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) - 1))} className={`${userType}-fill-svg`}><ArrowDown /></button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setBedrooms((prev) =>
+                                Math.max(
+                                  0,
+                                  parseFloat((prev || 0).toString()) + 1
+                                )
+                              )
+                            }
+                            className={`${userType}-fill-svg`}
+                          >
+                            <ArrowUp />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setBedrooms((prev) =>
+                                Math.max(
+                                  0,
+                                  parseFloat((prev || 0).toString()) - 1
+                                )
+                              )
+                            }
+                            className={`${userType}-fill-svg`}
+                          >
+                            <ArrowDown />
+                          </button>
                         </div>
                       </div>
                       <div className="relative w-full">
-                        <label htmlFor="bathroom" className="block text-sm font-normal">
+                        <label
+                          htmlFor="bathroom"
+                          className="block text-sm font-normal"
+                        >
                           Bathrooms <span className="text-red-500">*</span>
                         </label>
                         <Input
@@ -835,7 +984,7 @@ const ListingsFrom = () => {
                           type="number"
                           placeholder="3"
                           min={0}
-                          value={bathrooms === '' ? '' : bathrooms}
+                          value={bathrooms === "" ? "" : bathrooms}
                           onChange={(e) => {
                             const value = e.target.value;
                             if (fieldErrors.bathrooms) {
@@ -844,8 +993,8 @@ const ListingsFrom = () => {
                               setFieldErrors(newErrors);
                             }
 
-                            if (value === '') {
-                              setBathrooms('');
+                            if (value === "") {
+                              setBathrooms("");
                               return;
                             }
 
@@ -854,17 +1003,52 @@ const ListingsFrom = () => {
                               setBathrooms(numeric); // Only valid numbers >= 0
                             }
                           }}
-                          className={`h-[42px] w-full bg-[#EEEEEE] border text-[16px] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${fieldErrors.bathrooms ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                          className={`h-[42px] w-full bg-[#EEEEEE] border text-[16px] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${fieldErrors.bathrooms
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
+                            }`}
                         />
-                        {fieldErrors.bathrooms && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.bathrooms[0]}</p>}
+                        {fieldErrors.bathrooms && (
+                          <p className="text-red-500 text-[10px] mt-1">
+                            {fieldErrors.bathrooms[0]}
+                          </p>
+                        )}
 
                         <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                          <button type="button" onClick={() => setBathrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) + 1))} className={`${userType}-fill-svg`}><ArrowUp /></button>
-                          <button type="button" onClick={() => setBathrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) - 1))} className={`${userType}-fill-svg`}><ArrowDown /></button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setBathrooms((prev) =>
+                                Math.max(
+                                  0,
+                                  parseFloat((prev || 0).toString()) + 1
+                                )
+                              )
+                            }
+                            className={`${userType}-fill-svg`}
+                          >
+                            <ArrowUp />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setBathrooms((prev) =>
+                                Math.max(
+                                  0,
+                                  parseFloat((prev || 0).toString()) - 1
+                                )
+                              )
+                            }
+                            className={`${userType}-fill-svg`}
+                          >
+                            <ArrowDown />
+                          </button>
                         </div>
                       </div>
                       <div>
-                        <label htmlFor="">Square Footage <span className="text-red-500">*</span></label>
+                        <label htmlFor="">
+                          Square Footage <span className="text-red-500">*</span>
+                        </label>
                         <Input
                           value={squareFootage}
                           onChange={(e) => {
@@ -876,13 +1060,23 @@ const ListingsFrom = () => {
                             }
                           }}
                           placeholder="e.g 2230 sq. ft."
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.square_footage ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.square_footage
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
+                            }`}
                           type="text"
                         />
-                        {fieldErrors.square_footage && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.square_footage[0]}</p>}
+                        {fieldErrors.square_footage && (
+                          <p className="text-red-500 text-[10px] mt-1">
+                            {fieldErrors.square_footage[0]}
+                          </p>
+                        )}
                       </div>
                       <div>
-                        <label htmlFor="">Lot Size (Acres) <span className="text-red-500">*</span></label>
+                        <label htmlFor="">
+                          Lot Size (Acres){" "}
+                          <span className="text-red-500">*</span>
+                        </label>
                         <Input
                           value={lotSize}
                           onChange={(e) => {
@@ -894,7 +1088,10 @@ const ListingsFrom = () => {
                             }
                           }}
                           placeholder="e.g 0-4,050 sq. ft."
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.lot_size ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.lot_size
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
+                            }`}
                           type="text"
                         />
                         {fieldErrors.lot_size && (
@@ -904,7 +1101,10 @@ const ListingsFrom = () => {
                         )}
                       </div>
                       <div>
-                        <label htmlFor="">Year Contstructed <span className="text-red-500">*</span></label>
+                        <label htmlFor="">
+                          Year Contstructed{" "}
+                          <span className="text-red-500">*</span>
+                        </label>
                         <Input
                           value={yearConstructed}
                           onChange={(e) => {
@@ -916,7 +1116,10 @@ const ListingsFrom = () => {
                             }
                           }}
                           placeholder="e.g 2020"
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.year_constructed ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.year_constructed
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
+                            }`}
                           type="text"
                         />
                         {fieldErrors.year_constructed && (
@@ -926,7 +1129,9 @@ const ListingsFrom = () => {
                         )}
                       </div>
                       <div>
-                        <label htmlFor="">Parking Spots <span className="text-red-500">*</span></label>
+                        <label htmlFor="">
+                          Parking Spots <span className="text-red-500">*</span>
+                        </label>
                         <Input
                           value={parkingSpots}
                           onChange={(e) => {
@@ -938,13 +1143,22 @@ const ListingsFrom = () => {
                             }
                           }}
                           placeholder="e.g 3"
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.parking_spots ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.parking_spots
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
+                            }`}
                           type="text"
                         />
-                        {fieldErrors.parking_spots && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.parking_spots[0]}</p>}
+                        {fieldErrors.parking_spots && (
+                          <p className="text-red-500 text-[10px] mt-1">
+                            {fieldErrors.parking_spots[0]}
+                          </p>
+                        )}
                       </div>
                       <div className="col-span-2">
-                        <label htmlFor="">Property Type <span className="text-red-500">*</span></label>
+                        <label htmlFor="">
+                          Property Type <span className="text-red-500">*</span>
+                        </label>
                         <Select
                           value={propertyType}
                           onValueChange={(value) => {
@@ -956,7 +1170,12 @@ const ListingsFrom = () => {
                             }
                           }}
                         >
-                          <SelectTrigger className={`w-full  h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.property_type ? 'border-red-500' : 'border-[#BBBBBB]'}`}>
+                          <SelectTrigger
+                            className={`w-full  h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.property_type
+                                ? "border-red-500"
+                                : "border-[#BBBBBB]"
+                              }`}
+                          >
                             <SelectValue placeholder="Select Property Type" />
                           </SelectTrigger>
                           <SelectContent>
@@ -978,7 +1197,10 @@ const ListingsFrom = () => {
                         )}
                       </div>
                       <div className="col-span-2">
-                        <label htmlFor="">Property Status <span className="text-red-500">*</span></label>
+                        <label htmlFor="">
+                          Property Status{" "}
+                          <span className="text-red-500">*</span>
+                        </label>
                         <Select
                           value={propertyStatus}
                           onValueChange={(value) => {
@@ -990,7 +1212,12 @@ const ListingsFrom = () => {
                             }
                           }}
                         >
-                          <SelectTrigger className={`w-full  h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.property_status ? 'border-red-500' : 'border-[#BBBBBB]'}`}>
+                          <SelectTrigger
+                            className={`w-full  h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.property_status
+                                ? "border-red-500"
+                                : "border-[#BBBBBB]"
+                              }`}
+                          >
                             <SelectValue placeholder="Select Property Status" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1015,7 +1242,9 @@ const ListingsFrom = () => {
                         )}
                       </div>
                       <div className="col-span-2">
-                        <label htmlFor="">Heading <span className="text-red-500">*</span></label>
+                        <label htmlFor="">
+                          Heading <span className="text-red-500">*</span>
+                        </label>
                         <Input
                           value={heading}
                           onChange={(e) => {
@@ -1027,7 +1256,10 @@ const ListingsFrom = () => {
                             }
                           }}
                           placeholder="e.g Single Family Detached Starter Home"
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.heading ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.heading
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
+                            }`}
                           type="text"
                         />
                         {fieldErrors.heading && (
@@ -1037,7 +1269,9 @@ const ListingsFrom = () => {
                         )}
                       </div>
                       <div className="col-span-2">
-                        <label htmlFor="">Description <span className="text-red-500">*</span></label>
+                        <label htmlFor="">
+                          Description <span className="text-red-500">*</span>
+                        </label>
                         {/* <Input placeholder='Single Family Detached Starter Home' className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" /> */}
                         <Textarea
                           value={description}
@@ -1050,7 +1284,10 @@ const ListingsFrom = () => {
                             }
                           }}
                           placeholder="write some description of your listing"
-                          className={`w-full resize-none h-[200px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.description ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                          className={`w-full resize-none h-[200px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.description
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
+                            }`}
                         />
                         {fieldErrors.description && (
                           <p className="text-red-500 text-[10px]">
@@ -1059,7 +1296,9 @@ const ListingsFrom = () => {
                         )}
                       </div>
                     </div>
-                    <div className={`grid grid-cols-2 gap-[16px] ${userType}-order-1`}>
+                    <div
+                      className={`grid grid-cols-2 gap-[16px] ${userType}-order-1`}
+                    >
                       <div className="col-span-2 grid grid-cols-5 gap-x-[16px]">
                         <div>
                           <label htmlFor="">Suite</label>
@@ -1072,11 +1311,14 @@ const ListingsFrom = () => {
                           />
                         </div>
                         <div className="col-span-4">
-                          <label htmlFor="">Address <span className="text-red-500">*</span></label>
+                          <label htmlFor="">
+                            Address <span className="text-red-500">*</span>
+                          </label>
                           <Input
                             value={address}
                             onChange={(e) => {
                               setAddress(e.target.value);
+
                               if (fieldErrors.address) {
                                 const newErrors = { ...fieldErrors };
                                 delete newErrors.address;
@@ -1084,7 +1326,10 @@ const ListingsFrom = () => {
                               }
                             }}
                             placeholder="e.g 4445 Parker St"
-                            className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.address ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                            className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.address
+                                ? "border-red-500"
+                                : "border-[#BBBBBB]"
+                              }`}
                             type="text"
                           />
                           {fieldErrors.address && (
@@ -1095,7 +1340,9 @@ const ListingsFrom = () => {
                         </div>
                       </div>
                       <div>
-                        <label htmlFor="">City <span className="text-red-500">*</span></label>
+                        <label htmlFor="">
+                          City <span className="text-red-500">*</span>
+                        </label>
                         <Input
                           value={city}
                           onChange={(e) => {
@@ -1107,7 +1354,10 @@ const ListingsFrom = () => {
                             }
                           }}
                           placeholder="e.g Burnaby"
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.city ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.city
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
+                            }`}
                           type="text"
                         />
                         {fieldErrors.city && (
@@ -1117,7 +1367,9 @@ const ListingsFrom = () => {
                         )}
                       </div>
                       <div className="">
-                        <label htmlFor="">Province <span className="text-red-500">*</span></label>
+                        <label htmlFor="">
+                          Province <span className="text-red-500">*</span>
+                        </label>
                         <Select
                           value={province}
                           onValueChange={(val) => {
@@ -1130,7 +1382,12 @@ const ListingsFrom = () => {
                           }}
                           disabled={!states.length}
                         >
-                          <SelectTrigger className={`w-full h-[42px] bg-[#EEEEEE] mt-[12px] border ${fieldErrors.province ? 'border-red-500' : 'border-[#BBBBBB]'}`}>
+                          <SelectTrigger
+                            className={`w-full h-[42px] bg-[#EEEEEE] mt-[12px] border ${fieldErrors.province
+                                ? "border-red-500"
+                                : "border-[#BBBBBB]"
+                              }`}
+                          >
                             <SelectValue placeholder="Select Province" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1148,7 +1405,9 @@ const ListingsFrom = () => {
                         )}
                       </div>
                       <div>
-                        <label htmlFor="">Postal Code <span className="text-red-500">*</span></label>
+                        <label htmlFor="">
+                          Postal Code <span className="text-red-500">*</span>
+                        </label>
                         <Input
                           value={postalCode}
                           onChange={(e) => {
@@ -1160,7 +1419,10 @@ const ListingsFrom = () => {
                             }
                           }}
                           placeholder="e.g V5H 0H4"
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.postal_code ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.postal_code
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
+                            }`}
                           type="text"
                         />
 
@@ -1193,7 +1455,6 @@ const ListingsFrom = () => {
                     </div>
                   </div>
                   <div className="w-full h-[200px] md:h-[560px]">
-
                     <DynamicMap
                       address={address}
                       city={city}
@@ -1206,43 +1467,93 @@ const ListingsFrom = () => {
             </AccordionItem>
 
             <AccordionItem value="additional">
-              <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>
+              <AccordionTrigger
+                className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+              >
                 Additional Details
               </AccordionTrigger>
               <AccordionContent className="grid gap-4">
                 <div className="w-full flex flex-col items-center">
                   <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
-                    <div className='p-[8px] flex flex-col items-center justify-center border-[1px] border-dashed border-[#BBBBBB] rounded-[6px]'>
-                      <Button className='bg-[#BBBBBB] text-[20px] text-[#F2F2F2] font-[600] w-[330px] h-[44px] ' disabled>Processing</Button>
-                      <p className='text-[#7D7D7D] text-[14px]'>Orders are being processed. You will receive and email notification when file are uploaded for your to review.</p>
+                    <div className="p-[8px] flex flex-col items-center justify-center border-[1px] border-dashed border-[#BBBBBB] rounded-[6px]">
+                      <Button
+                        className="bg-[#BBBBBB] text-[20px] text-[#F2F2F2] font-[600] w-[330px] h-[44px] "
+                        disabled
+                      >
+                        Processing
+                      </Button>
+                      <p className="text-[#7D7D7D] text-[14px]">
+                        Orders are being processed. You will receive and email
+                        notification when file are uploaded for your to review.
+                      </p>
                     </div>
                     <div className="w-full py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
-                      <Table className={`${currentListing && (currentListing?.orders?.length ?? 0) > 0 ? 'table' : 'hidden'} font-alexandria px-0 overflow-x-auto whitespace-nowrap table-auto w-full`}>
+                      <Table
+                        className={`${currentListing &&
+                            (currentListing?.orders?.length ?? 0) > 0
+                            ? "table"
+                            : "hidden"
+                          } font-alexandria px-0 overflow-x-auto whitespace-nowrap table-auto w-full`}
+                      >
                         <TableHeader>
-                          <TableRow className='bg-[#E4E4E4] font-alexandria h-[54px] hover:bg-[#E4E4E4] table-row'>
-                            <TableHead className="pl-[20px] text-[14px] font-[700] text-[#666666] table-cell">Order</TableHead>
-                            <TableHead className="text-[14px] font-[700] text-[#666666] table-cell">Total</TableHead>
-                            <TableHead className="text-[14px] font-[700] text-[#666666] table-cell">Added</TableHead>
-                            <TableHead className="text-[14px] font-[700] text-[#666666] table-cell">Status</TableHead>
+                          <TableRow className="bg-[#E4E4E4] font-alexandria h-[54px] hover:bg-[#E4E4E4] table-row">
+                            <TableHead className="pl-[20px] text-[14px] font-[700] text-[#666666] table-cell">
+                              Order
+                            </TableHead>
+                            <TableHead className="text-[14px] font-[700] text-[#666666] table-cell">
+                              Total
+                            </TableHead>
+                            <TableHead className="text-[14px] font-[700] text-[#666666] table-cell">
+                              Added
+                            </TableHead>
+                            <TableHead className="text-[14px] font-[700] text-[#666666] table-cell">
+                              Status
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody className="table-row-group">
                           {currentListing?.orders?.map((order, index) => {
-
-                            return <TableRow key={index} className='text-[15px] text-[#666666] table-row'>
-                              <TableCell className="pl-[20px] text-[15px] py-[19px] font-[400] text-[#4290E9] table-cell">{order.id}</TableCell>
-                              <TableCell className="text-[15px] py-[19px] font-[400] table-cell">{order.amount}</TableCell>
-                              <TableCell className="text-[15px] py-[19px] font-[400] table-cell">{new Date(order.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</TableCell>
-                              <TableCell className="text-[10px] py-[19px] font-[400] table-cell">
-                                <span className='uppercase bg-[#E06D5E] text-[#F2F2F2] rounded-[10px] px-[7px] py-[2px]'>{order.payment_status}</span>
-                              </TableCell>
-                            </TableRow>
+                            return (
+                              <TableRow
+                                key={index}
+                                className="text-[15px] text-[#666666] table-row"
+                              >
+                                <TableCell className="pl-[20px] text-[15px] py-[19px] font-[400] text-[#4290E9] table-cell">
+                                  {order.id}
+                                </TableCell>
+                                <TableCell className="text-[15px] py-[19px] font-[400] table-cell">
+                                  {order.amount}
+                                </TableCell>
+                                <TableCell className="text-[15px] py-[19px] font-[400] table-cell">
+                                  {new Date(
+                                    order.created_at
+                                  ).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  })}
+                                </TableCell>
+                                <TableCell className="text-[10px] py-[19px] font-[400] table-cell">
+                                  <span className="uppercase bg-[#E06D5E] text-[#F2F2F2] rounded-[10px] px-[7px] py-[2px]">
+                                    {order.payment_status}
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            );
                           })}
                         </TableBody>
                       </Table>
                     </div>
-                    <p className={`${currentListing && currentListing?.orders?.length === 0 ? 'flex' : 'hidden'} text-[24px] flex justify-center items-center my-[20px]`}> No Order Found</p>
-                    {(userType === 'admin' || userType === 'agent') && (
+                    <p
+                      className={`${currentListing && currentListing?.orders?.length === 0
+                          ? "flex"
+                          : "hidden"
+                        } text-[24px] flex justify-center items-center my-[20px]`}
+                    >
+                      {" "}
+                      No Order Found
+                    </p>
+                    {(userType === "admin" || userType === "agent") && (
                       <div className="flex items-center gap-[16px]">
                         <Switch
                           checked={tourActivated}
@@ -1255,9 +1566,12 @@ const ListingsFrom = () => {
                       </div>
                     )}
                     <div className="text-[#424242] w-full text-[14px] flex flex-col gap-[16px]">
-                      {(userType === 'admin' || userType === 'agent') && (
+                      {(userType === "admin" || userType === "agent") && (
                         <div className="w-full">
-                          <Label>Schedule Publish Date <span className="text-red-500">*</span></Label>
+                          <Label>
+                            Schedule Publish Date{" "}
+                            <span className="text-red-500">*</span>
+                          </Label>
                           <div className="relative w-full">
                             <Input
                               ref={inputRef}
@@ -1271,7 +1585,10 @@ const ListingsFrom = () => {
                                 }
                               }}
                               type="date"
-                              className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] appearance-none pr-10 ${fieldErrors.publish_date ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                              className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] appearance-none pr-10 ${fieldErrors.publish_date
+                                  ? "border-red-500"
+                                  : "border-[#BBBBBB]"
+                                }`}
                             />
                             <Calendar
                               onClick={openCalendar}
@@ -1284,20 +1601,27 @@ const ListingsFrom = () => {
                               {fieldErrors.publish_date[0]}
                             </p>
                           )}
-                        </div>)}
+                        </div>
+                      )}
                       <div className=" w-full">
                         <Label>Property Website</Label>
                         {currentListing?.orders?.[0]?.uuid ? (
                           <div className="relative w-full">
                             <Input
-                              value={`${origin}/tour/${currentListing?.address?.replace(/\s+/g, '-')}/${currentListing?.orders?.[0]?.uuid}`}
+                              value={`${origin}/tour/${currentListing?.address?.replace(
+                                /\s+/g,
+                                "-"
+                              )}/${currentListing?.orders?.[0]?.uuid}`}
                               readOnly
                               type="text"
                               className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] pr-10 truncate"
                             />
                             <Copy
                               onClick={() => {
-                                const url = `${origin}/tour/${currentListing?.address?.replace(/\s+/g, '-')}/${currentListing?.orders?.[0]?.uuid}`;
+                                const url = `${origin}/tour/${currentListing?.address?.replace(
+                                  /\s+/g,
+                                  "-"
+                                )}/${currentListing?.orders?.[0]?.uuid}`;
                                 navigator.clipboard.writeText(url);
                                 toast.success("Tour link copied to clipboard");
                               }}
@@ -1309,7 +1633,9 @@ const ListingsFrom = () => {
                           <div className="relative w-full ">
                             <Input
                               value={propertyWebsite}
-                              onChange={(e) => setPropertyWebsite(e.target.value)}
+                              onChange={(e) =>
+                                setPropertyWebsite(e.target.value)
+                              }
                               type="text"
                               readOnly
                               placeholder="company.bcfp.com/vendor/id=88392"
@@ -1352,7 +1678,9 @@ const ListingsFrom = () => {
                         <hr className="border-[#BBBBBB]" />
                       </div>
                       <div className="w-full">
-                        <label htmlFor="">Occupancy <span className="text-red-500">*</span></label>
+                        <label htmlFor="">
+                          Occupancy <span className="text-red-500">*</span>
+                        </label>
                         <Select
                           value={occupancy}
                           onValueChange={(value) => {
@@ -1364,7 +1692,12 @@ const ListingsFrom = () => {
                             }
                           }}
                         >
-                          <SelectTrigger className={`w-full  h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.occupancy ? 'border-red-500' : 'border-[#BBBBBB]'}`}>
+                          <SelectTrigger
+                            className={`w-full  h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.occupancy
+                                ? "border-red-500"
+                                : "border-[#BBBBBB]"
+                              }`}
+                          >
                             <SelectValue placeholder="Select Occupancy" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1458,7 +1791,9 @@ const ListingsFrom = () => {
             </AccordionItem>
 
             <AccordionItem value="statistics">
-              <AccordionTrigger className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}>
+              <AccordionTrigger
+                className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+              >
                 Statistics
               </AccordionTrigger>
               <AccordionContent className="grid gap-4">
@@ -1469,9 +1804,18 @@ const ListingsFrom = () => {
                         checked={Isstaticmail}
                         onCheckedChange={setIsStaticmail}
                         className={`data-[state=unchecked]:bg-[#E06D5E] 
-                          ${userType === "admin" ? "data-[state=checked]:bg-[#4290E9]" : ""}
-                          ${userType === "agent" ? "data-[state=checked]:bg-[#6BAE41]" : ""}
-                          ${userType === "vendor" ? "data-[state=checked]:bg-[#DC9600]" : ""}
+                          ${userType === "admin"
+                            ? "data-[state=checked]:bg-[#4290E9]"
+                            : ""
+                          }
+                          ${userType === "agent"
+                            ? "data-[state=checked]:bg-[#6BAE41]"
+                            : ""
+                          }
+                          ${userType === "vendor"
+                            ? "data-[state=checked]:bg-[#DC9600]"
+                            : ""
+                          }
                         `}
                       />
                       <Label>Send Statistics Email</Label>
@@ -1538,7 +1882,7 @@ const ListingsFrom = () => {
         backLink="/dashboard/listings"
         title="Listing"
       />
-    </div >
+    </div>
   );
 };
 

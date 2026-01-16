@@ -34,6 +34,7 @@ export type Files = {
     is_featured?: boolean;
     is_admin_approved?: boolean;
     is_agent_approved?: boolean;
+    is_show?: boolean;
 
 }
 export type SnapShots = {

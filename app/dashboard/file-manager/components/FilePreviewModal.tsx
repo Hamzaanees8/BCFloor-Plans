@@ -8,6 +8,7 @@ import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SelectedFiles } from "./HDRStill";
 import { useAppContext } from "@/app/context/AppContext";
+import { useFileManagerContext } from "../FileManagerContext ";
 
 interface AddLevelDialogProps {
     open: boolean;
@@ -44,7 +45,18 @@ export default function FilePreviewModal({
     const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
     const [mediaTypes, setMediaTypes] = useState<{ [key: number]: string }>({});
     const [groupLabel, setGroupLabel] = useState<string>("");
+    const [openDropdown, setOpenDropdown] = useState<number | null>(null);
     const { userType } = useAppContext();
+    const { filesData } = useFileManagerContext();
+
+    const existingGroups = Array.from(new Set(filesData?.files?.map(f => f.group).filter(Boolean) || [])) as string[];
+    const allSuggestions = Array.from(new Set([...mediaOptions, ...existingGroups]));
+
+    useEffect(() => {
+        const handleClickOutside = () => setOpenDropdown(null);
+        window.addEventListener('click', handleClickOutside);
+        return () => window.removeEventListener('click', handleClickOutside);
+    }, []);
 
     useEffect(() => {
         setMediaTypes({});
@@ -146,18 +158,59 @@ export default function FilePreviewModal({
                             </div>
                             <div className="w-full flex flex-col gap-[10px]">
                                 <Label className="text-[#7d7d7d] text-[14px]">Media Name</Label>
-                                <Select
-                                    onValueChange={(val) => setMediaTypes(prev => ({ ...prev, [idx]: val }))}
-                                >
-                                    <SelectTrigger className="w-full h-[42px] border text-[#696868] border-[#7d7d7d]">
-                                        <SelectValue placeholder="Select Media Name" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {(type === 'floor_plans' ? floorPlans : mediaOptions).map((item, i) => (
-                                            <SelectItem key={i} value={item}>{item}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                {type !== 'floor_plans' ? (
+                                    <div className="relative">
+                                        <Input
+                                            value={mediaTypes[idx] || ""}
+                                            onChange={(e) => {
+                                                setMediaTypes(prev => ({ ...prev, [idx]: e.target.value }));
+                                                setOpenDropdown(idx);
+                                            }}
+                                            onFocus={(e) => {
+                                                e.stopPropagation();
+                                                setOpenDropdown(idx);
+                                            }}
+                                            onClick={(e) => e.stopPropagation()}
+                                            placeholder="Select or Type Media Name"
+                                            className="w-full h-[42px] border text-[#696868] border-[#7d7d7d]"
+                                        />
+                                        {openDropdown === idx && (
+                                            <div className="absolute z-[100] w-full mt-1 bg-white border border-[#7d7d7d] rounded-md shadow-lg max-h-[200px] overflow-y-auto custom-scroll">
+                                                {allSuggestions
+                                                    .filter(item =>
+                                                        !mediaTypes[idx] ||
+                                                        item.toLowerCase().includes(mediaTypes[idx].toLowerCase())
+                                                    )
+                                                    .map((item, i) => (
+                                                        <div
+                                                            key={i}
+                                                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-[#696868] text-[14px]"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setMediaTypes(prev => ({ ...prev, [idx]: item }));
+                                                                setOpenDropdown(null);
+                                                            }}
+                                                        >
+                                                            {item}
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <Select
+                                        onValueChange={(val) => setMediaTypes(prev => ({ ...prev, [idx]: val }))}
+                                    >
+                                        <SelectTrigger className="w-full h-[42px] border text-[#696868] border-[#7d7d7d]">
+                                            <SelectValue placeholder="Select Media Name" />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-[200px] overflow-y-auto custom-scroll">
+                                            {floorPlans.map((item, i) => (
+                                                <SelectItem key={i} value={item}>{item}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
 
                                 <div className="text-[13px] text-[#7d7d7d] grid grid-cols-3">
                                     <p className="text-left col-span-1 text-[#8E8E8E] mt-1 truncate w-full overflow-hidden">{file.name}</p>

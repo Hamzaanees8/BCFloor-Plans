@@ -49,7 +49,7 @@ function ForgotPassword() {
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
             <div className='w-[400px] flex flex-col gap-[25px]'>
                 <Image
-                    src="/tojuco.png"
+                    src="/bcfloor.png"
                     alt="logo"
                     width={180}
                     height={100}
@@ -100,7 +100,7 @@ function ForgotPassword() {
                 <div className='flex justify-center'>
                     <Link href="/login-user" className='w-fit text-[#4290E9] border-b-[1px] leading-[18px] border-[#4290E9] text-[16px] font-[400] text-center'>Back to Login</Link>
                 </div>
-                <p className='text-[10px] text-[#666666] font-[400] mx-auto'>Powered by Tojuco Software 2025</p>
+                <p className='text-[10px] text-[#666666] font-[400] mx-auto'>Powered by Tojuco Software {new Date().getFullYear()}</p>
             </div>
         </div >
     )

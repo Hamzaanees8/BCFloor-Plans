@@ -34,19 +34,20 @@ export type Order = {
     agent: Agent;
     services: OrderService[];
     logs: {
-        created_at: Date
+        id: number;
+        action: string;
+        model_type: string;
+        model_id: string;
         data: {
-            after: {
-                services: { service_id: number, option_id: number }[]
-
-            },
-            before: {
-                services: { service_id: number, option_id: number }[]
-
-            }
-        }
-        action: string
-    }[]
+            before: Partial<Order>;
+            after: Partial<Order>;
+            diff?: Record<string, unknown>;
+        };
+        ip_address: string;
+        user_agent: string;
+        created_at: string;
+        updated_at: string;
+    }[];
     property: Property;
     slots: Slot[];
     totals: OrderDiscount[];

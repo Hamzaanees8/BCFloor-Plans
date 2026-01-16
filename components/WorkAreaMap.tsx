@@ -28,15 +28,16 @@ export default function WorkAreaMap({
   province,
   country,
   coords,
-  setmap_coordinates
+  setmap_coordinates,
 }: Props) {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [center, setCenter] =
     useState<google.maps.LatLngLiteral>(defaultCenter);
   const polygonRef = useRef<google.maps.Polygon | null>(null);
   const { setIsDirty } = useUnsaved();
-  const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
-
+  const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(
+    null
+  );
 
   const parsedCoord = JSON.parse(JSON.stringify(coords));
   const { isLoaded, loadError } = useLoadScript({
@@ -94,8 +95,7 @@ export default function WorkAreaMap({
     drawingManagerRef.current = dm;
     dm.setMap(map);
 
-    google.maps.event.addListener(dm, "drawingmode_changed", () => {
-    });
+    google.maps.event.addListener(dm, "drawingmode_changed", () => {});
 
     google.maps.event.addListener(map, "mousedown", () => {
       const mode = dm.getDrawingMode();
@@ -129,25 +129,33 @@ export default function WorkAreaMap({
           setmap_coordinates(coords);
           setIsDirty(true);
 
-          google.maps.event.addListener(polygonRef.current.getPath(), "set_at", () => {
-            const updated = polygonRef.current!
-              .getPath()
-              .getArray()
-              .map((p) => ({ lat: p.lat(), lng: p.lng() }));
-            updated.push({ ...updated[0] });
-            setmap_coordinates(updated);
-            setIsDirty(true);
-          });
+          google.maps.event.addListener(
+            polygonRef.current.getPath(),
+            "set_at",
+            () => {
+              const updated = polygonRef
+                .current!.getPath()
+                .getArray()
+                .map((p) => ({ lat: p.lat(), lng: p.lng() }));
+              updated.push({ ...updated[0] });
+              setmap_coordinates(updated);
+              setIsDirty(true);
+            }
+          );
 
-          google.maps.event.addListener(polygonRef.current.getPath(), "insert_at", () => {
-            const updated = polygonRef.current!
-              .getPath()
-              .getArray()
-              .map((p) => ({ lat: p.lat(), lng: p.lng() }));
-            updated.push({ ...updated[0] });
-            setmap_coordinates(updated);
-            setIsDirty(true);
-          });
+          google.maps.event.addListener(
+            polygonRef.current.getPath(),
+            "insert_at",
+            () => {
+              const updated = polygonRef
+                .current!.getPath()
+                .getArray()
+                .map((p) => ({ lat: p.lat(), lng: p.lng() }));
+              updated.push({ ...updated[0] });
+              setmap_coordinates(updated);
+              setIsDirty(true);
+            }
+          );
         }
       }
     );
@@ -160,26 +168,24 @@ export default function WorkAreaMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, map, setmap_coordinates]);
 
+  // const savePolygon = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  //   e.preventDefault()
+  //   if (!polygonRef.current) {
+  //     alert("Draw a polygon first.");
+  //     return;
+  //   }
 
-  const savePolygon = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault()
-    if (!polygonRef.current) {
-      alert("Draw a polygon first.");
-      return;
-    }
+  //   const coords: LatLng[] = polygonRef.current
+  //     .getPath()
+  //     .getArray()
+  //     .map((p) => ({ lat: p.lat(), lng: p.lng() }));
 
-    const coords: LatLng[] = polygonRef.current
-      .getPath()
-      .getArray()
-      .map((p) => ({ lat: p.lat(), lng: p.lng() }));
+  //   if (coords.length > 0) {
+  //     coords.push({ ...coords[0] });
+  //   }
+  //   setmap_coordinates(coords)
 
-    if (coords.length > 0) {
-      coords.push({ ...coords[0] });
-    }
-    setmap_coordinates(coords)
-
-
-  };
+  // };
 
   const loadPolygon = async (e?: React.MouseEvent<HTMLButtonElement>) => {
     e?.preventDefault();
@@ -187,7 +193,7 @@ export default function WorkAreaMap({
 
     try {
       const data = {
-        coordinates: parsedCoord
+        coordinates: parsedCoord,
       };
 
       if (!data?.coordinates || data.coordinates.length === 0) {
@@ -212,7 +218,6 @@ export default function WorkAreaMap({
       google.maps.event.addListenerOnce(map, "idle", () => {
         map.setZoom(13);
       });
-
     } catch (err) {
       console.error(":x: Error loading polygon:", err);
       // alert("Error loading polygon");
@@ -227,7 +232,7 @@ export default function WorkAreaMap({
   }, [coords, isLoaded, map]);
 
   const resetFence = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault()
+    e.preventDefault();
     if (drawingManagerRef.current) {
       drawingManagerRef.current.setDrawingMode(null);
     }
@@ -243,10 +248,7 @@ export default function WorkAreaMap({
       drawingManagerRef.current.setMap(null);
       drawingManagerRef.current.setMap(map);
     }
-
   };
-
-
 
   if (loadError) return <div>Map failed to load</div>;
   if (!isLoaded) return <div>Loading map...</div>;
@@ -265,12 +267,12 @@ export default function WorkAreaMap({
 
       <br />
       <div className="flex gap-[10px] pl-3">
-        <button
+        {/* <button
           onClick={(e) => savePolygon(e)}
           className="bg-blue-600 text-white px-4 py-2 rounded "
         >
           Save Work Area
-        </button>
+        </button> */}
         <button
           onClick={(e) => resetFence(e)}
           className="bg-red-600 text-white px-4 py-2 rounded "
@@ -278,7 +280,6 @@ export default function WorkAreaMap({
           Reset
         </button>
       </div>
-
     </div>
   );
 }

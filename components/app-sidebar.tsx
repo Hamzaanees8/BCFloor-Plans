@@ -14,7 +14,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Calendar, File, House, LogOut, PanelLeftClose, PanelLeftOpen, PanelTop, Search, Settings, Sliders, UserCheck } from "lucide-react"
+import { Bell, Calendar, File, House, LogOut, PanelLeftClose, PanelLeftOpen, PanelTop, Settings, Sliders, UserCheck } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Admin, BackArrow, MatterportIcon, SubAccounts, Vendors } from "./Icons";
 import Image from "next/image";

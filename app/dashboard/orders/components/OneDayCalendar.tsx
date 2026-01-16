@@ -11,7 +11,7 @@ import { EventClickArg, DatesSetArg } from '@fullcalendar/core';
 import { useOrderContext, Slot } from '../context/OrderContext';
 import { VendorData } from '../[id]/page';
 import { Order } from '../page';
-import { convertVendorWorkHoursToPropertyTimezone } from '../orders';
+import { convertVendorWorkHoursToPropertyTimezone, fetchTwilightTime, TwilightResponse } from '../orders';
 
 declare global {
   interface Window {
@@ -47,7 +47,6 @@ interface Slots {
 }
 interface CalendarProps {
   selectedVendors: string[];
-  vendorColors: Record<string, string>;
   service: SelectedService;
   recommendTime: number;
   showAllVendors: number;
@@ -59,6 +58,7 @@ interface CalendarProps {
   setSelectedDate: (date: string) => void;
   vendorDistances: Record<string, number>;
   propertyTimezone?: string;
+  masterDate: Date;
 }
 
 interface MinimalSlot {
@@ -111,7 +111,8 @@ function generateMarkedSlots(
 ): Slots[] {
   if (!workHours) return [];
 
-  const dayOfWeek = dayjs(date).format('ddd').toLowerCase();
+  const currentDateObj = dayjs(date);
+  const dayOfWeek = currentDateObj.format('ddd').toLowerCase();
   const daySchedule = workHours.work_days?.find(d => d.day === dayOfWeek);
 
   // If vendor has work_days and is off today, return no slots
@@ -128,8 +129,6 @@ function generateMarkedSlots(
   const start = dayjs(`${date}T${effectiveStartTime}`);
   let end = dayjs(`${date}T${effectiveEndTime}`);
 
-  // If end time is before start time, it means the work period crosses midnight
-  // Add 1 day to the end time
   if (end.isBefore(start) || end.isSame(start)) {
     end = end.add(1, 'day');
   }
@@ -137,112 +136,93 @@ function generateMarkedSlots(
   const breakStart = workHours.break_start ? dayjs(`${date}T${workHours.break_start}`) : null;
   const breakEnd = workHours.break_end ? dayjs(`${date}T${workHours.break_end}`) : null;
 
-  let current = start;
+  // Pre-process allBookedSlots for current vendor and date
+  const relevantBookedSlots = allBookedSlots
+    ?.filter(s => (s.vendor?.uuid || s.vendor_id) === vendorId && s.date === date)
+    .map(s => ({
+      start: dayjs(`${s.date}T${s.start_time}`).toISOString(),
+      end: dayjs(`${s.date}T${s.end_time}`).toISOString()
+    })) || [];
 
-  while (current.isBefore(end)) {
-    const next = current.add(interval, 'minute');
+  // Pre-process otherServiceSlots
+  const relevantOtherSlots = otherServiceSlots
+    ?.filter(s => s.vendor_id === vendorId && s.date === date)
+    .map(s => dayjs(`${s.date}T${s.start_time}`).toISOString());
 
-    const inBreak = breakStart && breakEnd && next.isAfter(breakStart) && current.isBefore(breakEnd);
-
-    const isBooked = allBookedSlots?.some(bookedSlot => {
-      if (!bookedSlot) return false;
-
-      const bookedStart = dayjs(`${bookedSlot.date}T${bookedSlot.start_time}`);
-      const bookedEnd = dayjs(`${bookedSlot.date}T${bookedSlot.end_time}`);
-
-      const bookedVendorId = bookedSlot.vendor?.uuid || bookedSlot.vendor_id;
-
-      return (
-        bookedVendorId === vendorId &&
-        bookedSlot.date === date &&
-        current.isSame(bookedStart) &&
-        next.isSame(bookedEnd)
-      );
-    }) || false;
-
-    const isConflict = otherServiceSlots.some(conflictSlot => {
-      const conflictStart = dayjs(`${conflictSlot.date}T${conflictSlot.start_time}`);
-      return (
-        conflictSlot.vendor_id === vendorId &&
-        conflictSlot.date === date &&
-        current.isSame(conflictStart)
-      );
-    });
-
-    const isTimeOff = vendorTimeOffs?.some(timeOff => {
-      if (!timeOff) return false;
-
+  // Pre-process vendorTimeOffs
+  const relevantTimeOffs = vendorTimeOffs
+    ?.map(timeOff => {
       const timeOffStartDate = timeOff.start_date || timeOff.date;
       const timeOffEndDate = timeOff.end_date || timeOff.date;
-
-      const currentDateObj = dayjs(date);
       const startDateObj = dayjs(timeOffStartDate);
       const endDateObj = dayjs(timeOffEndDate);
 
       const isDateInRange = currentDateObj.isSameOrAfter(startDateObj, 'day') &&
         currentDateObj.isSameOrBefore(endDateObj, 'day');
 
-      if (!isDateInRange) return false;
+      if (!isDateInRange) return null;
 
       const isSingleDay = startDateObj.isSame(endDateObj, 'day');
       const isStartDay = currentDateObj.isSame(startDateObj, 'day');
       const isEndDay = currentDateObj.isSame(endDateObj, 'day');
 
       if (isSingleDay) {
-        const timeOffStart = dayjs(`${date}T${timeOff.start_time}`);
-        const timeOffEnd = dayjs(`${date}T${timeOff.end_time}`);
-
-        return (
-          (current.isSameOrAfter(timeOffStart) && current.isBefore(timeOffEnd)) ||
-          (next.isAfter(timeOffStart) && next.isSameOrBefore(timeOffEnd)) ||
-          (current.isBefore(timeOffStart) && next.isAfter(timeOffEnd))
-        );
+        return { start: dayjs(`${date}T${timeOff.start_time}`), end: dayjs(`${date}T${timeOff.end_time}`) };
+      } else if (isStartDay && isEndDay) {
+        return { start: dayjs(`${date}T${timeOff.start_time}`), end: dayjs(`${date}T${timeOff.end_time}`) };
+      } else if (isStartDay) {
+        return { start: dayjs(`${date}T${timeOff.start_time}`), end: null, type: 'start' };
+      } else if (isEndDay) {
+        return { start: null, end: dayjs(`${date}T${timeOff.end_time}`), type: 'end' };
       } else {
-        if (isStartDay && isEndDay) {
-          const timeOffStart = dayjs(`${date}T${timeOff.start_time}`);
-          const timeOffEnd = dayjs(`${date}T${timeOff.end_time}`);
-          return (
-            (current.isSameOrAfter(timeOffStart) && current.isBefore(timeOffEnd)) ||
-            (next.isAfter(timeOffStart) && next.isSameOrBefore(timeOffEnd)) ||
-            (current.isBefore(timeOffStart) && next.isAfter(timeOffEnd))
-          );
-        } else if (isStartDay) {
-          const timeOffStart = dayjs(`${date}T${timeOff.start_time}`);
-          return current.isSameOrAfter(timeOffStart);
-        } else if (isEndDay) {
-          const timeOffEnd = dayjs(`${date}T${timeOff.end_time}`);
-          return current.isBefore(timeOffEnd);
-        } else {
-          return true;
-        }
+        return { type: 'full' };
       }
-    }) || false;
+    })
+    .filter(Boolean);
 
-    // Check if slot conflicts with Google Calendar events
-    const isCalendarEvent = calendarEvents?.some(event => {
-      if (!event || event.status === 'cancelled') return false;
+  // Pre-process calendarEvents
+  const relevantCalendarEvents = calendarEvents
+    ?.filter(event => event && event.status !== 'cancelled' && dayjs(event.start).format('YYYY-MM-DD') === date)
+    .map(e => ({ start: dayjs(e.start), end: dayjs(e.end) }));
 
-      // Parse event times (they are in UTC ISO format)
-      const eventStart = dayjs(event.start);
-      const eventEnd = dayjs(event.end);
+  let current = start;
 
-      // Check if the event is on the current date
-      const eventDate = eventStart.format('YYYY-MM-DD');
-      if (eventDate !== date) return false;
+  while (current.isBefore(end)) {
+    const next = current.add(interval, 'minute');
+    const currentISO = current.toISOString();
+    const nextISO = next.toISOString();
 
-      // Check if current slot overlaps with the calendar event
+    const inBreak = breakStart && breakEnd && next.isAfter(breakStart) && current.isBefore(breakEnd);
+
+    const isBooked = relevantBookedSlots.some(s => s.start === currentISO && s.end === nextISO);
+
+    const isConflict = relevantOtherSlots.some(s => s === currentISO);
+
+    const isTimeOff = relevantTimeOffs.some(timeOff => {
+      if (!timeOff) return false;
+      if (timeOff.type === 'full') return true;
+      if (timeOff.type === 'start') return current.isSameOrAfter(timeOff.start);
+      if (timeOff.type === 'end') return current.isBefore(timeOff.end);
       return (
-        (current.isSameOrAfter(eventStart) && current.isBefore(eventEnd)) ||
-        (next.isAfter(eventStart) && next.isSameOrBefore(eventEnd)) ||
-        (current.isBefore(eventStart) && next.isAfter(eventEnd))
+        (current.isSameOrAfter(timeOff.start) && current.isBefore(timeOff.end)) ||
+        (next.isAfter(timeOff.start) && next.isSameOrBefore(timeOff.end)) ||
+        (current.isBefore(timeOff.start) && next.isAfter(timeOff.end))
       );
-    }) || false;
+    });
+
+    const isCalendarEvent = relevantCalendarEvents.some(event => {
+      return (
+        (current.isSameOrAfter(event.start) && current.isBefore(event.end)) ||
+        (next.isAfter(event.start) && next.isSameOrBefore(event.end)) ||
+        (current.isBefore(event.start) && next.isAfter(event.end))
+      );
+    });
 
     if (!inBreak && !isBooked && !isConflict && !isTimeOff && !isCalendarEvent) {
       slots.push({
-        id: current.toISOString(),
-        start: current.toISOString(),
-        end: next.toISOString(),
+        id: currentISO,
+        start: currentISO,
+        end: nextISO,
         title: 'Available',
         className: 'slot-available',
         vendor_id: vendorId,
@@ -275,7 +255,7 @@ function generateAllDaySlots(date: string, interval = 15): Slots[] {
   return slots;
 }
 
-function getDistanceColor(distance: number | undefined): string {
+export function getDistanceColor(distance: number | undefined): string {
   if (distance === undefined || distance === null) return "#CCCCCC";
   if (distance === 0) return "#2BC6FF";
   if (distance <= 15) return "#FD7DFF";
@@ -285,7 +265,7 @@ function getDistanceColor(distance: number | undefined): string {
   return "#171484";
 }
 
-export default function OneDayCalendar({ setSelectedDate, selectedVendors, vendorColors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, vendorDistances, propertyTimezone }: CalendarProps) {
+export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, vendorDistances, propertyTimezone, masterDate }: CalendarProps) {
   const {
     selectedSlots,
     setSelectedSlots,
@@ -304,8 +284,12 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, vendo
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [clickedSlot, setClickedSlot] = useState<{ start: string; end: string } | null>(null);
   const [availableSlotVendors, setAvailableSlotVendors] = useState<VendorData[]>([]);
+  const [twilightData, setTwilightData] = useState<TwilightResponse | null>(null);
   const calendarRef = React.useRef<FullCalendar>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
   const hasJumpedToInitialDate = React.useRef(false);
+  const hasScrolledToFirstSlot = React.useRef(false);
+  const lastMasterDateStr = React.useRef(dayjs(masterDate).format('YYYY-MM-DD'));
 
   useEffect(() => {
     if (existingSlot && !hasJumpedToInitialDate.current && calendarRef.current) {
@@ -315,6 +299,24 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, vendo
       hasJumpedToInitialDate.current = true;
     }
   }, [existingSlot]);
+
+  // React to masterDate change
+  useEffect(() => {
+    const formattedDate = dayjs(masterDate).format('YYYY-MM-DD');
+    if (formattedDate === lastMasterDateStr.current) return;
+
+    lastMasterDateStr.current = formattedDate;
+
+    if (calendarRef.current) {
+      const calendarApi = calendarRef.current.getApi();
+      // setTimeout to avoid flushSync warning during render
+      setTimeout(() => {
+        calendarApi.gotoDate(formattedDate);
+        setCurrentDate(formattedDate);
+        setSelectedDate(formattedDate);
+      }, 0);
+    }
+  }, [masterDate, setSelectedDate]);
 
   useEffect(() => {
     const selectedServiceIds = selectedServices.map(s => s.uuid);
@@ -354,10 +356,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, vendo
 
       const vendorTimezone = vendor.work_hours.timezone || 'America/Vancouver';
       const targetTimezone = propertyTimezone || 'America/Vancouver';
-      console.log(`\n=== Vendor: ${vendor.first_name} ===`);
-      console.log('Vendor timezone:', vendorTimezone);
-      console.log('Property timezone:', targetTimezone);
-      console.log('Original work_hours:', JSON.stringify(vendor.work_hours, null, 2));
+
 
       const convertedWorkHours = convertVendorWorkHoursToPropertyTimezone(
         currentDate,
@@ -365,7 +364,6 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, vendo
         vendorTimezone,
         targetTimezone
       );
-      console.log('Converted work_hours:', JSON.stringify(convertedWorkHours, null, 2));
 
       const vendorSlots = generateMarkedSlots(
         currentDate,
@@ -385,12 +383,18 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, vendo
         });
       });
     });
-
+    let firstAvailableFound = false;
     const finalSlots = fullDaySlots.map((slot) => {
       const key = `${slot.start}_${slot.end}`;
       const matchedAvailable = availableSlotMap.get(key);
 
       if (matchedAvailable) {
+        let isFirstAvailable = false;
+        if (recommendTimeMap[calendarIdx] === 1 && !firstAvailableFound) {
+          firstAvailableFound = true;
+          isFirstAvailable = true;
+        }
+
         const matchingSelected = selectedSlots.find(
           (s: Slot) =>
             s.service_id === service.uuid &&
@@ -404,7 +408,15 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, vendo
             title: vendorsData.find(v => v.uuid === matchingSelected.vendor_id)?.first_name + ' ' +
               vendorsData.find(v => v.uuid === matchingSelected.vendor_id)?.last_name + '\n' +
               service.title,
-            className: `slot-selected vendor-${matchingSelected.vendor_id}`
+            className: `slot-selected vendor-${matchingSelected.vendor_id}${isFirstAvailable ? ' slot-recommended' : ''}`
+          };
+        }
+
+        if (isFirstAvailable) {
+          return {
+            ...matchedAvailable,
+            title: 'Recommended',
+            className: 'slot-available slot-recommended'
           };
         }
 
@@ -415,7 +427,75 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, vendo
     });
 
     setEvents(finalSlots);
-  }, [vendorsData, ordersData, currentDate, selectedVendors, selectedSlots, service.title, service.uuid, AllBookedSlots, propertyTimezone]);
+  }, [vendorsData, ordersData, currentDate, selectedVendors, selectedSlots, service.title, service.uuid, AllBookedSlots, propertyTimezone, recommendTimeMap, calendarIdx]);
+
+  useEffect(() => {
+    async function loadTwilight() {
+      if (!selectedCurrentListing) return;
+      const address = `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.country}`;
+      const result = await fetchTwilightTime(address, currentDate);
+      if (result) setTwilightData(result);
+    }
+    loadTwilight();
+  }, [selectedCurrentListing, currentDate]);
+
+  const formatLocalTime = (utcTime: string) => {
+    if (!utcTime) return "—";
+    const timeZone = propertyTimezone || "America/Vancouver";
+    try {
+      const date = new Date(utcTime);
+      return date.toLocaleTimeString("en-CA", {
+        timeZone,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      });
+    } catch (error) {
+      console.error("Error formatting time:", error);
+      return "Invalid time";
+    }
+  };
+
+  useEffect(() => {
+    if (!containerRef.current || events.length === 0) return;
+
+    if (!hasScrolledToFirstSlot.current) {
+      let targetSlot = null;
+
+      const selectedSlot = events.find(event => event.className?.includes('slot-selected'));
+
+      if (selectedSlot) {
+        targetSlot = selectedSlot;
+      } else {
+        targetSlot = events.find(event => event.className === 'slot-available');
+      }
+
+      if (targetSlot) {
+        const slotStartTime = dayjs(targetSlot.start);
+        const startOfDay = slotStartTime.startOf('day');
+        const minutesFromMidnight = slotStartTime.diff(startOfDay, 'minute');
+
+        const pixelsPerMinute = 42 / 15;
+        const scrollPosition = minutesFromMidnight * pixelsPerMinute;
+
+        setTimeout(() => {
+          if (containerRef.current) {
+            containerRef.current.scrollTo({
+              top: Math.max(0, scrollPosition - 134),
+              behavior: 'smooth'
+            });
+            hasScrolledToFirstSlot.current = true;
+          }
+        }, 200);
+      }
+    }
+  }, [events]);
+
+  const vendorsKey = JSON.stringify(selectedVendors);
+  useEffect(() => {
+    hasScrolledToFirstSlot.current = false;
+  }, [vendorsKey, currentDate]);
 
   const prevVendorsRef = React.useRef<string[]>([]);
   const prevDateRef = React.useRef<string>(currentDate);
@@ -659,8 +739,41 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, vendo
     })
     .join('\n');
 
+  const customStyles = `
+    ${vendorColorStyles}
+    .slot-recommended:not(.slot-selected) {
+      background-color: #B2FFB2 !important;
+    }
+    .recommended-corner-indicator {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 0 24px 24px 0;
+      border-color: transparent #E8B611 transparent transparent;
+      z-index: 10;
+    }
+    .recommended-corner-indicator svg {
+      position: absolute;
+      top: 2px;
+      right: -22px;
+    }
+    .fc-header-toolbar {
+      position: sticky !important;
+      top: 0 !important;
+      background: #EEEEEE !important;
+      z-index: 100 !important;
+      margin-bottom: 0 !important;
+      padding-top: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #BBBBBB;
+    }
+  `;
+
   return (
-    <div className="mt-[20px] relative custom-scroll" style={{
+    <div ref={containerRef} className="mt-[20px] relative custom-scroll" style={{
       border: '2px solid #BBBBBB',
       borderRadius: '6px',
       maxHeight: 430,
@@ -678,6 +791,24 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, vendo
         slotMaxTime="24:00:00"
         allDaySlot={false}
         events={events}
+        eventContent={(eventInfo) => {
+          const isRecommended = eventInfo.event.classNames.includes('slot-recommended');
+
+          return (
+            <div className="fc-event-main-frame w-full h-full relative flex items-center justify-center">
+              <div className="fc-event-title fc-sticky text-center" style={{ fontSize: '9px', color: '#424242' }}>
+                {eventInfo.event.title}
+              </div>
+              {isRecommended && (
+                <div className="recommended-corner-indicator">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </div>
+              )}
+            </div>
+          );
+        }}
         height="auto"
         dayHeaders={false}
         eventClick={onEventClick}
@@ -701,6 +832,21 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, vendo
             : dayjs().format("YYYY-MM-DD")
         }}
       />
+
+      {twilightData && (
+        <div className="mt-4 p-3 bg-gray-50 rounded-md border border-[#EEEEEE]">
+          <h4 className="text-sm font-[600] text-[#666666] mb-2">Twilight Times ({dayjs(currentDate).format('MMM D')})</h4>
+          <div className="grid grid-cols-2 gap-2 text-[10px]">
+            <div className="col-span-1">
+              <span className="text-gray-500">Morning Civil:</span> {formatLocalTime(twilightData.civil_twilight_begin)}
+            </div>
+            <div className="col-span-1">
+              <span className="text-gray-500">Evening Civil:</span> {formatLocalTime(twilightData.civil_twilight_end)}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showVendorModal && clickedSlot && (
         <div
           onClick={() => setShowVendorModal(false)}
@@ -714,7 +860,8 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, vendo
             ) : (
               <ul className="space-y-2 max-h-60 overflow-y-auto">
                 {availableSlotVendors.map((vendor: VendorData) => {
-                  const color = vendor.uuid ? vendorColors[vendor.uuid] || '#888' : '#888';
+                  const travelTime = vendor.uuid ? vendorDistances[vendor.uuid] : undefined;
+                  const color = getDistanceColor(travelTime);
                   return (
                     <li
                       key={vendor.uuid}
@@ -733,7 +880,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, vendo
           </div>
         </div>
       )}
-      <style>{vendorColorStyles}</style>
+      <style>{customStyles}</style>
     </div>
   );
 }

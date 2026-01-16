@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { SelectedFiles } from './HDRStill';
-import { PauseCircle, Play } from 'lucide-react'; // Lucide icons
+import { PauseCircle, Play, Volume2, VolumeX } from 'lucide-react'; // Lucide icons
 import './SlideshowAnimations.css';
 import { Files } from '../FileManagerContext ';
 
@@ -46,6 +46,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [transitionIndex, setTransitionIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -95,14 +96,18 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     setIsPlaying((prev) => !prev);
   };
 
+  const toggleMute = () => {
+    setIsMuted((prev) => !prev);
+  }
+
 
 
 
   return (
-    <div className="relative w-full h-[100vh] overflow-hidden bg-black">
+    <div className="relative w-full h-[100vh] overflow-hidden bg-black group">
       {/* Audio */}
       {audioUrl && (
-        <audio ref={audioRef} key={audioUrl} autoPlay loop>
+        <audio ref={audioRef} key={audioUrl} autoPlay loop muted={isMuted}>
           <source src={audioUrl} type="audio/mpeg" />
           Your browser does not support the audio element.
         </audio>
@@ -124,19 +129,35 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
         <img
           src={watermarkUrl}
           alt="Watermark"
-          className="absolute bottom-6 right-6 w-24 h-auto opacity-60 pointer-events-none select-none z-[999]"
+          className="absolute bottom-10 right-36 w-24 h-auto opacity-60 pointer-events-none select-none z-[999]"
         />
       )}
+
+      {/* Play/Pause Button */}
       <div
         onClick={togglePlayback}
-        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-50 opacity-10 hover:opacity-50 transition-opacity duration-300"
+        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20 hover:bg-black/40 rounded-full p-4"
       >
         {isPlaying ? (
-          <PauseCircle size={64} color="#111111" />
+          <PauseCircle size={64} color="#ffffff" />
         ) : (
-          <Play size={64} color="#111111" />
+          <Play size={64} color="#ffffff" />
         )}
       </div>
+
+      {/* Mute/Unmute Button */}
+      {/* {audioUrl && ( */}
+      <div
+        onClick={toggleMute}
+        className="absolute bottom-10 right-10 cursor-pointer z-[1000] opacity-70 group-hover:opacity-100 transition-opacity duration-300 bg-black/40 hover:bg-black/60 p-4 rounded-full flex items-center justify-center border border-white/30 shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+      >
+        {isMuted ? (
+          <VolumeX size={24} color="#ffffff" />
+        ) : (
+          <Volume2 size={24} color="#ffffff" />
+        )}
+      </div>
+      {/* )} */}
     </div>
   );
 };

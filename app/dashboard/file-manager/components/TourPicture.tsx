@@ -168,7 +168,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                         </p>
                         <div className="col-span-2 flex items-center justify-between">
                           <p className="text-[#8E8E8E] mt-1">
-                            Exterior ({idx + 1} of {selectedFiles.length})
+                            {file.type || "Exterior"} ({idx + 1} of {selectedFiles.length})
                           </p>
                           <span className="flex w-[24px] h-[24px] cursor-pointer">
                             <DownloadIcon
@@ -208,7 +208,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                         </p>
                         <div className="col-span-2 flex items-center justify-between">
                           <p className="text-[#8E8E8E] mt-1">
-                            Exterior ({idx + 1} of {selectedFiles.length})
+                            {file.group || "Exterior"} ({idx + 1} of {currentTourPhotos?.length || 0})
                           </p>
                           <span
                             onClick={() => handledownloadFile(file.uuid, file.name)}

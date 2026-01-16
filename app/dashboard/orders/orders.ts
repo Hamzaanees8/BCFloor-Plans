@@ -553,7 +553,6 @@ export async function fetchTwilightTime(address: string, date: string): Promise<
     );
 
     const twilightData = await twilightRes.json();
-    console.log('twilightData', twilightData);
 
     if (twilightData.status !== "OK") throw new Error("Failed to fetch twilight data");
 
@@ -576,14 +575,12 @@ export async function fetchTwilightTime(address: string, date: string): Promise<
   }
 }
 
-// /utils/getPropertyTimezone.ts
 
 export interface Coordinate {
   lat: number;
   lng: number;
 }
 
-// orders.ts
 export interface PropertyLocation {
   lat: number;
   lng: number;
@@ -633,28 +630,17 @@ export async function getPropertyTimezone(address: string): Promise<PropertyLoca
   }
 }
 
-/**
- * Convert time from one timezone to UTC
- * @param date - The date string (YYYY-MM-DD)
- * @param time - The time string (HH:mm:ss or HH:mm)
- * @param fromTimezone - Source timezone (e.g., "America/Edmonton")
- * @returns ISO string in UTC
- */
+
 export function convertTimeToUTC(date: string, time: string, fromTimezone: string): string {
-  // Ensure time has seconds
   const timeParts = time.split(':');
   const normalizedTime = timeParts.length === 2 ? `${time}:00` : time;
 
   const [year, month, day] = date.split('-');
   const [hour, minute, second] = normalizedTime.split(':');
 
-  // Create a string representation that would be interpreted as the source timezone
-  // We'll use a hack: create a date formatter for the source TZ and use it to understand the offset
 
-  // Step 1: Create a Date object for this exact moment in UTC (as a reference)
   const utcReferenceDate = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), parseInt(second)));
 
-  // Step 2: Format this UTC reference date in the source timezone to see what time it shows there
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: fromTimezone,
     year: 'numeric',
@@ -674,7 +660,6 @@ export function convertTimeToUTC(date: string, time: string, fromTimezone: strin
     }
   });
 
-  // Step 3: Calculate the difference between what we want and what we got
   const displayedInTZ = new Date(
     parseInt(partsMap.year),
     parseInt(partsMap.month) - 1,
@@ -695,18 +680,12 @@ export function convertTimeToUTC(date: string, time: string, fromTimezone: strin
 
   const offset = desired.getTime() - displayedInTZ.getTime();
 
-  //Step 4: Apply the offset to get the correct UTC time
   const correctUTC = new Date(utcReferenceDate.getTime() + offset);
 
   return correctUTC.toISOString();
 }
 
-/**
- * Convert UTC time to a specific timezone
- * @param utcTime - ISO string in UTC
- * @param toTimezone - Target timezone (e.g., "America/Los_Angeles")
- * @returns Time string in format HH:mm:ss
- */
+
 export function convertUTCToTimezone(utcTime: string, toTimezone: string): string {
   const date = new Date(utcTime);
 
@@ -721,14 +700,7 @@ export function convertUTCToTimezone(utcTime: string, toTimezone: string): strin
   return formatter.format(date);
 }
 
-/**
- * Convert vendor work hours from vendor timezone to property timezone
- * @param date - The date string (YYYY-MM-DD)
- * @param workHours - Vendor's work hours object
- * @param vendorTimezone - Vendor's timezone
- * @param propertyTimezone - Property's timezone
- * @returns Converted work hours with times in property timezone
- */
+
 export function convertVendorWorkHoursToPropertyTimezone(
   date: string,
   workHours: {
@@ -759,18 +731,12 @@ export function convertVendorWorkHoursToPropertyTimezone(
     is_twilight: string | number | boolean;
   }[];
 } {
-  // If timezones are the same, no conversion needed
   if (vendorTimezone === propertyTimezone) {
     return workHours;
   }
 
-  console.log('🔄 CONVERSION FUNCTION CALLED - NEW CODE VERSION!');
-  console.log('Input date:', date);
-  console.log('Vendor TZ:', vendorTimezone, 'Property TZ:', propertyTimezone);
-
   const converted: typeof workHours = { ...workHours };
 
-  // Convert general start/end times if they exist
   if (workHours.start_time) {
     const utcTime = convertTimeToUTC(date, workHours.start_time, vendorTimezone);
     converted.start_time = convertUTCToTimezone(utcTime, propertyTimezone);
@@ -781,7 +747,6 @@ export function convertVendorWorkHoursToPropertyTimezone(
     converted.end_time = convertUTCToTimezone(utcTime, propertyTimezone);
   }
 
-  // Convert break times
   if (workHours.break_start) {
     const utcTime = convertTimeToUTC(date, workHours.break_start, vendorTimezone);
     converted.break_start = convertUTCToTimezone(utcTime, propertyTimezone);
@@ -792,41 +757,32 @@ export function convertVendorWorkHoursToPropertyTimezone(
     converted.break_end = convertUTCToTimezone(utcTime, propertyTimezone);
   }
 
-  // Convert work_days times
   if (workHours.work_days && Array.isArray(workHours.work_days)) {
     converted.work_days = workHours.work_days.map(day => {
-      // Check if this day is off (handle string "0", "1", number 0, 1, or boolean)
       const isDayOff = day.is_off === '1' || day.is_off === 1 || day.is_off === true;
       if (isDayOff) {
-        console.log(`Skipping ${day.day} - day is off`);
-        return day; // No need to convert times for off days
+        return day;
       }
 
-      // Calculate the date for this specific day of the week
-      // We need to find the next occurrence of this day from the given date
       const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
       const targetDayIndex = dayNames.indexOf(day.day.toLowerCase());
       const currentDate = new Date(date);
       const currentDayIndex = currentDate.getDay();
 
-      // Calculate days difference
       let daysDiff = targetDayIndex - currentDayIndex;
       if (daysDiff < 0) {
-        daysDiff += 7; // Move to next week if target day has passed
+        daysDiff += 7;
       }
 
-      // Create the date for this specific day
       const dayDate = new Date(currentDate);
       dayDate.setDate(currentDate.getDate() + daysDiff);
-      const dayDateStr = dayDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      const dayDateStr = dayDate.toISOString().split('T')[0];
 
-      console.log(`Converting ${day.day}: ${day.start_time}-${day.end_time} using date ${dayDateStr}`);
       const startUtc = convertTimeToUTC(dayDateStr, day.start_time, vendorTimezone);
       const endUtc = convertTimeToUTC(dayDateStr, day.end_time, vendorTimezone);
 
       const convertedStartTime = convertUTCToTimezone(startUtc, propertyTimezone);
       const convertedEndTime = convertUTCToTimezone(endUtc, propertyTimezone);
-      console.log(`  Original: ${day.start_time}-${day.end_time}, Converted: ${convertedStartTime}-${convertedEndTime}`);
 
       return {
         ...day,

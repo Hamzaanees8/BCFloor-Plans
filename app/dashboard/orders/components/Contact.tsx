@@ -1,6 +1,7 @@
 
-import { AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { AlertDialog } from '@radix-ui/react-alert-dialog';
+
+
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Eye, Minus, Plus, EyeOff, X, Trash, Edit2Icon } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { AgentNote, useOrderContext } from '../context/OrderContext';
@@ -12,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useAppContext } from '@/app/context/AppContext';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RealtorSignInModal } from '@/app/agent/book-now/components/RealtorLogin';
 
 const Contact = () => {
@@ -208,11 +210,31 @@ const Contact = () => {
             return prev;
         });
     };
+    const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
     const isEditing = Boolean(editingNote);
-    const handleEditNote = (note: AgentNote) => {
+
+    const handleEditNote = (note: AgentNote, index: number) => {
         setEditingNote(note);
         setTempNotes(note.note);
-        setOpenAddNotesDialog(true);
+        setEditingNoteIndex(index);
+        // setOpenAddNotesDialog(true); // No longer open dialog
+    };
+
+    const handleSaveInlineNote = () => {
+        if (editingNote && tempNotes.trim()) {
+            setAgentNotes(prev =>
+                prev.map(note =>
+                    note.note === editingNote.note &&
+                        note.internal === editingNote.internal &&
+                        note.date === editingNote.date
+                        ? { ...note, note: tempNotes.trim() }
+                        : note
+                )
+            );
+        }
+        setEditingNote(null);
+        setEditingNoteIndex(null);
+        setTempNotes('');
     };
     const handleAddNote = (e: React.FormEvent) => {
         e.preventDefault();
@@ -320,22 +342,39 @@ const Contact = () => {
                             }
                             {token != null &&
                                 <div className='col-span-2 flex items-center justify-between'>
-                                    <label className='flex items-center gap-x-[10px] cursor-pointer'>
-                                        <input
-                                            type="checkbox"
-                                            checked={isSplitInvoice}
-                                            onChange={(e) => {
-                                                setIsSplitInvoice(e.target.checked);
-                                                setDraftCoAgents([]);
-                                                setCoAgents([]);
-                                            }}
-
-                                            className={`w-[18px] h-[18px] ${userType === 'admin' ? 'accent-[#4290E9]' : 'accent-[#6BAE41]'}  rounded-sm border border-[#CCCCCC]`}
-                                        />
-                                        <span className='text-base font-semibold font-raleway text-[#666666]'>
-                                            Split Invoice
-                                        </span>
-                                    </label>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <div className="inline-block">
+                                                    <label className={`flex items-center gap-x-[10px] ${(!isSplitInvoice && coAgents.length === 0) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSplitInvoice}
+                                                            disabled={!isSplitInvoice && coAgents.length === 0}
+                                                            onChange={(e) => {
+                                                                setIsSplitInvoice(e.target.checked);
+                                                                // Only clear co-agents if unchecking? Or maybe not at all depending on requirements.
+                                                                // Keeping existing behavior for uncheck, but removing for check to preserve agents.
+                                                                if (!e.target.checked) {
+                                                                    setDraftCoAgents([]);
+                                                                    setCoAgents([]);
+                                                                }
+                                                            }}
+                                                            className={`w-[18px] h-[18px] ${userType === 'admin' ? 'accent-[#4290E9]' : 'accent-[#6BAE41]'}  rounded-sm border border-[#CCCCCC] ${(!isSplitInvoice && coAgents.length === 0) ? 'cursor-not-allowed' : ''}`}
+                                                        />
+                                                        <span className='text-base font-semibold font-raleway text-[#666666]'>
+                                                            Split Invoice
+                                                        </span>
+                                                    </label>
+                                                </div>
+                                            </TooltipTrigger>
+                                            {(!isSplitInvoice && coAgents.length === 0) && (
+                                                <TooltipContent>
+                                                    <p>To enable split invoice, add a co-agent first</p>
+                                                </TooltipContent>
+                                            )}
+                                        </Tooltip>
+                                    </TooltipProvider>
                                 </div>
                             }
                             <div className="col-span-2">
@@ -345,26 +384,29 @@ const Contact = () => {
                                         <p className={`text-base font-semibold font-raleway ${userType}-text`}>Add</p>
                                         <Plus className={`w-[18px] h-[18px] ${userType}-bg text-white rounded-sm `} />
                                     </div>
-                                    <AlertDialog open={openAddCoAgentDialog} onOpenChange={setOpenAddCoAgentDialog}>
-                                        <AlertDialogContent className="w-[320px] md:w-[470px] h-[360px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
+                                    <Dialog open={openAddCoAgentDialog} onOpenChange={setOpenAddCoAgentDialog}>
+                                        <DialogContent className="w-[320px] md:w-[470px] h-[360px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
+                                            <DialogHeader>
+                                                <DialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
                                                     CC
-                                                    <AlertDialogCancel onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setOpenAddCoAgentDialog(false);
-                                                        setCoAgentEmail("");
-                                                        setPercentage("");
-                                                        setDraftCoAgents([]);
-                                                    }} className="border-none !shadow-none">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setOpenAddCoAgentDialog(false);
+                                                            setCoAgentEmail("");
+                                                            setPercentage("");
+                                                            setDraftCoAgents([]);
+                                                        }}
+                                                        className="border-none !shadow-none bg-transparent"
+                                                    >
                                                         <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                                                    </AlertDialogCancel>
-                                                </AlertDialogTitle>
+                                                    </button>
+                                                </DialogTitle>
                                                 <hr className="w-full h-[1px] text-[#BBBBBB]" />
-                                            </AlertDialogHeader>
+                                            </DialogHeader>
 
                                             <div className="flex flex-col " >
-                                                <div onClick={(e) => e.stopPropagation()} className="flex flex-col gap-4">
+                                                <div className="flex flex-col gap-4">
                                                     <form >
                                                         <div className="flex flex-col gap-4">
                                                             {/* Admin Section */}
@@ -492,20 +534,23 @@ const Contact = () => {
 
                                                         </div>
                                                         <hr className="w-full h-[1px] text-[#BBBBBB] my-[16px]" />
-                                                        <AlertDialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
-                                                            <AlertDialogCancel onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setOpenAddCoAgentDialog(false);
-                                                                setCoAgentEmail("");
-                                                                setPercentage("");
-                                                                setDraftCoAgents([]);
-                                                            }} className={`bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400]  ${userType}-border ${userType}-text ${userType}-button hovert-${userType}-text hover-${userType}-bg`}>
+                                                        <DialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                onClick={() => {
+                                                                    setOpenAddCoAgentDialog(false);
+                                                                    setCoAgentEmail("");
+                                                                    setPercentage("");
+                                                                    setDraftCoAgents([]);
+                                                                }}
+                                                                className={`bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400]  ${userType}-border ${userType}-text ${userType}-button hovert-${userType}-text hover-${userType}-bg`}
+                                                            >
                                                                 Cancel
-                                                            </AlertDialogCancel>
+                                                            </Button>
                                                             <button
                                                                 type="button"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
+                                                                onClick={() => {
                                                                     const email = coAgentEmail.trim();
                                                                     const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
                                                                     const needsToAdd = email !== '' || (isSplitInvoice && percentage !== '');
@@ -542,16 +587,13 @@ const Contact = () => {
                                                             >
                                                                 Add
                                                             </button>
-
-
-
-                                                        </AlertDialogFooter>
+                                                        </DialogFooter>
                                                     </form>
                                                 </div>
 
                                             </div>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
+                                        </DialogContent>
+                                    </Dialog>
                                 </div>
                                 <div className="border border-[#BBBBBB] mt-[12px] px-[6px] py-[8px] rounded-[6px] bg-[#EEEEEE] flex flex-wrap gap-[6px] min-h-[67px]">
                                     {coAgents.map((coagent, index) => (
@@ -581,82 +623,6 @@ const Contact = () => {
                                     <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => setOpenAddNotesDialog(true)}>
                                         <p className={`text-base font-semibold font-raleway ${userType}-text`}>Add</p>
                                         <Plus className={`w-[18px] h-[18px] ${userType}-bg text-white rounded-sm `} />
-                                        <AlertDialog open={openAddNotesDialog} onOpenChange={setOpenAddNotesDialog}>
-                                            <AlertDialogContent className="w-[320px] md:w-[450px] max-h-[550px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
-                                                        {isEditing ? "EDIT NOTE" : "ADD NEW NOTES"}
-                                                        <button
-                                                            onClick={handleCloseNotesDialog}
-                                                            className="border-none !shadow-none bg-transparent"
-                                                            aria-label="Close"
-                                                        >
-                                                            <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                                                        </button>
-                                                    </AlertDialogTitle>
-                                                    <hr className="w-full h-[1px] text-[#BBBBBB]" />
-                                                </AlertDialogHeader>
-
-                                                <div className="flex flex-col">
-                                                    <div className="flex flex-col gap-4">
-                                                        <form onSubmit={handleAddNote}>
-                                                            <div className="flex flex-col gap-4">
-                                                                <input
-                                                                    type="text"
-                                                                    disabled
-                                                                    className="w-full h-[42px] p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] text-[#666666] font-medium"
-                                                                    value={userName}
-                                                                />
-                                                                {token && userType !== 'agent' &&
-                                                                    (
-                                                                        isEditing ? (
-                                                                            editingNote?.internal === "true" ? (
-                                                                                <p className="text-[#7D7D7D] text-[16px]">
-                                                                                    This note is for Internal Use only. Agent will not be able to see or access Note.
-                                                                                </p>
-                                                                            ) : (
-                                                                                <p className="text-[#E06D5E] text-[16px]">
-                                                                                    These notes will be viewable by AGENT.
-                                                                                </p>
-                                                                            )
-                                                                        ) : activeTab === "appointment" ? (
-                                                                            <p className="text-[#E06D5E] text-[16px]">
-                                                                                These notes will be viewable by AGENT.
-                                                                            </p>
-                                                                        ) : (
-                                                                            <p className="text-[#7D7D7D] text-[16px]">
-                                                                                This note is for Internal Use only. Agent will not be able to see or access Note.
-                                                                            </p>
-                                                                        ))
-                                                                }
-                                                                <textarea
-                                                                    className="h-[180px] w-full p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] text-[#666666]"
-                                                                    value={tempNotes}
-                                                                    onChange={(e) => setTempNotes(e.target.value)}
-                                                                    placeholder='Write Notes Here...'
-                                                                />
-                                                            </div>
-                                                            <hr className="w-full h-[1px] text-[#BBBBBB] my-[16px]" />
-                                                            <AlertDialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px] mt-2 font-alexandria">
-                                                                <AlertDialogCancel onClick={handleCloseNotesDialog} className={`bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] ${userType}-border ${userType}-text ${userType}-button hover-${userType}-bg`}>
-                                                                    Cancel
-                                                                </AlertDialogCancel>
-                                                                <AlertDialogAction
-                                                                    type="submit"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setOpenAddNotesDialog(false);
-                                                                    }}
-                                                                    className={`${userType}-bg text-white hover-${userType}-bg w-full md:w-[176px] h-[44px] font-[400] text-[20px]`}
-                                                                >
-                                                                    {isEditing ? "Update" : "Add"}
-                                                                </AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </form>
-                                                    </div>
-                                                </div>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-y-3 mt-3">
@@ -708,7 +674,19 @@ const Contact = () => {
                                                 key={index}
                                                 className="w-full p-3 rounded-[6px] bg-[#E4E4E4] border border-[#BBBBBB] relative whitespace-pre-wrap break-words"
                                             >
-                                                <p className="text-sm text-[#333]">{note.note}</p>
+                                                {editingNoteIndex === index ? (
+                                                    <textarea
+                                                        autoFocus
+                                                        className="w-full bg-transparent border-none outline-none resize-none text-sm text-[#333] min-h-[60px]"
+                                                        value={tempNotes}
+                                                        onChange={(e) => setTempNotes(e.target.value)}
+                                                        onBlur={handleSaveInlineNote}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                ) : (
+                                                    <p className="text-sm text-[#333]">{note.note}</p>
+                                                )}
+
                                                 <div className="mt-2 text-right text-[#8E8E8E] text-[13px] font-[400] leading-tight">
                                                     <p>
                                                         {new Date(note.date).toLocaleDateString("en-US", {
@@ -724,7 +702,7 @@ const Contact = () => {
                                                         ) : (
                                                             <Eye className='w-4 h-4 text-[#7D7D7D]' />
                                                         )}
-                                                        <Edit2Icon className='w-4 h-4 text-[#7D7D7D] cursor-pointer' onClick={() => handleEditNote(note)} />
+                                                        <Edit2Icon className='w-4 h-4 text-[#7D7D7D] cursor-pointer' onClick={() => handleEditNote(note, index)} />
                                                         <Trash onClick={() => handleDeleteNote(note)} className="w-4 h-4 text-[#7D7D7D] cursor-pointer" />
                                                     </div>
                                                 </div>
@@ -733,6 +711,84 @@ const Contact = () => {
                                     )}
                                 </div>
                             </div>
+                            <Dialog open={openAddNotesDialog} onOpenChange={setOpenAddNotesDialog}>
+                                <DialogContent className="w-[320px] md:w-[450px] max-h-[550px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
+                                    <DialogHeader>
+                                        <DialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
+                                            {isEditing ? "EDIT NOTE" : "ADD NEW NOTES"}
+                                            <button
+                                                type="button"
+                                                onClick={handleCloseNotesDialog}
+                                                className="border-none !shadow-none bg-transparent"
+                                                aria-label="Close"
+                                            >
+                                                <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
+                                            </button>
+                                        </DialogTitle>
+                                        <hr className="w-full h-[1px] text-[#BBBBBB]" />
+                                    </DialogHeader>
+
+                                    <div className="flex flex-col">
+                                        <div className="flex flex-col gap-4">
+                                            <form onSubmit={handleAddNote}>
+                                                <div className="flex flex-col gap-4">
+                                                    <input
+                                                        type="text"
+                                                        disabled
+                                                        className="w-full h-[42px] p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] text-[#666666] font-medium"
+                                                        value={userName}
+                                                    />
+                                                    {token && userType !== 'agent' &&
+                                                        (
+                                                            isEditing ? (
+                                                                editingNote?.internal === "true" ? (
+                                                                    <p className="text-[#7D7D7D] text-[16px]">
+                                                                        This note is for Internal Use only. Agent will not be able to see or access Note.
+                                                                    </p>
+                                                                ) : (
+                                                                    <p className="text-[#E06D5E] text-[16px]">
+                                                                        These notes will be viewable by AGENT.
+                                                                    </p>
+                                                                )
+                                                            ) : activeTab === "appointment" ? (
+                                                                <p className="text-[#E06D5E] text-[16px]">
+                                                                    These notes will be viewable by AGENT.
+                                                                </p>
+                                                            ) : (
+                                                                <p className="text-[#7D7D7D] text-[16px]">
+                                                                    This note is for Internal Use only. Agent will not be able to see or access Note.
+                                                                </p>
+                                                            ))
+                                                    }
+                                                    <textarea
+                                                        className="h-[180px] w-full p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] text-[#666666]"
+                                                        value={tempNotes}
+                                                        onChange={(e) => setTempNotes(e.target.value)}
+                                                        placeholder='Write Notes Here...'
+                                                    />
+                                                </div>
+                                                <hr className="w-full h-[1px] text-[#BBBBBB] my-[16px]" />
+                                                <DialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px] mt-2 font-alexandria">
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={handleCloseNotesDialog}
+                                                        className={`bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] ${userType}-border ${userType}-text ${userType}-button hover-${userType}-bg`}
+                                                    >
+                                                        Cancel
+                                                    </Button>
+                                                    <Button
+                                                        type="submit"
+                                                        className={`${userType}-bg text-white hover-${userType}-bg w-full md:w-[176px] h-[44px] font-[400] text-[20px]`}
+                                                    >
+                                                        {isEditing ? "Update" : "Add"}
+                                                    </Button>
+                                                </DialogFooter>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
                         </div>
                     </div>
                 </div >

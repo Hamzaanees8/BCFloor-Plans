@@ -27,7 +27,8 @@ export interface SelectedFiles {
     is_featured?: boolean;
     is_admin_approved?: boolean;
     is_agent_approved?: boolean;
-
+    is_show?: boolean;
+    is_deleted?: boolean;
 }
 
 export interface PaymentData {
@@ -67,8 +68,17 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
 
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newFiles = Array.from(e.target.files || []);
-        setFiles(newFiles);
+        const selected = Array.from(e.target.files || []);
+        const validFiles = selected.filter(file => !file.type.startsWith('video/'));
+        const hasVideo = selected.some(file => file.type.startsWith('video/'));
+
+        if (hasVideo) {
+            toast.error("Video files are not allowed here.");
+        }
+
+        if (validFiles.length > 0) {
+            setFiles(validFiles);
+        }
     };
 
     const handleFilesChange = (selectedFiles: File[]) => {
@@ -85,11 +95,17 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
     const currentBookedService = orderData?.services.find((service) => service.service.uuid === currentService?.uuid)
 
     // Filter existing files
-    let currentServiceFiles = filesData?.files?.filter((file: Files) => file?.service?.uuid === currentService?.uuid);
+    let currentServiceFiles = filesData?.files
+        ?.filter((file: Files) => file?.service?.uuid === currentService?.uuid)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-    // If Agent and review is enabled, only show approved files
-    if (userType === 'agent' && reviewFilesEnabled) {
-        currentServiceFiles = currentServiceFiles?.filter(file => file.is_admin_approved);
+    // If Agent and review is enabled, only show approved files and those marked to show
+    if (userType === 'agent') {
+        if (reviewFilesEnabled) {
+            currentServiceFiles = currentServiceFiles?.filter(file => file.is_admin_approved && file.is_show !== false);
+        } else {
+            currentServiceFiles = currentServiceFiles?.filter(file => file.is_show !== false);
+        }
     }
 
     const filesForService = selectedFiles.filter(f => f.service_id === currentService?.uuid);
@@ -102,8 +118,16 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
         dragCounter.current = 0;
 
         const droppedFiles = Array.from(e.dataTransfer?.files || []);
+        const validFiles = droppedFiles.filter(file => !file.type.startsWith('video/'));
+        const hasVideo = droppedFiles.some(file => file.type.startsWith('video/'));
 
-        handleFilesChange(droppedFiles);
+        if (hasVideo) {
+            toast.error("Video files are not allowed here.");
+        }
+
+        if (validFiles.length > 0) {
+            handleFilesChange(validFiles);
+        }
     }, []);
 
     const handleDragEnter = useCallback((e: DragEvent) => {
@@ -152,11 +176,13 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
 
         try {
             if (filesData) {
+                // Filter out soft-deleted files before sending to API
+                const filesToUpload = filesForService.filter(f => !f.is_deleted);
 
                 await UpdatePhotosData(
                     token,
                     filesData?.uuid || '',
-                    filesForService,
+                    filesToUpload,
                 );
             } else {
 
@@ -235,10 +261,11 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
     useEffect(() => {
         const checkServiceCompletion = async () => {
             const token = localStorage.getItem("token");
-            const numberOfUploadedFiles = currentServiceFiles?.length ?? 0
+            // Count only agent approved files
+            const numberOfApprovedFiles = currentServiceFiles?.filter(f => f.is_agent_approved).length ?? 0
 
-            if (numberOfUploadedFiles >= (currentBookedService?.option.quantity ?? 0)) {
-                if (token && currentBookedService?.uuid && orderData?.uuid) {
+            if (numberOfApprovedFiles >= (currentBookedService?.option.quantity ?? 0)) {
+                if (token && currentBookedService?.uuid && orderData?.uuid && !currentBookedService?.is_completed) {
                     await ServiceCompletion(token, currentBookedService.uuid, true, orderData.uuid)
                 }
             }
@@ -250,14 +277,18 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
         <div>
             {!isListing &&
                 <div
-                    className='h-[66px] w-full flex justify-between items-center px-4 font-alexandria'
+                    className='h-[66px] w-full flex justify-between items-center px-4 font-alexandria overflow-visible'
                     style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
                 >
                     {dragging && userType !== 'agent' && (
-                        <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center pointer-events-none">
-                            {/* <div className="bg-white bg-opacity-25 flex justify-center items-center w-[50vw] h-[50vh] border-2 border-dashed border-gray-400 rounded-lg p-10 text-center pointer-events-none">
-                            <p className="text-lg text-gray-700">Drop files here </p>
-                        </div> */}
+                        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center backdrop-blur-sm">
+                            <div className="bg-white/20 border-2 border-dashed border-white rounded-3xl p-20 flex flex-col items-center gap-6 animate-in zoom-in duration-300">
+                                <div className={`${userType}-bg p-6 rounded-full shadow-2xl`}>
+                                    <DownloadIcon width="48px" height="48px" fill="#fff" />
+                                </div>
+                                <p className="text-3xl font-bold text-white tracking-wide">Drop files here to upload</p>
+                                <p className="text-white/80 text-lg">Support for images and high-quality photos</p>
+                            </div>
                         </div>
                     )}
 
@@ -374,10 +405,6 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
                     <UpgradeServicePopup open={openUpgrade} setOpen={setOpenUpgrade} currentService={currentService} currentOption={currentBookedService?.option} />
                 </div>}
             <div className="p-4">
-                {(filesForService.length === 0 && (currentServiceFiles?.length ?? 0) === 0) && userType !== 'agent' && (
-                    <div className='w-full flex justify-center items-center mt-20'>
-                        <FileUploader onFilesChange={handleFilesChange} />
-                    </div>)}
                 <FilePreviewModal type='HDR_photos' open={open} onOpenChange={() => { setOpen(false) }} files={files} setSelectedFiles={setSelectedFiles} serviceUuid={currentService?.uuid ?? ''} reviewFilesEnabled={reviewFilesEnabled} />
                 {(filesForService.length > 0 || (currentServiceFiles?.length ?? 0) > 0) && (
                     <div
@@ -388,7 +415,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
                         {currentServiceFiles?.map((file, idx) => (
                             <div
                                 key={idx}
-                                className="h-auto relative"
+                                className="h-auto relative group"
                                 style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
                             >
                                 <div className="relative w-full h-[240px]">
@@ -508,17 +535,37 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
                                         </div>
                                     )}
 
-                                    <span
-                                        className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
-                                        style={{
-                                            clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                            backgroundColor: "#6BAE41",
-                                        }}
-
-
-                                    >
-                                        <Check color="#fff" size={14} />
-                                    </span>
+                                    {userType !== 'agent' && (
+                                        <span
+                                            className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
+                                            style={{
+                                                clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
+                                                backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
+                                            }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setFilesData(prev => {
+                                                    if (!prev) return prev;
+                                                    return {
+                                                        ...prev,
+                                                        files: prev.files.map(f => {
+                                                            if (f.uuid === file.uuid) {
+                                                                setChangedFileUuids(prevSet => {
+                                                                    const newSet = new Set(prevSet);
+                                                                    newSet.add(f.uuid);
+                                                                    return newSet;
+                                                                });
+                                                                return { ...f, is_show: f.is_show === false ? true : false };
+                                                            }
+                                                            return f;
+                                                        })
+                                                    };
+                                                });
+                                            }}
+                                        >
+                                            {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
+                                        </span>
+                                    )}
                                 </div>
                                 <div
                                     className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 text-[9px]'
@@ -526,7 +573,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
                                 >
                                     <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{file.name}</p>
                                     <div className='col-span-2 flex items-center justify-between'>
-                                        <p className='text-[#8E8E8E] mt-1'>Exterior ({idx + 1} of {currentServiceFiles.length})</p>
+                                        <p className='text-[#8E8E8E] mt-1'>{file.group || "Exterior"} ({idx + 1} of {currentServiceFiles.length})</p>
                                         {userType === 'agent' && currentBookedService?.payment_status === "PAID" &&
                                             <span
 
@@ -544,17 +591,38 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
                         {filesForService.map((file, idx) => (
                             <div
                                 key={idx}
-                                className="h-auto relative"
+                                className="h-auto relative group"
                                 style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
                             >
                                 <div className="relative w-full h-[240px]">
                                     {/* eslint-disable @next/next/no-img-element */}
                                     <img
                                         src={URL.createObjectURL(file.file)}
-                                        onClick={() => handleImageClick(URL.createObjectURL(file.file))}
+                                        onClick={() => !file.is_deleted && handleImageClick(URL.createObjectURL(file.file))}
                                         alt="preview"
-                                        className="w-full h-full object-cover"
+                                        className={`w-full h-full object-cover transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''}`}
                                     />
+                                    {file.is_deleted && (
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 z-[30] gap-2">
+                                            <p className="text-white font-medium text-lg drop-shadow-lg uppercase mb-4">Deleted</p>
+                                            <Button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedFiles(prev =>
+                                                        prev.map(f => {
+                                                            if (f.file === file.file && f.service_id === file.service_id) {
+                                                                return { ...f, is_deleted: false };
+                                                            }
+                                                            return f;
+                                                        })
+                                                    );
+                                                }}
+                                                className="bg-white text-black hover:bg-gray-100 h-7 px-3 text-[10px] font-bold rounded-full shadow-lg"
+                                            >
+                                                Restore
+                                            </Button>
+                                        </div>
+                                    )}
                                     {/* Star icon for featured status - top left */}
                                     <span
                                         className="cursor-pointer absolute top-2 left-2 z-10"
@@ -593,27 +661,46 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
                                         </div>
                                     )}
 
-                                    <span
-                                        className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
-                                        style={{
-                                            clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                            backgroundColor: `${file.upload ? "#6BAE41" : "#E06D5E"}`,
-                                        }}
-                                        onClick={() => {
-                                            setSelectedFiles(prev =>
-                                                prev.flatMap(f => {
-                                                    if (f.file === file.file && f.service_id === file.service_id) {
-                                                        return f.upload ? [{ ...f, upload: false }] : [];
-                                                    }
-                                                    return [f];
-                                                })
-                                            );
-                                        }}
-
-
-                                    >
-                                        {file.upload ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
-                                    </span>
+                                    {userType !== 'agent' && (
+                                        <span
+                                            className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
+                                            style={{
+                                                clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
+                                                backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
+                                            }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedFiles(prev =>
+                                                    prev.map(f => {
+                                                        if (f.file === file.file && f.service_id === file.service_id) {
+                                                            return { ...f, is_show: f.is_show === false ? true : false };
+                                                        }
+                                                        return f;
+                                                    })
+                                                );
+                                            }}
+                                        >
+                                            {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
+                                        </span>
+                                    )}
+                                    {!file.is_deleted && (
+                                        <div
+                                            className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-500 rounded-full p-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-300 z-[20] shadow-md hover:scale-110"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedFiles(prev =>
+                                                    prev.map(f => {
+                                                        if (f.file === file.file && f.service_id === file.service_id) {
+                                                            return { ...f, is_deleted: true };
+                                                        }
+                                                        return f;
+                                                    })
+                                                );
+                                            }}
+                                        >
+                                            <X color="white" size={14} strokeWidth={3} />
+                                        </div>
+                                    )}
                                 </div>
                                 <div
                                     className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 text-[9px]'
@@ -621,7 +708,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
                                 >
                                     <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{file.file.name}</p>
                                     <div className='col-span-2 flex items-center justify-between'>
-                                        <p className='text-[#8E8E8E] mt-1'>Exterior ({idx + 1})</p>
+                                        <p className='text-[#8E8E8E] mt-1'>{file.type || "Exterior"} ({idx + 1})</p>
                                         <span
                                             className='flex w-[24px] h-[24px] cursor-not-allowed opacity-50'>
                                             <DownloadIcon width='24px' height='24px' fill='#6BAE41' />
@@ -631,6 +718,11 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
                             </div>
                         ))}
 
+                    </div>
+                )}
+                {userType !== 'agent' && (
+                    <div className='w-full flex justify-center items-center mt-8'>
+                        <FileUploader onFilesChange={handleFilesChange} />
                     </div>
                 )}
             </div>

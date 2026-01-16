@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import PricingCard from './PricingCard'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Services } from '../../services/page'
 import { useOrderContext } from '../context/OrderContext'
 import { Listings } from '../../listings/page'
@@ -61,7 +61,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
         activePackage,
         setActivePackage
     } = useOrderContext();
-    const [selected, setSelected] = React.useState('Alphabetically')
+    // const [selected, setSelected] = React.useState('Alphabetically')
     const [servicesData, setServicesData] = useState<Services[]>([]);
     const [accordionDefaults, setAccordionDefaults] = useState<string[]>([]);
     const [listingData, setListingData] = useState<Listings | undefined>(undefined);
@@ -100,7 +100,15 @@ const Services = ({ showAll }: { showAll: boolean }) => {
         const filteredServices = fetched.filter((service: Services) => {
             if (service.status === false) return false;
 
-            const hasMatchingOption = service.product_options?.some((option) => {
+            const isPhotoService = service.name?.toLowerCase().includes('photo') ||
+                service.category?.name?.toLowerCase().includes('photo') ||
+                service.name?.toLowerCase().includes('twilight') ||
+                service.category?.name?.toLowerCase().includes('twilight');
+
+            const hasMatchingOption = isPhotoService || service.product_options?.some((option) => {
+                // If option has sq_ft_rate, it should be shown regardless of range
+                if (option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0) return true;
+
                 if (!option.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
 
                 const [minStr, maxStr] = option.sq_ft_range.split("-").map((s) => s.trim());
@@ -156,8 +164,8 @@ const Services = ({ showAll }: { showAll: boolean }) => {
         <div className='px-[10px] flex flex-col gap-[15px] font-alexandria'>
 
             <div className='flex gap-[12px] items-center mt-[42px] py-[15px]'>
-                <label htmlFor="" className='text-[#666666] text-[14px] font-[500]'>Sort By</label>
-                <Select
+                {/* <label htmlFor="" className='text-[#666666] text-[14px] font-[500]'>Sort By</label> */}
+                {/* <Select
                     value={selected}
                     onValueChange={(value) => setSelected(value)}
                 >
@@ -168,7 +176,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                         <SelectItem value="Alphabetically" >Alphabetically</SelectItem>
                         <SelectItem value="By Service">By Service</SelectItem>
                     </SelectContent>
-                </Select>
+                </Select> */}
             </div>
 
             <div className='flex gap-5'>
@@ -181,14 +189,15 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                         {(
                             Object.entries(groupedByCategory) as [string, Services[]][]
                         )
-                            .sort(([catA, servicesA], [catB, servicesB]) => {
-                                if (selected === "Alphabetically") {
-                                    return catA.localeCompare(catB);
-                                } else if (selected === "By Service") {
-                                    return servicesB.length - servicesA.length;
-                                }
-                                return 0;
-                            }).map(([category, services], idx) => (
+                            // .sort(([catA, servicesA], [catB, servicesB]) => {
+                            //     if (selected === "Alphabetically") {
+                            //         return catA.localeCompare(catB);
+                            //     } else if (selected === "By Service") {
+                            //         return servicesB.length - servicesA.length;
+                            //     }
+                            //     return 0;
+                            // })
+                            .map(([category, services], idx) => (
                                 <AccordionItem key={idx} value={`group-${idx}`} className="border-none">
                                     <AccordionTrigger className='text-[18px] font-[600] text-[#4290E9] pl-[10px] my-[10px] border-none'>
                                         {category}

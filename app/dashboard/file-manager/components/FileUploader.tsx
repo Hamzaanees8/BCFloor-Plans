@@ -46,11 +46,11 @@ const FileUploader: React.FC<FileDropZoneProps> = ({ onFilesChange, type }) => {
         >
             <div className="text-4xl border-2 border-[#8E8E8E] flex justify-center items-center w-[72px] h-[72px] rounded-[6px]"><Plus color='#8E8E8E' size={'42px'} strokeWidth={1} /></div>
             <p className="mt-2  text-[#8E8E8E]">Drag Drop Files</p>
-            {type === "video" ? (<p className="text-[#8E8E8E]">Video MP4</p>) : (<p className="text-[#8E8E8E]">RAW, JPG, PNG, PDF, MP4</p>)}
+            {type === "video" ? (<p className="text-[#8E8E8E]">Video MP4</p>) : (<p className="text-[#8E8E8E]">RAW, JPG, PNG, PDF</p>)}
             <input
                 type="file"
                 multiple
-                accept={type === "video" ? "video/*" : ".raw,.jpg,.jpeg,.png,.pdf,.mp4"}
+                accept={type === "video" ? "video/*" : ".raw,.jpg,.jpeg,.png,.pdf"}
                 onChange={handleChange}
                 ref={inputRef}
                 className="hidden"

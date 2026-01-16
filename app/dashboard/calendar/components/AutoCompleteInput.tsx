@@ -11,11 +11,21 @@ interface PlacePrediction {
     };
 }
 
+export interface AddressComponents {
+    address_line_1: string;
+    city: string;
+    province: string;
+    country: string;
+    postal_code: string;
+    full_address: string;
+}
+
 // Props interface
 interface GooglePlacesAutocompleteProps {
     apiKey: string;
     placeholder?: string;
     onPlaceSelect?: (place: google.maps.places.PlaceResult | null) => void;
+    onAddressComponents?: (components: AddressComponents) => void;
     value?: string;
     onChange?: (value: string) => void;
     className?: string;
@@ -27,6 +37,7 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
     apiKey,
     placeholder = 'Enter an address',
     onPlaceSelect,
+    onAddressComponents,
     value = '',
     onChange,
     className = '',
@@ -45,6 +56,7 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
     const suggestionsRef = useRef<HTMLDivElement>(null);
     const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
     const placesService = useRef<google.maps.places.PlacesService | null>(null);
+    const lastQueryRef = useRef<string>('');
 
     // Initialize Google Maps services
     useEffect(() => {
@@ -82,19 +94,29 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
         const value = e.target.value;
         setInputValue(value);
         onChange?.(value);
+    };
 
-        if (value.length > 2) {
-            fetchSuggestions(value);
+    // Debounce search
+    useEffect(() => {
+        if (inputValue.length > 2) {
+            const delayDebounceFn = setTimeout(() => {
+                fetchSuggestions(inputValue);
+            }, 300);
+
+            return () => clearTimeout(delayDebounceFn);
         } else {
             setSuggestions([]);
             setShowSuggestions(false);
+            setIsLoading(false);
+            lastQueryRef.current = '';
         }
-    };
+    }, [inputValue]);
 
     // Fetch suggestions from Google Places API
     const fetchSuggestions = async (input: string) => {
         if (!autocompleteService.current) return;
 
+        lastQueryRef.current = input;
         setIsLoading(true);
 
         const request: google.maps.places.AutocompletionRequest = {
@@ -107,6 +129,9 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
             autocompleteService.current.getPlacePredictions(
                 request,
                 (predictions, status) => {
+                    // Only update if this is still the most recent query
+                    if (lastQueryRef.current !== input) return;
+
                     setIsLoading(false);
 
                     if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
@@ -129,9 +154,11 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
                 }
             );
         } catch (error) {
-            console.error('Error fetching suggestions:', error);
-            setIsLoading(false);
-            setSuggestions([]);
+            if (lastQueryRef.current === input) {
+                console.error('Error fetching suggestions:', error);
+                setIsLoading(false);
+                setSuggestions([]);
+            }
         }
     };
 
@@ -146,7 +173,6 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
         getPlaceDetails(suggestion.place_id);
     };
 
-    // Get full place details
     const getPlaceDetails = (placeId: string) => {
         if (!placesService.current) return;
 
@@ -168,6 +194,41 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
             (place, status) => {
                 if (status === google.maps.places.PlacesServiceStatus.OK && place) {
                     onPlaceSelect?.(place);
+
+                    if (onAddressComponents && place.address_components) {
+                        const components: AddressComponents = {
+                            address_line_1: '',
+                            city: '',
+                            province: '',
+                            country: '',
+                            postal_code: '',
+                            full_address: place.formatted_address || ''
+                        };
+
+                        let streetNumber = '';
+                        let route = '';
+
+                        place.address_components.forEach(component => {
+                            const types = component.types;
+
+                            if (types.includes('street_number')) {
+                                streetNumber = component.long_name;
+                            } else if (types.includes('route')) {
+                                route = component.long_name;
+                            } else if (types.includes('locality')) {
+                                components.city = component.long_name;
+                            } else if (types.includes('administrative_area_level_1')) {
+                                components.province = component.short_name; // Short name for province code
+                            } else if (types.includes('country')) {
+                                components.country = component.short_name;
+                            } else if (types.includes('postal_code')) {
+                                components.postal_code = component.long_name;
+                            }
+                        });
+
+                        components.address_line_1 = `${streetNumber} ${route}`.trim();
+                        onAddressComponents(components);
+                    }
                 } else {
                     onPlaceSelect?.(null);
                 }
@@ -246,12 +307,12 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
                     }}
                     placeholder={placeholder}
                     className={`
-                    w-full px-4 py-2 text-base
+                    w-full px-2 py-2 text-[14px]
                     border-2 border-gray-300 rounded-lg
                     focus:outline-none focus:border-none focus:none focus:ring-none
                     transition-all duration-200
                     placeholder:text-gray-500
-                    placeholder:text-sm
+                    placeholder:text-[14px]
                     ${isLoading ? 'pr-10' : ''}
                     ${inputClassName}
                     `}
@@ -274,9 +335,10 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
                 <div
                     id="places-suggestions"
                     className={`
-                        absolute top-full left-0 right-0 mt-4
-                        bg-white rounded-lg shadow-lg border border-gray-200
-                        max-h-40 overflow-y-auto z-50
+                        absolute top-full left-0 right-0 mt-1
+                        bg-white rounded-md shadow-lg border border-gray-200
+                        max-h-40 overflow-y-auto z-100
+                        custom-scroll
                         ${suggestionsContainerClassName}
                     `}
                     role="listbox"
@@ -286,7 +348,7 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = ({
                             key={suggestion.place_id}
                             id={`suggestion-${index}`}
                             className={`
-                                px-4 py-3 cursor-pointer
+                                px-4 py-2 cursor-pointer
                                 border-b border-gray-100 last:border-b-0
                                 transition-colors duration-150
                                 hover:bg-gray-50

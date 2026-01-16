@@ -227,13 +227,13 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
             const numberOfUnbrandedApiLink = unbrandedApiLink?.length ?? 0
 
             if (numberOfbrandedApiLink >= (currentBookedService?.option.quantity ?? 1) && numberOfUnbrandedApiLink >= (currentBookedService?.option.quantity ?? 1)) {
-                if (token && currentBookedService?.uuid && orderData?.uuid) {
+                if (token && currentBookedService?.uuid && orderData?.uuid && !currentBookedService?.is_completed) {
                     await ServiceCompletion(token, currentBookedService.uuid, true, orderData.uuid)
                 }
             }
         };
         checkServiceCompletion();
-    }, [unbrandedApiLink, currentService, brandedApiLink, orderData, currentBookedService?.option.quantity, currentBookedService?.uuid])
+    }, [unbrandedApiLink, currentService, brandedApiLink, orderData, currentBookedService?.option.quantity, currentBookedService?.uuid, currentBookedService?.is_completed])
 
 
     return (

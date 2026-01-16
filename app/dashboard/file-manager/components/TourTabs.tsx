@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import TourSettings from './TourSettings';
 import TourPicture from './TourPicture';
 import TourMatterport from './TourMatterport';
@@ -15,11 +15,32 @@ import TourActivityDialog from './TourActivityDialog';
 interface TourProps {
   orderData: Order | null
 }
-const tabs = ['Settings', 'Photos', 'Matterport', 'Videos', 'Floor plans', 'Confirm'];
+
 export default function TourTabs({ orderData }: TourProps) {
   const [activeTab, setActiveTab] = useState('Settings');
   const [open, setOpen] = useState(false);
   const { userType } = useAppContext()
+
+  const hasPhotos = orderData?.services.some(s => s.service.name.toLowerCase().includes('photo'));
+  const hasVideos = orderData?.services.some(s => s.service.name.toLowerCase().includes('video') || s.service.name.toLowerCase().includes('reel'));
+  const hasMatterport = orderData?.services.some(s => s.service.name.toLowerCase().includes('matterport') || s.service.name.toLowerCase().includes('3d tour'));
+  const hasFloorPlans = orderData?.services.some(s => s.service.name.toLowerCase().includes('floor plan'));
+
+  const visibleTabs = useMemo(() => {
+    const tabs = ['Settings'];
+    if (hasPhotos) tabs.push('Photos');
+    if (hasMatterport) tabs.push('Matterport');
+    if (hasVideos) tabs.push('Videos');
+    if (hasFloorPlans) tabs.push('Floor plans');
+    tabs.push('Confirm');
+    return tabs;
+  }, [hasPhotos, hasMatterport, hasVideos, hasFloorPlans]);
+
+  useEffect(() => {
+    if (!visibleTabs.includes(activeTab)) {
+      setActiveTab('Settings');
+    }
+  }, [visibleTabs, activeTab]);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -35,8 +56,6 @@ export default function TourTabs({ orderData }: TourProps) {
         return <div className="p-4"><TourMatterport /></div>;
       case 'Confirm':
         return <div className="p-4"><TourConfirm orderData={orderData} /></div>;
-      // case 'Confirm':
-      //   return <div className="p-4">Review & confirm listing...</div>;
       default:
         return null;
     }
@@ -46,7 +65,7 @@ export default function TourTabs({ orderData }: TourProps) {
     <div className="w-full">
       <div className='flex justify-center h-[60px] items-center bg-[#E4E4E4]'>
         <div className=" w-fit flex border-gray-300 gap-[10px]">
-          {tabs.map(tab => (
+          {visibleTabs.map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -58,11 +77,6 @@ export default function TourTabs({ orderData }: TourProps) {
               {tab.toUpperCase()}
             </button>
           ))}
-          {/* <button
-            onClick={() => setOpen(true)}
-            className={`text-center px-4 py-2 text-[13px] w-[180px] h-[32px] transition-colors ${userType}-bg text-white  rounded-[6px]  font-[500]  `}>
-            Tour Activity
-          </button> */}
         </div>
       </div>
       <div className="bg-white shadow-md border rounded-b-md mt-0">

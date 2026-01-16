@@ -1,8 +1,18 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { Calendar } from "@/components/ui/calendar"
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
+import { Button } from '@/components/ui/button'
+import { CalendarIcon } from 'lucide-react'
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 import React, { useEffect, useState } from 'react'
-import OneDayCalendar from './OneDayCalendar'
-import { fetchTwilightTime, getPropertyTimezone, PropertyLocation, TwilightResponse } from '../orders'
+import OneDayCalendar, { getDistanceColor } from './OneDayCalendar'
+import { getPropertyTimezone, PropertyLocation } from '../orders'
 import { VendorData } from '../[id]/page'
 import { useOrderContext } from '../context/OrderContext'
 import VendorWorkCarousel from './VendorWorkCarousel'
@@ -63,14 +73,15 @@ async function isPropertyInsideVendorArea(selectedCurrentListing: string, vendor
 
 const Schedule = () => {
     const [selectedVendorMap, setSelectedVendorMap] = React.useState<Record<number, string | string[]>>({});
-    const [vendorColors, setVendorColors] = React.useState<Record<string, string>>({});
     const [showAllVendorsMap, setShowAllVendorsMap] = useState<Record<number, 0 | 1>>({});
     const [scheduleOverrideMap, setScheduleOverrideMap] = useState<Record<number, 0 | 1>>({});
     const [recommendTimeMap, setRecommendTimeMap] = useState<Record<number, 0 | 1>>({});
-    const [data, setData] = useState<TwilightResponse | null>(null);
     const [filteredVendorsByService, setFilteredVendorsByService] = useState<Record<string, VendorData[]>>({});
-    const [selectedDate, setSelectedDate] = useState<string>('');
+    const [masterDate, setMasterDate] = useState<Date>(new Date());
     const [vendorDistances, setVendorDistances] = useState<Record<string, number>>({});
+    const handleSetSelectedDate = React.useCallback(() => {
+        // Keeping individual calendars independent as per user request
+    }, []);
     const [selectedVendorForModal, setSelectedVendorForModal] = useState<VendorData | null>(null);
     const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
     const [isCalculating, setIsCalculating] = useState(true);
@@ -127,62 +138,10 @@ const Schedule = () => {
         filterVendorsByService();
     }, [vendorsData, servicesData, selectedCurrentListing]);
 
-    useEffect(() => {
-        function generateColorMap(vendors: VendorData[]): Record<string, string> {
-            const map: Record<string, string> = {};
-            const usedColors = new Set<string>();
+    // Vendor color map logic removed in favor of distance-based colors
 
-            vendors.forEach((vendor, index) => {
-                let color: string;
-                do {
-                    const hue = Math.floor((360 / vendors.length) * index);
-                    const saturation = 90 + Math.floor(Math.random() * 10);
-                    const lightness = 40 + Math.floor(Math.random() * 10);
-                    color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-                } while (usedColors.has(color));
+    // Twilight loading moved to OneDayCalendar to be more granular
 
-                usedColors.add(color);
-                if (vendor.uuid !== undefined) {
-                    map[vendor.uuid] = color;
-                }
-            });
-
-            return map;
-        }
-
-        const colorMap = generateColorMap(vendorsData);
-        setVendorColors(colorMap);
-    }, [vendorsData]);
-
-    useEffect(() => {
-        const address = `${selectedCurrentListing?.address}, ${selectedCurrentListing?.city}, ${selectedCurrentListing?.country}`
-
-        async function loadTwilight() {
-            const result = await fetchTwilightTime(address, selectedDate);
-            if (result) setData(result);
-        }
-
-        loadTwilight();
-    }, [selectedCurrentListing, selectedDate]);
-
-    const formatLocalTime = (utcTime: string, fixedTimeZone?: string) => {
-        if (!utcTime) return "—";
-        const timeZone = fixedTimeZone || propertyLocation?.timeZoneId || "America/Vancouver";
-
-        try {
-            const date = new Date(utcTime);
-            return date.toLocaleTimeString("en-CA", {
-                timeZone,
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-            });
-        } catch (error) {
-            console.error("Error formatting time:", error);
-            return "Invalid time";
-        }
-    };
 
 
     async function calculateAllVendorDistances(
@@ -275,7 +234,6 @@ const Schedule = () => {
             const location = await getPropertyTimezone(fullAddress);
             if (location) {
                 setPropertyLocation(location);
-                console.log('Property coordinates and timezone:', location);
             } else {
                 console.error('Failed to fetch property timezone');
             }
@@ -286,6 +244,33 @@ const Schedule = () => {
 
     return (
         <div className='font-alexandria'>
+            <div className="flex justify-between items-center px-16 py-4 border-b border-[#EEEEEE] bg-[#EEEEEE]">
+                <div className="flex items-center gap-4">
+                    <span className="text-[12px] text-[#7D7D7D]">Master Date Selection:</span>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                    "w-[240px] h-[42px] justify-start text-left font-normal bg-[#EEEEEE] border-[#BBBBBB] text-[#7D7D7D]",
+                                    !masterDate && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {masterDate ? format(masterDate, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                            <Calendar
+                                mode="single"
+                                selected={masterDate}
+                                onSelect={(date) => date && setMasterDate(date)}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                </div>
+            </div>
             <div className="grid grid-cols-3 gap-16 text-[#7D7D7D] px-16 py-20 auto-rows-max">
                 {selectedServices?.map((service, idx) => {
                     const selectedVendor = selectedVendorMap[idx] ?? 'all';
@@ -321,6 +306,7 @@ const Schedule = () => {
                                 <div className="flex flex-col gap-4">
                                     <div className="flex justify-start gap-6 items-center">
                                         <Switch
+                                            id={`show-all-vendors-${idx}`}
                                             checked={!!showAllVendors}
                                             onCheckedChange={() =>
                                                 setShowAllVendorsMap((prev) => ({
@@ -330,10 +316,11 @@ const Schedule = () => {
                                             }
                                             className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                                         />
-                                        <p className="text-[12px]">Show all Vendors Regardless of Travel Time</p>
+                                        <label htmlFor={`show-all-vendors-${idx}`} className="text-[12px] cursor-pointer">Show all Vendors Regardless of Travel Time</label>
                                     </div>
                                     <div className="flex justify-start gap-6 items-center">
                                         <Switch
+                                            id={`schedule-override-${idx}`}
                                             checked={!!scheduleOverride}
                                             onCheckedChange={() =>
                                                 setScheduleOverrideMap((prev) => ({
@@ -343,20 +330,43 @@ const Schedule = () => {
                                             }
                                             className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                                         />
-                                        <p className="text-[12px]">Schedule Override</p>
+                                        <label htmlFor={`schedule-override-${idx}`} className="text-[12px] cursor-pointer">Schedule Override</label>
                                     </div>
                                     <div className="flex justify-start gap-6 items-center">
                                         <Switch
+                                            id={`recommend-time-${idx}`}
                                             checked={!!recommendTime}
-                                            onCheckedChange={() =>
+                                            onCheckedChange={(checked) => {
                                                 setRecommendTimeMap((prev) => ({
                                                     ...prev,
-                                                    [idx]: recommendTime === 1 ? 0 : 1,
-                                                }))
-                                            }
+                                                    [idx]: checked ? 1 : 0,
+                                                }));
+
+                                                if (checked) {
+                                                    const serviceVendors = filteredVendorsByService[service.uuid || ''] || [];
+                                                    if (serviceVendors.length > 0) {
+                                                        let nearestVendorId = '';
+                                                        let minDistance = Infinity;
+
+                                                        serviceVendors.forEach(vendor => {
+                                                            const distance = vendorDistances[vendor.uuid || ''];
+                                                            if (distance !== undefined && distance < minDistance) {
+                                                                minDistance = distance;
+                                                                nearestVendorId = vendor.uuid || '';
+                                                            }
+                                                        });
+
+                                                        if (nearestVendorId) {
+                                                            setSelectedVendorMap((prev) => ({ ...prev, [idx]: nearestVendorId }));
+                                                        }
+                                                    }
+                                                } else {
+                                                    setSelectedVendorMap((prev) => ({ ...prev, [idx]: 'all' }));
+                                                }
+                                            }}
                                             className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                                         />
-                                        <p className="text-[12px]">Recommend Best Time</p>
+                                        <label htmlFor={`recommend-time-${idx}`} className="text-[12px] cursor-pointer">Recommend Best Time</label>
                                     </div>
                                 </div>
                                 <div>
@@ -374,19 +384,29 @@ const Schedule = () => {
                                                     Fetching vendors...
                                                 </SelectItem>
                                             ) : service.uuid && filteredVendorsByService[service.uuid]?.length ? (
-                                                filteredVendorsByService[service.uuid]!.map((vendor, vidx) => {
-                                                    const travelTime = vendorDistances[vendor.uuid ?? ''];
-                                                    return (
-                                                        <SelectItem className='flex justify-between' key={vidx} value={vendor.uuid ?? ''}>
-                                                            <span>{vendor.first_name} {vendor.last_name}</span>
-                                                            <span>{travelTime !== undefined && (
-                                                                <span className="text-gray-500 text-[12px] ml-2">
-                                                                    ({formatTravelTime(travelTime)})
-                                                                </span>
-                                                            )}</span>
-                                                        </SelectItem>
-                                                    );
-                                                })
+                                                [...filteredVendorsByService[service.uuid]!]
+                                                    .sort((a, b) => {
+                                                        const timeA = vendorDistances[a.uuid ?? ''] ?? Infinity;
+                                                        const timeB = vendorDistances[b.uuid ?? ''] ?? Infinity;
+                                                        return timeA - timeB;
+                                                    })
+                                                    .map((vendor, vidx) => {
+                                                        const travelTime = vendorDistances[vendor.uuid ?? ''];
+                                                        const color = getDistanceColor(travelTime);
+                                                        return (
+                                                            <SelectItem className='flex justify-between text-nowrap' key={vidx} value={vendor.uuid ?? ''}>
+                                                                <div className="flex items-center gap-2 text-nowrap truncate">
+                                                                    <span className="w-2 h-4" style={{ backgroundColor: color }} />
+                                                                    <span>{vendor.first_name} {vendor.last_name}</span>
+                                                                    <span>{travelTime !== undefined && (
+                                                                        <span className="text-gray-500 text-[12px] ml-2">
+                                                                            ({formatTravelTime(travelTime)})
+                                                                        </span>
+                                                                    )}</span>
+                                                                </div>
+                                                            </SelectItem>
+                                                        );
+                                                    })
                                             ) : (
                                                 <SelectItem value="none" disabled>
                                                     No vendors available for this service in the selected area
@@ -471,7 +491,6 @@ const Schedule = () => {
                                                         (uuid): uuid is string => typeof uuid === 'string'
                                                     )
                                             }
-                                            vendorColors={vendorColors}
                                             service={service}
                                             calendarIdx={idx}
                                             showAllVendorsMap={showAllVendorsMap}
@@ -480,36 +499,14 @@ const Schedule = () => {
                                             recommendTime={recommendTime}
                                             showAllVendors={showAllVendors}
                                             scheduleOverride={scheduleOverride}
-                                            setSelectedDate={setSelectedDate}
+                                            setSelectedDate={handleSetSelectedDate}
                                             vendorDistances={vendorDistances}
                                             propertyTimezone={propertyLocation?.timeZoneId}
-                                        //serviceDuration={productOption?.service_duration ?? 0}
+                                            masterDate={masterDate}
                                         />
                                     </div>
 
-                                    {data && (
-                                        <div className="mt-4 p-3 bg-gray-50 rounded-md">
-                                            <h4 className="text-sm font-[600] text-[#666666] mb-2">Twilight Times</h4>
-
-                                            <div className="grid grid-cols-2 gap-2 text-xs">
-                                                <div className="col-span-2 mt-2 font-[500] text-gray-500">Morning </div>
-                                                <div className="col-span-1">
-                                                    Civil: {formatLocalTime(data.civil_twilight_begin)}
-                                                </div>
-                                                <div className="col-span-1">
-                                                    Nautical: {formatLocalTime(data.nautical_twilight_begin)}
-                                                </div>
-
-                                                <div className="col-span-2 mt-2 font-[500] text-gray-500">Evening </div>
-                                                <div className="col-span-1">
-                                                    Civil: {formatLocalTime(data.civil_twilight_end)}
-                                                </div>
-                                                <div className="col-span-1">
-                                                    Nautical: {formatLocalTime(data.nautical_twilight_end)}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
+                                    {/* Twilight display moved to OneDayCalendar */}
 
                                 </div>
 

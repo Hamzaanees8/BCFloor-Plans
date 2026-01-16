@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Calendar, dayjsLocalizer, View, Views } from 'react-big-calendar';
 import dayjs from 'dayjs';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -19,6 +20,9 @@ import { useAppContext } from '@/app/context/AppContext';
 import { toast } from 'sonner';
 import { DeleteVendorBreak } from '../calendar';
 import { api } from '@/lib/api';
+import ConfirmationDialog from '@/components/ConfirmationDialog';
+
+const STORAGE_KEY_DELETE = 'confirmation_dialog_delete_show_again';
 
 const localizer = dayjsLocalizer(dayjs);
 
@@ -91,6 +95,7 @@ export type CalendarEvent = {
     service_id?: number;
     order_id?: string | number
     address?: string
+    vendor_name?: string
 };
 
 const customViews = {
@@ -129,10 +134,11 @@ const generateWeeklyBreakEvents = (vendors: CalanderVendor[], referenceDate: Dat
                 const endDate = dayjs(`${date.format('YYYY-MM-DD')}T${break_end}`).toDate();
 
                 events.push({
-                    title: `${vendor.first_name} ${vendor.last_name}-Break`,
+                    title: `${vendor.first_name} ${vendor.last_name}`,
                     start: startDate,
                     end: endDate,
                     vendor_id: vendor.uuid,
+                    vendor_name: "Break",
                     color_id: Number(vendor?.company?.vendor_id ?? 0)
                 });
             }
@@ -159,6 +165,22 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
     const [popupType, setPopupType] = useState<"time_off" | "break" | "other">("break")
     const [additionalBreakEvents, setAdditionalBreakEvents] = useState<CalendarEvent[]>([]);
     const [vendorEvents, setVendorEvents] = useState<CalendarEvent[]>([]);
+    const [breakToDelete, setBreakToDelete] = useState<CalendarEvent | null>(null);
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [showAgain, setShowAgain] = useState(true);
+
+    useEffect(() => {
+        const savedDelete = localStorage.getItem(STORAGE_KEY_DELETE);
+        if (savedDelete !== null) {
+            setShowAgain(JSON.parse(savedDelete));
+        }
+    }, []);
+
+    const handleToggleShowAgain = () => {
+        const newValue = !showAgain;
+        setShowAgain(newValue);
+        localStorage.setItem(STORAGE_KEY_DELETE, JSON.stringify(newValue));
+    }
 
     useEffect(() => {
         if (userType !== 'vendor') {
@@ -344,13 +366,14 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         seenBreakIds.add(brk.uuid);
 
                         const start = dayjs(`${brk.start_date}T${brk.start_time}`).toDate();
-                        const end = dayjs(`${brk.start_date}T${brk.start_time}`).add(1, 'hour').toDate();
+                        const end = dayjs(`${brk.end_date}T${brk.end_time}`).toDate();
 
                         newAdditionalBreakEvents.push({
-                            title: `${vendor.first_name} ${vendor.last_name}-Break`,
+                            title: brk.title || "Break",
                             start,
                             end,
                             vendor_id: vendor.uuid,
+                            vendor_name: `${vendor.first_name} ${vendor.last_name}`,
                             color_id: Number(vendor?.company?.vendor_id ?? 0),
                             uuid: brk.uuid,
                             address: brk.address
@@ -434,28 +457,51 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
             });
         };
 
-        const isBreak = event.title.includes("Break");
-        const [vendorName, breakLabel] = event.title.split("-"); // assumes "FirstName Break"
+        const isBreak = event.title.includes("Break") || !!event.vendor_name;
 
         return (
-            <div
-                onContextMenu={handleContextMenu}
-                className="h-full w-full flex flex-col justify-center cursor-pointer"
-            >
-                {isBreak ? (
-                    <div className='flex flex-col'>
-                        <span className="">{vendorName}</span>
-                        <span className="">{breakLabel}</span>
-                    </div>
-                ) : (
-                    <>
-                        <span className="">{event.title}</span>
-                        <span className="mt-[2px]">
-                            {dayjs(event.start).format("hh:mm A")} - {dayjs(event.end).format("hh:mm A")}
-                        </span>
-                    </>
-                )}
-            </div>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <div
+                            onContextMenu={handleContextMenu}
+                            className="h-full w-full flex flex-col justify-center cursor-pointer !px-[1px] !py-[1px]"
+                        >
+                            {isBreak ? (
+                                <div className='flex flex-col overflow-hidden h-full justify-center'>
+                                    <span className="truncate leading-tight">{event.title}</span>
+                                    <span className="truncate leading-tight">{event.vendor_name}</span>
+                                </div>
+                            ) : (
+                                <div className='flex flex-col overflow-hidden h-full justify-center'>
+                                    <span className="truncate leading-tight">{event.title}</span>
+                                    <span className="truncate leading-tight mt-[2px]">
+                                        {dayjs(event.start).format("hh:mm A")} - {dayjs(event.end).format("hh:mm A")}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="z-[9999]" side="top">
+                        {isBreak ? (
+                            <div className="flex flex-col gap-1">
+                                <p className="font-semibold text-sm">{event.vendor_name}</p>
+                                <p className="text-xs text-gray-300">{event.title}</p>
+                                <p className="text-xs text-gray-400">
+                                    {dayjs(event.start).format("hh:mm A")} - {dayjs(event.end).format("hh:mm A")}
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-0.5">
+                                <p className="font-semibold text-sm">{event.title}</p>
+                                <p className="text-xs text-gray-400">
+                                    {dayjs(event.start).format("hh:mm A")} - {dayjs(event.end).format("hh:mm A")}
+                                </p>
+                            </div>
+                        )}
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
         );
     };
 
@@ -545,6 +591,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
 
     const handleAddBreak = (event: CalendarEvent) => {
         setCustomEvents((prev) => [...prev, event]);
+        setSelectedBreakEvent(null);
     };
 
     const handleNavigate = (newDate: Date) => {
@@ -576,33 +623,45 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
         );
     };
 
-    async function handleDelete() {
+    const handleDeleteClick = () => {
+        if (!selectedBreakEvent) return;
+
+        setBreakToDelete(selectedBreakEvent);
+
+        if (showAgain) {
+            setIsConfirmOpen(true);
+        } else {
+            // If "don't show again" is checked, delete immediately
+            confirmDelete(selectedBreakEvent);
+        }
+    };
+
+    const confirmDelete = async (breakEvent = breakToDelete) => {
         const token = localStorage.getItem('token');
+        const breakUuid = breakEvent?.uuid;
+
+        if (!breakUuid) return;
 
         try {
-            await DeleteVendorBreak(selectedBreakEvent?.uuid ?? '', token ?? '');
+            await DeleteVendorBreak(breakUuid, token ?? '');
 
-            // Remove the break from UI
-            if (selectedBreakEvent?.uuid) {
-                deleteVendorBreakFromUI(selectedBreakEvent.uuid);
-            }
+            deleteVendorBreakFromUI(breakUuid);
 
-            // Also remove from customEvents if it exists there
-            setCustomEvents(prev => prev.filter(event => event.uuid !== selectedBreakEvent?.uuid));
+            setCustomEvents(prev => prev.filter(event => event.uuid !== breakUuid));
 
-            // Remove from additionalBreakEvents state
-            setAdditionalBreakEvents(prev => prev.filter(event => event.uuid !== selectedBreakEvent?.uuid));
+            setAdditionalBreakEvents(prev => prev.filter(event => event.uuid !== breakUuid));
 
             toast.success('Break deleted successfully');
 
-            // Close the quick view card
             setSelectedBreakEvent(null);
 
         } catch (error) {
             console.log(error);
             toast.error('Failed to delete break');
+        } finally {
+            setBreakToDelete(null);
         }
-    }
+    };
 
     const generateMonthlyBreakEvents = (vendors: CalanderVendor[], selectedVendors: string[], currentDate: Date): CalendarEvent[] => {
         const events: CalendarEvent[] = [];
@@ -626,10 +685,11 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     const endDate = dayjs(`${currentDate.format('YYYY-MM-DD')}T${break_end}`).toDate();
 
                     events.push({
-                        title: `${vendor.first_name} ${vendor.last_name}-Break`,
+                        title: `${vendor.first_name} ${vendor.last_name}`,
                         start: startDate,
                         end: endDate,
                         vendor_id: vendor.uuid,
+                        vendor_name: "Break",
                         color_id: Number(vendor?.company?.vendor_id ?? 0)
                     });
                     currentDate = currentDate.add(1, 'day');
@@ -643,10 +703,11 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     // Simple date range check - same month and year
                     if (breakDate.month() === today.month() && breakDate.year() === today.year()) {
                         events.push({
-                            title: 'Break',
+                            title: brk.title || "Break",
                             start: dayjs(`${brk.start_date}T${brk.start_time}`).toDate(),
                             end: dayjs(`${brk.start_date}T${brk.end_time}`).toDate(),
                             vendor_id: vendor.uuid,
+                            vendor_name: `${vendor.first_name} ${vendor.last_name}`,
                             color_id: Number(vendor?.company?.vendor_id ?? 0),
                             uuid: brk.uuid
                         });
@@ -704,32 +765,51 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
     };
 
     const MonthlyEvent = ({ event }: { event: CalendarEvent }) => {
-        const isBreak = event.title.includes("Break");
+        const isBreak = event.title.includes("Break") || !!event.vendor_name;
         const isMultiDay = dayjs(event.end).diff(dayjs(event.start), 'day') > 0;
         const displayTime = !isBreak && !isMultiDay ? dayjs(event.start).format('HH:mm') : '';
 
         return (
-            <div className="text-xs p-1 truncate w-full">
-                {isBreak ? (
-                    <div className="flex items-center w-full">
-                        <div className="w-2 h-2 bg-orange-400 rounded-full mr-1 flex-shrink-0"></div>
-                        <span className="truncate">{event.title}</span>
-                    </div>
-                ) : (
-                    <div className="flex items-center w-full">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full mr-1 flex-shrink-0"></div>
-                        <div className="flex flex-col truncate">
-                            <span className="truncate font-medium">{event.title}</span>
-                            {displayTime && (
-                                <span className="text-xs text-gray-600">{displayTime}</span>
-                            )}
-                            {isMultiDay && (
-                                <span className="text-xs text-gray-600">Multi-day</span>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <div className="text-xs p-1 truncate w-full">
+                            {isBreak ? (
+                                <div className="flex items-center w-full">
+                                    <div className="w-2 h-2 bg-orange-400 rounded-full mr-1 flex-shrink-0"></div>
+                                    <span className="truncate">{event.title} {event.vendor_name ? `- ${event.vendor_name}` : ''}</span>
+                                </div>
+                            ) : (
+                                <div className="flex items-center w-full">
+                                    <div className="w-2 h-2 bg-blue-400 rounded-full mr-1 flex-shrink-0"></div>
+                                    <span className="truncate">
+                                        {displayTime && <span className="mr-1">{displayTime}</span>}
+                                        {event.title}
+                                    </span>
+                                </div>
                             )}
                         </div>
-                    </div>
-                )}
-            </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="z-[9999]" side="top">
+                        {isBreak ? (
+                            <div className="flex flex-col gap-1">
+                                <p className="font-semibold text-sm">{event.vendor_name || 'Break'}</p>
+                                <p className="text-xs text-gray-500">{event.title}</p>
+                                <p className="text-xs text-gray-400">
+                                    {dayjs(event.start).format("hh:mm A")} - {dayjs(event.end).format("hh:mm A")}
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-0.5">
+                                <p className="font-semibold text-sm">{event.title}</p>
+                                <p className="text-xs text-gray-400">
+                                    {dayjs(event.start).format("hh:mm A")} - {dayjs(event.end).format("hh:mm A")}
+                                </p>
+                            </div>
+                        )}
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
         );
     };
     return (
@@ -737,6 +817,15 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
             {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
             {/* @ts-expect-error  */}
             <AddBreakPopup popupType={popupType} onAddBreak={handleAddBreak} open={open} setOpen={setOpen} currentBreak={selectedBreakEvent} vendorData={vendorData} setVendorData={setVendorData as (vendors: CalanderVendor[] | ((prev: CalanderVendor[]) => CalanderVendor[])) => void} // Type assertion
+            />
+
+            <ConfirmationDialog
+                open={isConfirmOpen}
+                setOpen={setIsConfirmOpen}
+                onConfirm={() => confirmDelete()}
+                showAgain={showAgain}
+                toggleShowAgain={handleToggleShowAgain}
+                dialogType="delete"
             />
 
             {contextMenu && (
@@ -751,7 +840,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
             )}
 
             {selectedBreakEvent && (
-                <BreakQuickViewCard handleDelete={handleDelete} data={selectedBreakEvent} vendorData={vendorData} onClose={() => { setSelectedBreakEvent(null) }} breakAction={() => setOpen(true)} />
+                <BreakQuickViewCard handleDelete={handleDeleteClick} data={selectedBreakEvent} vendorData={vendorData} onClose={() => { setSelectedBreakEvent(null) }} breakAction={() => setOpen(true)} />
             )}
             {selectedOrder && (
                 <OrderQuickViewCard setOpenDetails={setOpenDetails} data={selectedOrder} orderData={orderData} serviceData={serviceData} agentData={agentData} vendorData={vendorData} onClose={() => { setSelectedOrder(null) }} />
@@ -790,6 +879,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                         onNavigate={handleNavigate}
                                         style={{ height: '120vh' }}
                                         selectable
+                                        tooltipAccessor={null}
                                         components={{
                                             toolbar: CustomToolbar,
                                             event: MonthlyEvent,
@@ -806,7 +896,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                         onSelectEvent={(event: CalendarEvent) => {
                                             setDate(event.start);
                                             setVisibleDays(['1']);
-                                            if (event.title.includes('Break') || event.title.includes('External Event')) {
+                                            if (!event.order_id) {
                                                 setSelectedBreakEvent(event);
                                                 setSelectedOrder(null);
 
@@ -816,7 +906,6 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                             }
                                         }}
                                         onSelectSlot={(slotInfo) => {
-                                            // Switch to day view when clicking on a date cell
                                             setDate(slotInfo.start);
                                             setVisibleDays(['1']);
                                         }}
@@ -828,6 +917,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         case '7':
                             return (
                                 <Calendar
+                                    tooltipAccessor={null}
                                     localizer={localizer}
                                     events={allEvents}
                                     view={Views.WEEK}
@@ -860,7 +950,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                     }}
                                     onSelectEvent={(event: CalendarEvent) => {
 
-                                        if (event.title.includes('Break') || event.title.includes('External Event')) {
+                                        if (!event.order_id) {
                                             setSelectedBreakEvent(event);
                                             setSelectedOrder(null);
                                         } else {
@@ -874,6 +964,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         case '5':
                             return (
                                 <Calendar
+                                    tooltipAccessor={null}
                                     localizer={localizer}
                                     events={allEvents}
                                     date={date}
@@ -913,7 +1004,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                         };
                                     }}
                                     onSelectEvent={(event: CalendarEvent) => {
-                                        if (event.title.includes('Break') || event.title.includes('External Event')) {
+                                        if (!event.order_id) {
                                             setSelectedBreakEvent(event);
                                             setSelectedOrder(null);
                                         } else {
@@ -926,6 +1017,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         case '3':
                             return (
                                 <Calendar
+                                    tooltipAccessor={null}
                                     localizer={localizer}
                                     date={dayjs(date).startOf('day').toDate()}
                                     onNavigate={handleNavigate}
@@ -955,7 +1047,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                     }}
                                     className={`my-${userType}-calendar`}
                                     onSelectEvent={(event: CalendarEvent) => {
-                                        if (event.title.includes('Break') || event.title.includes('External Event')) {
+                                        if (!event.order_id) {
                                             setSelectedBreakEvent(event);
                                             setSelectedOrder(null);
                                         } else {
@@ -970,6 +1062,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         default:
                             return (
                                 <Calendar
+                                    tooltipAccessor={null}
                                     localizer={localizer}
                                     events={allEvents}
                                     date={date}
@@ -1005,7 +1098,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                         };
                                     }}
                                     onSelectEvent={(event: CalendarEvent) => {
-                                        if (event.title.includes('Break') || event.title.includes('External Event')) {
+                                        if (!event.order_id) {
                                             setSelectedBreakEvent(event);
                                             setSelectedOrder(null);
                                         } else {

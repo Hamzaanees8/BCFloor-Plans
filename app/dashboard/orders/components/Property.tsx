@@ -222,11 +222,15 @@ const Property = () => {
     const [googleSuggestions, setGoogleSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
     const [agent, setAgent] = useState<{ uuid: string; first_name: string; last_name: string; email: string; created_at: string }[]>([]);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+    const [highlightedIndex, setHighlightedIndex] = useState(0); // Track highlighted suggestion
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '');
 
     useEffect(() => {
         const currentListing = listingData.find((list) => list.uuid === selectedListingId)
         setSelectedCurrentListing(currentListing ?? null)
+        if (currentListing?.agent?.uuid) {
+            setSelectedAgentId(currentListing.agent.uuid);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedListingId, listingData])
 
@@ -446,14 +450,19 @@ const Property = () => {
     }, [searchValue, agentData]);
     const filteredListings = useMemo(() => {
         const keyword = listingSearchValue.trim().toLowerCase();
+        let data = listingData;
 
-        if (keyword === "") return listingData;
+        if (selectedAgentId) {
+            data = data.filter((listing) => listing.agent.uuid === selectedAgentId);
+        }
 
-        return listingData.filter((listing) => {
+        if (keyword === "") return data;
+
+        return data.filter((listing) => {
             const label = `${listing.address}, ${listing.city}`.toLowerCase();
             return label.includes(keyword);
         });
-    }, [listingSearchValue, listingData]);
+    }, [listingSearchValue, listingData, selectedAgentId]);
     const fetchGoogleSuggestions = (input: string) => {
         if (!input) return setGoogleSuggestions([]);
 
@@ -464,6 +473,7 @@ const Property = () => {
         }, (predictions: google.maps.places.AutocompletePrediction[] | null, status: google.maps.places.PlacesServiceStatus) => {
             if (status === window.google.maps.places.PlacesServiceStatus.OK) {
                 setGoogleSuggestions(predictions || []);
+                setHighlightedIndex(0); // Reset to first item
             } else {
                 setGoogleSuggestions([]);
             }
@@ -528,6 +538,24 @@ const Property = () => {
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    const handleAddressKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!isDropdownOpen || googleSuggestions.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightedIndex((prev) => (prev + 1) % googleSuggestions.length);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedIndex((prev) => (prev - 1 + googleSuggestions.length) % googleSuggestions.length);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (googleSuggestions[highlightedIndex]) {
+                handleGooglePlaceSelect(googleSuggestions[highlightedIndex].place_id);
+                setIsDropdownOpen(false);
+            }
+        }
+    };
 
     return (
         <div className='pt-7 pl-[257px] pr-[211px] pb-[80px] font-alexandria'>
@@ -760,6 +788,16 @@ const Property = () => {
                             </div>
 
                         </div>
+                        <div className={`flex items-center gap-x-[3px] cursor-pointer`} onClick={() => {
+                            // setIsEditingListing(false);
+                            setOpenAddListingDialog(true);
+                            setSelectedListingId(null);
+                            setCurrentListing(null);
+                            resetForm();
+                        }}>
+                            <Plus className='w-[12px] h-[12px] bg-[#1E6FCC] text-white' />
+                            <p className='text-[10px] font-semibold font-raleway text-[#1E6FCC]'>Create New Listing</p>
+                        </div>
 
                     </div>
                     {selectedListing && !openAddListingDialog && (
@@ -811,6 +849,7 @@ const Property = () => {
                                                     fetchGoogleSuggestions(e.target.value);
                                                     setIsDropdownOpen(true);
                                                 }}
+                                                onKeyDown={handleAddressKeyDown}
                                                 placeholder="e.g 4445 Parker St"
                                                 className="h-[42px] w-full bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] px-3 rounded"
                                                 autoComplete="off"
@@ -819,14 +858,16 @@ const Property = () => {
                                             {/* Dropdown suggestions */}
                                             {isDropdownOpen && googleSuggestions.length > 0 && (
                                                 <div className="absolute z-50 bg-white border border-gray-300 mt-1 w-full max-h-60 overflow-auto">
-                                                    {googleSuggestions.map((suggestion) => (
+                                                    {googleSuggestions.map((suggestion, index) => (
                                                         <div
                                                             key={suggestion.place_id}
                                                             onClick={() => {
                                                                 handleGooglePlaceSelect(suggestion.place_id);
                                                                 setIsDropdownOpen(false);
                                                             }}
-                                                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer !text-black !font-normal !text-sm"
+                                                            onMouseEnter={() => setHighlightedIndex(index)}
+                                                            className={`px-3 py-2 cursor-pointer !text-black !font-normal !text-sm ${index === highlightedIndex ? "bg-gray-100" : "hover:bg-gray-100"
+                                                                }`}
                                                         >
                                                             {suggestion.description}
                                                         </div>

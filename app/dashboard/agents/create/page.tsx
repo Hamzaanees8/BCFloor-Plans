@@ -2,14 +2,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
@@ -31,7 +23,6 @@ import { useAppContext } from '@/app/context/AppContext'
 import { useUnsaved } from '@/app/context/UnsavedContext'
 import useUnsavedChangesWarning from '@/app/hooks/useUnsavedChangesWarning'
 import AgentDiscount from '@/components/AgentDiscount'
-import { Discount } from '@/components/DiscountTable'
 import SubAccountsTable from '../components/SubAccountsTable'
 import { Listings } from '../../listings/page'
 import Link from 'next/link'
@@ -430,7 +421,6 @@ const AgentForm = () => {
         }
 
         try {
-            const token = localStorage.getItem('token') || '';
             let formattedWebsite = companyWebsite?.trim();
             if (formattedWebsite && !/^https?:\/\//i.test(formattedWebsite)) {
                 formattedWebsite = 'https://' + formattedWebsite;
@@ -581,8 +571,6 @@ const AgentForm = () => {
     }
 
     const [agentDiscount, setAgentDiscount] = useState<AgentDiscountData | null>(null);
-
-    const [discounts, setDiscounts] = React.useState<Discount[]>([]);
     const [openDiscount, setOpenDiscount] = useState(false);
     const addDiscount = (discount: AgentDiscountData) => {
         setAgentDiscount(discount);
