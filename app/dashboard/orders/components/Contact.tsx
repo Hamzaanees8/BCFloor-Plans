@@ -209,7 +209,7 @@ const Contact = () => {
 
     useEffect(() => {
         if (selectedAgent) {
-            setCoAgents(selectedAgent.co_agents || []);
+            // setCoAgents(selectedAgent.co_agents || []);
 
             // Check if agent has notes and if they haven't been added yet (simple duplicate check)
             if (selectedAgent.notes) {
@@ -434,7 +434,7 @@ const Contact = () => {
                                         <Plus className={`w-[18px] h-[18px] ${userType}-bg text-white rounded-sm `} />
                                     </div>
                                     <Dialog open={openAddCoAgentDialog} onOpenChange={setOpenAddCoAgentDialog}>
-                                        <DialogContent className="w-[320px] md:w-[470px] h-[450px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
+                                        <DialogContent className="w-[320px] md:w-[470px] h-[450px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
                                             <DialogHeader>
                                                 <DialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
                                                     {editingCoAgentIndex !== null ? 'Edit Co-Agent' : 'Add Co-Agent'}
@@ -469,7 +469,7 @@ const Contact = () => {
 
                                                 {coAgentMode === 'existing' ? (
                                                     <div className="space-y-4">
-                                                        <div className="flex flex-col gap-2">
+                                                        <div className="flex flex-col gap-2 w-full">
                                                             <label className="text-sm font-normal text-[#666666]">Select Co-Agent</label>
                                                             <SearchableSelect
                                                                 options={selectedAgent?.co_agents?.map((a: { name: string; email: string }) => ({

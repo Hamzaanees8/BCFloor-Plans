@@ -617,7 +617,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     }, [listingSearchValue, listingData, selectedAgentId]);
 
     return (
-        <div className='pt-7 pl-[257px] pr-[211px] pb-[80px] font-alexandria'>
+        <div className='pt-7 px-[200px] pb-[80px] font-alexandria'>
             <div className='py-[10px] pl-[10px] flex flex-col gap-[30px]'>
                 <div className='flex flex-col gap-[14px]'>
                     <p className='text-[14px] font-[400] text-[#424242]'>Agent <span className="text-red-500">*</span></p>
@@ -700,7 +700,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                             </div>
                         </div>
                         <button
-                            className={`${userType == 'admin' ? 'flex' : 'hidden'} items-center gap-2 px-4 py-2 rounded-md border border-[#1E6FCC] text-[#1E6FCC] hover:bg-[#1E6FCC]/10 transition-colors`}
+                            className={`${userType == 'admin' ? 'flex' : 'hidden'} items-center gap-2 px-3 py-2 rounded-md border border-[#1E6FCC] text-[#1E6FCC] hover:bg-[#1E6FCC]/10 transition-colors`}
                             onClick={() => {
                                 setIsEditingAgent(false);
                                 setOpenAddAgentDialog(true);
