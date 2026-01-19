@@ -469,7 +469,7 @@ const Contact = () => {
 
                                                 {coAgentMode === 'existing' ? (
                                                     <div className="space-y-4">
-                                                        <div className="flex flex-col gap-2 w-full">
+                                                        <div className="flex flex-col gap-2">
                                                             <label className="text-sm font-normal text-[#666666]">Select Co-Agent</label>
                                                             <SearchableSelect
                                                                 options={selectedAgent?.co_agents?.map((a: { name: string; email: string }) => ({

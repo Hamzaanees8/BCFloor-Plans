@@ -98,6 +98,8 @@ export default function OrderTable({ OrderData, onDelete, onQuickView1, loading,
                     <div
                         className={`${userType}-text cursor-pointer ml-[5px]`}
                         onClick={() => {
+                            // Admin needs specific permission to view orders
+                            // If user is admin, enforce permission check. If not admin (e.g. agent), allow view by default (or based on other logic if needed, but per request admin is key)
                             const canView = userType !== "admin" || (hasPermission(PERMISSIONS.VIEW_ORDERS) || hasPermission(PERMISSIONS.VIEW_APPOINTMENTS));
 
                             if (!canView) {
@@ -231,7 +233,11 @@ export default function OrderTable({ OrderData, onDelete, onQuickView1, loading,
                     .filter(r => selectedRowIds.includes(r.id))
                     .map(r => r.original);
 
-                const canEdit = userType !== "admin" || hasPermission(PERMISSIONS.EDIT_ORDERS);
+                // Admin needs specific permission to edit
+                const canEdit = userType !== "vendor" && (
+                    userType !== "admin" ||
+                    (hasPermission(PERMISSIONS.EDIT_ORDERS) || hasPermission(PERMISSIONS.BOOK_APPOINTMENTS))
+                );
 
                 const options = [
                     ...(canEdit ? [{

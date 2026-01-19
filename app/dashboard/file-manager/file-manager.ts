@@ -144,7 +144,7 @@ export async function UploadFilesData(
       String(fileObj.is_agent_approved === true ? 1 : 0)
     );
     formData.append(
-      `files[${index}][is_shown]`,
+      `files[${index}][is_show]`,
       String(fileObj.is_show === false ? 0 : 1)
     );
   });
@@ -187,7 +187,7 @@ export async function UploadFilesData(
 
   // Debug: Log FormData content
   for (const pair of formData.entries()) {
-    if (pair[0].includes('is_shown')) {
+    if (pair[0].includes('is_show')) {
       console.log('API Payload Entry:', pair[0], pair[1]);
     }
   }
@@ -255,7 +255,7 @@ export async function UpdateFilesData(
       String(fileObj.is_agent_approved === true ? 1 : 0)
     );
     formData.append(
-      `files[${index}][is_shown]`,
+      `files[${index}][is_show]`,
       String(fileObj.is_show === false ? 0 : 1)
     );
   });
@@ -285,7 +285,7 @@ export async function UpdateFilesData(
       String(fileObj.is_agent_approved === true ? 1 : 0)
     );
     formData.append(
-      `files[${fileIndex}][is_shown]`,
+      `files[${fileIndex}][is_show]`,
       String(fileObj.is_show === false ? 0 : 1)
     );
   });
@@ -383,7 +383,7 @@ export async function UpdatePhotosData(
       String(fileObj.is_agent_approved === true ? 1 : 0)
     );
     formData.append(
-      `files[${index}][is_shown]`,
+      `files[${index}][is_show]`,
       String(fileObj.is_show === false ? 0 : 1)
     );
   });
@@ -445,7 +445,7 @@ export async function UpdateFloorPhotosData(
       String(fileObj.is_agent_approved === true ? 1 : 0)
     );
     formData.append(
-      `files[${index}][is_shown]`,
+      `files[${index}][is_show]`,
       String(fileObj.is_show === false ? 0 : 1)
     );
   });

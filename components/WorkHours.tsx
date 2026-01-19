@@ -341,11 +341,11 @@ const VendorWorkHours = ({
       showAllTimeOffs
         ? breaks
         : breaks.filter((brk) => {
-            const endDate = new Date(`${brk.date}T${brk.end_time}`);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            return endDate >= today;
-          })
+          const endDate = new Date(`${brk.date}T${brk.end_time}`);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          return endDate >= today;
+        })
     ).sort((a, b) => {
       // Sort by date descending (latest first)
       const dateA = new Date(`${a.date}T${a.end_time}`);
@@ -486,7 +486,7 @@ const VendorWorkHours = ({
     const options =
       selectedService.product_options?.map((option) => ({
         option_uuid: option.uuid,
-        vendor_price: option.cost || 0,
+        vendor_price: option.cost || Number(option.amount) || 0,
         adjustment_time: "no adjustment",
       })) || [];
 
@@ -607,6 +607,20 @@ const VendorWorkHours = ({
     setShowGallery(false);
   };
 
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleLocalFiles(e.dataTransfer.files);
+      e.dataTransfer.clearData();
+    }
+  };
+
   const allImagesForDisplay = [
     ...portfolioImagesUrls.map((img) => ({
       id: `existing-${img.uuid}`,
@@ -723,13 +737,12 @@ const VendorWorkHours = ({
                                       e.target.value
                                     )
                                   }
-                                  className={`w-full h-[42px] data-[placeholder]:text-[#9ca3af] border-[1px] ${
-                                    fieldErrors[
-                                      `work_days[${schedule.day}].start_time`
-                                    ]
-                                      ? "border-red-500"
-                                      : "border-[#BBBBBB]"
-                                  } mt-[10px] flex items-center justify-between px-3`}
+                                  className={`w-full h-[42px] data-[placeholder]:text-[#9ca3af] border-[1px] ${fieldErrors[
+                                    `work_days[${schedule.day}].start_time`
+                                  ]
+                                    ? "border-red-500"
+                                    : "border-[#BBBBBB]"
+                                    } mt-[10px] flex items-center justify-between px-3`}
                                   style={{
                                     backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
                                   }}
@@ -737,14 +750,14 @@ const VendorWorkHours = ({
                                 {fieldErrors[
                                   `work_days[${schedule.day}].start_time`
                                 ] && (
-                                  <p className="text-red-500 text-xs mt-1">
-                                    {
-                                      fieldErrors[
+                                    <p className="text-red-500 text-xs mt-1">
+                                      {
+                                        fieldErrors[
                                         `work_days[${schedule.day}].start_time`
-                                      ][0]
-                                    }
-                                  </p>
-                                )}
+                                        ][0]
+                                      }
+                                    </p>
+                                  )}
                               </div>
                               <div>
                                 <Label
@@ -764,13 +777,12 @@ const VendorWorkHours = ({
                                       e.target.value
                                     )
                                   }
-                                  className={`w-full h-[42px] data-[placeholder]:text-[#9ca3af] border-[1px] ${
-                                    fieldErrors[
-                                      `work_days[${schedule.day}].end_time`
-                                    ]
-                                      ? "border-red-500"
-                                      : "border-[#BBBBBB]"
-                                  } mt-[10px] flex items-center justify-between px-3`}
+                                  className={`w-full h-[42px] data-[placeholder]:text-[#9ca3af] border-[1px] ${fieldErrors[
+                                    `work_days[${schedule.day}].end_time`
+                                  ]
+                                    ? "border-red-500"
+                                    : "border-[#BBBBBB]"
+                                    } mt-[10px] flex items-center justify-between px-3`}
                                   style={{
                                     backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
                                   }}
@@ -778,14 +790,14 @@ const VendorWorkHours = ({
                                 {fieldErrors[
                                   `work_days[${schedule.day}].end_time`
                                 ] && (
-                                  <p className="text-red-500 text-xs mt-1">
-                                    {
-                                      fieldErrors[
+                                    <p className="text-red-500 text-xs mt-1">
+                                      {
+                                        fieldErrors[
                                         `work_days[${schedule.day}].end_time`
-                                      ][0]
-                                    }
-                                  </p>
-                                )}
+                                        ][0]
+                                      }
+                                    </p>
+                                  )}
                               </div>
                             </div>
 
@@ -842,11 +854,10 @@ const VendorWorkHours = ({
                     >
                       <SelectTrigger
                         id="timezone"
-                        className={`w-full h-[42px] data-[placeholder]:text-[#9ca3af] border-[1px] ${
-                          fieldErrors.timezone
-                            ? "border-red-500"
-                            : "border-[#BBBBBB]"
-                        } mt-[10px] flex items-center justify-between px-3`}
+                        className={`w-full h-[42px] data-[placeholder]:text-[#9ca3af] border-[1px] ${fieldErrors.timezone
+                          ? "border-red-500"
+                          : "border-[#BBBBBB]"
+                          } mt-[10px] flex items-center justify-between px-3`}
                         style={{
                           backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
                         }}
@@ -1000,12 +1011,11 @@ const VendorWorkHours = ({
                           !!currentUser?.google_access_token ||
                           !!currentUser?.google_refresh_token
                         }
-                        className={`px-6 py-3 w-auto ${
-                          currentUser?.google_access_token ||
+                        className={`px-6 py-3 w-auto ${currentUser?.google_access_token ||
                           currentUser?.google_refresh_token
-                            ? "bg-[#6BAE41] hover:bg-[#6BAE41]/80"
-                            : "bg-[#4290E9] hover:bg-[#4290E9]/80"
-                        } text-white font-medium rounded-lg shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
+                          ? "bg-[#6BAE41] hover:bg-[#6BAE41]/80"
+                          : "bg-[#4290E9] hover:bg-[#4290E9]/80"
+                          } text-white font-medium rounded-lg shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
                       >
                         {isCalendarLoading ? (
                           <>
@@ -1205,9 +1215,9 @@ const VendorWorkHours = ({
                                           placeholder="Enter price"
                                           value={
                                             tempOptionPrices[option.uuid] !==
-                                            undefined
+                                              undefined
                                               ? tempOptionPrices[option.uuid]
-                                              : option.cost || 0
+                                              : option.cost || Number(option.amount) || 0
                                           }
                                           onChange={(e) => {
                                             const price =
@@ -1287,7 +1297,7 @@ const VendorWorkHours = ({
                             ))}
                           </div>
                         ) : (
-                          !isAddingService && (
+                          !isAddingService && (vendorServices?.length || 0) === 0 && (
                             <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
                               No services added yet. Click Add to get started.
                             </div>
@@ -1364,13 +1374,13 @@ const VendorWorkHours = ({
                     showAllTimeOffs
                       ? breaks
                       : breaks.filter((brk) => {
-                          const endDate = new Date(
-                            `${brk.date}T${brk.end_time}`
-                          );
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          return endDate >= today;
-                        })
+                        const endDate = new Date(
+                          `${brk.date}T${brk.end_time}`
+                        );
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        return endDate >= today;
+                      })
                   ).sort((a, b) => {
                     // Sort by date descending (latest first)
                     const dateA = new Date(`${a.date}T${a.end_time}`);
@@ -1467,11 +1477,11 @@ const VendorWorkHours = ({
                   showAllTimeOffs
                     ? breaks
                     : breaks.filter((brk) => {
-                        const endDate = new Date(`${brk.date}T${brk.end_time}`);
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        return endDate >= today;
-                      })
+                      const endDate = new Date(`${brk.date}T${brk.end_time}`);
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      return endDate >= today;
+                    })
                 ).sort((a, b) => {
                   // Sort by date descending (latest first)
                   const dateA = new Date(`${a.date}T${a.end_time}`);
@@ -1552,6 +1562,8 @@ const VendorWorkHours = ({
                   <div
                     className="w-full max-w-[450px] h-[200px] border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-[#4290E9] transition-colors"
                     onClick={handleUploadClick}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
                   >
                     <Plus className="w-12 h-12 text-gray-400 mb-4" />
                     <p className="text-gray-600">Click to upload images</p>
@@ -1588,14 +1600,14 @@ const VendorWorkHours = ({
                                 {/* Only show remove button for local and gallery images */}
                                 {(file.type === "new" ||
                                   file.type === "gallery") && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveFile(index)}
-                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </button>
-                                )}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveFile(index)}
+                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  )}
                               </div>
                             </CarouselItem>
                           );

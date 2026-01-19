@@ -38,7 +38,7 @@ import {
   VerifyGoogleCalendar,
   WorkHours,
 } from "../vendors";
-import { SaveModal } from "@/components/SaveModal";
+
 import { Plus, X } from "lucide-react";
 import { PaymentCard } from "@/components/GlobalSettings";
 import TravelTable from "@/components/TravelTable";
@@ -49,6 +49,7 @@ import {
   GetPaymentMethod,
 } from "../../global-settings/global-settings";
 import WorkAreaMap, { LatLng } from "@/components/WorkAreaMap";
+import GooglePlacesAutocomplete from "../../calendar/components/AutoCompleteInput";
 import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import VendorWorkHours, {
@@ -132,7 +133,7 @@ const daysOfWeek = [
 
 const VendorForm = () => {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [openSaveDialog, setOpenSaveDialog] = useState(false);
+  // const [openSaveDialog, setOpenSaveDialog] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -140,8 +141,8 @@ const VendorForm = () => {
   const [notificationEmail, setNotificationEmail] = useState(false);
   const [enableServiceArea, setEnableServiceArea] = useState(false);
   const [forceServiceArea, setForceServiceArea] = useState(false);
-  const [adminReviewRequired, setAdminReviewRequired] = useState(false);
-  const [showVendorName, setShowVendorName] = useState(false);
+  const [adminReviewRequired, setAdminReviewRequired] = useState(true);
+  const [showVendorName, setShowVendorName] = useState(true);
   const [paymentPerKm, setPaymentPerKm] = useState<string | number>("");
   const [billingAddress1, setBillingAddress1] = useState("");
   const [billingAddress2, setBillingAddress2] = useState("");
@@ -160,10 +161,12 @@ const VendorForm = () => {
   const [companyCity, setCompanyCity] = useState("");
   const [companyProvince, setCompanyProvince] = useState("");
   const [companyCountry, setCompanyCountry] = useState("CA");
+  const [companyPostalCode, setCompanyPostalCode] = useState("");
   const [billingAddress, setBillingAddress] = useState("");
   const [billingCity, setBillingCity] = useState("");
   const [billingProvince, setBillingProvince] = useState("");
   const [billingCountry, setBillingCountry] = useState("CA");
+  const [billingPostalCode, setBillingPostalCode] = useState("");
   const [password, setPassword] = useState("");
   const [openChangePasswordDialog, setOpenChangePasswordDialog] =
     useState(false);
@@ -175,7 +178,7 @@ const VendorForm = () => {
   const [avatarUrl, setAvatarUrl] = useState("");
   const CompanyBannerfileInputRef = useRef(null);
   const [CompanyBannerfileName, setCompanyBannerFileName] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  // const [isLoading, setIsLoading] = useState(false);
   const [CompanyBannerUrl, setCompanyBannerUrl] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [companyLogoFile, setCompanyLogoFile] = useState<File | null>(null);
@@ -219,8 +222,8 @@ const VendorForm = () => {
   const [vendorTourMedia, setVendorTourMedia] = useState<VendorsTourMedia[]>(
     []
   );
-  const [allowConnectStripe, setAllowConnectStripe] = useState<boolean>(false);
-  const [payOutsidePlatform, setPayOutsidePlatform] = useState<boolean>(false);
+  const [allowConnectStripe, setAllowConnectStripe] = useState<boolean>(true);
+  const [payOutsidePlatform, setPayOutsidePlatform] = useState<boolean>(true);
   const [inkilometers, setInKilometers] = useState<boolean>(true);
   // const [inmiles, setInMiles] = useState<boolean>(false);
   const { userType } = useAppContext();
@@ -375,8 +378,8 @@ const VendorForm = () => {
         typeof currentUser?.coordinates === "string"
           ? JSON.parse(currentUser.coordinates)
           : Array.isArray(currentUser?.coordinates)
-          ? currentUser.coordinates
-          : []
+            ? currentUser.coordinates
+            : []
       );
 
       if (currentUser.avatar_url) setAvatarUrl(currentUser.avatar_url);
@@ -627,7 +630,7 @@ const VendorForm = () => {
         "Payment per KM must be a positive number",
       ];
     }
-    if (!map_coordinates || map_coordinates.length < 3) {
+    if (enableServiceArea && (!map_coordinates || map_coordinates.length < 3)) {
       validationErrors.map_coordinates = [
         "Map coordinates are required and must have at least 3 points",
       ];
@@ -783,28 +786,28 @@ const VendorForm = () => {
         const updatedPayload = { ...payload, _method: "PUT" };
 
         await Edit(idToUse, updatedPayload);
-        setIsLoading(true);
+        // setIsLoading(true);
         setIsDirty(false);
         if (userType !== "vendor") {
-          setOpenSaveDialog(true);
+          // setOpenSaveDialog(true);
           router.push("/dashboard/vendors");
           toast.success("Vendors updated successfully");
         } else {
           toast.success("Settings updated successfully");
         }
-        setIsLoading(false);
+        // setIsLoading(false);
       } else {
         await Create(payload);
         toast.success("Vendors created successfully");
-        setIsLoading(true);
-        setOpenSaveDialog(true);
+        // setIsLoading(true);
+        // setOpenSaveDialog(true);
         router.push("/dashboard/vendors");
-        setIsLoading(false);
+        // setIsLoading(false);
         setIsDirty(false);
       }
     } catch (error) {
-      setIsLoading(false);
-      setOpenSaveDialog(false);
+      // setIsLoading(false);
+      // setOpenSaveDialog(false);
       setFieldErrors({});
 
       const apiError = error as {
@@ -986,14 +989,14 @@ const VendorForm = () => {
           )}
         </div>
       </div>
-      <SaveModal
+      {/* <SaveModal
         isOpen={openSaveDialog}
         onClose={() => setOpenSaveDialog(false)}
         isLoading={isLoading}
         isSuccess={true}
         backLink="/dashboard/vendors"
         title={"Vendors"}
-      />
+      /> */}
       {
         <div
           className="flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600]"
@@ -1003,22 +1006,20 @@ const VendorForm = () => {
             <button
               onClick={() => setActive("details")}
               className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                            ${
-                              active === "details"
-                                ? `text-white ${userType}-bg`
-                                : "bg-[#F2F2F2] text-[#666666]"
-                            }`}
+                            ${active === "details"
+                  ? `text-white ${userType}-bg`
+                  : "bg-[#F2F2F2] text-[#666666]"
+                }`}
             >
               DETAILS
             </button>
             <button
               onClick={() => setActive("work hours")}
               className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                            ${
-                              active === "work hours"
-                                ? `text-white ${userType}-bg`
-                                : "bg-[#F2F2F2] text-[#666666]"
-                            }`}
+                            ${active === "work hours"
+                  ? `text-white ${userType}-bg`
+                  : "bg-[#F2F2F2] text-[#666666]"
+                }`}
             >
               WORK HOURS
             </button>
@@ -1026,11 +1027,10 @@ const VendorForm = () => {
               <button
                 onClick={() => setActive("travel")}
                 className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                                ${
-                                  active === "travel"
-                                    ? `text-white ${userType}-bg`
-                                    : "bg-[#F2F2F2] text-[#666666]"
-                                }`}
+                                ${active === "travel"
+                    ? `text-white ${userType}-bg`
+                    : "bg-[#F2F2F2] text-[#666666]"
+                  }`}
               >
                 TRAVEL
               </button>
@@ -1109,11 +1109,10 @@ const VendorForm = () => {
                                 setFieldErrors(newErrors);
                               }
                             }}
-                            className={`h-[42px] mt-3 ${
-                              fieldErrors.first_name
-                                ? "border-red-500"
-                                : "bg-[#EEEEEE] border-[#BBBBBB]"
-                            }`}
+                            className={`h-[42px] mt-3 ${fieldErrors.first_name
+                              ? "border-red-500"
+                              : "bg-[#EEEEEE] border-[#BBBBBB]"
+                              }`}
                           />
                           {fieldErrors.first_name && (
                             <p className="text-red-500 text-xs mt-1">
@@ -1136,11 +1135,10 @@ const VendorForm = () => {
                                 setFieldErrors(newErrors);
                               }
                             }}
-                            className={`h-[42px] mt-3 ${
-                              fieldErrors.last_name
-                                ? "border-red-500"
-                                : "bg-[#EEEEEE] border-[#BBBBBB]"
-                            }`}
+                            className={`h-[42px] mt-3 ${fieldErrors.last_name
+                              ? "border-red-500"
+                              : "bg-[#EEEEEE] border-[#BBBBBB]"
+                              }`}
                           />
                           {fieldErrors.last_name && (
                             <p className="text-red-500 text-xs mt-1">
@@ -1165,11 +1163,10 @@ const VendorForm = () => {
                                   setFieldErrors(newErrors);
                                 }
                               }}
-                              className={`h-[42px] mt-3 ${
-                                fieldErrors.email
-                                  ? "border-red-500"
-                                  : "bg-[#EEEEEE] border-[#BBBBBB]"
-                              }`}
+                              className={`h-[42px] mt-3 ${fieldErrors.email
+                                ? "border-red-500"
+                                : "bg-[#EEEEEE] border-[#BBBBBB]"
+                                }`}
                             />
                             {fieldErrors.email && (
                               <p className="text-red-500 text-xs mt-1">
@@ -1239,11 +1236,10 @@ const VendorForm = () => {
                                   setFieldErrors(newErrors);
                                 }
                               }}
-                              className={`h-[42px] mt-3 ${
-                                fieldErrors.primary_phone
-                                  ? "border-red-500"
-                                  : "bg-[#EEEEEE] border-[#BBBBBB]"
-                              }`}
+                              className={`h-[42px] mt-3 ${fieldErrors.primary_phone
+                                ? "border-red-500"
+                                : "bg-[#EEEEEE] border-[#BBBBBB]"
+                                }`}
                             />
                             {fieldErrors.primary_phone && (
                               <p className="text-red-500 text-xs mt-1">
@@ -1284,11 +1280,37 @@ const VendorForm = () => {
                           <label htmlFor="">
                             Address <span className="text-red-500">*</span>
                           </label>
-                          <Input
+                          <GooglePlacesAutocomplete
                             value={companyAddress}
-                            onChange={(e) => setCompanyAddress(e.target.value)}
-                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                            type="text"
+                            onChange={(val) => setCompanyAddress(val)}
+                            onAddressComponents={(components) => {
+                              setCompanyAddress(components.address_line_1);
+                              setCompanyCity(components.city);
+                              setCompanyCountry(components.country);
+                              setCompanyPostalCode(components.postal_code);
+                              // Set province after a short delay to ensure states are loaded
+                              setTimeout(() => {
+                                setCompanyProvince(components.province);
+                              }, 100);
+
+                              // Auto-copy full address to Billing Address Line 1
+                              setBillingAddress1(components.full_address);
+
+                              // Auto-fill Location Address fields
+                              setBillingAddress(components.full_address);
+                              setBillingCity(components.city);
+                              setBillingCountry(components.country);
+                              setBillingPostalCode(components.postal_code);
+                              setTimeout(() => {
+                                setBillingProvince(components.province);
+                              }, 100);
+                            }}
+                            className="h-[42px] mt-[12px]"
+                            inputClassName={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] ${fieldErrors[`addresses.${1}.address_line_1`]
+                              ? "border-red-500"
+                              : ""
+                              }`}
+                            fieldErrors={fieldErrors}
                           />
 
                           {fieldErrors[`addresses.${1}.address_line_1`] && (
@@ -1297,7 +1319,7 @@ const VendorForm = () => {
                             </p>
                           )}
                         </div>
-                        <div>
+                        <div className="hidden">
                           <label htmlFor="">
                             City <span className="text-red-500">*</span>
                           </label>
@@ -1313,7 +1335,7 @@ const VendorForm = () => {
                             </p>
                           )}
                         </div>
-                        <div>
+                        <div className="hidden">
                           <label htmlFor="">
                             Province <span className="text-red-500">*</span>
                           </label>
@@ -1339,7 +1361,7 @@ const VendorForm = () => {
                             </p>
                           )}
                         </div>
-                        <div className="col-span-2">
+                        <div className="hidden">
                           <label htmlFor="">Country</label>
                           <Select
                             value={companyCountry}
@@ -1356,6 +1378,23 @@ const VendorForm = () => {
                               ))}
                             </SelectContent>
                           </Select>
+                        </div>
+                        <div className="hidden">
+                          <label htmlFor="">
+                            Zip/Postal Code <span className="text-red-500">*</span>
+                          </label>
+                          <Input
+                            value={companyPostalCode}
+                            onChange={(e) => setCompanyPostalCode(e.target.value)}
+                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                            type="text"
+                            placeholder="V5H 4M1"
+                          />
+                          {fieldErrors[`addresses.${1}.postal_code`] && (
+                            <p className="text-red-500 text-[10px] mt-1">
+                              {fieldErrors[`addresses.${1}.postal_code`][0]}
+                            </p>
+                          )}
                         </div>
 
                         {!currentUser && (
@@ -1381,11 +1420,10 @@ const VendorForm = () => {
                                       setFieldErrors(newErrors);
                                     }
                                   }}
-                                  className={`h-[42px] mt-3 ${
-                                    fieldErrors.password
-                                      ? "border-red-500"
-                                      : "bg-[#EEEEEE] border-[#BBBBBB]"
-                                  }`}
+                                  className={`h-[42px] mt-3 ${fieldErrors.password
+                                    ? "border-red-500"
+                                    : "bg-[#EEEEEE] border-[#BBBBBB]"
+                                    }`}
                                 />
                                 {fieldErrors.password && (
                                   <p className="text-red-500 text-xs mt-1">
@@ -1467,13 +1505,12 @@ const VendorForm = () => {
                                 setFieldErrors(newErrors);
                               }
                             }}
-                            className={`h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] mt-[12px] ${
-                              fieldErrors[`addresses.1.address_line_1`]
-                                ? "border-red-500"
-                                : "border-[#BBBBBB]"
-                            }`}
+                            className={`h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] mt-[12px] ${fieldErrors[`addresses.1.address_line_1`]
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
+                              }`}
+                            placeholder="Start Location Name i.e Main Office"
                             type="text"
-                            placeholder="7458 Burrard Street"
                           />
                           {fieldErrors[`addresses.1.address_line_1`] && (
                             <p className="text-red-500 text-[10px] mt-1">
@@ -1485,12 +1522,26 @@ const VendorForm = () => {
                           <label htmlFor="">
                             Address <span className="text-red-500">*</span>
                           </label>
-                          <Input
+                          <GooglePlacesAutocomplete
                             value={billingAddress}
-                            onChange={(e) => setBillingAddress(e.target.value)}
-                            className="h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]"
-                            type="text"
+                            onChange={(val) => setBillingAddress(val)}
+                            onAddressComponents={(components) => {
+                              setBillingAddress(components.address_line_1);
+                              setBillingCity(components.city);
+                              setBillingCountry(components.country);
+                              setBillingPostalCode(components.postal_code);
+                              // Set province after a short delay to ensure states are loaded
+                              setTimeout(() => {
+                                setBillingProvince(components.province);
+                              }, 100);
+                            }}
+                            className="h-[42px] mt-[12px]"
+                            inputClassName={`h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] ${fieldErrors[`addresses.${2}.address_line_1`]
+                              ? "border-red-500"
+                              : ""
+                              }`}
                             placeholder="7458 Burrard Street"
+                            fieldErrors={fieldErrors}
                           />
                           {fieldErrors[`addresses.${2}.address_line_1`] && (
                             <p className="text-red-500 text-[10px] mt-1">
@@ -1498,7 +1549,7 @@ const VendorForm = () => {
                             </p>
                           )}
                         </div>
-                        <div>
+                        <div className="hidden">
                           <label htmlFor="">
                             City <span className="text-red-500">*</span>
                           </label>
@@ -1513,12 +1564,11 @@ const VendorForm = () => {
                                 setFieldErrors(newErrors);
                               }
                             }}
-                            className={`h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] mt-[12px] ${
-                              fieldErrors[`addresses.1.city`] ||
+                            className={`h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] mt-[12px] ${fieldErrors[`addresses.1.city`] ||
                               fieldErrors[`addresses.2.city`]
-                                ? "border-red-500"
-                                : "border-[#BBBBBB]"
-                            }`}
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
+                              }`}
                             type="text"
                             placeholder="Burnaby"
                           />
@@ -1528,7 +1578,7 @@ const VendorForm = () => {
                             </p>
                           )}
                         </div>
-                        <div>
+                        <div className="hidden">
                           <label htmlFor="">
                             Province <span className="text-red-500">*</span>
                           </label>
@@ -1546,12 +1596,11 @@ const VendorForm = () => {
                             disabled={!states.length}
                           >
                             <SelectTrigger
-                              className={`w-full h-[42px] bg-[#EEEEEE] mt-[12px] border data-[placeholder]:text-[#9ca3af] ${
-                                fieldErrors[`addresses.1.province`] ||
+                              className={`w-full h-[42px] bg-[#EEEEEE] mt-[12px] border data-[placeholder]:text-[#9ca3af] ${fieldErrors[`addresses.1.province`] ||
                                 fieldErrors[`addresses.2.province`]
-                                  ? "border-red-500"
-                                  : "border-[#BBBBBB]"
-                              }`}
+                                ? "border-red-500"
+                                : "border-[#BBBBBB]"
+                                }`}
                             >
                               <SelectValue placeholder="Select Province" />
                             </SelectTrigger>
@@ -1569,7 +1618,7 @@ const VendorForm = () => {
                             </p>
                           )}
                         </div>
-                        <div className="col-span-2">
+                        <div className="hidden">
                           <label htmlFor="">Country</label>
                           <Select
                             value={billingCountry}
@@ -1592,28 +1641,48 @@ const VendorForm = () => {
                             </p>
                           )}
                         </div>
-                        <div className="col-span-2">
+                        <div className="hidden">
                           <label htmlFor="">
-                            Billing Address Line 1{" "}
-                            <span className="text-red-500">*</span>
+                            Zip/Postal Code <span className="text-red-500">*</span>
                           </label>
                           <Input
+                            value={billingPostalCode}
+                            onChange={(e) => setBillingPostalCode(e.target.value)}
+                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                            type="text"
+                            placeholder="V5H 4M1"
+                          />
+                          {fieldErrors[`addresses.${2}.postal_code`] && (
+                            <p className="text-red-500 text-[10px] mt-1">
+                              {fieldErrors[`addresses.${2}.postal_code`][0]}
+                            </p>
+                          )}
+                        </div>
+                        <div className="col-span-2">
+                          <label htmlFor="">
+                            Billing Address {" "}
+                            <span className="text-red-500">*</span>
+                          </label>
+                          <GooglePlacesAutocomplete
                             value={billingAddress1}
-                            onChange={(e) => {
-                              setBillingAddress1(e.target.value);
+                            onChange={(val) => {
+                              setBillingAddress1(val);
                               if (fieldErrors[`addresses.2.address_line_1`]) {
                                 const newErrors = { ...fieldErrors };
                                 delete newErrors[`addresses.2.address_line_1`];
                                 setFieldErrors(newErrors);
                               }
                             }}
-                            className={`h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] mt-[12px] ${
-                              fieldErrors[`addresses.2.address_line_1`]
-                                ? "border-red-500"
-                                : "border-[#BBBBBB]"
-                            }`}
-                            type="text"
+                            onAddressComponents={(components) => {
+                              setBillingAddress1(components.full_address);
+                            }}
+                            className="h-[42px] mt-[12px]"
+                            inputClassName={`h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] ${fieldErrors[`addresses.2.address_line_1`]
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
+                              }`}
                             placeholder="7458 Burrard Street"
+                            fieldErrors={fieldErrors}
                           />
                           {fieldErrors[`addresses.2.address_line_1`] && (
                             <p className="text-red-500 text-[10px] mt-1">
@@ -1621,7 +1690,7 @@ const VendorForm = () => {
                             </p>
                           )}
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-2 hidden">
                           <label htmlFor="">Billing Address Line 2</label>
                           <Input
                             value={billingAddress2}
@@ -1799,11 +1868,10 @@ const VendorForm = () => {
               {(userType === "vendor" || userType === "admin") && (
                 <AccordionItem value="payment" className="border-none">
                   <AccordionTrigger
-                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${
-                      userType === "vendor"
-                        ? "[&>svg]:text-[#6BAE41]"
-                        : "[&>svg]:text-[#6BAE41]"
-                    }  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType === "vendor"
+                      ? "[&>svg]:text-[#6BAE41]"
+                      : "[&>svg]:text-[#6BAE41]"
+                      }  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                   >
                     PAYMENT
                   </AccordionTrigger>
@@ -1835,36 +1903,42 @@ const VendorForm = () => {
                             </div>
                           </div>
                           <div className="col-span-2">
-                            {cards.map((card) => (
-                              <div
-                                key={card.uuid}
-                                className="flex flex-col gap-y-3 mt-2"
-                              >
-                                <div className="flex justify-between items-center w-full text-[16px] font-normal text-[#666666]">
-                                  <div className="basis-[60%] flex items-center justify-between w-full gap-x-2.5">
-                                    <p className="text-[#4290E9]">
-                                      {capitalizeFirst(card.type)}
-                                    </p>
-                                    <p>
-                                      {card.last_four.slice(0, 4)} **** ****
-                                      ****
-                                    </p>
+                            {cards.length > 0 ? (
+                              cards.map((card) => (
+                                <div
+                                  key={card.uuid}
+                                  className="flex flex-col gap-y-3 mt-2"
+                                >
+                                  <div className="flex justify-between items-center w-full text-[16px] font-normal text-[#666666]">
+                                    <div className="basis-[60%] flex items-center justify-between w-full gap-x-2.5">
+                                      <p className="text-[#4290E9]">
+                                        {capitalizeFirst(card.type)}
+                                      </p>
+                                      <p>
+                                        {card.last_four.slice(0, 4)} **** ****
+                                        ****
+                                      </p>
+                                    </div>
+                                    <div className="basis-[40%] w-full flex gap-x-4 items-center justify-end">
+                                      {card.is_primary && (
+                                        <span className="text-sm font-normal text-[#666666]">
+                                          Primary
+                                        </span>
+                                      )}
+                                      <X
+                                        onClick={() => handleDelete(card.uuid)}
+                                        className="text-[#E06D5E] w-6 h-6 cursor-pointer hover:scale-110 transition-transform"
+                                      />
+                                    </div>
                                   </div>
-                                  <div className="basis-[40%] w-full flex gap-x-4 items-center justify-end">
-                                    {card.is_primary && (
-                                      <span className="text-sm font-normal text-[#666666]">
-                                        Primary
-                                      </span>
-                                    )}
-                                    <X
-                                      onClick={() => handleDelete(card.uuid)}
-                                      className="text-[#E06D5E] w-6 h-6 cursor-pointer hover:scale-110 transition-transform"
-                                    />
-                                  </div>
+                                  <hr />
                                 </div>
-                                <hr />
-                              </div>
-                            ))}
+                              ))
+                            ) : (
+                              <p className="text-[#666666] text-sm font-normal text-center py-4">
+                                Click Add+ to add your payment info
+                              </p>
+                            )}
                           </div>
 
                           <div className="w-full flex flex-col col-span-2 items-start gap-4 mt-5 margin-top-5 border-t pt-5">
@@ -1898,50 +1972,51 @@ const VendorForm = () => {
                                 </div>
                               </>
                             )}
-                            <button
-                              onClick={(e) => {
-                                handleConnectStripe(e);
-                              }}
-                              disabled={
-                                isStripeLoading ||
-                                !!currentUser?.stripe_account_id
-                              }
-                              className={`px-6 py-3 w-auto ${
-                                currentUser?.stripe_account_id
+                            {userId && (
+                              <button
+                                onClick={(e) => {
+                                  handleConnectStripe(e);
+                                }}
+                                disabled={
+                                  isStripeLoading ||
+                                  !!currentUser?.stripe_account_id
+                                }
+                                className={`px-6 py-3 w-auto ${currentUser?.stripe_account_id
                                   ? "bg-[#6BAE41] hover:bg-[#6BAE41]/80"
                                   : "bg-[#4290E9] hover:bg-[#4290E9]/80"
-                              } text-white font-medium rounded-lg shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
-                            >
-                              {isStripeLoading ? (
-                                <>
-                                  <svg
-                                    className="animate-spin h-5 w-5 text-white"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <circle
-                                      className="opacity-25"
-                                      cx="12"
-                                      cy="12"
-                                      r="10"
-                                      stroke="currentColor"
-                                      strokeWidth="4"
-                                    ></circle>
-                                    <path
-                                      className="opacity-75"
-                                      fill="currentColor"
-                                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                    ></path>
-                                  </svg>
-                                  Connecting...
-                                </>
-                              ) : currentUser?.stripe_account_id ? (
-                                "Stripe Connected"
-                              ) : (
-                                "Connect with Stripe"
-                              )}
-                            </button>
+                                  } text-white font-medium rounded-lg shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
+                              >
+                                {isStripeLoading ? (
+                                  <>
+                                    <svg
+                                      className="animate-spin h-5 w-5 text-white"
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <circle
+                                        className="opacity-25"
+                                        cx="12"
+                                        cy="12"
+                                        r="10"
+                                        stroke="currentColor"
+                                        strokeWidth="4"
+                                      ></circle>
+                                      <path
+                                        className="opacity-75"
+                                        fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                      ></path>
+                                    </svg>
+                                    Connecting...
+                                  </>
+                                ) : currentUser?.stripe_account_id ? (
+                                  "Stripe Connected"
+                                ) : (
+                                  "Connect with Stripe"
+                                )}
+                              </button>
+                            )}
 
                             {/* Calendar Button */}
                             {/* <button
@@ -2099,16 +2174,23 @@ const VendorForm = () => {
                           <input
                             type="checkbox"
                             checked={enableServiceArea}
-                            onChange={(e) => console.log(e.target.checked)}
+                            onChange={(e) =>
+                              setEnableServiceArea(e.target.checked)
+                            }
                             className="h-[16px] w-[16px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                           />
                           <p className="text-[16px] font-normal text-[#666666] mt-[12px]">
                             Enable Service Area
                           </p>
                         </div>
+                        <p className="pl-[26px] text-xs text-[#9CA3AF] mt-1 max-w-[500px]">
+                          Allows Vendors to define service area on the map within which they
+                          provide their services.
+                        </p>
+
 
                         {/* Row 2: Warning (Only shows if map_coordinates is falsy) */}
-                        {!map_coordinates && (
+                        {!map_coordinates && enableServiceArea && (
                           <div className="flex items-center gap-1.5 mt-2 ml-[26px] text-red-500">
                             <span className="text-[12px] font-medium">
                               You must set your service area.
@@ -2118,32 +2200,38 @@ const VendorForm = () => {
                       </div>
                     )}
                     {(userType === "admin" || userType === "vendor") && (
-                      <div className="pl-[18px] flex items-center gap-[10px]">
-                        <Input
-                          type="checkbox"
-                          checked={forceServiceArea}
-                          onChange={(e) =>
-                            setForceServiceArea(e.target.checked)
-                          }
-                          className="h-[16px] w-[16px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                        />
-                        <p className="text-[16px] font-normal text-[#666666] mt-[12px]">
-                          Force Service Area
+                      <div className="flex flex-col">
+                        <div className="pl-[18px] flex items-center gap-[10px]">
+                          <Input
+                            type="checkbox"
+                            checked={forceServiceArea}
+                            onChange={(e) =>
+                              setForceServiceArea(e.target.checked)
+                            }
+                            className="h-[16px] w-[16px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                          />
+                          <p className="text-[16px] font-normal text-[#666666] mt-[12px]">
+                            Force Service Area
+                          </p>
+                        </div>
+                        <p className="pl-[26px] text-xs text-[#9CA3AF] mt-1 max-w-[500px]">
+                          If Force Service Area is checked admin can not book an appointment
+                          against that vendor outside their area.
                         </p>
                       </div>
                     )}
                     {(userType === "admin" ||
                       (userType === "vendor" && enableServiceArea)) && (
-                      <WorkAreaMap
-                        providerId={idToUse}
-                        address={companyAddress}
-                        city={companyCity}
-                        province={companyProvince}
-                        country={companyCountry}
-                        coords={map_coordinates}
-                        setmap_coordinates={setmap_coordinates}
-                      />
-                    )}
+                        <WorkAreaMap
+                          providerId={idToUse}
+                          address={companyAddress}
+                          city={companyCity}
+                          province={companyProvince}
+                          country={companyCountry}
+                          coords={map_coordinates}
+                          setmap_coordinates={setmap_coordinates}
+                        />
+                      )}
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -2212,13 +2300,6 @@ const VendorForm = () => {
             setEnableServiceArea={setEnableServiceArea}
             forceServiceArea={forceServiceArea}
             setForceServiceArea={setForceServiceArea}
-            providerId={idToUse}
-            address={companyAddress}
-            city={companyCity}
-            province={companyProvince}
-            country={companyCountry}
-            coords={map_coordinates}
-            setmap_coordinates={setmap_coordinates}
             workHours={workHours}
             setWorkHours={setWorkHours}
             selectedServices={selectedServices}
@@ -2232,10 +2313,12 @@ const VendorForm = () => {
             portfolioImagesUrls={portfolioImagesUrls}
             galleryImages={galleryImages}
             setGalleryImages={setGalleryImages}
+            coords={map_coordinates}
+            setmap_coordinates={setmap_coordinates}
           />
         )}
       </div>
-    </div>
+    </div >
   );
 };
 
