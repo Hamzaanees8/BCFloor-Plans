@@ -273,6 +273,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     vendorsData,
     ordersData,
     selectedCurrentListing,
+    tempPropertyData,
   } = useOrderContext();
   const { id } = useParams();
 
@@ -327,7 +328,9 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
   const destinationAddress = selectedCurrentListing
     ? `${selectedCurrentListing.address},${selectedCurrentListing.city},${selectedCurrentListing.country}`
-    : '';
+    : tempPropertyData
+      ? `${tempPropertyData.address},${tempPropertyData.city},${tempPropertyData.country}`
+      : '';
 
   const orderIdParam = Array.isArray(id) ? id[0] : id;
 
@@ -431,13 +434,15 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
   useEffect(() => {
     async function loadTwilight() {
-      if (!selectedCurrentListing) return;
-      const address = `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.country}`;
+      if (!selectedCurrentListing && !tempPropertyData) return;
+      const address = selectedCurrentListing
+        ? `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.country}`
+        : `${tempPropertyData?.address}, ${tempPropertyData?.city}, ${tempPropertyData?.country}`;
       const result = await fetchTwilightTime(address, currentDate);
       if (result) setTwilightData(result);
     }
     loadTwilight();
-  }, [selectedCurrentListing, currentDate]);
+  }, [selectedCurrentListing, tempPropertyData, currentDate]);
 
   const formatLocalTime = (utcTime: string) => {
     if (!utcTime) return "—";
@@ -492,30 +497,145 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     }
   }, [events]);
 
+  // Auto-navigate to next available day if current day has no slots
+  const hasCheckedForNextAvailableDay = React.useRef(false);
+  useEffect(() => {
+    if (!calendarRef.current || events.length === 0) return;
+
+    // Check if all events are unavailable
+    const hasAvailableSlots = events.some(event =>
+      event.className === 'slot-available' ||
+      event.className?.includes('slot-available')
+    );
+
+    // Only auto-navigate if there are no available slots and we haven't checked yet
+    if (!hasAvailableSlots && !hasCheckedForNextAvailableDay.current) {
+      hasCheckedForNextAvailableDay.current = true;
+
+      // Search for next available day (up to 30 days)
+      const searchForNextAvailableDay = async () => {
+        const filteredVendors = vendorsData.filter(
+          (vendor) => vendor.uuid && selectedVendors?.includes(vendor.uuid)
+        );
+
+        if (filteredVendors.length === 0) return;
+
+        const otherServiceSlots = selectedSlots.filter((s: Slot) =>
+          s.service_id !== service.uuid
+        );
+
+        for (let daysAhead = 1; daysAhead <= 30; daysAhead++) {
+          const testDate = dayjs(currentDate).add(daysAhead, 'day').format('YYYY-MM-DD');
+          const fullDaySlots = generateAllDaySlots(testDate, 15);
+          const availableSlotMap = new Map<string, Slots>();
+
+          filteredVendors.forEach((vendor) => {
+            if (!vendor.work_hours) return;
+
+            const vendorTimezone = vendor.work_hours.timezone || 'America/Vancouver';
+            const targetTimezone = propertyTimezone || 'America/Vancouver';
+
+            const convertedWorkHours = convertVendorWorkHoursToPropertyTimezone(
+              testDate,
+              vendor.work_hours,
+              vendorTimezone,
+              targetTimezone
+            );
+
+            const vendorSlots = generateMarkedSlots(
+              testDate,
+              convertedWorkHours,
+              vendor.uuid ?? '',
+              AllBookedSlots,
+              otherServiceSlots.filter(s => s.date === testDate),
+              vendor.additional_breaks || [],
+              vendor.calendar_events || [],
+              15
+            );
+
+            vendorSlots.forEach((slot) => {
+              const key = `${slot.start}_${slot.end}`;
+              availableSlotMap.set(key, slot);
+            });
+          });
+
+          // Check if this day has any available slots
+          const hasSlots = fullDaySlots.some(slot => {
+            const key = `${slot.start}_${slot.end}`;
+            return availableSlotMap.has(key);
+          });
+
+          if (hasSlots) {
+            // Found a day with available slots, navigate to it
+            const calendarApi = calendarRef.current?.getApi();
+            if (calendarApi) {
+              setTimeout(() => {
+                calendarApi.gotoDate(testDate);
+                setCurrentDate(testDate);
+                setSelectedDate(testDate);
+              }, 100);
+            }
+            break;
+          }
+        }
+      };
+
+      searchForNextAvailableDay();
+    }
+  }, [events, vendorsData, selectedVendors, currentDate, selectedSlots, service.uuid, AllBookedSlots, propertyTimezone, setSelectedDate]);
+
   const vendorsKey = JSON.stringify(selectedVendors);
   useEffect(() => {
     hasScrolledToFirstSlot.current = false;
-  }, [vendorsKey, currentDate]);
+    hasCheckedForNextAvailableDay.current = false; // Reset when vendors change
+  }, [vendorsKey]); // Only reset on vendor change, not date change
 
-  const prevVendorsRef = React.useRef<string[]>([]);
+
   const prevDateRef = React.useRef<string>(currentDate);
+  const isFirstRender = React.useRef(true);
+
+
+  const vendorsString = JSON.stringify(selectedVendors);
+  const prevVendorsString = React.useRef(vendorsString);
 
   useEffect(() => {
     if (id) return;
 
-    const vendorsChanged =
-      JSON.stringify(prevVendorsRef.current) !== JSON.stringify(selectedVendors);
+    // Skip on first render to prevent clearing slots on component mount/remount
+    if (isFirstRender.current) {
+      console.log('OneDayCalendar: First render, skipping slot clear');
+      isFirstRender.current = false;
+      prevVendorsString.current = vendorsString;
+      prevDateRef.current = currentDate;
+      return;
+    }
+
+    const vendorsChanged = prevVendorsString.current !== vendorsString;
     const dateChanged = prevDateRef.current !== currentDate;
 
     if (vendorsChanged || dateChanged) {
-      setSelectedSlots((prev: Slot[]) =>
-        prev.filter((slot: Slot) => slot.service_id !== service.uuid)
-      );
+      // We do NOT clear slots anymore based on user feedback.
+      // Slots should persist even if view date or vendors list changes (e.g. via filter).
+      // User must explicitly remove them.
 
-      prevVendorsRef.current = selectedVendors;
+      console.log('OneDayCalendar: Date or Vendors changed, preserving slots.', {
+        vendorsChanged,
+        dateChanged,
+        prevVendors: prevVendorsString.current,
+        newVendors: vendorsString,
+        prevDate: prevDateRef.current,
+        newDate: currentDate
+      });
+      // REMOVED CLEARING LOGIC
+      // setSelectedSlots((prev: Slot[]) =>
+      //    prev.filter((slot: Slot) => slot.service_id !== service.uuid)
+      // );
+
+      prevVendorsString.current = vendorsString;
       prevDateRef.current = currentDate;
     }
-  }, [selectedVendors, currentDate, id, setSelectedSlots, service.uuid]);
+  }, [vendorsString, currentDate, id, setSelectedSlots, service.uuid]);
+
 
   function geocodeAddress(address: string): Promise<string> {
     const geocoder = new window.google.maps.Geocoder();
@@ -764,7 +884,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       position: sticky !important;
       top: 0 !important;
       background: #EEEEEE !important;
-      z-index: 100 !important;
+      z-index: 10 !important;
       margin-bottom: 0 !important;
       padding-top: 10px;
       padding-bottom: 10px;
@@ -773,65 +893,115 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
   `;
 
   return (
-    <div ref={containerRef} className="mt-[20px] relative custom-scroll" style={{
-      border: '2px solid #BBBBBB',
-      borderRadius: '6px',
-      maxHeight: 430,
-      height: 430,
-      overflowY: 'auto',
-      width: '100%',
-    }}>
-      <FullCalendar
-        ref={calendarRef}
-        plugins={[timeGridPlugin]}
-        initialView="timeGridDay"
-        slotDuration="00:15:00"
-        slotLabelInterval="00:15:00"
-        slotMinTime="00:00:00"
-        slotMaxTime="24:00:00"
-        allDaySlot={false}
-        events={events}
-        eventContent={(eventInfo) => {
-          const isRecommended = eventInfo.event.classNames.includes('slot-recommended');
+    <>
+      <div ref={containerRef} className="mt-[20px] relative custom-scroll" style={{
+        border: selectedSlots.some(s => s.service_id === service.uuid) ? '3px solid #6bae41' : '2px solid #BBBBBB',
+        borderRadius: '6px',
+        maxHeight: 430,
+        height: 430,
+        overflowY: 'auto',
+        width: '100%',
+      }}>
+        <FullCalendar
+          ref={calendarRef}
+          plugins={[timeGridPlugin]}
+          initialView="timeGridDay"
+          slotDuration="00:15:00"
+          slotLabelInterval="00:15:00"
+          slotMinTime="00:00:00"
+          slotMaxTime="24:00:00"
+          allDaySlot={false}
+          events={events}
+          eventContent={(eventInfo) => {
+            const isRecommended = eventInfo.event.classNames.includes('slot-recommended');
 
-          return (
-            <div className="fc-event-main-frame w-full h-full relative flex items-center justify-center">
-              <div className="fc-event-title fc-sticky text-center" style={{ fontSize: '9px', color: '#424242' }}>
-                {eventInfo.event.title}
-              </div>
-              {isRecommended && (
-                <div className="recommended-corner-indicator">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
+            return (
+              <div className="fc-event-main-frame w-full h-full relative flex items-center justify-center">
+                <div className="fc-event-title fc-sticky text-center" style={{ fontSize: '9px', color: '#424242' }}>
+                  {eventInfo.event.title}
                 </div>
+                {isRecommended && (
+                  <div className="recommended-corner-indicator">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  </div>
+                )}
+              </div>
+            );
+          }}
+          height="auto"
+          dayHeaders={false}
+          eventClick={onEventClick}
+          selectable={true}
+          editable={true}
+          initialDate={initialDateStr}
+          headerToolbar={{
+            left: 'prev,next',
+            center: 'title',
+            right: ''
+          }}
+          titleFormat={{ weekday: 'short', day: 'numeric' }}
+          datesSet={(arg: DatesSetArg) => {
+            const calendarDate = dayjs(arg.start).format('YYYY-MM-DD');
+            setCurrentDate(calendarDate);
+            setSelectedDate(calendarDate)
+          }}
+        />
+
+        {showVendorModal && clickedSlot && (
+          <div
+            onClick={() => setShowVendorModal(false)}
+            style={{ height: '-webkit-fill-available' }}
+            className="sticky top-0 inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#EEEEEE] rounded-lg p-4 w-[300px] shadow-lg">
+              {availableSlotVendors.length === 0 ? (
+                <p className="text-gray-500">No vendors available for this service at selected time.</p>
+              ) : (
+                <ul className="space-y-2 max-h-60 overflow-y-auto">
+                  {[...availableSlotVendors]
+                    .sort((a, b) => {
+                      const timeA = vendorDistances[a.uuid ?? ''] ?? Infinity;
+                      const timeB = vendorDistances[b.uuid ?? ''] ?? Infinity;
+                      return timeA - timeB;
+                    })
+                    .map((vendor: VendorData) => {
+                      const travelTime = vendor.uuid ? vendorDistances[vendor.uuid] : undefined;
+                      const color = getDistanceColor(travelTime);
+                      const formatTravelTime = (seconds: number) => {
+                        const h = Math.floor(seconds / 3600);
+                        const m = Math.floor((seconds % 3600) / 60);
+                        if (h > 0) return `${h}h ${m}m`;
+                        return `${m}m`;
+                      };
+
+                      return (
+                        <li
+                          key={vendor.uuid}
+                          className="cursor-pointer p-2 flex items-center gap-1 hover:bg-gray-100"
+                          onClick={() => handleAssignVendor(vendor, clickedSlot)}
+                        >
+                          <span
+                            style={{ backgroundColor: color }}
+                            className={`flex h-[16px] w-[5px]`}></span>
+                          <span className='text-[14px] truncate'>{vendor.first_name} {vendor.last_name}</span>
+                          {travelTime !== undefined && (
+                            <span className="text-gray-500 text-[12px] ml-auto">
+                              ({formatTravelTime(travelTime)})
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
+                </ul>
               )}
             </div>
-          );
-        }}
-        height="auto"
-        dayHeaders={false}
-        eventClick={onEventClick}
-        selectable={true}
-        editable={true}
-        initialDate={initialDateStr}
-        headerToolbar={{
-          left: 'prev,next',
-          center: 'title',
-          right: ''
-        }}
-        titleFormat={{ weekday: 'short', day: 'numeric' }}
-        datesSet={(arg: DatesSetArg) => {
-          const calendarDate = dayjs(arg.start).format('YYYY-MM-DD');
-          setCurrentDate(calendarDate);
-          setSelectedDate(calendarDate)
-        }}
-        validRange={{
-          start: dayjs(initialDateStr).isBefore(dayjs().format("YYYY-MM-DD"))
-            ? initialDateStr
-            : dayjs().format("YYYY-MM-DD")
-        }}
-      />
+          </div>
+        )}
+        <style>{customStyles}</style>
+      </div>
 
       {twilightData && (
         <div className="mt-4 p-3 bg-gray-50 rounded-md border border-[#EEEEEE]">
@@ -846,41 +1016,6 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           </div>
         </div>
       )}
-
-      {showVendorModal && clickedSlot && (
-        <div
-          onClick={() => setShowVendorModal(false)}
-          style={{ height: '-webkit-fill-available' }}
-          className="sticky top-0 inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-[#EEEEEE] rounded-lg p-4 w-[300px] shadow-lg">
-            {availableSlotVendors.length === 0 ? (
-              <p className="text-gray-500">No vendors available for this service at selected time.</p>
-            ) : (
-              <ul className="space-y-2 max-h-60 overflow-y-auto">
-                {availableSlotVendors.map((vendor: VendorData) => {
-                  const travelTime = vendor.uuid ? vendorDistances[vendor.uuid] : undefined;
-                  const color = getDistanceColor(travelTime);
-                  return (
-                    <li
-                      key={vendor.uuid}
-                      className="cursor-pointer p-2 flex items-center gap-1 hover:bg-gray-100"
-                      onClick={() => handleAssignVendor(vendor, clickedSlot)}
-                    >
-                      <span
-                        style={{ backgroundColor: color }}
-                        className={`flex h-[16px] w-[5px]`}></span>
-                      <span className='text-[14px]'>{vendor.first_name} {vendor.last_name}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        </div>
-      )}
-      <style>{customStyles}</style>
-    </div>
+    </>
   );
 }

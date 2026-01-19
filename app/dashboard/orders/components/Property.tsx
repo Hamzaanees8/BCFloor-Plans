@@ -1,14 +1,14 @@
 import { Get } from '@/app/dashboard/agents/agents';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Agent } from '../../../../components/AgentTable';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
+
 import { ArrowDown, ArrowUp, DropDownArrow, EditIcon3 } from '../../../../components/Icons';
 import { Check, Plus, Loader2 } from 'lucide-react';
 import AddAgentDialog from './AddAgentDialog';
 import { Listings } from '@/app/dashboard/listings/page';
 import { GetListing } from '@/app/dashboard/listings/listing';
 import { Country, State } from "country-state-city";
-import { GetOneListing } from "../../listings/listing"
+import { GetOneListing, fetchMlsData } from "../../listings/listing"
 //import AddListingDialog from './AddListingDialog';
 import { useOrderContext } from '../context/OrderContext';
 import { toast } from 'sonner';
@@ -17,9 +17,11 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { CreateListings, EditListings, GetServices, GetVendors, Get as GetOrders } from '../orders';
+import { EditListings, GetServices, GetVendors, Get as GetOrders } from '../orders';
 import { useAppContext } from '@/app/context/AppContext';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import GooglePlacesAutocomplete from '../../calendar/components/AutoCompleteInput';
+import { SearchableSelect } from './SearchableSelect';
 
 declare global {
     interface Window {
@@ -71,7 +73,7 @@ type Listing = {
     country?: string;
     orders?: Order[];
 };
-const Property = () => {
+const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }) => {
     const {
         selectedAgentId,
         setSelectedAgentId,
@@ -83,16 +85,18 @@ const Property = () => {
         setServicesData,
         setVendorsData,
         setOrdersData,
+        tempPropertyData,
+        setTempPropertyData,
+        setIsPropertyValid,
     } = useOrderContext();
     const { userType } = useAppContext()
     // Using context data directly where possible, but keeping local state for immediate UI responsiveness if needed 
     // or just synchronizing them. For now, let's keep local states and sync them to context.
     const [agentData, setAgentData] = useState<Agent[]>([]);
+    const [agent, setAgent] = useState<{ uuid: string; first_name: string; last_name: string; email: string; created_at: string }[]>([]);
     const [listingData, setListingData] = useState<Listings[]>([]);
-    const [isEditingAgent, setIsEditingAgent] = useState(false);
     const [searchValue, setSearchValue] = useState("");
     const [listingSearchValue, setListingSearchValue] = useState("");
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     //const [isEditingListing, setIsEditingListing] = useState(false);
     const selectedAgent = useMemo(() => {
@@ -102,9 +106,12 @@ const Property = () => {
         return listingData.find((listing) => listing.uuid === selectedListingId) || null;
     }, [listingData, selectedListingId]);
     const [openAddAgentDialog, setOpenAddAgentDialog] = useState(false);
+    const [isEditingAgent, setIsEditingAgent] = useState(false);
     const [openAddListingDialog, setOpenAddListingDialog] = useState(true);
     const [openListing, setOpenListing] = useState(false);
     const [openAgent, setOpenAgent] = useState(false);
+
+
     const fetchAgents = useCallback(() => {
         const token = localStorage.getItem("token");
 
@@ -116,6 +123,7 @@ const Property = () => {
         Get()
             .then((data) => {
                 const allAgents = Array.isArray(data.data) ? data.data : [];
+                setAgent(allAgents);
 
                 // ✅ Only include agents where status is true
                 const filteredAgents = allAgents.filter((agent: Agent) => agent.status === true);
@@ -124,7 +132,7 @@ const Property = () => {
                 setAgentsData(filteredAgents);
             })
             .catch((err) => console.log("Error fetching data:", err.message));
-    }, [setAgentsData]);
+    }, [setAgentsData, setAgent]);
 
     useEffect(() => {
         fetchAgents();
@@ -209,7 +217,7 @@ const Property = () => {
     const [province, setProvince] = useState("");
     const [postalCode, setPostalCode] = useState("");
     const [country, setCountry] = useState("CA");
-    const [countries, setCountries] = useState<{ name: string; isoCode: string }[]>([]);
+
     const [states, setStates] = useState<{ name: string; isoCode: string }[]>([]);
     const [squareFootage, setSquareFootage] = useState("");
     const [lotSize, setLotSize] = useState<string | "">("");
@@ -219,11 +227,55 @@ const Property = () => {
     const [propertyStatus, setPropertyStatus] = useState("");
     const [heading, setHeading] = useState("");
     const [description, setDescription] = useState("");
-    const [googleSuggestions, setGoogleSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
-    const [agent, setAgent] = useState<{ uuid: string; first_name: string; last_name: string; email: string; created_at: string }[]>([]);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
-    const [highlightedIndex, setHighlightedIndex] = useState(0); // Track highlighted suggestion
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '');
+
+    const sortedCountries = useMemo(() => {
+        const allCountries = Country.getAllCountries().map(c => ({
+            label: c.name,
+            value: c.isoCode
+        }));
+
+        const priorityCodes = ['CA', 'US'];
+        const priorityCountries = allCountries.filter(c => priorityCodes.includes(c.value));
+        const otherCountries = allCountries.filter(c => !priorityCodes.includes(c.value));
+
+        // Sort priority countries to ensure CA comes first if needed, or maintain order
+        priorityCountries.sort((a, b) => priorityCodes.indexOf(a.value) - priorityCodes.indexOf(b.value));
+
+        return [...priorityCountries, ...otherCountries];
+    }, []);
+
+    const provinceOptions = useMemo(() => {
+        return states.map(s => ({
+            label: s.name,
+            value: s.isoCode
+        }));
+    }, [states]);
+
+    const agentOptions = useMemo(() => {
+        return agent?.map(ag => ({
+            label: `${ag.first_name} ${ag.last_name}`,
+            value: ag.uuid
+        })) || [];
+    }, [agent]);
+
+    const propertyTypeOptions = [
+        { label: "Detached Home", value: "Detached Home" },
+        { label: "Semi-Detached", value: "Semi-Detached" },
+        { label: "Townhouse", value: "Townhouse" },
+        { label: "Condo", value: "Condo" },
+        { label: "Apartment", value: "Apartment" },
+    ];
+
+    const propertyStatusOptions = [
+        { label: "Just listed", value: "Just listed" },
+        { label: "Under contract", value: "Under contract" },
+        { label: "Sold", value: "Sold" },
+        { label: "Pending", value: "Pending" },
+        { label: "Withdrawn", value: "Withdrawn" },
+        { label: "Expired", value: "Expired" },
+    ];
 
     useEffect(() => {
         const currentListing = listingData.find((list) => list.uuid === selectedListingId)
@@ -241,6 +293,13 @@ const Property = () => {
     }, [userInfo, setSelectedAgentId, userType])
 
     useEffect(() => {
+        if (selectedAgentId) {
+            setConnectedAgent(selectedAgentId);
+        }
+    }, [selectedAgentId]);
+
+
+    useEffect(() => {
         if (states.length && currentListing && currentListing?.province) {
             const match = states.find((s) => s.isoCode === currentListing.province);
             if (match) {
@@ -250,15 +309,18 @@ const Property = () => {
     }, [states, currentListing]);
 
     useEffect(() => {
-        setCountries(Country.getAllCountries());
-    }, []);
-    useEffect(() => {
-        if (openListing) { setOpenAddListingDialog(false) }
-    }, [openListing])
+        const isValid = !!(address?.trim() && selectedAgentId);
+        setIsPropertyValid(isValid);
+    }, [address, squareFootage, selectedAgentId, setIsPropertyValid]);
+
+
+    //     useEffect(() => {
+    //         setCountries(Country.getAllCountries());
+    //     }, []);
+
     useEffect(() => {
         if (country) {
             setStates(State.getStatesOfCountry(country));
-            setProvince("");
         }
     }, [country]);
     useEffect(() => {
@@ -276,30 +338,13 @@ const Property = () => {
             return;
         }
 
-        if (openAddListingDialog && selectedListingId) {
+        if (selectedListingId) {
             GetOneListing(selectedListingId)
                 .then(data => setCurrentListing(data.data))
                 .catch(err => console.log(err.message));
-        } else {
-            console.log('Agent ID is undefined.');
         }
+
     }, [selectedListingId, openAddListingDialog]);
-    useEffect(() => {
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-            console.log('Token not found.')
-            return;
-        }
-
-        if (token) {
-            Get()
-                .then(data => setAgent(data.data))
-                .catch(err => console.log(err.message));
-        } else {
-            console.log('User ID is undefined.');
-        }
-    }, []);
     useEffect(() => {
         if (currentListing) {
             setConnectedAgent(currentListing.agent.uuid);
@@ -321,12 +366,32 @@ const Property = () => {
             setProvince(currentListing.province);
             setPostalCode(currentListing.postal_code || "");
             setCountry(currentListing.country || "CA");
+        } else if (tempPropertyData && !selectedListingId) {
+            // Restore from tempPropertyData if no listing is selected
+            setConnectedAgent(tempPropertyData.agent_id || "");
+            setListingPrice(tempPropertyData.listing_price?.toString() || "");
+            setMls(tempPropertyData.mls_number || "");
+            setBedrooms(tempPropertyData.bedrooms ?? "");
+            setBathrooms(tempPropertyData.bathrooms ?? "");
+            setSquareFootage(tempPropertyData.square_footage?.toString() || "");
+            setLotSize(tempPropertyData.lot_size?.toString() || "");
+            setYearConstructed(tempPropertyData.year_constructed?.toString() || "");
+            setParkingSpots(tempPropertyData.parking_spots?.toString() || "");
+            setPropertyType(tempPropertyData.property_type || "");
+            setPropertyStatus(tempPropertyData.property_status || "");
+            setHeading(tempPropertyData.heading || "");
+            setDescription(tempPropertyData.description || "");
+            setSuite(tempPropertyData.suite || "");
+            setAddress(tempPropertyData.address || "");
+            setCity(tempPropertyData.city || "");
+            setProvince(tempPropertyData.province || "");
+            setPostalCode(tempPropertyData.postal_code || "");
+            setCountry(tempPropertyData.country || "CA");
         }
-    }, [currentListing]);
+    }, [currentListing, tempPropertyData, selectedListingId]);
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Validate agent selection
         if (!connectedAgent) {
             toast.error('Agent field is required. Please select an agent.');
             return;
@@ -357,38 +422,25 @@ const Property = () => {
                 postal_code: postalCode,
                 country: country,
             };
-            // const cleanedPayload = {
-            //     ...payload,
-            //     ...(payload.year_constructed === 0 && { year_constructed: undefined }),
-            // };
+
             if (currentListing?.uuid) {
-                // Add _method: 'PUT' to payload for method override
                 const updatedPayload = { ...payload, _method: 'PUT' };
                 await EditListings(currentListing.uuid, updatedPayload, token);
-                toast.success('Listing updated successfully');
+                if (selectedListingId === currentListing.uuid) {
+                    setTempPropertyData(payload);
+                }
                 resetForm();
-                // setIsLoading(true)
-                // setOpenSaveDialog(true)
-                // setIsLoading(false)
                 setOpenAddListingDialog(false);
-                //setOpenSaveDialog(false)
                 fetchListings();
             } else {
-                await CreateListings(payload, token);
-                toast.success('Listing created successfully');
-                resetForm();
-                // setIsLoading(true)
-                // setOpenSaveDialog(true)
-                // setIsLoading(false)
+                setTempPropertyData(payload);
+                setSelectedListingId(null);
+                if (onSetActiveTab) onSetActiveTab("services");
                 setOpenAddListingDialog(false);
-                //setOpenSaveDialog(false)
-                fetchListings();
             }
 
         } catch (error) {
             console.log('Raw error:', error);
-            // setIsLoading(false)
-            // setOpenSaveDialog(false)
             setFieldErrors({});
             const apiError = error as { message?: string; errors?: Record<string, string[]> };
 
@@ -405,8 +457,6 @@ const Property = () => {
 
                 setFieldErrors(normalizedErrors);
 
-                // const firstError = Object.values(normalizedErrors).flat()[0];
-                // toast.error(firstError || 'Validation error');
             } else if (error instanceof Error) {
                 toast.error(error.message);
             } else {
@@ -438,6 +488,108 @@ const Property = () => {
         setPostalCode('');
         setCountry('CA');
     };
+    const handleMlsFetch = async (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.preventDefault();
+
+        if (!mls) {
+            toast.error("Please enter an MLS number first");
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const response = await fetchMlsData(mls);
+
+            const mls_data = response.mls || response;
+
+            if (mls_data && !mls_data.error) {
+                // Populate fields
+                setListingPrice(mls_data.listPrice?.toString() || "");
+                setBedrooms(mls_data.details?.numBedrooms?.toString() || "");
+                setBathrooms(mls_data.details?.numBathrooms?.toString() || "");
+
+                const style = mls_data.details?.style || "";
+                if (style.includes("Single Family Residence")) {
+                    setPropertyType("Detached Home");
+                } else if (style.includes("Townhouse") || style.includes("Townhome")) {
+                    setPropertyType("Townhouse");
+                } else if (style.includes("Condo") || style.includes("Condominium")) {
+                    setPropertyType("Condo");
+                } else if (style.includes("Apartment")) {
+                    setPropertyType("Apartment");
+                } else if (style.includes("Commercial")) {
+                    setPropertyType("Commercial");
+                }
+
+                setSquareFootage(mls_data.details?.sqft?.toString() || "");
+                setYearConstructed(mls_data.details?.yearBuilt?.toString() || "");
+
+                const parkingSpaces = mls_data.details?.numParkingSpaces || mls_data.details?.numDrivewaySpaces;
+                setParkingSpots(parkingSpaces?.toString() || "");
+
+                const standardStatus = mls_data.standardStatus || "";
+                if (standardStatus.includes("Active Under Contract")) {
+                    setPropertyStatus("Under contract");
+                } else if (mls_data.status === "A") {
+                    setPropertyStatus("Just listed");
+                } else if (mls_data.status === "S" || mls_data.status === "Sld") {
+                    setPropertyStatus("Sold");
+                } else if (mls_data.status === "P") {
+                    setPropertyStatus("Pending");
+                }
+
+                const addressParts = [];
+                if (mls_data.address?.streetNumber) addressParts.push(mls_data.address.streetNumber);
+                if (mls_data.address?.streetName) addressParts.push(mls_data.address.streetName);
+                if (mls_data.address?.streetSuffix) addressParts.push(mls_data.address.streetSuffix);
+
+                const fullAddress = addressParts.join(" ");
+                setAddress(fullAddress.trim());
+
+                setCity(mls_data.address?.city || "");
+                setPostalCode(mls_data.address?.zip || "");
+
+                if (mls_data.address?.state === "NC") {
+                    setCountry("US");
+                    setProvince("NC");
+                } else if (mls_data.address?.country === "US" || mls_data.address?.state) {
+                    setCountry("US");
+                    if (mls_data.address?.state) {
+                        setProvince(mls_data.address.state);
+                    }
+                }
+
+                if (mls_data.lot?.size) {
+                    setLotSize(mls_data.lot.size.toString());
+                } else if (mls_data.lot?.squareFeet) {
+                    const acres = mls_data.lot.squareFeet / 43560;
+                    setLotSize(acres.toFixed(2));
+                } else if (mls_data.lot?.acres) {
+                    setLotSize(mls_data.lot.acres.toString());
+                }
+
+                setDescription(mls_data.details?.description || "");
+
+                if (!heading || heading.trim() === "") {
+                    const generatedHeading = `${mls_data.address?.streetNumber || ""} ${mls_data.address?.streetName || ""} ${mls_data.details?.style || "Property"}`;
+                    setHeading(generatedHeading.trim());
+                }
+
+                if (mls_data.address?.unitNumber) {
+                    setSuite(mls_data.address.unitNumber);
+                }
+
+                toast.success("MLS data fetched and populated successfully!");
+            } else {
+                toast.error("Failed to fetch MLS data or no data returned");
+            }
+        } catch (error) {
+            console.error("Error fetching MLS data:", error);
+            toast.error("Error fetching MLS data.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
     const filteredAgents = useMemo(() => {
         const keyword = searchValue.trim().toLowerCase();
 
@@ -463,99 +615,6 @@ const Property = () => {
             return label.includes(keyword);
         });
     }, [listingSearchValue, listingData, selectedAgentId]);
-    const fetchGoogleSuggestions = (input: string) => {
-        if (!input) return setGoogleSuggestions([]);
-
-        const service = new window.google.maps.places.AutocompleteService();
-        service.getPlacePredictions({
-            input,
-            componentRestrictions: { country: 'ca' } // Restrict to Canada only
-        }, (predictions: google.maps.places.AutocompletePrediction[] | null, status: google.maps.places.PlacesServiceStatus) => {
-            if (status === window.google.maps.places.PlacesServiceStatus.OK) {
-                setGoogleSuggestions(predictions || []);
-                setHighlightedIndex(0); // Reset to first item
-            } else {
-                setGoogleSuggestions([]);
-            }
-        });
-    };
-
-    const handleGooglePlaceSelect = (placeId: string) => {
-        const service = new window.google.maps.places.PlacesService(document.createElement('div'));
-
-        service.getDetails(
-            {
-                placeId: placeId,
-                fields: ['address_components', 'formatted_address', 'geometry']
-            },
-            (place: google.maps.places.PlaceResult | null, status: google.maps.places.PlacesServiceStatus) => {
-                if (status === window.google.maps.places.PlacesServiceStatus.OK && place && place.address_components) {
-                    const components = place.address_components;
-                    const getLong = (types: string[]) =>
-                        components.find((c: google.maps.GeocoderAddressComponent) => types.some((t: string) => c.types.includes(t)))?.long_name || '';
-                    const getShort = (types: string[]) =>
-                        components.find((c: google.maps.GeocoderAddressComponent) => types.some((t: string) => c.types.includes(t)))?.short_name || '';
-
-                    // Extract address components
-                    const streetNumber = getLong(['street_number']);
-                    const route = getLong(['route']);
-                    const streetAddress = streetNumber && route ? `${streetNumber} ${route}` : (streetNumber || route || '');
-
-                    const postalCode = getLong(['postal_code']);
-                    const city = getLong(['locality']) || getLong(['sublocality']) || getLong(['administrative_area_level_3']);
-                    const provinceIsoCode = getShort(['administrative_area_level_1']);
-                    const countryIsoCode = getShort(['country']) || 'CA';
-
-                    setCountry(countryIsoCode);
-
-                    setAddress(streetAddress || place.formatted_address || '');
-                    setCity(city);
-                    setPostalCode(postalCode);
-
-                    // Set province after a short delay to ensure states are loaded
-                    setTimeout(() => {
-                        setProvince(provinceIsoCode);
-                    }, 100);
-
-                    // Close dropdowns
-                    setIsDropdownOpen(false);
-                    setOpenListing(false);
-                    setListingSearchValue("");
-                } else {
-                    console.error('PlacesService failed:', status);
-                }
-            }
-        );
-    };
-    const wrapperRef = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-                setIsDropdownOpen(false);
-            }
-        };
-
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    const handleAddressKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (!isDropdownOpen || googleSuggestions.length === 0) return;
-
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            setHighlightedIndex((prev) => (prev + 1) % googleSuggestions.length);
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            setHighlightedIndex((prev) => (prev - 1 + googleSuggestions.length) % googleSuggestions.length);
-        } else if (e.key === 'Enter') {
-            e.preventDefault();
-            if (googleSuggestions[highlightedIndex]) {
-                handleGooglePlaceSelect(googleSuggestions[highlightedIndex].place_id);
-                setIsDropdownOpen(false);
-            }
-        }
-    };
 
     return (
         <div className='pt-7 pl-[257px] pr-[211px] pb-[80px] font-alexandria'>
@@ -640,14 +699,17 @@ const Property = () => {
                                 <EditIcon3 />
                             </div>
                         </div>
-                        <div className={`${userType == 'admin' ? 'flex' : 'hidden'}  items-center gap-x-[3px] cursor-pointer`} onClick={() => {
-                            setIsEditingAgent(false);
-                            setOpenAddAgentDialog(true);
-                            setSelectedAgentId(null);
-                        }}>
-                            <Plus className='w-[12px] h-[12px] bg-[#1E6FCC] text-white' />
-                            <p className='text-[10px] font-semibold font-raleway text-[#1E6FCC]'>Create New Agent</p>
-                        </div>
+                        <button
+                            className={`${userType == 'admin' ? 'flex' : 'hidden'} items-center gap-2 px-4 py-2 rounded-md border border-[#1E6FCC] text-[#1E6FCC] hover:bg-[#1E6FCC]/10 transition-colors`}
+                            onClick={() => {
+                                setIsEditingAgent(false);
+                                setOpenAddAgentDialog(true);
+                                setSelectedAgentId(null);
+                            }}
+                        >
+                            <Plus className='w-4 h-4' />
+                            <span className='text-sm font-medium'>Create New Agent</span>
+                        </button>
                         <AddAgentDialog
                             open={openAddAgentDialog}
                             setOpen={setOpenAddAgentDialog}
@@ -686,6 +748,11 @@ const Property = () => {
                             <p className='text-[#666666] font-[400] text-[16px]'>
                                 {selectedAgent.primary_phone}
                             </p>
+                            {selectedAgent.notes && (
+                                <p className='text-[#666666] font-[400] text-[16px]'>
+                                    <span className='font-[600]'>Notes: </span> {selectedAgent.notes}
+                                </p>
+                            )}
                         </div>
                     )}
                 </div>
@@ -719,7 +786,6 @@ const Property = () => {
                                             value={listingSearchValue}
                                             onValueChange={(val) => {
                                                 setListingSearchValue(val);
-                                                fetchGoogleSuggestions(val); // Custom function
                                             }}
                                             className="h-9"
                                         />
@@ -733,6 +799,7 @@ const Property = () => {
                                                             onSelect={() => {
                                                                 setSelectedListingId(listing.uuid);
                                                                 setOpenListing(false);
+                                                                setOpenAddListingDialog(false);
                                                                 setListingSearchValue("");
                                                             }}
                                                             className="cursor-pointer"
@@ -747,27 +814,9 @@ const Property = () => {
                                                         </CommandItem>
                                                     ))
                                                 ) : (
-                                                    googleSuggestions.map((suggestion) => (
-                                                        <CommandItem
-                                                            key={suggestion.place_id}
-                                                            onSelect={() => {
-                                                                setSelectedListingId(null)
-                                                                handleGooglePlaceSelect(suggestion.place_id);
-                                                                setOpenAddListingDialog(true);
-                                                                setCurrentListing(null)
-                                                            }}
-
-                                                            className="cursor-pointer"
-                                                        >
-                                                            {/* Spacer where the checkmark would go, to align with internal listings */}
-                                                            <span className="mr-2 h-4 w-4 inline-block" />
-
-                                                            <span className="text-black font-normal text-sm">
-                                                                {suggestion.description}
-                                                            </span>
-                                                        </CommandItem>
-                                                    ))
-
+                                                    <div className="px-4 py-2 text-sm text-muted-foreground text-center italic">
+                                                        No listings found.
+                                                    </div>
                                                 )}
                                             </CommandGroup>
                                         </CommandList>
@@ -788,515 +837,476 @@ const Property = () => {
                             </div>
 
                         </div>
-                        <div className={`flex items-center gap-x-[3px] cursor-pointer`} onClick={() => {
-                            // setIsEditingListing(false);
-                            setOpenAddListingDialog(true);
-                            setSelectedListingId(null);
-                            setCurrentListing(null);
-                            resetForm();
-                        }}>
-                            <Plus className='w-[12px] h-[12px] bg-[#1E6FCC] text-white' />
-                            <p className='text-[10px] font-semibold font-raleway text-[#1E6FCC]'>Create New Listing</p>
-                        </div>
+                        <button
+                            className="flex items-center gap-2 px-4 py-2 rounded-md border border-[#1E6FCC] text-[#1E6FCC] hover:bg-[#1E6FCC]/10 transition-colors"
+                            onClick={() => {
+                                // setIsEditingListing(false);
+                                setOpenAddListingDialog(true);
+                                setSelectedListingId(null);
+                                setCurrentListing(null);
+                                resetForm();
+                            }}
+                        >
+                            <Plus className='w-4 h-4' />
+                            <span className='text-sm font-medium'>Create New Listing</span>
+                        </button>
 
                     </div>
-                    {selectedListing && !openAddListingDialog && (
-                        <div className='flex flex-col'>
-                            <p className={`${userType}-text font-[400] text-[20px]`}>
-                                {selectedListing.address}, {selectedListing.city}
-                            </p>
-                            <p className='text-[#666666] font-[400] text-[16px]'>
-                                {selectedListing?.agent?.first_name} {selectedListing?.agent?.last_name}
-                            </p>
-                            <p className='text-[#666666] font-[400] text-[16px]'>
-                                {selectedListing?.agent?.email}
-                            </p>
-                            <p className='text-[#666666] font-[400] text-[16px]'>
-                                {selectedListing?.agent?.primary_phone}
-                            </p>
-                            <p className='text-[#666666] font-[400] text-[16px]'>
-                                Est. {selectedListing.square_footage}ft<sup>2</sup>
-                            </p>
-                        </div>
-                    )}
-                    {openAddListingDialog && (
-                        <div className='w-full flex flex-col items-center'>
-                            <h1 className='text-[#4290E9] font-[500] text-[25px] py-4'>{currentListing?.uuid ? "Edit Listing" : "Create New Listing"}</h1>
-                            <div className='w-full  py-[16px] px-0 md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                <div className='grid grid-cols-4 gap-[16px]'>
-                                    <div className="col-span-2 flex gap-[12px]">
-                                        <div>
-                                            <label htmlFor="">Suite</label>
-                                            <Input
-                                                value={suite}
-                                                onChange={(e) => setSuite(e.target.value)}
-                                                placeholder=""
-                                                className="h-[42px] w-[60px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] text-center px-1"
-                                                type="text"
-                                            />
-                                        </div>
-                                        <div className="relative flex-1" ref={wrapperRef}>
-                                            <label htmlFor="">
-                                                Address <span className="text-red-500">*</span>
-                                            </label>
+                </div>
+                {selectedListing && !openAddListingDialog && (
+                    <div className='flex flex-col'>
+                        <p className={`${userType}-text font-[400] text-[20px]`}>
+                            {selectedListing.address}, {selectedListing.city}
+                        </p>
+                        <p className='text-[#666666] font-[400] text-[16px]'>
+                            {selectedListing?.agent?.first_name} {selectedListing?.agent?.last_name}
+                        </p>
+                        <p className='text-[#666666] font-[400] text-[16px]'>
+                            {selectedListing?.agent?.email}
+                        </p>
+                        <p className='text-[#666666] font-[400] text-[16px]'>
+                            {selectedListing?.agent?.primary_phone}
+                        </p>
+                        <p className='text-[#666666] font-[400] text-[16px]'>
+                            Est. {selectedListing.square_footage}ft<sup>2</sup>
+                        </p>
+                    </div>
+                )}
+                {openAddListingDialog && (
+                    <div className='w-full flex flex-col items-center'>
+                        <h1 className='text-[#4290E9] font-[500] text-[25px] py-4'>{currentListing?.uuid ? "Edit Listing" : "Create New Listing"}</h1>
+                        <div className='w-full  py-[16px] px-0 md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
 
-                                            {/* Address input */}
-                                            <input
-                                                type="text"
-                                                value={address}
-                                                onChange={(e) => {
-                                                    setAddress(e.target.value);
-                                                    fetchGoogleSuggestions(e.target.value);
-                                                    setIsDropdownOpen(true);
-                                                }}
-                                                onKeyDown={handleAddressKeyDown}
-                                                placeholder="e.g 4445 Parker St"
-                                                className="h-[42px] w-full bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] px-3 rounded"
-                                                autoComplete="off"
-                                            />
+                            <div className='grid grid-cols-4 gap-[16px]'>
+                                <div className="col-span-3">
+                                    <label htmlFor="">Address</label>
+                                    <GooglePlacesAutocomplete
+                                        mode="single"
+                                        addressComponents={{
+                                            address_line_1: address,
+                                            city: city,
+                                            province: province,
+                                            country: country,
+                                            postal_code: postalCode,
+                                            full_address: address
+                                        }}
+                                        onAddressComponentsChange={(comp) => {
+                                            setAddress(comp.address_line_1);
+                                            setCity(comp.city);
+                                            setProvince(comp.province);
+                                            setCountry(comp.country);
+                                            setPostalCode(comp.postal_code);
 
-                                            {/* Dropdown suggestions */}
-                                            {isDropdownOpen && googleSuggestions.length > 0 && (
-                                                <div className="absolute z-50 bg-white border border-gray-300 mt-1 w-full max-h-60 overflow-auto">
-                                                    {googleSuggestions.map((suggestion, index) => (
-                                                        <div
-                                                            key={suggestion.place_id}
-                                                            onClick={() => {
-                                                                handleGooglePlaceSelect(suggestion.place_id);
-                                                                setIsDropdownOpen(false);
-                                                            }}
-                                                            onMouseEnter={() => setHighlightedIndex(index)}
-                                                            className={`px-3 py-2 cursor-pointer !text-black !font-normal !text-sm ${index === highlightedIndex ? "bg-gray-100" : "hover:bg-gray-100"
-                                                                }`}
-                                                        >
-                                                            {suggestion.description}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
+                                            if (fieldErrors.address) {
+                                                const newErrors = { ...fieldErrors };
+                                                delete newErrors.address;
+                                                setFieldErrors(newErrors);
+                                            }
+                                        }}
+                                        fieldErrors={fieldErrors}
+                                        className="mt-[12px]"
+                                        inputClassName="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB]"
+                                        autoFocus={true}
+                                    />
+                                </div>
+                                <div className="col-span-1">
+                                    <label htmlFor="">Suite</label>
+                                    <Input
+                                        value={suite}
+                                        onChange={(e) => setSuite(e.target.value)}
+                                        placeholder=""
+                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] text-center px-1"
+                                        type="text"
+                                    />
+                                </div>
 
-                                            {/* Error message */}
-                                            {fieldErrors.address && (
-                                                <p className="text-red-500 text-[10px]">{fieldErrors.address[0]}</p>
-                                            )}
-                                        </div>
-                                    </div>
+                                <div className="col-span-1">
+                                    <label htmlFor="">City</label>
+                                    <Input
+                                        value={city}
+                                        onChange={(e) => setCity(e.target.value)}
+                                        placeholder=""
+                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        type="text"
+                                    />
+                                    {fieldErrors.city && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.city[0]}</p>}
+                                </div>
 
-                                    <div>
-                                        <label htmlFor="">City <span className="text-red-500">*</span></label>
-                                        <Input
-                                            value={city}
-                                            onChange={(e) => setCity(e.target.value)}
-                                            placeholder="e.g Burnaby"
-                                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                            type="text"
-                                        />
-                                        {fieldErrors.city && (
-                                            <p className="text-red-500 text-[10px]">
-                                                {fieldErrors.city[0]}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <div className="">
-                                        <label htmlFor="">Province <span className="text-red-500">*</span></label>
-                                        <Select
+                                <div className="col-span-1">
+                                    <label htmlFor="">{country === 'US' ? 'State' : 'Province'}</label>
+                                    <div className="mt-[12px]">
+                                        <SearchableSelect
+                                            options={provinceOptions}
                                             value={province}
-                                            onValueChange={(val) => setProvince(val)}
-                                            disabled={!states.length}
-                                        >
-                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
-                                                <SelectValue placeholder="Select Province" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {states.map((s, i) => (
-                                                    <SelectItem key={i} value={s.isoCode}>
-                                                        {s.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        {fieldErrors.province && (
-                                            <p className="text-red-500 text-[10px]">
-                                                {fieldErrors.province[0]}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <label htmlFor="">Postal Code <span className="text-red-500">*</span></label>
-                                        <Input
-                                            value={postalCode}
-                                            onChange={(e) => setPostalCode(e.target.value)}
-                                            placeholder="e.g V5H 0H4"
-                                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                            type="text"
-                                        />
-
-                                        {fieldErrors.postal_code && (
-                                            <p className="text-red-500 text-[10px]">
-                                                {fieldErrors.postal_code[0]}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <label htmlFor="">Square Footage</label>
-                                        <Input
-                                            value={squareFootage}
-                                            onChange={(e) => setSquareFootage(e.target.value)}
-                                            placeholder="e.g 2230 sq. ft."
-                                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                            type="text"
+                                            onChange={(val) => setProvince(val)}
+                                            placeholder="Select Province"
+                                            searchPlaceholder="Search province..."
+                                            className="h-[42px]"
                                         />
                                     </div>
+                                    {fieldErrors.province && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.province[0]}</p>}
+                                </div>
 
-                                    <div className='col-span-2'>
-                                        <label htmlFor="">Connected Agents</label>
-                                        <Select value={connectedAgent} onValueChange={(val) => setConnectedAgent(val)}>
-                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
-                                                <SelectValue placeholder="Select Agent" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {agent?.map((ag) => (
-                                                    <SelectItem key={ag.uuid} value={ag.uuid}>
-                                                        {ag.first_name} {ag.last_name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                <div className="col-span-1">
+                                    <label htmlFor="">Postal Code</label>
+                                    <Input
+                                        value={postalCode}
+                                        onChange={(e) => setPostalCode(e.target.value)}
+                                        placeholder=""
+                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        type="text"
+                                    />
+                                    {fieldErrors.postal_code && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.postal_code[0]}</p>}
+                                </div>
 
-                                        {fieldErrors.agent_id && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.agent_id[0]}</p>}
+                                <div className="col-span-1">
+                                    <label htmlFor="">Country</label>
+                                    <div className="mt-[12px]">
+                                        <SearchableSelect
+                                            options={sortedCountries}
+                                            value={country}
+                                            onChange={(val) => {
+                                                setCountry(val);
+                                                setProvince("");
+                                            }}
+                                            placeholder="Select Country"
+                                            searchPlaceholder="Search country..."
+                                            className="h-[42px]"
+                                        />
                                     </div>
                                 </div>
 
-                                <Accordion type="single" collapsible className="w-full">
-                                    <AccordionItem value="extra-details" className='border-0'>
-                                        <AccordionTrigger className='text-[#4290E9] font-[500] text-[16px] hover:no-underline'>Extra Details</AccordionTrigger>
-                                        <AccordionContent>
-                                            <div className='grid grid-cols-4 gap-[16px]'>
-
-                                                <div>
-                                                    <label htmlFor="" className="whitespace-nowrap">
-                                                        Country (default Canada)
-                                                    </label>
-                                                    <Select
-                                                        value={country}
-                                                        onValueChange={(val) => setCountry(val)}
-                                                    >
-                                                        <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
-                                                            <SelectValue placeholder="Select Country" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {countries.map((c, i) => (
-                                                                <SelectItem key={i} value={c.isoCode}>
-                                                                    {c.name}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>{" "}
-                                                </div>
-
-                                                <div>
-                                                    <label htmlFor="">Listing Price (CAD)</label>
-                                                    <Input
-                                                        value={listingPrice}
-                                                        onChange={(e) => setListingPrice(e.target.value)}
-                                                        placeholder="e.g 844,500"
-                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                        type="text"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label htmlFor="">MLS#</label>
-                                                    <Input
-                                                        value={mls}
-                                                        onChange={(e) => setMls(e.target.value)}
-                                                        placeholder="e.g A2206608"
-                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                        type="text"
-                                                    />
-
-                                                    {fieldErrors.mls_number && (
-                                                        <p className="text-red-500 text-[10px]">
-                                                            {fieldErrors.mls_number[0]}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <div className="relative w-full">
-                                                    <label htmlFor="bedroom" className="block text-sm font-normal">
-                                                        Bedrooms
-                                                    </label>
-                                                    <Input
-                                                        id="bedroom"
-                                                        type="number"
-                                                        placeholder="e.g 3"
-                                                        min={0}
-                                                        value={bedrooms === '' ? '' : bedrooms}
-                                                        onChange={(e) => {
-                                                            const value = e.target.value;
-
-                                                            if (value === '') {
-                                                                setBedrooms(''); // Allow clearing the input
-                                                                return;
-                                                            }
-
-                                                            const numeric = Number(value);
-                                                            if (!isNaN(numeric) && numeric >= 0) {
-                                                                setBedrooms(numeric); // Only valid numbers >= 0
-                                                            }
-                                                        }}
-                                                        className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                                    />
-
-                                                    <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                                                        <button type="button" onClick={() => setBedrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) + 1))}><ArrowUp /></button>
-                                                        <button type="button" onClick={() => setBedrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) - 1))}><ArrowDown /></button>
-                                                    </div>
-                                                </div>
-                                                <div className="relative w-full">
-                                                    <label htmlFor="bathroom" className="block text-sm font-normal">
-                                                        Bathrooms
-                                                    </label>
-                                                    <Input
-                                                        id="bathroom"
-                                                        type="number"
-                                                        placeholder="e.g 2"
-                                                        min={0}
-                                                        value={bathrooms === '' ? '' : bathrooms}
-                                                        onChange={(e) => {
-                                                            const value = e.target.value;
-
-                                                            if (value === '') {
-                                                                setBathrooms(''); // Allow clearing the input
-                                                                return;
-                                                            }
-
-                                                            const numeric = Number(value);
-                                                            if (!isNaN(numeric) && numeric >= 0) {
-                                                                setBathrooms(numeric); // Only valid numbers >= 0
-                                                            }
-                                                        }}
-                                                        className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                                    />
-
-                                                    <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                                                        <button type="button" onClick={() => setBathrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) + 1))}><ArrowUp /></button>
-                                                        <button type="button" onClick={() => setBathrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) - 1))}><ArrowDown /></button>
-                                                    </div>
-                                                </div>
-
-                                                <div>
-                                                    <label htmlFor="">Lot Size (Acres)</label>
-                                                    <Input
-                                                        value={lotSize}
-                                                        onChange={(e) => setLotSize(e.target.value)}
-                                                        placeholder="e.g 0-4,050 sq. ft."
-                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                        type="text"
-                                                    />
-                                                    {fieldErrors.lot_size && (
-                                                        <p className="text-red-500 text-[10px]">
-                                                            {fieldErrors.lot_size[0]}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <div>
-                                                    <label htmlFor="">Year Contstructed</label>
-                                                    <Input
-                                                        value={yearConstructed}
-                                                        onChange={(e) => setYearConstructed(e.target.value)}
-                                                        placeholder="e.g 2020"
-                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                        type="text"
-                                                    />
-                                                    {fieldErrors.year_constructed && (
-                                                        <p className="text-red-500 text-[10px]">
-                                                            {fieldErrors.year_constructed[0]}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <div>
-                                                    <label htmlFor="">Parking Spots</label>
-                                                    <Input
-                                                        value={parkingSpots}
-                                                        onChange={(e) => setParkingSpots(e.target.value)}
-                                                        placeholder="e.g 3"
-                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                        type="text"
-                                                    />
-                                                </div>
-                                                <div className="col-span-2">
-                                                    <label htmlFor="">Property Type</label>
-                                                    <Select
-                                                        value={propertyType}
-                                                        onValueChange={(value) => setPropertyType(value)}
-                                                    >
-                                                        <SelectTrigger className="w-full  h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
-                                                            <SelectValue placeholder="Select Property Type" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="Detached Home">
-                                                                Detached Home
-                                                            </SelectItem>
-                                                            <SelectItem value="Semi-Detached">
-                                                                Semi-Detached
-                                                            </SelectItem>
-                                                            <SelectItem value="Townhouse">Townhouse</SelectItem>
-                                                            <SelectItem value="Condo">Condo</SelectItem>
-                                                            <SelectItem value="Apartment">Apartment</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    {fieldErrors.property_type && (
-                                                        <p className="text-red-500 text-[10px]">
-                                                            {fieldErrors.property_type[0]}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <div className="col-span-2">
-                                                    <label htmlFor="">Property Status</label>
-                                                    <Select
-                                                        value={propertyStatus}
-                                                        onValueChange={(value) => setPropertyStatus(value)}
-                                                    >
-                                                        <SelectTrigger className="w-full  h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
-                                                            <SelectValue placeholder="Select Property Status" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="Just listed">
-                                                                Just listed
-                                                            </SelectItem>
-                                                            <SelectItem value="Under contract">
-                                                                Under contract
-                                                            </SelectItem>
-                                                            <SelectItem value="Sold">Sold</SelectItem>
-                                                            <SelectItem value="Pending">Pending</SelectItem>
-                                                            <SelectItem value="Withdrawn">Withdrawn</SelectItem>
-                                                            <SelectItem value="Expired">
-                                                                ConExpireddo
-                                                            </SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    {fieldErrors.property_status && (
-                                                        <p className="text-red-500 text-[10px]">
-                                                            {fieldErrors.property_status[0]}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <div className="col-span-4">
-                                                    <label htmlFor="">Heading</label>
-                                                    <Input
-                                                        value={heading}
-                                                        onChange={(e) => setHeading(e.target.value)}
-                                                        placeholder="e.g Single Family Detached Starter Home"
-                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                        type="text"
-                                                    />
-                                                    {fieldErrors.heading && (
-                                                        <p className="text-red-500 text-[10px]">
-                                                            {fieldErrors.heading[0]}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <div className="col-span-4">
-                                                    <label htmlFor="">Description</label>
-                                                    {/* <Input placeholder='Single Family Detached Starter Home' className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" /> */}
-                                                    <Textarea
-                                                        value={description}
-                                                        onChange={(e) => setDescription(e.target.value)}
-                                                        placeholder="write some description of your listing"
-                                                        className="w-full resize-none h-[100px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                    />
-                                                    {fieldErrors.description && (
-                                                        <p className="text-red-500 text-[10px]">
-                                                            {fieldErrors.description[0]}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                </Accordion>
-
-                                <div className="col-span-4 border-b border-[#BBBBBB]">
+                                <div className="col-span-1">
+                                    <label htmlFor="">Square Footage</label>
+                                    <Input
+                                        value={squareFootage}
+                                        onChange={(e) => setSquareFootage(e.target.value)}
+                                        placeholder="e.g 2230 sq. ft."
+                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        type="text"
+                                    />
                                 </div>
-                                <div className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
-                                    <button onClick={() => { setOpenAddListingDialog(false) }}
-                                        className="bg-white w-full md:w-[176px] h-[40px] text-[20px] rounded-sm font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">
-                                        Cancel
-                                    </button>
+
+                                <div className='col-span-1'>
+                                    <label htmlFor="">Connected Agents</label>
+                                    <div className="mt-[12px]">
+                                        <SearchableSelect
+                                            options={agentOptions}
+                                            value={connectedAgent}
+                                            onChange={(val) => {
+                                                setConnectedAgent(val);
+                                                setSelectedAgentId(val);
+                                            }}
+                                            placeholder="Select Agent"
+                                            searchPlaceholder="Search agent..."
+                                            className="h-[42px]"
+                                        />
+                                    </div>
+                                    {fieldErrors.agent_id && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.agent_id[0]}</p>}
+                                </div>
+
+                                <div className="col-span-1">
+                                    <label htmlFor="">MLS#</label>
+                                    <Input
+                                        value={mls}
+                                        onChange={(e) => setMls(e.target.value)}
+                                        placeholder="e.g A2206608"
+                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        type="text"
+                                    />
+                                    {fieldErrors.mls_number && (
+                                        <p className="text-red-500 text-[10px]">
+                                            {fieldErrors.mls_number[0]}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="col-span-1 flex items-end h-full">
                                     <button
-                                        onClick={(e) => { handleSubmit(e) }}
-                                        className="bg-[#4290E9] text-white hover:bg-[#005fb8] w-full rounded-sm md:w-[176px] h-[40px] font-[400] text-[20px] flex items-center justify-center gap-2"
+                                        onClick={handleMlsFetch}
+                                        className="w-full h-[42px] bg-[#4290E9] text-white rounded-[4px] hover:bg-[#005fb8] transition-colors disabled:opacity-50"
+                                        disabled={isLoading}
                                     >
-                                        {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Save"}
+                                        {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Sync with MLS"}
                                     </button>
                                 </div>
                             </div>
-                        </div>
-                    )}
-                </div>
-                {(selectedListing?.orders?.length ?? 0) > 0 && (
-                    <>
-                        <p className="text-[14px] font-[400] text-[#424242]">Listing Order History</p>
-                        <div className="flex flex-col bg-[#EEEEEE] rounded-[6px] gap-y-1.5 border border-[#BBBBBB]">
+                            <Accordion type="single" collapsible className="w-full">
+                                <AccordionItem value="extra-details" className='border-0'>
+                                    <AccordionTrigger className='text-[#4290E9] font-[500] text-[16px] hover:no-underline'>Extra Details</AccordionTrigger>
+                                    <AccordionContent>
+                                        <div className='grid grid-cols-4 gap-[16px]'>
+                                            <div>
+                                                <label htmlFor="">Listing Price (CAD)</label>
+                                                <Input
+                                                    value={listingPrice}
+                                                    onChange={(e) => setListingPrice(e.target.value)}
+                                                    placeholder="e.g 844,500"
+                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    type="text"
+                                                />
+                                            </div>
 
-                            {selectedListing?.orders?.map((order, idx) => {
-                                let statusColor = "";
-                                switch (order.order_status) {
-                                    case "Cancelled":
-                                        statusColor = "bg-[#E06D5E]";
-                                        break;
-                                    case "Processing":
-                                        statusColor = "bg-[#DC9600]";
-                                        break;
-                                    case "Completed":
-                                        statusColor = "bg-[#6BAE41]";
-                                        break;
-                                    default:
-                                        statusColor = "bg-[#BBBBBB]";
-                                }
-                                return (
-                                    <div
-                                        key={order.id ?? idx}
-                                        className="px-4 py-3 grid grid-cols-5 text-[#666666] gap-[30px]"
-                                    >
-                                        <div className="flex flex-col ">
-                                            <p className="text-[#4290E9] text-sm font-medium">
-                                                Order #{order.id} -
-                                            </p>
-                                            <p className="text-[#A8A8A8] text-[10px] font-normal">
-                                                {new Date(order.created_at).toLocaleDateString("en-US", {
-                                                    year: "2-digit",
-                                                    month: "2-digit",
-                                                    day: "2-digit",
-                                                })}
-                                            </p>
-                                        </div>
-                                        <div className="flex flex-col gap-[2px] text-[14px] font-normal col-span-2">
-                                            {order.services?.map((s, i) => (
-                                                <p key={i}>
-                                                    {s.service?.name}
-                                                    {s.option?.quantity ? ` (${s.option.quantity})` : ""}
-                                                </p>
-                                            ))}
-                                        </div>
-                                        <div className="text-[16px] font-medium">
-                                            <p>Total:</p>
-                                            <p>${parseFloat(order.amount).toFixed(2)}</p>
-                                        </div>
-                                        <div
-                                            className={`text-white place-self-center inline-flex items-center justify-center text-[10px] font-normal px-2.5 py-[2px] h-[18px] max-w-[120px] rounded-[12px] uppercase ${statusColor}`}
-                                        >
-                                            {order.order_status}
-                                        </div>
+                                            <div className="relative w-full">
+                                                <label htmlFor="bedroom" className="block text-sm font-normal">
+                                                    Bedrooms
+                                                </label>
+                                                <Input
+                                                    id="bedroom"
+                                                    type="number"
+                                                    placeholder="e.g 3"
+                                                    min={0}
+                                                    value={bedrooms === '' ? '' : bedrooms}
+                                                    onChange={(e) => {
+                                                        const value = e.target.value;
 
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </>
+                                                        if (value === '') {
+                                                            setBedrooms(''); // Allow clearing the input
+                                                            return;
+                                                        }
+
+                                                        const numeric = Number(value);
+                                                        if (!isNaN(numeric) && numeric >= 0) {
+                                                            setBedrooms(numeric); // Only valid numbers >= 0
+                                                        }
+                                                    }}
+                                                    className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                />
+
+                                                <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
+                                                    <button type="button" onClick={() => setBedrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) + 1))}><ArrowUp /></button>
+                                                    <button type="button" onClick={() => setBedrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) - 1))}><ArrowDown /></button>
+                                                </div>
+                                            </div>
+                                            <div className="relative w-full">
+                                                <label htmlFor="bathroom" className="block text-sm font-normal">
+                                                    Bathrooms
+                                                </label>
+                                                <Input
+                                                    id="bathroom"
+                                                    type="number"
+                                                    placeholder="e.g 2"
+                                                    min={0}
+                                                    value={bathrooms === '' ? '' : bathrooms}
+                                                    onChange={(e) => {
+                                                        const value = e.target.value;
+
+                                                        if (value === '') {
+                                                            setBathrooms(''); // Allow clearing the input
+                                                            return;
+                                                        }
+
+                                                        const numeric = Number(value);
+                                                        if (!isNaN(numeric) && numeric >= 0) {
+                                                            setBathrooms(numeric); // Only valid numbers >= 0
+                                                        }
+                                                    }}
+                                                    className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                />
+
+                                                <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
+                                                    <button type="button" onClick={() => setBathrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) + 1))}><ArrowUp /></button>
+                                                    <button type="button" onClick={() => setBathrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) - 1))}><ArrowDown /></button>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label htmlFor="">Lot Size (Acres)</label>
+                                                <Input
+                                                    value={lotSize}
+                                                    onChange={(e) => setLotSize(e.target.value)}
+                                                    placeholder="e.g 0-4,050 sq. ft."
+                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    type="text"
+                                                />
+                                                {fieldErrors.lot_size && (
+                                                    <p className="text-red-500 text-[10px]">
+                                                        {fieldErrors.lot_size[0]}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <label htmlFor="">Year Contstructed</label>
+                                                <Input
+                                                    value={yearConstructed}
+                                                    onChange={(e) => setYearConstructed(e.target.value)}
+                                                    placeholder="e.g 2020"
+                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    type="text"
+                                                />
+                                                {fieldErrors.year_constructed && (
+                                                    <p className="text-red-500 text-[10px]">
+                                                        {fieldErrors.year_constructed[0]}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <label htmlFor="">Parking Spots</label>
+                                                <Input
+                                                    value={parkingSpots}
+                                                    onChange={(e) => setParkingSpots(e.target.value)}
+                                                    placeholder="e.g 3"
+                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    type="text"
+                                                />
+                                            </div>
+                                            <div className="col-span-2">
+                                                <label htmlFor="">Property Type</label>
+                                                <div className="mt-[12px]">
+                                                    <SearchableSelect
+                                                        options={propertyTypeOptions}
+                                                        value={propertyType}
+                                                        onChange={(value) => setPropertyType(value)}
+                                                        placeholder="Select Property Type"
+                                                        searchPlaceholder="Search property type..."
+                                                        className="h-[42px]"
+                                                    />
+                                                </div>
+                                                {fieldErrors.property_type && (
+                                                    <p className="text-red-500 text-[10px]">
+                                                        {fieldErrors.property_type[0]}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="col-span-2">
+                                                <label htmlFor="">Property Status</label>
+                                                <div className="mt-[12px]">
+                                                    <SearchableSelect
+                                                        options={propertyStatusOptions}
+                                                        value={propertyStatus}
+                                                        onChange={(value) => setPropertyStatus(value)}
+                                                        placeholder="Select Property Status"
+                                                        searchPlaceholder="Search property status..."
+                                                        className="h-[42px]"
+                                                    />
+                                                </div>
+                                                {fieldErrors.property_status && (
+                                                    <p className="text-red-500 text-[10px]">
+                                                        {fieldErrors.property_status[0]}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="col-span-4">
+                                                <label htmlFor="">Heading</label>
+                                                <Input
+                                                    value={heading}
+                                                    onChange={(e) => setHeading(e.target.value)}
+                                                    placeholder="e.g Single Family Detached Starter Home"
+                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    type="text"
+                                                />
+                                                {fieldErrors.heading && (
+                                                    <p className="text-red-500 text-[10px]">
+                                                        {fieldErrors.heading[0]}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="col-span-4">
+                                                <label htmlFor="">Description</label>
+                                                {/* <Input placeholder='Single Family Detached Starter Home' className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" /> */}
+                                                <Textarea
+                                                    value={description}
+                                                    onChange={(e) => setDescription(e.target.value)}
+                                                    placeholder="write some description of your listing"
+                                                    className="w-full resize-none h-[100px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                />
+                                                {fieldErrors.description && (
+                                                    <p className="text-red-500 text-[10px]">
+                                                        {fieldErrors.description[0]}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            </Accordion >
+
+                            <div className="col-span-4 border-b border-[#BBBBBB]">
+                            </div>
+                            <div className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
+                                <button onClick={() => { setOpenAddListingDialog(false) }}
+                                    className="bg-white w-full md:w-[176px] h-[40px] text-[20px] rounded-sm font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">
+                                    Cancel
+                                </button>
+                                <button
+                                    disabled={isLoading || !address?.trim() || !selectedAgentId}
+                                    onClick={(e) => { handleSubmit(e) }}
+                                    className={`w-full rounded-sm md:w-[176px] h-[40px] font-[400] text-[20px] flex items-center justify-center gap-2 text-white
+                                        ${(isLoading || !address?.trim() || !selectedAgentId)
+                                            ? 'bg-gray-400 cursor-not-allowed'
+                                            : 'bg-[#4290E9] hover:bg-[#005fb8]'}`}
+
+                                >
+                                    {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Next"}
+                                </button>
+                            </div>
+                        </div >
+                    </div >
                 )}
-            </div>
-        </div>
+                {
+                    (selectedListing?.orders?.length ?? 0) > 0 && (
+                        <>
+                            <p className="text-[14px] font-[400] text-[#424242]">Listing Order History</p>
+                            <div className="flex flex-col bg-[#EEEEEE] rounded-[6px] gap-y-1.5 border border-[#BBBBBB]">
+
+                                {selectedListing?.orders?.map((order, idx) => {
+                                    let statusColor = "";
+                                    switch (order.order_status) {
+                                        case "Cancelled":
+                                            statusColor = "bg-[#E06D5E]";
+                                            break;
+                                        case "Processing":
+                                            statusColor = "bg-[#DC9600]";
+                                            break;
+                                        case "Completed":
+                                            statusColor = "bg-[#6BAE41]";
+                                            break;
+                                        default:
+                                            statusColor = "bg-[#BBBBBB]";
+                                    }
+                                    return (
+                                        <div
+                                            key={order.id ?? idx}
+                                            className="px-4 py-3 grid grid-cols-5 text-[#666666] gap-[30px]"
+                                        >
+                                            <div className="flex flex-col ">
+                                                <p className="text-[#4290E9] text-sm font-medium">
+                                                    Order #{order.id} -
+                                                </p>
+                                                <p className="text-[#A8A8A8] text-[10px] font-normal">
+                                                    {new Date(order.created_at).toLocaleDateString("en-US", {
+                                                        year: "2-digit",
+                                                        month: "2-digit",
+                                                        day: "2-digit",
+                                                    })}
+                                                </p>
+                                            </div>
+                                            <div className="flex flex-col gap-[2px] text-[14px] font-normal col-span-2">
+                                                {order.services?.map((s, i) => (
+                                                    <p key={i}>
+                                                        {s.service?.name}
+                                                        {s.option?.quantity ? ` (${s.option.quantity})` : ""}
+                                                    </p>
+                                                ))}
+                                            </div>
+                                            <div className="text-[16px] font-medium">
+                                                <p>Total:</p>
+                                                <p>${parseFloat(order.amount).toFixed(2)}</p>
+                                            </div>
+                                            <div
+                                                className={`text-white place-self-center inline-flex items-center justify-center text-[10px] font-normal px-2.5 py-[2px] h-[18px] max-w-[120px] rounded-[12px] uppercase ${statusColor}`}
+                                            >
+                                                {order.order_status}
+                                            </div>
+
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )
+                }
+            </div >
+        </div >
     )
 }
 

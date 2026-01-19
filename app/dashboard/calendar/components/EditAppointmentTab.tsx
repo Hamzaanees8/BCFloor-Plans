@@ -3,14 +3,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash } from 'lucide-react';
+import { Pencil, Plus, Trash, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react'
 import { Order } from '../../orders/page';
 import { Agent } from '@/components/AgentTable';
 import Schedule from './Schedule';
 import { Button } from '@/components/ui/button';
 import AddNotesDialog from './AddNotesDialog';
-import { AddCoAgentDialog } from './AddCoAgnets';
+import AddCoAgentDialog from '@/components/AddCoAgentDialog'
 import { useOrderContext } from '../../orders/context/OrderContext';
 import { useAppContext } from '@/app/context/AppContext';
 import Link from 'next/link';
@@ -52,6 +52,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
     const [contactEmail, setContactEmail] = useState("");
     const [openAddNotesDialog, setOpenAddNotesDialog] = useState(false);
     const [openAddDialog, setOpenAddDialog] = useState(false);
+    const [selectedCoAgent, setSelectedCoAgent] = useState<{ name: string; email: string; primary_phone: string; split: string } | null>(null);
+    const [selectedCoAgentIndex, setSelectedCoAgentIndex] = useState<number | null>(null);
     // const [coAgentEmail, setCoAgentEmail] = useState("");
     // const [agentNotes, setAgentNotes] = useState("");
     // const [vendor, setVendor] = useState("");
@@ -181,54 +183,84 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                         type="email"
                                     />
                                 </div>
-                                {coAgent && coAgent?.map((agent, idx) => {
-                                    return <div key={idx} className='col-span-5 grid grid-cols-5 gap-[16px]'>
-                                        <div className='col-span-2'>
-                                            <label htmlFor="">Co-Agent Name</label>
-                                            <Input
-                                                readOnly
-                                                value={agent.name}
-                                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                                type="text"
-                                            />
-
+                                {coAgent.length > 0 ? (
+                                    <div className="col-span-5 border border-[#BBBBBB] mt-[12px] bg-white overflow-hidden w-full rounded-[10px]">
+                                        <div className="grid grid-cols-6 gap-2 px-2 py-3 text-sm text-[#666666] font-semibold items-center border-b border-[#BBBBBB]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                                            <div className="col-span-2">NAME</div>
+                                            <div className="col-span-3">EMAIL</div>
+                                            <div className="col-span-1 text-center">ACTIONS</div>
                                         </div>
-                                        <div className='col-span-1'>
-                                            <label htmlFor="">Contact Number</label>
-                                            <Input
-                                                readOnly
-                                                value={agent.contact ? agent.contact : ''}
-                                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                                type="number"
-                                            />
+                                        {coAgent.map((agent, index) => (
+                                            <div key={index} className="grid grid-cols-6 gap-2 px-2 py-3 border-b border-[#BBBBBB] items-center hover:bg-[#F9F9F9]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                                                <div className="col-span-2 text-[#666666] text-xs break-words truncate cursor-pointer" title={agent.name}>{agent.name}</div>
+                                                <div className="col-span-3 text-[#666666] text-xs truncate cursor-pointer" title={agent.email}>{agent.email}</div>
+                                                <div className="col-span-1">
+                                                    <div className="flex items-center gap-3 justify-center">
+                                                        <span className={`cursor-pointer ${userType}-text`} onClick={() => {
+                                                            setSelectedCoAgent({
+                                                                name: agent.name,
+                                                                email: agent.email || '',
+                                                                primary_phone: agent.contact || '',
+                                                                split: ''
+                                                            });
+                                                            setSelectedCoAgentIndex(index);
+                                                            setOpenAddDialog(true);
+                                                        }}>
+                                                            <Pencil className="w-[14px] h-[14px]" />
+                                                        </span>
+                                                        <span className="cursor-pointer text-red-500 hover:text-red-700" onClick={() => {
+                                                            const updated = coAgent.filter((_, i) => i !== index);
+                                                            setCoAgent(updated);
+                                                        }}>
+                                                            <X className="w-[16px] h-[16px]" />
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="col-span-5 flex justify-center items-center h-20 text-[#666666] text-xs border border-[#BBBBBB] mt-[12px] rounded-[10px]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                                        No co-agents added yet.
+                                    </div>
+                                )}
 
-                                        </div>
-                                        <div className='col-span-2'>
-                                            <label htmlFor="">Co-agent Email</label>
-                                            <Input
-                                                readOnly
-                                                value={agent.email}
-                                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                                type="email"
-                                            />
-                                        </div></div>
-                                })}
-
-                                <div className='col-span-5 h-[50%] grid-rows-2 grid-cols-2 self-end justify-self-end flex items-center'>
-                                    <p
-                                        onClick={() => setOpenAddDialog(true)}
-                                        className={`${userType}-text text-[10px] font-semibold flex gap-[10px] cursor-pointer place-items-end pb-[10px] items-center`}>
-                                        <span className={`flex ${userType}-bg w-[15px] h-[15px] rounded-[3px] justify-center items-center`}><Plus className='text-[#F2F2F2] w-[12px]' /></span>Add Co-Agent
-                                    </p>
-
+                                <div className='col-span-5 flex justify-end items-center mt-2'>
+                                    <div
+                                        onClick={() => {
+                                            setSelectedCoAgent(null);
+                                            setSelectedCoAgentIndex(null);
+                                            setOpenAddDialog(true);
+                                        }}
+                                        className={`cursor-pointer flex items-center gap-x-[10px]`}
+                                    >
+                                        <p className={`text-base font-semibold font-raleway ${userType}-text`}>Add</p>
+                                        <Plus className={`w-[18px] h-[18px] ${userType}-bg text-white rounded-sm`} />
+                                    </div>
                                 </div>
+
                                 <AddCoAgentDialog
                                     open={openAddDialog}
                                     setOpen={setOpenAddDialog}
-                                    setCoAgents={setCoAgent}
+                                    onSuccess={(newAgent) => {
+                                        const formattedAgent: CoAgent = {
+                                            name: newAgent.name,
+                                            email: newAgent.email,
+                                            contact: newAgent.primary_phone
+                                        };
+
+                                        if (selectedCoAgentIndex !== null) {
+                                            setCoAgent((prev) => {
+                                                const updated = [...prev];
+                                                updated[selectedCoAgentIndex] = formattedAgent;
+                                                return updated;
+                                            });
+                                        } else {
+                                            setCoAgent((prev) => [...prev, formattedAgent]);
+                                        }
+                                        setOpenAddDialog(false);
+                                    }}
+                                    agent={selectedCoAgent}
                                 />
 
                             </div>

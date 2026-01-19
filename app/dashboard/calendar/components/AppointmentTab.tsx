@@ -30,7 +30,6 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
     const [contactNumber, setContactNumber] = useState("");
     const [contactEmail, setContactEmail] = useState("");
     const [coAgent, setCoAgent] = useState<CoAgent[]>([]);
-    const [firstCoAgentName, setFirstCoAgentName] = useState("");
     // const [coAgentEmail, setCoAgentEmail] = useState("");
     // const [agentNotes, setAgentNotes] = useState("");
     const [vendor, setVendor] = useState("");
@@ -101,15 +100,15 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
 
             if (Array.isArray(parsed)) {
                 setCoAgent(parsed);
-                setFirstCoAgentName(parsed[0]?.name ?? "");
+                // setFirstCoAgentName(parsed[0]?.name ?? "");
             } else {
                 setCoAgent([]);
-                setFirstCoAgentName("");
+                // setFirstCoAgentName("");
             }
         } catch (error) {
             console.error("Invalid co_agents:", error);
             setCoAgent([]);
-            setFirstCoAgentName("");
+            // setFirstCoAgentName("");
         }
 
 
@@ -161,7 +160,7 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 />
 
             </div>
-            <div className="col-span-1">
+            {/* <div className="col-span-1">
                 <Label className="text-[14px] text-[#424242] " htmlFor="">Co-Agent</Label>
                 <Input
                     readOnly
@@ -193,7 +192,25 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                     type="text"
                 />
 
-            </div>
+            </div> */}
+            {coAgent.length > 0 ? (
+                <div className="col-span-2 border border-[#BBBBBB] mt-[12px] bg-white overflow-hidden w-full rounded-[10px]">
+                    <div className="grid grid-cols-5 gap-2 px-2 py-3 text-sm text-[#666666] font-semibold items-center border-b border-[#BBBBBB]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                        <div className="col-span-2">NAME</div>
+                        <div className="col-span-3">EMAIL</div>
+                    </div>
+                    {coAgent.map((agent, index) => (
+                        <div key={index} className="grid grid-cols-5 gap-2 px-2 py-3 border-b border-[#BBBBBB] items-center hover:bg-[#F9F9F9]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                            <div className="col-span-2 text-[#666666] text-xs break-words truncate" title={agent.name}>{agent.name}</div>
+                            <div className="col-span-3 text-[#666666] text-xs truncate" title={agent.email}>{agent.email}</div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="col-span-2 flex justify-center items-center h-20 text-[#666666] text-xs border border-[#BBBBBB] mt-[12px] rounded-[10px]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                    No co-agents added.
+                </div>
+            )}
             <div className="col-span-2">
                 <Label className="text-[14px] text-[#424242] " htmlFor="">Agent Notes (Not Viewable by Agent)</Label>
                 <Textarea

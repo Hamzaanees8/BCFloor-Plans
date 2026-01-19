@@ -143,6 +143,10 @@ export async function UploadFilesData(
       `files[${index}][is_agent_approved]`,
       String(fileObj.is_agent_approved === true ? 1 : 0)
     );
+    formData.append(
+      `files[${index}][is_shown]`,
+      String(fileObj.is_show === false ? 0 : 1)
+    );
   });
 
   links.forEach((linkObj, index) => {
@@ -180,6 +184,13 @@ export async function UploadFilesData(
   formData.append("slide_show[background_audio]", selectedAudioTrack || "none");
   formData.append("slide_show[auto_play]", String(0));
   formData.append("slide_show[video_overlay]", String(0));
+
+  // Debug: Log FormData content
+  for (const pair of formData.entries()) {
+    if (pair[0].includes('is_shown')) {
+      console.log('API Payload Entry:', pair[0], pair[1]);
+    }
+  }
 
   const response = await fetch(`${API_URL}/tours`, {
     method: "POST",
@@ -243,6 +254,10 @@ export async function UpdateFilesData(
       `files[${index}][is_agent_approved]`,
       String(fileObj.is_agent_approved === true ? 1 : 0)
     );
+    formData.append(
+      `files[${index}][is_shown]`,
+      String(fileObj.is_show === false ? 0 : 1)
+    );
   });
 
   // Handle existing files (already uploaded, send UUID and file_path)
@@ -268,6 +283,10 @@ export async function UpdateFilesData(
     formData.append(
       `files[${fileIndex}][is_agent_approved]`,
       String(fileObj.is_agent_approved === true ? 1 : 0)
+    );
+    formData.append(
+      `files[${fileIndex}][is_shown]`,
+      String(fileObj.is_show === false ? 0 : 1)
     );
   });
 
@@ -363,6 +382,10 @@ export async function UpdatePhotosData(
       `files[${index}][is_agent_approved]`,
       String(fileObj.is_agent_approved === true ? 1 : 0)
     );
+    formData.append(
+      `files[${index}][is_shown]`,
+      String(fileObj.is_show === false ? 0 : 1)
+    );
   });
 
   formData.append("_method", "PUT");
@@ -420,6 +443,10 @@ export async function UpdateFloorPhotosData(
     formData.append(
       `files[${index}][is_agent_approved]`,
       String(fileObj.is_agent_approved === true ? 1 : 0)
+    );
+    formData.append(
+      `files[${index}][is_shown]`,
+      String(fileObj.is_show === false ? 0 : 1)
     );
   });
 

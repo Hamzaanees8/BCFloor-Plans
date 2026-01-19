@@ -1325,7 +1325,6 @@ const ListingsFrom = () => {
                             delete newErrors.address;
                             setFieldErrors(newErrors);
                           }
-                          // Handle other field error clearing if needed
                         }}
                         fieldErrors={fieldErrors}
                       />

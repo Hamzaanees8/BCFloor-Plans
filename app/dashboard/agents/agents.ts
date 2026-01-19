@@ -79,7 +79,7 @@ export function payloadToFormData(payload: AgentPayload): FormData {
       } else if (Array.isArray(value)) {
         if (key === 'co_agents') {
           if (value.length === 0) {
-            formData.append('co_agents', ''); 
+            formData.append('co_agents', '');
           } else {
             value.forEach((agent, index) => {
               formData.append(`${key}[${index}][name]`, agent.name || '');

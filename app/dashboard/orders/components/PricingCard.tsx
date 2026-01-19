@@ -69,7 +69,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
         service.name?.toLowerCase().includes('twilight') ||
         service.category?.name?.toLowerCase().includes('twilight');
 
-      if (isPhotoService) {
+      if (isPhotoService || !squareFootage) {
         FilteredOptions = pricingOptions;
       } else {
         FilteredOptions = pricingOptions.filter((option) => {
@@ -229,29 +229,25 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                   className="flex flex-col ">
                   <div className="flex flex-col items-center justify-between gap-[10px]">
                     {pricingOptions?.filter((option) => {
-                      if (showAll) {
-                        return true
-                      } else {
-                        const isPhotoService = service.name?.toLowerCase().includes('photo') ||
-                          service.category?.name?.toLowerCase().includes('photo') ||
-                          service.name?.toLowerCase().includes('twilight') ||
-                          service.category?.name?.toLowerCase().includes('twilight');
+                      const isPhotoService = service.name?.toLowerCase().includes('photo') ||
+                        service.category?.name?.toLowerCase().includes('photo') ||
+                        service.name?.toLowerCase().includes('twilight') ||
+                        service.category?.name?.toLowerCase().includes('twilight');
 
-                        if (isPhotoService) return true;
+                      if (showAll || isPhotoService || !squareFootage) return true;
 
-                        // Check for sq_ft_rate
-                        if (option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0) return true;
+                      // Check for sq_ft_rate
+                      if (option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0) return true;
 
-                        if (!option.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
+                      if (!option.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
 
-                        const [minStr, maxStr] = option.sq_ft_range.split("-").map(s => s.trim());
-                        const min = parseInt(minStr, 10);
-                        const max = parseInt(maxStr, 10);
+                      const [minStr, maxStr] = option.sq_ft_range.split("-").map(s => s.trim());
+                      const min = parseInt(minStr, 10);
+                      const max = parseInt(maxStr, 10);
 
-                        if (isNaN(min) || isNaN(max)) return false;
+                      if (isNaN(min) || isNaN(max)) return false;
 
-                        return squareFootage >= min && squareFootage <= max;
-                      }
+                      return squareFootage >= min && squareFootage <= max;
                     }).map((option, idx) => (
                       <div key={idx} className="w-full flex items-center justify-between">
                         <RadioGroupItem

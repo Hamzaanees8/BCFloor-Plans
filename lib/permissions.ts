@@ -10,6 +10,8 @@ export const PERMISSIONS = {
     CREATE_ADMIN: "Create Admin",
     VIEW_ADMIN: "View Admin",
     CREATE_SERVICES: "Create Services",
+    VIEW_ORDERS: "View Orders",
+    VIEW_APPOINTMENTS: "View Appointments",
 } as const;
 
 export type Permission = {

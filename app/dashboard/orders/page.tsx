@@ -383,7 +383,8 @@ const Page = () => {
     const length = filteredOrderData.length;
 
     // Check if user can create orders
-    const canCreateOrder = userType !== 'vendor' && (userType !== 'admin' || hasPermission(PERMISSIONS.CREATE_ORDERS));
+    const canCreateOrder = userType !== 'vendor' && (userType !== 'admin' || (hasPermission(PERMISSIONS.CREATE_ORDERS) || hasPermission(PERMISSIONS.BOOK_APPOINTMENTS)));
+
 
     return (
         <div>

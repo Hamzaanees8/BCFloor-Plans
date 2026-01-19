@@ -89,6 +89,7 @@ export default function FilePreviewModal({
                 upload: true,
                 service_id: serviceUuid,
                 is_admin_approved: userType === 'admin' ? true : (reviewFilesEnabled ? false : true),
+                is_show: true,
             };
         });
 

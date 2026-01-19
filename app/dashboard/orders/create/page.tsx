@@ -14,6 +14,7 @@ import { Order } from '../page';
 import { Get } from '../../agents/agents';
 import { GetServices, GetPackages } from '../../services/services';
 import { useAppContext } from '@/app/context/AppContext';
+import OrderStepper from '../components/OrderStepper';
 const OrderForm = () => {
     const confirmationRef = useRef<OrderConfirmationHandle>(null);
     const router = useRouter();
@@ -48,6 +49,13 @@ const OrderForm = () => {
     const userId = params?.id as string;
 
     const tabs = ["property", "services", "schedule", "contact", "order"];
+    const steps = [
+        { id: "property", label: "PROPERTY" },
+        { id: "services", label: "SERVICES" },
+        { id: "schedule", label: "SCHEDULE" },
+        { id: "contact", label: "CONTACT" },
+        { id: "order", label: "ORDER CONFIRMATION" },
+    ];
     const [active, setActive] = useState("property");
     const [currentUser, setCurrentUser] = useState<Order | null>(null);
     const { userType } = useAppContext()
@@ -64,8 +72,6 @@ const OrderForm = () => {
         setDiscountCode,
         setCustomPrices,
         setCustomServiceNames,
-        selectedAgentId,
-        selectedListingId,
         selectedSlots,
         isSubmitted,
         setIsSubmitted,
@@ -75,7 +81,8 @@ const OrderForm = () => {
         isLoading,
         setServicesData,
         setAgentsData,
-        setPackagesData
+        setPackagesData,
+        isPropertyValid
     } = useOrderContext();
 
     useEffect(() => {
@@ -256,7 +263,7 @@ const OrderForm = () => {
         }
     };
     const isValid = () => {
-        if (active === 'property' && selectedAgentId && selectedListingId) {
+        if (active === 'property' && isPropertyValid) {
             return true
         } else if (active === 'services' && selectedServices.length > 0) {
             return true
@@ -306,6 +313,35 @@ const OrderForm = () => {
         }
     }, []);
 
+    const canNavigateTo = (tabName: string) => {
+        const targetIndex = tabs.indexOf(tabName);
+        const currentIndex = tabs.indexOf(active);
+
+        // Can always go backward
+        if (targetIndex <= currentIndex) return true;
+
+        // Check each tab up to the one before target
+        for (let i = 0; i < targetIndex; i++) {
+            const tabToCheck = tabs[i];
+
+            // Property tab validation
+            if (tabToCheck === 'property' && !isPropertyValid) return false;
+
+            // Services tab validation
+            if (tabToCheck === 'services' && selectedServices.length === 0) return false;
+
+            // Schedule tab validation
+            if (tabToCheck === 'schedule') {
+                const selectedServiceIds = selectedServices
+                    .map(s => typeof s === 'string' ? s : s.uuid)
+                    .filter((id): id is string => typeof id === 'string');
+                const scheduledServiceIds = selectedSlots.map(slot => slot.service_id);
+                if (!selectedServiceIds.every(id => scheduledServiceIds.includes(id))) return false;
+            }
+        }
+        return true;
+    };
+
     return (
         // <OrderProvider>
         <div className='font-alexandria'>
@@ -326,7 +362,7 @@ const OrderForm = () => {
                         <Button
                             onClick={handleNext}
                             disabled={!isValid()}
-                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-white hover-${userType}-bg`}
+                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-white hover-${userType}-bg disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
                             Next
                         </Button>
@@ -353,51 +389,20 @@ const OrderForm = () => {
 
 
             </div>
-            <div className='flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600]' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }} >
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => handleTabClick("property")}
-                        className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-          ${active === "property" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
-                    >
-                        PROPERTY
-                    </button>
-                    <button
-                        onClick={() => handleTabClick("services")}
-                        className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                ${active === "services" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
-                    >
-                        SERVICES
-                    </button>
-                    <button
-                        onClick={() => handleTabClick("schedule")}
-                        className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-          ${active === "schedule" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
-                    >
-                        SCHEDULE
-                    </button>
-                    <button
-                        onClick={() => handleTabClick("contact")}
-                        className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-          ${active === "contact" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
-                    >
-                        CONTACT
-                    </button>
-                    <button
-                        onClick={() => handleTabClick("order")}
-                        className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[230px] h-[35px]
-          ${active === "order" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
-                    >
-                        ORDER CONFIRMATION
-                    </button>
-                </div>
-
+            <div className='sticky top-[80px] z-40 bg-white flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[80px] text-[#4290E9] text-[18px] font-[600] shadow-sm' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }} >
+                <OrderStepper
+                    currentTab={active}
+                    onTabChange={handleTabClick}
+                    steps={steps}
+                    canNavigateTo={canNavigateTo}
+                    userType={userType}
+                />
             </div>
 
             <div>
                 {active === "property" && (
                     <div>
-                        <Property />
+                        <Property onSetActiveTab={setActive} />
                     </div>
                 )}
                 {active === "services" && (

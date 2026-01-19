@@ -33,6 +33,7 @@ import { Pagination } from "@/components/TablePagination";
 import { PERMISSIONS } from "@/lib/permissions";
 import { usePermissions } from "@/app/hooks/usePermissions";
 import { VendorData } from "@/components/QuickViewCard";
+import { toast } from "sonner";
 
 interface OrderTableProps {
     showHeader: boolean;
@@ -97,9 +98,17 @@ export default function OrderTable({ OrderData, onDelete, onQuickView1, loading,
                     <div
                         className={`${userType}-text cursor-pointer ml-[5px]`}
                         onClick={() => {
+                            const canView = userType !== "admin" || (hasPermission(PERMISSIONS.VIEW_ORDERS) || hasPermission(PERMISSIONS.VIEW_APPOINTMENTS));
+
+                            if (!canView) {
+                                toast.error("You do not have permission to view orders");
+                                return;
+                            }
+
                             const uuid = row.original.uuid;
                             if (uuid) router.push(`/dashboard/orders/${uuid}`);
                         }}
+
                     >
                         {id}
                     </div>
@@ -238,12 +247,19 @@ export default function OrderTable({ OrderData, onDelete, onQuickView1, loading,
                     {
                         label: "Quick View",
                         onClick: () => {
+                            const canView = userType !== "admin" || (hasPermission(PERMISSIONS.VIEW_ORDERS) || hasPermission(PERMISSIONS.VIEW_APPOINTMENTS));
+
+                            if (!canView) {
+                                toast.error("You do not have permission to view orders");
+                                return;
+                            }
                             const uuid = row.original.uuid;
                             if (uuid) {
                                 router.push(`/dashboard/orders/${uuid}`);
                             }
                         },
                     },
+
                     {
                         label: "Delete",
                         onClick: () => onDelete(row.original.uuid ?? ""),

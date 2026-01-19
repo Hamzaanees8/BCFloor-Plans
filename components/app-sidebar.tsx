@@ -177,6 +177,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const goToDashboardSection = () => {
     const agentId = searchParams.get('agentId');
+    const from = searchParams.get('from');
+
+    if (pathname === '/dashboard/orders/create' && from === 'calendar') {
+      confirmNavigation(() => router.push('/dashboard/calendar'), {
+        title: "Unsaved Changes",
+        description: "You have unsaved changes. Do you want to discard them and go back?"
+      });
+      return;
+    }
 
     if (pathname === '/dashboard/sub-accounts/create' && agentId) {
       confirmNavigation(() => router.push(`/dashboard/agents/create/${agentId}`), {

@@ -49,6 +49,28 @@ export type Slot = {
     date: string
 };
 
+export type TempPropertyData = {
+    listing_price: number;
+    mls_number: string;
+    bedrooms: number;
+    bathrooms: number;
+    agent_id: string;
+    square_footage: number;
+    lot_size: string;
+    year_constructed: number;
+    parking_spots: number;
+    property_type: string;
+    property_status: string;
+    heading: string;
+    description: string;
+    suite: string;
+    address: string;
+    city: string;
+    province: string;
+    postal_code: string;
+    country: string;
+};
+
 type SelectedOptionsMap = Record<string, string>;
 type OrderContextType = {
     selectedAgentId: string | null;
@@ -134,6 +156,11 @@ type OrderContextType = {
 
     activePackage: Packages | null;
     setActivePackage: Dispatch<SetStateAction<Packages | null>>;
+    tempPropertyData: TempPropertyData | null;
+    setTempPropertyData: Dispatch<SetStateAction<TempPropertyData | null>>;
+    isPropertyValid: boolean;
+    setIsPropertyValid: Dispatch<SetStateAction<boolean>>;
+    resetOrderData: () => void;
 };
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -142,6 +169,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     const [initComplete, setInitComplete] = useState(false);
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
     const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
+    const [tempPropertyData, setTempPropertyData] = useState<TempPropertyData | null>(null);
+    const [isPropertyValid, setIsPropertyValid] = useState(false);
     const [selectedServices, setSelectedServices] = useState<SelectedService[]>([]);
     const [calendarServices, setCalendarServices] = useState<
         { serviceId: number; optionId: string | null; price: string }[]
@@ -170,6 +199,32 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     const [ordersData, setOrdersData] = useState<Order[]>([]);
     const [packagesData, setPackagesData] = useState<Packages[]>([]);
     const [activePackage, setActivePackage] = useState<Packages | null>(null);
+
+    const resetOrderData = () => {
+        setInitComplete(false);
+        setSelectedAgentId(null);
+        setSelectedListingId(null);
+        setSelectedServices([]);
+        setCalendarServices([]);
+        setAgentNotes([]);
+        setCoAgents([]);
+        setSelectedOptions({});
+        setCustomPrices({});
+        setCustomServiceNames({});
+        setDiscountCode('');
+        setAppliedCodeDiscount(null);
+        setAppliedQuantityDiscounts([]);
+        setOrderServices([]);
+        setSelectedCurrentListing(null);
+        setTotal(0);
+        setIsSplitInvoice(false);
+        setInternal(false);
+        setSelectedSlots([]);
+        setIsSubmitted(false);
+        setActivePackage(null);
+        setTempPropertyData(null);
+        setIsPropertyValid(false);
+    };
 
     return (
         <OrderContext.Provider
@@ -229,7 +284,12 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
                 packagesData,
                 setPackagesData,
                 activePackage,
-                setActivePackage
+                setActivePackage,
+                tempPropertyData,
+                setTempPropertyData,
+                isPropertyValid,
+                setIsPropertyValid,
+                resetOrderData
             }}
         >
             {children}

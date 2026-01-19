@@ -2,14 +2,18 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import { useOrderContext } from '../context/OrderContext';
 import ConfirmationCard from './ConfirmationCard';
+import { Slot } from '../context/OrderContext';
+
 import { Input } from '@/components/ui/input';
 import { Plus, TriangleAlert, Loader2 } from 'lucide-react';
 import { GetDiscount } from '../../global-settings/global-settings';
 import { toast } from 'sonner';
-import { Create, Edit, GetOneOrder, GetVendors, OrderPayload } from '../orders';
-import { useParams } from 'next/navigation';
+import { Create, Edit, GetOneOrder, GetVendors, OrderPayload, CreateListings } from '../orders';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+
+
 import { VendorData } from '../[id]/page';
-import { Order } from '../page';
+import { Order, OrderService, OrderDiscount } from '../page';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useAppContext } from '@/app/context/AppContext';
@@ -57,9 +61,22 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         isLoading,
         setIsLoading,
         activePackage,
+        tempPropertyData,
+        setTempPropertyData,
         servicesData: services
     } = useOrderContext();
     const { userType } = useAppContext()
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
+    const handleDone = () => {
+        const from = searchParams.get('from');
+        if (from === 'calendar') {
+            router.push('/dashboard/calendar');
+        } else {
+            router.push('/dashboard/listings');
+        }
+    };
 
     const [discounts, setDiscounts] = React.useState<Discount[]>([]);
     const [vendorsData, setVendorsData] = React.useState<VendorData[]>([]);
@@ -261,9 +278,23 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             const discounts = buildDiscountPayload();
             const token = localStorage.getItem('token') || '';
 
+            let propertyId = selectedListingId;
+
+            if (!propertyId && tempPropertyData) {
+                const listingResponse = await CreateListings(tempPropertyData, token);
+                if (listingResponse?.data?.uuid) {
+                    propertyId = listingResponse.data.uuid;
+                    // We can clear tempPropertyData after order is fully submitted if we want, 
+                    // but doing it here ensures we don't try to create it again if order fails and they retry.
+                } else {
+                    toast.error("Failed to create property");
+                    throw new Error("Failed to create property");
+                }
+            }
+
             const payload: OrderPayload = {
                 agent_id: selectedAgentId ?? '',
-                property_id: selectedListingId ?? '',
+                property_id: propertyId ?? '',
                 amount: total,
                 order_status: "Processing",
                 payment_status: "UNPAID",
@@ -308,7 +339,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                         };
                     }),
                 discounts,
-                slots: selectedSlots.map((slot) => ({
+                slots: selectedSlots.map((slot: Slot) => ({
                     ...(slot.uuid && { uuid: slot.uuid }),
                     service_id: slot.service_id,
                     vendor_id: slot.vendor_id,
@@ -338,6 +369,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
 
             setCreatedOrderUuid(response.data.uuid);
             setIsSubmitted(true);
+            setTempPropertyData(null);
         } catch (err) {
             console.error("Failed to submit order", err);
             setIsSubmitted(false);
@@ -346,11 +378,11 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         }
     };
 
-    const totalServiceAmount = orderData?.services?.reduce((sum, s) => {
+    const totalServiceAmount = orderData?.services?.reduce((sum: number, s: OrderService) => {
         return sum + parseFloat(s.amount || "0");
     }, 0) ?? 0;
 
-    const totalDiscountValue = orderData?.totals?.reduce((sum, d) => {
+    const totalDiscountValue = orderData?.totals?.reduce((sum: number, d: OrderDiscount) => {
         return sum + parseFloat(d.discount_value || "0");
     }, 0) ?? 0;
 
@@ -386,7 +418,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                             <TriangleAlert className='text-[#4290E9] h-[24px]w-[30px]  md:h-[36px] md:w-[40px]' />
                                             <p className='text-[#4290E9] text-[24px] md:text-[36px] font-[400]'>Order {orderData?.id}</p>
                                         </div>
-                                        <div className='flex items-center gap-[12px]'>
+                                        <div className='flex items-center gap-[12px] hidden'>
                                             <Switch className=' data-[state=checked]:bg-[#6BAE41] ' />
                                             <p className='text-[#666666] text-[16px]'>Open</p>
                                         </div>
@@ -458,9 +490,15 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                         <span className='col-span-1'>${amount}</span>
                                     </p>
                                     <Button
-                                        className="col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px]  border-[1px] border-[#4290E9] bg-[#EEEEEE] text-[14px] md:text-[14px] font-[600] text-[#4290E9] flex gap-[5px] justify-center items-center hover:text-[#fff] hover:bg-[#4290E9] font-raleway"
+                                        className="col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px]  border-[1px] border-[#4290E9] bg-[#EEEEEE] text-[14px] md:text-[14px] font-[600] text-[#4290E9] flex gap-[5px] justify-center items-center hover:text-[#fff] hover:bg-[#4290E9] font-raleway pointer-events-none"
                                     >
                                         Awaiting Payment  ${amount}
+                                    </Button>
+                                    <Button
+                                        onClick={handleDone}
+                                        className="col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px] bg-[#4290E9] text-[14px] md:text-[14px] font-[600] text-white flex gap-[5px] justify-center items-center hover:bg-[#005fb8] font-raleway"
+                                    >
+                                        Done
                                     </Button>
                                 </div>
                                 <div>

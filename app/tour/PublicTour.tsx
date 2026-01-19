@@ -46,7 +46,6 @@ const PublicTour = () => {
 
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
-    console.log('orderData', orderData);
 
     useEffect(() => {
         const fetchOrderData = async () => {
@@ -67,12 +66,12 @@ const PublicTour = () => {
 
     // Extract files from orderData.tours[0].files
     const tourPhotos = orderData?.tours?.[0]?.files?.filter(file =>
-        file.service.category.name === "photo" || file.service.category.name === "HDR Photos" || file.service.category.name === "Standard Photos" || file.service.category.name === "Twilight Photos"
+        (file.service.category.name === "photo" || file.service.category.name === "HDR Photos" || file.service.category.name === "Standard Photos" || file.service.category.name === "Twilight Photos") && file.is_show !== false
     ) || [];
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    const videoFiles = orderData?.tours?.[0]?.files?.filter(file => file.service.category.name === "video") || [];
-    const floorPlanFiles = orderData?.tours?.[0]?.files?.filter(file => file.service.category.name === "Floor Plan") || [];;
+    const videoFiles = orderData?.tours?.[0]?.files?.filter(file => file.service.category.name === "video" && file.is_show !== false) || [];
+    const floorPlanFiles = orderData?.tours?.[0]?.files?.filter(file => file.service.category.name === "Floor Plan" && file.is_show !== false) || [];;
 
     useEffect(() => {
         if (!mainVideo && videoFiles.length > 0) {

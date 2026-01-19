@@ -5,13 +5,13 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 const Page = () => {
- const router = useRouter();
+    const router = useRouter();
 
- useEffect(() => {
-  router.replace('/dashboard/admin');
- }, [router]);
+    useEffect(() => {
+        router.replace('/dashboard/calendar');
+    }, [router]);
 
- return null;
+    return null;
 };
 
 export default withAuth(Page);

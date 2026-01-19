@@ -7,14 +7,14 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover"
 import { Button } from '@/components/ui/button'
-import { CalendarIcon } from 'lucide-react'
+import { CalendarIcon, Images } from 'lucide-react'
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import React, { useEffect, useState } from 'react'
 import OneDayCalendar, { getDistanceColor } from './OneDayCalendar'
 import { getPropertyTimezone, PropertyLocation } from '../orders'
 import { VendorData } from '../[id]/page'
-import { useOrderContext } from '../context/OrderContext'
+import { useOrderContext, Slot } from '../context/OrderContext'
 import VendorWorkCarousel from './VendorWorkCarousel'
 
 interface Coordinate {
@@ -78,10 +78,8 @@ const Schedule = () => {
     const [recommendTimeMap, setRecommendTimeMap] = useState<Record<number, 0 | 1>>({});
     const [filteredVendorsByService, setFilteredVendorsByService] = useState<Record<string, VendorData[]>>({});
     const [masterDate, setMasterDate] = useState<Date>(new Date());
+    const [serviceDates, setServiceDates] = useState<Record<number, Date | null>>({});
     const [vendorDistances, setVendorDistances] = useState<Record<string, number>>({});
-    const handleSetSelectedDate = React.useCallback(() => {
-        // Keeping individual calendars independent as per user request
-    }, []);
     const [selectedVendorForModal, setSelectedVendorForModal] = useState<VendorData | null>(null);
     const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
     const [isCalculating, setIsCalculating] = useState(true);
@@ -92,17 +90,21 @@ const Schedule = () => {
         selectedServices,
         vendorsData,
         servicesData,
+        tempPropertyData,
+        selectedSlots,
     } = useOrderContext();
 
     useEffect(() => {
         async function filterVendorsByService() {
-            if (!vendorsData.length || !selectedCurrentListing || !servicesData.length) {
+            if (!vendorsData.length || (!selectedCurrentListing && !tempPropertyData) || !servicesData.length) {
                 return;
             }
 
             setIsCalculating(true);
 
-            const addressString = `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.country}`;
+            const addressString = selectedCurrentListing
+                ? `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.country}`
+                : `${tempPropertyData?.address}, ${tempPropertyData?.city}, ${tempPropertyData?.country}`;
             const result: Record<string, VendorData[]> = {};
 
             for (const service of servicesData) {
@@ -136,7 +138,7 @@ const Schedule = () => {
         }
 
         filterVendorsByService();
-    }, [vendorsData, servicesData, selectedCurrentListing]);
+    }, [vendorsData, servicesData, selectedCurrentListing, tempPropertyData]);
 
     // Vendor color map logic removed in favor of distance-based colors
 
@@ -206,16 +208,18 @@ const Schedule = () => {
 
 
     useEffect(() => {
-        if (!selectedCurrentListing || !filteredVendorsByService) return;
+        if ((!selectedCurrentListing && !tempPropertyData) || !filteredVendorsByService) return;
 
-        const listingAddress = `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.province}, ${selectedCurrentListing.country}`;
+        const listingAddress = selectedCurrentListing
+            ? `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.province}, ${selectedCurrentListing.country}`
+            : `${tempPropertyData?.address}, ${tempPropertyData?.city}, ${tempPropertyData?.province}, ${tempPropertyData?.country}`;
 
         Object.values(filteredVendorsByService).forEach((vendors) => {
             if (vendors?.length > 0) {
                 calculateAllVendorDistances(listingAddress, vendors);
             }
         });
-    }, [selectedCurrentListing, filteredVendorsByService]);
+    }, [selectedCurrentListing, tempPropertyData, filteredVendorsByService]);
 
     const formatTravelTime = (minutes: number) => {
         if (minutes < 60) return `${minutes} min`;
@@ -227,9 +231,11 @@ const Schedule = () => {
 
     useEffect(() => {
         async function loadPropertyTimezone() {
-            if (!selectedCurrentListing) return;
+            if (!selectedCurrentListing && !tempPropertyData) return;
 
-            const fullAddress = `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.province}, ${selectedCurrentListing.country}`;
+            const fullAddress = selectedCurrentListing
+                ? `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.province}, ${selectedCurrentListing.country}`
+                : `${tempPropertyData?.address}, ${tempPropertyData?.city}, ${tempPropertyData?.province}, ${tempPropertyData?.country}`;
 
             const location = await getPropertyTimezone(fullAddress);
             if (location) {
@@ -240,11 +246,11 @@ const Schedule = () => {
         }
 
         loadPropertyTimezone();
-    }, [selectedCurrentListing]);
+    }, [selectedCurrentListing, tempPropertyData]);
 
     return (
         <div className='font-alexandria'>
-            <div className="flex justify-between items-center px-16 py-4 border-b border-[#EEEEEE] bg-[#EEEEEE]">
+            <div className="flex justify-between items-center px-16 py-4 border-b border-[#EEEEEE] bg-white">
                 <div className="flex items-center gap-4">
                     <span className="text-[12px] text-[#7D7D7D]">Master Date Selection:</span>
                     <Popover>
@@ -264,14 +270,19 @@ const Schedule = () => {
                             <Calendar
                                 mode="single"
                                 selected={masterDate}
-                                onSelect={(date) => date && setMasterDate(date)}
+                                onSelect={(date) => {
+                                    if (date) {
+                                        setMasterDate(date);
+                                        setServiceDates({}); // Reset individual overrides when master changes
+                                    }
+                                }}
                                 initialFocus
                             />
                         </PopoverContent>
                     </Popover>
                 </div>
             </div>
-            <div className="grid grid-cols-3 gap-16 text-[#7D7D7D] px-16 py-20 auto-rows-max">
+            <div className="grid grid-cols-3 gap-16 text-[#7D7D7D] px-16 py-6 auto-rows-max">
                 {selectedServices?.map((service, idx) => {
                     const selectedVendor = selectedVendorMap[idx] ?? 'all';
 
@@ -288,20 +299,40 @@ const Schedule = () => {
                         (option) => option.uuid === service.option_id
                     );
 
+                    const isScheduled = selectedSlots.some((s: Slot) => s.service_id === service.uuid);
+
                     return (
                         <React.Fragment key={idx}>
                             <div className="flex flex-col gap-4">
-                                <div>
-                                    <p className="text-[12px]">
-                                        Select Service Time ({idx + 1} of {selectedServices?.length})
-                                    </p>
-                                    <p className="text-[16px] font-[700]">{service.title}</p>
-                                    <p className="text-[12px]">
-                                        Approx. Duration <br />
-                                        <span className="text-[16px] font-[700]">
-                                            {productOption?.service_duration} Minutes
-                                        </span>
-                                    </p>
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-[12px]">
+                                            Select Service Time ({idx + 1} of {selectedServices?.length})
+                                        </p>
+                                        <p className="text-[16px] font-[700] max-w-[200px]">{service.title}</p>
+                                        <p className="text-[12px]">
+                                            Approx. Duration <br />
+                                            <span className="text-[16px] font-[700] block min-h-[24px]">
+                                                {productOption?.service_duration ? `${productOption.service_duration} Minutes` : '-'}
+                                            </span>
+                                        </p>
+                                    </div>
+                                    <div className={cn(
+                                        "px-3 py-1 rounded-full text-[12px] font-[600] flex items-center gap-1",
+                                        isScheduled ? "bg-green-100 text-green-700 border border-green-200" : "bg-gray-100 text-gray-500 border border-gray-200"
+                                    )}>
+                                        {isScheduled ? (
+                                            <>
+                                                <span className="w-2 h-2 rounded-full bg-green-500" />
+                                                Scheduled
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="w-2 h-2 rounded-full bg-gray-400" />
+                                                Pending
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex flex-col gap-4">
                                     <div className="flex justify-start gap-6 items-center">
@@ -429,19 +460,49 @@ const Schedule = () => {
                                                 if (!vendor) return null;
 
                                                 return (
-                                                    <button
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
                                                         onClick={() => {
                                                             setSelectedVendorForModal(vendor);
                                                             setIsVendorModalOpen(true);
                                                         }}
-                                                        className="text-sm text-[#4290E9] underline text-left capitalize"
+                                                        className="w-full text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700 flex gap-2 items-center justify-center mt-2 capitalize"
                                                     >
-                                                        {`${vendor.first_name} ${vendor.last_name}'s Work`}
-                                                    </button>
+                                                        <Images className="w-4 h-4" />
+                                                        {`View Portfolio`}
+                                                    </Button>
                                                 );
                                             })()
                                         ) : null}
                                     </div>
+
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant={"outline"}
+                                                className={cn(
+                                                    "w-full h-[42px] justify-start text-left font-normal bg-[#EEEEEE] border-[#BBBBBB] text-[#7D7D7D] mt-3",
+                                                )}
+                                            >
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {serviceDates[idx] || masterDate ? format(serviceDates[idx] || masterDate, "PPP") : <span>Pick a date</span>}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="end">
+                                            <Calendar
+                                                mode="single"
+                                                selected={serviceDates[idx] || masterDate}
+                                                onSelect={(date) => {
+                                                    if (date) {
+                                                        setServiceDates(prev => ({ ...prev, [idx]: date }));
+                                                    }
+                                                }}
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+
                                     {isVendorModalOpen && selectedVendorForModal && (
                                         <VendorWorkCarousel
                                             open={isVendorModalOpen}
@@ -499,10 +560,16 @@ const Schedule = () => {
                                             recommendTime={recommendTime}
                                             showAllVendors={showAllVendors}
                                             scheduleOverride={scheduleOverride}
-                                            setSelectedDate={handleSetSelectedDate}
+                                            setSelectedDate={(date) => {
+                                                if (date) {
+                                                    const [y, m, d] = date.split('-').map(Number);
+                                                    const newDate = new Date(y, m - 1, d);
+                                                    setServiceDates(prev => ({ ...prev, [idx]: newDate }));
+                                                }
+                                            }}
                                             vendorDistances={vendorDistances}
                                             propertyTimezone={propertyLocation?.timeZoneId}
-                                            masterDate={masterDate}
+                                            masterDate={serviceDates[idx] || masterDate}
                                         />
                                     </div>
 

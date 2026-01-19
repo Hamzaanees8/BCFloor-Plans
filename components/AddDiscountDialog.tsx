@@ -45,10 +45,10 @@ const AddDiscountDialog: React.FC<Props> = ({
     const [codeDescription, setCodeDescription] = useState("");
     const [discountDescription, setDiscountDescription] = useState('');
     const [openCalendar, setOpenCalendar] = React.useState(false);
-    const [openStartCalendar, setOpenStartCalendar] = React.useState(false);
+
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
     const [dateValue, setDateValue] = React.useState("")
-    const [startdateValue, setStartDateValue] = React.useState("")
+
     const [openDrowndown, setOpenDropdown] = useState(false);
     const [selectedServices, setSelectedServices] = useState<number[]>([]);
     const [selectedServicesCode, setSelectedServicesCode] = useState<number[]>([]);
@@ -60,13 +60,8 @@ const AddDiscountDialog: React.FC<Props> = ({
         parseDate(dateValue) || undefined
     )
     const [month, setMonth] = React.useState<Date | undefined>(date)
-    const [startdate, setStartDate] = React.useState<Date | undefined>(
-        parseDate(dateValue) || undefined
-    )
-    const [startmonth, setStartMonth] = React.useState<Date | undefined>(date)
-    const [isEligible, setIsEligible] = useState(false);
-    console.log('startdate', startdate);
 
+    const [isEligible, setIsEligible] = useState(false);
     const handleTabClick = (tabName: string) => {
         setActiveTab(tabName);
         setFieldErrors({});
@@ -89,8 +84,6 @@ const AddDiscountDialog: React.FC<Props> = ({
             GetOne(uuid)
                 .then((data) => {
                     const discount = data.data;
-                    console.log('discount', discount);
-
                     setCodeKey(discount.code_key || "");
                     setCodeDescription(discount.description || "");
                     setCodePercentage(discount.percentage || 0);
@@ -113,7 +106,6 @@ const AddDiscountDialog: React.FC<Props> = ({
             GetOne(uuid)
                 .then((data) => {
                     const discount = data.data;
-                    console.log('discount', discount);
                     setDiscountName(discount.name || "");
                     setDiscountDescription(discount.description || "");
                     setDiscountQuantity(discount.quantity || 0);
@@ -151,17 +143,16 @@ const AddDiscountDialog: React.FC<Props> = ({
             setDiscountDescription('');
             setFieldErrors({});
             setDateValue("");
-            setStartDateValue("");
+
             setSelectedServices([]);
             setSelectedServicesCode([]);
             setIsEligible(false);
             setDate(undefined);
             setMonth(undefined);
-            setStartDate(undefined);
-            setStartMonth(undefined);
+            setDate(undefined);
+            setMonth(undefined);
             setOpenDropdown(false);
             setOpenCalendar(false);
-            setOpenStartCalendar(false);
             if (!uuid) {
                 setActiveTab('discounts');
             }
@@ -713,64 +704,6 @@ const AddDiscountDialog: React.FC<Props> = ({
                                                 style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                 type="text" />
                                             {fieldErrors.name && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.name[0]}</p>}
-                                        </div>
-                                        <div className="col-span-2">
-                                            <label className="text-[#424242]" htmlFor="">
-                                                Start Date
-                                            </label>
-                                            <div className="relative flex gap-2 w-full">
-                                                <Input
-                                                    id="date"
-                                                    value={startdateValue}
-                                                    className="h-[42px] w-full border-[1px] text-[#666666] border-[#BBBBBB] mt-[12px] pr-10"
-                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                                    onChange={(e) => {
-                                                        setStartDateValue(e.target.value);
-                                                        const parsed = parseDate(e.target.value);
-                                                        if (parsed) {
-                                                            setStartDate(parsed);
-                                                            setStartMonth(parsed);
-                                                        }
-                                                    }}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === "ArrowDown") {
-                                                            e.preventDefault();
-                                                            setOpenStartCalendar(true);
-                                                        }
-                                                    }}
-                                                />
-
-                                                {/* Popover for Calendar */}
-                                                <Popover open={openStartCalendar} onOpenChange={setOpenStartCalendar}>
-                                                    <PopoverTrigger asChild>
-                                                        <Button
-                                                            id="date-picker"
-                                                            variant="ghost"
-                                                            className="absolute [&_svg]:size-6 top-8 right-2 size-6 -translate-y-1/2"
-                                                        >
-                                                            <CalendarIcon className="w-6 h-6 text-[#1E6FCC]" />
-                                                            <span className="sr-only">Select date</span>
-                                                        </Button>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto overflow-hidden p-0" align="end">
-                                                        <Calendar
-                                                            mode="single"
-                                                            selected={date}
-                                                            captionLayout="dropdown"
-                                                            month={startmonth}
-                                                            onMonthChange={setStartMonth}
-                                                            onSelect={(selected) => {
-                                                                setStartDate(selected);
-                                                                setStartDateValue(formatDate(selected));
-                                                                setOpenStartCalendar(false);
-                                                            }}
-                                                        />
-                                                    </PopoverContent>
-                                                </Popover>
-                                            </div>
-                                            {fieldErrors.expiry_date && (
-                                                <p className="text-red-500 text-[10px] mt-1">{fieldErrors.expiry_date[0]}</p>
-                                            )}
                                         </div>
                                         <div className="col-span-2">
                                             <label className="text-[#424242]" htmlFor="">

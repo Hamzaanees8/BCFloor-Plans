@@ -4,10 +4,10 @@ import { useEffect } from "react";
 
 export default function Home() {
   const router = useRouter();
- 
+
   useEffect(() => {
-    router.replace('/dashboard/admin');
+    router.replace('/dashboard/calendar');
   }, [router]);
- 
+
   return null;
 }

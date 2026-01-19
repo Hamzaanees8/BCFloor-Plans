@@ -76,6 +76,7 @@ export interface OrderData {
             created_at: string;
             updated_at: string;
             is_featured: boolean;
+            is_show: boolean;
             service: { id: number; uuid: string; name: string; category: { id: number; name: string } };
         }>;
         snapshots: Snapshoots[];

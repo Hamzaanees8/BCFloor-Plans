@@ -222,7 +222,10 @@ const AgentForm = () => {
             GetRole()
                 .then(data => {
                     const allRoles = Array.isArray(data.data) ? data.data : [];
-                    const filteredRoles = allRoles.filter((role: Role) => role.name.toLowerCase() === 'agents' || role.name.toLowerCase() === 'co agent');
+                    const filteredRoles = allRoles.filter((role: Role) => role.name.toLowerCase() === 'agents');
+                    if (filteredRoles.length > 0) {
+                        setRole(String(filteredRoles[0].id));
+                    }
                     setRoles(filteredRoles);
                 })
                 .catch(err => console.log(err.message));
@@ -472,7 +475,7 @@ const AgentForm = () => {
                 setIsLoading(false)
                 setIsDirty(false)
             } else {
-                const response = await CreateAgent(payload);
+                await CreateAgent(payload);
                 toast.success('Agent created successfully');
                 setIsLoading(true)
                 setOpen(true)
@@ -687,7 +690,7 @@ const AgentForm = () => {
                                                     {fieldErrors.last_name && <p className='text-red-500 text-[10px]'>{fieldErrors.last_name[0]}</p>}
                                                 </div>
                                                 {userType !== 'agent' && (
-                                                    <div className='col-span-2'>
+                                                    <div className='col-span-2 hidden'>
                                                         <label htmlFor="">Role <span className="text-red-500">*</span></label>
                                                         <Select
                                                             value={String(role)}

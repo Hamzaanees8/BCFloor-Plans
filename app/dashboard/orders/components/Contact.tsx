@@ -2,12 +2,12 @@
 
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Eye, Minus, Plus, EyeOff, X, Trash, Edit2Icon } from 'lucide-react';
+import { Eye, Plus, EyeOff, X, Trash, Edit2Icon } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { AgentNote, useOrderContext } from '../context/OrderContext';
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowDown, ArrowUp, DropDownArrow } from '@/components/Icons';
+import { DropDownArrow } from '@/components/Icons';
 import { GetUser } from '../orders';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -15,6 +15,15 @@ import { useAppContext } from '@/app/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RealtorSignInModal } from '@/app/agent/book-now/components/RealtorLogin';
+import { SearchableSelect } from './SearchableSelect';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 
 const Contact = () => {
     const {
@@ -35,13 +44,20 @@ const Contact = () => {
     const selectedAgent = useMemo(() => {
         return agentsData.find((agent) => agent.uuid === selectedAgentId) || null;
     }, [agentsData, selectedAgentId]);
-    const [draftCoAgents, setDraftCoAgents] = useState<typeof coAgents>([]);
+    //     const [draftCoAgents, setDraftCoAgents] = useState<typeof coAgents>([]); // Keeping for backward compatibility if needed, but primary flow will direct update coAgents
     const [percentage, setPercentage] = useState<number | ''>('');
     const [activeTab, setActiveTab] = useState("appointment");
     const [userName, setUserName] = useState<string>("");
+
+    // New Co-Agent States
+    const [coAgentName, setCoAgentName] = useState("");
     const [coAgentEmail, setCoAgentEmail] = useState("");
+    const [coAgentMode, setCoAgentMode] = useState<'existing' | 'new'>('existing');
+    const [editingCoAgentIndex, setEditingCoAgentIndex] = useState<number | null>(null);
+
     const [tempNotes, setTempNotes] = useState('');
-    const [adminEmail, setAdminEmail] = useState("");
+    //     const [adminEmail, setAdminEmail] = useState("");
+    //     const removeAdmin = () => setAdminEmail("");
     const [openAddCoAgentDialog, setOpenAddCoAgentDialog] = useState(false);
     const [openDropdown, setOpenDropdown] = useState(false);
     const [openAddNotesDialog, setOpenAddNotesDialog] = useState(false);
@@ -52,61 +68,100 @@ const Contact = () => {
 
     const token = localStorage.getItem('token')
 
-    const removeAdmin = () => setAdminEmail("");
-    const handleAdd = () => {
+
+
+    // Updated Handle Add/Update
+    const handleSaveCoAgent = () => {
         const email = coAgentEmail.trim();
 
-        // ✅ Don't proceed if email is empty or invalid
+        // Validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!email || !emailRegex.test(email)) {
-            toast.error("Please enter a valid email.");
+            if (coAgentMode === 'new' || editingCoAgentIndex !== null) { // Only validate strict email for new/edit manual
+                toast.error("Please enter a valid email.");
+                return;
+            }
+        }
+
+        if (coAgentMode === 'new' && !coAgentName.trim()) {
+            toast.error("Please enter a name.");
             return;
         }
 
-        // ✅ If split is enabled, percentage must be a number > 0
+        // Percentage validation
         if (isSplitInvoice && (percentage === '' || isNaN(Number(percentage)) || Number(percentage) <= 0)) {
             toast.error("Please enter a valid percentage.");
             return;
         }
 
-        const extractedName = email.split('@')[0];
+        const name = coAgentName;
+        // If existing mode, get name from email/selected agent logic if needed, but usually we set name when selecting from dropdown
 
         const newAgent = {
             email,
-            name: extractedName,
+            name: name || email.split('@')[0],
             ...(isSplitInvoice && { percentage: Number(percentage) }),
         };
 
-        setDraftCoAgents(prev => [...prev, newAgent]);
-        setCoAgentEmail('');
-        setPercentage('');
+        if (editingCoAgentIndex !== null) {
+            setCoAgents(prev => {
+                const updated = [...prev];
+                updated[editingCoAgentIndex] = newAgent;
+                return updated;
+            });
+            toast.success("Co-Agent updated.");
+        } else {
+            setCoAgents(prev => [...prev, newAgent]);
+            toast.success("Co-Agent added.");
+
+        }
+
+        // Reset
+        closeCoAgentDialog();
     };
 
+    const closeCoAgentDialog = () => {
+        setOpenAddCoAgentDialog(false);
+        setCoAgentEmail("");
+        setCoAgentName("");
+        setPercentage("");
+        setEditingCoAgentIndex(null);
+        setCoAgentMode('existing');
+    }
 
-
-    const handleRemove = (index: number) => {
-        setDraftCoAgents((prev) => prev.filter((_, i) => i !== index));
-    };
-    console.log(openAddNotesDialog)
-    // const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    //     if (e.key === "Enter") {
-    //         e.preventDefault();
-    //         handleAdd();
-    //     }
-    // };
-    // const handleRemove = (index: number) => {
-    //     const updated = [...draftCoAgents];
-    //     updated.splice(index, 1);
-    //     setDraftCoAgents(updated);
-    // };
-    const handleOpenAddCoAgentDialog = () => {
-        setDraftCoAgents(coAgents);         // clear input
+    const handleEditCoAgent = (index: number) => {
+        const agent = coAgents[index];
+        setCoAgentName(agent.name);
+        setCoAgentEmail(agent.email);
+        setPercentage(agent.percentage || '');
+        setEditingCoAgentIndex(index);
+        setCoAgentMode('new'); // Edit mode is effectively "new" (manual) mode but pre-filled
         setOpenAddCoAgentDialog(true);
     };
+
     const handleRemoveCoAgent = (index: number) => {
         const updated = [...coAgents];
         updated.splice(index, 1);
         setCoAgents(updated);
+    };
+
+    const handleSelectExisting = (agentId: string) => {
+        const agent = selectedAgent?.co_agents?.find((a: { name: string; email: string }) => a.email === agentId || a.name === agentId);
+
+        if (agent) {
+            setCoAgentName(agent.name);
+            setCoAgentEmail(agent.email);
+            // setPercentage(agent.split...?) // If split is in there? Assuming no specific existing split logic for now unless mapped.
+        }
+    };
+
+    const handleOpenAddCoAgentDialog = () => {
+        setCoAgentMode('existing');
+        setCoAgentName('');
+        setCoAgentEmail('');
+        setPercentage('');
+        setEditingCoAgentIndex(null);
+        setOpenAddCoAgentDialog(true);
     };
     // useEffect(() => {
     //     if (openAddNotesDialog) {
@@ -353,12 +408,6 @@ const Contact = () => {
                                                             disabled={!isSplitInvoice && coAgents.length === 0}
                                                             onChange={(e) => {
                                                                 setIsSplitInvoice(e.target.checked);
-                                                                // Only clear co-agents if unchecking? Or maybe not at all depending on requirements.
-                                                                // Keeping existing behavior for uncheck, but removing for check to preserve agents.
-                                                                if (!e.target.checked) {
-                                                                    setDraftCoAgents([]);
-                                                                    setCoAgents([]);
-                                                                }
                                                             }}
                                                             className={`w-[18px] h-[18px] ${userType === 'admin' ? 'accent-[#4290E9]' : 'accent-[#6BAE41]'}  rounded-sm border border-[#CCCCCC] ${(!isSplitInvoice && coAgents.length === 0) ? 'cursor-not-allowed' : ''}`}
                                                         />
@@ -385,18 +434,13 @@ const Contact = () => {
                                         <Plus className={`w-[18px] h-[18px] ${userType}-bg text-white rounded-sm `} />
                                     </div>
                                     <Dialog open={openAddCoAgentDialog} onOpenChange={setOpenAddCoAgentDialog}>
-                                        <DialogContent className="w-[320px] md:w-[470px] h-[360px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
+                                        <DialogContent className="w-[320px] md:w-[470px] h-[450px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
                                             <DialogHeader>
                                                 <DialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
-                                                    CC
+                                                    {editingCoAgentIndex !== null ? 'Edit Co-Agent' : 'Add Co-Agent'}
                                                     <button
                                                         type="button"
-                                                        onClick={() => {
-                                                            setOpenAddCoAgentDialog(false);
-                                                            setCoAgentEmail("");
-                                                            setPercentage("");
-                                                            setDraftCoAgents([]);
-                                                        }}
+                                                        onClick={closeCoAgentDialog}
                                                         className="border-none !shadow-none bg-transparent"
                                                     >
                                                         <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
@@ -405,215 +449,125 @@ const Contact = () => {
                                                 <hr className="w-full h-[1px] text-[#BBBBBB]" />
                                             </DialogHeader>
 
-                                            <div className="flex flex-col " >
-                                                <div className="flex flex-col gap-4">
-                                                    <form >
-                                                        <div className="flex flex-col gap-4">
-                                                            {/* Admin Section */}
-                                                            <div>
-                                                                <div className="flex justify-between items-center mb-2">
-                                                                    <span className="text-base font-normal text-[#666666]">Admin</span>
-                                                                    <button
-                                                                        type='button'
-                                                                        className="flex items-center text-[#E06D5E] text-base font-semibold font-raleway"
-                                                                        onClick={removeAdmin}
-                                                                    >
-                                                                        Remove <Minus className='w-[18px] h-[18px] bg-[#E06D5E] text-white rounded-sm ml-[10px]' />
-                                                                    </button>
-                                                                </div>
-                                                                {adminEmail && (
-                                                                    <div
-                                                                        className="bg-[#E4E4E4] text-[#424242] flex items-center px-3 py-1 rounded-full text-sm"
-                                                                    >
-                                                                        {adminEmail}
-                                                                        <button
-                                                                            type="button"
-                                                                            className="ml-2 text-red-500"
-                                                                            onClick={() => removeAdmin()}
-                                                                        >
-                                                                            <X className="w-4 h-4" />
-                                                                        </button>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-
-                                                            {/* Co Agents Section */}
-                                                            <div className="flex flex-col gap-2">
-                                                                <div className="flex justify-between items-center">
-                                                                    <label className="text-base font-normal text-[#666666]">Co Agents</label>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="flex items-center text-[#6BAE41] text-base font-semibold mt-1 font-raleway"
-                                                                        onClick={handleAdd}
-                                                                    >
-                                                                        Add
-                                                                        <Plus className="w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm ml-[10px]" />
-                                                                    </button>
-                                                                </div>
-
-                                                                {/* 👇 Render added co-agents above the form fields */}
-                                                                {draftCoAgents.length > 0 && (
-                                                                    <div className="flex flex-wrap gap-2 py-3">
-                                                                        {draftCoAgents.map((agent, index) => (
-                                                                            <div
-                                                                                key={index}
-                                                                                className="bg-[#E4E4E4] text-[#424242] flex items-center px-3 py-1 rounded-full text-sm"
-                                                                            >
-                                                                                {agent.email} {agent.percentage !== undefined && `(${agent.percentage}%)`}
-                                                                                <button
-                                                                                    type="button"
-                                                                                    className="ml-2 text-red-500"
-                                                                                    onClick={() => handleRemove(index)}
-                                                                                >
-                                                                                    <X className="w-4 h-4" />
-                                                                                </button>
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-
-                                                                <div className="grid grid-cols-2 w-full gap-x-2.5 text-[#666666]">
-                                                                    <div className={`relative w-full ${isSplitInvoice ? 'col-span-1' : 'col-span-2'}`}>
-                                                                        <label htmlFor="email" className="block text-sm font-normal">
-                                                                            Email <span className="text-red-500">*</span>
-                                                                        </label>
-                                                                        <Input
-                                                                            id="email"
-                                                                            type="email"
-                                                                            value={coAgentEmail}
-                                                                            onChange={(e) => {
-                                                                                setCoAgentEmail(e.target.value);
-                                                                            }}
-                                                                            className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px]"
-                                                                        />
-                                                                    </div>
-
-                                                                    {isSplitInvoice && (
-                                                                        <div className="relative w-full">
-                                                                            <label htmlFor="percentage" className="block text-sm font-normal">
-                                                                                Percentage <span className="text-red-500">*</span>
-                                                                            </label>
-                                                                            <Input
-                                                                                id="percentage"
-                                                                                type="number"
-                                                                                min={0}
-                                                                                step="0.01"
-                                                                                inputMode="decimal"
-                                                                                value={percentage === '' ? '' : percentage}
-                                                                                onChange={(e) => {
-                                                                                    const value = e.target.value;
-                                                                                    if (value === '') {
-                                                                                        setPercentage('');
-                                                                                        return;
-                                                                                    }
-                                                                                    const numeric = Number(value);
-                                                                                    if (!isNaN(numeric) && numeric >= 0) {
-                                                                                        setPercentage(numeric);
-                                                                                    }
-                                                                                }}
-                                                                                className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                                                            />
-                                                                            <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => setPercentage((prev) => Math.max(0, parseFloat((prev || 0).toString()) + 1))}
-                                                                                >
-                                                                                    <ArrowUp />
-                                                                                </button>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => setPercentage((prev) => Math.max(0, parseFloat((prev || 0).toString()) - 1))}
-                                                                                >
-                                                                                    <ArrowDown />
-                                                                                </button>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-
-                                                        </div>
-                                                        <hr className="w-full h-[1px] text-[#BBBBBB] my-[16px]" />
-                                                        <DialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                onClick={() => {
-                                                                    setOpenAddCoAgentDialog(false);
-                                                                    setCoAgentEmail("");
-                                                                    setPercentage("");
-                                                                    setDraftCoAgents([]);
-                                                                }}
-                                                                className={`bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400]  ${userType}-border ${userType}-text ${userType}-button hovert-${userType}-text hover-${userType}-bg`}
-                                                            >
-                                                                Cancel
-                                                            </Button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    const email = coAgentEmail.trim();
-                                                                    const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-                                                                    const needsToAdd = email !== '' || (isSplitInvoice && percentage !== '');
-
-                                                                    if (needsToAdd) {
-                                                                        if (!isValidEmail) {
-                                                                            toast.error('Please enter a valid email.');
-                                                                            return;
-                                                                        }
-
-                                                                        if (isSplitInvoice && (percentage === '' || isNaN(Number(percentage)) || Number(percentage) <= 0)) {
-                                                                            toast.error('Please enter a valid percentage.');
-                                                                            return;
-                                                                        }
-
-                                                                        const extractedName = email.split('@')[0];
-                                                                        const newAgent = {
-                                                                            email,
-                                                                            name: extractedName,
-                                                                            ...(isSplitInvoice && { percentage: Number(percentage) }),
-                                                                        };
-
-                                                                        draftCoAgents.push(newAgent);
-                                                                    }
-
-                                                                    // Only proceed after validation
-                                                                    setCoAgents(draftCoAgents);
-                                                                    setCoAgentEmail('');
-                                                                    setPercentage('');
-                                                                    setDraftCoAgents([]);
-                                                                    setOpenAddCoAgentDialog(false);
-                                                                }}
-                                                                className={`${userType}-bg text-white hover-${userType}-bg w-full md:w-[176px] h-[44px] font-[400] text-[20px] rounded-md hover-${userType}-bg`}
-                                                            >
-                                                                Add
-                                                            </button>
-                                                        </DialogFooter>
-                                                    </form>
+                                            <div className="w-full">
+                                                <div className="grid w-full grid-cols-2 mb-4 bg-[#E4E4E4] p-1 rounded-md">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setCoAgentMode('existing')}
+                                                        className={`py-1.5 text-sm font-medium rounded-sm transition-all ${coAgentMode === 'existing' ? 'bg-white shadow-sm text-black' : 'text-[#666666]'}`}
+                                                    >
+                                                        Select Existing
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setCoAgentMode('new')}
+                                                        className={`py-1.5 text-sm font-medium rounded-sm transition-all ${coAgentMode === 'new' ? 'bg-white shadow-sm text-black' : 'text-[#666666]'}`}
+                                                    >
+                                                        Add New
+                                                    </button>
                                                 </div>
 
+                                                {coAgentMode === 'existing' ? (
+                                                    <div className="space-y-4">
+                                                        <div className="flex flex-col gap-2">
+                                                            <label className="text-sm font-normal text-[#666666]">Select Co-Agent</label>
+                                                            <SearchableSelect
+                                                                options={selectedAgent?.co_agents?.map((a: { name: string; email: string }) => ({
+                                                                    label: `${a.name} (${a.email})`,
+                                                                    value: a.email
+                                                                })) || []}
+                                                                value={coAgentEmail}
+                                                                onChange={handleSelectExisting}
+                                                                placeholder="Search co-agents..."
+                                                                className="w-full"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-4">
+                                                        <div className="flex flex-col gap-2">
+                                                            <label className="text-sm font-normal text-[#666666]">Name <span className="text-red-500">*</span></label>
+                                                            <Input
+                                                                value={coAgentName}
+                                                                onChange={(e) => setCoAgentName(e.target.value)}
+                                                                className="h-[42px] bg-[#EEEEEE]"
+                                                            />
+                                                        </div>
+                                                        <div className="flex flex-col gap-2">
+                                                            <label className="text-sm font-normal text-[#666666]">Email <span className="text-red-500">*</span></label>
+                                                            <Input
+                                                                type="email"
+                                                                value={coAgentEmail}
+                                                                onChange={(e) => setCoAgentEmail(e.target.value)}
+                                                                className="h-[42px] bg-[#EEEEEE]"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
+
+                                            {/* Common Fields */}
+                                            {isSplitInvoice && (
+                                                <div className="mt-4">
+                                                    <label className="text-sm font-normal text-[#666666] block mb-2">Percentage <span className="text-red-500">*</span></label>
+                                                    <div className="relative">
+                                                        <Input
+                                                            type="number"
+                                                            min={0}
+                                                            max={100}
+                                                            value={percentage === '' ? '' : percentage}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                if (val === '') setPercentage('');
+                                                                else setPercentage(Number(val));
+                                                            }}
+                                                            className="h-[42px] bg-[#EEEEEE] appearance-none"
+                                                        />
+                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <DialogFooter className="mt-6 flex gap-2">
+                                                <Button variant="outline" onClick={closeCoAgentDialog} className="w-full">Cancel</Button>
+                                                <Button onClick={handleSaveCoAgent} className={`w-full ${userType}-bg text-white hover:opacity-90`}>
+                                                    {editingCoAgentIndex !== null ? 'Update' : 'Add'}
+                                                </Button>
+                                            </DialogFooter>
                                         </DialogContent>
                                     </Dialog>
                                 </div>
-                                <div className="border border-[#BBBBBB] mt-[12px] px-[6px] py-[8px] rounded-[6px] bg-[#EEEEEE] flex flex-wrap gap-[6px] min-h-[67px]">
-                                    {coAgents.map((coagent, index) => (
-                                        <div
-                                            key={index}
-                                            className="flex items-center bg-[#E4E4E4] px-[6px] h-[24px] py-1.5 rounded-[10px] shadow-sm max-w-full break-words cursor-pointer overflow-hidden"
-                                            style={{ maxWidth: '100%' }}
-                                        >
-                                            <span className="text-sm font-normal text-[#7D7D7D] break-words whitespace-pre-wrap overflow-hidden text-ellipsis" onClick={() => setOpenAddCoAgentDialog(true)}>
-                                                {coagent.email || 'No Email Provided'} {coagent.percentage !== undefined && `(${coagent.percentage}%)`}
-                                            </span>
-                                            <button
-                                                onClick={() => handleRemoveCoAgent(index)}
-                                                className="text-red-500 hover:text-red-700 ml-2 flex-shrink-0"
-                                            >
-                                                <X size={18} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
+                                {coAgents.length > 0 && (
+                                    <div className="mt-[12px] border rounded-md overflow-hidden">
+                                        <Table>
+                                            <TableHeader className="bg-[#E4E4E4]">
+                                                <TableRow>
+                                                    <TableHead className="font-bold text-[#666666]">Name</TableHead>
+                                                    <TableHead className="font-bold text-[#666666]">Email</TableHead>
+                                                    {isSplitInvoice && <TableHead className="font-bold text-[#666666]">Split (%)</TableHead>}
+                                                    <TableHead className="text-right font-bold text-[#666666]">Action</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {coAgents.map((agent, index) => (
+                                                    <TableRow key={index} className="bg-white">
+                                                        <TableCell>{agent.name}</TableCell>
+                                                        <TableCell>{agent.email}</TableCell>
+                                                        {isSplitInvoice && <TableCell>{agent.percentage}%</TableCell>}
+                                                        <TableCell className="text-right flex items-center justify-end gap-2">
+                                                            <button onClick={() => handleEditCoAgent(index)} className="p-1 hover:bg-gray-100 rounded">
+                                                                <Edit2Icon className="w-4 h-4 text-blue-500" />
+                                                            </button>
+                                                            <button onClick={() => handleRemoveCoAgent(index)} className="p-1 hover:bg-gray-100 rounded">
+                                                                <Trash className="w-4 h-4 text-red-500" />
+                                                            </button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                )}
                             </div>
                             <div className="col-span-2">
                                 <div className='flex items-center justify-between'>

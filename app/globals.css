@@ -504,6 +504,14 @@ input[type="date"]::-moz-calendar-picker-indicator {
   background-color: #a8a8a8;
 }
 
+
 .custom-scroll::-webkit-scrollbar-button {
   display: none;
+}
+
+/* Global Placeholder Style */
+input::placeholder,
+textarea::placeholder {
+  color: #a0a0a0 !important;
+  opacity: 1 !important;
 }

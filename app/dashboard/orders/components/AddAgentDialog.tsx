@@ -10,15 +10,17 @@ import {
     AlertDialogFooter,
     AlertDialogAction,
 } from "@/components/ui/alert-dialog"
-import { Plus, X } from "lucide-react"
+import { Pencil, Plus, X, ChevronDown, ChevronUp } from "lucide-react"
 import { Input } from "../../../../components/ui/input"
 import DynamicMap from "../../../../components/DYnamicMap"
 import AddCoAgentDialog from "../../../../components/AddCoAgentDialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../components/ui/select"
 import { AgentPayload, CreateAgent, EditAgent, GetOne } from "@/app/dashboard/agents/agents"
+import GooglePlacesAutocomplete, { AddressComponents } from "../../calendar/components/AutoCompleteInput"
 import { GetRole } from "@/app/dashboard/orders/orders"
 import { toast } from "sonner"
 import { SaveModal } from "../../../../components/SaveModal"
+import { useAppContext } from "@/app/context/AppContext"
 
 type CoAgent = {
     email: string;
@@ -77,6 +79,7 @@ const AddAgentDialog: React.FC<Props> = ({
     uuid,
     onSuccess,
 }) => {
+    const { userType } = useAppContext();
     const [currentUser, setCurrentUser] = useState<CurrentAgent | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [coAgents, setCoAgents] = useState<{ name: string; email: string; primary_phone: string; split: string }[]>([]);
@@ -91,6 +94,8 @@ const AddAgentDialog: React.FC<Props> = ({
     const [headquarterAddress, setHeadQuarterAddress] = useState('');
     const [primaryPhone, setPrimaryPhone] = useState("");
     const [secondaryPhone, setSecondaryPhone] = useState("");
+    const [selectedCoAgent, setSelectedCoAgent] = useState<CoAgent | null>(null);
+    const [selectedCoAgentIndex, setSelectedCoAgentIndex] = useState<number | null>(null);
     const [companyName, setCompanyName] = useState("");
     const [companyWebsite, setCompanyWebsite] = useState("");
     const [certifications, setCertifications] = useState<string[]>([]);
@@ -100,6 +105,29 @@ const AddAgentDialog: React.FC<Props> = ({
     type Role = { id: string; name: string };
     const [roles, setRoles] = useState<Role[]>([])
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+    const [showAdditionalInfo, setShowAdditionalInfo] = useState(false);
+    const resetForm = React.useCallback(() => {
+        setFirstName('');
+        setLastName('');
+        setEmail('');
+        setEmailCC('');
+        setPrimaryPhone('');
+        setSecondaryPhone('');
+        setCompanyName('');
+        setCompanyWebsite('');
+        setPassword('');
+        if (roles.length > 0) {
+            setRole(String(roles[0].id));
+        } else {
+            setRole('');
+        }
+        setAgentNotes('');
+        setHeadQuarterAddress('');
+        setCertifications([]);
+        setAgentLicense('');
+        setCoAgents([]);
+        setFieldErrors({});
+    }, [roles]);
     useEffect(() => {
         const token = localStorage.getItem("token");
 
@@ -111,10 +139,12 @@ const AddAgentDialog: React.FC<Props> = ({
         GetRole(token)
             .then(data => {
                 if (Array.isArray(data.data)) {
-                    const filtered = data.data.filter((role: { name: string }) =>
-                        role.name === 'Agents'
-                    );
-                    setRoles(filtered);
+                    const allRoles = Array.isArray(data.data) ? data.data : [];
+                    const filteredRoles = allRoles.filter((role: Role) => role.name.toLowerCase() === 'agents');
+                    if (filteredRoles.length > 0) {
+                        setRole(String(filteredRoles[0].id));
+                    }
+                    setRoles(filteredRoles);
                 } else {
                     setRoles([]);
                 }
@@ -126,7 +156,7 @@ const AddAgentDialog: React.FC<Props> = ({
             resetForm();
             setCurrentUser(null);
         }
-    }, [open, uuid]);
+    }, [open, uuid, resetForm]);
     useEffect(() => {
         const token = localStorage.getItem("token");
 
@@ -186,6 +216,7 @@ const AddAgentDialog: React.FC<Props> = ({
             });
 
             const payload: AgentPayload = {
+                status: 1,
                 first_name: firstName,
                 last_name: lastName,
                 email: email,
@@ -201,7 +232,7 @@ const AddAgentDialog: React.FC<Props> = ({
                 headquarter_address: headquarterAddress,
                 certifications: certifications,
                 license_number: agentLicense,
-                co_agents: sanitizedCoAgents,
+                ...(sanitizedCoAgents.length > 0 && { co_agents: sanitizedCoAgents }),
             };
 
             if (uuid) {
@@ -253,24 +284,7 @@ const AddAgentDialog: React.FC<Props> = ({
             }
         }
     };
-    const resetForm = () => {
-        setFirstName('');
-        setLastName('');
-        setEmail('');
-        setEmailCC('');
-        setPrimaryPhone('');
-        setSecondaryPhone('');
-        setCompanyName('');
-        setCompanyWebsite('');
-        setPassword('');
-        setRole('');
-        setAgentNotes('');
-        setHeadQuarterAddress('');
-        setCertifications([]);
-        setAgentLicense('');
-        setCoAgents([]);
-        setFieldErrors({});
-    };
+
 
     const handleCertificationTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         let input = e.target.value;
@@ -309,7 +323,10 @@ const AddAgentDialog: React.FC<Props> = ({
                 </AlertDialogHeader>
                 <div className='w-full flex flex-col items-center'>
                     <div className='w-full md:w-[620px] py-[16px] px-0 md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                        <div className='grid grid-cols-2 gap-[16px]'>
+                        <div className='grid grid-cols-2 gap-[16px] overflow-y-auto px-1'>
+                            <div className="col-span-2">
+                                <p className="text-sm font-semibold text-[#4290E9] mb-2">Mandatory Fields</p>
+                            </div>
                             <div>
                                 <label htmlFor="">First Name <span className="text-red-500">*</span></label>
                                 <Input
@@ -327,7 +344,7 @@ const AddAgentDialog: React.FC<Props> = ({
                                     className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
                                 {fieldErrors.last_name && <p className='text-red-500 text-[10px]'>{fieldErrors.last_name[0]}</p>}
                             </div>
-                            <div className='col-span-2'>
+                            <div className='col-span-2 hidden'>
                                 <label htmlFor="">Role</label>
                                 <Select
                                     value={String(role)}
@@ -355,14 +372,6 @@ const AddAgentDialog: React.FC<Props> = ({
 
                                 {fieldErrors.email && <p className='text-red-500 text-[10px]'>{fieldErrors.email[0]}</p>}
                             </div>
-                            <div className='col-span-2'>
-                                <label htmlFor="">Email CC</label>
-                                <Input value={emailCC}
-                                    onChange={(e) => setEmailCC(e.target.value)}
-                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="email" />
-
-                                {fieldErrors.email_cc && <p className='text-red-500 text-[10px]'>{fieldErrors.email_cc[0]}</p>}
-                            </div>
                             {!uuid && (
                                 <div className='col-span-2'>
                                     <label htmlFor="">Password <span className="text-red-500">*</span></label>
@@ -375,116 +384,171 @@ const AddAgentDialog: React.FC<Props> = ({
                                     {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
                                 </div>
                             )}
-                            <div>
+                            <div className='col-span-2'>
                                 <label htmlFor="">Primary Phone <span className="text-red-500">*</span></label>
                                 <Input value={primaryPhone}
                                     onChange={(e) => setPrimaryPhone(e.target.value)}
                                     className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
                                 {fieldErrors.primary_phone && <p className='text-red-500 text-[10px]'>{fieldErrors.primary_phone[0]}</p>}
                             </div>
-                            <div>
-                                <label htmlFor="">Secondary Phone</label>
-                                <Input value={secondaryPhone}
-                                    onChange={(e) => setSecondaryPhone(e.target.value)}
-                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-                            </div>
-                            <div className="col-span-2 border-b border-[#BBBBBB]">
-                            </div>
-                            <div className='col-span-2'>
-                                <label htmlFor="">Company Name <span className="text-red-500">*</span></label>
-                                <Input value={companyName}
-                                    onChange={(e) => setCompanyName(e.target.value)}
-                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-                                {fieldErrors.company_name && <p className='text-red-500 text-[10px]'>{fieldErrors.company_name[0]}</p>}
-                            </div>
-                            <div className='col-span-2'>
-                                <label htmlFor="">Website</label>
-                                <Input value={companyWebsite}
-                                    onChange={(e) => setCompanyWebsite(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
 
-                            </div>
-                            <div>
-                                <label htmlFor="">Agent license #</label>
-                                <Input value={agentLicense}
-                                    onChange={(e) => setAgentLicense(e.target.value)}
-                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-                            </div>
-                            <div>
-                                <label htmlFor="certification-input">Certifications</label>
-                                <Input
-                                    id="certification-input"
-                                    value={certificationText}
-                                    onChange={handleCertificationTextChange}
-                                    onBlur={handleBlur}
-                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                    type="text"
-                                    placeholder="CIP, SIP..."
-                                />
-                            </div>
-                            <div className='col-span-2'>
-                                <label htmlFor="">Headquarter Address</label>
-                                <Input value={headquarterAddress}
-                                    onChange={(e) => setHeadQuarterAddress(e.target.value)}
-                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-                            </div>
-                            <div className='col-span-2 h-[200px]'>
-                                <DynamicMap
-                                    address={headquarterAddress}
-                                />
-                            </div>
-                            <div className="col-span-2 border-b border-[#BBBBBB]">
-                            </div>
+                            <div className="col-span-2 border-b border-[#BBBBBB] my-2"></div>
+
                             <div className="col-span-2">
-                                <div className='flex items-center justify-between'>
-                                    <p >Assistants/Co Agents</p>
-                                    <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => setOpenAddCoAgentDialog(true)}>
-                                        <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
-                                        <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm ' />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAdditionalInfo(!showAdditionalInfo)}
+                                    className="flex items-center justify-between w-full text-left text-[#4290E9] font-medium"
+                                >
+                                    <span>Additional Information (Optional)</span>
+                                    {showAdditionalInfo ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                                </button>
+                            </div>
+
+                            {showAdditionalInfo && (
+                                <>
+                                    <div className='col-span-2'>
+                                        <label htmlFor="">Company Name</label>
+                                        <Input value={companyName}
+                                            onChange={(e) => setCompanyName(e.target.value)}
+                                            className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                        {fieldErrors.company_name && <p className='text-red-500 text-[10px]'>{fieldErrors.company_name[0]}</p>}
                                     </div>
-                                    <AddCoAgentDialog
-                                        open={openAddCoAgentDialog}
-                                        setOpen={setOpenAddCoAgentDialog}
-                                        onSuccess={(agent) => {
-                                            setCoAgents((prev) => [...prev, agent]);
-                                        }}
-                                    />
-                                </div>
-                                <div className="border border-[#BBBBBB] mt-[12px] px-[6px] py-[8px] rounded-[6px] bg-[#EEEEEE] flex flex-wrap gap-[6px] min-h-[67px]">
-                                    {coAgents.map((coagent, index) => (
-                                        <div
-                                            key={index}
-                                            className="flex items-center bg-[#E4E4E4] px-[6px] h-[24px] py-1.5 rounded-[10px] shadow-sm max-w-full break-words cursor-pointer overflow-hidden"
-                                            style={{ maxWidth: '100%' }}
-                                        >
-                                            <span className="text-sm font-normal text-[#7D7D7D] break-words whitespace-pre-wrap overflow-hidden text-ellipsis" onClick={() => setOpenAddCoAgentDialog(true)}>
-                                                {coagent.name} &lt;{coagent.email}&gt;
-                                            </span>
-                                            <button
-                                                onClick={() => removeAgent(index)}
-                                                className="text-red-500 hover:text-red-700 ml-2 flex-shrink-0"
-                                            >
-                                                <X size={18} />
-                                            </button>
+                                    <div className='col-span-2'>
+                                        <label htmlFor="">Email CC</label>
+                                        <Input value={emailCC}
+                                            onChange={(e) => setEmailCC(e.target.value)}
+                                            className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="email" />
+
+                                        {fieldErrors.email_cc && <p className='text-red-500 text-[10px]'>{fieldErrors.email_cc[0]}</p>}
+                                    </div>
+                                    <div className='col-span-2'>
+                                        <label htmlFor="">Secondary Phone</label>
+                                        <Input value={secondaryPhone}
+                                            onChange={(e) => setSecondaryPhone(e.target.value)}
+                                            className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                    </div>
+                                    <div className='col-span-2'>
+                                        <label htmlFor="">Website</label>
+                                        <Input value={companyWebsite}
+                                            onChange={(e) => setCompanyWebsite(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+
+                                    </div>
+                                    <div>
+                                        <label htmlFor="">Agent license #</label>
+                                        <Input value={agentLicense}
+                                            onChange={(e) => setAgentLicense(e.target.value)}
+                                            className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="certification-input">Certifications</label>
+                                        <Input
+                                            id="certification-input"
+                                            value={certificationText}
+                                            onChange={handleCertificationTextChange}
+                                            onBlur={handleBlur}
+                                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                            type="text"
+                                            placeholder="CIP, SIP..."
+                                        />
+                                    </div>
+                                    <div className='col-span-2'>
+                                        <label htmlFor="">Headquarter Address</label>
+                                        <GooglePlacesAutocomplete
+                                            value={headquarterAddress}
+                                            onChange={setHeadQuarterAddress}
+                                            onAddressComponents={(components: AddressComponents) => {
+                                                setHeadQuarterAddress(components.full_address);
+                                            }}
+                                            placeholder=""
+                                            className="mt-[12px]"
+                                            inputClassName="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB]"
+                                        />
+                                    </div>
+                                    <div className='col-span-2 h-[200px]'>
+                                        <DynamicMap
+                                            address={headquarterAddress}
+                                        />
+                                    </div>
+                                    <div className="col-span-2 border-b border-[#BBBBBB]">
+                                    </div>
+                                    <div className="col-span-2">
+                                        <div className='flex items-center justify-between'>
+                                            <p >Assistants/Co Agents</p>
+                                            <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => {
+                                                setSelectedCoAgent(null);
+                                                setSelectedCoAgentIndex(null);
+                                                setOpenAddCoAgentDialog(true);
+                                            }}>
+                                                <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
+                                                <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm ' />
+                                            </div>
+                                            <AddCoAgentDialog
+                                                open={openAddCoAgentDialog}
+                                                setOpen={setOpenAddCoAgentDialog}
+                                                onSuccess={(agent) => {
+                                                    if (selectedCoAgentIndex !== null) {
+                                                        setCoAgents((prev) => {
+                                                            const newAgents = [...prev];
+                                                            newAgents[selectedCoAgentIndex] = agent;
+                                                            return newAgents;
+                                                        });
+                                                    } else {
+                                                        setCoAgents((prev) => [...prev, agent]);
+                                                    }
+                                                }}
+                                                agent={selectedCoAgent}
+                                            />
                                         </div>
-                                    ))}
-                                </div>
+                                        <div className="border border-[#BBBBBB] mt-[12px] bg-white overflow-hidden w-full rounded-[10px]">
+                                            <div className="grid grid-cols-6 gap-2 px-2 py-3 text-sm text-[#666666] font-semibold items-center border-b border-[#BBBBBB]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                                                <div className="col-span-2">NAME</div>
+                                                <div className="col-span-3">EMAIL</div>
+                                                <div className="col-span-1">ACTIONS</div>
+                                            </div>
+
+                                            {coAgents.length > 0 ? (
+                                                coAgents.map((coagent, index) => (
+                                                    <div key={index} className="grid grid-cols-6 gap-2 px-2 py-3 border-b border-[#BBBBBB] items-center hover:bg-[#F9F9F9]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                                                        <div className="col-span-2 text-[#666666] text-xs break-words truncate cursor-pointer" title={coagent.name}>{coagent.name}</div>
+                                                        <div className="col-span-3 text-[#666666] text-xs truncate cursor-pointer" title={coagent.email}>{coagent.email}</div>
+                                                        <div className="col-span-1">
+                                                            <div className="flex items-center gap-3 justify-center">
+                                                                <span className={`cursor-pointer ${userType}-text`} onClick={() => {
+                                                                    setSelectedCoAgent(coagent);
+                                                                    setSelectedCoAgentIndex(index);
+                                                                    setOpenAddCoAgentDialog(true);
+                                                                }}><Pencil className="w-[14px] h-[14px]" /></span>
+                                                                <span className="cursor-pointer text-red-500 hover:text-red-700" onClick={() => removeAgent(index)}><X className="w-[16px] h-[16px]" /></span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="flex justify-center items-center h-20 text-[#666666] text-xs" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                                                    No co-agents added yet.
+                                                </div>
+                                            )}
+                                        </div>
 
 
-                            </div>
-                            <div className="col-span-2">
-                                <label htmlFor="">
-                                    Agent Notes (Not visible to Agent)
-                                </label>
-                                <textarea
-                                    className="h-[200px] w-full p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                    value={agentNotes}
-                                    onChange={(e) => setAgentNotes(e.target.value)}
-                                    placeholder='Write Notes Here...'
-                                />
-                                {fieldErrors.iframe_code && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.iframe_code[0]}</p>}
-                            </div>
-                            <div className="col-span-2 border-b border-[#BBBBBB]">
-                            </div>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label htmlFor="">
+                                            Agent Notes (Not visible to Agent)
+                                        </label>
+                                        <textarea
+                                            className="h-[200px] w-full p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                            value={agentNotes}
+                                            onChange={(e) => setAgentNotes(e.target.value)}
+                                            placeholder='Write Notes Here...'
+                                        />
+                                        {fieldErrors.iframe_code && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.iframe_code[0]}</p>}
+                                    </div>
+                                    <div className="col-span-2 border-b border-[#BBBBBB]">
+                                    </div>
+                                </>
+                            )}
                         </div>
                         <AlertDialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
                             <AlertDialogCancel className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">

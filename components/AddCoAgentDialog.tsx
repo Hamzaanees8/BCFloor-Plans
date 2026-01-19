@@ -136,7 +136,7 @@ const AddCoAgentDialog: React.FC<Props> = ({
                                             }}
                                             className={`h-[42px] text-[#666666] border-[1px] mt-[12px] ${fieldErrors.phoneNumber ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                                             style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                            type="text" />
+                                            type="number" />
                                         {fieldErrors.phoneNumber && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.phoneNumber[0]}</p>}
                                     </div>
                                     {uuid && (

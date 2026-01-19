@@ -116,7 +116,7 @@ export async function fetchMlsData(mls_id: string) {
     try {
         const response = await api.get(`/vendor/fetch-mls-data/?mls_number=${mls_id}`);
         const mlsData = await response.data;
-        if (mlsData.status !== true) {
+        if (mlsData.status !== true && mlsData.success !== true) {
             throw new Error(mlsData.message || `Request failed with status ${response.status}`);
         }
         return mlsData;

@@ -59,14 +59,13 @@ const Services = ({ showAll }: { showAll: boolean }) => {
         listingsData: contextListingsData,
         packagesData,
         activePackage,
-        setActivePackage
+        setActivePackage,
+        tempPropertyData
     } = useOrderContext();
     // const [selected, setSelected] = React.useState('Alphabetically')
     const [servicesData, setServicesData] = useState<Services[]>([]);
     const [accordionDefaults, setAccordionDefaults] = useState<string[]>([]);
     const [listingData, setListingData] = useState<Listings | undefined>(undefined);
-
-
 
     useEffect(() => {
         const selectedIds = selectedServices.map(s => s.uuid);
@@ -105,6 +104,12 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                 service.name?.toLowerCase().includes('twilight') ||
                 service.category?.name?.toLowerCase().includes('twilight');
 
+            // Prioritize tempPropertyData from the form over existing listing data
+            const sqft = tempPropertyData?.square_footage || listingData?.square_footage;
+
+            // If no sqft, show all services
+            if (!sqft) return true;
+
             const hasMatchingOption = isPhotoService || service.product_options?.some((option) => {
                 // If option has sq_ft_rate, it should be shown regardless of range
                 if (option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0) return true;
@@ -118,9 +123,8 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                 if (isNaN(min) || isNaN(max)) return false;
 
                 return (
-                    listingData &&
-                    listingData.square_footage >= min &&
-                    listingData.square_footage <= max
+                    sqft >= min &&
+                    sqft <= max
                 );
             });
 
@@ -139,7 +143,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
 
         const defaults = Object.keys(grouped).map((_, idx) => `group-${idx}`);
         setAccordionDefaults(defaults);
-    }, [contextServicesData, listingData, showAll]);
+    }, [contextServicesData, listingData, showAll, tempPropertyData?.square_footage]);
 
     const groupedByCategory = servicesData?.reduce((acc, service) => {
         const category = service.category?.name ?? "";
@@ -199,7 +203,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                             // })
                             .map(([category, services], idx) => (
                                 <AccordionItem key={idx} value={`group-${idx}`} className="border-none">
-                                    <AccordionTrigger className='text-[18px] font-[600] text-[#4290E9] pl-[10px] my-[10px] border-none'>
+                                    <AccordionTrigger className='text-[18px] font-[600] text-[#4290E9] px-4 py-3 my-2 bg-gray-50 hover:bg-gray-100 rounded-lg border-none transition-colors decoration-transparent hover:no-underline'>
                                         {category}
                                     </AccordionTrigger>
                                     <AccordionContent className="border-none">
@@ -212,7 +216,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                                                     selectedServices={selectedServices}
                                                     setSelectedServices={setSelectedServices}
                                                     service={service}
-                                                    squareFootage={listingData?.square_footage ?? 0}
+                                                    squareFootage={tempPropertyData?.square_footage || listingData?.square_footage || 0}
                                                     showAll={showAll}
                                                 />
                                             ))}
@@ -307,8 +311,8 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                         </AccordionContent>
                     </AccordionItem>
                 </Accordion> */}
-                <div className="hidden lg:block w-full lg:w-[40%] mt-[85px] text-[#666666]">
-                    <div className="bg-white rounded-[8px] p-4 border border-[#BBBBBB] shadow-md py-[40px]">
+                <div className="hidden lg:block w-full lg:w-[40%] text-[#666666] relative">
+                    <div className="bg-white rounded-[8px] p-4 border border-[#BBBBBB] shadow-md py-[40px] sticky top-[160px]">
                         <h2 className=" font-[600] text-[#333] mb-4 text-[24px]">Order</h2>
 
                         <div className="space-y-[12px] text-[15px] text-[#666666]">

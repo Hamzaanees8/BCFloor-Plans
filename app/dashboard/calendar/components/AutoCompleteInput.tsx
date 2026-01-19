@@ -58,7 +58,9 @@ interface GooglePlacesAutocompleteProps {
     className?: string;
     inputClassName?: string;
     suggestionsContainerClassName?: string;
+
     fieldErrors?: Record<string, string[]>;
+    autoFocus?: boolean;
 }
 
 const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = (props) => {
@@ -74,7 +76,8 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = (props
         className = '',
         inputClassName = '',
         suggestionsContainerClassName = '',
-        fieldErrors = {}
+        fieldErrors = {},
+        autoFocus = false,
     } = props;
 
     const apiKey = process.env.NEXT_PUBLIC_PLACES_API_KEY;
@@ -382,6 +385,7 @@ const GooglePlacesAutocomplete: React.FC<GooglePlacesAutocompleteProps> = (props
                 `}
                 aria-autocomplete="list"
                 aria-controls="places-suggestions"
+                autoFocus={autoFocus}
             />
 
             {isLoading && (

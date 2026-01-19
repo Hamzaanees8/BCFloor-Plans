@@ -1,10 +1,11 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useSidebar } from "@/components/ui/sidebar";
 import { Calendar, dayjsLocalizer, View, Views } from 'react-big-calendar';
 import dayjs from 'dayjs';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Coffee, Plane, Box, LayoutTemplate, Camera, Video, Home, Aperture, Layers } from 'lucide-react';
 import { Order } from '../../orders/page';
 import '../calendar.css'
 import { Button } from '@/components/ui/button';
@@ -20,9 +21,17 @@ import { useAppContext } from '@/app/context/AppContext';
 import { toast } from 'sonner';
 import { DeleteVendorBreak } from '../calendar';
 import { api } from '@/lib/api';
+import { Switch } from '@/components/ui/switch';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
 
 const STORAGE_KEY_DELETE = 'confirmation_dialog_delete_show_again';
+
+import updateLocale from 'dayjs/plugin/updateLocale';
+dayjs.extend(updateLocale);
+
+dayjs.updateLocale('en', {
+    weekStart: 1,
+});
 
 const localizer = dayjsLocalizer(dayjs);
 
@@ -96,6 +105,7 @@ export type CalendarEvent = {
     order_id?: string | number
     address?: string
     vendor_name?: string
+    service_name?: string
 };
 
 const customViews = {
@@ -150,7 +160,9 @@ const generateWeeklyBreakEvents = (vendors: CalanderVendor[], referenceDate: Dat
 
 const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, setVendorData, visibleDays, setVisibleDays, setCurrentMonthYear, serviceData, agentData }: BigCalendarProps) => {
     const { userType } = useAppContext();
+    const { open: isSidebarOpen } = useSidebar();
     const [date, setDate] = useState(new Date());
+    const [showBreaks, setShowBreaks] = useState(true);
     const [open, setOpen] = useState(false);
     const [openDetails, setOpenDetails] = useState(false);
     const [contextMenu, setContextMenu] = useState<{
@@ -267,16 +279,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
             return aStart.diff(bStart);
         });
 
-        const groupedEvents: {
-            title: string;
-            start: Date;
-            end: Date;
-            vendor_id: string;
-            service_id?: number;
-            color_id: number;
-            order_id?: string;
-
-        }[] = [];
+        const groupedEvents: CalendarEvent[] = [];
 
         const groupedByOrderServiceVendor: Record<string, typeof sortedSlots> = {};
         for (const slot of sortedSlots) {
@@ -311,6 +314,8 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     } else {
                         const firstSlot = currentGroup[0];
                         const lastSlot = currentGroup[currentGroup.length - 1];
+                        const serviceName = serviceData?.find(s => s.id === firstSlot.service_id)?.name;
+
                         groupedEvents.push({
                             title: `${firstSlot.vendor?.first_name ?? "Vendor"} ${firstSlot.vendor?.last_name ?? ""}`.trim(),
                             start: dayjs(`${firstSlot.date} ${firstSlot.start_time}`).toDate(),
@@ -318,6 +323,8 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                             vendor_id: firstSlot.vendor.uuid,
                             service_id: firstSlot.service_id,
                             order_id: order.uuid,
+                            address: firstSlot.address || order.property_address,
+                            service_name: serviceName,
                             // @ts-expect-error skip
                             color_id: Number(firstSlot.vendor?.company?.vendor_id ?? 0)
                         });
@@ -328,8 +335,9 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
 
             if (currentGroup.length > 0) {
                 const firstSlot = currentGroup[0];
-
                 const lastSlot = currentGroup[currentGroup.length - 1];
+                const serviceName = serviceData?.find(s => s.id === firstSlot.service_id)?.name;
+
                 groupedEvents.push({
                     title: `${firstSlot.vendor?.first_name ?? "Vendor"} ${firstSlot.vendor?.last_name ?? ""}`.trim(),
                     start: dayjs(`${firstSlot.date} ${firstSlot.start_time}`).toDate(),
@@ -337,6 +345,8 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     vendor_id: firstSlot.vendor.uuid,
                     service_id: firstSlot.service_id,
                     order_id: order.uuid,
+                    address: firstSlot.address || order.property_address,
+                    service_name: serviceName,
                     // @ts-expect-error skip
                     color_id: firstSlot.vendor.company?.vendor_id
                 });
@@ -418,24 +428,31 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
         selectedVendors.includes('ALL') || selectedVendors.includes(String(event.vendor_id))
     );
 
-    let allEvents: CalendarEvent[] = [];
+    const allEvents = React.useMemo(() => {
+        let events = [];
+        if (isTimeOffSelected && selectedServicesWithoutTimeOff.length === 0) {
+            events = [
+                // ...filteredBreaks,
+                ...filteredAdditionalBreaks,
+                ...(customEvents || []),
+                ...vendorEvents,
+            ];
+        } else {
+            events = [
+                ...filteredEvents,
+                ...filteredBreaks,
+                ...filteredAdditionalBreaks,
+                ...(customEvents || []),
+                ...vendorEvents,
+            ];
+        }
 
-    if (isTimeOffSelected && selectedServicesWithoutTimeOff.length === 0) {
-        allEvents = [
-            // ...filteredBreaks,
-            ...filteredAdditionalBreaks,
-            ...(customEvents || []),
-            ...vendorEvents,
-        ];
-    } else {
-        allEvents = [
-            ...filteredEvents,
-            ...filteredBreaks,
-            ...filteredAdditionalBreaks,
-            ...(customEvents || []),
-            ...vendorEvents,
-        ];
-    }
+        return events.filter(event => {
+            if (showBreaks) return true;
+            const isBreak = event.title?.includes("Break") || !!event.vendor_name;
+            return !isBreak;
+        });
+    }, [isTimeOffSelected, selectedServicesWithoutTimeOff.length, filteredAdditionalBreaks, customEvents, vendorEvents, filteredEvents, filteredBreaks, showBreaks]);
 
 
 
@@ -445,6 +462,86 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
     //     ...filteredAdditionalBreaks,
     //     ...(customEvents || [])
     // ];
+
+    const minTime = React.useMemo(() => {
+        let earliestHour = 7;
+
+        let startRange = dayjs(date).startOf('day');
+        let endRange = dayjs(date).endOf('day');
+
+        if (visibleDays[0] === '7' || visibleDays[0] === '5') {
+            startRange = dayjs(date).startOf('week');
+            endRange = dayjs(date).endOf('week');
+        } else if (visibleDays[0] === '3') {
+            startRange = dayjs(date).startOf('day');
+            endRange = dayjs(date).add(2, 'day').endOf('day');
+        } else if (visibleDays[0] === '30') {
+            startRange = dayjs(date).startOf('month');
+            endRange = dayjs(date).endOf('month');
+        }
+
+        const visibleEvents = allEvents.filter(event => {
+            if (event.allDay) return false;
+            const eventStart = dayjs(event.start);
+            const eventEnd = dayjs(event.end);
+            return (eventStart.isBefore(endRange) && eventEnd.isAfter(startRange));
+        });
+
+        for (const event of visibleEvents) {
+            const startHour = dayjs(event.start).hour();
+            if (startHour < earliestHour) {
+                earliestHour = startHour;
+            }
+        }
+        return dayjs().startOf('day').hour(earliestHour).toDate();
+    }, [allEvents, date, visibleDays]);
+
+    const maxTime = React.useMemo(() => {
+        let latestHour = 21; // 9 PM
+
+        let startRange = dayjs(date).startOf('day');
+        let endRange = dayjs(date).endOf('day');
+
+        if (visibleDays[0] === '7' || visibleDays[0] === '5') {
+            startRange = dayjs(date).startOf('week');
+            endRange = dayjs(date).endOf('week');
+        } else if (visibleDays[0] === '3') {
+            startRange = dayjs(date).startOf('day');
+            endRange = dayjs(date).add(2, 'day').endOf('day');
+        } else if (visibleDays[0] === '30') {
+            startRange = dayjs(date).startOf('month');
+            endRange = dayjs(date).endOf('month');
+        }
+
+        const visibleEvents = allEvents.filter(event => {
+            if (event.allDay) return false;
+            const eventStart = dayjs(event.start);
+            const eventEnd = dayjs(event.end);
+            return (eventStart.isBefore(endRange) && eventEnd.isAfter(startRange));
+        });
+
+        for (const event of visibleEvents) {
+            const endHour = dayjs(event.end).hour();
+            const endMinute = dayjs(event.end).minute();
+
+            // If ends at 21:05, hour is 21. We want to show until 22:00.
+            // If ends at 21:00 exactly, hour is 21. showing until 21:00 is fine? 
+            // Usually Calendar shows "upto" the max time.
+            let effectiveEndHour = endHour;
+            if (endMinute > 0) effectiveEndHour += 1;
+
+            if (effectiveEndHour > latestHour) {
+                latestHour = effectiveEndHour;
+            }
+        }
+
+        // Ensure we don't go past end of day (24 hours -> next day 00:00)
+        if (latestHour >= 24) {
+            return dayjs().endOf('day').toDate();
+        }
+
+        return dayjs().startOf('day').hour(latestHour).toDate();
+    }, [allEvents, date, visibleDays]);
 
     const CustomEvent = ({ event }: { event: CalendarEvent }) => {
 
@@ -459,44 +556,134 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
 
         const isBreak = event.title.includes("Break") || !!event.vendor_name;
 
+        const duration = dayjs(event.end).diff(dayjs(event.start), 'minute');
+        const isShortDuration = duration <= 30;
+
         return (
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <div
                             onContextMenu={handleContextMenu}
-                            className="h-full w-full flex flex-col justify-center cursor-pointer !px-[1px] !py-[1px]"
+                            className={`h-full w-full flex flex-col justify-center cursor-pointer ${isBreak ? 'striped-background' : ''}`}
+                            style={{ overflow: 'hidden' }}
                         >
                             {isBreak ? (
-                                <div className='flex flex-col overflow-hidden h-full justify-center'>
-                                    <span className="truncate leading-tight">{event.title}</span>
-                                    <span className="truncate leading-tight">{event.vendor_name}</span>
+                                <div className='flex flex-col h-full justify-center px-1 bg-white/60'>
+                                    <div className="flex items-center gap-1">
+                                        {event.vendor_name === 'Break' ? <Coffee className="w-3 h-3" /> : <Plane className="w-3 h-3" />}
+                                        <span className="truncate leading-tight font-normal text-[11px]">{event.vendor_name || event.title}</span>
+                                    </div>
+                                    {event.vendor_name && <span className="truncate leading-tight text-[10px] opacity-90">{event.title}</span>}
                                 </div>
                             ) : (
-                                <div className='flex flex-col overflow-hidden h-full justify-center'>
-                                    <span className="truncate leading-tight">{event.title}</span>
-                                    <span className="truncate leading-tight mt-[2px]">
-                                        {dayjs(event.start).format("hh:mm A")} - {dayjs(event.end).format("hh:mm A")}
-                                    </span>
-                                </div>
+                                (() => {
+                                    const service = serviceData.find(s => s.id === event.service_id);
+                                    let Icon = Layers;
+                                    const catName = service?.category?.name?.toLowerCase() || '';
+
+                                    if (catName.includes('3d') || catName.includes('tour')) Icon = Box;
+                                    else if (catName.includes('floor')) Icon = LayoutTemplate;
+                                    else if (catName.includes('photo')) Icon = Camera;
+                                    else if (catName.includes('video')) Icon = Video;
+                                    else if (catName.includes('staging')) Icon = Home;
+                                    else if (catName.includes('hdr')) Icon = Aperture;
+
+                                    // Use service colors if available
+                                    const bgColor = service?.background_color;
+
+                                    const style = bgColor ? {
+                                        borderLeft: `10px solid ${bgColor}`, // 10px wide border with service color
+                                        paddingLeft: '6px' // Add padding
+                                    } : {
+                                        paddingLeft: '6px',
+                                    };
+
+                                    return (
+                                        <div className='flex flex-col h-full justify-center px-1' style={style}>
+                                            <div className="flex items-center gap-1">
+                                                <Icon className="w-3 h-3 shrink-0 opacity-70" />
+                                                <span className={`truncate leading-tight font-bold ${isShortDuration ? 'text-[9px]' : 'text-xs'}`}>{event.title}</span>
+                                            </div>
+                                            <span className={`truncate leading-tight mt-0.5 font-medium opacity-90 ${isShortDuration ? 'text-[8px]' : 'text-[11px]'}`}>
+                                                {dayjs(event.start).format("hh:mm A")} - {dayjs(event.end).format("hh:mm A")}
+                                            </span>
+                                        </div>
+                                    );
+                                })()
                             )}
                         </div>
                     </TooltipTrigger>
-                    <TooltipContent className="z-[9999]" side="top">
+                    <TooltipContent className="z-[9999] p-3 max-w-[300px] min-w-[250px] bg-white border border-gray-200 shadow-xl rounded-md">
                         {isBreak ? (
-                            <div className="flex flex-col gap-1">
-                                <p className="font-semibold text-sm">{event.vendor_name}</p>
-                                <p className="text-xs text-gray-300">{event.title}</p>
-                                <p className="text-xs text-gray-400">
-                                    {dayjs(event.start).format("hh:mm A")} - {dayjs(event.end).format("hh:mm A")}
-                                </p>
+                            <div className="flex flex-col gap-1.5 text-sm text-black">
+                                {event.vendor_name === 'Break' ? (
+                                    <p className='font-bold text-gray-800 border-b pb-1'>Lunch Break</p>
+                                ) : (
+                                    <p className='font-bold text-gray-800 border-b pb-1'>Time Off</p>
+                                )}
+
+                                {event.vendor_name !== 'Break' && (
+                                    <div><span className="font-semibold text-gray-700">Vendor:</span> {event.vendor_name}</div>
+                                )}
+
+                                {event.vendor_name === 'Break' ? (
+                                    <div><span className="font-semibold text-gray-700">Vendor:</span> {event.title}</div>
+                                ) : (
+                                    <div><span className="font-semibold text-gray-700">Title:</span> {event.title}</div>
+                                )}
+
+                                {event.address && (
+                                    <div><span className="font-semibold text-gray-700">Address:</span> {event.address}</div>
+                                )}
+
+                                <div><span className="font-semibold text-gray-700">Start:</span> {dayjs(event.start).format("MMM D, YYYY hh:mm A")}</div>
+                                <div><span className="font-semibold text-gray-700">End:</span> {dayjs(event.end).format("MMM D, YYYY hh:mm A")}</div>
                             </div>
                         ) : (
-                            <div className="flex flex-col gap-0.5">
-                                <p className="font-semibold text-sm">{event.title}</p>
-                                <p className="text-xs text-gray-400">
-                                    {dayjs(event.start).format("hh:mm A")} - {dayjs(event.end).format("hh:mm A")}
-                                </p>
+                            <div className="flex flex-col gap-1.5 text-sm text-black">
+                                <p className='font-bold text-gray-800 border-b pb-1'>Appointment</p>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-gray-700">Vendor:</span>
+                                    <div className="flex items-center gap-1">
+                                        <div
+                                            className="w-3 h-3 rounded-full shrink-0 border border-gray-400"
+                                            style={{ backgroundColor: getHSLColorFromID(Number(event.color_id)).bg }}
+                                        />
+                                        <span>{event.title}</span>
+                                    </div>
+                                </div>
+
+                                {event.address && (
+                                    <div className="leading-snug text-gray-600 italic">{event.address}</div>
+                                )}
+
+                                <div className="text-blue-600 font-medium my-1">
+                                    {dayjs(event.start).format("MMM D, YYYY, hh:mm A")} - {dayjs(event.end).format("hh:mm A")}
+                                </div>
+
+                                {event.service_name && (() => {
+                                    const service = serviceData.find(s => s.id === event.service_id);
+                                    const bgColor = service?.background_color;
+                                    const borderColor = service?.border_color;
+                                    return (
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-semibold text-gray-700">Service:</span>
+                                            <div className="flex items-center gap-1">
+                                                {bgColor && (
+                                                    <div
+                                                        className="w-3 h-3 rounded-full shrink-0"
+                                                        style={{
+                                                            backgroundColor: bgColor,
+                                                            border: `1px solid ${borderColor || bgColor}`
+                                                        }}
+                                                    />
+                                                )}
+                                                <span>{event.service_name}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         )}
                     </TooltipContent>
@@ -507,7 +694,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
 
     const CustomToolbar = ({ onNavigate }: CustomToolbarProps) => {
         const Days = [
-            { label: "1 Days", value: "1" },
+            { label: "Day", value: "1" },
             { label: "Weekly", value: "7" },
             { label: "Monthly", value: "30" },
         ];
@@ -515,6 +702,9 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
         return (
             <div className='flex justify-between mb-4'>
                 <div className='flex gap-[10px]'>
+                    <button onClick={() => onNavigate('TODAY')} className='ml-1 h-[30px] px-3 flex justify-center items-center hover:bg-gray-300 rounded-md text-sm font-medium text-gray-600 bg-white border border-gray-200 shadow-sm'>
+                        Today
+                    </button>
                     <button onClick={() => onNavigate('PREV')} className='w-[30px] h-[30px] flex justify-center items-center hover:bg-gray-300 rounded-full'>
                         <ChevronLeft color='#7D7D7D' />
                     </button>
@@ -524,6 +714,15 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     </button>
                 </div>
 
+                <div className='flex items-center gap-2'>
+                    <Switch
+                        checked={showBreaks}
+                        onCheckedChange={setShowBreaks}
+                        className='data-[state=checked]:bg-blue-600'
+                    />
+                    <span className='text-sm font-medium text-gray-700'>Show Breaks</span>
+                </div>
+
                 <div className="flex bg-gray-100 rounded-lg p-1">
                     {Days.map((button) => (
                         <button
@@ -531,7 +730,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                             key={button.value}
                             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${visibleDays[0] === button.value
                                 ? `${userType}-bg hover-${userType}-bg text-[#fff] shadow-sm`
-                                : 'text-gray-600 hover:text-gray-900'
+                                : 'text-gray-600 hover:text-gray-900 bg-white shadow-sm border border-gray-200'
                                 }`}
                         >
                             {button.label}
@@ -553,7 +752,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     }
 
                     {(userType !== 'vendor') &&
-                        <Link href={'/dashboard/orders/create'} className={`font-raleway text-[14px] font-[600] bg-[#4290E9] hover-${userType}-bg rounded-[6px] text-[#fff] flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>
+                        <Link href={'/dashboard/orders/create?from=calendar'} className={`font-raleway text-[14px] font-[600] bg-[#4290E9] hover-${userType}-bg rounded-[6px] text-[#fff] flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>
                             Create New Booking
                         </Link>
                     }
@@ -582,11 +781,15 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
         return () => document.removeEventListener('contextmenu', handleContextMenu);
     }, []);
 
-    function getHSLColorFromID(id: number): string {
-        const hue = (id * 137) % 360;
+    function getHSLColorFromID(id: number): { bg: string, border: string } {
+        const hue = (id * 137.508) % 360;
         const saturation = 70;
-        const lightness = 90;
-        return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+        const lightness = 85;
+        // Let's try 50% lightness for border.
+        return {
+            bg: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
+            border: `hsl(${hue}, ${saturation}%, 50%)`
+        };
     }
 
     const handleAddBreak = (event: CalendarEvent) => {
@@ -773,38 +976,90 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <div className="text-xs p-1 truncate w-full">
+                        <div className={`text-xs p-1 truncate w-full ${isBreak ? 'striped-background' : ''}`}>
                             {isBreak ? (
-                                <div className="flex items-center w-full">
-                                    <div className="w-2 h-2 bg-orange-400 rounded-full mr-1 flex-shrink-0"></div>
-                                    <span className="truncate">{event.title} {event.vendor_name ? `- ${event.vendor_name}` : ''}</span>
+                                <div className="flex items-center w-full bg-white/60 px-1 rounded-sm">
+                                    <div className="w-1.5 h-1.5 bg-orange-400 rounded-full mr-1.5 flex-shrink-0"></div>
+                                    <div className="flex items-center gap-1 min-w-0">
+                                        {event.vendor_name === 'Break' ? <Coffee className="w-3 h-3 flex-shrink-0" /> : <Plane className="w-3 h-3 flex-shrink-0" />}
+                                        <span className="truncate font-normal">{event.title} {event.vendor_name ? `- ${event.vendor_name}` : ''}</span>
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="flex items-center w-full">
-                                    <div className="w-2 h-2 bg-blue-400 rounded-full mr-1 flex-shrink-0"></div>
-                                    <span className="truncate">
-                                        {displayTime && <span className="mr-1">{displayTime}</span>}
+                                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full mr-1.5 flex-shrink-0"></div>
+                                    <span className="truncate font-medium">
+                                        {displayTime && <span className="mr-1 opacity-80">{displayTime}</span>}
                                         {event.title}
                                     </span>
                                 </div>
                             )}
                         </div>
                     </TooltipTrigger>
-                    <TooltipContent className="z-[9999]" side="top">
+                    <TooltipContent className="z-[9999] p-3 max-w-[300px] min-w-[250px] bg-white border border-gray-200 shadow-xl rounded-md">
                         {isBreak ? (
-                            <div className="flex flex-col gap-1">
-                                <p className="font-semibold text-sm">{event.vendor_name || 'Break'}</p>
-                                <p className="text-xs text-gray-500">{event.title}</p>
-                                <p className="text-xs text-gray-400">
+                            <div className="flex flex-col gap-1.5 text-sm text-black">
+                                {event.vendor_name === 'Break' ? (
+                                    <p className='font-bold text-gray-800 border-b pb-1'>Lunch Break</p>
+                                ) : (
+                                    <p className='font-bold text-gray-800 border-b pb-1'>Time Off</p>
+                                )}
+
+                                {event.vendor_name !== 'Break' && (
+                                    <div><span className="font-semibold text-gray-700">Vendor:</span> {event.vendor_name}</div>
+                                )}
+
+                                {event.vendor_name === 'Break' ? (
+                                    <div><span className="font-semibold text-gray-700">Vendor:</span> {event.title}</div>
+                                ) : (
+                                    <div><span className="font-semibold text-gray-700">Title:</span> {event.title}</div>
+                                )}
+
+                                <div className="text-gray-500">
                                     {dayjs(event.start).format("hh:mm A")} - {dayjs(event.end).format("hh:mm A")}
-                                </p>
+                                </div>
                             </div>
                         ) : (
-                            <div className="flex flex-col gap-0.5">
-                                <p className="font-semibold text-sm">{event.title}</p>
-                                <p className="text-xs text-gray-400">
-                                    {dayjs(event.start).format("hh:mm A")} - {dayjs(event.end).format("hh:mm A")}
-                                </p>
+                            <div className="flex flex-col gap-1.5 text-sm text-black">
+                                <p className='font-bold text-gray-800 border-b pb-1'>Appointment</p>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-gray-700">Vendor:</span>
+                                    <div className="flex items-center gap-1">
+                                        <div
+                                            className="w-3 h-3 rounded-full shrink-0 border border-gray-400"
+                                            style={{ backgroundColor: getHSLColorFromID(Number(event.color_id)).bg }}
+                                        />
+                                        <span>{event.title}</span>
+                                    </div>
+                                </div>
+                                {event.address && (
+                                    <div className="leading-snug text-gray-600 italic">{event.address}</div>
+                                )}
+                                <div className="text-blue-600 font-medium my-1">
+                                    {dayjs(event.start).format("MMM D, YYYY, hh:mm A")} - {dayjs(event.end).format("hh:mm A")}
+                                </div>
+                                {event.service_name && (() => {
+                                    const service = serviceData.find(s => s.id === event.service_id);
+                                    const bgColor = service?.background_color;
+                                    const borderColor = service?.border_color;
+                                    return (
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-semibold text-gray-700">Service:</span>
+                                            <div className="flex items-center gap-1">
+                                                {bgColor && (
+                                                    <div
+                                                        className="w-3 h-3 rounded-full shrink-0"
+                                                        style={{
+                                                            backgroundColor: bgColor,
+                                                            border: `1px solid ${borderColor || bgColor}`
+                                                        }}
+                                                    />
+                                                )}
+                                                <span>{event.service_name}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         )}
                     </TooltipContent>
@@ -866,11 +1121,17 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                 ? [...monthlyBreakEvents, ...(customEvents || []), ...vendorEvents]
                                 : allMonthlyEvents;
 
+                            const finalMonthlyEvents = filteredMonthlyEvents.filter(event => {
+                                if (showBreaks) return true;
+                                const isBreak = event.title?.includes("Break") || !!event.vendor_name;
+                                return !isBreak;
+                            });
+
                             return (
-                                <div className="month-calendar-container" style={{ height: '120vh' }}>
+                                <div className="month-calendar-container w-full" style={{ height: '120vh', maxWidth: isSidebarOpen ? 'calc(100vw - 17rem)' : '100%' }}>
                                     <Calendar
                                         localizer={localizer}
-                                        events={filteredMonthlyEvents}
+                                        events={finalMonthlyEvents}
                                         date={date}
                                         view={Views.MONTH}
                                         views={{ month: true }}
@@ -885,11 +1146,14 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                             event: MonthlyEvent,
                                         }}
                                         eventPropGetter={(event) => {
-                                            const backgroundColor = getHSLColorFromID(event.color_id ?? 0);
+                                            const colors = getHSLColorFromID(event.color_id ?? 0);
+                                            const isBreak = event.title?.includes("Break") || !!event.vendor_name;
                                             return {
+                                                className: isBreak ? 'striped-background' : '',
                                                 style: {
-                                                    backgroundColor,
+                                                    backgroundColor: colors.bg,
                                                     color: '#000',
+                                                    border: isBreak ? `2px solid ${colors.border}` : 'none',
                                                 }
                                             };
                                         }}
@@ -938,13 +1202,20 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                     className={`my-${userType}-calendar`}
                                     style={{ height: '100%' }}
                                     showMultiDayTimes={false}
+                                    step={30}
+                                    timeslots={1}
+                                    min={minTime}
+                                    max={maxTime}
                                     dayLayoutAlgorithm="no-overlap"
                                     eventPropGetter={(event) => {
-                                        const backgroundColor = getHSLColorFromID(event.color_id ?? 0);
+                                        const colors = getHSLColorFromID(event.color_id ?? 0);
+                                        const isBreak = event.title?.includes("Break") || !!event.vendor_name;
                                         return {
+                                            className: isBreak ? 'striped-background' : '',
                                             style: {
-                                                backgroundColor,
+                                                backgroundColor: colors.bg,
                                                 color: '#000',
+                                                border: isBreak ? `2px solid ${colors.border}` : 'none',
                                             }
                                         };
                                     }}
@@ -975,10 +1246,9 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                     startAccessor="start"
                                     endAccessor="end"
                                     step={30}
-                                    timeslots={2}
-                                    min={dayjs().startOf('day').toDate()}
-                                    max={dayjs().endOf('day').toDate()}
-                                    getNow={() => date}
+                                    timeslots={1}
+                                    min={minTime}
+                                    max={maxTime}
                                     showMultiDayTimes={false}
                                     dayLayoutAlgorithm="no-overlap"
                                     toolbar={true}
@@ -995,11 +1265,14 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                     }}
                                     className={`my-${userType}-calendar`}
                                     eventPropGetter={(event) => {
-                                        const backgroundColor = getHSLColorFromID(event.color_id ?? 0);
+                                        const colors = getHSLColorFromID(event.color_id ?? 0);
+                                        const isBreak = event.title?.includes("Break") || !!event.vendor_name;
                                         return {
+                                            className: isBreak ? 'striped-background' : '',
                                             style: {
-                                                backgroundColor,
+                                                backgroundColor: colors.bg,
                                                 color: '#000',
+                                                border: isBreak ? `2px solid ${colors.border}` : 'none',
                                             },
                                         };
                                     }}
@@ -1029,15 +1302,18 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                     step={30}
                                     startAccessor="start"
                                     endAccessor="end"
-                                    timeslots={2}
-                                    min={dayjs().startOf('day').toDate()}
-                                    max={dayjs().endOf('day').toDate()}
+                                    timeslots={1}
+                                    min={minTime}
+                                    max={maxTime}
                                     eventPropGetter={(event) => {
-                                        const backgroundColor = getHSLColorFromID(event.color_id ?? 0);
+                                        const colors = getHSLColorFromID(event.color_id ?? 0);
+                                        const isBreak = event.title?.includes("Break") || !!event.vendor_name;
                                         return {
+                                            className: isBreak ? 'striped-background' : '',
                                             style: {
-                                                backgroundColor,
+                                                backgroundColor: colors.bg,
                                                 color: '#000',
+                                                border: isBreak ? `2px solid ${colors.border}` : 'none',
                                             }
                                         };
                                     }}
@@ -1072,10 +1348,9 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                     startAccessor="start"
                                     endAccessor="end"
                                     step={30}
-                                    timeslots={2}
-                                    min={dayjs().startOf('day').toDate()}
-                                    max={dayjs().endOf('day').toDate()}
-                                    getNow={() => date}
+                                    timeslots={1}
+                                    min={minTime}
+                                    max={maxTime}
                                     showMultiDayTimes={false}
                                     dayLayoutAlgorithm="no-overlap"
                                     toolbar={true}
@@ -1089,11 +1364,14 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                     }}
                                     className={`my-${userType}-calendar`}
                                     eventPropGetter={(event) => {
-                                        const backgroundColor = getHSLColorFromID(event.color_id ?? 0);
+                                        const colors = getHSLColorFromID(event.color_id ?? 0);
+                                        const isBreak = event.title?.includes("Break") || !!event.vendor_name;
                                         return {
+                                            className: isBreak ? 'striped-background' : '',
                                             style: {
-                                                backgroundColor,
+                                                backgroundColor: colors.bg,
                                                 color: '#000',
+                                                border: isBreak ? `2px solid ${colors.border}` : 'none',
                                             },
                                         };
                                     }}

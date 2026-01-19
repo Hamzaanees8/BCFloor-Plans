@@ -9,13 +9,16 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { Calendar as DatePicker } from '@/components/ui/calendar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAppContext } from '@/app/context/AppContext';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { addVendorBreak, updateVendorBreak } from '../calendar';
 import { toast } from 'sonner';
 import { CurrentUser } from '@/components/WorkHours';
 import GooglePlacesAutocomplete, { AddressComponents } from './AutoCompleteInput';
+import dayjs from 'dayjs';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Break {
     id?: number;
@@ -166,11 +169,103 @@ export default function AddBreakPopup({
         input: '',
         suggestions: ' border-gray-400'
     });
-
-
+    const [openCombobox, setOpenCombobox] = useState(false);
 
     const handleAddressChange = (value: string) => {
         setAddress(value);
+    };
+
+    const handleStartDateChange = (date: Date | undefined) => {
+        if (!date) return;
+        setFromDate(date);
+
+        // Adjust end date based on the new start date, keeping the same time difference or resetting to 1 hour
+        // User request: "automatically adjust end date and time to one hour after that"
+        // Combining new date with current fromTime
+        const [hours, minutes] = fromTime.split(':').map(Number);
+        const startDateTime = dayjs(date).hour(hours).minute(minutes);
+        const endDateTime = startDateTime.add(1, 'hour');
+
+        setToDate(endDateTime.toDate());
+        setToTime(endDateTime.format('HH:mm'));
+    };
+
+    const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newTime = e.target.value;
+        setFromTime(newTime);
+
+        if (newTime) {
+            const [hours, minutes] = newTime.split(':').map(Number);
+            const startDateTime = dayjs(fromDate).hour(hours).minute(minutes);
+
+            // Default to 1 hour later
+            let endDateTime = startDateTime.add(1, 'hour');
+
+            // If toTime is already set, we need to validate it against the new start time
+            if (toTime) {
+                const [toH, toM] = toTime.split(':').map(Number);
+                const currentEndDateTime = dayjs(toDate).hour(toH).minute(toM);
+
+                // If current end time is valid (>= start + 15m), keep relative duration or check collision?
+                // User said: "do not allow end time to be selectable before start time + 15 mins"
+                // Usually implies we should push the end time if it becomes invalid.
+
+                if (currentEndDateTime.diff(startDateTime, 'minute') < 15) {
+                    // If invalid, push to start + 1 hour (default behavior) or start + 15m?
+                    // Let's stick to the requested "automatically adjust... to one hour" behavior for start time changes.
+                    endDateTime = startDateTime.add(1, 'hour');
+                } else {
+                    // If valid, should we keep the current end time? 
+                    // The previous request said "automatically adjust... to one hour after". 
+                    // So we probably SHOULD overwrite it to 1 hour later whenever start changes.
+                    // Doing so ensures validity and follows the "one hour break" convenience.
+                    endDateTime = startDateTime.add(1, 'hour');
+                }
+            }
+
+            setToDate(endDateTime.toDate());
+            setToTime(endDateTime.format('HH:mm'));
+        }
+    };
+
+    const handleEndTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newEndTime = e.target.value;
+
+        if (newEndTime) {
+            const [endH, endM] = newEndTime.split(':').map(Number);
+            const [startH, startM] = fromTime.split(':').map(Number);
+
+            const startDateTime = dayjs(fromDate).hour(startH).minute(startM);
+            const newEndDateTime = dayjs(toDate).hour(endH).minute(endM);
+
+            const diffInMinutes = newEndDateTime.diff(startDateTime, 'minute');
+
+            if (diffInMinutes < 15) {
+                toast.error("End time must be at least 15 minutes after start time.");
+                // Reset to minimum valid time (Start + 15 mins)
+                const minEndDateTime = startDateTime.add(15, 'minute');
+                setToTime(minEndDateTime.format('HH:mm'));
+                // We don't update toDate here because input type='time' only affects time, date stays.
+                // But wait, if crossing midnight? Input type='time' is just time. 
+                // Assuming same day for time inputs usually.
+            } else {
+                setToTime(newEndTime);
+            }
+        }
+    };
+
+    const handleEndDateChange = (date: Date | undefined) => {
+        if (!date) return;
+
+        // If start date is set, ensure end date is not before start date
+        if (dayjs(date).isBefore(dayjs(fromDate), 'day')) {
+            toast.error("End date cannot be before start date.");
+            // Reset to fromDate or keep previous? 
+            // Let's reset to fromDate to be safe
+            setToDate(fromDate);
+        } else {
+            setToDate(date);
+        }
     };
 
 
@@ -236,6 +331,27 @@ export default function AddBreakPopup({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentBreak]);
+
+    const durationText = React.useMemo(() => {
+        const [fromH, fromM] = fromTime.split(':').map(Number);
+        const [toH, toM] = toTime.split(':').map(Number);
+
+        const start = dayjs(fromDate).hour(fromH).minute(fromM);
+        const end = dayjs(toDate).hour(toH).minute(toM);
+
+        const diffInMinutes = end.diff(start, 'minute');
+        const hours = Math.floor(diffInMinutes / 60);
+        const minutes = diffInMinutes % 60;
+
+        if (diffInMinutes <= 0) return '';
+
+        let text = '';
+        if (hours > 0) text += `${hours} hr${hours > 1 ? 's' : ''} `;
+        if (minutes > 0) text += `${minutes} min${minutes > 1 ? 's' : ''}`;
+
+        return text.trim();
+    }, [fromDate, toDate, fromTime, toTime]);
+
     const updateVendorBreakInUI = (updatedBreak: Break) => {
 
         if (!setVendorData || !updatedBreak?.uuid) return;
@@ -315,7 +431,6 @@ export default function AddBreakPopup({
                 });
             } else {
                 response = await addVendorBreak(payload, token);
-                console.log('response', response);
                 updateVendorBreakInUI({
                     ...response.data
                 });
@@ -396,21 +511,49 @@ export default function AddBreakPopup({
                     {popupType !== 'hide' && (
                         <div className="space-y-[10px] w-full">
                             <Label>Vendor</Label>
-                            <Select
-                                value={selectedVendor?.uuid || ''}
-                                onValueChange={handleVendorSelect}
-                            >
-                                <SelectTrigger className="w-full h-[42px] bg-white border-[#BBBBBB]">
-                                    <SelectValue placeholder="Select a vendor" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {vendorData.map((vendor) => (
-                                        <SelectItem key={vendor.uuid} value={vendor.uuid || ''}>
-                                            {vendor.first_name} {vendor.last_name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={openCombobox}
+                                        className="w-full justify-between h-[42px] bg-white border-[#BBBBBB] font-normal"
+                                    >
+                                        {selectedVendor?.uuid
+                                            ? `${(selectedVendor as Vendor).first_name} ${(selectedVendor as Vendor).last_name}`
+                                            : "Select a vendor..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                    <Command>
+                                        <CommandInput placeholder="Search vendor..." />
+                                        <CommandList>
+                                            <CommandEmpty>No vendor found.</CommandEmpty>
+                                            <CommandGroup>
+                                                {vendorData.map((vendor) => (
+                                                    <CommandItem
+                                                        key={vendor.uuid}
+                                                        value={`${vendor.first_name} ${vendor.last_name}`}
+                                                        onSelect={() => {
+                                                            handleVendorSelect(vendor.uuid);
+                                                            setOpenCombobox(false);
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={cn(
+                                                                "mr-2 h-4 w-4",
+                                                                selectedVendor?.uuid === vendor.uuid ? "opacity-100" : "opacity-0"
+                                                            )}
+                                                        />
+                                                        {vendor.first_name} {vendor.last_name}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
                         </div>
                     )}
 
@@ -429,23 +572,30 @@ export default function AddBreakPopup({
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
-                                    <DatePicker mode="single" selected={fromDate} onSelect={(val) => val && setFromDate(val)} />
+                                    <DatePicker mode="single" selected={fromDate} onSelect={handleStartDateChange} />
                                 </PopoverContent>
                             </Popover>
                         </div>
                         <div className="col-span-2">
                             <Label>From Time</Label>
                             <Input
-                                className="bg-white h-[42px] border-[#BBBBBB]"
+                                className="bg-white h-[42px] border-[#BBBBBB] cursor-pointer"
                                 type="time"
                                 value={fromTime}
-                                onChange={(e) => setFromTime(e.target.value)}
+                                onChange={handleStartTimeChange}
+                                onClick={(e) => (e.target as HTMLInputElement).showPicker && (e.target as HTMLInputElement).showPicker()}
                             />
                         </div>
                     </div>
 
+                    {durationText && (
+                        <div className="flex justify-center items-center py-2 text-[#4290E9] font-medium text-sm">
+                            Duration: {durationText}
+                        </div>
+                    )}
+
                     {/* ✅ To Date/Time */}
-                    <div className="grid grid-cols-4 space-x-2 mt-2">
+                    <div className="grid grid-cols-4 space-x-2">
                         <div className="col-span-2">
                             <Label>To Date</Label>
                             <Popover>
@@ -459,17 +609,23 @@ export default function AddBreakPopup({
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
-                                    <DatePicker mode="single" selected={toDate} onSelect={(val) => val && setToDate(val)} />
+                                    <DatePicker
+                                        mode="single"
+                                        selected={toDate}
+                                        onSelect={handleEndDateChange}
+                                        disabled={(date) => date < new Date(new Date(fromDate).setHours(0, 0, 0, 0))}
+                                    />
                                 </PopoverContent>
                             </Popover>
                         </div>
                         <div className="col-span-2">
                             <Label>To Time</Label>
                             <Input
-                                className="bg-white h-[42px] border-[#BBBBBB]"
+                                className="bg-white h-[42px] border-[#BBBBBB] cursor-pointer"
                                 type="time"
                                 value={toTime}
-                                onChange={(e) => setToTime(e.target.value)}
+                                onChange={handleEndTimeChange}
+                                onClick={(e) => (e.target as HTMLInputElement).showPicker && (e.target as HTMLInputElement).showPicker()}
                             />
                         </div>
                     </div>
