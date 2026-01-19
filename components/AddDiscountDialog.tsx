@@ -36,8 +36,6 @@ const AddDiscountDialog: React.FC<Props> = ({
     type
 }) => {
     const { userType } = useAppContext();
-    console.log('id', uuid);
-    console.log('type', type)
     const [activeTab, setActiveTab] = useState('discounts');
     const [codeKey, setCodeKey] = useState("");
     const [discountPercentage, setDiscountPercentage] = useState(0);
@@ -71,6 +69,7 @@ const AddDiscountDialog: React.FC<Props> = ({
 
     const handleTabClick = (tabName: string) => {
         setActiveTab(tabName);
+        setFieldErrors({});
     };
     useEffect(() => {
         if (!isEdit) return;
@@ -90,6 +89,8 @@ const AddDiscountDialog: React.FC<Props> = ({
             GetOne(uuid)
                 .then((data) => {
                     const discount = data.data;
+                    console.log('discount', discount);
+
                     setCodeKey(discount.code_key || "");
                     setCodeDescription(discount.description || "");
                     setCodePercentage(discount.percentage || 0);
@@ -112,6 +113,7 @@ const AddDiscountDialog: React.FC<Props> = ({
             GetOne(uuid)
                 .then((data) => {
                     const discount = data.data;
+                    console.log('discount', discount);
                     setDiscountName(discount.name || "");
                     setDiscountDescription(discount.description || "");
                     setDiscountQuantity(discount.quantity || 0);
@@ -137,6 +139,34 @@ const AddDiscountDialog: React.FC<Props> = ({
             console.log("Unknown discount type:", type);
         }
     }, [isEdit, type, uuid, open]);
+
+    useEffect(() => {
+        if (!open) {
+            setCodeKey("");
+            setDiscountPercentage(0);
+            setDiscountQuantity(0);
+            setDiscountName('');
+            setCodePercentage(0);
+            setCodeDescription("");
+            setDiscountDescription('');
+            setFieldErrors({});
+            setDateValue("");
+            setStartDateValue("");
+            setSelectedServices([]);
+            setSelectedServicesCode([]);
+            setIsEligible(false);
+            setDate(undefined);
+            setMonth(undefined);
+            setStartDate(undefined);
+            setStartMonth(undefined);
+            setOpenDropdown(false);
+            setOpenCalendar(false);
+            setOpenStartCalendar(false);
+            if (!uuid) {
+                setActiveTab('discounts');
+            }
+        }
+    }, [open, uuid]);
     function formatDateWithoutTimezoneShift(dateStr: string): string {
         const [year, month, day] = dateStr.split('-').map(Number);
         // Create a Date object at midnight UTC (no timezone offset)
@@ -152,6 +182,24 @@ const AddDiscountDialog: React.FC<Props> = ({
         e.preventDefault();
         if (isEdit) {
             try {
+                const validationErrors: Record<string, string[]> = {};
+                if (!codeKey.trim()) {
+                    validationErrors.code_key = ['The code key field is required.'];
+                }
+                if (codePercentage <= 0 || codePercentage > 99.99) {
+                    validationErrors.percentage = ['The percentage field must be between 0.01 and 99.99.'];
+                }
+                if (selectedServicesCode.length === 0) {
+                    validationErrors.services = ['The services field is required.'];
+                }
+
+                if (Object.keys(validationErrors).length > 0) {
+                    setFieldErrors(validationErrors);
+                    const firstError = Object.values(validationErrors).flat()[0];
+                    toast.error(firstError || 'Please fill all required fields');
+                    return;
+                }
+
                 const token = localStorage.getItem('token');
                 if (!token) {
                     toast.error('Authentication token not found.');
@@ -209,6 +257,24 @@ const AddDiscountDialog: React.FC<Props> = ({
             }
         } else {
             try {
+                const validationErrors: Record<string, string[]> = {};
+                if (!codeKey.trim()) {
+                    validationErrors.code_key = ['The code key field is required.'];
+                }
+                if (codePercentage <= 0 || codePercentage > 99.99) {
+                    validationErrors.percentage = ['The percentage field must be between 0.01 and 99.99.'];
+                }
+                if (selectedServicesCode.length === 0) {
+                    validationErrors.services = ['The services field is required.'];
+                }
+
+                if (Object.keys(validationErrors).length > 0) {
+                    setFieldErrors(validationErrors);
+                    const firstError = Object.values(validationErrors).flat()[0];
+                    toast.error(firstError || 'Please fill all required fields');
+                    return;
+                }
+
                 const token = localStorage.getItem('token');
                 if (!token) {
                     toast.error('Authentication token not found.');
@@ -282,6 +348,31 @@ const AddDiscountDialog: React.FC<Props> = ({
         }
         if (isEdit) {
             try {
+                const validationErrors: Record<string, string[]> = {};
+
+                if (!discountName.trim()) {
+                    validationErrors.name = ['The name field is required when type is quantity.'];
+                }
+                if (discountQuantity < 1) {
+                    validationErrors.quantity = ['The quantity field must be at least 1.'];
+                }
+                if (discountPercentage <= 0 || discountPercentage > 99.99) {
+                    validationErrors.percentage = ['The percentage field must be between 0.01 and 99.99.'];
+                }
+                if (selectedServices.length === 0) {
+                    validationErrors.services = ['The services field is required.'];
+                }
+                if (!dateValue) {
+                    validationErrors.expiry_date = ['The expiry date field is required.'];
+                }
+
+                if (Object.keys(validationErrors).length > 0) {
+                    setFieldErrors(validationErrors);
+                    const firstError = Object.values(validationErrors).flat()[0];
+                    toast.error(firstError || 'Please fill all required fields');
+                    return;
+                }
+
                 const token = localStorage.getItem('token');
                 if (!token) {
                     toast.error('Authentication token not found.');
@@ -349,6 +440,31 @@ const AddDiscountDialog: React.FC<Props> = ({
         }
         else {
             try {
+                const validationErrors: Record<string, string[]> = {};
+
+                if (!discountName.trim()) {
+                    validationErrors.name = ['The name field is required.'];
+                }
+                if (discountQuantity < 1) {
+                    validationErrors.quantity = ['The quantity field must be at least 1.'];
+                }
+                if (discountPercentage <= 0 || discountPercentage > 99.99) {
+                    validationErrors.percentage = ['The percentage field must be between 0.01 and 99.99.'];
+                }
+                if (selectedServices.length === 0) {
+                    validationErrors.services = ['The services field is required.'];
+                }
+                if (!dateValue) {
+                    validationErrors.expiry_date = ['The expiry date field is required.'];
+                }
+
+                if (Object.keys(validationErrors).length > 0) {
+                    setFieldErrors(validationErrors);
+                    const firstError = Object.values(validationErrors).flat()[0];
+                    toast.error(firstError || 'Please fill all required fields');
+                    return;
+                }
+
                 const token = localStorage.getItem('token');
                 if (!token) {
                     toast.error('Authentication token not found.');
@@ -435,8 +551,6 @@ const AddDiscountDialog: React.FC<Props> = ({
             .then(data => setServiceCategories(Array.isArray(data.data) ? data.data : []))
             .catch(err => console.log(err.message));
     }, []);
-    // const router = useRouter();
-    console.log("services", serviceCategories)
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             // If the click is outside the dropdown and the dropdown is open, close it
@@ -464,6 +578,11 @@ const AddDiscountDialog: React.FC<Props> = ({
                 return [...prevSelected, categoryId];
             }
         });
+        if (fieldErrors.services) {
+            const newErrors = { ...fieldErrors };
+            delete newErrors.services;
+            setFieldErrors(newErrors);
+        }
     };
     const handleCheckboxChange1 = (categoryId: number) => {
         setSelectedServicesCode((prevSelected) => {
@@ -473,13 +592,15 @@ const AddDiscountDialog: React.FC<Props> = ({
                 return [...prevSelected, categoryId];
             }
         });
+        if (fieldErrors.services) {
+            const newErrors = { ...fieldErrors };
+            delete newErrors.services;
+            setFieldErrors(newErrors);
+        }
     };
-
-    console.log("selected service", selectedServices);
-    console.log("date", dateValue);
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent className="w-[320px] md:w-[445px] h-[650px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
+            <AlertDialogContent className="w-[320px] md:w-[445px] h-[600px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
                 <div onClick={(e) => e.stopPropagation()}
                     onChange={(e) => e.stopPropagation()}>
                     <AlertDialogHeader>
@@ -544,32 +665,51 @@ const AddDiscountDialog: React.FC<Props> = ({
                                 <form >
                                     <div className='grid grid-cols-2 gap-[16px]' >
                                         <div>
-                                            <label className="text-[#424242]" htmlFor="">Percentage</label>
+                                            <label className="text-[#424242]" htmlFor="">Percentage <span className="text-red-500">*</span></label>
                                             <Input value={discountPercentage} required
                                                 min={0}
-                                                onChange={(e) => setDiscountPercentage(Math.max(0, Number(e.target.value)))}
-                                                className='h-[42px] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                onChange={(e) => {
+                                                    setDiscountPercentage(Math.max(0, Number(e.target.value)));
+                                                    if (fieldErrors.percentage) {
+                                                        const newErrors = { ...fieldErrors };
+                                                        delete newErrors.percentage;
+                                                        setFieldErrors(newErrors);
+                                                    }
+                                                }}
+                                                className={`h-[42px] text-[#666666] border-[1px] mt-[12px] ${fieldErrors.percentage ? "border-red-500" : "border-[#BBBBBB]"}`}
                                                 style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                 type="number" placeholder="20" />
                                             {fieldErrors.percentage && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.percentage[0]}</p>}
                                         </div>
                                         <div>
-                                            <label className="text-[#424242]" htmlFor="">Quantity</label>
+                                            <label className="text-[#424242]" htmlFor="">Quantity <span className="text-red-500">*</span></label>
                                             <Input value={discountQuantity}
                                                 onChange={(e) => {
                                                     const val = Number(e.target.value);
                                                     setDiscountQuantity(val < 0 ? 0 : val);
+                                                    if (fieldErrors.quantity) {
+                                                        const newErrors = { ...fieldErrors };
+                                                        delete newErrors.quantity;
+                                                        setFieldErrors(newErrors);
+                                                    }
                                                 }}
-                                                className='h-[42px] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                className={`h-[42px] text-[#666666] border-[1px] mt-[12px] ${fieldErrors.quantity ? "border-red-500" : "border-[#BBBBBB]"}`}
                                                 style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                 type="number" placeholder="6" />
                                             {fieldErrors.quantity && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.quantity[0]}</p>}
                                         </div>
                                         <div className="col-span-2">
-                                            <label htmlFor="" className='text-[16px] font-normal text-[#424242]'>Name</label>
+                                            <label htmlFor="" className='text-[16px] font-normal text-[#424242]'>Name <span className="text-red-500">*</span></label>
                                             <Input value={discountName}
-                                                onChange={(e) => setDiscountName(e.target.value)}
-                                                className='h-[42px] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                onChange={(e) => {
+                                                    setDiscountName(e.target.value);
+                                                    if (fieldErrors.name) {
+                                                        const newErrors = { ...fieldErrors };
+                                                        delete newErrors.name;
+                                                        setFieldErrors(newErrors);
+                                                    }
+                                                }}
+                                                className={`h-[42px] text-[#666666] border-[1px] mt-[12px] ${fieldErrors.name ? "border-red-500" : "border-[#BBBBBB]"}`}
                                                 style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                 type="text" />
                                             {fieldErrors.name && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.name[0]}</p>}
@@ -634,13 +774,13 @@ const AddDiscountDialog: React.FC<Props> = ({
                                         </div>
                                         <div className="col-span-2">
                                             <label className="text-[#424242]" htmlFor="">
-                                                Expiry Date
+                                                Expiry Date <span className="text-red-500">*</span>
                                             </label>
                                             <div className="relative flex gap-2 w-full">
                                                 <Input
                                                     id="date"
                                                     value={dateValue}
-                                                    className="h-[42px] w-full border-[1px] text-[#666666] border-[#BBBBBB] mt-[12px] pr-10"
+                                                    className={`h-[42px] w-full border-[1px] text-[#666666] mt-[12px] pr-10 ${fieldErrors.expiry_date ? "border-red-500" : "border-[#BBBBBB]"}`}
                                                     style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                     onChange={(e) => {
                                                         setDateValue(e.target.value);
@@ -648,6 +788,11 @@ const AddDiscountDialog: React.FC<Props> = ({
                                                         if (parsed) {
                                                             setDate(parsed);
                                                             setMonth(parsed);
+                                                        }
+                                                        if (fieldErrors.expiry_date) {
+                                                            const newErrors = { ...fieldErrors };
+                                                            delete newErrors.expiry_date;
+                                                            setFieldErrors(newErrors);
                                                         }
                                                     }}
                                                     onKeyDown={(e) => {
@@ -710,7 +855,7 @@ const AddDiscountDialog: React.FC<Props> = ({
 
                                         <div className="col-span-2">
                                             <div className='flex items-center justify-between' ref={dropdownRef}>
-                                                <p className='font-normal text-base text-[#424242]'>Required Services</p>
+                                                <p className='font-normal text-base text-[#424242]'>Required Services <span className="text-red-500">*</span></p>
                                                 <div className='flex items-center gap-x-[10px] cursor-pointer relative ' onClick={toggleDropdown}>
                                                     <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
                                                     <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm '
@@ -766,11 +911,19 @@ const AddDiscountDialog: React.FC<Props> = ({
                                         </div>
 
                                         <div className="col-span-2">
+                                            <label htmlFor="" className='text-[16px] font-normal text-[#666666]'>Description</label>
                                             <textarea
                                                 id="discount-description"
                                                 value={discountDescription}
-                                                onChange={(e) => setDiscountDescription(e.target.value)}
-                                                className="h-[200px] w-full p-3 rounded-[6px] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                onChange={(e) => {
+                                                    setDiscountDescription(e.target.value);
+                                                    if (fieldErrors.description) {
+                                                        const newErrors = { ...fieldErrors };
+                                                        delete newErrors.description;
+                                                        setFieldErrors(newErrors);
+                                                    }
+                                                }}
+                                                className={`h-[200px] w-full p-3 rounded-[6px] text-[#666666] border-[1px] mt-[12px] ${fieldErrors.description ? "border-red-500" : "border-[#BBBBBB]"}`}
                                                 style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                             />
                                             {fieldErrors.description && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.description[0]}</p>}
@@ -794,28 +947,42 @@ const AddDiscountDialog: React.FC<Props> = ({
                                 <form>
                                     <div className='grid grid-cols-2 gap-[16px]'>
                                         <div>
-                                            <label className="text-[#424242]" htmlFor="">CODE Key</label>
+                                            <label className="text-[#424242]" htmlFor="">CODE Key <span className="text-red-500">*</span></label>
                                             <Input value={codeKey}
                                                 onClick={(e) => e.stopPropagation()}
-                                                onChange={(e) => setCodeKey(e.target.value)}
-                                                className='h-[42px] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                onChange={(e) => {
+                                                    setCodeKey(e.target.value);
+                                                    if (fieldErrors.code_key) {
+                                                        const newErrors = { ...fieldErrors };
+                                                        delete newErrors.code_key;
+                                                        setFieldErrors(newErrors);
+                                                    }
+                                                }}
+                                                className={`h-[42px] text-[#666666] border-[1px] mt-[12px] ${fieldErrors.code_key ? "border-red-500" : "border-[#BBBBBB]"}`}
                                                 style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                 type="text" />
                                             {fieldErrors.code_key && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.code_key[0]}</p>}
                                         </div>
                                         <div>
-                                            <label className="text-[#424242]" htmlFor="">Percentage</label>
+                                            <label className="text-[#424242]" htmlFor="">Percentage <span className="text-red-500">*</span></label>
                                             <Input value={codePercentage}
                                                 onClick={(e) => e.stopPropagation()}
-                                                onChange={(e) => setCodePercentage(Math.max(0, Number(e.target.value)))}
-                                                className='h-[42px] text-[#666666] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                onChange={(e) => {
+                                                    setCodePercentage(Math.max(0, Number(e.target.value)));
+                                                    if (fieldErrors.percentage) {
+                                                        const newErrors = { ...fieldErrors };
+                                                        delete newErrors.percentage;
+                                                        setFieldErrors(newErrors);
+                                                    }
+                                                }}
+                                                className={`h-[42px] text-[#666666] border-[1px] mt-[12px] ${fieldErrors.percentage ? "border-red-500" : "border-[#BBBBBB]"}`}
                                                 style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                 type="number" placeholder="20" />
                                             {fieldErrors.percentage && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.percentage[0]}</p>}
                                         </div>
                                         <div className="col-span-2">
                                             <div className='flex items-center justify-between' ref={dropdownRef}>
-                                                <p className='font-normal text-base text-[#424242]'>Required Services</p>
+                                                <p className='font-normal text-base text-[#424242]'>Required Services <span className="text-red-500">*</span></p>
                                                 <div className='flex items-center gap-x-[10px] relative cursor-pointer' onClick={toggleDropdown} >
                                                     <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
                                                     <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm '
@@ -873,8 +1040,15 @@ const AddDiscountDialog: React.FC<Props> = ({
                                             <label htmlFor="" className='text-[16px] font-normal text-[#666666]'>Description</label>
                                             <textarea value={codeDescription}
                                                 onClick={(e) => e.stopPropagation()}
-                                                onChange={(e) => setCodeDescription(e.target.value)}
-                                                className="h-[200px] w-full p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] text-[#666666] border-[#BBBBBB] mt-[12px]"
+                                                onChange={(e) => {
+                                                    setCodeDescription(e.target.value);
+                                                    if (fieldErrors.description) {
+                                                        const newErrors = { ...fieldErrors };
+                                                        delete newErrors.description;
+                                                        setFieldErrors(newErrors);
+                                                    }
+                                                }}
+                                                className={`h-[200px] w-full p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] text-[#666666] mt-[12px] ${fieldErrors.description ? "border-red-500" : "border-[#BBBBBB]"}`}
                                             />
                                             {fieldErrors.description && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.description[0]}</p>}
                                         </div>

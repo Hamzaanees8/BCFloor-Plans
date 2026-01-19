@@ -22,6 +22,7 @@ export interface AgentPayload {
   permissions?: number[];
   certifications?: string[];
   requires_payment?: number;
+  status?: boolean | number;
   co_agents?: {
     name: string;
     email: string;
@@ -38,7 +39,9 @@ export interface AgentPayload {
     is_percentage?: 1 | 0;
     minimum_orders?: number;
     minimum_spend?: number;
-  };
+    is_active?: 1 | 0;
+  } | null;
+  _method?: string;
 }
 
 export interface FetchErrors {
@@ -64,16 +67,19 @@ export function payloadToFormData(payload: AgentPayload): FormData {
   const formData = new FormData();
 
   Object.entries(payload).forEach(([key, value]) => {
+    // Explicitly handle clearing of agent_discount
+    if (key === 'agent_discount' && value === null) {
+      formData.append(key, '');
+      return;
+    }
+
     if (value !== undefined && value !== null) {
       if (value instanceof File) {
         formData.append(key, value);
       } else if (Array.isArray(value)) {
         if (key === 'co_agents') {
-          // For empty co_agents array, send an empty value
-          // Laravel will interpret this as an empty array
           if (value.length === 0) {
-            // Send as empty array notation
-            formData.append('co_agents[]', ''); // This creates an empty array
+            formData.append('co_agents', ''); 
           } else {
             value.forEach((agent, index) => {
               formData.append(`${key}[${index}][name]`, agent.name || '');
@@ -95,6 +101,9 @@ export function payloadToFormData(payload: AgentPayload): FormData {
             if (subValue !== undefined && subValue !== null) {
               let valueToAppend = subValue;
               if (subKey === 'is_percentage' && typeof subValue === 'boolean') {
+                valueToAppend = subValue ? 1 : 0;
+              }
+              if (subKey === 'is_active' && typeof subValue === 'boolean') {
                 valueToAppend = subValue ? 1 : 0;
               }
               formData.append(`${key}[${subKey}]`, String(valueToAppend));

@@ -31,7 +31,7 @@ import { useParams, useRouter } from "next/navigation";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { Listings } from "../page";
 import { SaveModal } from "@/components/SaveModal";
-import { Country, State } from "country-state-city";
+import { State } from "country-state-city";
 import DynamicMap from "@/components/DYnamicMap";
 import { Get } from "../../agents/agents";
 import { ArrowDown, ArrowUp } from "@/components/Icons";
@@ -47,6 +47,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import GooglePlacesAutocomplete from "../../calendar/components/AutoCompleteInput";
 
 const ListingsFrom = () => {
   const { userType } = useAppContext();
@@ -90,9 +91,6 @@ const ListingsFrom = () => {
   const [Isstaticmail, setIsStaticmail] = useState(false);
   const [emailFrequency, setEmailFrequency] = useState<string>("");
   const [staticEmail, setstaticEmail] = useState<string[]>([]);
-  const [countries, setCountries] = useState<
-    { name: string; isoCode: string }[]
-  >([]);
   const [states, setStates] = useState<{ name: string; isoCode: string }[]>([]);
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
@@ -213,10 +211,6 @@ const ListingsFrom = () => {
       }
     }
   }, [states, currentListing]);
-
-  useEffect(() => {
-    setCountries(Country.getAllCountries());
-  }, []);
 
   useEffect(() => {
     if (country) {
@@ -725,8 +719,8 @@ const ListingsFrom = () => {
                     : "#"
                 }
                 className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${!(currentListing as Listings)?.orders?.[0]?.uuid
-                    ? "opacity-50 pointer-events-none"
-                    : ""
+                  ? "opacity-50 pointer-events-none"
+                  : ""
                   } ${false
                     ? `${userType}-bg text-white font-[700] ${userType}-border`
                     : `bg-[#fff] text-[#666666] font-[700] `
@@ -736,8 +730,8 @@ const ListingsFrom = () => {
               </Link>
               <div
                 className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${true
-                    ? `${userType}-bg text-white font-[700] ${userType}-border`
-                    : `bg-[#fff] text-[#666666] font-[700] `
+                  ? `${userType}-bg text-white font-[700] ${userType}-border`
+                  : `bg-[#fff] text-[#666666] font-[700] `
                   }`}
               >
                 Property details
@@ -749,8 +743,8 @@ const ListingsFrom = () => {
                     : "#"
                 }
                 className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${!currentListing?.orders?.[0]?.uuid
-                    ? "opacity-50 pointer-events-none"
-                    : ""
+                  ? "opacity-50 pointer-events-none"
+                  : ""
                   } ${false
                     ? `${userType}-bg text-white font-[700] ${userType}-border`
                     : `bg-[#fff] text-[#666666] font-[700] `
@@ -810,8 +804,8 @@ const ListingsFrom = () => {
                           >
                             <SelectTrigger
                               className={`w-full h-[42px] bg-[#EEEEEE] mt-[12px] border ${fieldErrors.agent_id
-                                  ? "border-red-500"
-                                  : "border-[#BBBBBB]"
+                                ? "border-red-500"
+                                : "border-[#BBBBBB]"
                                 }`}
                             >
                               <SelectValue placeholder="Select Agent" />
@@ -850,8 +844,8 @@ const ListingsFrom = () => {
                           }}
                           placeholder="e.g 844,500"
                           className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.listing_price
-                              ? "border-red-500"
-                              : "border-[#BBBBBB]"
+                            ? "border-red-500"
+                            : "border-[#BBBBBB]"
                             }`}
                           type="text"
                         />
@@ -877,8 +871,8 @@ const ListingsFrom = () => {
                           }}
                           placeholder="e.g A2206608"
                           className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.mls_number
-                              ? "border-red-500"
-                              : "border-[#BBBBBB]"
+                            ? "border-red-500"
+                            : "border-[#BBBBBB]"
                             }`}
                           type="text"
                         />
@@ -931,8 +925,8 @@ const ListingsFrom = () => {
                             }
                           }}
                           className={`h-[42px] w-full bg-[#EEEEEE] border text-[16px] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${fieldErrors.bedrooms
-                              ? "border-red-500"
-                              : "border-[#BBBBBB]"
+                            ? "border-red-500"
+                            : "border-[#BBBBBB]"
                             }`}
                         />
                         {fieldErrors.bedrooms && (
@@ -1004,8 +998,8 @@ const ListingsFrom = () => {
                             }
                           }}
                           className={`h-[42px] w-full bg-[#EEEEEE] border text-[16px] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${fieldErrors.bathrooms
-                              ? "border-red-500"
-                              : "border-[#BBBBBB]"
+                            ? "border-red-500"
+                            : "border-[#BBBBBB]"
                             }`}
                         />
                         {fieldErrors.bathrooms && (
@@ -1061,8 +1055,8 @@ const ListingsFrom = () => {
                           }}
                           placeholder="e.g 2230 sq. ft."
                           className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.square_footage
-                              ? "border-red-500"
-                              : "border-[#BBBBBB]"
+                            ? "border-red-500"
+                            : "border-[#BBBBBB]"
                             }`}
                           type="text"
                         />
@@ -1089,8 +1083,8 @@ const ListingsFrom = () => {
                           }}
                           placeholder="e.g 0-4,050 sq. ft."
                           className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.lot_size
-                              ? "border-red-500"
-                              : "border-[#BBBBBB]"
+                            ? "border-red-500"
+                            : "border-[#BBBBBB]"
                             }`}
                           type="text"
                         />
@@ -1117,8 +1111,8 @@ const ListingsFrom = () => {
                           }}
                           placeholder="e.g 2020"
                           className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.year_constructed
-                              ? "border-red-500"
-                              : "border-[#BBBBBB]"
+                            ? "border-red-500"
+                            : "border-[#BBBBBB]"
                             }`}
                           type="text"
                         />
@@ -1144,8 +1138,8 @@ const ListingsFrom = () => {
                           }}
                           placeholder="e.g 3"
                           className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.parking_spots
-                              ? "border-red-500"
-                              : "border-[#BBBBBB]"
+                            ? "border-red-500"
+                            : "border-[#BBBBBB]"
                             }`}
                           type="text"
                         />
@@ -1172,8 +1166,8 @@ const ListingsFrom = () => {
                         >
                           <SelectTrigger
                             className={`w-full  h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.property_type
-                                ? "border-red-500"
-                                : "border-[#BBBBBB]"
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
                               }`}
                           >
                             <SelectValue placeholder="Select Property Type" />
@@ -1214,8 +1208,8 @@ const ListingsFrom = () => {
                         >
                           <SelectTrigger
                             className={`w-full  h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.property_status
-                                ? "border-red-500"
-                                : "border-[#BBBBBB]"
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
                               }`}
                           >
                             <SelectValue placeholder="Select Property Status" />
@@ -1257,8 +1251,8 @@ const ListingsFrom = () => {
                           }}
                           placeholder="e.g Single Family Detached Starter Home"
                           className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.heading
-                              ? "border-red-500"
-                              : "border-[#BBBBBB]"
+                            ? "border-red-500"
+                            : "border-[#BBBBBB]"
                             }`}
                           type="text"
                         />
@@ -1285,8 +1279,8 @@ const ListingsFrom = () => {
                           }}
                           placeholder="write some description of your listing"
                           className={`w-full resize-none h-[200px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.description
-                              ? "border-red-500"
-                              : "border-[#BBBBBB]"
+                            ? "border-red-500"
+                            : "border-[#BBBBBB]"
                             }`}
                         />
                         {fieldErrors.description && (
@@ -1297,161 +1291,44 @@ const ListingsFrom = () => {
                       </div>
                     </div>
                     <div
-                      className={`grid grid-cols-2 gap-[16px] ${userType}-order-1`}
+                      className={`grid grid-cols-1 gap-[16px] ${userType}-order-1`}
                     >
-                      <div className="col-span-2 grid grid-cols-5 gap-x-[16px]">
-                        <div>
-                          <label htmlFor="">Suite</label>
-                          <Input
-                            value={suite}
-                            onChange={(e) => setSuite(e.target.value)}
-                            placeholder=""
-                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                            type="text"
-                          />
-                        </div>
-                        <div className="col-span-4">
-                          <label htmlFor="">
-                            Address <span className="text-red-500">*</span>
-                          </label>
-                          <Input
-                            value={address}
-                            onChange={(e) => {
-                              setAddress(e.target.value);
-
-                              if (fieldErrors.address) {
-                                const newErrors = { ...fieldErrors };
-                                delete newErrors.address;
-                                setFieldErrors(newErrors);
-                              }
-                            }}
-                            placeholder="e.g 4445 Parker St"
-                            className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.address
-                                ? "border-red-500"
-                                : "border-[#BBBBBB]"
-                              }`}
-                            type="text"
-                          />
-                          {fieldErrors.address && (
-                            <p className="text-red-500 text-[10px]">
-                              {fieldErrors.address[0]}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <label htmlFor="">
-                          City <span className="text-red-500">*</span>
-                        </label>
+                      <div className="space-y-[10px]">
+                        <label htmlFor="">Suite</label>
                         <Input
-                          value={city}
-                          onChange={(e) => {
-                            setCity(e.target.value);
-                            if (fieldErrors.city) {
-                              const newErrors = { ...fieldErrors };
-                              delete newErrors.city;
-                              setFieldErrors(newErrors);
-                            }
-                          }}
-                          placeholder="e.g Burnaby"
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.city
-                              ? "border-red-500"
-                              : "border-[#BBBBBB]"
-                            }`}
+                          value={suite}
+                          onChange={(e) => setSuite(e.target.value)}
+                          placeholder="e.g Suite 100"
+                          className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                           type="text"
                         />
-                        {fieldErrors.city && (
-                          <p className="text-red-500 text-[10px]">
-                            {fieldErrors.city[0]}
-                          </p>
-                        )}
                       </div>
-                      <div className="">
-                        <label htmlFor="">
-                          Province <span className="text-red-500">*</span>
-                        </label>
-                        <Select
-                          value={province}
-                          onValueChange={(val) => {
-                            setProvince(val);
-                            if (fieldErrors.province) {
-                              const newErrors = { ...fieldErrors };
-                              delete newErrors.province;
-                              setFieldErrors(newErrors);
-                            }
-                          }}
-                          disabled={!states.length}
-                        >
-                          <SelectTrigger
-                            className={`w-full h-[42px] bg-[#EEEEEE] mt-[12px] border ${fieldErrors.province
-                                ? "border-red-500"
-                                : "border-[#BBBBBB]"
-                              }`}
-                          >
-                            <SelectValue placeholder="Select Province" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {states.map((s, i) => (
-                              <SelectItem key={i} value={s.isoCode}>
-                                {s.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {fieldErrors.province && (
-                          <p className="text-red-500 text-[10px]">
-                            {fieldErrors.province[0]}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <label htmlFor="">
-                          Postal Code <span className="text-red-500">*</span>
-                        </label>
-                        <Input
-                          value={postalCode}
-                          onChange={(e) => {
-                            setPostalCode(e.target.value);
-                            if (fieldErrors.postal_code) {
-                              const newErrors = { ...fieldErrors };
-                              delete newErrors.postal_code;
-                              setFieldErrors(newErrors);
-                            }
-                          }}
-                          placeholder="e.g V5H 0H4"
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.postal_code
-                              ? "border-red-500"
-                              : "border-[#BBBBBB]"
-                            }`}
-                          type="text"
-                        />
+                      <GooglePlacesAutocomplete
+                        mode="split"
+                        addressComponents={{
+                          address_line_1: address,
+                          city: city,
+                          province: province,
+                          country: country,
+                          postal_code: postalCode,
+                          full_address: address
+                        }}
+                        onAddressComponentsChange={(comp) => {
+                          setAddress(comp.address_line_1);
+                          setCity(comp.city);
+                          setProvince(comp.province);
+                          setCountry(comp.country);
+                          setPostalCode(comp.postal_code);
 
-                        {fieldErrors.postal_code && (
-                          <p className="text-red-500 text-[10px]">
-                            {fieldErrors.postal_code[0]}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <label htmlFor="" className="whitespace-nowrap">
-                          Country (default Canada)
-                        </label>
-                        <Select
-                          value={country}
-                          onValueChange={(val) => setCountry(val)}
-                        >
-                          <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
-                            <SelectValue placeholder="Select Country" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {countries.map((c, i) => (
-                              <SelectItem key={i} value={c.isoCode}>
-                                {c.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>{" "}
-                      </div>
+                          if (fieldErrors.address) {
+                            const newErrors = { ...fieldErrors };
+                            delete newErrors.address;
+                            setFieldErrors(newErrors);
+                          }
+                          // Handle other field error clearing if needed
+                        }}
+                        fieldErrors={fieldErrors}
+                      />
                     </div>
                   </div>
                   <div className="w-full h-[200px] md:h-[560px]">
@@ -1490,9 +1367,9 @@ const ListingsFrom = () => {
                     <div className="w-full py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
                       <Table
                         className={`${currentListing &&
-                            (currentListing?.orders?.length ?? 0) > 0
-                            ? "table"
-                            : "hidden"
+                          (currentListing?.orders?.length ?? 0) > 0
+                          ? "table"
+                          : "hidden"
                           } font-alexandria px-0 overflow-x-auto whitespace-nowrap table-auto w-full`}
                       >
                         <TableHeader>
@@ -1546,8 +1423,8 @@ const ListingsFrom = () => {
                     </div>
                     <p
                       className={`${currentListing && currentListing?.orders?.length === 0
-                          ? "flex"
-                          : "hidden"
+                        ? "flex"
+                        : "hidden"
                         } text-[24px] flex justify-center items-center my-[20px]`}
                     >
                       {" "}
@@ -1586,8 +1463,8 @@ const ListingsFrom = () => {
                               }}
                               type="date"
                               className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] appearance-none pr-10 ${fieldErrors.publish_date
-                                  ? "border-red-500"
-                                  : "border-[#BBBBBB]"
+                                ? "border-red-500"
+                                : "border-[#BBBBBB]"
                                 }`}
                             />
                             <Calendar
@@ -1694,8 +1571,8 @@ const ListingsFrom = () => {
                         >
                           <SelectTrigger
                             className={`w-full  h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.occupancy
-                                ? "border-red-500"
-                                : "border-[#BBBBBB]"
+                              ? "border-red-500"
+                              : "border-[#BBBBBB]"
                               }`}
                           >
                             <SelectValue placeholder="Select Occupancy" />

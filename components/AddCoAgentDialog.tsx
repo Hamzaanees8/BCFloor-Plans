@@ -71,7 +71,7 @@ const AddCoAgentDialog: React.FC<Props> = ({
     const { userType } = useAppContext();
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent className="w-[320px] md:w-[417px] h-[550px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
+            <AlertDialogContent className="w-[320px] md:w-[417px] h-[500px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
                 <div onClick={(e) => e.stopPropagation()}
                     onChange={(e) => e.stopPropagation()}>
                     <AlertDialogHeader>

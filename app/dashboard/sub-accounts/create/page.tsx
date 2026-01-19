@@ -299,11 +299,12 @@ const OrdersForm = () => {
 
         GetPermissions(token)
             .then(data => {
+                console.log('permissions', data.data)
                 const allowedPermissions = [
-                    "create orders",
-                    "edit orders",
-                    "view all orders",
-                    "view only orders for co-agent",
+                    "book appointments",
+                    "edit appointments",
+                    "view all appointments",
+                    "view only appointments for co-agent",
                     "receive notifications",
                     "access billing",
                     "create sub-accounts",
@@ -325,12 +326,12 @@ const OrdersForm = () => {
         if (roleName === 'admin') {
             newPermissions = permissions.map((p) => Number(p.id));
         } else if (roleName === 'co agent') {
-            const allowed = ['create orders', 'edit orders', 'view only orders for co-agent'];
+            const allowed = ['book appointments', 'edit appointments', 'view only appointments for co-agent'];
             newPermissions = permissions
                 .filter((p) => allowed.includes(p.name.toLowerCase()))
                 .map((p) => Number(p.id));
         } else if (roleName === 'assistant') {
-            const allowed = ['create orders', 'edit orders', 'view all orders'];
+            const allowed = ['book appointments', 'edit appointments', 'view all appointments'];
             newPermissions = permissions
                 .filter((p) => allowed.includes(p.name.toLowerCase()))
                 .map((p) => Number(p.id));

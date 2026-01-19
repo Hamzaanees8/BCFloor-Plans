@@ -167,7 +167,7 @@ export default function AddBreakPopup({
         suggestions: ' border-gray-400'
     });
 
-    const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+
 
     const handleAddressChange = (value: string) => {
         setAddress(value);
@@ -476,7 +476,6 @@ export default function AddBreakPopup({
 
                     <Label>Address</Label>
                     <GooglePlacesAutocomplete
-                        apiKey={GOOGLE_API_KEY ?? ''}
                         placeholder="Type address here..."
                         value={address}
                         onChange={handleAddressChange}

@@ -1,5 +1,6 @@
 'use client'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react';
+import GooglePlacesAutocomplete from "../../calendar/components/AutoCompleteInput";
 import Image from 'next/image'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Input } from '@/components/ui/input'
@@ -8,7 +9,7 @@ import { Button } from '@/components/ui/button'
 //import ToggleButtons from '@/components/ui/toogle'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
-import { AgentPayload, CreateAgent, EditAgent, GetOne, GetRole, UpdateAgentStatus } from '../agents'
+import { AgentPayload, CreateAgent, EditAgent, GetOne, GetRole } from '../agents'
 import { useParams, useRouter } from 'next/navigation'
 import { Pencil, Plus, X } from 'lucide-react'
 //import PaymentDialog from '@/components/PaymentDialog'
@@ -85,6 +86,7 @@ type CurrentAgent = {
         is_percentage: 1 | 0 | string;
         minimum_orders?: number | string;
         minimum_spend?: number | string;
+        is_active?: 1 | 0 | string;
     } | null;
 };
 
@@ -268,6 +270,7 @@ const AgentForm = () => {
                     is_percentage: Number(currentUser.agent_discount.is_percentage) as 1 | 0,
                     minimum_orders: currentUser.agent_discount.minimum_orders ? Number(currentUser.agent_discount.minimum_orders) : undefined,
                     minimum_spend: currentUser.agent_discount.minimum_spend ? Number(currentUser.agent_discount.minimum_spend) : undefined,
+                    is_active: currentUser.agent_discount.is_active ? Number(currentUser.agent_discount.is_active) as 1 | 0 : 0
                 });
             }
             setAgentNotes(currentUser.notes || "")
@@ -455,7 +458,7 @@ const AgentForm = () => {
                 co_agents: sanitizedCoAgents,
                 requires_payment: isPaymentRequired ? 1 : 0,
                 default_music: selectedMp3.startsWith('custom-') && mp3File ? mp3File.name : selectedMp3 || undefined,
-                agent_discount: agentDiscount || undefined,
+                agent_discount: agentDiscount || null,
             };
 
             if (userId) {
@@ -470,9 +473,6 @@ const AgentForm = () => {
                 setIsDirty(false)
             } else {
                 const response = await CreateAgent(payload);
-                if (response?.data?.uuid) {
-                    await UpdateAgentStatus(response.data.uuid, { status: true, _method: 'PUT' });
-                }
                 toast.success('Agent created successfully');
                 setIsLoading(true)
                 setOpen(true)
@@ -566,6 +566,7 @@ const AgentForm = () => {
         is_percentage?: 1 | 0;
         minimum_orders?: number;
         minimum_spend?: number;
+        is_active?: 1 | 0;
         discount_code?: string;
         description?: string;
     }
@@ -725,6 +726,7 @@ const AgentForm = () => {
                                                                 setFieldErrors(newErrors);
                                                             }
                                                         }}
+                                                        autoComplete="email"
                                                         className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.email ? 'border-red-500' : 'border-[#BBBBBB]'}`} type="email" />
 
                                                     {fieldErrors.email && <p className='text-red-500 text-[10px]'>{fieldErrors.email[0]}</p>}
@@ -733,6 +735,7 @@ const AgentForm = () => {
                                                     <label htmlFor="">Email CC</label>
                                                     <Input value={emailCC}
                                                         onChange={(e) => setEmailCC(e.target.value)}
+                                                        autoComplete="email"
                                                         className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="email" />
 
                                                     {fieldErrors.email_cc && <p className='text-red-500 text-[10px]'>{fieldErrors.email_cc[0]}</p>}
@@ -752,6 +755,7 @@ const AgentForm = () => {
                                                             }}
                                                             className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.password ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                                                             type="password"
+                                                            autoComplete="new-password"
                                                         />
                                                         {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
                                                     </div>
@@ -811,21 +815,17 @@ const AgentForm = () => {
                                                 </div>
                                                 <div className='col-span-2'>
                                                     <label htmlFor="">Headquarter Address</label>
-                                                    <Input value={headquarterAddress}
+                                                    {/* <Input value={headquarterAddress}
                                                         onChange={(e) => setHeadQuarterAddress(e.target.value)}
-                                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" /> */}
+                                                    <GooglePlacesAutocomplete
+                                                        value={headquarterAddress}
+                                                        onChange={setHeadQuarterAddress}
+                                                        placeholder="Enter Headquarter Address"
+                                                        inputClassName="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    />
                                                 </div>
                                                 <div className='col-span-2 h-[200px]'>
-                                                    {/* <iframe
-                                                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2357.039223216655!2d-1.7544379236894128!3d53.788789441527214!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x487be1362e87f88b%3A0x55da5536b65b1607!2sNelson%20St%2C%20Bradford%2C%20UK!5e0!3m2!1sen!2s!4v1748978374452!5m2!1sen!2s"
-                                                    width="100%"
-                                                    height="100%"
-                                                    allowFullScreen
-                                                    loading="lazy"
-                                                    referrerPolicy="no-referrer-when-downgrade"
-                                                    className="border-0"
-                                                    title="Google Map - Burnaby, BC"
-                                                ></iframe> */}
                                                     <DynamicMap
                                                         address={headquarterAddress}
                                                     />

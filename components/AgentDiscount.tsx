@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Label } from "./ui/label";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 
 interface AgentDiscountData {
     uuid?: string;
@@ -22,6 +23,7 @@ interface AgentDiscountData {
     is_percentage?: 1 | 0;
     minimum_orders?: number;
     minimum_spend?: number;
+    is_active?: 1 | 0;
 }
 
 interface Props {
@@ -41,6 +43,7 @@ const AgentDiscount: React.FC<Props> = ({ open, setOpen, addDiscount, isDetailed
     const [discountValue, setDiscountValue] = useState("");
     const [minOrderCount, setMinOrderCount] = useState("");
     const [minAmountSpend, setMinAmountSpend] = useState("");
+    const [isActive, setIsActive] = useState(true);
     const [uuid, setUuid] = useState<string | undefined>(undefined);
 
     const { userType } = useAppContext()
@@ -56,6 +59,7 @@ const AgentDiscount: React.FC<Props> = ({ open, setOpen, addDiscount, isDetailed
             setDiscountValue(initialData.amount?.toString() || "");
             setMinOrderCount(initialData.minimum_orders?.toString() || "");
             setMinAmountSpend(initialData.minimum_spend?.toString() || "");
+            setIsActive(initialData.is_active === 1);
         } else if (open && !initialData) {
             setUuid(undefined);
             setDiscountCode("");
@@ -66,6 +70,7 @@ const AgentDiscount: React.FC<Props> = ({ open, setOpen, addDiscount, isDetailed
             setDiscountValue("");
             setMinOrderCount("");
             setMinAmountSpend("");
+            setIsActive(true);
         }
     }, [open, initialData]);
 
@@ -84,6 +89,7 @@ const AgentDiscount: React.FC<Props> = ({ open, setOpen, addDiscount, isDetailed
                 is_percentage: discountType === "percentage" ? 1 : 0,
                 minimum_orders: minOrderCount ? Number(minOrderCount) : undefined,
                 minimum_spend: minAmountSpend ? Number(minAmountSpend) : undefined,
+                is_active: isActive ? 1 : 0
             });
         } else {
             if (!discountCode) return;
@@ -109,10 +115,10 @@ const AgentDiscount: React.FC<Props> = ({ open, setOpen, addDiscount, isDetailed
 
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent className="max-w-md rounded-xl p-6 font-alexandria max-h-[600px] overflow-y-auto">
+            <AlertDialogContent className={` ${isDetailed ? "max-w-[600px]" : "max-w-md"} rounded-xl p-6 font-alexandria max-h-[600px] overflow-y-auto`}>
                 <AlertDialogHeader>
                     <AlertDialogTitle className={`flex items-center justify-between ${userType}-text text-[18px] font-[600]`}>
-                        {isDetailed ? "ADD AGENT DISCOUNT" : "PAYMENT CARD"}
+                        {isDetailed ? "AGENT DISCOUNT" : "PAYMENT CARD"}
                         <AlertDialogCancel className="border-none !shadow-none">
                             <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
                         </AlertDialogCancel>
@@ -151,39 +157,52 @@ const AgentDiscount: React.FC<Props> = ({ open, setOpen, addDiscount, isDetailed
                 )}
 
                 {isDetailed && (
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium text-gray-700">
-                            Type
-                        </label>
-                        <RadioGroup
-                            value={discountType}
-                            onValueChange={setDiscountType}
-                            className="flex gap-4 h-[42px] items-center"
-                        >
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-2 col-span-2">
+                            <label className="text-sm font-medium text-gray-700">
+                                Type
+                            </label>
+                            <RadioGroup
+                                value={discountType}
+                                onValueChange={setDiscountType}
+                                className="flex gap-4 items-center"
+                            >
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem
+                                        value="percentage"
+                                        id="percentage"
+                                        className={cn(
+                                            `border-[1.5px] ${userType}-border ${userType}-text [&_svg]:fill-current`
+                                        )}
+                                    />
+                                    <Label htmlFor="percentage" className="cursor-pointer">Percentage</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem
+                                        value="amount"
+                                        id="amount"
+                                        className={cn(
+                                            `border-[1.5px] ${userType}-border ${userType}-text [&_svg]:fill-current`
+                                        )}
+                                    />
+                                    <Label htmlFor="amount" className="cursor-pointer">Amount</Label>
+                                </div>
+                            </RadioGroup>
+                        </div>
+                        <div className="flex flex-col space-y-2 col-span-1">
+                            <Label htmlFor="active-mode" className="text-sm font-medium text-gray-700">Status</Label>
                             <div className="flex items-center space-x-2">
-                                <RadioGroupItem
-                                    value="percentage"
-                                    id="percentage"
-                                    className={cn(
-                                        `border-[1.5px] ${userType}-border ${userType}-text [&_svg]:fill-current`
-                                    )}
+                                <Switch
+                                    id="active-mode"
+                                    checked={isActive}
+                                    onCheckedChange={setIsActive}
+                                    className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
                                 />
-                                <Label htmlFor="percentage" className="cursor-pointer">Percentage</Label>
+                                <Label htmlFor="active-mode" className="text-sm font-medium text-gray-700">{isActive ? "Active" : "Inactive"}</Label>
                             </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem
-                                    value="amount"
-                                    id="amount"
-                                    className={cn(
-                                        `border-[1.5px] ${userType}-border ${userType}-text [&_svg]:fill-current`
-                                    )}
-                                />
-                                <Label htmlFor="amount" className="cursor-pointer">Amount</Label>
-                            </div>
-                        </RadioGroup>
+                        </div>
                     </div>
                 )}
-
                 {isDetailed && (
                     <div className="space-y-1">
                         <label className="text-sm font-medium text-gray-700">
@@ -236,46 +255,45 @@ const AgentDiscount: React.FC<Props> = ({ open, setOpen, addDiscount, isDetailed
                 </div>
 
                 {isDetailed && (
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium text-gray-700">
-                            Minimum Order Count
-                        </label>
-                        <Input
-                            type="number"
-                            min="0"
-                            value={minOrderCount}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                if (Number(val) >= 0 || val === "") {
-                                    setMinOrderCount(val);
-                                }
-                            }}
-                            placeholder="1"
-                            className='h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]'
-                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                        />
-                    </div>
-                )}
-
-                {isDetailed && (
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium text-gray-700">
-                            Minimum Amount Spend
-                        </label>
-                        <Input
-                            type="number"
-                            min="0"
-                            value={minAmountSpend}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                if (Number(val) >= 0 || val === "") {
-                                    setMinAmountSpend(val);
-                                }
-                            }}
-                            placeholder="100"
-                            className='h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]'
-                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                        />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium text-gray-700">
+                                Minimum Order Count
+                            </label>
+                            <Input
+                                type="number"
+                                min="0"
+                                value={minOrderCount}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (Number(val) >= 0 || val === "") {
+                                        setMinOrderCount(val);
+                                    }
+                                }}
+                                placeholder="1"
+                                className='h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]'
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium text-gray-700">
+                                Minimum Amount Spend
+                            </label>
+                            <Input
+                                type="number"
+                                min="0"
+                                value={minAmountSpend}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (Number(val) >= 0 || val === "") {
+                                        setMinAmountSpend(val);
+                                    }
+                                }}
+                                placeholder="100"
+                                className='h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]'
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                            />
+                        </div>
                     </div>
                 )}
 

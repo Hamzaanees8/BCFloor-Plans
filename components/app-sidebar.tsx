@@ -13,7 +13,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Bell, Calendar, File, House, LogOut, PanelLeftClose, PanelLeftOpen, PanelTop, Settings, Sliders, UserCheck } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Admin, BackArrow, MatterportIcon, SubAccounts, Vendors } from "./Icons";
@@ -91,11 +91,11 @@ const data = {
           url: "/dashboard/agents",
           icon: UserCheck,
         },
-        {
-          title: "Sub Accounts",
-          url: "/dashboard/sub-accounts",
-          icon: SubAccounts,
-        },
+        // {
+        //   title: "Sub Accounts",
+        //   url: "/dashboard/sub-accounts",
+        //   icon: SubAccounts,
+        // },
         {
           title: "Vendors",
           url: "/dashboard/vendors",
@@ -132,6 +132,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { userType } = useAppContext();
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const pathSegments = pathname.split('/').filter(Boolean);
   const showBackButton = pathSegments.length > 2;
   const { confirmNavigation } = useUnsaved();
@@ -175,6 +176,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   const goToDashboardSection = () => {
+    const agentId = searchParams.get('agentId');
+
+    if (pathname === '/dashboard/sub-accounts/create' && agentId) {
+      confirmNavigation(() => router.push(`/dashboard/agents/create/${agentId}`), {
+        title: "Unsaved Changes",
+        description: "You have unsaved changes. Do you want to discard them and go back?"
+      });
+      return;
+    }
+
     const pathParts = pathname.split('/').filter(Boolean);
     const dashboardSection = pathParts.slice(0, 2).join('/');
     confirmNavigation(() => router.push(`/${dashboardSection}`), {
