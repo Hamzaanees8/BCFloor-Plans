@@ -5,10 +5,13 @@ import { Select, SelectTrigger, SelectContent, SelectValue, SelectItem } from "@
 import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 
+const CATEGORY_OPTIONS = ["Finished", "Subtotal", "Other"];
+
 interface AddExtraDialogProps {
     open: boolean;
     onOpenChange: (val: boolean) => void;
-    onAddExtra: (label: string, squareFootage: number, customLabel?: string) => void;
+    onAddExtra: (label: string, squareFootage: number, category: "Finished" | "Subtotal" | "Other", customLabel?: string) => void;
+    defaultCategory?: "Finished" | "Subtotal" | "Other";
 }
 
 
@@ -18,8 +21,9 @@ const OPTIONS = [
     "Other...", "Crawl Space"
 ];
 
-export default function AddExtraDialog({ open, onOpenChange, onAddExtra }: AddExtraDialogProps) {
+export default function AddExtraDialog({ open, onOpenChange, onAddExtra, defaultCategory = "Finished" }: AddExtraDialogProps) {
     const [selected, setSelected] = useState("");
+    const [category, setCategory] = useState<"Finished" | "Subtotal" | "Other">(defaultCategory);
     const [customTitle, setCustomTitle] = useState("");
     const [squareFootage, setSquareFootage] = useState("");
 
@@ -30,29 +34,46 @@ export default function AddExtraDialog({ open, onOpenChange, onAddExtra }: AddEx
         if (!isValid) return;
         const finalLabel = isCustom ? customTitle : selected;
         const customKey = isCustom ? customTitle : undefined;
-        onAddExtra(finalLabel, Number(squareFootage), customKey);
+        onAddExtra(finalLabel, Number(squareFootage), category, customKey);
 
 
         setSelected("");
         setCustomTitle("");
         setSquareFootage("");
+        setCategory(defaultCategory);
         onOpenChange(false);
     };
 
+    // Reset form when dialog opens with new defaultCategory
     useEffect(() => {
-        setSelected("");
-        setCustomTitle("");
-        setSquareFootage("");
-
-    }, []);
+        if (open) {
+            setSelected("");
+            setCustomTitle("");
+            setSquareFootage("");
+            setCategory(defaultCategory);
+        }
+    }, [open, defaultCategory]);
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="w-[320px] md:w-[470px] font-alexandria">
+            <DialogContent className="w-[320px] md-[470px] font-alexandria">
                 <DialogHeader>
                     <DialogTitle className="text-[18px] text-[#4290E9] font-bold">ADD A CUSTOM LEVEL</DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-4">
+                    <div>
+                        <label className="text-[16px] font-[400] text-[#666]">Category</label>
+                        <Select value={category} onValueChange={(val) => setCategory(val as "Finished" | "Subtotal" | "Other")}>
+                            <SelectTrigger className="mt-1 w-full h-[42px] border border-[#7d7d7d]">
+                                <SelectValue placeholder="Select Category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {CATEGORY_OPTIONS.map((opt, idx) => (
+                                    <SelectItem key={idx} value={opt}>{opt}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
                     <div>
                         <label className="text-[16px] font-[400] text-[#666]">Choose a Field</label>
                         <Select onValueChange={setSelected}>

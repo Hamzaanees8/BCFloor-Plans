@@ -91,6 +91,7 @@ export interface Area {
     footage: number;
     custom_title?: string;
     uuid?: string;
+    category?: "Finished" | "Subtotal" | "Other";
 }
 export default function OrderDetailView({ open, onClose, orderId, serviceId, orderData, agentData }: OrderDetailViewProps) {
     const { userType } = useAppContext();
