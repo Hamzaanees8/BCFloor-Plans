@@ -454,14 +454,14 @@ const Contact = () => {
                                                     <button
                                                         type="button"
                                                         onClick={() => setCoAgentMode('existing')}
-                                                        className={`py-1.5 text-sm font-medium rounded-sm transition-all ${coAgentMode === 'existing' ? 'bg-white shadow-sm text-black' : 'text-[#666666]'}`}
+                                                        className={`py-1.5 text-sm font-medium rounded-sm transition-all ${coAgentMode === 'existing' ? `${userType}-bg shadow-sm text-white` : 'text-[#666666]'}`}
                                                     >
                                                         Select Existing
                                                     </button>
                                                     <button
                                                         type="button"
                                                         onClick={() => setCoAgentMode('new')}
-                                                        className={`py-1.5 text-sm font-medium rounded-sm transition-all ${coAgentMode === 'new' ? 'bg-white shadow-sm text-black' : 'text-[#666666]'}`}
+                                                        className={`py-1.5 text-sm font-medium rounded-sm transition-all ${coAgentMode === 'new' ? `${userType}-bg shadow-sm text-white` : 'text-[#666666]'}`}
                                                     >
                                                         Add New
                                                     </button>

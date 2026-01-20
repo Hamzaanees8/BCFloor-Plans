@@ -22,6 +22,7 @@ import DynamicMap from '@/components/DYnamicMap'
 import { useAppContext } from '@/app/context/AppContext'
 import { useUnsaved } from '@/app/context/UnsavedContext'
 import useUnsavedChangesWarning from '@/app/hooks/useUnsavedChangesWarning'
+import GooglePlacesAutocomplete from '../../calendar/components/AutoCompleteInput'
 // interface PaymentCard {
 //     uuid: string;
 //     type: 'visa' | 'mastercard' | 'amex';
@@ -82,6 +83,7 @@ const OrdersForm = () => {
     const [city, setCity] = useState("");
     const [province, setProvince] = useState("");
     const [country, setCountry] = useState("CA");
+    const [postalCode, setPostalCode] = useState("");
     const [password, setPassword] = useState("");
     const [selectedPermissions, setSelectedPermissions] = useState<number[]>([]);
     // const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
@@ -119,7 +121,6 @@ const OrdersForm = () => {
 
     const agentId = searchParams.get('agentId');
     const subAccountId = searchParams.get('subAccountId');
-
     useEffect(() => {
         if (agentId) {
             setConnectedAgent(agentId)
@@ -151,7 +152,22 @@ const OrdersForm = () => {
             })
             .catch(err => console.log(err.message));
     }, []);
+    useEffect(() => {
+        const token = localStorage.getItem("token");
 
+        if (!token) {
+            console.log('Token not found.')
+            return;
+        }
+
+        if (subAccountId) {
+            GetOne(token, subAccountId)
+                .then(data => setCurrentUser(data.data))
+                .catch(err => console.log(err.message));
+        } else {
+            console.log('User ID is undefined.');
+        }
+    }, [subAccountId]);
     useEffect(() => {
         setCountries(Country.getAllCountries());
     }, []);
@@ -175,7 +191,7 @@ const OrdersForm = () => {
             isPopulatingData.current = true;
             setFirstName(currentUser.first_name || "");
             setLastName(currentUser.last_name || "");
-            setConnectedAgent(currentUser.agent.uuid);
+            setConnectedAgent(currentUser.agent?.uuid);
             setRole(currentUser.role ? String(currentUser.role.id) : "");
             setEmail(currentUser.primary_email || "");
             setSecondaryEmail(currentUser.secondary_email || "");
@@ -190,6 +206,7 @@ const OrdersForm = () => {
             setCity(currentUser.city || "");
             setProvince(currentUser.province || "");
             setCountry(currentUser.country || "");
+            setPostalCode("");  // Initialize as empty since backend doesn't store postal_code for sub-accounts
             setAvatarFileName(currentUser.avatar || "")
             setCompanyBannerFileName(currentUser.company_banner || "")
             setCompanyLogoFileName(currentUser.company_logo || "")
@@ -255,22 +272,7 @@ const OrdersForm = () => {
         );
     };
 
-    useEffect(() => {
-        const token = localStorage.getItem("token");
 
-        if (!token) {
-            console.log('Token not found.')
-            return;
-        }
-
-        if (subAccountId) {
-            GetOne(token, subAccountId)
-                .then(data => setCurrentUser(data))
-                .catch(err => console.log(err.message));
-        } else {
-            console.log('User ID is undefined.');
-        }
-    }, [subAccountId]);
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -299,7 +301,6 @@ const OrdersForm = () => {
 
         GetPermissions(token)
             .then(data => {
-                console.log('permissions', data.data)
                 const allowedPermissions = [
                     "book appointments",
                     "edit appointments",
@@ -720,17 +721,32 @@ const OrdersForm = () => {
                                             </div>
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Address</label>
-                                                <Input value={address}
-                                                    onChange={(e) => setAddress(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                <GooglePlacesAutocomplete
+                                                    value={address}
+                                                    onChange={(val) => setAddress(val)}
+                                                    onAddressComponents={(components) => {
+                                                        setAddress(components.address_line_1);
+                                                        setCity(components.city);
+                                                        setCountry(components.country);
+                                                        setPostalCode(components.postal_code);
+                                                        // Set province after a short delay to ensure states are loaded
+                                                        setTimeout(() => {
+                                                            setProvince(components.province);
+                                                        }, 100);
+                                                    }}
+                                                    className="h-[42px] mt-[12px]"
+                                                    inputClassName="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB]"
+                                                    placeholder="Enter address"
+                                                    fieldErrors={fieldErrors}
+                                                />
                                             </div>
-                                            <div>
+                                            <div className='hidden'>
                                                 <label htmlFor="">City</label>
                                                 <Input value={city}
                                                     onChange={(e) => setCity(e.target.value)}
                                                     className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
                                             </div>
-                                            <div>
+                                            <div className='hidden'>
                                                 <label htmlFor="">Province</label>
                                                 <Select
                                                     value={province}
@@ -749,9 +765,18 @@ const OrdersForm = () => {
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-                                            <div className='col-span-2'>
+                                            <div className='col-span-2 hidden'>
+                                                <label htmlFor="">Postal Code</label>
+                                                <Input value={postalCode}
+                                                    onChange={(e) => setPostalCode(e.target.value)}
+                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                            </div>
+                                            <div className='col-span-2 hidden'>
                                                 <label htmlFor="">Country</label>
-                                                <Select value={country} onValueChange={(val) => setCountry(val)}>
+                                                <Select value={country} onValueChange={(val) => {
+                                                    setCountry(val);
+                                                    setProvince("");
+                                                }}>
                                                     <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
                                                         <SelectValue placeholder="Select Country" />
                                                     </SelectTrigger>
@@ -765,16 +790,6 @@ const OrdersForm = () => {
                                                 </Select>
                                             </div>
                                             <div className='col-span-2 h-[200px]'>
-                                                {/* <iframe
-                                                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2357.039223216655!2d-1.7544379236894128!3d53.788789441527214!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x487be1362e87f88b%3A0x55da5536b65b1607!2sNelson%20St%2C%20Bradford%2C%20UK!5e0!3m2!1sen!2s!4v1748978374452!5m2!1sen!2s"
-                                                    width="100%"
-                                                    height="100%"
-                                                    allowFullScreen
-                                                    loading="lazy"
-                                                    referrerPolicy="no-referrer-when-downgrade"
-                                                    className="border-0"
-                                                    title="Google Map - Burnaby, BC"
-                                                ></iframe> */}
                                                 <DynamicMap
                                                     address={address}
                                                     city={city}

@@ -186,7 +186,6 @@ export default function SubAccountTable({ setSubAccountData, onQuickView, subAcc
             cell: ({ row }) => {
                 const status = row.getValue("status");
                 const uuid = row.original.uuid;
-
                 return (
                     <Switch
                         checked={!!status}
@@ -222,8 +221,14 @@ export default function SubAccountTable({ setSubAccountData, onQuickView, subAcc
                                 label: "Edit",
                                 onClick: () => {
                                     const uuid = row.original.uuid;
+                                    const agentId = row.original.agent?.uuid;
                                     if (uuid) {
-                                        router.push(`/dashboard/sub-accounts/create/${uuid}`);
+                                        // Build query string with subAccountId and optionally agentId
+                                        const params = new URLSearchParams({ subAccountId: uuid });
+                                        if (agentId) {
+                                            params.append('agentId', agentId);
+                                        }
+                                        router.push(`/dashboard/sub-accounts/create?${params.toString()}`);
                                     }
                                 },
                             },

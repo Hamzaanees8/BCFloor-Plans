@@ -72,7 +72,6 @@ const Page = () => {
             }
         }
     };
-    console.log("subaccount data", subAccountData)
 
     const filteredSubAccounts = subAccountData.filter(subAccount => {
         if (agentId) {
