@@ -238,7 +238,6 @@ export async function GetRole(token: string) {
     }
 
     const rolesData = await response.json();
-    console.log("rolesData", rolesData);
 
     return rolesData;
   } catch (error) {
@@ -334,7 +333,6 @@ export async function GetPaymentMethod(token: string) {
     }
 
     const paymentMethod = await response.json();
-    console.log("paymentMethod", paymentMethod);
 
     return paymentMethod;
   } catch (error) {

@@ -86,7 +86,6 @@ export default function AgentTable({ setAgentData, onQuickView, agentData, onDel
 
             const result = await UpdateAgentStatus(uuid, payload);
             toast.success('Agent Status updated successfully');
-            console.log('result', result);
 
             return result
 
@@ -268,7 +267,6 @@ export default function AgentTable({ setAgentData, onQuickView, agentData, onDel
                                     ? [{
                                         label: "Merge",
                                         onClick: () => {
-                                            console.log("Merge!")
                                             toast.success('Agents merged ')
                                         },
                                         confirm2: true,

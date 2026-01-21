@@ -164,8 +164,6 @@ const OrdersForm = () => {
             GetOne(token, subAccountId)
                 .then(data => setCurrentUser(data.data))
                 .catch(err => console.log(err.message));
-        } else {
-            console.log('User ID is undefined.');
         }
     }, [subAccountId]);
     useEffect(() => {
@@ -286,8 +284,6 @@ const OrdersForm = () => {
             Get()
                 .then(data => setAgent(data.data))
                 .catch(err => console.log(err.message));
-        } else {
-            console.log('User ID is undefined.');
         }
     }, []);
 
@@ -549,9 +545,6 @@ const OrdersForm = () => {
                 backLink={`/dashboard/agents/${agentId}`}
                 title={'Sub Accounts'}
             />
-            {/* <div className='flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600]' >
-                <ToggleButtons />
-            </div> */}
             <div>
                 <form
                     onChange={() => {
@@ -729,7 +722,6 @@ const OrdersForm = () => {
                                                         setCity(components.city);
                                                         setCountry(components.country);
                                                         setPostalCode(components.postal_code);
-                                                        // Set province after a short delay to ensure states are loaded
                                                         setTimeout(() => {
                                                             setProvince(components.province);
                                                         }, 100);

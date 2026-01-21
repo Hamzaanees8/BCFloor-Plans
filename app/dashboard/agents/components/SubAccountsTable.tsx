@@ -21,8 +21,6 @@ const SubAccountsTable = ({ agentId }: { agentId: string }) => {
     const [selectedData, setSelectedData] = useState<SubAccountData | null>(null);
     const [selectedData1, setSelectedData1] = useState<AgentData>();
 
-    console.log('agentId', agentId);
-
     useEffect(() => {
         const token = localStorage.getItem("token");
 
@@ -67,7 +65,6 @@ const SubAccountsTable = ({ agentId }: { agentId: string }) => {
             }
         }
     };
-    console.log("subaccount data", subAccountData)
 
     const filteredSubAccounts = subAccountData.filter(subAccount => {
         if (agentId) {

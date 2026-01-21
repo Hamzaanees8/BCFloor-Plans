@@ -32,7 +32,6 @@ const ChangePasswordDialog: React.FC<Props> = ({
     userId,
     type
 }) => {
-    console.log("userId", userId)
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
