@@ -328,7 +328,7 @@ const AgentForm = () => {
             (CompanyBannerfileInputRef.current as HTMLInputElement).click()
         }
     }
-    let idToUse: string = "";
+    const [idToUse, setIdToUse] = useState<string>("");
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -337,33 +337,33 @@ const AgentForm = () => {
             console.log('Token not found.')
             return;
         }
+
+        // Use a local variable to track the ID for immediate use
+        let currentId: string = "";
+
         if (userType === "agent" && !userId) {
             const userInfo = localStorage.getItem("userInfo");
             if (userInfo) {
                 try {
                     const parsedInfo = JSON.parse(userInfo);
-                    // eslint-disable-next-line react-hooks/exhaustive-deps
-                    idToUse = parsedInfo.uuid;
+                    currentId = parsedInfo.uuid;
+                    setIdToUse(parsedInfo.uuid);
                 } catch (err) {
                     console.error("Failed to parse userInfo:", err);
                 }
             }
-        } else {
-            idToUse = userId;
+        } else if (userId) {
+            currentId = userId;
+            setIdToUse(userId);
         }
-        if (!token) {
-            console.log("Token not found.");
-            return;
-        }
-
-        if (idToUse) {
-            GetOne(idToUse)
+        if (currentId) {
+            GetOne(currentId)
                 .then(data => setCurrentUser(data.data))
                 .catch(err => console.log(err.message));
         } else {
             console.log('Agent ID is undefined.');
         }
-    }, [userId]);
+    }, [userId, userType]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -583,7 +583,6 @@ const AgentForm = () => {
     const removeDiscount = () => {
         setAgentDiscount(null);
     };
-    console.log("currentUser", currentUser)
     return (
         <div className='font-alexandria'>
             <div className='w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }} >
@@ -621,7 +620,7 @@ const AgentForm = () => {
                         >
                             DETAILS
                         </button>
-                        {userId && (
+                        {(userId || (userType === "agent" && !userId)) && (
                             <button
                                 onClick={() => setActiveTab("sub_accounts")}
                                 className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
