@@ -82,7 +82,14 @@ export default function TourTabs({ orderData }: TourProps) {
       <div className="bg-white shadow-md border rounded-b-md mt-0">
         {renderContent()}
       </div>
-      <TourActivityDialog open={open} onOpenChange={setOpen} />
+      {orderData?.tours?.[0]?.uuid && (
+        <TourActivityDialog
+          open={open}
+          onOpenChange={setOpen}
+          tourUuid={orderData.tours[0].uuid}
+          propertyAddress={`${orderData.property.address}, ${orderData.property.city}, ${orderData.property.province}`}
+        />
+      )}
     </div>
   );
 }

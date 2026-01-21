@@ -97,8 +97,32 @@ export interface OrderData {
     };
 }
 
+export interface TourStatsPayload {
+    type: 'view' | 'media_view';
+    visitor_id: string;
+    referrer?: string;
+    media_uuid?: string;
+}
+
+export interface TourStats {
+    summary: {
+        total_views: number;
+        total_visitors: number;
+        total_photo_views: number;
+        views_per_visitor: number;
+    };
+    charts: {
+        traffic: { date: string; views: number }[];
+        referrers: { domain: string; count: number }[];
+    };
+    media: {
+        media_stats: { media_uuid: string; views: number }[];
+    }
+}
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
 export const fetchPublicTourData = async (orderuuid: string): Promise<OrderData> => {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
     try {
         const response = await fetch(`${API_URL}/tour/public/${orderuuid}`);
         if (!response.ok) {
@@ -108,6 +132,44 @@ export const fetchPublicTourData = async (orderuuid: string): Promise<OrderData>
         return data.data;
     } catch (error) {
         console.error('Error fetching public tour data:', error);
+        throw error;
+    }
+};
+
+export const recordTourStat = async (tourUuid: string, payload: TourStatsPayload) => {
+    try {
+        await fetch(`${API_URL}/tours/${tourUuid}/stats`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+    } catch (error) {
+        console.error('Error recording tour stat:', error);
+        // Fail silently for analytics
+    }
+};
+
+export const fetchTourStats = async (tourUuid: string, dateRange?: { start_date: string; end_date: string; }, token?: string): Promise<TourStats> => {
+    try {
+        const queryParams = new URLSearchParams();
+        if (dateRange?.start_date) queryParams.append('start_date', dateRange.start_date);
+        if (dateRange?.end_date) queryParams.append('end_date', dateRange.end_date);
+
+        const response = await fetch(`${API_URL}/tours/${tourUuid}/stats?${queryParams.toString()}`, {
+            headers: token ? {
+                'Authorization': `Bearer ${token}`
+            } : {}
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch tour stats');
+        }
+        const data = await response.json();
+        return data.data;
+    } catch (error) {
+        console.error('Error fetching tour stats:', error);
         throw error;
     }
 };

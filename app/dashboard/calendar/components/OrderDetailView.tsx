@@ -31,6 +31,7 @@ interface OrderDetailViewProps {
     orderData: Order[]
     serviceId: number;
     agentData: Agent[]
+    refreshOrders?: () => void
 }
 type AgentNote = {
     note: string;
@@ -93,7 +94,7 @@ export interface Area {
     uuid?: string;
     category?: "Finished" | "Subtotal" | "Other";
 }
-export default function OrderDetailView({ open, onClose, orderId, serviceId, orderData, agentData }: OrderDetailViewProps) {
+export default function OrderDetailView({ open, onClose, orderId, serviceId, orderData, agentData, refreshOrders }: OrderDetailViewProps) {
     const { userType } = useAppContext();
     const [activeTab, setActiveTab] = useState<'appointment' | 'square_footage' | 'history'>('appointment');
     const [isEdit, setIsEdit] = useState(false);
@@ -248,6 +249,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
             if (response?.success) {
                 toast.success('Order updated successfully');
                 onClose()
+                if (refreshOrders) refreshOrders();
                 setOrderServices([])
                 setSelectedSlots([])
                 setCalendarServices([])

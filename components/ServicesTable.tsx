@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import ImagePopup from "./ImagePopup";
 import { useAppContext } from "@/app/context/AppContext";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
 import {
   Accordion,
   AccordionContent,
@@ -49,6 +50,12 @@ const ServicesTable: React.FC<ServicesTableProps> = ({
     string | undefined
   >(undefined);
   const { userType } = useAppContext();
+  const { appliedSettings } = useWhiteLabel();
+  const role = (userType as string) || 'admin';
+  const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+
+  const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
+
   const [paginatedServices, setPaginatedServices] = useState<Services[]>([]);
   const [paginatedPackages, setPaginatedPackages] = useState<Packages[]>([]);
 
@@ -116,7 +123,7 @@ const ServicesTable: React.FC<ServicesTableProps> = ({
       <div className="overflow-x-auto">
         <Table className="font-alexandria">
           <TableHeader>
-            <TableRow className="h-[54px]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+            <TableRow className="h-[54px]" style={{ backgroundColor: headerBg }}>
               <TableHead className="text-[14px] font-[700] text-[#7D7D7D] pl-[20px]">
                 Description
               </TableHead>
@@ -183,7 +190,8 @@ const ServicesTable: React.FC<ServicesTableProps> = ({
                 return (
                   <TableRow key={i}>
                     <TableCell
-                      className={`text-[15px] flex justify-start gap-4 items-center font-[400] ${userType}-text pl-[20px]`}
+                      className={`text-[15px] flex justify-start gap-4 items-center font-[400] pl-[20px]`}
+                      style={{ color: roleSettings.pageTabColor }}
                     >
                       <div
                         onClick={() => {
@@ -201,7 +209,7 @@ const ServicesTable: React.FC<ServicesTableProps> = ({
                       </div>
                       {service.name}
                     </TableCell>
-                    <TableCell className="text-[15px] font-[400] pl-[20px] text-[#666666]">
+                    <TableCell className="text-[15px] font-[400] pl-[20px]" style={{ color: roleSettings.pageText }}>
                       {service.category?.name}
                     </TableCell>
                     <TableCell className="text-[15px] font-[400] text-[#7D7D7D]">
@@ -264,8 +272,8 @@ const ServicesTable: React.FC<ServicesTableProps> = ({
 
         <AccordionItem value="packages">
           <AccordionTrigger
-            className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-            style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+            className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[18px] font-[600] uppercase [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:text-current animate-none`}
+            style={{ backgroundColor: headerBg, color: roleSettings.pageTabColor }}
           >
             Packages
           </AccordionTrigger>
@@ -273,7 +281,7 @@ const ServicesTable: React.FC<ServicesTableProps> = ({
           <AccordionContent>
             <Table className="font-alexandria">
               <TableHeader>
-                <TableRow className="h-[54px]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                <TableRow className="h-[54px]" style={{ backgroundColor: headerBg }}>
                   <TableHead className="text-[14px] font-[700] text-[#7D7D7D] pl-[20px]">
                     Name
                   </TableHead>
@@ -324,11 +332,12 @@ const ServicesTable: React.FC<ServicesTableProps> = ({
                     return (
                       <TableRow key={i}>
                         <TableCell
-                          className={`text-[15px] font-[400] ${userType}-text pl-[20px]`}
+                          className={`text-[15px] font-[400] pl-[20px]`}
+                          style={{ color: roleSettings.pageTabColor }}
                         >
                           {pkg.name}
                         </TableCell>
-                        <TableCell className="text-[15px] font-[400] pl-[20px] text-[#666666]">
+                        <TableCell className="text-[15px] font-[400] pl-[20px]" style={{ color: roleSettings.pageText }}>
                           {pkg?.services
                             ?.slice(0, 3)
                             .map((src) => src.name)

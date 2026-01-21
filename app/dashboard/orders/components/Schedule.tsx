@@ -115,9 +115,9 @@ const Schedule = () => {
                 const insideResults = await Promise.all(
                     vendorsForService.map(async vendor => {
                         const force_service_area = vendor.settings?.force_service_area;
-                        const shouldBypass = force_service_area === 1 || force_service_area === true;
+                        const isRestricted = force_service_area === 1 || force_service_area === true;
 
-                        if (shouldBypass) {
+                        if (!isRestricted) {
                             return { vendor, inside: true };
                         }
 

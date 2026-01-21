@@ -13,10 +13,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Bell, Calendar, File, House, LogOut, PanelLeftClose, PanelLeftOpen, PanelTop, Settings, Sliders, UserCheck } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Admin, BackArrow, MatterportIcon, SubAccounts, Vendors } from "./Icons";
+import { Admin, BackArrow, MatterportIcon, Vendors } from "./Icons";
 import Image from "next/image";
 import { Logout } from "@/app/(auth)/logout";
 import { useAppContext } from "@/app/context/AppContext";
@@ -132,7 +132,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { userType } = useAppContext();
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const pathSegments = pathname.split('/').filter(Boolean);
   const showBackButton = pathSegments.length > 2;
   const { confirmNavigation } = useUnsaved();
@@ -144,6 +143,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { appliedSettings } = useWhiteLabel();
   const role = (userType as string) || 'admin';
   const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+  const [isLogoutHovered, setIsLogoutHovered] = React.useState(false);
 
   async function logoutUser() {
     const token = localStorage.getItem("token");
@@ -449,21 +449,27 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <Tooltip>
             <TooltipTrigger asChild>
               <div
-                onClick={logoutUser}
-                className={`flex items-center gap-x-2.5 pb-[20px] cursor-pointer ${isCollapsed ? 'justify-center pt-4' : 'pt-[120px] px-[25px]'}`}
+                className={`pb-[20px] ${isCollapsed ? 'flex justify-center pt-4' : 'pt-[120px] px-[25px]'}`}
               >
-                <LogOut
-                  className="h-[18px] w-[18px] shrink-0"
-                  style={{ color: roleSettings.sidebarText }}
-                />
-                {!isCollapsed && (
-                  <p
-                    className="text-[16px] font-normal"
-                    style={{ color: roleSettings.sidebarText }}
-                  >
-                    Log Out
-                  </p>
-                )}
+                <div
+                  onClick={logoutUser}
+                  onMouseEnter={() => setIsLogoutHovered(true)}
+                  onMouseLeave={() => setIsLogoutHovered(false)}
+                  className="flex items-center gap-x-2.5 cursor-pointer"
+                >
+                  <LogOut
+                    className="h-[18px] w-[18px] shrink-0"
+                    style={{ color: isLogoutHovered ? roleSettings.sidebarHoverText : roleSettings.sidebarText }}
+                  />
+                  {!isCollapsed && (
+                    <p
+                      className="text-[16px] font-normal"
+                      style={{ color: isLogoutHovered ? roleSettings.sidebarHoverText : roleSettings.sidebarText }}
+                    >
+                      Log Out
+                    </p>
+                  )}
+                </div>
               </div>
             </TooltipTrigger>
             {isCollapsed && (

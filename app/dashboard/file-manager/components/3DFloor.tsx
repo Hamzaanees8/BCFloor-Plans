@@ -226,14 +226,15 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
             const numberOfbrandedApiLink = brandedApiLink?.length ?? 0
             const numberOfUnbrandedApiLink = unbrandedApiLink?.length ?? 0
 
-            if (numberOfbrandedApiLink >= (currentBookedService?.option.quantity ?? 1) && numberOfUnbrandedApiLink >= (currentBookedService?.option.quantity ?? 1)) {
+            if (numberOfbrandedApiLink >= (currentBookedService?.option?.quantity ?? 1) && numberOfUnbrandedApiLink >= (currentBookedService?.option?.quantity ?? 1)) {
                 if (token && currentBookedService?.uuid && orderData?.uuid && !currentBookedService?.is_completed) {
                     await ServiceCompletion(token, currentBookedService.uuid, true, orderData.uuid)
                 }
             }
         };
         checkServiceCompletion();
-    }, [unbrandedApiLink, currentService, brandedApiLink, orderData, currentBookedService?.option.quantity, currentBookedService?.uuid, currentBookedService?.is_completed])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [unbrandedApiLink, currentService, brandedApiLink, orderData, currentBookedService?.uuid, currentBookedService?.is_completed])
 
 
     return (
@@ -256,7 +257,7 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
                                 <span className={`${userType}-text font-bold`}>
                                     {currentService ? currentService.name : '3D Tour'}
                                 </span>
-                                <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option.title}</span>
+                                <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title ?? ''}</span>
 
                             </p>
                         </div>
@@ -277,8 +278,8 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
                             />
                             {userType === 'agent' &&
                                 <div className='flex flex-col justify-center items-center mr-4'>
-                                    <p className='text-[18px] text-[#6BAE41]'>${currentBookedService?.option.amount}</p>
-                                    <p className='text-[#7D7D7D] text-[12px]'>{currentBookedService?.option.title}</p>
+                                    <p className='text-[18px] text-[#6BAE41]'>${currentBookedService?.option?.amount}</p>
+                                    <p className='text-[#7D7D7D] text-[12px]'>{currentBookedService?.option?.title ?? ''}</p>
                                 </div>
                             }
                             {userType === 'agent' &&

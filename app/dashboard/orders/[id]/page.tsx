@@ -27,6 +27,7 @@ import { useEffect, useState } from "react";
 import { createPayment } from "../../file-manager/file-manager";
 import Link from "next/link";
 import OrderDetailView from "../../calendar/components/OrderDetailView";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
 export interface VendorAddress {
   type: "company" | "billing" | string;
   address_line_1: string;
@@ -124,6 +125,11 @@ function Page() {
   const [selectedVendors, setselectedVendors] = useState('');
   const [openEditPopup, setOpenEditPopup] = useState<boolean>(false);
   const { userType } = useAppContext();
+  const { appliedSettings } = useWhiteLabel();
+  const role = (userType as string) || 'admin';
+  const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+  const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
+
   const [openDetails, setOpenDetails] = useState(false);
   const [agentData, setAgentData] = useState<Agent[]>([]);
   const [isChecked, setIsChecked] = useState(true);
@@ -345,7 +351,7 @@ function Page() {
 
 
   return (
-    <div className="font-alexandria">
+    <div className="font-alexandria" style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh', color: roleSettings.pageText }}>
       {openEditPopup && userType === "vendor" &&
         <VendorOrderEdit
           currentOrder={orderData ?? undefined}
@@ -356,9 +362,9 @@ function Page() {
       <OrderDetailView agentData={agentData} open={openDetails} onClose={() => { setOpenDetails(false) }} orderId={orderData?.uuid ?? ''} serviceId={22} orderData={orderData ? [orderData] : []} />
       <div
         className="w-full h-[80px] font-alexandria  z-30 sticky top-0  flex justify-between px-[20px] items-center"
-        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }}
+        style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }}
       >
-        <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}>
+        <p className={`text-[16px] md:text-[24px] font-[400]`} style={{ color: roleSettings.pageTabColor }}>
           Orders ›{" "}
           <span className="hidden md:inline-block">
             {" "}
@@ -369,15 +375,16 @@ function Page() {
           <div className="flex gap-[18px]">
             <Button
               onClick={() => { setOpenDetails(true) }}
-              className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[400] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] ${userType}-button hover-${userType}-bg`}
-              style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+              className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] text-[14px] md:text-[16px] font-[400] flex gap-[5px] justify-center items-center hover:opacity-90`}
+              style={{ backgroundColor: roleSettings.pageBg, color: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
             >
               Edit Order
             </Button>
             <Button
               disabled={isLoading}
               onClick={handleSubmit}
-              className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}
+              className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:opacity-90`}
+              style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
             >
               {isLoading ? (
                 <div role="status">
@@ -407,7 +414,7 @@ function Page() {
 
           </div>}
       </div>
-      <div className={` relative w-full h-[160px] ${userType}-bg flex flex-col md:flex-row justify-between items-start py-[32px] px-[25px]`}>
+      <div className={` relative w-full h-[160px] flex flex-col md:flex-row justify-between items-start py-[32px] px-[25px]`} style={{ backgroundColor: roleSettings.pageTabColor }}>
         <div
           className="absolute inset-0 bg-center bg-cover"
           style={{
@@ -430,7 +437,7 @@ function Page() {
       </div>
       <div
         className="w-full h-[60px] font-alexandria pr-5 z-20 sticky top-[80px] flex items-center border-b border-[#BBBBBB]"
-        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+        style={{ backgroundColor: headerBg }}
       >
         <div className="flex items-center justify-center w-full">
           <div className="flex items-center justify-center gap-x-6 w-full">
@@ -438,9 +445,10 @@ function Page() {
               href={`/dashboard/file-manager/${orderId}?listingId=${orderData?.property?.uuid}`}
 
               className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${false
-                ? `${userType}-bg text-white font-[700] ${userType}-border`
+                ? `text-white font-[700]`
                 : `bg-[#fff] text-[#666666] font-[700] `
                 }`}
+              style={false ? { backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor } : {}}
             >
               Media
             </Link>
@@ -448,9 +456,10 @@ function Page() {
               href={`/dashboard/listings/create/${orderData?.property?.uuid}`}
 
               className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${false
-                ? `${userType}-bg text-white font-[700] ${userType}-border`
+                ? `text-white font-[700]`
                 : `bg-[#fff] text-[#666666] font-[700] `
                 }`}
+              style={false ? { backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor } : {}}
             >
               Property details
             </Link>
@@ -458,9 +467,10 @@ function Page() {
               href={`/dashboard/orders/${orderData?.uuid}`}
 
               className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${true
-                ? `${userType}-bg text-white font-[700] ${userType}-border`
+                ? `text-white font-[700]`
                 : `bg-[#fff] text-[#666666] font-[700] `
                 }`}
+              style={true ? { backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor } : {}}
             >
               Order details
             </Link>
@@ -474,14 +484,14 @@ function Page() {
       >
         <AccordionItem value="property">
           <AccordionTrigger
-            className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-            style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+            className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[18px] font-[600] uppercase [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:text-current`}
+            style={{ backgroundColor: headerBg, color: roleSettings.pageTabColor }}
           >
             Order Details
           </AccordionTrigger>
           <AccordionContent className="grid gap-4">
             <div className="w-full flex flex-col items-center">
-              <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
+              <div className="w-full md:w-[470px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
 
                 <div className="grid grid-cols-2 gap-[16px]">
 
@@ -495,7 +505,7 @@ function Page() {
                         >
                           <SelectTrigger
                             className="w-full h-[42px] border-[1px] border-[#BBBBBB]"
-                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                            style={{ backgroundColor: roleSettings.pageBg }}
                           >
                             <SelectValue placeholder="Select Order Status" />
                           </SelectTrigger>
@@ -512,7 +522,7 @@ function Page() {
                           <TooltipTrigger asChild>
                             <div
                               className="cursor-pointer p-2 rounded-md border-[1px] border-[#BBBBBB] h-[42px] w-[42px] flex justify-center items-center hover:bg-gray-200 transition-colors"
-                              style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                              style={{ backgroundColor: roleSettings.pageBg }}
                             >
                               <Info className="h-5 w-5 text-[#666666]" />
                             </div>
@@ -521,7 +531,7 @@ function Page() {
                             <div className="flex flex-col">
                               <div
                                 className="px-4 py-3 border-b border-[#BBBBBB]"
-                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                style={{ backgroundColor: headerBg }}
                               >
                                 <h4 className="font-[600] text-[14px] uppercase text-[#424242]">Order Details</h4>
                               </div>
@@ -545,7 +555,7 @@ function Page() {
                                       <div
                                         key={index}
                                         className="flex flex-col text-[12px] p-2 rounded-[4px] border border-[#E4E4E4] gap-2"
-                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                        style={{ backgroundColor: roleSettings.pageBg }}
                                       >
                                         <span className="font-[600] text-[#424242]">
                                           {service.service?.name || service.optionName || 'Unknown Service'}
@@ -609,7 +619,7 @@ function Page() {
                     >
                       <SelectTrigger
                         className="w-full  h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                        style={{ backgroundColor: roleSettings.pageBg }}
                       >
                         <SelectValue placeholder="Select Team Member" />
                       </SelectTrigger>
@@ -637,7 +647,7 @@ function Page() {
                           readOnly
                           type="text"
                           className="h-[42px] border-[1px] border-[#BBBBBB] truncate mt-[12px] pr-10"
-                          style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                          style={{ backgroundColor: roleSettings.pageBg }}
                         />
                         <Copy
                           onClick={() => {
@@ -645,7 +655,8 @@ function Page() {
                             navigator.clipboard.writeText(url);
                             toast.success("Tour link copied to clipboard");
                           }}
-                          className="cursor-pointer absolute right-3 top-[calc(50%+6px)] -translate-y-1/2 text-[#4290E9] h-[20px] w-[20px]"
+                          className="cursor-pointer absolute right-3 top-[calc(50%+6px)] -translate-y-1/2 h-[20px] w-[20px]"
+                          style={{ color: roleSettings.pageTabColor }}
                           strokeWidth={1}
                         />
                       </div>
@@ -656,12 +667,12 @@ function Page() {
                           onChange={(e) => setProperty_website(e.target.value)}
                           placeholder="Enter Property Website URL"
                           className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                          style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                          style={{ backgroundColor: roleSettings.pageBg }}
                           type="text"
                           readOnly
                         />
                         <div className='flex justify-end'>
-                          <p className={`underline ${userType}-text text-[12px] w-fit cursor-pointer`}>Customize URL</p>
+                          <p className={`underline text-[12px] w-fit cursor-pointer`} style={{ color: roleSettings.pageTabColor }}>Customize URL</p>
                         </div>
                       </>
                     )}
@@ -678,7 +689,7 @@ function Page() {
                       onChange={(e) => setMls_property(e.target.value)}
                       placeholder="Enter MLS Property"
                       className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                      style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                      style={{ backgroundColor: roleSettings.pageBg }}
                       type="text"
                     />
                     {/* {fieldErrors.heading && (
@@ -689,8 +700,9 @@ function Page() {
                   </div>
                   <div className="col-span-2 flex flex-col gap-[16px]">
                     <Button
-                      onClick={() => router.push(`/dashboard/file-manager/${orderId}`)}
-                      className={`col-span-3 w-full md:w-full h-[32px] md:h-[32px] rounded-[3px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[14px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg hover:opacity-85 font-raleway`}
+                      onClick={() => router.push(`/dashboard/file-manager/${orderId}?listingId=${orderData?.property?.uuid}`)}
+                      className={`col-span-3 w-full md:w-full h-[32px] md:h-[32px] rounded-[3px] border-[1px] text-[14px] md:text-[14px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:opacity-85 font-raleway`}
+                      style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
                     >
                       Go To File Manager
                     </Button>
@@ -700,7 +712,8 @@ function Page() {
                         <Switch
                           checked={isChecked}
                           onCheckedChange={setIsChecked}
-                          className='data-[state=checked]:bg-[#6BAE41]'
+                          className="data-[state=checked]:bg-transparent"
+                          style={{ backgroundColor: isChecked ? roleSettings.activeColor : undefined }}
                         />
                       </div>
                     )}
@@ -709,7 +722,8 @@ function Page() {
                     <div className="col-span-2 flex flex-col gap-[16px] mt-[40px]">
                       <Button
                         onClick={() => setOpenEditPopup(true)}
-                        className={`col-span-3 w-full md:w-full h-[32px] md:h-[32px] rounded-[3px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[14px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg hover:opacity-85 font-raleway`}
+                        className={`col-span-3 w-full md:w-full h-[32px] md:h-[32px] rounded-[3px] border-[1px] text-[14px] md:text-[14px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:opacity-85 font-raleway`}
+                        style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
                       >
                         Upgrade/Downgrade Order
                       </Button>
@@ -725,18 +739,18 @@ function Page() {
 
         <AccordionItem value="additional">
           <AccordionTrigger
-            className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-            style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+            className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[18px] font-[600] uppercase [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:text-current`}
+            style={{ backgroundColor: headerBg, color: roleSettings.pageTabColor }}
           >
             Order Details
           </AccordionTrigger>
           <AccordionContent className="grid gap-4">
             <div className="w-full flex flex-col items-center">
-              <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[48px] text-[#424242] text-[14px] font-[400]">
+              <div className="w-full md:w-[470px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[48px] text-[#424242] text-[14px] font-[400]">
                 <div className="flex justify-between gap-[12px]">
                   <div className="flex gap-[12px] items-center">
-                    <TriangleAlert className={`${userType}-text h-[24px]w-[30px]  md:h-[36px] md:w-[40px]`} />
-                    <p className={`${userType}-text text-[24px] md:text-[36px] font-[400]`}>
+                    <TriangleAlert className={`h-[24px] w-[30px] md:h-[36px] md:w-[40px]`} style={{ color: roleSettings.pageTabColor }} />
+                    <p className={`text-[24px] md:text-[36px] font-[400]`} style={{ color: roleSettings.pageTabColor }}>
                       ORDER {orderData?.id}
                     </p>
                   </div>

@@ -1,6 +1,3 @@
-"use client";
-
-// import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog';
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle, X } from "lucide-react";
 import {
@@ -11,6 +8,7 @@ import {
 } from "./ui/alert-dialog";
 import Link from "next/link";
 import { useAppContext } from "@/app/context/AppContext";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
 
 interface SaveModalProps {
   isOpen: boolean;
@@ -30,15 +28,19 @@ export function SaveModal({
   title,
 }: SaveModalProps) {
   const { userType } = useAppContext();
+  const { appliedSettings } = useWhiteLabel();
+  const role = (userType as string) || 'admin';
+  const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
       <AlertDialogContent
-        className="max-w-sm text-center font-alexandria py-6 px-6"
-        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+        className="max-w-sm text-center font-alexandria py-6 px-6 border-none"
+        style={{ backgroundColor: roleSettings.pageBg }}
       >
         <AlertDialogHeader>
           <AlertDialogTitle>
-            <h2 className={`font-semibold text-lg ${userType}-text`}>
+            <h2 className="font-semibold text-lg" style={{ color: roleSettings.pageTabColor }}>
               {isLoading ? "SAVING..." : "SUCCESS"}
             </h2>
           </AlertDialogTitle>
@@ -51,46 +53,44 @@ export function SaveModal({
             <X className="w-5 h-5" />
           </button>
         </AlertDialogHeader>
-        <hr />
+        <hr className="border-[#BBBBBB]" />
         <div className="my-2 flex flex-col items-center gap-4">
           {isLoading ? (
             <>
-              <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
-              {/* <p className="text-sm text-muted-foreground">Generating {title} URL…</p> */}
+              <Loader2 className="w-10 h-10 animate-spin" style={{ color: roleSettings.pageTabColor }} />
             </>
           ) : isSuccess ? (
             <>
               <CheckCircle className="w-10 h-10 text-green-500" />
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm font-[400]" style={{ color: roleSettings.pageText }}>
                 Saved successfully!
               </p>
-              {/* <p className="text-sm text-muted-foreground">{title} created successfully!</p> */}
             </>
           ) : null}
         </div>
 
-        <hr />
+        <hr className="border-[#BBBBBB]" />
         {backLink && (
           <Button
             disabled={isLoading}
-            className={`w-full hover:opacity-85 hover-${userType}-bg ${userType}-bg `}
+            className="w-full hover:brightness-110 border-none transition-all"
+            style={{ backgroundColor: roleSettings.pageTabColor }}
             onClick={onClose}
             asChild={isSuccess}
           >
             {isSuccess ? (
               <Link
                 href={backLink ?? "/"}
-                className="w-full block text-center "
+                className="w-full block text-center text-white"
               >
                 Back to {title}
               </Link>
             ) : (
-              <span className="opacity-50 bg-[#4290E9] hover:bg-[#397fcf] cursor-pointer">
+              <span className="opacity-50 cursor-pointer text-white">
                 Back To {title} Page
               </span>
             )}
           </Button>
-
         )}
       </AlertDialogContent>
     </AlertDialog>

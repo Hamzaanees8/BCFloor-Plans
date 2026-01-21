@@ -238,7 +238,7 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
             // Count only agent approved files
             const numberOfApprovedFiles = currentServiceFiles?.filter(f => f.is_agent_approved).length ?? 0
 
-            if (numberOfApprovedFiles >= (currentBookedService?.option.quantity ?? 1)) {
+            if (numberOfApprovedFiles >= (currentBookedService?.option?.quantity ?? 1)) {
                 if (token && currentBookedService?.uuid && orderData?.uuid && !currentBookedService?.is_completed) {
                     await ServiceCompletion(token, currentBookedService.uuid, true, orderData.uuid)
                 }
@@ -272,7 +272,7 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
                     </div>
                     <div>
                         <p className='flex flex-col items-center'><span className={`${userType}-text font-bold`}>{currentService ? currentService.name : ''}</span>
-                            <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option.title}</span>
+                            <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title}</span>
 
                         </p>
                     </div>
@@ -318,8 +318,8 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
                             />
                             {userType === 'agent' &&
                                 <div className='flex flex-col justify-center items-center mr-4'>
-                                    <p className='text-[18px] text-[#6BAE41]'>${currentBookedService?.option.amount}</p>
-                                    <p className='text-[#7D7D7D] text-[12px]'>{currentBookedService?.option.title}</p>
+                                    <p className='text-[18px] text-[#6BAE41]'>${currentBookedService?.option?.amount}</p>
+                                    <p className='text-[#7D7D7D] text-[12px]'>{currentBookedService?.option?.title}</p>
                                 </div>
                             }
                             {userType === 'agent' &&

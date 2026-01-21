@@ -34,6 +34,8 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { usePermissions } from "@/app/hooks/usePermissions";
 import { VendorData } from "@/components/QuickViewCard";
 import { toast } from "sonner";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
+
 
 interface OrderTableProps {
     showHeader: boolean;
@@ -59,6 +61,12 @@ export default function OrderTable({ OrderData, onDelete, onQuickView1, loading,
         setIsSubmitted,
     } = useOrderContext();
 
+    const { appliedSettings } = useWhiteLabel();
+    const role = (userType as string) || 'admin';
+    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+
+    const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
+
 
     const columns: ColumnDef<Order>[] = [
         {
@@ -79,11 +87,11 @@ export default function OrderTable({ OrderData, onDelete, onQuickView1, loading,
                                 column.toggleSorting(false); // to asc
                             }
                         }}
-                        className="p-0 hover:bg-transparent flex items-center gap-1 "
+                        className="p-0 hover:bg-transparent flex items-center gap-1 font-bold"
                     >
                         ORDER
-                        {isSorted === "asc" && <span><ChevronUp className="text-blue-500" strokeWidth={3} /></span>}
-                        {isSorted === "desc" && <span><ChevronDown className="text-blue-500" strokeWidth={3} /></span>}
+                        {isSorted === "asc" && <span><ChevronUp style={{ color: roleSettings.pageTabColor }} strokeWidth={3} /></span>}
+                        {isSorted === "desc" && <span><ChevronDown style={{ color: roleSettings.pageTabColor }} strokeWidth={3} /></span>}
                         {!isSorted && <span className="text-gray-400"><ChevronsUpDown className="text-gray-400" strokeWidth={3} /></span>}
                     </Button>
                 )
@@ -96,7 +104,8 @@ export default function OrderTable({ OrderData, onDelete, onQuickView1, loading,
 
                 return (
                     <div
-                        className={`${userType}-text cursor-pointer ml-[5px]`}
+                        className={`cursor-pointer ml-[5px]`}
+                        style={{ color: roleSettings.pageTabColor }}
                         onClick={() => {
                             // Admin needs specific permission to view orders
                             // If user is admin, enforce permission check. If not admin (e.g. agent), allow view by default (or based on other logic if needed, but per request admin is key)
@@ -137,7 +146,7 @@ export default function OrderTable({ OrderData, onDelete, onQuickView1, loading,
                 const location = row.original.property_location;
 
                 return (
-                    <div className="text-[#666666] truncate">
+                    <div className="truncate" style={{ color: roleSettings.pageText }}>
                         {`${address}, ${location}`}
                     </div>
                 );
@@ -153,7 +162,10 @@ export default function OrderTable({ OrderData, onDelete, onQuickView1, loading,
                 return (
                     <div onClick={() => {
                         onQuickView1("agent", agent);
-                    }} className={`${userType}-text cursor-pointer`}>{first_name} {last_name}</div>
+                    }}
+                        className={`cursor-pointer`}
+                        style={{ color: roleSettings.pageTabColor }}
+                    >{first_name} {last_name}</div>
                 );
             },
         },
@@ -163,7 +175,7 @@ export default function OrderTable({ OrderData, onDelete, onQuickView1, loading,
             cell: ({ row }) => {
                 const total = row.original.amount;
                 return (
-                    <div className="text-[#666666]">
+                    <div style={{ color: roleSettings.pageText }}>
                         ${parseFloat(total).toFixed(2)}
                     </div>
                 );
@@ -187,11 +199,11 @@ export default function OrderTable({ OrderData, onDelete, onQuickView1, loading,
                                 column.toggleSorting(false); // Set to asc
                             }
                         }}
-                        className="p-0 hover:bg-transparent flex items-center gap-1"
+                        className="p-0 hover:bg-transparent flex items-center gap-1 font-bold"
                     >
                         ADDED
-                        {isSorted === "asc" && <span><ChevronUp className="text-blue-500" strokeWidth={3} /></span>}
-                        {isSorted === "desc" && <span><ChevronDown className="text-blue-500" strokeWidth={3} /></span>}
+                        {isSorted === "asc" && <span><ChevronUp style={{ color: roleSettings.pageTabColor }} strokeWidth={3} /></span>}
+                        {isSorted === "desc" && <span><ChevronDown style={{ color: roleSettings.pageTabColor }} strokeWidth={3} /></span>}
                         {!isSorted && <span className="text-gray-400"><ChevronsUpDown className="text-gray-400" strokeWidth={3} /></span>}
                     </Button>
                 )
@@ -202,7 +214,7 @@ export default function OrderTable({ OrderData, onDelete, onQuickView1, loading,
                     month: "short",
                     day: "2-digit",
                 });
-                return <div className="text-[#666666]">{date}</div>;
+                return <div style={{ color: roleSettings.pageText }}>{date}</div>;
             },
             // Optional: Enable sorting for this column
             enableSorting: true,
@@ -332,7 +344,7 @@ export default function OrderTable({ OrderData, onDelete, onQuickView1, loading,
                                 <TableRow key={headerGroup.id}>
                                     {headerGroup.headers.map((header) => {
                                         return (
-                                            <TableHead key={header.id} className="text-sm text-[#666666] font-bold h-[54px]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                                            <TableHead key={header.id} className="text-sm border-none font-bold h-[54px]" style={{ backgroundColor: headerBg, color: roleSettings.pageText }}>
                                                 {header.isPlaceholder
                                                     ? null
                                                     : flexRender(

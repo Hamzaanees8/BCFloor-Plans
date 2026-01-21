@@ -673,29 +673,27 @@ const FileManager = () => {
             >
               Tour
             </div>
-            {!isListing && (
-              <div
-                key="CreateFeatureSheet"
-                onClick={() => {
-                  setActiveTab("CreateFeatureSheet");
-                  const params = new URLSearchParams(searchParams.toString());
-                  params.delete("serviceId"); // remove serviceId param
-                  router.replace(`?${params.toString()}`);
-                }}
-                className={`h-[60px] cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-200 ${activeTab === "CreateFeatureSheet"
-                  ? `${userType}-bg text-white ${userType}-border`
-                  : `${userType}-text  ${userType}-border`
-                  }`}
-                style={{
-                  backgroundColor:
-                    activeTab === "CreateFeatureSheet"
-                      ? undefined
-                      : `var(--${userType}-page-bg, #F2F2F2)`,
-                }}
-              >
-                Create Feature Sheet
-              </div>
-            )}
+            <div
+              key="CreateFeatureSheet"
+              onClick={() => {
+                setActiveTab("CreateFeatureSheet");
+                const params = new URLSearchParams(searchParams.toString());
+                params.delete("serviceId"); // remove serviceId param
+                router.replace(`?${params.toString()}`);
+              }}
+              className={`h-[60px] cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-200 ${activeTab === "CreateFeatureSheet"
+                ? `${userType}-bg text-white ${userType}-border`
+                : `${userType}-text  ${userType}-border`
+                }`}
+              style={{
+                backgroundColor:
+                  activeTab === "CreateFeatureSheet"
+                    ? undefined
+                    : `var(--${userType}-page-bg, #F2F2F2)`,
+              }}
+            >
+              Create Feature Sheet
+            </div>
           </div>
         </div>
       </div>

@@ -13,6 +13,7 @@ import { usePermissions } from '@/app/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
 import QuickViewCard, { VendorData } from '@/components/QuickViewCard';
 import { AgentData } from '../agents/page';
+import { Snapshoots } from '@/app/tour/PublicTour';
 export type Order = {
     id: number;
     uuid: string;
@@ -64,7 +65,38 @@ export type Order = {
         id: number;
         uuid: string;
 
-    }[]
+    }[];
+    tours: Array<{
+        id: number;
+        uuid: string;
+        order_id: number;
+        slide_show: {
+            slide_delay: string;
+            transitions: string;
+            background_audio: string;
+            auto_play: string;
+            video_overlay: string;
+        };
+        created_at: string;
+        updated_at: string;
+        files: Array<{
+            id: number;
+            uuid: string;
+            tour_id: number;
+            type: 'photo' | 'video';
+            name: string;
+            file_path: string;
+            group: string;
+            service_id: number;
+            sort_order: number;
+            created_at: string;
+            updated_at: string;
+            is_featured: boolean;
+            is_show: boolean;
+            service: { id: number; uuid: string; name: string; category: { id: number; name: string } };
+        }>;
+        snapshots: Snapshoots[];
+    }>;
 
 };
 export type Slot = {
@@ -262,6 +294,7 @@ const Page = () => {
     const { appliedSettings } = useWhiteLabel();
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+    const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
 
     const [showCard, setShowCard] = React.useState(false);
     const [type, setType] = React.useState('');
@@ -391,9 +424,8 @@ const Page = () => {
 
 
     return (
-        <div>
-
-            <div className='w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center' style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }} >
+        <div style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh', color: roleSettings.pageText }}>
+            <div className='w-full h-[80px] font-alexandria z-10 sticky top-0 flex justify-between px-[20px] items-center' style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>{agentName} {agentName && '›'} Orders ({length})</p>
 
                 <div className='flex justify-end items-center gap-2'>

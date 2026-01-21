@@ -184,7 +184,6 @@ const VendorForm = () => {
   const [companyLogoFile, setCompanyLogoFile] = useState<File | null>(null);
   const [companyBannerFile, setCompanyBannerFile] = useState<File | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
-  const [isEnableGoogle, setIsEnableGoogle] = useState(false);
   const [isSyncToGoogle, setIsSyncToGoogle] = useState(false);
   const [syncEmailType, setSyncEmailType] = useState("primary");
   const [workHours, setWorkHours] = useState<WorkHoursData>({
@@ -495,7 +494,6 @@ const VendorForm = () => {
       );
       setShowVendorName(currentUser.name_on_booking);
       setAdminReviewRequired(currentUser.review_files);
-      setIsEnableGoogle(currentUser.sync_google_calendar);
       setIsSyncToGoogle(currentUser.sync_google);
       setSyncEmailType(currentUser.sync_email || "");
       requestAnimationFrame(() => {
@@ -617,7 +615,7 @@ const VendorForm = () => {
       validationErrors[`addresses.2.province`] = ["Province is required"];
     }
 
-    if (isEnableGoogle && !syncEmailType) {
+    if (workHours.googleSyncEnabled && !syncEmailType) {
       validationErrors.sync_email = ["The selected sync email is invalid."];
     }
 
@@ -694,7 +692,7 @@ const VendorForm = () => {
         email_type: emailType || undefined,
         name_on_booking: showVendorName ? 1 : 0,
         review_files: adminReviewRequired ? 1 : 0,
-        sync_google_calendar: isEnableGoogle ? 1 : 0,
+        sync_google_calendar: workHours.googleSyncEnabled ? 1 : 0,
         sync_google: isSyncToGoogle ? 1 : 0,
         sync_email: syncEmailType,
         secondary_phone: secondaryPhone || undefined,
@@ -941,7 +939,7 @@ const VendorForm = () => {
   return (
     <div className="font-alexandria">
       <div
-        className="w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center sticky top-0"
+        className="w-full h-[80px] font-alexandria z-10 flex justify-between px-[20px] items-center sticky top-0"
         style={{
           backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
           boxShadow: "0px 4px 4px #0000001F",

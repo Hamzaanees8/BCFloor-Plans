@@ -129,11 +129,8 @@ const Page = () => {
 
   return (
     <ProtectedAdminRoute>
-      <div>
-        <div
-          className='w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center'
-          style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }}
-        >
+      <div style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh', color: roleSettings.pageText }}>
+        <div className='w-full h-[80px] font-alexandria z-[10] sticky top-0 flex justify-between px-[20px] items-center' style={{ position: 'sticky', top: 0, backgroundColor: `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`, boxShadow: "0px 4px 4px #0000001F" }}>
           <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>
             Services ({servicesData.length})
           </p>

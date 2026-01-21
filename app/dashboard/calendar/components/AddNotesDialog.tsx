@@ -84,7 +84,7 @@ const AddNotesDialog = ({ open, setOpen, notes, setNotes, isInternal }: AddNotes
                         value={userName}
                     />
                     {isInternal &&
-                        <p className='text-[#E06D5E] '>This note is for Internal Use only. Vendor will not be able to see or access Note.</p>
+                        <p className='text-[#E06D5E] '>This note is for Internal Use only. Agent will not be able to see or access Note.</p>
                     }
                     <textarea
                         className="h-[180px] w-[370px] p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] text-[#666666]"

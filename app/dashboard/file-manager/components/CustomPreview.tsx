@@ -13,6 +13,8 @@ interface CustomSlideshowProps {
   transition?: string;
   api_images?: Files[]
   watermarkUrl?: string;
+  onSlideChange?: (index: number) => void;
+  currentIndex?: number;
 }
 
 const transitionClasses = [
@@ -41,7 +43,9 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   audioUrl,
   transition,
   api_images,
-  watermarkUrl
+  watermarkUrl,
+  onSlideChange,
+  currentIndex: propCurrentIndex
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [transitionIndex, setTransitionIndex] = useState(0);
@@ -70,9 +74,19 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     transition ? transition : transitionClasses[transitionIndex];
 
   useEffect(() => {
+    if (propCurrentIndex !== undefined) {
+      setCurrentIndex(propCurrentIndex);
+    }
+  }, [propCurrentIndex]);
+
+  useEffect(() => {
     if (isPlaying) {
       intervalRef.current = setInterval(() => {
-        setCurrentIndex((prev) => (prev + 1) % allImages.length);
+        setCurrentIndex((prev) => {
+          const nextIndex = (prev + 1) % allImages.length;
+          if (onSlideChange) onSlideChange(nextIndex);
+          return nextIndex;
+        });
         if (!transition) {
           setTransitionIndex((prev) => (prev + 1) % transitionClasses.length);
         }
@@ -82,7 +96,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isPlaying, allImages.length, delay, transition]);
+  }, [isPlaying, allImages.length, delay, transition, onSlideChange]);
 
   const togglePlayback = () => {
     const audioEl = audioRef.current;

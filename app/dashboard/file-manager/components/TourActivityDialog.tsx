@@ -14,18 +14,36 @@ import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
+import { fetchTourStats, TourStats } from "@/app/tour/tour";
+
+interface TourActivityDialogProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    tourUuid: string;
+    propertyAddress: string;
+}
+
 export default function TourActivityDialog({
     open,
     onOpenChange,
-}: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-}) {
+    tourUuid,
+    propertyAddress
+}: TourActivityDialogProps) {
+    const [stats, setStats] = React.useState<TourStats | null>(null);
     const [activeTab, setActiveTab] = React.useState<"report" | "settings">("report");
     const [emailStats, setEmailStats] = React.useState("yes");
     const [frequency, setFrequency] = React.useState("Weekly");
     const [emails, setEmails] = React.useState<string[]>([]);
     const [newEmail, setNewEmail] = React.useState("");
+
+    React.useEffect(() => {
+        if (open && tourUuid) {
+            const token = localStorage.getItem("token");
+            fetchTourStats(tourUuid, undefined, token || undefined)
+                .then(setStats)
+                .catch(console.error)
+        }
+    }, [open, tourUuid]);
 
     const handleAddEmail = () => {
         const email = newEmail.trim();
@@ -34,10 +52,14 @@ export default function TourActivityDialog({
             setNewEmail("");
         }
     };
-
     const handleRemoveEmail = (email: string) => {
         setEmails((prev) => prev.filter((e) => e !== email));
     };
+
+    const summary = stats?.summary || { total_views: 0, total_visitors: 0, total_photo_views: 0, views_per_visitor: 0 };
+    const trafficStats = stats?.charts?.traffic || [];
+    const referrerStats = stats?.charts?.referrers || [];
+    const imageStats = stats?.media?.media_stats || [];
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -78,20 +100,19 @@ export default function TourActivityDialog({
                             /> */}
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
                             <div className="absolute bottom-4 left-4 text-white">
-                                <p className="text-sm font-semibold">
-                                    2171 Sperling Ave, Burnaby, BC
+                                <p className="text-xl font-semibold">
+                                    {propertyAddress}
                                 </p>
-                                <p className="text-xs opacity-90">Canada</p>
-                                <p className="text-xs opacity-90">Postal/Zip Code</p>
+                                {/* <p className="text-xs opacity-90">Canada</p> */}
                             </div>
                         </div>
 
                         <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 border-b-2 border-gray-300">
                             {[
-                                { label: "Total Tour Views", value: "32", icon: <Flag strokeWidth={1} className="w-6 h-6 text-[#7D7D7D] " /> },
-                                { label: "Total Visitors", value: "29", icon: <Users strokeWidth={1} className="w-6 h-6 text-[#7D7D7D] " /> },
-                                { label: "Total Photos Viewed", value: "132", icon: <ImageIcon strokeWidth={1} className="w-6 h-6 text-[#7D7D7D] " /> },
-                                { label: "Photos Viewed Per Visitor", value: "10.8", icon: <Eye strokeWidth={1} className="w-6 h-6 text-[#7D7D7D] " /> },
+                                { label: "Total Tour Views", value: summary.total_views, icon: <Flag strokeWidth={1} className="w-6 h-6 text-[#7D7D7D] " /> },
+                                { label: "Total Visitors", value: summary.total_visitors, icon: <Users strokeWidth={1} className="w-6 h-6 text-[#7D7D7D] " /> },
+                                { label: "Total Photos Viewed", value: summary.total_photo_views, icon: <ImageIcon strokeWidth={1} className="w-6 h-6 text-[#7D7D7D] " /> },
+                                { label: "Photos Viewed Per Visitor", value: summary.views_per_visitor.toFixed(1), icon: <Eye strokeWidth={1} className="w-6 h-6 text-[#7D7D7D] " /> },
                             ].map((stat) => (
                                 <Card
                                     key={stat.label}
@@ -111,23 +132,19 @@ export default function TourActivityDialog({
                         <div className="mt-8">
                             <h4 className="text-sm text-[#424242] mb-3">Image Views</h4>
 
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 w-full">
-                                {Array.from({ length: 10 }).map((_, i) => (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 w-full max-h-[400px] overflow-y-auto">
+                                {imageStats.map((item) => (
                                     <div
-                                        key={i}
-                                        className="relative w-full aspect-square bg-[#D9D9D9]  overflow-hidden flex items-center justify-center"
+                                        key={item.media_uuid}
+                                        className="relative w-full aspect-square bg-[#D9D9D9]  overflow-hidden flex items-center justify-center border"
                                     >
-                                        {/* <Image
-                                            src={`https://via.placeholder.com/300x300?text=${i + 1}`}
-                                            alt={`Placeholder ${i + 1}`}
-                                            fill
-                                            className="object-cover"
-                                        /> */}
+                                        {/* Ideally we would have thumbnail_url in stats, or fetch it separately. For now placeholders or if media_stats has urls */}
                                         <div className="absolute bottom-0 w-full bg-[#7D7D7D] h-[30px] text-white text-xs flex items-center justify-center gap-1 py-1">
-                                            <Eye className="w-3 h-3" /> {Math.floor(Math.random() * 40) + 5}
+                                            <Eye className="w-3 h-3" /> {item.views}
                                         </div>
                                     </div>
                                 ))}
+                                {imageStats.length === 0 && <p className="text-sm text-gray-500">No image views yet.</p>}
                             </div>
 
                             {/* View all button */}
@@ -142,79 +159,70 @@ export default function TourActivityDialog({
                         <div className="mt-10">
                             <h4 className="text-[14px] text-[#424242] mb-3">Tour Traffic</h4>
                             <div className="space-y-3">
-                                {[
-                                    { day: "Sunday October 23", percent: 20, views: 10 },
-                                    { day: "Monday October 24", percent: 35, views: 15 },
-                                    { day: "Tuesday October 25", percent: 50, views: 20 },
-                                    { day: "Wednesday October 26", percent: 25, views: 17 },
-                                    { day: "Thursday October 27", percent: 40, views: 20 },
-                                    { day: "Friday October 29", percent: 42, views: 21, color: "bg-yellow-400" },
-                                    { day: "Saturday October 30", percent: 30, views: 18 },
-                                ].map(({ day, percent, color, views }, i) => (
-                                    <div
-                                        key={i}
-                                        className="flex items-center justify-between gap-4 text-xs text-gray-700 !mt-1"
-                                    >
-                                        <span className="w-[25%] text-[#7D7D7D] text-[15px]">{day}</span>
-                                        <div className="flex-1 h-10  overflow-hidden">
+                                {
+                                    trafficStats.length > 0 ? trafficStats.map(({ date, views }, i) => {
+                                        // Basic percentage calc (relative to max view for bar width)
+                                        const maxViews = Math.max(...trafficStats.map(s => s.views));
+                                        const percent = maxViews > 0 ? (views / maxViews) * 100 : 0;
+                                        return (
                                             <div
-                                                className={cn(
-                                                    "h-full flex items-center justify-start text-[15px] text-white transition-all duration-300 ease-in-out",
-                                                    color || "bg-[#4290E9]",
-                                                    percent >= 98
-                                                        ? ""
-                                                        : ""
-                                                )}
-                                                style={{ width: `${percent}%` }}
+                                                key={i}
+                                                className="flex items-center justify-between gap-4 text-xs text-gray-700 !mt-1"
                                             >
-                                                <div className="flex justify-start gap-2 px-4">
-                                                    <Eye className="text-[#fff] h-4 w-4" />
-                                                    <span>{views}</span>
-                                                    <span> ({percent}%)</span>
+                                                <span className="w-[25%] text-[#7D7D7D] text-[15px]">{date}</span>
+                                                <div className="flex-1 h-10  overflow-hidden">
+                                                    <div
+                                                        className={cn(
+                                                            "h-full flex items-center justify-start text-[15px] text-white transition-all duration-300 ease-in-out",
+                                                            "bg-[#4290E9]"
+                                                        )}
+                                                        style={{ width: `${Math.max(percent, 5)}%` }}
+                                                    >
+                                                        <div className="flex justify-start gap-2 px-4">
+                                                            <Eye className="text-[#fff] h-4 w-4" />
+                                                            <span>{views}</span>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                ))}
+                                        )
+                                    }) : <p className="text-sm text-gray-500">No traffic data.</p>
+                                }
                             </div>
                         </div>
 
                         <div className="mt-10">
                             <h4 className="text-[14px] text-[#424242] mb-3">Tour Traffic</h4>
                             <div className="space-y-3">
-                                {[
-                                    { source: "Direct Traffic", percent: 70, views: 40 },
-                                    { source: "google.com", percent: 30, views: 25 },
-                                    { source: "facebook.com", percent: 40, views: 22 },
-                                    { source: "instagram.com", percent: 35, views: 13 },
-                                    { source: "realtor.ca", percent: 20, views: 9 },
-                                    { source: "yahoo.com", percent: 25, views: 4 },
-                                ].map(({ source, percent, views }, i) => (
-                                    <div
-                                        key={i}
-                                        className="flex items-center justify-between gap-4 text-xs text-gray-700 !mt-1"
-                                    >
-                                        <span className="w-[25%] text-[#7D7D7D] text-[15px]">{source}</span>
-                                        <div className="flex-1 h-10  overflow-hidden">
+                                {
+                                    referrerStats.length > 0 ? referrerStats.map(({ domain, count }, i) => {
+                                        const totalRef = referrerStats.reduce((s, r) => s + r.count, 0);
+                                        const percent = totalRef > 0 ? (count / totalRef) * 100 : 0;
+                                        return (
                                             <div
-                                                className={cn(
-                                                    "h-full flex items-center justify-start text-[15px] text-white transition-all duration-300 ease-in-out",
-                                                    "bg-[#4290E9]",
-                                                    percent >= 98
-                                                        ? ""
-                                                        : ""
-                                                )}
-                                                style={{ width: `${percent}%` }}
+                                                key={i}
+                                                className="flex items-center justify-between gap-4 text-xs text-gray-700 !mt-1"
                                             >
-                                                <div className="flex justify-start gap-2 px-4">
-                                                    <Eye className="text-[#fff] h-4 w-4" />
-                                                    <span>{views}</span>
-                                                    <span> ({percent}%)</span>
+                                                <span className="w-[25%] text-[#7D7D7D] text-[15px]">{domain}</span>
+                                                <div className="flex-1 h-10  overflow-hidden">
+                                                    <div
+                                                        className={cn(
+                                                            "h-full flex items-center justify-start text-[15px] text-white transition-all duration-300 ease-in-out",
+                                                            "bg-[#4290E9]"
+                                                        )}
+                                                        style={{ width: `${Math.max(percent, 5)}%` }}
+                                                    >
+                                                        <div className="flex justify-start gap-2 px-4">
+                                                            <Eye className="text-[#fff] h-4 w-4" />
+                                                            <span>{count}</span>
+                                                            <span> ({percent.toFixed(1)}%)</span>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                ))}
+                                        )
+                                    }) : <p className="text-sm text-gray-500">No referrer data.</p>
+                                }
                             </div>
                         </div>
                         <div className="mt-5">

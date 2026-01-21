@@ -1002,6 +1002,23 @@ const VendorWorkHours = ({
                       </button> */}
 
                       {/* Calendar Button */}
+
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="w-1/2 flex items-center mb-4">
+                        <Checkbox
+                          id="google-sync-enabled"
+                          checked={workHours.googleSyncEnabled}
+                          onCheckedChange={(checked) =>
+                            handleChange("googleSyncEnabled", checked)
+                          }
+                          className="mr-2 h-[16px] w-[16px] data-[state=checked]:bg-[#4290E9] data-[state=checked]:border-[#4290E9]"
+                        />
+                        <Label htmlFor="google-sync-enabled">
+                          Sync to Google
+                        </Label>
+                      </div>
                       <button
                         onClick={(e) => {
                           handleConnectCalendar(e);
@@ -1048,23 +1065,6 @@ const VendorWorkHours = ({
                           "Connect with Calendar"
                         )}
                       </button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <div className="w-1/2 flex items-center mb-4">
-                        {/* <Checkbox
-                          id="google-sync-enabled"
-                          checked={workHours.googleSyncEnabled}
-                          onCheckedChange={(checked) =>
-                            handleChange("googleSyncEnabled", checked)
-                          }
-                          className="mr-2 h-[16px] w-[16px] data-[state=checked]:bg-[#4290E9] data-[state=checked]:border-[#4290E9]"
-                        />
-                        <Label htmlFor="google-sync-enabled">
-                          Sync to Google
-                        </Label> */}
-                      </div>
-
                       {/* <div className="w-1/2">
                         <Select
                           value={syncEmailType}

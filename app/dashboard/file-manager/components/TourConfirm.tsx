@@ -501,7 +501,12 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
-      <TourActivityDialog open={open} onOpenChange={setOpen} />
+      <TourActivityDialog
+        open={open}
+        onOpenChange={setOpen}
+        tourUuid={orderData?.tours?.[0]?.uuid || ''}
+        propertyAddress={`${orderData?.property.address}, ${orderData?.property.city}, ${orderData?.property.province}`}
+      />
     </div>
   );
 };

@@ -66,7 +66,7 @@ const Page = () => {
         { label: "Monthly", value: "30" },
     ];
 
-    useEffect(() => {
+    const refreshOrders = () => {
         const token = localStorage.getItem("token");
 
         if (!token) {
@@ -83,6 +83,10 @@ const Page = () => {
                 console.log(err.message)
 
             })
+    }
+
+    useEffect(() => {
+        refreshOrders();
     }, []);
 
     useEffect(() => {
@@ -176,6 +180,7 @@ const Page = () => {
                 <BigCalendar orderData={orderData} agentData={agentData} serviceData={serviceData} setCurrentMonthYear={setCurrentMonthYear} vendorData={vendorData} setVendorData={setVendorData} selectedVendors={selectedVendors} selectedservice={selectedservice}
                     setVisibleDays={setSelectedDay}
                     visibleDays={selectedDay}
+                    refreshOrders={refreshOrders}
                 />
             </div>
         </div>

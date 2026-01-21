@@ -86,6 +86,7 @@ interface BigCalendarProps {
     setCurrentMonthYear: (value: { month: string; year: string }) => void;
     serviceData: Services[]
     agentData: Agent[]
+    refreshOrders: () => void
 }
 
 interface CustomToolbarProps {
@@ -158,7 +159,7 @@ const generateWeeklyBreakEvents = (vendors: CalanderVendor[], referenceDate: Dat
     return events;
 };
 
-const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, setVendorData, visibleDays, setVisibleDays, setCurrentMonthYear, serviceData, agentData }: BigCalendarProps) => {
+const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, setVendorData, visibleDays, setVisibleDays, setCurrentMonthYear, serviceData, agentData, refreshOrders }: BigCalendarProps) => {
     const { userType } = useAppContext();
     const { open: isSidebarOpen } = useSidebar();
     const [date, setDate] = useState(new Date());
@@ -1101,7 +1102,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                 <OrderQuickViewCard setOpenDetails={setOpenDetails} data={selectedOrder} orderData={orderData} serviceData={serviceData} agentData={agentData} vendorData={vendorData} onClose={() => { setSelectedOrder(null) }} />
             )}
 
-            <OrderDetailView agentData={agentData} open={openDetails} onClose={() => { setOpenDetails(false) }} orderId={String(selectedOrder?.order_id) ?? 'c5527273-88cb-414f-8f23-26c2bdd852d4'} serviceId={selectedOrder?.service_id ?? 22} orderData={orderData} />
+            <OrderDetailView agentData={agentData} open={openDetails} onClose={() => { setOpenDetails(false) }} orderId={String(selectedOrder?.order_id) ?? 'c5527273-88cb-414f-8f23-26c2bdd852d4'} serviceId={selectedOrder?.service_id ?? 22} orderData={orderData} refreshOrders={refreshOrders} />
 
             <div className='min-h-screen'>
                 {(() => {

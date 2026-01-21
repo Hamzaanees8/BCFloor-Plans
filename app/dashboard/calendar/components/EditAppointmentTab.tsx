@@ -3,8 +3,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pencil, Plus, Trash, X } from 'lucide-react';
-import React, { useEffect, useState } from 'react'
+import { Pencil, Plus, Trash, X, Edit2, Eye, EyeOff } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react'
 import { Order } from '../../orders/page';
 import { Agent } from '@/components/AgentTable';
 import Schedule from './Schedule';
@@ -13,6 +13,7 @@ import AddNotesDialog from './AddNotesDialog';
 import AddCoAgentDialog from '@/components/AddCoAgentDialog'
 import { useOrderContext } from '../../orders/context/OrderContext';
 import { useAppContext } from '@/app/context/AppContext';
+
 import Link from 'next/link';
 
 // interface Notes {
@@ -63,12 +64,14 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
     // const [time, setTime] = useState("");
     const [listing, setListing] = useState("");
     const [squareFootage, setSquareFootage] = useState("");
+    const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
+    const [tempNotes, setTempNotes] = useState('');
     // const [isSplit, setIsSplit] = useState(currentOrder?.split_invoice ?? false);
     // const [additionalServices, setAdditionalServices] = useState<
     //     { serviceId: number; optionId: string | null; price: string }[]
     // >([]);
 
-    const { setCalendarServices, calendarServices, servicesData } = useOrderContext();
+    const { setCalendarServices, calendarServices, servicesData, OrderServices, setOrderServices, setSelectedSlots } = useOrderContext();
 
     useEffect(() => {
         // This was a problematic useEffect without dependencies
@@ -118,11 +121,70 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentOrder, serviceId, agentData, currentAgent])
-    const tabs =
-        userType === 'admin'
-            ? ['Notes', 'Internal Notes']
-            : [];
-    const [activeTab, setActiveTab] = useState('Notes')
+    const handleDeleteOrderService = (serviceUuid: string | undefined) => {
+        if (!serviceUuid) return;
+        setOrderServices(prev => prev.filter(s => s.service?.uuid !== serviceUuid));
+        setSelectedSlots(prev => prev.filter(slot => slot.service_id !== serviceUuid));
+    }
+
+    const handleDeleteCalendarService = (serviceId: number, index: number) => {
+        const matchedService = servicesData.find(s => s.id === serviceId);
+        const serviceUuid = matchedService?.uuid;
+
+        setCalendarServices(prev => prev.filter((_, i) => i !== index));
+        if (serviceUuid) {
+            setSelectedSlots(prev => prev.filter(slot => slot.service_id !== serviceUuid));
+        }
+    }
+
+
+
+    const [activeTab, setActiveTab] = useState('Appointment Notes')
+
+    const filteredNotes = useMemo(() => {
+        return notes?.filter(note => {
+            if (activeTab === 'Appointment Notes') {
+                return note.internal === 'false' || !note.internal;
+            } else {
+                return note.internal === 'true';
+            }
+        });
+    }, [notes, activeTab]);
+
+    const handleDeleteNote = (indexInFiltered: number) => {
+        const noteToDelete = filteredNotes[indexInFiltered];
+        setNotes(prev => {
+            const actualIndex = prev.findIndex(n =>
+                n.note === noteToDelete.note &&
+                n.date === noteToDelete.date &&
+                n.name === noteToDelete.name
+            );
+            if (actualIndex !== -1) {
+                const updated = [...prev];
+                updated.splice(actualIndex, 1);
+                return updated;
+            }
+            return prev;
+        });
+    };
+
+    const handleEditNote = (note: Notes, index: number) => {
+        setEditingNoteIndex(index);
+        setTempNotes(note.note);
+    };
+
+    const handleSaveInlineNote = (indexInFiltered: number) => {
+        if (editingNoteIndex === indexInFiltered && tempNotes.trim()) {
+            const noteToUpdate = filteredNotes[indexInFiltered];
+            setNotes(prev => prev.map(note =>
+                (note.note === noteToUpdate.note && note.date === noteToUpdate.date && note.name === noteToUpdate.name)
+                    ? { ...note, note: tempNotes.trim() }
+                    : note
+            ));
+        }
+        setEditingNoteIndex(null);
+        setTempNotes('');
+    };
     return (
         <Accordion
             type="multiple"
@@ -328,7 +390,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                 </AccordionTrigger>
                 <AccordionContent className="grid gap-4">
                     <div className="w-full flex flex-col items-center mt-[17px]">
-                        {currentOrder?.services.map((service, idx) => {
+                        {OrderServices.map((service, idx) => {
                             return <div key={idx} className='grid grid-cols-4 gap-x-4 mt-[10px]'>
                                 <div className='col-span-2'>
                                     <label htmlFor="">Service</label>
@@ -366,7 +428,9 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                     </div>
                                     <div className=''>
                                         <Label className="text-[14px] text-[#424242] " htmlFor="">Delete</Label>
-                                        <span className='cursor-pointer flex justify-center items-center h-[42px] w-[50px] rounded-[6px] bg-[#E06D5E] hover:bg-[#f57d6d] mt-[10px]'>
+                                        <span
+                                            onClick={() => handleDeleteOrderService(service.service?.uuid)}
+                                            className='cursor-pointer flex justify-center items-center h-[42px] w-[50px] rounded-[6px] bg-[#E06D5E] hover:bg-[#f57d6d] mt-[10px]'>
                                             <Trash stroke="#fff" strokeWidth={1} />
                                         </span>
                                     </div>
@@ -400,6 +464,14 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                                 <SelectContent>
                                                     {servicesData
                                                         .filter((srv) => {
+                                                            // Filter out services already in OrderServices
+                                                            const isInOrderServices = OrderServices.some(os => os.service.id === srv.id);
+                                                            if (isInOrderServices) return false;
+
+                                                            // Filter out services selected in other rows of calendarServices
+                                                            const isInOtherCalendarRows = calendarServices.some((cs, i) => i !== index && cs.serviceId === srv.id);
+                                                            if (isInOtherCalendarRows) return false;
+
                                                             // Logic to filter based on square footage
                                                             const sqFt = parseInt(squareFootage, 10);
                                                             if (isNaN(sqFt)) return true; // Show all if no sq ft is set
@@ -498,9 +570,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                             </div>
                                             <div className='col-span-1 flex justify-between gap-[16px] mt-[28px]'>
                                                 <span
-                                                    onClick={() =>
-                                                        setCalendarServices((prev) => prev.filter((_, i) => i !== index))
-                                                    }
+                                                    onClick={() => handleDeleteCalendarService(item.serviceId, index)}
                                                     className='cursor-pointer flex justify-center items-center h-[42px] w-[50px] rounded-[6px] bg-[#E06D5E] hover:bg-[#f57d6d]'
                                                 >
                                                     <Trash stroke="#fff" strokeWidth={1} />
@@ -567,63 +637,80 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                 </AccordionTrigger>
                 <AccordionContent className="grid grid-cols-1 gap-4">
                     <div className="">
-                        <div className='flex justify-center h-[60px] items-center bg-[#fff]'>
-                            <div className=" w-fit flex border-gray-300 gap-[10px]">
-                                {tabs.map(tab => (
-                                    <button
-                                        key={tab}
-                                        onClick={() => setActiveTab(tab)}
-                                        className={`text-center px-4 py-2 text-[13px] w-[180px] h-[32px] transition-colors ${activeTab === tab
-                                            ? `${userType}-bg text-white  rounded-[6px]  font-[500] `
-                                            : 'text-[#666666] hover:text-[#666666] rounded-[6px] font-[700] '
-                                            }`}
-                                        style={{ backgroundColor: activeTab !== tab ? `var(--${userType}-page-bg, #E4E4E4)` : undefined }}
-                                    >
-                                        {tab.toUpperCase()}
-                                    </button>
-                                ))}
+                        <div className="flex flex-col gap-y-3 mt-3">
+                            <div className="flex items-center justify-center gap-x-2.5">
+                                <button
+                                    onClick={() => setActiveTab("Appointment Notes")}
+                                    className={`px-5 py-1 text-[13px] rounded-[6px] font-bold rounded-l-md transition-colors duration-200 h-[30px]
+                                    ${activeTab === "Appointment Notes" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
+                                >
+                                    Appointment Notes
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab("Notes on Agent")}
+                                    className={`px-5 py-1 text-[13px] rounded-[6px] font-bold rounded-l-md transition-colors duration-200 h-[30px]
+                                    ${activeTab === "Notes on Agent" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
+                                >
+                                    Notes on Agent
+                                </button>
                             </div>
+                            {activeTab === "Appointment Notes" ? (
+                                <p className="text-[#E06D5E] text-[13px]">
+                                    These notes will be viewable by AGENT.
+                                </p>
+                            ) : (
+                                <p className="text-[#7D7D7D] text-[13px]">
+                                    This note is for Internal Use only. Agent will not be able to see or access Note.
+                                </p>
+                            )}
                         </div>
-                        {activeTab === 'Notes' && notes?.filter((note) => note.internal == 'false' || !note.internal)?.map((note, index) => (
-                            <div
-                                key={index}
-                                className="w-full p-3 rounded-[6px] border border-[#BBBBBB] relative whitespace-pre-wrap break-words mt-[15px]"
-                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-                            >
+                        <div className="flex flex-col gap-4 mt-[12px]">
+                            {filteredNotes?.map((note, index) => (
+                                <div
+                                    key={index}
+                                    className="w-full p-3 rounded-[6px] bg-[#E4E4E4] border border-[#BBBBBB] relative whitespace-pre-wrap break-words"
+                                >
+                                    {editingNoteIndex === index ? (
+                                        <textarea
+                                            autoFocus
+                                            className="w-full bg-transparent border-none outline-none resize-none text-sm text-[#333] min-h-[60px]"
+                                            value={tempNotes}
+                                            onChange={(e) => setTempNotes(e.target.value)}
+                                            onBlur={() => handleSaveInlineNote(index)}
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    ) : (
+                                        <p
+                                            className="text-sm text-[#333] cursor-pointer"
+                                            onClick={() => handleEditNote(note, index)}
+                                        >
+                                            {note.note}
+                                        </p>
+                                    )}
 
-                                <p className="text-sm text-[#333]">{note.note}</p>
-
-                                <div className="mt-2 text-right text-[#8E8E8E] text-[13px] font-[400] leading-tight">
-                                    <p>{new Date(note.date).toLocaleDateString("en-US", {
-                                        year: "numeric",
-                                        month: "short",
-                                        day: "numeric",
-                                    })}</p>
-                                    <p>{note.name}</p>
+                                    <div className="mt-2 text-right text-[#8E8E8E] text-[13px] font-[400] leading-tight">
+                                        <p>
+                                            {new Date(note.date).toLocaleDateString("en-US", {
+                                                year: "numeric",
+                                                month: "short",
+                                                day: "numeric",
+                                            })}
+                                        </p>
+                                        <p>{note.name}</p>
+                                        <div className='flex items-center justify-end gap-x-2'>
+                                            {note.internal === "true" ? (
+                                                <EyeOff className='w-4 h-4 text-[#7D7D7D]' />
+                                            ) : (
+                                                <Eye className='w-4 h-4 text-[#7D7D7D]' />
+                                            )}
+                                            <Edit2 className='w-4 h-4 text-[#7D7D7D] cursor-pointer' onClick={() => handleEditNote(note, index)} />
+                                            <Trash onClick={() => handleDeleteNote(index)} className="w-4 h-4 text-[#7D7D7D] cursor-pointer" />
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        ))
-                        }
-                        {activeTab === 'Internal Notes' && notes?.filter((note) => note.internal == 'true')?.map((note, index) => (
-                            <div
-                                key={index}
-                                className="w-full p-3 rounded-[6px] border border-[#BBBBBB] relative whitespace-pre-wrap break-words mt-[15px]"
-                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-                            >
+                            ))}
+                        </div>
 
-                                <p className="text-sm text-[#333]">{note.note}</p>
-
-                                <div className="mt-2 text-right text-[#8E8E8E] text-[13px] font-[400] leading-tight">
-                                    <p>{new Date(note.date).toLocaleDateString("en-US", {
-                                        year: "numeric",
-                                        month: "short",
-                                        day: "numeric",
-                                    })}</p>
-                                    <p>{note.name}</p>
-                                </div>
-                            </div>
-                        ))
-                        }
                         <div className="flex justify-end mt-[10px]">
                             <Button
                                 onClick={() => { setOpenAddNotesDialog(true) }}
@@ -635,16 +722,13 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                             setOpen={setOpenAddNotesDialog}
                             notes={notes}
                             setNotes={setNotes}
-                            isInternal={activeTab === 'Internal Notes' ? true : false}
+                            isInternal={activeTab === 'Notes on Agent'}
                         />
-                        <div
-                            className='mt-[40px]'>
+                        <div className='mt-[40px]'>
                             <Link
                                 href={`/dashboard/file-manager/${currentOrder?.uuid}`}
                                 className="bg-[#4290E9] w-[140px]  rounded-[6px] border-[1px] text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff] h-[37px] hover:text-white hover:bg-[#4e9af1]"
-
                             >Media</Link>
-
                         </div>
                     </div>
                 </AccordionContent>

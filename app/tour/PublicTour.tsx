@@ -19,7 +19,7 @@ import {
     TypoeIcon,
 } from "@/components/Icons";
 import DynamicMap from "@/components/DYnamicMap";
-import { fetchPublicTourData, OrderData } from "./tour";
+import { fetchPublicTourData, OrderData, recordTourStat } from "./tour";
 import CustomSlideshow from "../dashboard/file-manager/components/CustomPreview";
 import PublicTourFloorPlans from "./components/PublicTourFloorPlans";
 
@@ -33,6 +33,17 @@ export interface Snapshoots {
     description?: string;
     isApi?: boolean;
 }
+
+const getVisitorId = () => {
+    if (typeof window === 'undefined') return '';
+    let storedId = localStorage.getItem('tour_visitor_id');
+    if (!storedId) {
+        storedId = crypto.randomUUID();
+        localStorage.setItem('tour_visitor_id', storedId);
+    }
+    return storedId;
+};
+
 const PublicTour = () => {
     const params = useParams();
     const orderuuid = params.orderuuid as string;
@@ -43,15 +54,29 @@ const PublicTour = () => {
     const [activeTab, setActiveTab] = useState("Home");
     const [mainVideo, setMainVideo] = useState<string | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | undefined>();
+    const [visitorId, setVisitorId] = useState<string>('');
 
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
+    useEffect(() => {
+        setVisitorId(getVisitorId());
+    }, []);
 
     useEffect(() => {
         const fetchOrderData = async () => {
             try {
                 const data = await fetchPublicTourData(orderuuid);
                 setOrderData(data);
+
+                // Track Page View
+                if (data && data.tours && data.tours.length > 0) {
+                    const vId = getVisitorId();
+                    recordTourStat(data.tours[0].uuid, {
+                        type: 'view',
+                        visitor_id: vId,
+                        referrer: document.referrer
+                    });
+                }
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'An error occurred');
             } finally {
@@ -101,6 +126,7 @@ const PublicTour = () => {
         }
     }, [videoFiles, mainVideo, API_URL]);
 
+    // Track audio
     const audioFileName = orderData?.tours?.[0]?.slide_show?.background_audio;
     useEffect(() => {
         const fetchAudio = async () => {
@@ -110,13 +136,10 @@ const PublicTour = () => {
             }
 
             try {
-                // Fetch the audio file from your API endpoint
                 const response = await fetch(`/audio/${audioFileName}.mp3`);
-
                 if (!response.ok) {
                     throw new Error(`Failed to fetch audio: ${response.status}`);
                 }
-
                 const blob = await response.blob();
                 const blobUrl = URL.createObjectURL(blob);
                 setAudioUrl(blobUrl);
@@ -133,8 +156,40 @@ const PublicTour = () => {
                 URL.revokeObjectURL(audioUrl);
             }
         };
+    }, [audioFileName, audioUrl]);
+
+    const trackMediaView = (mediaUuid?: string) => {
+        if (!mediaUuid || !orderData?.tours?.[0]?.uuid || !visitorId) return;
+        recordTourStat(orderData.tours[0].uuid, {
+            type: 'media_view',
+            visitor_id: visitorId,
+            media_uuid: mediaUuid
+        });
+    };
+
+    // Track Home Tab Slider (manual)
+    useEffect(() => {
+        if (activeTab === 'Home' && tourPhotos[currentImageIndex]) {
+            trackMediaView(tourPhotos[currentImageIndex].uuid);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [audioFileName]);
+    }, [currentImageIndex, activeTab]);
+
+    // Track Video View
+    useEffect(() => {
+        if (activeTab === 'Videos' && mainVideo && videoFiles.length > 0) {
+            // Find video UUID based on URL
+            const normalizeUrl = (url: string) => url.split('?')[0]; // Simple normalization
+            const matchedVideo = videoFiles.find(v =>
+                normalizeUrl(`${API_URL}/${v.file_path}`) === normalizeUrl(mainVideo)
+            );
+
+            if (matchedVideo) {
+                trackMediaView(matchedVideo.uuid);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mainVideo, activeTab]);
 
 
     if (loading) {
@@ -355,6 +410,12 @@ const PublicTour = () => {
                                 transition={orderData?.tours?.[0]?.slide_show?.transitions || 'fade'}
                                 audioUrl={audioUrl || ''}
                                 api_images={tourPhotos}
+                                currentIndex={currentImageIndex}
+                                onSlideChange={(index) => {
+                                    if (tourPhotos[index]) {
+                                        trackMediaView(tourPhotos[index].uuid);
+                                    }
+                                }}
                             />
 
 

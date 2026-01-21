@@ -7,7 +7,7 @@ import React, { useState, useRef } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Calendar, House, File, Settings as SettingsIcon, UserCheck, Sliders, LogOut, Search, ChevronLeft, PanelLeftClose, PanelLeftOpen, ChevronDown, Upload } from 'lucide-react'
+import { Calendar, House, File, Settings as SettingsIcon, UserCheck, Sliders, LogOut, ChevronLeft, PanelLeftClose, PanelLeftOpen, ChevronDown, Upload } from 'lucide-react'
 import ResetConfirmationDialog from './ResetConfirmationDialog'
 import { toast } from "sonner"
 import Image from "next/image"
@@ -22,6 +22,7 @@ const Settings = () => {
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [hoveredItem, setHoveredItem] = useState<string | null>(null)
     const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
+    const [isLogoutHovered, setIsLogoutHovered] = useState(false)
 
     const pageBgRef = useRef<HTMLInputElement>(null)
     const pageTextRef = useRef<HTMLInputElement>(null)
@@ -422,7 +423,7 @@ const Settings = () => {
                             ))}
 
                             {/* Search Group */}
-                            <div className="mb-6 w-full">
+                            {/* <div className="mb-6 w-full">
                                 {!isCollapsed && <p className="font-extrabold text-[12px] text-[#BBBBBB] mb-2">SEARCH</p>}
                                 {isCollapsed ? (
                                     <div className="flex justify-center w-full">
@@ -434,14 +435,28 @@ const Settings = () => {
                                         <Search className={`h-5 w-5 shrink-0 ml-auto`} style={{ color: currentSettings.activeColor }} />
                                     </div>
                                 )}
-                            </div>
+                            </div> */}
                         </div>
 
                         {/* Footer/Logout */}
                         <div className={`pb-[20px] w-full ${isCollapsed ? 'flex justify-center items-center p-0' : 'p-[25px]'}`}>
-                            <div className="flex items-center gap-x-2.5 opacity-60">
-                                <LogOut className="h-[18px] w-[18px] shrink-0 text-[#7D7D7D]" />
-                                {!isCollapsed && <p className="text-[#7D7D7D] text-[16px] font-normal">Log Out</p>}
+                            <div
+                                onMouseEnter={() => setIsLogoutHovered(true)}
+                                onMouseLeave={() => setIsLogoutHovered(false)}
+                                className="flex items-center gap-x-2.5 cursor-pointer"
+                            >
+                                <LogOut
+                                    className="h-[18px] w-[18px] shrink-0"
+                                    style={{ color: isLogoutHovered ? currentSettings.sidebarHoverText : currentSettings.sidebarText }}
+                                />
+                                {!isCollapsed && (
+                                    <p
+                                        className="text-[16px] font-normal"
+                                        style={{ color: isLogoutHovered ? currentSettings.sidebarHoverText : currentSettings.sidebarText }}
+                                    >
+                                        Log Out
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </div>
