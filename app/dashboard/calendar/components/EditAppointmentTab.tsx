@@ -202,27 +202,36 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                     <div className="w-full flex flex-col items-center">
                         <div className="w-full md:w-full py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
                             <div className="grid grid-cols-5 gap-[16px]">
-
                                 <div className='col-span-2'>
                                     <label htmlFor="">Agent Name</label>
-                                    <Select
-                                        value={agent || ''}
-                                        onValueChange={(value) => setAgent(value)}
-                                    >
-                                        <SelectTrigger
-                                            className="w-full  h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                    {userType === "admin" ? (
+                                        <Select
+                                            value={agent || ''}
+                                            onValueChange={(value) => setAgent(value)}
                                         >
-                                            <SelectValue placeholder="Select Agent" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {agentData && agentData.map((agent, idx) =>
+                                            <SelectTrigger
+                                                className="w-full  h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                            >
+                                                <SelectValue placeholder="Select Agent" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {agentData && agentData.map((agent, idx) =>
 
-                                                <SelectItem key={idx} value={agent?.uuid || ''}>{agent.first_name} {agent.last_name}</SelectItem>
-                                            )}
+                                                    <SelectItem key={idx} value={agent?.uuid || ''}>{agent.first_name} {agent.last_name}</SelectItem>
+                                                )}
 
-                                        </SelectContent>
-                                    </Select>
+                                            </SelectContent>
+                                        </Select>
+                                    ) : (
+                                        <Input
+                                            readOnly
+                                            value={`${currentAgent?.first_name ?? ''} ${currentAgent?.last_name ?? ''}`}
+                                            className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                        />
+                                    )}
+
                                 </div>
                                 <div className='col-span-1'>
                                     <label htmlFor="">Contact Number</label>
