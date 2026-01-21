@@ -75,11 +75,11 @@ const data = {
           url: "/dashboard/vendor-billing",
           icon: PanelTop,
         },
-        {
-          title: "Sub Accounts",
-          url: "/dashboard/sub-accounts",
-          icon: SubAccounts,
-        },
+        // {
+        //   title: "Sub Accounts",
+        //   url: "/dashboard/sub-accounts",
+        //   icon: SubAccounts,
+        // },
       ],
     },
     {
@@ -176,28 +176,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   const goToDashboardSection = () => {
-    const agentId = searchParams.get('agentId');
-    const from = searchParams.get('from');
-
-    if (pathname === '/dashboard/orders/create' && from === 'calendar') {
-      confirmNavigation(() => router.push('/dashboard/calendar'), {
-        title: "Unsaved Changes",
-        description: "You have unsaved changes. Do you want to discard them and go back?"
-      });
-      return;
-    }
-
-    if (pathname === '/dashboard/sub-accounts/create' && agentId) {
-      confirmNavigation(() => router.push(`/dashboard/agents/create/${agentId}`), {
-        title: "Unsaved Changes",
-        description: "You have unsaved changes. Do you want to discard them and go back?"
-      });
-      return;
-    }
-
-    const pathParts = pathname.split('/').filter(Boolean);
-    const dashboardSection = pathParts.slice(0, 2).join('/');
-    confirmNavigation(() => router.push(`/${dashboardSection}`), {
+    confirmNavigation(() => router.back(), {
       title: "Unsaved Changes",
       description: "You have unsaved changes. Do you want to discard them and go back?"
     });
@@ -219,6 +198,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           return false;
         }
         if (item.url === "/dashboard/vendor-billing" && userType !== "admin") {
+          return false;
+        }
+        if (item.url === "/dashboard/white-label" && userType !== "admin") {
           return false;
         }
 
