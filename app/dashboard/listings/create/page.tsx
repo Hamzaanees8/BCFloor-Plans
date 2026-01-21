@@ -16,10 +16,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Calendar, Copy } from "lucide-react";
-import { Label } from "@/components/ui/label";
-import { TagsInput } from "@/components/TagsInput";
 import { toast } from "sonner";
 import {
   CreateListings,
@@ -39,14 +35,6 @@ import { useAppContext } from "@/app/context/AppContext";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
 import Link from "next/link";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import GooglePlacesAutocomplete from "../../calendar/components/AutoCompleteInput";
 
 const ListingsFrom = () => {
@@ -75,7 +63,7 @@ const ListingsFrom = () => {
   const [publishDate, setPublishDate] = useState("");
   const [propertyWebsite, setPropertyWebsite] = useState("");
   const [mlsProperty, setMlsProperty] = useState("");
-  const [occupancy, setOccupancy] = useState("");
+  //const [occupancy, setOccupancy] = useState("");
   const [mediaCreatorAccess, setMediaCreatorAccess] = useState("");
   const [instructions, setInstructions] = useState("");
   const [animalsOnProperty, setAnimalsOnProperty] = useState(false);
@@ -102,11 +90,11 @@ const ListingsFrom = () => {
   const [showAgain1, setShowAgain1] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const [origin, setOrigin] = useState("");
+  // const [origin, setOrigin] = useState("");
 
-  useEffect(() => {
-    setOrigin(window.location.origin);
-  }, []);
+  // useEffect(() => {
+  //   setOrigin(window.location.origin);
+  // }, []);
 
   const { isDirty, setIsDirty } = useUnsaved();
   useUnsavedChangesWarning(isDirty);
@@ -181,7 +169,7 @@ const ListingsFrom = () => {
             );
             setPropertyWebsite(data.property_website || "");
             setMlsProperty(data.mls_property || "");
-            setOccupancy(data.occupancy || "");
+            //setOccupancy(data.occupancy || "");
             setMediaCreatorAccess(data.media_creator_access || "");
             setInstructions(data.instructions || "");
             setAnimalsOnProperty(!!data.animals_on_property);
@@ -287,19 +275,19 @@ const ListingsFrom = () => {
     if (!city) validationErrors.city = ["City is required"];
     if (!province) validationErrors.province = ["Province is required"];
     if (!postalCode) validationErrors.postal_code = ["Postal Code is required"];
-    if (!occupancy) validationErrors.occupancy = ["Occupancy is required"];
+    // if (!occupancy) validationErrors.occupancy = ["Occupancy is required"];
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // const today = new Date();
+    // today.setHours(0, 0, 0, 0);
 
-    if (!publishDate) {
-      validationErrors.publish_date = ["Publish Date is required"];
-    } else {
-      const selectedDate = new Date(publishDate + "T00:00:00");
-      if (selectedDate < today) {
-        validationErrors.publish_date = ["Publish Date cannot be in the past"];
-      }
-    }
+    // if (!publishDate) {
+    //   validationErrors.publish_date = ["Publish Date is required"];
+    // } else {
+    //   const selectedDate = new Date(publishDate + "T00:00:00");
+    //   if (selectedDate < today) {
+    //     validationErrors.publish_date = ["Publish Date cannot be in the past"];
+    //   }
+    // }
 
     if (Object.keys(validationErrors).length > 0) {
       setFieldErrors(validationErrors);
@@ -335,7 +323,7 @@ const ListingsFrom = () => {
         publish_date: publishDate,
         property_website: propertyWebsite,
         mls_property: mlsProperty,
-        occupancy: occupancy,
+        // occupancy: occupancy,
         media_creator_access: mediaCreatorAccess,
         instructions: instructions,
         animals_on_property: animalsOnProperty,
@@ -524,16 +512,16 @@ const ListingsFrom = () => {
 
         setMlsProperty(`MLS#: ${mls_data.mlsNumber || mls}`);
 
-        if (mls_data.occupancy) {
-          const occupancyLower = mls_data.occupancy.toLowerCase();
-          if (occupancyLower.includes("owner")) {
-            setOccupancy("Owner Occupied");
-          } else if (occupancyLower.includes("tenant")) {
-            setOccupancy("Tenant Occupied");
-          } else if (occupancyLower.includes("vacant")) {
-            setOccupancy("Single Vacant");
-          }
-        }
+        // if (mls_data.occupancy) {
+        //   const occupancyLower = mls_data.occupancy.toLowerCase();
+        //   if (occupancyLower.includes("owner")) {
+        //     setOccupancy("Owner Occupied");
+        //   } else if (occupancyLower.includes("tenant")) {
+        //     setOccupancy("Tenant Occupied");
+        //   } else if (occupancyLower.includes("vacant")) {
+        //     setOccupancy("Single Vacant");
+        //   }
+        // }
 
         const extras = (mls_data.details?.extras || "").toLowerCase();
         const descriptionText = (
@@ -651,11 +639,11 @@ const ListingsFrom = () => {
     }
   }
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  // const inputRef = useRef<HTMLInputElement>(null);
 
-  const openCalendar = () => {
-    inputRef.current?.showPicker(); // Trigger native date picker
-  };
+  // const openCalendar = () => {
+  //   inputRef.current?.showPicker(); // Trigger native date picker
+  // };
 
   return (
     <div className="font-alexandria">
@@ -1342,7 +1330,7 @@ const ListingsFrom = () => {
               </AccordionContent>
             </AccordionItem>
 
-            <AccordionItem value="additional">
+            {/* <AccordionItem value="additional">
               <AccordionTrigger
                 className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
               >
@@ -1517,156 +1505,156 @@ const ListingsFrom = () => {
                               placeholder="company.bcfp.com/vendor/id=88392"
                               className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                             />
-                            {/* <Copy
+                             <Copy
                             className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 text-[#4290E9] h-[24px] w-[24px]"
                             strokeWidth={1}
-                          /> */}
-                          </div>
+                          /> 
+          </div>
                         )}
-                        {fieldErrors.property_website && (
-                          <p className="text-red-500 text-[10px]">
-                            {fieldErrors.property_website[0]}
-                          </p>
-                        )}
-                      </div>
-                      <div className=" w-full">
-                        <Label>MLS Property</Label>
-                        <div className="relative w-full ">
-                          <Input
-                            value={mlsProperty}
-                            onChange={(e) => setMlsProperty(e.target.value)}
-                            type="text"
-                            placeholder="company.bcfp.com/mls/id=88392"
-                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+          {fieldErrors.property_website && (
+            <p className="text-red-500 text-[10px]">
+              {fieldErrors.property_website[0]}
+            </p>
+          )}
+      </div>
+      <div className=" w-full">
+        <Label>MLS Property</Label>
+        <div className="relative w-full ">
+          <Input
+            value={mlsProperty}
+            onChange={(e) => setMlsProperty(e.target.value)}
+            type="text"
+            placeholder="company.bcfp.com/mls/id=88392"
+            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+          />
+         <Copy
+                            className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 text-[#4290E9] h-[24px] w-[24px]"
+                            strokeWidth={1}
                           />
-                          {/* <Copy
-                            className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 text-[#4290E9] h-[24px] w-[24px]"
-                            strokeWidth={1}
-                          /> */}
-                        </div>
-                        {fieldErrors.mls_property && (
-                          <p className="text-red-500 text-[10px]">
-                            {fieldErrors.mls_property[0]}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <hr className="border-[#BBBBBB]" />
-                      </div>
-                      <div className="w-full">
-                        <label htmlFor="">
-                          Occupancy <span className="text-red-500">*</span>
-                        </label>
-                        <Select
-                          value={occupancy}
-                          onValueChange={(value) => {
-                            setOccupancy(value);
-                            if (fieldErrors.occupancy) {
-                              const newErrors = { ...fieldErrors };
-                              delete newErrors.occupancy;
-                              setFieldErrors(newErrors);
-                            }
-                          }}
-                        >
-                          <SelectTrigger
-                            className={`w-full  h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.occupancy
-                              ? "border-red-500"
-                              : "border-[#BBBBBB]"
-                              }`}
-                          >
-                            <SelectValue placeholder="Select Occupancy" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Single Vacant" defaultChecked>
-                              Single Vacant
-                            </SelectItem>
-                            <SelectItem value="Tenant Occupied">
-                              Tenant Occupied
-                            </SelectItem>
-                            <SelectItem value="Owner Occupied">
-                              Owner Occupied
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+        </div>
+        {fieldErrors.mls_property && (
+          <p className="text-red-500 text-[10px]">
+            {fieldErrors.mls_property[0]}
+          </p>
+        )}
+      </div>
+      <div>
+        <hr className="border-[#BBBBBB]" />
+      </div>
+      <div className="w-full">
+        <label htmlFor="">
+          Occupancy <span className="text-red-500">*</span>
+        </label>
+        <Select
+          value={occupancy}
+          onValueChange={(value) => {
+            setOccupancy(value);
+            if (fieldErrors.occupancy) {
+              const newErrors = { ...fieldErrors };
+              delete newErrors.occupancy;
+              setFieldErrors(newErrors);
+            }
+          }}
+        >
+          <SelectTrigger
+            className={`w-full  h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.occupancy
+              ? "border-red-500"
+              : "border-[#BBBBBB]"
+              }`}
+          >
+            <SelectValue placeholder="Select Occupancy" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Single Vacant" defaultChecked>
+              Single Vacant
+            </SelectItem>
+            <SelectItem value="Tenant Occupied">
+              Tenant Occupied
+            </SelectItem>
+            <SelectItem value="Owner Occupied">
+              Owner Occupied
+            </SelectItem>
+          </SelectContent>
+        </Select>
 
-                        {fieldErrors.occupancy && (
-                          <p className="text-red-500 text-[10px]">
-                            {fieldErrors.occupancy[0]}
-                          </p>
-                        )}
-                      </div>
-                      <div className="w-full">
-                        <label htmlFor="">Media Creator Access</label>
-                        <Select
-                          value={mediaCreatorAccess}
-                          onValueChange={(value) =>
-                            setMediaCreatorAccess(value)
-                          }
-                        >
-                          <SelectTrigger className="w-full  h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
-                            <SelectValue placeholder="e.g Lockbox" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Lockbox">Lockbox</SelectItem>
-                            <SelectItem value="Key">Key</SelectItem>
-                            <SelectItem value="Access Code">
-                              Access Code
-                            </SelectItem>
-                            <SelectItem value="Appointment Only">
-                              Appointment Only
-                            </SelectItem>
-                            <SelectItem value="Listing Agent Only">
-                              Listing Agent Only
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="">Instructions</Label>
-                        <Input
-                          value={instructions}
-                          onChange={(e) => setInstructions(e.target.value)}
-                          placeholder="e.g 123457"
-                          className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                          type="text"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="">Animals On Property</Label>
-                        <Select
-                          value={animalsOnProperty?.toString()}
-                          onValueChange={(value) =>
-                            setAnimalsOnProperty(value === "true")
-                          }
-                        >
-                          <SelectTrigger className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
-                            <SelectValue placeholder="Select an option" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="true">Yes</SelectItem>
-                            <SelectItem value="false">No</SelectItem>
-                          </SelectContent>
-                        </Select>{" "}
-                      </div>
-                      <div>
-                        <div className="flex justify-between mb-[12px]">
-                          <Label htmlFor="" className="">
-                            Co Agents
-                          </Label>
-                          {/* <p className='text-[#4290E9] flex gap-[10px] cursor-pointer'>Add<span className='flex bg-[#4290E9] w-[18px] h-[18px] rounded-[3px] justify-center items-center'><Plus className='text-[#F2F2F2] w-[12px]' /></span> </p> */}
-                        </div>
-                        <TagsInput
-                          coAgents={coAgents}
-                          setCoAgents={setCoAgents}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
+        {fieldErrors.occupancy && (
+          <p className="text-red-500 text-[10px]">
+            {fieldErrors.occupancy[0]}
+          </p>
+        )}
+      </div>
+      <div className="w-full">
+        <label htmlFor="">Media Creator Access</label>
+        <Select
+          value={mediaCreatorAccess}
+          onValueChange={(value) =>
+            setMediaCreatorAccess(value)
+          }
+        >
+          <SelectTrigger className="w-full  h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
+            <SelectValue placeholder="e.g Lockbox" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Lockbox">Lockbox</SelectItem>
+            <SelectItem value="Key">Key</SelectItem>
+            <SelectItem value="Access Code">
+              Access Code
+            </SelectItem>
+            <SelectItem value="Appointment Only">
+              Appointment Only
+            </SelectItem>
+            <SelectItem value="Listing Agent Only">
+              Listing Agent Only
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor="">Instructions</Label>
+        <Input
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+          placeholder="e.g 123457"
+          className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+          type="text"
+        />
+      </div>
+      <div>
+        <Label htmlFor="">Animals On Property</Label>
+        <Select
+          value={animalsOnProperty?.toString()}
+          onValueChange={(value) =>
+            setAnimalsOnProperty(value === "true")
+          }
+        >
+          <SelectTrigger className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
+            <SelectValue placeholder="Select an option" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="true">Yes</SelectItem>
+            <SelectItem value="false">No</SelectItem>
+          </SelectContent>
+        </Select>{" "}
+      </div>
+      <div>
+        <div className="flex justify-between mb-[12px]">
+          <Label htmlFor="" className="">
+            Co Agents
+          </Label>
+           <p className='text-[#4290E9] flex gap-[10px] cursor-pointer'>Add<span className='flex bg-[#4290E9] w-[18px] h-[18px] rounded-[3px] justify-center items-center'><Plus className='text-[#F2F2F2] w-[12px]' /></span> </p> 
+        </div>
+        <TagsInput
+          coAgents={coAgents}
+          setCoAgents={setCoAgents}
+        />
+      </div>
+    </div>
+                  </div >
+                </div >
+              </AccordionContent >
+            </AccordionItem > */}
 
-            <AccordionItem value="statistics">
+            {/* <AccordionItem value="statistics">
               <AccordionTrigger
                 className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
               >
@@ -1746,10 +1734,10 @@ const ListingsFrom = () => {
                   </div>
                 </div>
               </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </form>
-      </div>
+            </AccordionItem> */}
+          </Accordion >
+        </form >
+      </div >
       <SaveModal
         isOpen={open}
         onClose={() => setOpen(false)}
@@ -1758,7 +1746,7 @@ const ListingsFrom = () => {
         backLink="/dashboard/listings"
         title="Listing"
       />
-    </div>
+    </div >
   );
 };
 
