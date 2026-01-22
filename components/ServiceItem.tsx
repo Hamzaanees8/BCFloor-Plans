@@ -51,6 +51,7 @@ const ServiceItem = ({
   servicesData,
   index,
   onChange,
+  onRemove,
   currentUser,
   fieldErrors,
 }: ServiceItemProps) => {
@@ -85,12 +86,16 @@ const ServiceItem = ({
     );
   };
 
-  async function handleRemove(service_id: string) {
+  async function handleRemove(vendor_service_id?: string) {
     try {
-      await DeleteVendorService(currentUser?.uuid ?? "", service_id);
-      toast.success("Service removed successfully");
+      if (vendor_service_id) {
+        await DeleteVendorService(currentUser?.uuid ?? "", vendor_service_id);
+        toast.success("Service removed from database");
+      }
+      onRemove(index);
     } catch (error) {
       console.log(error);
+      toast.error("Failed to remove service");
     }
   }
   return (
@@ -101,11 +106,10 @@ const ServiceItem = ({
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center justify-between gap-3 w-full">
           <span
-            className={`w-[400px] border rounded-[8px] h-[42px] flex items-center pl-2 ${
-              fieldErrors?.[`services[${index}].service_id`]
-                ? "border-red-500"
-                : "border-[#BBBBBB]"
-            }`}
+            className={`w-[400px] border rounded-[8px] h-[42px] flex items-center pl-2 ${fieldErrors?.[`services[${index}].service_id`]
+              ? "border-red-500"
+              : "border-[#BBBBBB]"
+              }`}
             style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
           >
             {serviceName}
@@ -159,9 +163,8 @@ const ServiceItem = ({
                               e.target.value
                             )
                           }
-                          className={`h-[42px] w-full border text-[16px] mt-[12px] placeholder:text-[#9ca3af] ${
-                            hasError ? "border-red-500" : "border-[#BBBBBB]"
-                          }`}
+                          className={`h-[42px] w-full border text-[16px] mt-[12px] placeholder:text-[#9ca3af] ${hasError ? "border-red-500" : "border-[#BBBBBB]"
+                            }`}
                           style={{
                             backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
                           }}

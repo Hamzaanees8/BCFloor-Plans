@@ -126,9 +126,10 @@ function Page() {
   const [openEditPopup, setOpenEditPopup] = useState<boolean>(false);
   const { userType } = useAppContext();
   const { appliedSettings } = useWhiteLabel();
-  const role = (userType as string) || 'admin';
+  const role = (userType as string)?.toLowerCase() || 'admin';
   const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
   const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
+  const fieldBg = `color-mix(in srgb, ${roleSettings.pageBg} 95%, black)`;
 
   const [openDetails, setOpenDetails] = useState(false);
   const [agentData, setAgentData] = useState<Agent[]>([]);
@@ -189,7 +190,7 @@ function Page() {
         setCountry(data.data.property?.country || "CA");
         setOrder_status(data.data.order_status);
         setProperty_website(data.data.property.property_website);
-        setMls_property(data.data.property.mls_property);
+        setMls_property(data.data.property.mls_number);
         setAmount(data.data.amount);
         setselectedVendors(data.data.vendor.uuid);
 
@@ -361,12 +362,18 @@ function Page() {
       }
       <OrderDetailView agentData={agentData} open={openDetails} onClose={() => { setOpenDetails(false) }} orderId={orderData?.uuid ?? ''} serviceId={22} orderData={orderData ? [orderData] : []} />
       <div
-        className="w-full h-[80px] font-alexandria  z-30 sticky top-0  flex justify-between px-[20px] items-center"
+        className="w-full h-[80px] font-alexandria  z-10 sticky top-0  flex justify-between px-[20px] items-center"
         style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }}
       >
-        <p className={`text-[16px] md:text-[24px] font-[400]`} style={{ color: roleSettings.pageTabColor }}>
+        <p
+          className={`text-[16px] md:text-[24px] font-[400]`}
+          style={{ color: roleSettings.pageTabColor }}
+        >
           Orders ›{" "}
-          <span className="hidden md:inline-block">
+          <span
+            className="hidden md:inline-block"
+            style={{ color: roleSettings.pageTabColor }}
+          >
             {" "}
             {orderData?.id || ""} {`(${orderData?.property?.address || ""})`}
           </span>
@@ -422,10 +429,10 @@ function Page() {
           }}
         ></div>
 
-        <div className="absolute left-0 top-0 h-full w-1/3 bg-gradient-to-r from-black/70 to-transparent z-10" />
-        <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-black/70 to-transparent z-10" />
+        <div className="absolute left-0 top-0 h-full w-1/3 bg-gradient-to-r from-black/70 to-transparent z-[9]" />
+        <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-black/70 to-transparent z-[9]" />
 
-        <p className="text-[14px] md:text-[20px] font-[500] text-[#F2F2F2] z-20">
+        <p className="text-[14px] md:text-[20px] font-[500] text-[#F2F2F2] z-[9]">
           {orderData?.property?.address || ""}
           <br />
           {getCountryNameByIso(country, countries) || ""} <br />
@@ -443,34 +450,33 @@ function Page() {
           <div className="flex items-center justify-center gap-x-6 w-full">
             <Link
               href={`/dashboard/file-manager/${orderId}?listingId=${orderData?.property?.uuid}`}
-
-              className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${false
-                ? `text-white font-[700]`
-                : `bg-[#fff] text-[#666666] font-[700] `
-                }`}
-              style={false ? { backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor } : {}}
+              className="h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-bold text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px]"
+              style={false
+                ? { backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor, color: '#FFFFFF' }
+                : { backgroundColor: '#FFFFFF', borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }
+              }
             >
               Media
             </Link>
-            <Link
-              href={`/dashboard/listings/create/${orderData?.property?.uuid}`}
-
-              className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${false
-                ? `text-white font-[700]`
-                : `bg-[#fff] text-[#666666] font-[700] `
-                }`}
-              style={false ? { backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor } : {}}
-            >
-              Property details
-            </Link>
+            {userType !== 'vendor' && (
+              <Link
+                href={`/dashboard/listings/create/${orderData?.property?.uuid}`}
+                className="h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-bold text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px]"
+                style={false
+                  ? { backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor, color: '#FFFFFF' }
+                  : { backgroundColor: '#FFFFFF', borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }
+                }
+              >
+                Property details
+              </Link>
+            )}
             <Link
               href={`/dashboard/orders/${orderData?.uuid}`}
-
-              className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${true
-                ? `text-white font-[700]`
-                : `bg-[#fff] text-[#666666] font-[700] `
-                }`}
-              style={true ? { backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor } : {}}
+              className="h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-bold text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px]"
+              style={true
+                ? { backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor, color: '#FFFFFF' }
+                : { backgroundColor: '#FFFFFF', borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }
+              }
             >
               Order details
             </Link>
@@ -491,7 +497,7 @@ function Page() {
           </AccordionTrigger>
           <AccordionContent className="grid gap-4">
             <div className="w-full flex flex-col items-center">
-              <div className="w-full md:w-[470px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
+              <div className="w-full md:w-[470px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[14px] font-[400]" style={{ color: roleSettings.pageText }}>
 
                 <div className="grid grid-cols-2 gap-[16px]">
 
@@ -502,10 +508,11 @@ function Page() {
                         <Select
                           value={order_status}
                           onValueChange={(value) => setOrder_status(value)}
+                          disabled
                         >
                           <SelectTrigger
                             className="w-full h-[42px] border-[1px] border-[#BBBBBB]"
-                            style={{ backgroundColor: roleSettings.pageBg }}
+                            style={{ backgroundColor: fieldBg }}
                           >
                             <SelectValue placeholder="Select Order Status" />
                           </SelectTrigger>
@@ -522,24 +529,24 @@ function Page() {
                           <TooltipTrigger asChild>
                             <div
                               className="cursor-pointer p-2 rounded-md border-[1px] border-[#BBBBBB] h-[42px] w-[42px] flex justify-center items-center hover:bg-gray-200 transition-colors"
-                              style={{ backgroundColor: roleSettings.pageBg }}
+                              style={{ backgroundColor: fieldBg }}
                             >
-                              <Info className="h-5 w-5 text-[#666666]" />
+                              <Info className="h-5 w-5" style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }} />
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent className="w-80 p-0 bg-white text-[#424242] border-[#BBBBBB] shadow-[0px_4px_4px_#0000001F] rounded-[6px] font-alexandria overflow-hidden" sideOffset={5}>
+                          <TooltipContent className="w-80 p-0 border-[#BBBBBB] shadow-[0px_4px_4px_#0000001F] rounded-[6px] font-alexandria overflow-hidden" style={{ backgroundColor: roleSettings.pageBg, color: roleSettings.pageText }} sideOffset={5}>
                             <div className="flex flex-col">
                               <div
                                 className="px-4 py-3 border-b border-[#BBBBBB]"
                                 style={{ backgroundColor: headerBg }}
                               >
-                                <h4 className="font-[600] text-[14px] uppercase text-[#424242]">Order Details</h4>
+                                <h4 className="font-[600] text-[14px] uppercase" style={{ color: roleSettings.pageText }}>Order Details</h4>
                               </div>
                               <div className="p-4 space-y-4">
                                 <div className="grid grid-cols-2 gap-2 text-[13px]">
-                                  <span className="text-[#666666]">Status:</span>
+                                  <span style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 30%)` }}>Status:</span>
                                   <span className="font-[500]">{orderData?.order_status || 'N/A'}</span>
-                                  <span className="text-[#666666]">Payment:</span>
+                                  <span style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 30%)` }}>Payment:</span>
                                   <span className={`font-[500] px-2 py-0.5 rounded-full w-fit text-[11px] ${orderData?.payment_status === 'PAID' ? 'bg-green-500 text-white' :
                                     orderData?.payment_status === 'UNPAID' ? 'bg-red-500 text-white text-nowrap' :
                                       'bg-orange-100 text-orange-700'
@@ -549,19 +556,19 @@ function Page() {
                                 </div>
 
                                 <div>
-                                  <h4 className="font-[600] text-[13px] mb-2 text-[#424242] border-b border-[#EEEEEE] pb-1">Services</h4>
+                                  <h4 className="font-[600] text-[13px] mb-2 border-b pb-1" style={{ color: roleSettings.pageText, borderColor: `color-mix(in srgb, ${roleSettings.pageText}, transparent 80%)` }}>Services</h4>
                                   <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                                     {orderData?.services?.map((service, index) => (
                                       <div
                                         key={index}
                                         className="flex flex-col text-[12px] p-2 rounded-[4px] border border-[#E4E4E4] gap-2"
-                                        style={{ backgroundColor: roleSettings.pageBg }}
+                                        style={{ backgroundColor: fieldBg }}
                                       >
-                                        <span className="font-[600] text-[#424242]">
+                                        <span className="font-[600]" style={{ color: roleSettings.pageText }}>
                                           {service.service?.name || service.optionName || 'Unknown Service'}
                                         </span>
                                         <div className="flex justify-between items-center">
-                                          <span className="text-[#666666]">Payment:</span>
+                                          <span style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 30%)` }}>Payment:</span>
                                           <span className={`px-2 py-0.5 rounded-full text-[11px] font-[500] ${service.payment_status === 'PAID' ? 'bg-green-500 text-white' :
                                             'bg-red-500 text-white'
                                             }`}>
@@ -569,7 +576,7 @@ function Page() {
                                           </span>
                                         </div>
                                         <div className="flex justify-between items-center">
-                                          <span className="text-[#666666]">Completion:</span>
+                                          <span style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 30%)` }}>Completion:</span>
                                           <span className={`px-2 py-0.5 rounded-full text-[11px] font-[500] ${service.is_completed ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'
                                             }`}>
                                             {service.is_completed ? 'Completed' : 'Pending'}
@@ -578,7 +585,7 @@ function Page() {
                                       </div>
                                     ))}
                                     {(!orderData?.services || orderData.services.length === 0) && (
-                                      <p className="text-[#666666] text-[12px] italic">No services found</p>
+                                      <p style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 40%)` }} className="text-[12px] italic">No services found</p>
                                     )}
                                   </div>
                                 </div>
@@ -616,10 +623,11 @@ function Page() {
                     <Select
                       value={selectedVendors}
                       onValueChange={(value) => setselectedVendors(value)}
+                      disabled={userType !== 'admin'}
                     >
                       <SelectTrigger
                         className="w-full  h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                        style={{ backgroundColor: roleSettings.pageBg }}
+                        style={{ backgroundColor: fieldBg }}
                       >
                         <SelectValue placeholder="Select Team Member" />
                       </SelectTrigger>
@@ -647,7 +655,7 @@ function Page() {
                           readOnly
                           type="text"
                           className="h-[42px] border-[1px] border-[#BBBBBB] truncate mt-[12px] pr-10"
-                          style={{ backgroundColor: roleSettings.pageBg }}
+                          style={{ backgroundColor: fieldBg }}
                         />
                         <Copy
                           onClick={() => {
@@ -667,7 +675,7 @@ function Page() {
                           onChange={(e) => setProperty_website(e.target.value)}
                           placeholder="Enter Property Website URL"
                           className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                          style={{ backgroundColor: roleSettings.pageBg }}
+                          style={{ backgroundColor: fieldBg }}
                           type="text"
                           readOnly
                         />
@@ -689,7 +697,7 @@ function Page() {
                       onChange={(e) => setMls_property(e.target.value)}
                       placeholder="Enter MLS Property"
                       className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                      style={{ backgroundColor: roleSettings.pageBg }}
+                      style={{ backgroundColor: fieldBg }}
                       type="text"
                     />
                     {/* {fieldErrors.heading && (
@@ -707,13 +715,13 @@ function Page() {
                       Go To File Manager
                     </Button>
                     {(userType === 'admin' || userType === 'agent') && (
-                      <div className='grid grid-cols-2 gap-[16px] font-[400] text-[#666666] text-[14px] justify-items-end'>
+                      <div className='grid grid-cols-2 gap-[16px] font-[400] text-[14px] justify-items-end' style={{ color: roleSettings.pageText }}>
                         <p>Require payment before releasing materials</p>
                         <Switch
                           checked={isChecked}
                           onCheckedChange={setIsChecked}
                           className="data-[state=checked]:bg-transparent"
-                          style={{ backgroundColor: isChecked ? roleSettings.activeColor : undefined }}
+                          style={{ backgroundColor: isChecked ? roleSettings.pageTabColor : undefined }}
                         />
                       </div>
                     )}
@@ -746,7 +754,7 @@ function Page() {
           </AccordionTrigger>
           <AccordionContent className="grid gap-4">
             <div className="w-full flex flex-col items-center">
-              <div className="w-full md:w-[470px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[48px] text-[#424242] text-[14px] font-[400]">
+              <div className="w-full md:w-[470px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[48px] text-[14px] font-[400]" style={{ color: roleSettings.pageText }}>
                 <div className="flex justify-between gap-[12px]">
                   <div className="flex gap-[12px] items-center">
                     <TriangleAlert className={`h-[24px] w-[30px] md:h-[36px] md:w-[40px]`} style={{ color: roleSettings.pageTabColor }} />
@@ -759,7 +767,12 @@ function Page() {
                                         <p className='text-[#666666] text-[16px]'>Open</p>
                                     </div> */}
                 </div>
-                <div className="text-[#666666] flex gap-x-[20px]">
+                <div
+                  className="flex gap-x-[20px]"
+                  style={{
+                    color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)`,
+                  }}
+                >
                   <div className="flex flex-col gap-y-[20px] w-1/2 text-wrap">
                     <p>{uniqueVendors?.length > 1 ? "Vendors" : "Vendor"}</p>
                     {uniqueVendors?.map((vendor) => (
@@ -783,8 +796,8 @@ function Page() {
                     <p>{orderData?.agent?.email}</p>
                   </div>
                 </div>
-                <div className="flex flex-col gap-[18px] text-[#666666] text-[16px]">
-                  <p className="text-[20px] text-[#666666] font-[700]">
+                <div className="flex flex-col gap-[18px] text-[16px]" style={{ color: roleSettings.pageText }}>
+                  <p className="text-[20px] font-[700]" style={{ color: roleSettings.pageText }}>
                     Order Details
                   </p>
                   <p className="grid grid-cols-4 gap-[15px]">
@@ -848,7 +861,9 @@ function Page() {
                     <Button
                       onClick={handlePaymentClick}
                       disabled={isPaymentLoading}
-                      className={`col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px]  border-[3px] ${userType}-border hover-${userType}-bg ${userType}-button bg-[#EEEEEE] text-[14px] md:text-[14px] font-[600] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bgfont-raleway`}>
+                      className={`col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px] border-[1px] text-[14px] md:text-[14px] font-[600] flex gap-[5px] justify-center items-center hover:opacity-90 font-raleway`}
+                      style={{ backgroundColor: roleSettings.pageTabColor, color: '#FFFFFF', borderColor: roleSettings.pageTabColor }}
+                    >
                       {isPaymentLoading ? "Processing..." : `Make Payment $${amount}`}
                     </Button>
                   }
@@ -870,7 +885,7 @@ function Page() {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
-    </div>
+    </div >
   );
 }
 

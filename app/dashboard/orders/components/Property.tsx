@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { EditListings, GetServices, GetVendors, Get as GetOrders } from '../orders';
 import { useAppContext } from '@/app/context/AppContext';
+import { useWhiteLabel } from '@/app/context/Whitelabel';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import GooglePlacesAutocomplete from '../../calendar/components/AutoCompleteInput';
 import { SearchableSelect } from './SearchableSelect';
@@ -90,6 +91,11 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         setIsPropertyValid,
     } = useOrderContext();
     const { userType } = useAppContext()
+    const { appliedSettings } = useWhiteLabel();
+    const role = (userType as string)?.toLowerCase() || 'admin';
+    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+    // const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
+    const fieldBg = `color-mix(in srgb, ${roleSettings.pageBg} 95%, black)`;
     // Using context data directly where possible, but keeping local state for immediate UI responsiveness if needed 
     // or just synchronizing them. For now, let's keep local states and sync them to context.
     const [agentData, setAgentData] = useState<Agent[]>([]);
@@ -620,29 +626,30 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         <div className='pt-7 px-[200px] pb-[80px] font-alexandria'>
             <div className='py-[10px] pl-[10px] flex flex-col gap-[30px]'>
                 <div className='flex flex-col gap-[14px]'>
-                    <p className='text-[14px] font-[400] text-[#424242]'>Agent <span className="text-red-500">*</span></p>
+                    <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Agent <span className="text-red-500">*</span></p>
                     <div className='flex items-start justify-between'>
                         <div className='flex items-center gap-4'>
                             <Popover open={openAgent} onOpenChange={setOpenAgent}>
                                 <PopoverTrigger asChild>
                                     <button
                                         className={cn(
-                                            "w-[432px] h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] px-3 flex items-center justify-between rounded-md",
+                                            "w-[432px] h-[42px] border-[1px] border-[#BBBBBB] px-3 flex items-center justify-between rounded-md",
                                             !selectedAgent && "text-muted-foreground"
                                         )}
+                                        style={{ backgroundColor: fieldBg }}
                                     >
                                         {userType === 'agent' && userInfo ? (
-                                            <span className='font-normal text-base text-[#666666]'>
+                                            <span className='font-normal text-base' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                                                 {userInfo.first_name} {userInfo.last_name} – {userInfo.company_name}
                                             </span>
                                         ) : selectedAgent ? (
-                                            <span className='font-normal text-base text-[#666666]'>
+                                            <span className='font-normal text-base' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                                                 {selectedAgent.first_name} {selectedAgent.last_name} – {selectedAgent.company_name}
                                             </span>
                                         ) : (
                                             "Select Agent"
                                         )}
-                                        {userType === 'admin' && <DropDownArrow />}
+                                        {userType === 'admin' && <DropDownArrow stroke={roleSettings.pageText} />}
                                     </button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-[432px] p-0">
@@ -700,7 +707,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                             </div>
                         </div>
                         <button
-                            className={`${userType == 'admin' ? 'flex' : 'hidden'} items-center gap-2 px-3 py-2 rounded-md border border-[#1E6FCC] text-[#1E6FCC] hover:bg-[#1E6FCC]/10 transition-colors`}
+                            className={`${userType == 'admin' ? 'flex' : 'hidden'} items-center gap-2 px-3 py-2 rounded-md border transition-colors`}
+                            style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}
                             onClick={() => {
                                 setIsEditingAgent(false);
                                 setOpenAddAgentDialog(true);
@@ -721,35 +729,35 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                     </div>
                     {userType === 'agent' && userInfo ? (
                         <div className='flex flex-col'>
-                            <p className={`${userType}-text font-[400] text-[20px]`}>
+                            <p className={`font-[400] text-[20px]`} style={{ color: roleSettings.pageTabColor }}>
                                 {userInfo.first_name} {userInfo.last_name}
                             </p>
-                            <p className='text-[#666666] font-[400] text-[16px]'>
+                            <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                                 {userInfo.company_name}
                             </p>
-                            <p className='text-[#666666] font-[400] text-[16px]'>
+                            <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                                 {userInfo.email}
                             </p>
-                            <p className='text-[#666666] font-[400] text-[16px]'>
+                            <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                                 {userInfo.primary_phone}
                             </p>
                         </div>
                     ) : selectedAgent && (
                         <div className='flex flex-col'>
-                            <p className={`${userType}-text font-[400] text-[20px]`}>
+                            <p className={`font-[400] text-[20px]`} style={{ color: roleSettings.pageTabColor }}>
                                 {selectedAgent.first_name} {selectedAgent.last_name}
                             </p>
-                            <p className='text-[#666666] font-[400] text-[16px]'>
+                            <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                                 {selectedAgent.company_name}
                             </p>
-                            <p className='text-[#666666] font-[400] text-[16px]'>
+                            <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                                 {selectedAgent.email}
                             </p>
-                            <p className='text-[#666666] font-[400] text-[16px]'>
+                            <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                                 {selectedAgent.primary_phone}
                             </p>
                             {selectedAgent.notes && (
-                                <p className='text-[#666666] font-[400] text-[16px]'>
+                                <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                                     <span className='font-[600]'>Notes: </span> {selectedAgent.notes}
                                 </p>
                             )}
@@ -757,7 +765,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                     )}
                 </div>
                 <div className='flex flex-col gap-[14px]'>
-                    <p className='text-[14px] font-[400] text-[#424242]'>Listing <span className="text-red-500">*</span></p>
+                    <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Listing <span className="text-red-500">*</span></p>
                     <div className='flex items-start justify-between'>
                         <div className='flex items-center gap-4'>
                             <Popover open={openListing} onOpenChange={setOpenListing}>
@@ -769,13 +777,13 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                         )}
                                     >
                                         {selectedListing ? (
-                                            <span className='font-normal text-base text-[#666666]'>
+                                            <span className='font-normal text-base' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                                                 {selectedListing.address}, {selectedListing.city}
                                             </span>
                                         ) : (
                                             "Select and Search Listings"
                                         )}
-                                        <DropDownArrow />
+                                        <DropDownArrow stroke={roleSettings.pageText} />
                                     </button>
                                 </PopoverTrigger>
 
@@ -838,7 +846,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
 
                         </div>
                         <button
-                            className="flex items-center gap-2 px-4 py-2 rounded-md border border-[#1E6FCC] text-[#1E6FCC] hover:bg-[#1E6FCC]/10 transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 rounded-md border transition-colors"
+                            style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}
                             onClick={() => {
                                 // setIsEditingListing(false);
                                 setOpenAddListingDialog(true);
@@ -855,27 +864,27 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                 </div>
                 {selectedListing && !openAddListingDialog && (
                     <div className='flex flex-col'>
-                        <p className={`${userType}-text font-[400] text-[20px]`}>
+                        <p className={`font-[400] text-[20px]`} style={{ color: roleSettings.pageTabColor }}>
                             {selectedListing.address}, {selectedListing.city}
                         </p>
-                        <p className='text-[#666666] font-[400] text-[16px]'>
+                        <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                             {selectedListing?.agent?.first_name} {selectedListing?.agent?.last_name}
                         </p>
-                        <p className='text-[#666666] font-[400] text-[16px]'>
+                        <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                             {selectedListing?.agent?.email}
                         </p>
-                        <p className='text-[#666666] font-[400] text-[16px]'>
+                        <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                             {selectedListing?.agent?.primary_phone}
                         </p>
-                        <p className='text-[#666666] font-[400] text-[16px]'>
+                        <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                             Est. {selectedListing.square_footage}ft<sup>2</sup>
                         </p>
                     </div>
                 )}
                 {openAddListingDialog && (
                     <div className='w-full flex flex-col items-center'>
-                        <h1 className='text-[#4290E9] font-[500] text-[25px] py-4'>{currentListing?.uuid ? "Edit Listing" : "Create New Listing"}</h1>
-                        <div className='w-full  py-[16px] px-0 md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                        <h1 className='font-[500] text-[25px] py-4' style={{ color: roleSettings.pageTabColor }}>{currentListing?.uuid ? "Edit Listing" : "Create New Listing"}</h1>
+                        <div className='w-full  py-[16px] px-0 md:px-0 flex justify-center flex-col gap-[16px] text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>
 
                             <div className='grid grid-cols-4 gap-[16px]'>
                                 <div className="col-span-3">
@@ -905,7 +914,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                         }}
                                         fieldErrors={fieldErrors}
                                         className="mt-[12px]"
-                                        inputClassName="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB]"
+                                        inputClassName="h-[42px] border-[1px] border-[#BBBBBB]"
+                                        inputStyle={{ backgroundColor: fieldBg }}
                                         autoFocus={true}
                                     />
                                 </div>
@@ -915,7 +925,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                         value={suite}
                                         onChange={(e) => setSuite(e.target.value)}
                                         placeholder=""
-                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] text-center px-1"
+                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px] text-center px-1"
+                                        style={{ backgroundColor: fieldBg }}
                                         type="text"
                                     />
                                 </div>
@@ -926,7 +937,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                         value={city}
                                         onChange={(e) => setCity(e.target.value)}
                                         placeholder=""
-                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        style={{ backgroundColor: fieldBg }}
                                         type="text"
                                     />
                                     {fieldErrors.city && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.city[0]}</p>}
@@ -953,7 +965,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                         value={postalCode}
                                         onChange={(e) => setPostalCode(e.target.value)}
                                         placeholder=""
-                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        style={{ backgroundColor: fieldBg }}
                                         type="text"
                                     />
                                     {fieldErrors.postal_code && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.postal_code[0]}</p>}
@@ -982,7 +995,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                         value={squareFootage}
                                         onChange={(e) => setSquareFootage(e.target.value)}
                                         placeholder="e.g 2230 sq. ft."
-                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        style={{ backgroundColor: fieldBg }}
                                         type="text"
                                     />
                                 </div>
@@ -1000,6 +1014,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                             placeholder="Select Agent"
                                             searchPlaceholder="Search agent..."
                                             className="h-[42px]"
+                                            disabled={userType !== 'admin'}
                                         />
                                     </div>
                                     {fieldErrors.agent_id && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.agent_id[0]}</p>}
@@ -1011,7 +1026,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                         value={mls}
                                         onChange={(e) => setMls(e.target.value)}
                                         placeholder="e.g A2206608"
-                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        style={{ backgroundColor: fieldBg }}
                                         type="text"
                                     />
                                     {fieldErrors.mls_number && (
@@ -1023,8 +1039,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                 <div className="col-span-1 flex items-end h-full">
                                     <button
                                         onClick={handleMlsFetch}
-                                        className="w-full h-[42px] bg-[#4290E9] text-white rounded-[4px] hover:bg-[#005fb8] transition-colors disabled:opacity-50"
-                                        disabled={isLoading}
+                                        className="w-full h-[42px] text-white rounded-[4px] transition-colors disabled:opacity-50"
+                                        style={{ backgroundColor: roleSettings.pageTabColor }}
                                     >
                                         {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Sync with MLS"}
                                     </button>
@@ -1032,7 +1048,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                             </div>
                             <Accordion type="single" collapsible className="w-full">
                                 <AccordionItem value="extra-details" className='border-0'>
-                                    <AccordionTrigger className='text-[#4290E9] font-[500] text-[16px] hover:no-underline'>Extra Details</AccordionTrigger>
+                                    <AccordionTrigger className='font-[500] text-[16px] hover:no-underline' style={{ color: roleSettings.pageTabColor }}>Extra Details</AccordionTrigger>
                                     <AccordionContent>
                                         <div className='grid grid-cols-4 gap-[16px]'>
                                             <div>
@@ -1041,7 +1057,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                     value={listingPrice}
                                                     onChange={(e) => setListingPrice(e.target.value)}
                                                     placeholder="e.g 844,500"
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    style={{ backgroundColor: fieldBg }}
                                                     type="text"
                                                 />
                                             </div>
@@ -1069,7 +1086,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                             setBedrooms(numeric); // Only valid numbers >= 0
                                                         }
                                                     }}
-                                                    className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                    className="h-[42px] w-full border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                    style={{ backgroundColor: fieldBg }}
                                                 />
 
                                                 <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
@@ -1100,7 +1118,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                             setBathrooms(numeric); // Only valid numbers >= 0
                                                         }
                                                     }}
-                                                    className="h-[42px] w-full bg-[#EEEEEE] border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                    className="h-[42px] w-full border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                    style={{ backgroundColor: fieldBg }}
                                                 />
 
                                                 <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
@@ -1115,7 +1134,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                     value={lotSize}
                                                     onChange={(e) => setLotSize(e.target.value)}
                                                     placeholder="e.g 0-4,050 sq. ft."
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    style={{ backgroundColor: fieldBg }}
                                                     type="text"
                                                 />
                                                 {fieldErrors.lot_size && (
@@ -1130,7 +1150,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                     value={yearConstructed}
                                                     onChange={(e) => setYearConstructed(e.target.value)}
                                                     placeholder="e.g 2020"
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    style={{ backgroundColor: fieldBg }}
                                                     type="text"
                                                 />
                                                 {fieldErrors.year_constructed && (
@@ -1145,7 +1166,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                     value={parkingSpots}
                                                     onChange={(e) => setParkingSpots(e.target.value)}
                                                     placeholder="e.g 3"
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    style={{ backgroundColor: fieldBg }}
                                                     type="text"
                                                 />
                                             </div>
@@ -1191,7 +1213,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                     value={heading}
                                                     onChange={(e) => setHeading(e.target.value)}
                                                     placeholder="e.g Single Family Detached Starter Home"
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    style={{ backgroundColor: fieldBg }}
                                                     type="text"
                                                 />
                                                 {fieldErrors.heading && (
@@ -1207,7 +1230,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                     value={description}
                                                     onChange={(e) => setDescription(e.target.value)}
                                                     placeholder="write some description of your listing"
-                                                    className="w-full resize-none h-[100px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    className="w-full resize-none h-[100px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    style={{ backgroundColor: fieldBg }}
                                                 />
                                                 {fieldErrors.description && (
                                                     <p className="text-red-500 text-[10px]">
@@ -1224,17 +1248,18 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                             </div>
                             <div className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
                                 <button onClick={() => { setOpenAddListingDialog(false) }}
-                                    className="bg-white w-full md:w-[176px] h-[40px] text-[20px] rounded-sm font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">
+                                    className="bg-white w-full md:w-[176px] h-[40px] text-[20px] rounded-sm font-[400] border transition-all"
+                                    style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}>
                                     Cancel
                                 </button>
                                 <button
                                     disabled={isLoading || !address?.trim() || !selectedAgentId}
                                     onClick={(e) => { handleSubmit(e) }}
-                                    className={`w-full rounded-sm md:w-[176px] h-[40px] font-[400] text-[20px] flex items-center justify-center gap-2 text-white
+                                    className={`w-full rounded-sm md:w-[176px] h-[40px] font-[400] text-[20px] flex items-center justify-center gap-2 text-white transition-all
                                         ${(isLoading || !address?.trim() || !selectedAgentId)
                                             ? 'bg-gray-400 cursor-not-allowed'
-                                            : 'bg-[#4290E9] hover:bg-[#005fb8]'}`}
-
+                                            : ''}`}
+                                    style={{ backgroundColor: (isLoading || !address?.trim() || !selectedAgentId) ? undefined : roleSettings.pageTabColor }}
                                 >
                                     {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Next"}
                                 </button>
@@ -1245,8 +1270,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                 {
                     (selectedListing?.orders?.length ?? 0) > 0 && (
                         <>
-                            <p className="text-[14px] font-[400] text-[#424242]">Listing Order History</p>
-                            <div className="flex flex-col bg-[#EEEEEE] rounded-[6px] gap-y-1.5 border border-[#BBBBBB]">
+                            <p className="text-[14px] font-[400]" style={{ color: roleSettings.pageText }}>Listing Order History</p>
+                            <div className="flex flex-col rounded-[6px] gap-y-1.5 border border-[#BBBBBB]" style={{ backgroundColor: fieldBg }}>
 
                                 {selectedListing?.orders?.map((order, idx) => {
                                     let statusColor = "";
@@ -1266,13 +1291,14 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                     return (
                                         <div
                                             key={order.id ?? idx}
-                                            className="px-4 py-3 grid grid-cols-5 text-[#666666] gap-[30px]"
+                                            className="px-4 py-3 grid grid-cols-5 gap-[30px]"
+                                            style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}
                                         >
                                             <div className="flex flex-col ">
-                                                <p className="text-[#4290E9] text-sm font-medium">
+                                                <p className="text-sm font-medium" style={{ color: roleSettings.pageTabColor }}>
                                                     Order #{order.id} -
                                                 </p>
-                                                <p className="text-[#A8A8A8] text-[10px] font-normal">
+                                                <p className="text-[10px] font-normal" style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 40%)` }}>
                                                     {new Date(order.created_at).toLocaleDateString("en-US", {
                                                         year: "2-digit",
                                                         month: "2-digit",

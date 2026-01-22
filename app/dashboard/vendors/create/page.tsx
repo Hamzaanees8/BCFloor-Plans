@@ -75,6 +75,14 @@ interface Services {
   thumbnail?: string;
   thumbnail_url?: string;
   status?: boolean;
+  product_options?: {
+    uuid: string;
+    id: number;
+    title?: string;
+    amount?: string;
+    cost?: number;
+    adjustment_time?: string;
+  }[];
 }
 type CurrentUser = {
   uuid: string;
@@ -97,7 +105,16 @@ type CurrentUser = {
   avatar_url?: string;
   company?: VendorCompany;
   settings?: VendorSettings;
-  vendor_services?: SelectedService[];
+  vendor_services?: {
+    uuid: string;
+    service?: { uuid: string };
+    options?: {
+      option_id: number;
+      vendor_price: string;
+      vendor_adjustment_time: string | null;
+      product_option?: { uuid: string };
+    }[];
+  }[];
   addresses?: VendorAddress[];
   work_hours?: WorkHours;
   coordinates?: string[];
@@ -430,18 +447,31 @@ const VendorForm = () => {
       if (currentUser.portfolio_images) {
         setPortfolioImagesUrl(currentUser.portfolio_images);
       }
-      if (currentUser.vendor_services) {
+      if (currentUser.vendor_services && servicesData.length > 0) {
         const transformedServices: SelectedService[] =
-          currentUser.vendor_services.map((vs) => ({
-            service_id: vs.service?.uuid || "",
-            vendor_service_id: vs.uuid,
-            options:
-              vs.options?.map((opt) => ({
-                option_uuid: opt.uuid ?? "",
-                vendor_price: Number(opt.vendor_price) || 0,
-                adjustment_time: opt.adjustment_time || "no adjustment",
-              })) || [],
-          }));
+          currentUser.vendor_services.map((vs) => {
+            const serviceInfo = servicesData.find(
+              (s) => s.uuid === vs.service?.uuid
+            );
+
+            return {
+              service_id: vs.service?.uuid || "",
+              vendor_service_id: vs.uuid,
+              options:
+                vs.options?.map((opt) => {
+                  const productOption = serviceInfo?.product_options?.find(
+                    (po) => po.id === opt.option_id
+                  );
+
+                  return {
+                    option_uuid: productOption?.uuid || opt.product_option?.uuid || "",
+                    vendor_price: Number(opt.vendor_price) || 0,
+                    adjustment_time:
+                      opt.vendor_adjustment_time || "no adjustment",
+                  };
+                }) || [],
+            };
+          });
         setVendorServices(transformedServices);
       }
       if (currentUser?.work_hours?.work_days) {
@@ -747,7 +777,7 @@ const VendorForm = () => {
         },
         payment_per_km: Number(paymentPerKm),
         is_kilometers: inkilometers ? 1 : 0,
-        services: selectedServices,
+        services: [...vendorServices, ...selectedServices],
         settings: {
           payment_per_km: Number(paymentPerKm),
           enable_service_area: enableServiceArea ? 1 : 0,

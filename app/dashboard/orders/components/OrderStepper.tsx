@@ -1,5 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 import React from 'react';
+import { useWhiteLabel } from '@/app/context/Whitelabel';
 
 interface Steps {
     id: string;
@@ -15,6 +16,9 @@ interface OrderStepperProps {
 }
 
 const OrderStepper = ({ currentTab, onTabChange, steps, canNavigateTo, userType }: OrderStepperProps) => {
+    const { appliedSettings } = useWhiteLabel();
+    const role = (userType as string)?.toLowerCase() || 'admin';
+    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
 
     const activeIndex = steps.findIndex(step => step.id === currentTab);
 
@@ -30,10 +34,15 @@ const OrderStepper = ({ currentTab, onTabChange, steps, canNavigateTo, userType 
                 let circleText = 'text-[#666666]';
                 let labelColor = 'text-[#666666]';
 
+                let circleStyle = {};
+                let labelStyle = {};
+
                 if (isActive || isCompleted) {
-                    circleBg = `${userType}-bg`; // Uses global CSS class for background color
+                    circleBg = '';
                     circleText = 'text-white';
-                    labelColor = `${userType}-text`; // Uses global CSS class for text color
+                    labelColor = '';
+                    circleStyle = { backgroundColor: roleSettings.pageTabColor };
+                    labelStyle = { color: roleSettings.pageTabColor };
                 }
 
                 // Override for inactive but navigable? 
@@ -43,6 +52,8 @@ const OrderStepper = ({ currentTab, onTabChange, steps, canNavigateTo, userType 
                     circleBg = 'bg-[#E4E4E4]';
                     circleText = 'text-[#666666]';
                     labelColor = 'text-[#666666]';
+                    circleStyle = {};
+                    labelStyle = {};
                 }
 
                 return (
@@ -51,10 +62,16 @@ const OrderStepper = ({ currentTab, onTabChange, steps, canNavigateTo, userType 
                             className={`flex flex-col md:flex-row items-center gap-2 cursor-pointer flex-1 justify-center ${!isNavigable ? 'opacity-50 cursor-not-allowed' : ''}`}
                             onClick={() => isNavigable && onTabChange(step.id)}
                         >
-                            <div className={`w-[24px] h-[24px] md:w-[32px] md:h-[32px] rounded-full flex items-center justify-center text-xs md:text-sm font-medium transition-colors ${circleBg} ${circleText}`}>
+                            <div
+                                className={`w-[24px] h-[24px] md:w-[32px] md:h-[32px] rounded-full flex items-center justify-center text-xs md:text-sm font-medium transition-colors ${circleBg} ${circleText}`}
+                                style={circleStyle}
+                            >
                                 {index + 1}
                             </div>
-                            <span className={`text-[10px] md:text-sm font-bold uppercase transition-colors ${labelColor}`}>
+                            <span
+                                className={`text-[10px] md:text-sm font-bold uppercase transition-colors ${labelColor}`}
+                                style={labelStyle}
+                            >
                                 {step.label}
                             </span>
                         </div>

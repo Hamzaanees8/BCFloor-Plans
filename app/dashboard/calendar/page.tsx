@@ -37,6 +37,15 @@ type Vendor = {
         break_start: string;
         break_end: string;
     }
+    calendar_events?: {
+        id: string;
+        summary: string;
+        description?: string;
+        start: string;
+        end: string;
+        all_day: boolean;
+        status: string;
+    }[];
 };
 
 const Page = () => {

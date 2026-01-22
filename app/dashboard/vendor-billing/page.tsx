@@ -19,7 +19,7 @@ import {
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { useAppContext } from "@/app/context/AppContext";
 import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
-import { Get } from "../orders/orders";
+import { Get, GetVendors } from "../orders/orders";
 import { toast } from "sonner";
 import { payVendor } from "./vendorBilling";
 import { Button } from "@/components/ui/button";
@@ -134,6 +134,21 @@ interface VendorLocationData {
     startLocationAddress: string;
     paymentPerKm: number;
 }
+
+interface VendorPriceOption {
+    option_id: number | string;
+    vendor_price: string | number;
+}
+
+interface VendorPriceService {
+    options?: VendorPriceOption[];
+}
+
+interface VendorPriceData {
+    uuid: string;
+    vendor_services?: VendorPriceService[];
+}
+
 const Page = () => {
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
@@ -155,6 +170,7 @@ const Page = () => {
     const [travelCosts, setTravelCosts] = useState<Map<number, TravelCost>>(new Map());
     const [vendorLocationData, setVendorLocationData] = useState<Map<string | number, VendorLocationData>>(new Map());
     const [loadingTravelCosts, setLoadingTravelCosts] = useState<Set<string | number>>(new Set());
+    const [vendorPricesMap, setVendorPricesMap] = useState<Map<string, Record<number, number>>>(new Map());
     const itemsPerPage = 10;
     const confirmAndExecute = () => {
         pendingAction?.();
@@ -185,6 +201,7 @@ const Page = () => {
 
         setLoading(true);
 
+        // Fetch orders
         Get(token)
             .then((data) => {
                 const sorted = Array.isArray(data.data)
@@ -200,6 +217,29 @@ const Page = () => {
             })
             .finally(() => {
                 setLoading(false);
+            });
+
+        // Fetch vendors and build price map
+        GetVendors(token)
+            .then((res) => {
+                if (Array.isArray(res.data)) {
+                    const priceMap = new Map<string, Record<number, number>>();
+                    res.data.forEach((vendor: VendorPriceData) => {
+                        const vendorPriceLookup: Record<number, number> = {};
+                        vendor.vendor_services?.forEach((vs: VendorPriceService) => {
+                            vs.options?.forEach((opt: VendorPriceOption) => {
+                                if (opt.option_id && opt.vendor_price) {
+                                    vendorPriceLookup[Number(opt.option_id)] = Number(opt.vendor_price);
+                                }
+                            });
+                        });
+                        priceMap.set(vendor.uuid, vendorPriceLookup);
+                    });
+                    setVendorPricesMap(priceMap);
+                }
+            })
+            .catch((err) => {
+                console.error("Error fetching vendor services:", err);
             });
     }, []);
 
@@ -396,6 +436,17 @@ const Page = () => {
                         });
                     }
 
+                    const vendorUuid = vendorObj.uuid;
+                    const vendorLookup = vendorPricesMap.get(vendorUuid);
+                    let finalAmount = svcRecord?.amount || 0;
+
+                    if (vendorLookup && svcRecord?.option_id) {
+                        const optId = Number(svcRecord.option_id);
+                        if (vendorLookup[optId] !== undefined) {
+                            finalAmount = vendorLookup[optId];
+                        }
+                    }
+
                     const serviceForVendor: ServiceForVendor = {
                         ...svcRecord,
                         serviceId: sid,
@@ -405,7 +456,7 @@ const Page = () => {
                             svcRecord?.name ||
                             `Service ${sid}`,
                         slots: slotsForService.filter((s) => s.vendor_id === vendorId),
-                        amount: svcRecord?.amount || 0,
+                        amount: finalAmount,
                     };
 
                     vendorEntry.orders.get(order.id)!.services.push(serviceForVendor);
@@ -441,7 +492,7 @@ const Page = () => {
         });
 
         return arr;
-    }, [orderData]);
+    }, [orderData, vendorPricesMap]);
 
     const totalPages = Math.ceil(vendorsGrouped.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;

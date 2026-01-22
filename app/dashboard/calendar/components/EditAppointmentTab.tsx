@@ -210,7 +210,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                             onValueChange={(value) => setAgent(value)}
                                         >
                                             <SelectTrigger
-                                                className="w-full  h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                className="w-full h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                 style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                             >
                                                 <SelectValue placeholder="Select Agent" />

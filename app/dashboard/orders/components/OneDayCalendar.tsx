@@ -12,6 +12,13 @@ import { useOrderContext, Slot } from '../context/OrderContext';
 import { VendorData } from '../[id]/page';
 import { Order } from '../page';
 import { convertVendorWorkHoursToPropertyTimezone, fetchTwilightTime, TwilightResponse } from '../orders';
+import { toast } from 'sonner';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 declare global {
   interface Window {
@@ -43,7 +50,10 @@ interface Slots {
   title: string;
   className: string;
   vendor_id?: string;
-  [key: string]: string | undefined;
+  extendedProps?: {
+    availableVendorIds?: string[];
+  };
+  [key: string]: string | undefined | { availableVendorIds?: string[] };
 }
 interface CalendarProps {
   selectedVendors: string[];
@@ -348,7 +358,8 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     }
 
     const fullDaySlots = generateAllDaySlots(date, 15);
-    const availableSlotMap = new Map<string, Slots>();
+    // Track vendors available for each slot
+    const slotVendorsMap = new Map<string, string[]>();
 
     const otherServiceSlots = selectedSlots.filter((s: Slot) =>
       s.service_id !== service.uuid && s.date === date
@@ -380,18 +391,18 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       );
       vendorSlots.forEach((slot) => {
         const key = `${slot.start}_${slot.end}`;
-        availableSlotMap.set(key, {
-          ...slot,
-          className: 'slot-available'
-        });
+        if (!slotVendorsMap.has(key)) {
+          slotVendorsMap.set(key, []);
+        }
+        slotVendorsMap.get(key)!.push(vendor.uuid ?? '');
       });
     });
     let firstAvailableFound = false;
     const finalSlots = fullDaySlots.map((slot) => {
       const key = `${slot.start}_${slot.end}`;
-      const matchedAvailable = availableSlotMap.get(key);
+      const availableVendorIds = slotVendorsMap.get(key) || [];
 
-      if (matchedAvailable) {
+      if (availableVendorIds.length > 0) {
         let isFirstAvailable = false;
         if (recommendTimeMap[calendarIdx] === 1 && !firstAvailableFound) {
           firstAvailableFound = true;
@@ -407,26 +418,39 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
         if (matchingSelected) {
           return {
-            ...matchedAvailable,
+            ...slot,
             title: vendorsData.find(v => v.uuid === matchingSelected.vendor_id)?.first_name + ' ' +
               vendorsData.find(v => v.uuid === matchingSelected.vendor_id)?.last_name + '\n' +
               service.title,
-            className: `slot-selected vendor-${matchingSelected.vendor_id}${isFirstAvailable ? ' slot-recommended' : ''}`
+            className: `slot-selected vendor-${matchingSelected.vendor_id}${isFirstAvailable ? ' slot-recommended' : ''}`,
+            extendedProps: {
+              availableVendorIds: []
+            }
           };
         }
 
         if (isFirstAvailable) {
           return {
-            ...matchedAvailable,
+            ...slot,
             title: 'Recommended',
-            className: 'slot-available slot-recommended'
+            className: 'slot-available slot-recommended',
+            extendedProps: {
+              availableVendorIds
+            }
           };
         }
 
-        return matchedAvailable;
+        return {
+          ...slot,
+          title: '',
+          className: 'slot-available',
+          extendedProps: {
+            availableVendorIds
+          }
+        };
       }
 
-      return { ...slot, title: 'Unavailable', className: 'slot-unavailable' };
+      return { ...slot, title: 'Unavailable', className: 'slot-unavailable', extendedProps: { availableVendorIds: [] } };
     });
 
     setEvents(finalSlots);
@@ -722,6 +746,57 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     );
 
     if (isAlreadySelected) {
+      // Get all selected slots for this service on this date, sorted by time
+      const serviceSlotsForDate = selectedSlots
+        .filter((slot: Slot) => slot.service_id === service.uuid && slot.date === selectedDate)
+        .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+      // If only one slot, allow deselection
+      if (serviceSlotsForDate.length === 1) {
+        setSelectedSlots((prev: Slot[]) =>
+          prev.filter(
+            (slot: Slot) =>
+              !(
+                slot.service_id === service.uuid &&
+                slot.start_time === slotStart &&
+                slot.end_time === slotEnd &&
+                slot.date === selectedDate
+              )
+          )
+        );
+
+        const updatedEvents = events.map((event: Slots) => {
+          if (
+            dayjs(event.start).isSame(clicked.start) &&
+            dayjs(event.end).isSame(clicked.end)
+          ) {
+            return {
+              ...event,
+              title: '',
+              className: `slot-available`,
+            };
+          }
+          return event;
+        });
+
+        setEvents(updatedEvents);
+        return;
+      }
+
+      // Multiple slots: only allow deselection from start or end
+      const firstSlot = serviceSlotsForDate[0];
+      const lastSlot = serviceSlotsForDate[serviceSlotsForDate.length - 1];
+
+      const isFirstSlot = slotStart === firstSlot.start_time && slotEnd === firstSlot.end_time;
+      const isLastSlot = slotStart === lastSlot.start_time && slotEnd === lastSlot.end_time;
+
+      if (!isFirstSlot && !isLastSlot) {
+        // Prevent deselection of middle slots
+        toast.error('You can only remove slots from the start or end of your booking. Please unselect the first or last slot.');
+        return;
+      }
+
+      // Allow deselection
       setSelectedSlots((prev: Slot[]) =>
         prev.filter(
           (slot: Slot) =>
@@ -750,6 +825,36 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
       setEvents(updatedEvents);
       return;
+    }
+
+
+    // CONSECUTIVE SLOT VALIDATION FOR SELECTION
+    // Check if there are already selected slots for this service on this date
+    const serviceSlotsForDate = selectedSlots
+      .filter((slot: Slot) => slot.service_id === service.uuid && slot.date === selectedDate)
+      .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+    if (serviceSlotsForDate.length > 0) {
+      // Calculate the clicked slot's time in minutes from midnight for comparison
+      const clickedStartMinutes = dayjs(clicked.start).hour() * 60 + dayjs(clicked.start).minute();
+      const clickedEndMinutes = dayjs(clicked.end).hour() * 60 + dayjs(clicked.end).minute();
+
+      // Get first and last slot times
+      const firstSlot = serviceSlotsForDate[0];
+      const lastSlot = serviceSlotsForDate[serviceSlotsForDate.length - 1];
+
+      const firstSlotStartMinutes = parseInt(firstSlot.start_time.split(':')[0]) * 60 + parseInt(firstSlot.start_time.split(':')[1]);
+      const lastSlotEndMinutes = parseInt(lastSlot.end_time.split(':')[0]) * 60 + parseInt(lastSlot.end_time.split(':')[1]);
+
+      // Check if clicked slot is immediately before first slot or immediately after last slot
+      const isImmediatelyBefore = clickedEndMinutes === firstSlotStartMinutes;
+      const isImmediatelyAfter = clickedStartMinutes === lastSlotEndMinutes;
+
+      if (!isImmediatelyBefore && !isImmediatelyAfter) {
+        // Slot is not consecutive
+        toast.error('You must select consecutive time slots. Please select a slot immediately before or after your current booking.');
+        return;
+      }
     }
 
     const matching = vendorsData.filter(vendor => {
@@ -914,12 +1019,85 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           events={events}
           eventContent={(eventInfo) => {
             const isRecommended = eventInfo.event.classNames.includes('slot-recommended');
+            const isAvailable = eventInfo.event.classNames.includes('slot-available');
+            const availableVendorIds = eventInfo.event.extendedProps?.availableVendorIds || [];
+
+            // Get vendor data sorted by distance
+            const availableVendors = availableVendorIds
+              .map((vendorId: string) => vendorsData.find((v: VendorData) => v.uuid === vendorId))
+              .filter((v: VendorData | undefined): v is VendorData => v !== undefined)
+              .sort((a: VendorData, b: VendorData) => {
+                const distA = vendorDistances[a.uuid ?? ''] ?? Infinity;
+                const distB = vendorDistances[b.uuid ?? ''] ?? Infinity;
+                return distA - distB;
+              });
+
+            const visibleVendors = availableVendors.slice(0, 3);
+            const overflowVendors = availableVendors.slice(3);
 
             return (
-              <div className="fc-event-main-frame w-full h-full relative flex items-center justify-center">
-                <div className="fc-event-title fc-sticky text-center" style={{ fontSize: '9px', color: '#424242' }}>
-                  {eventInfo.event.title}
-                </div>
+              <div className="fc-event-main-frame w-full h-full relative flex flex-col items-center justify-center p-1 gap-0.5">
+                {isAvailable && availableVendors.length > 0 ? (
+                  <TooltipProvider delayDuration={200}>
+                    <div className="flex flex-wrap gap-0.5 items-center justify-center w-full">
+                      {visibleVendors.map((vendor: VendorData) => {
+                        const distance = vendorDistances[vendor.uuid ?? ''];
+                        const color = getDistanceColor(distance);
+                        return (
+                          <div
+                            key={vendor.uuid}
+                            className="flex items-center rounded-sm text-[9px] px-1.5 py-0.5 bg-white/90"
+                            style={{
+                              borderLeft: `5px solid ${color}`,
+                              maxWidth: '100%'
+                            }}
+                          >
+                            <span className="truncate text-[#424242] font-medium">
+                              {vendor.first_name}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {overflowVendors.length > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center rounded-sm text-[9px] px-1.5 py-0.5 bg-gray-200 cursor-pointer">
+                              <span className="text-[#424242] font-medium">
+                                +{overflowVendors.length}
+                              </span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="bg-white border border-gray-200 shadow-lg p-2">
+                            <div className="flex flex-col gap-1">
+                              {overflowVendors.map((vendor: VendorData) => {
+                                const distance = vendorDistances[vendor.uuid ?? ''];
+                                const color = getDistanceColor(distance);
+                                return (
+                                  <div
+                                    key={vendor.uuid}
+                                    className="flex items-center gap-1.5 text-[11px]"
+                                  >
+                                    <div
+                                      className="w-1 h-4 rounded-sm"
+                                      style={{ backgroundColor: color, width: '4px' }}
+                                    />
+                                    <span className="text-[#424242]">
+                                      {vendor.first_name} {vendor.last_name}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                  </TooltipProvider>
+                ) : (
+                  <div className="fc-event-title fc-sticky text-center" style={{ fontSize: '9px', color: '#424242' }}>
+                    {eventInfo.event.title}
+                  </div>
+                )}
                 {isRecommended && (
                   <div className="recommended-corner-indicator">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">

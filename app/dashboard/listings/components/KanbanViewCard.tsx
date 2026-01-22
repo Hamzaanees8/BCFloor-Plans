@@ -52,7 +52,7 @@ const KanbanViewCard = ({ listing, onQuickView }: KanbanViewCardProps) => {
           }
           className="flex-1"
         >
-          <p title={listing?.address + ", " + listing?.city} className={`${userType}-text text-[11px] truncate max-w-[200px]`}>
+          <p className={`${userType}-text text-[11px] truncate`}>
             {listing?.address + ", " + listing?.city}
           </p>
         </Link>

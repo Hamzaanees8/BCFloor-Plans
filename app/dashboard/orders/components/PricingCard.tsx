@@ -9,6 +9,7 @@ import { SelectedService } from "./Services";
 import { Services } from "../../services/page";
 import { useOrderContext } from "../context/OrderContext";
 import { useAppContext } from "@/app/context/AppContext";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
 
 interface PricingCardProps {
   title: string;
@@ -31,6 +32,13 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     selectedListingId
   } = useOrderContext();
   const { userType } = useAppContext()
+  const { appliedSettings } = useWhiteLabel();
+  const role = (userType as string)?.toLowerCase() || 'admin';
+  const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+
+  const fieldBg = `color-mix(in srgb, ${roleSettings.pageBg} 95%, black)`;
+  const fieldBorder = `color-mix(in srgb, ${roleSettings.pageBg} 80%, black)`;
+
   const selectedOption = selectedOptions[service.uuid] || null;
   const customPrice = customPrices[service.uuid] || '';
   const customServiceName = customServiceNames[service.uuid] || '';
@@ -41,7 +49,6 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
 
   const isSelected = !!selectedServiceItem;
   const isPaid = selectedServiceItem?.payment_status === 'PAID';
-
   const selectedPrice = useMemo(() => {
     const option = selectedOptions[service.uuid];
     if (!option) return null;
@@ -142,8 +149,12 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
   };
   return (
     <Card
-      className={`!w-[250px] h-fit ${isSelected ? "border-[#6BAE41]" : "border-[#BBBBBB]"
-        } bg-[#f5f5f5] border-2 rounded-[6px] px-2 py-4 text-[#333]`}
+      className={`!w-[250px] h-fit border-2 rounded-[6px] px-2 py-4`}
+      style={{
+        backgroundColor: fieldBg,
+        borderColor: isSelected ? roleSettings.pageTabColor : fieldBorder,
+        color: roleSettings.pageText
+      }}
     >
       <CardContent className="p-0">
         <div className="flex items-start justify-between mb-2">
@@ -189,10 +200,13 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                 }
               }}
 
+              style={{
+                backgroundColor: isSelected ? roleSettings.pageTabColor : `color-mix(in srgb, ${roleSettings.pageTabColor} 100%, black)`
+              }}
               className={`
-                        ${!selectedOption ? "cursor-not-allowed opacity-50" : ""}
                         ${isPaid ? "cursor-not-allowed opacity-80" : "cursor-pointer"}
                         ${isSelected ? "bg-[#6BAE41]" : "bg-[#4290E9]"}
+                        ${!selectedOption ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
                         p-1 w-6 h-6 flex justify-center items-center rounded-md
                       `}
             >
@@ -202,8 +216,8 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                 <Plus className="text-white w-4 h-4" />
               )}
             </div>
-            <div className="text-[16px] text-[#424242] text-center"><p>{title}</p></div>
-            <div className={`text-[20px] font-[500] ${isSelected ? "text-[#6BAE41]" : "text-[#424242]"}`}>
+            <div className="text-[16px] text-center" style={{ color: roleSettings.pageText }}><p>{title}</p></div>
+            <div className={`text-[20px] font-[500]`} style={{ color: isSelected ? roleSettings.pageTabColor : roleSettings.pageText }}>
               ${selectedPrice ? Number(selectedPrice).toFixed(2) : ''}
             </div>
 
@@ -269,11 +283,12 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                                   data-[state=checked]:before:m-auto
                                   data-[state=checked]:before:w-[14px]
                                   data-[state=checked]:before:h-[14px]
-                                  ${userType === 'admin'
-                              ? 'data-[state=checked]:before:bg-[#4290E9]'
-                              : 'data-[state=checked]:before:bg-[#6BAE41]'
-                            }
+                                  data-[state=checked]:before:bg-[var(--checked-bg)]
                                   data-[state=checked]:before:rounded-[2px]`}
+                          style={{
+                            // @ts-expect-error: Custom CSS property for dynamic checked background
+                            '--checked-bg': roleSettings.pageTabColor
+                          }}
                         />
                         <label htmlFor={`option-${idx}`} className="">
                           {option?.title ?? ''}
@@ -304,8 +319,12 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                           data-[state=checked]:before:m-auto
                           data-[state=checked]:before:w-[14px]
                           data-[state=checked]:before:h-[14px]
-                          data-[state=checked]:before:bg-[#4290E9]
+                          data-[state=checked]:before:bg-[var(--checked-bg)]
                           data-[state=checked]:before:rounded-[2px]"
+                        style={{
+                          // @ts-expect-error: Custom CSS property for dynamic checked background
+                          '--checked-bg': roleSettings.pageTabColor
+                        }}
                       />
                       <Input
                         placeholder="Service Name"

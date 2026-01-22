@@ -202,7 +202,7 @@ export const ArrowDown = ({ className = "" }) => (
     <path d="M0 0.429687L7 7.42969L14 0.429688L0 0.429687Z" fill="" />
   </svg>
 );
-export const DropDownArrow = ({ className = "" }) => (
+export const DropDownArrow = ({ className = "", stroke = "#4290E9" }) => (
   <svg
     width="14"
     height="9"
@@ -213,7 +213,7 @@ export const DropDownArrow = ({ className = "" }) => (
   >
     <path
       d="M1 1.42969L7 7.42969L13 1.42969"
-      stroke="#4290E9"
+      stroke={stroke}
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"

@@ -5,6 +5,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Services } from '../../services/page'
 import { useOrderContext } from '../context/OrderContext'
+import { useAppContext } from '@/app/context/AppContext'
+import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { Listings } from '../../listings/page'
 
 
@@ -63,6 +65,16 @@ const Services = ({ showAll }: { showAll: boolean }) => {
         setActivePackage,
         tempPropertyData
     } = useOrderContext();
+
+    const { userType } = useAppContext()
+    const { appliedSettings } = useWhiteLabel();
+    const role = (userType as string)?.toLowerCase() || 'admin';
+    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+
+    const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
+    const fieldBg = `color-mix(in srgb, ${roleSettings.pageBg} 95%, black)`;
+    const fieldBorder = `color-mix(in srgb, ${roleSettings.pageBg} 80%, black)`;
+
     // const [selected, setSelected] = React.useState('Alphabetically')
     const [servicesData, setServicesData] = useState<Services[]>([]);
     const [accordionDefaults, setAccordionDefaults] = useState<string[]>([]);
@@ -204,7 +216,10 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                             // })
                             .map(([category, services], idx) => (
                                 <AccordionItem key={idx} value={`group-${idx}`} className="border-none">
-                                    <AccordionTrigger className='text-[18px] font-[600] text-[#4290E9] px-4 py-3 my-2 bg-gray-50 hover:bg-gray-100 rounded-lg border-none transition-colors decoration-transparent hover:no-underline'>
+                                    <AccordionTrigger
+                                        className='text-[18px] font-[600] px-4 py-3 my-2 rounded-lg border-none transition-colors decoration-transparent hover:no-underline'
+                                        style={{ color: roleSettings.pageTabColor, backgroundColor: fieldBg }}
+                                    >
                                         {category}
                                     </AccordionTrigger>
                                     <AccordionContent className="border-none">
@@ -312,9 +327,9 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                         </AccordionContent>
                     </AccordionItem>
                 </Accordion> */}
-                <div className="hidden lg:block w-full lg:w-[40%] text-[#666666] relative">
-                    <div className="bg-white rounded-[8px] p-4 border border-[#BBBBBB] shadow-md py-[40px] sticky top-[160px]">
-                        <h2 className=" font-[600] text-[#333] mb-4 text-[24px]">Order</h2>
+                <div className="hidden lg:block w-full lg:w-[40%] relative" style={{ color: roleSettings.pageText }}>
+                    <div className="rounded-[8px] p-4 border shadow-md py-[40px] sticky top-[160px]" style={{ backgroundColor: headerBg, borderColor: fieldBorder }}>
+                        <h2 className=" font-[600] mb-4 text-[24px]" style={{ color: roleSettings.pageTabColor }}>Order</h2>
 
                         <div className="space-y-[12px] text-[15px] text-[#666666]">
                             <div className="flex justify-between">
@@ -350,7 +365,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
 
                             <div className='flex justify-end'>
                                 <div className='w-1/2'>
-                                    <hr className="my-2 w-[70px] h-[2px] bg-[#202020] justify-self-end" />
+                                    <hr className="my-2 h-[2px] justify-self-end" style={{ backgroundColor: roleSettings.pageTabColor, opacity: 0.3 }} />
                                     <div className="flex justify-between font-[500]">
                                         <span>Sub Total:</span>
                                         <span>$ {rawTotalPrice.toFixed(2)}</span>

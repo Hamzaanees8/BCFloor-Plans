@@ -639,8 +639,8 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
                         );
                     })()}
                     {(() => {
-                        let otherFiles = floorFiles.filter(file => file.type !== "Additional Files");
-                        let additionalFiles = floorFiles.filter(file => file.type === "Additional Files");
+                        let otherFiles = floorFiles.filter(file => file.type !== "Additional Files" && file.service_id === currentService?.uuid);
+                        let additionalFiles = floorFiles.filter(file => file.type === "Additional Files" && file.service_id === currentService?.uuid);
 
                         if (userType === 'agent') {
                             otherFiles = otherFiles.filter(file => file.is_show !== false);

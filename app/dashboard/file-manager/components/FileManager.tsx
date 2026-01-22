@@ -567,20 +567,22 @@ const FileManager = () => {
               >
                 Media
               </div>
-              <Link
-                href={`/dashboard/listings/create/${currentListing?.uuid}`}
-                className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${false
-                  ? `${userType}-bg text-white font-[700] ${userType}-border`
-                  : `text-[#666666] font-[700]`
-                  }`}
-                style={{
-                  backgroundColor: true
-                    ? `var(--${userType}-page-bg, #FFFFFF)`
-                    : "#FFFFFF",
-                }}
-              >
-                Property details
-              </Link>
+              {userType !== 'vendor' && (
+                <Link
+                  href={`/dashboard/listings/create/${currentListing?.uuid}`}
+                  className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${false
+                    ? `${userType}-bg text-white font-[700] ${userType}-border`
+                    : `text-[#666666] font-[700]`
+                    }`}
+                  style={{
+                    backgroundColor: true
+                      ? `var(--${userType}-page-bg, #FFFFFF)`
+                      : "#FFFFFF",
+                  }}
+                >
+                  Property details
+                </Link>
+              )}
               <Link
                 href={`/dashboard/orders/${orderId}`}
                 className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${false

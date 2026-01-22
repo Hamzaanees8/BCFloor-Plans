@@ -21,9 +21,10 @@ interface CoAgent {
 }
 interface AppointmentTab {
     currentOrder?: Order;
-    serviceId: number
+    serviceId: number;
+    disabled?: boolean;
 }
-function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
+function AppointmentTab({ currentOrder, serviceId, disabled }: AppointmentTab) {
     const { userType } = useAppContext();
     const [agent, setAgent] = useState("");
     const [company, setCompany] = useState("");
@@ -41,6 +42,7 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
     const [squareFootage, setSquareFootage] = useState("");
     const [notes, setNotes] = useState<Notes[]>([]);
     const [openAddNotesDialog, setOpenAddNotesDialog] = useState(false);
+    console.log('coAgent', coAgent);
 
     useEffect(() => {
 
@@ -113,7 +115,7 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
 
     }, [currentOrder, serviceId])
     return (
-        <div className=" w-full grid grid-cols-2 gap-4">
+        <div className={`w-full grid grid-cols-2 gap-4 ${disabled ? 'pointer-events-none opacity-70 cursor-not-allowed select-none' : ''}`}>
             <div className="col-span-1 font-alexandria">
                 <Label className="text-[14px] text-[#424242] " htmlFor="">Agent</Label>
                 <Input
@@ -346,8 +348,7 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                     className='mt-[40px]'>
                     <Link
                         href={`/dashboard/file-manager/${currentOrder?.uuid}`}
-                        className="bg-[#4290E9] w-[140px]  rounded-[6px] border-[1px] text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff]  w-[110px] h-[37px] hover:text-white hover:bg-[#4e9af1]"
-
+                        className="bg-[#4290E9] rounded-[6px] border-[1px] text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff] w-[110px] h-[37px] hover:text-white hover:bg-[#4e9af1]"
                     >Media</Link>
 
                 </div>

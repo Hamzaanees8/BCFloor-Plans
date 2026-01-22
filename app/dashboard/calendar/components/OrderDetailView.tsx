@@ -348,13 +348,14 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                 </DialogHeader>
                 <div className="p-4 overflow-y-auto max-h-[80vh] px-2">
 
-                    {activeTab === 'appointment' && !isEdit && (
-                        <AppointmentTab currentOrder={currentOrder} serviceId={serviceId} />
-                    )}
-                    {activeTab === 'appointment' && isEdit && userType !== 'vendor' && (
-                        <EditAppointmentTab
-                            currentOrder={currentOrder} serviceId={serviceId} agentData={agentData} notes={notes} setNotes={setNotes} coAgent={coAgent} setCoAgent={setCoAgent}
-                        />
+                    {activeTab === 'appointment' && (
+                        isEdit && userType !== 'vendor' ? (
+                            <EditAppointmentTab
+                                currentOrder={currentOrder} serviceId={serviceId} agentData={agentData} notes={notes} setNotes={setNotes} coAgent={coAgent} setCoAgent={setCoAgent}
+                            />
+                        ) : (
+                            <AppointmentTab currentOrder={currentOrder} serviceId={serviceId} disabled={isEdit && userType === 'vendor'} />
+                        )
                     )}
 
                     {activeTab === 'square_footage' && !isEdit && (

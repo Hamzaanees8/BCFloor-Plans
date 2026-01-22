@@ -49,7 +49,7 @@ export default function VendorWorkCarousel({
                                     <CarouselItem key={index} className="flex justify-center">
                                         <div className="relative w-full h-[400px] md:h-[500px]">
                                             <Image
-                                            unoptimized
+                                                unoptimized
                                                 src={img.image_url || "/placeholder.png"}
                                                 alt="carousel-image"
                                                 fill

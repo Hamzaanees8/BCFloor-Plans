@@ -14,6 +14,7 @@ import { Order } from '../page';
 import { Get } from '../../agents/agents';
 import { GetServices, GetPackages } from '../../services/services';
 import { useAppContext } from '@/app/context/AppContext';
+import { useWhiteLabel } from '@/app/context/Whitelabel';
 import OrderStepper from '../components/OrderStepper';
 const OrderForm = () => {
     const confirmationRef = useRef<OrderConfirmationHandle>(null);
@@ -59,6 +60,10 @@ const OrderForm = () => {
     const [active, setActive] = useState("property");
     const [currentUser, setCurrentUser] = useState<Order | null>(null);
     const { userType } = useAppContext()
+    const { appliedSettings } = useWhiteLabel();
+    const role = (userType as string)?.toLowerCase() || 'admin';
+    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+
     const {
         selectedServices,
         setSelectedAgentId,
@@ -322,7 +327,7 @@ const OrderForm = () => {
         if (targetIndex <= currentIndex) return true;
 
         // Check each tab up to the one before target
-        for (let i = 0;i < targetIndex;i++) {
+        for (let i = 0; i < targetIndex; i++) {
             const tabToCheck = tabs[i];
 
             // Property tab validation
@@ -343,17 +348,22 @@ const OrderForm = () => {
         return true;
     };
 
+    const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
+    const fieldBg = `color-mix(in srgb, ${roleSettings.pageBg} 95%, black)`;
+    const fieldBorder = `color-mix(in srgb, ${roleSettings.pageBg} 80%, black)`;
+
     return (
         // <OrderProvider>
-        <div className='font-alexandria'>
-            <div ref={headerRef} className='w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }} >
-                <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}> Orders
+        <div className='font-alexandria' style={{ backgroundColor: roleSettings.pageBg }}>
+            <div ref={headerRef} className='w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center border-b' style={{ backgroundColor: headerBg, borderColor: fieldBorder, boxShadow: "0px 4px 4px #0000001F" }} >
+                <p className={`text-[16px] md:text-[24px] font-[400]`} style={{ color: roleSettings.pageTabColor }}> Orders
                     {currentUser ? ` › ${currentUser.id} ${`(${currentUser?.property?.address})`}` : ' › Add New Order'}</p>
                 <div className='flex gap-2'>
                     {active !== "property" && !isSubmitted && (
                         <Button
                             onClick={handleBack}
-                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border bg-white ${userType}-button ${userType}-text hover-${userType}-bg text-[14px] md:text-[16px] font-[400] flex gap-[5px] items-center`}
+                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] bg-white text-[14px] md:text-[16px] font-[400] flex gap-[5px] items-center transition-all`}
+                            style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}
                         >
                             Back
                         </Button>
@@ -363,14 +373,19 @@ const OrderForm = () => {
                         <Button
                             onClick={handleNext}
                             disabled={!isValid()}
-                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-white hover-${userType}-bg disabled:opacity-50 disabled:cursor-not-allowed`}
+                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-white flex gap-[5px] items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
+                            style={{
+                                backgroundColor: isValid() ? roleSettings.pageTabColor : '#BBBBBB',
+                                borderColor: isValid() ? roleSettings.pageTabColor : '#BBBBBB'
+                            }}
                         >
                             Next
                         </Button>
                     ) : isSubmitted ? (
                         <Button
                             onClick={handleDoneClick}
-                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-white text-[14px] md:text-[16px] font-[400] flex gap-[5px] items-center hover:bg-[#4290E9]`}
+                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-white text-[14px] md:text-[16px] font-[400] flex gap-[5px] items-center transition-all`}
+                            style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
                         >
                             Done
                         </Button>
@@ -381,7 +396,8 @@ const OrderForm = () => {
                                 await confirmationRef.current?.handleSubmitOrder(e);
                                 setIsSubmitted(true);
                             }}
-                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-white flex gap-[5px] items-center justify-center hover:bg-[#4290E9]`}
+                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-white flex gap-[5px] items-center justify-center transition-all`}
+                            style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
                         >
                             {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Submit"}
                         </Button>
@@ -390,7 +406,7 @@ const OrderForm = () => {
 
 
             </div>
-            <div className='sticky top-[80px] z-40 bg-white flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[80px] text-[#4290E9] text-[18px] font-[600] shadow-sm' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }} >
+            <div className='sticky top-[80px] z-40 flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] h-[80px] text-[18px] font-[600] shadow-sm' style={{ backgroundColor: fieldBg, borderColor: fieldBorder }} >
                 <OrderStepper
                     currentTab={active}
                     onTabChange={handleTabClick}

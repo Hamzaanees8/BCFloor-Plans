@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { DropDownArrow } from "./Icons";
+import { DropDownArrow, DownloadIcon } from "./Icons";
 import { ChevronDownIcon, Plus, X, Eye, EyeOff } from "lucide-react";
 import ServiceItem from "./ServiceItem";
 import AddBreakPopup from "@/app/dashboard/calendar/components/AddBreakPopup";
@@ -71,8 +71,8 @@ export interface Services {
   product_options?: {
     uuid: string;
     id: number;
-    title: string;
-    amount: string;
+    title?: string;
+    amount?: string;
     cost?: number;
     adjustment_time?: string;
   }[];
@@ -129,7 +129,45 @@ export type CurrentUser = {
     status: boolean;
     created_at: string;
     updated_at: string;
-    service: Service;
+    service: {
+      id: number;
+      uuid: string;
+      name: string;
+      category_id: number;
+      thumbnail: string;
+      description: string;
+      created_at: string;
+      updated_at: string;
+      status: boolean;
+      background_color: string;
+      border_color: string;
+      quickbooks_item_id: string | null;
+      quickbooks_synced_at: string | null;
+      thumbnail_url: string;
+    };
+    options?: {
+      uuid: string;
+      vendor_service_id: number;
+      option_id: number;
+      vendor_price: string;
+      vendor_adjustment_time: string | null;
+      is_active: boolean;
+      created_at: string;
+      updated_at: string;
+      adjustment_time?: string;
+      product_option: {
+        id: number;
+        uuid: string;
+        service_id: number;
+        title: string;
+        amount: string;
+        cost: number | null;
+        adjustment_time: string | null;
+        created_at: string;
+        updated_at: string;
+        status: boolean;
+      } | null;
+    }[];
   }[];
   addresses?: {
     type: "company" | "billing" | string;
@@ -215,19 +253,6 @@ export interface WorkHoursData {
   emailType: string;
 }
 
-interface ProductOption {
-  uuid: string;
-  title: string;
-  cost?: number;
-  adjustment_time?: string;
-}
-
-interface Service {
-  serviceId: string;
-  product_options: ProductOption[];
-  optionPrices: { [key: string]: number };
-  optionTimes: { [key: string]: string };
-}
 export interface SelectedService {
   uuid?: string;
   service_id: string;
@@ -275,6 +300,7 @@ const VendorWorkHours = ({
   //   setSyncEmailType,
   //   syncEmailType,
   vendorServices,
+  setVendorServices,
   portfolioImages = [],
   setPortfolioImages,
   portfolioImagesUrls = [],
@@ -297,6 +323,8 @@ const VendorWorkHours = ({
   const [paginatedBreaks, setPaginatedBreaks] = useState<Break[]>([]);
   const { userType } = useAppContext();
   const [files, setFiles] = useState<File[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const dragCounter = useRef(0);
   const [tempOptionPrices, setTempOptionPrices] = useState<{
     [key: string]: number;
   }>({});
@@ -495,7 +523,7 @@ const VendorWorkHours = ({
       options,
     };
 
-    setSelectedServices((prev) => [...prev, newService]);
+    setSelectedServices((prev) => [newService, ...prev]);
     setServiceId("");
     setShowTimeFields(false);
     setIsAddingService(false);
@@ -513,6 +541,28 @@ const VendorWorkHours = ({
       const updatedServices = [...prev];
       const service = updatedServices[index];
 
+      if (!service) return prev;
+
+      service.options = service.options.map((opt) =>
+        opt.option_uuid === optionUuid ? { ...opt, [field]: value } : opt
+      );
+
+      return updatedServices;
+    });
+  };
+
+  const handleVendorServiceChange = (
+    index: number,
+    optionUuid: string,
+    field: "vendor_price" | "adjustment_time",
+    value: number | string
+  ) => {
+    setVendorServices((prev) => {
+      const updatedServices = [...prev];
+      const service = updatedServices[index];
+
+      if (!service) return prev;
+
       service.options = service.options.map((opt) =>
         opt.option_uuid === optionUuid ? { ...opt, [field]: value } : opt
       );
@@ -523,6 +573,10 @@ const VendorWorkHours = ({
 
   const handleRemoveService = (index: number) => {
     setSelectedServices((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveVendorService = (index: number) => {
+    setVendorServices((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleAddBreak = (newBreakData: Break) => {
@@ -607,6 +661,55 @@ const VendorWorkHours = ({
     setShowGallery(false);
   };
 
+  const handleDragEnter = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    dragCounter.current += 1;
+    setDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    dragCounter.current -= 1;
+    if (dragCounter.current === 0) {
+      setDragging(false);
+    }
+  }, []);
+
+  const handleDragOverWindow = useCallback((e: DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  const handleDropWindow = useCallback(
+    (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      setDragging(false);
+      dragCounter.current = 0;
+
+      const droppedFiles = Array.from(e.dataTransfer?.files || []);
+      if (droppedFiles.length > 0) {
+        handleLocalFiles(e.dataTransfer?.files || null);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [portfolioImages, setPortfolioImages]
+  );
+
+  useEffect(() => {
+    window.addEventListener("dragenter", handleDragEnter);
+    window.addEventListener("dragleave", handleDragLeave);
+    window.addEventListener("dragover", handleDragOverWindow);
+    window.addEventListener("drop", handleDropWindow);
+
+    return () => {
+      window.removeEventListener("dragenter", handleDragEnter);
+      window.removeEventListener("dragleave", handleDragLeave);
+      window.removeEventListener("dragover", handleDragOverWindow);
+      window.removeEventListener("drop", handleDropWindow);
+    };
+  }, [handleDragEnter, handleDragLeave, handleDragOverWindow, handleDropWindow]);
+
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -617,7 +720,9 @@ const VendorWorkHours = ({
     e.stopPropagation();
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleLocalFiles(e.dataTransfer.files);
-      e.dataTransfer.clearData();
+      if (e.dataTransfer.clearData) {
+        e.dataTransfer.clearData();
+      }
     }
   };
 
@@ -1158,14 +1263,24 @@ const VendorWorkHours = ({
                               <SelectValue placeholder="Select Service Option Here" />
                             </SelectTrigger>
                             <SelectContent>
-                              {servicesData.map((option) => (
-                                <SelectItem
-                                  key={option.uuid}
-                                  value={option.uuid}
-                                >
-                                  {option.name}
-                                </SelectItem>
-                              ))}
+                              {servicesData
+                                .filter(
+                                  (service) =>
+                                    !selectedServices.some(
+                                      (s) => s.service_id === service.uuid
+                                    ) &&
+                                    !vendorServices.some(
+                                      (s) => s.service_id === service.uuid
+                                    )
+                                )
+                                .map((option) => (
+                                  <SelectItem
+                                    key={option.uuid}
+                                    value={option.uuid}
+                                  >
+                                    {option.name}
+                                  </SelectItem>
+                                ))}
                             </SelectContent>
                           </Select>
 
@@ -1311,8 +1426,8 @@ const VendorWorkHours = ({
                                 index={index}
                                 selectedService={selectedService}
                                 servicesData={servicesData}
-                                onChange={handleServiceChange}
-                                onRemove={handleRemoveService}
+                                onChange={handleVendorServiceChange}
+                                onRemove={handleRemoveVendorService}
                                 currentUser={currentUser}
                                 fieldErrors={fieldErrors}
                               />
@@ -1558,6 +1673,25 @@ const VendorWorkHours = ({
                   Add photos to gallery
                 </p>
                 <div className="flex flex-col items-center">
+                  {dragging && (
+                    <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center backdrop-blur-sm">
+                      <div className="bg-white/20 border-2 border-dashed border-white rounded-3xl p-20 flex flex-col items-center gap-6 animate-in zoom-in duration-300">
+                        <div className="bg-[#4290E9] p-6 rounded-full shadow-2xl">
+                          <DownloadIcon
+                            width="48px"
+                            height="48px"
+                            fill="#fff"
+                          />
+                        </div>
+                        <p className="text-3xl font-bold text-white tracking-wide">
+                          Drop files here to upload
+                        </p>
+                        <p className="text-white/80 text-lg">
+                          Support for images and high-quality photos
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   {/* Modified FileUploader to trigger source selection modal */}
                   <div
                     className="w-full max-w-[450px] h-[200px] border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-[#4290E9] transition-colors"

@@ -20,7 +20,6 @@ import OrderDetailView from './OrderDetailView';
 import { useAppContext } from '@/app/context/AppContext';
 import { toast } from 'sonner';
 import { DeleteVendorBreak } from '../calendar';
-import { api } from '@/lib/api';
 import { Switch } from '@/components/ui/switch';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
 
@@ -71,6 +70,15 @@ export type CalanderVendor = {
         uuid: string
         vendor_id: string
     }[]
+    calendar_events?: {
+        id: string;
+        summary: string;
+        description?: string;
+        start: string;
+        end: string;
+        all_day: boolean;
+        status: string;
+    }[];
 };
 
 interface BigCalendarProps {
@@ -196,35 +204,18 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
     }
 
     useEffect(() => {
-        if (userType !== 'vendor') {
-            setVendorEvents([]);
-            return;
-        }
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        const vendorsToProcess = userType === 'vendor' && userInfo?.uuid
+            ? vendorData.filter(v => v.uuid === userInfo.uuid)
+            : vendorData.filter(v => selectedVendors.includes('ALL') || selectedVendors.includes(v.uuid || ''));
 
-        const fetchVendorEvents = async () => {
-            try {
-                let start_date, end_date;
-                if (visibleDays[0] === '30') {
-                    start_date = dayjs(date).startOf('month').format('YYYY-MM-DD');
-                    end_date = dayjs(date).endOf('month').format('YYYY-MM-DD');
-                } else if (visibleDays[0] === '7') {
-                    start_date = dayjs(date).startOf('week').format('YYYY-MM-DD');
-                    end_date = dayjs(date).endOf('week').format('YYYY-MM-DD');
-                } else {
-                    start_date = dayjs(date).format('YYYY-MM-DD');
-                    end_date = dayjs(date).format('YYYY-MM-DD');
-                }
+        const allMappedEvents: CalendarEvent[] = [];
 
-                const response = await api.get('/vendor/calendar/events', {
-                    params: {
-                        period: 'custom',
-                        start_date,
-                        end_date
-                    }
-                });
-
-                if (response.data.success) {
-                    const mappedEvents = response.data.events.map((event: { id: string; start: string; end: string; all_day: boolean }) => {
+        vendorsToProcess.forEach(vendor => {
+            if (vendor.calendar_events && Array.isArray(vendor.calendar_events)) {
+                const mappedEvents = vendor.calendar_events
+                    .filter(event => event.status !== 'cancelled')
+                    .map(event => {
                         const start = dayjs(event.start).toDate();
                         let end = dayjs(event.end).toDate();
 
@@ -240,17 +231,17 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                             start,
                             end,
                             allDay: false, // Force false to show in time grid
+                            vendor_id: vendor.uuid,
+                            vendor_name: `${vendor.first_name} ${vendor.last_name}`,
+                            color_id: Number(vendor?.company?.vendor_id ?? 0)
                         };
                     });
-                    setVendorEvents(mappedEvents);
-                }
-            } catch (error) {
-                console.error('Failed to fetch vendor events:', error);
+                allMappedEvents.push(...mappedEvents);
             }
-        };
+        });
 
-        fetchVendorEvents();
-    }, [userType, date, visibleDays]);
+        setVendorEvents(allMappedEvents);
+    }, [userType, vendorData, selectedVendors]);
 
     useEffect(() => {
 

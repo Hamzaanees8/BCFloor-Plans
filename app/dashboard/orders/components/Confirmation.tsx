@@ -339,21 +339,93 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                         };
                     }),
                 discounts,
-                slots: selectedSlots.map((slot: Slot) => ({
-                    ...(slot.uuid && { uuid: slot.uuid }),
-                    service_id: slot.service_id,
-                    vendor_id: slot.vendor_id,
-                    show_all_vendors: slot.show_all_vendors ? 1 : 0,
-                    schedule_override: slot.schedule_override ? 1 : 0,
-                    recommend_time: slot.recommend_time ? 1 : 0,
-                    travel: slot.travel ?? undefined,
-                    start_time: slot.start_time,
-                    end_time: slot.end_time,
-                    est_time: slot.est_time ?? null,
-                    distance: slot.distance ?? null,
-                    km_price: slot.km_price ?? null,
-                    date: slot.date
-                }))
+                slots: (() => {
+                    // Group slots by service_id, vendor_id, and date
+                    const groupedSlots: Record<string, Slot[]> = {};
+
+                    selectedSlots.forEach((slot: Slot) => {
+                        const key = `${slot.service_id}_${slot.vendor_id}_${slot.date}`;
+                        if (!groupedSlots[key]) {
+                            groupedSlots[key] = [];
+                        }
+                        groupedSlots[key].push(slot);
+                    });
+
+                    // Merge consecutive slots for each group
+                    const mergedSlots: Array<{
+                        uuid?: string;
+                        service_id: string;
+                        vendor_id: string;
+                        show_all_vendors: number;
+                        schedule_override: number;
+                        recommend_time: number;
+                        travel?: string;
+                        start_time: string;
+                        end_time: string;
+                        est_time: number | null;
+                        distance: number | null;
+                        km_price: number | null;
+                        date: string;
+                    }> = [];
+
+                    Object.values(groupedSlots).forEach((slots) => {
+                        // Sort slots by start time
+                        const sortedSlots = slots.sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+                        // Verify they are contiguous (sanity check)
+                        let isContiguous = true;
+                        for (let i = 0; i < sortedSlots.length - 1; i++) {
+                            if (sortedSlots[i].end_time !== sortedSlots[i + 1].start_time) {
+                                isContiguous = false;
+                                console.warn('Non-contiguous slots detected for service:', sortedSlots[i].service_id);
+                                break;
+                            }
+                        }
+
+                        if (!isContiguous) {
+                            // If not contiguous, send slots individually (fallback)
+                            sortedSlots.forEach(slot => {
+                                mergedSlots.push({
+                                    ...(slot.uuid && { uuid: slot.uuid }),
+                                    service_id: slot.service_id,
+                                    vendor_id: slot.vendor_id,
+                                    show_all_vendors: slot.show_all_vendors ? 1 : 0,
+                                    schedule_override: slot.schedule_override ? 1 : 0,
+                                    recommend_time: slot.recommend_time ? 1 : 0,
+                                    travel: slot.travel ?? undefined,
+                                    start_time: slot.start_time,
+                                    end_time: slot.end_time,
+                                    est_time: slot.est_time ?? null,
+                                    distance: slot.distance ?? null,
+                                    km_price: slot.km_price ?? null,
+                                    date: slot.date
+                                });
+                            });
+                        } else {
+                            // Merge into a single slot
+                            const firstSlot = sortedSlots[0];
+                            const lastSlot = sortedSlots[sortedSlots.length - 1];
+
+                            mergedSlots.push({
+                                ...(firstSlot.uuid && { uuid: firstSlot.uuid }),
+                                service_id: firstSlot.service_id,
+                                vendor_id: firstSlot.vendor_id,
+                                show_all_vendors: firstSlot.show_all_vendors ? 1 : 0,
+                                schedule_override: firstSlot.schedule_override ? 1 : 0,
+                                recommend_time: firstSlot.recommend_time ? 1 : 0,
+                                travel: firstSlot.travel ?? undefined,
+                                start_time: firstSlot.start_time,
+                                end_time: lastSlot.end_time,
+                                est_time: firstSlot.est_time ?? null,
+                                distance: firstSlot.distance ?? null,
+                                km_price: firstSlot.km_price ?? null,
+                                date: firstSlot.date
+                            });
+                        }
+                    });
+
+                    return mergedSlots;
+                })()
             };
 
             let response;

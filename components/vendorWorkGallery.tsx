@@ -82,8 +82,8 @@ export default function VendorWorkGallery({
             )}
 
             <DialogContent className="max-w-7xl h-[80vh] !rounded-none p-4 overflow-hidden bg-[#E4E4E4] font-alexandria">
-                <DialogHeader className="border-b border-gray-400 px-6 py-3 flex flex-row items-center justify-between">
-                    <DialogTitle className="text-[#4290E9] font-semibold tracking-wide">
+                <DialogHeader className="border-b border-gray-400 px-6 py-3">
+                    <DialogTitle className="text-[#4290E9] font-semibold tracking-wide text-left">
                         SELECT PHOTOS
                     </DialogTitle>
                 </DialogHeader>
@@ -98,44 +98,53 @@ export default function VendorWorkGallery({
                     </Button>
                 </div>
 
-                <div className="p-6 grid grid-cols-4 gap-4 overflow-y-auto">
-                    {files.map(file => {
-                        const isSelected = selected.includes(file.file_path);
+                <div className="p-6 h-full overflow-y-auto">
+                    {files.length > 0 ? (
+                        <div className="grid grid-cols-4 gap-4">
+                            {files.map(file => {
+                                const isSelected = selected.includes(file.file_path);
 
-                        return (
-                            <div
-                                key={file.id}
-                                className="justify-self-center cursor-pointer"
-                                onClick={() => toggleSelect(file.file_path)}
-                            >
-                                <div className="relative">
+                                return (
                                     <div
-                                        className={`relative w-[280px] h-[175px] bg-[#EEEEEE] overflow-hidden transition-all
-                      ${isSelected ? "border-[#4290E9] border-2" : "border-[#A8A8A8] border"}`}
+                                        key={file.id}
+                                        className="justify-self-center cursor-pointer"
+                                        onClick={() => toggleSelect(file.file_path)}
                                     >
-                                        {/*  eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                            src={`${API_URL}/${file.file_path}`}
-                                            alt={file.name}
-                                            className="object-cover w-full h-full"
-                                        />
-
-                                        {isSelected && (
-                                            <span
-                                                className="absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]"
-                                                style={{
-                                                    clipPath: "polygon(100% 0, 0 0, 100% 100%)",
-                                                    backgroundColor: "#4290E9"
-                                                }}
+                                        <div className="relative">
+                                            <div
+                                                className={`relative w-[280px] h-[175px] bg-[#EEEEEE] overflow-hidden transition-all
+                      ${isSelected ? "border-[#4290E9] border-2" : "border-[#A8A8A8] border"}`}
                                             >
-                                                <Check color="#fff" size={14} />
-                                            </span>
-                                        )}
+                                                {/*  eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                    src={`${API_URL}/${file.file_path}`}
+                                                    alt={file.name}
+                                                    className="object-cover w-full h-full"
+                                                />
+
+                                                {isSelected && (
+                                                    <span
+                                                        className="absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]"
+                                                        style={{
+                                                            clipPath: "polygon(100% 0, 0 0, 100% 100%)",
+                                                            backgroundColor: "#4290E9"
+                                                        }}
+                                                    >
+                                                        <Check color="#fff" size={14} />
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-                        );
-                    })}
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-full py-20 text-gray-500 font-alexandria">
+                            <p className="text-xl font-semibold mb-2">No media in your gallery</p>
+                            <p className="text-sm">Upload photos to see them here.</p>
+                        </div>
+                    )}
                 </div>
             </DialogContent>
         </Dialog>
