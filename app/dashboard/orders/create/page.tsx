@@ -129,6 +129,7 @@ const OrderForm = () => {
                     option_id: s.option?.uuid,
                     custom: s.custom,
                     optionName: s.option?.title ?? s.custom ?? '',
+                    payment_status: s.payment_status,
                 }));
             });
             setCustomServiceNames(() => {
@@ -321,7 +322,7 @@ const OrderForm = () => {
         if (targetIndex <= currentIndex) return true;
 
         // Check each tab up to the one before target
-        for (let i = 0; i < targetIndex; i++) {
+        for (let i = 0;i < targetIndex;i++) {
             const tabToCheck = tabs[i];
 
             // Property tab validation

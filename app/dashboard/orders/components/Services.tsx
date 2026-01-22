@@ -18,6 +18,7 @@ export interface SelectedService {
     quantity?: number;
     option_id?: string;
     optionName: string;
+    payment_status?: string;
 }
 
 
@@ -321,7 +322,14 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                             </div>
                             {selectedServices.map((service, idx) => (
                                 <div key={idx} className="flex justify-between">
-                                    <span>{service.title} - <span className='text-xs'>{service.optionName}</span></span>
+                                    <div className="flex items-center gap-x-3">
+                                        <span title={service.title + ' - ' + service.optionName} className='max-w-[200px] truncate cursor-pointer'>{service.title} - <span className='text-xs'>{service.optionName}</span></span>
+                                        {service.payment_status && (
+                                            <span className={`text-[10px] uppercase font-bold ${service.payment_status === 'PAID' ? 'text-green-600' : 'text-red-500'}`}>
+                                                {service.payment_status}
+                                            </span>
+                                        )}
+                                    </div>
                                     <span>$ {service.price}</span>
                                 </div>
                             ))}

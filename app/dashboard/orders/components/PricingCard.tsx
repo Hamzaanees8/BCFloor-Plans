@@ -35,9 +35,13 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
   const customPrice = customPrices[service.uuid] || '';
   const customServiceName = customServiceNames[service.uuid] || '';
   //const [selectedPrice, setSelectedPrice] = useState<number | null>(null);
-  const isSelected = useMemo(() => {
-    return (selectedServices ?? []).some((s) => s.uuid === service.uuid);
+  const selectedServiceItem = useMemo(() => {
+    return (selectedServices ?? []).find((s) => s.uuid === service.uuid);
   }, [selectedServices, service.uuid]);
+
+  const isSelected = !!selectedServiceItem;
+  const isPaid = selectedServiceItem?.payment_status === 'PAID';
+
   const selectedPrice = useMemo(() => {
     const option = selectedOptions[service.uuid];
     if (!option) return null;
@@ -146,6 +150,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
           <div className="flex justify-between gap-2 w-full items-center">
             <div
               onClick={() => {
+                if (isPaid) return;
                 if (!selectedOption) return;
 
                 let price: number | undefined = undefined;
@@ -178,7 +183,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                     if (alreadySelected) {
                       return prev.filter(item => item.uuid !== service.uuid);
                     } else {
-                      return [...prev, { title, uuid: service.uuid, price, quantity, option_id, custom, optionName }];
+                      return [...prev, { title, uuid: service.uuid, price, quantity, option_id, custom, optionName, payment_status: 'UNPAID' }];
                     }
                   });
                 }
@@ -186,7 +191,8 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
 
               className={`
                         ${!selectedOption ? "cursor-not-allowed opacity-50" : ""}
-                        ${isSelected ? "bg-[#6BAE41] cursor-pointer" : "bg-[#4290E9] cursor-pointer"}
+                        ${isPaid ? "cursor-not-allowed opacity-80" : "cursor-pointer"}
+                        ${isSelected ? "bg-[#6BAE41]" : "bg-[#4290E9]"}
                         p-1 w-6 h-6 flex justify-center items-center rounded-md
                       `}
             >
