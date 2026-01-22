@@ -3,9 +3,10 @@ import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'rea
 import { useOrderContext } from '../context/OrderContext';
 import ConfirmationCard from './ConfirmationCard';
 import { Slot } from '../context/OrderContext';
+import { SelectedService } from './Services';
 
 import { Input } from '@/components/ui/input';
-import { Plus, TriangleAlert, Loader2 } from 'lucide-react';
+import { Plus, Loader2, File } from 'lucide-react';
 import { GetDiscount } from '../../global-settings/global-settings';
 import { toast } from 'sonner';
 import { Create, Edit, GetOneOrder, GetVendors, OrderPayload, CreateListings } from '../orders';
@@ -63,7 +64,8 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         activePackage,
         tempPropertyData,
         setTempPropertyData,
-        servicesData: services
+        servicesData: services,
+        listingsData
     } = useOrderContext();
     const { userType } = useAppContext()
     const router = useRouter();
@@ -74,7 +76,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         if (from === 'calendar') {
             router.push('/dashboard/calendar');
         } else {
-            router.push('/dashboard/listings');
+            router.push('/dashboard/orders');
         }
     };
 
@@ -85,6 +87,31 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     const [amount, setAmount] = React.useState('');
     const params = useParams();
     const userId = params?.id as string;
+
+    const currentListing = listingsData.find(l => l.uuid === selectedListingId);
+    const sqFootage = Number(currentListing?.square_footage || tempPropertyData?.square_footage || 0);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const getOriginalPrice = React.useCallback((sel: SelectedService) => {
+        let originalPrice = Number(sel.price) || 0;
+
+        if (sel.payment_status?.toUpperCase() !== 'PAID' && !sel.custom) {
+            const fullService = services.find(s => s.uuid === sel.uuid);
+            const catalogOption = fullService?.product_options?.find(o => o.uuid === sel.option_id || o.title === sel.optionName);
+
+            if (catalogOption) {
+                if (catalogOption.sq_ft_rate && parseFloat(catalogOption.sq_ft_rate) > 0 && sqFootage > 0) {
+                    const calculated = parseFloat(catalogOption.sq_ft_rate) * sqFootage;
+                    originalPrice = catalogOption.min_price
+                        ? Math.max(calculated, catalogOption.min_price)
+                        : calculated;
+                } else if (Number(catalogOption.amount) > 0) {
+                    originalPrice = Number(catalogOption.amount);
+                }
+            }
+        }
+        return originalPrice;
+    }, [services, sqFootage]);
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -97,7 +124,16 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         GetOneOrder(token, createdOrderUuid)
             .then((data) => {
                 setOrderData(data.data);
-                setAmount(data.data.amount);
+                setOrderData(data.data);
+                // If the entire order is paid, balance is 0.
+                if (data.data.payment_status?.toUpperCase() === 'PAID') {
+                    setAmount("0.00");
+                } else {
+                    // For UNPAID (or others), we assume the balance due is the total order amount
+                    // TODO: Handle partial payments if necessary by checking individual service statuses or transaction logs if available
+                    // For now, reliance on data.data.amount (which is the final discounted total from backend) is safer than summing service amounts manually
+                    setAmount(data.data.amount || "0.00");
+                }
             })
             .catch((err) => console.log(err.message));
     }, [createdOrderUuid]);
@@ -139,14 +175,13 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             const expiry = discount.expiry_date ? new Date(discount.expiry_date) : null;
             if (expiry && expiry.getTime() < now.getTime()) return false;
 
-            return discount.services.some((dService) => {
-                const selectedService = selectedServices.find((sel) => sel.uuid === dService.uuid);
-                if (!selectedService) return false;
+            // Count total quantity of eligible services (including matching PAID services)
+            const eligibleCount = selectedServices
+                .filter(sel => discount.services?.some(dService => dService.uuid === sel.uuid))
+                .reduce((sum, sel) => sum + (Number(sel.quantity) || 1), 0);
 
-                const requiredQty = parseInt((discount.quantity ?? 0).toString());
-                const selectedQty = parseInt(String(selectedService.quantity ?? "0"));
-                return selectedQty >= requiredQty;
-            });
+            const requiredQty = Number(discount.quantity) || 0;
+            return eligibleCount >= requiredQty;
         });
 
         setAppliedQuantityDiscounts(validQuantityDiscounts);
@@ -157,10 +192,9 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         let newTotal = 0;
 
         selectedServices.forEach(sel => {
-            const fullService = services.find(s => s.uuid === sel.uuid);
-            if (!fullService) return;
+            if (sel.payment_status?.toUpperCase() === 'PAID') return;
 
-            const originalPrice = Number(sel.price) || 0;
+            const originalPrice = getOriginalPrice(sel);
 
             const codeDiscount = appliedCodeDiscount?.services?.some(d => d.uuid === sel.uuid)
                 ? appliedCodeDiscount
@@ -188,14 +222,17 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         });
 
         if (activePackage && (activePackage.discount || 0) > 0) {
-            const rawShopTotal = selectedServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+            const rawShopTotal = selectedServices.reduce((sum, s) => {
+                if (s.payment_status?.toUpperCase() === 'PAID') return sum;
+                return sum + getOriginalPrice(s);
+            }, 0);
             const pkgDiscount = (rawShopTotal * (activePackage.discount || 0)) / 100;
             // Ensure we don't go below zero?
             newTotal = Math.max(0, newTotal - pkgDiscount);
         }
 
         setTotal(newTotal);
-    }, [selectedServices, services, appliedCodeDiscount, appliedQuantityDiscounts, setTotal, activePackage]);
+    }, [selectedServices, services, appliedCodeDiscount, appliedQuantityDiscounts, setTotal, activePackage, listingsData, selectedListingId, tempPropertyData, getOriginalPrice]);
     const handleApplyDiscount = () => {
         const matched = discounts.find(
             (d) => d.type === "code" && d.code_key?.toLowerCase() === discountCode.toLowerCase()
@@ -209,8 +246,9 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         //     toast.error("This discount is already applied.");
         //     return;
         // }
-        // Check if selectedServices contains at least one of the services eligible for this discount
+        // Check if selectedServices contains at least one of the services eligible for this discount (unpaid only)
         const validForService = selectedServices.some(sel =>
+            sel.payment_status?.toUpperCase() !== 'PAID' &&
             matched.services?.some(dService => dService.uuid === sel.uuid)
         );
 
@@ -232,6 +270,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         }[] = [];
 
         selectedServices.forEach(sel => {
+            if (sel.payment_status?.toUpperCase() === 'PAID') return;
             const allApplicableDiscounts: Discount[] = [];
 
             if (appliedCodeDiscount?.services?.some(d => d.uuid === sel.uuid)) {
@@ -252,7 +291,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
 
             if (bestDiscount) {
                 const discountPercent = parseFloat(bestDiscount.percentage ?? '0');
-                const originalPrice = Number(sel.price) || 0;
+                const originalPrice = getOriginalPrice(sel);
                 const discountAmount = (originalPrice * discountPercent) / 100;
 
                 discountPayload.push({
@@ -306,35 +345,24 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                 })),
                 services: selectedServices
                     .map(service => {
-                        const originalPrice = Number(service.price) || 0;
+                        const isPaid = service.payment_status?.toUpperCase() === 'PAID';
+                        const originalPrice = getOriginalPrice(service);
 
-                        const codeDiscount = appliedCodeDiscount?.services?.some(d => d.uuid === service.uuid)
-                            ? appliedCodeDiscount
-                            : null;
-
-                        const quantityDiscounts = appliedQuantityDiscounts.filter(d =>
-                            d.services?.some(s => s.uuid === service.uuid)
-                        );
-
-                        const allDiscounts: Discount[] = [];
-                        if (codeDiscount) allDiscounts.push(codeDiscount);
-                        allDiscounts.push(...quantityDiscounts);
-
-                        const bestDiscount = allDiscounts.reduce((best, curr) => {
-                            const currPercent = parseFloat(curr.percentage ?? "0");
-                            const bestPercent = best ? parseFloat(best.percentage ?? "0") : 0;
-                            return currPercent > bestPercent ? curr : best;
-                        }, null as Discount | null);
-
-                        const finalPrice = bestDiscount
-                            ? originalPrice * ((100 - parseFloat(bestDiscount.percentage ?? "0")) / 100)
-                            : originalPrice;
+                        if (isPaid) {
+                            return {
+                                ...(service.service_uuid && { uuid: service.service_uuid }),
+                                service_id: service.uuid as string,
+                                option_id: service.option_id ?? undefined,
+                                amount: Number(originalPrice.toFixed(2)),
+                                custom: service.custom ?? undefined
+                            };
+                        }
 
                         return {
                             ...(service.service_uuid && { uuid: service.service_uuid }), // Include uuid for existing services
                             service_id: service.uuid as string,
                             option_id: service.option_id ?? undefined,
-                            amount: Number(finalPrice.toFixed(2)),
+                            amount: Number(originalPrice.toFixed(2)),
                             custom: service.custom ?? undefined
                         };
                     }),
@@ -374,7 +402,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
 
                         // Verify they are contiguous (sanity check)
                         let isContiguous = true;
-                        for (let i = 0; i < sortedSlots.length - 1; i++) {
+                        for (let i = 0;i < sortedSlots.length - 1;i++) {
                             if (sortedSlots[i].end_time !== sortedSlots[i + 1].start_time) {
                                 isContiguous = false;
                                 console.warn('Non-contiguous slots detected for service:', sortedSlots[i].service_id);
@@ -450,9 +478,10 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         }
     };
 
-    const totalServiceAmount = orderData?.services?.reduce((sum: number, s: OrderService) => {
-        return sum + parseFloat(s.amount || "0");
-    }, 0) ?? 0;
+    const totalServiceAmount = orderData?.services
+        ?.reduce((sum: number, s: OrderService) => {
+            return sum + parseFloat(s.amount || "0");
+        }, 0) ?? 0;
 
     const totalDiscountValue = orderData?.totals?.reduce((sum: number, d: OrderDiscount) => {
         return sum + parseFloat(d.discount_value || "0");
@@ -487,7 +516,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                 <div className='flex flex-col gap-[10px]'>
                                     <div className='flex justify-between gap-[12px]'>
                                         <div className='flex gap-[12px] items-center'>
-                                            <TriangleAlert className='text-[#4290E9] h-[24px]w-[30px]  md:h-[36px] md:w-[40px]' />
+                                            <File className='text-[#4290E9] h-[24px]w-[30px]  md:h-[36px] md:w-[40px]' />
                                             <p className='text-[#4290E9] text-[24px] md:text-[36px] font-[400]'>Order {orderData?.id}</p>
                                         </div>
                                         <div className='flex items-center gap-[12px] hidden'>
@@ -523,7 +552,8 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                     <p className='grid grid-cols-4 gap-[15px]'>
                                         <span className='col-span-3'>Package</span>
                                         <span className='col-span-1'>
-                                            ${orderData?.services?.reduce((total, service) => total + parseFloat(service.amount), 0).toFixed(2)}
+                                            ${orderData?.services
+                                                ?.reduce((total, service) => total + parseFloat(service.amount), 0).toFixed(2)}
                                         </span>
                                     </p>
 
@@ -532,19 +562,21 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                         <span className='col-span-1'>{orderData?.services?.length}</span>
                                     </p>
                                     <div className="grid gap-[15px]">
-                                        {orderData?.services?.map((service) => (
-                                            <p key={service.id} className="grid grid-cols-4 gap-[15px]">
-                                                <span className="col-span-3">{service.service?.name ?? ""}</span>
-                                                <span className="col-span-1">${parseFloat(service.amount).toFixed(2)}</span>
-                                            </p>
-                                        ))}
+                                        {orderData?.services?.map((service) => {
+                                            const isPaid = service.payment_status?.toUpperCase() === 'PAID';
+                                            return (
+                                                <p key={service.id} className="grid grid-cols-4 gap-[15px] items-center">
+                                                    <span className="col-span-3 flex items-center gap-2">
+                                                        {service.service?.name ?? ""}
+                                                        {isPaid && (
+                                                            <span className="text-[10px] bg-[#6BAE41] text-white px-1.5 py-0.5 rounded font-semibold uppercase">Paid</span>
+                                                        )}
+                                                    </span>
+                                                    <span className="col-span-1">${parseFloat(service.amount).toFixed(2)}</span>
+                                                </p>
+                                            );
+                                        })}
                                     </div>
-                                    <p className='grid grid-cols-4 gap-[15px]'>
-                                        <span className='col-span-3'>Discount</span>
-                                        <span className='col-span-1'>
-                                            -${totalDiscountValue.toFixed(2)} ({discountPercent}%)
-                                        </span>
-                                    </p>
                                     <p className='grid grid-cols-4 gap-[15px]'>
                                         <span className='col-span-3'>GST/HST</span>
                                         <span className='col-span-1'>$0.00</span>
@@ -553,19 +585,50 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                         <span className='col-span-3'>PST/RST/QST</span>
                                         <span className='col-span-1'>$0.00</span>
                                     </p>
-                                    <p className='grid grid-cols-4 gap-[15px]'>
-                                        <span className='col-span-3'>Subtotal</span>
-                                        <span className='col-span-1'>${amount}</span>
-                                    </p>
-                                    <p className='grid grid-cols-4 gap-[15px] text-[20px] md:text-[24px] font-[500]'>
-                                        <span className='col-span-3'>Grand Total</span>
-                                        <span className='col-span-1'>${amount}</span>
-                                    </p>
-                                    <Button
+                                    {(() => {
+                                        const netAmount = totalServiceAmount - totalDiscountValue;
+                                        // amount is the "Amount/Balance Due" from state (calculated in useEffect)
+                                        // Therefore, the "Paid" amount is (Total Order Value) - (Balance Due)
+                                        // effectively: Net Total - Amount Due
+                                        const paidVal = netAmount - parseFloat(amount || "0");
+
+                                        // Safety check for negative paidVal due to floating point or initial state mismatch
+                                        const displayPaidVal = Math.max(0, paidVal);
+
+                                        return (
+                                            <>
+                                                <p className='grid grid-cols-4 gap-[15px]'>
+                                                    <span className='col-span-3'>Subtotal</span>
+                                                    <span className='col-span-1'>${totalServiceAmount.toFixed(2)}</span>
+                                                </p>
+                                                <p className='grid grid-cols-4 gap-[15px]'>
+                                                    <span className='col-span-3'>Discount</span>
+                                                    <span className='col-span-1'>
+                                                        -${totalDiscountValue.toFixed(2)} ({discountPercent}%)
+                                                    </span>
+                                                </p>
+                                                <p className='grid grid-cols-4 gap-[15px]'>
+                                                    <span className='col-span-3'>Grand Total</span>
+                                                    <span className='col-span-1'>${netAmount.toFixed(2)}</span>
+                                                </p>
+                                                {displayPaidVal > 0.01 && (
+                                                    <p className='grid grid-cols-4 gap-[15px] text-[#6BAE41]'>
+                                                        <span className='col-span-3'>Paid</span>
+                                                        <span className='col-span-1'>-${displayPaidVal.toFixed(2)}</span>
+                                                    </p>
+                                                )}
+                                                <p className='grid grid-cols-4 gap-[15px] text-[20px] md:text-[24px] font-[500]'>
+                                                    <span className='col-span-3'>{displayPaidVal > 0.01 ? "Balance Due" : "Amount Due"}</span>
+                                                    <span className='col-span-1'>${amount}</span>
+                                                </p>
+                                            </>
+                                        );
+                                    })()}
+                                    {/* <Button
                                         className="col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px]  border-[1px] border-[#4290E9] bg-[#EEEEEE] text-[14px] md:text-[14px] font-[600] text-[#4290E9] flex gap-[5px] justify-center items-center hover:text-[#fff] hover:bg-[#4290E9] font-raleway pointer-events-none"
                                     >
-                                        Awaiting Payment  ${amount}
-                                    </Button>
+                                        Payment Due: ${amount}
+                                    </Button> */}
                                     <Button
                                         onClick={handleDone}
                                         className="col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px] bg-[#4290E9] text-[14px] md:text-[14px] font-[600] text-white flex gap-[5px] justify-center items-center hover:bg-[#005fb8] font-raleway"
@@ -641,7 +704,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                 service={fullService}
                                                 title={fullService.name ?? ""}
                                                 selectedService={sel}
-                                                slotInfo={slotInfo} // 👈 passed here
+                                                slotInfo={slotInfo}
                                             />
                                         );
                                     })}
@@ -657,6 +720,9 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                             className="h-[42px] w-full bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[8px]"
                                             type="text"
                                         />
+                                        <p className="text-[10px] text-[#888888] mt-1 italic">
+                                            Discount will not be applied to already paid services.
+                                        </p>
                                     </div>
                                     <div className='w-[32px] h-[32px] flex items-center justify-center mt-[30px] cursor-pointer' onClick={() => { handleApplyDiscount(); setDiscountCode(""); }}>
                                         <Plus className={`w-[24px] h-[24px] ${userType}-bg text-white rounded-sm `} />
@@ -666,7 +732,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                     const fullService = services.find(s => s.uuid === sel.uuid);
                                     if (!fullService) return null;
 
-                                    const originalPrice = Number(sel.price) || 0;
+                                    const originalPrice = getOriginalPrice(sel);
 
                                     const codeDiscount = appliedCodeDiscount?.services?.some(d => d.uuid === sel.uuid)
                                         ? appliedCodeDiscount
@@ -709,7 +775,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                 })}
 
                                 <div className='col-span-2'>
-                                    <div className='flex flex-col gap-2 px-2'>
+                                    <div className='flex flex-col gap-2'>
                                         {activePackage && (activePackage.discount || 0) > 0 && (
                                             <div className='flex items-center justify-between'>
                                                 <p className='font-normal text-[14px] text-green-600'>
@@ -717,18 +783,49 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                 </p>
                                                 <p className='font-normal text-[14px] text-green-600'>
                                                     - ${(
-                                                        (selectedServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0) * (activePackage.discount || 0)) / 100
+                                                        (selectedServices.reduce((sum, s) => sum + (getOriginalPrice(s) || 0), 0) * (activePackage.discount || 0)) / 100
                                                     ).toFixed(2)}
                                                 </p>
                                             </div>
                                         )}
-                                        <div className='flex items-center justify-between'>
-                                            <p className='font-normal text-[20px] text-[#424242]'>Total</p>
-                                            <p className='font-normal text-[20px] text-[#424242]'>
-                                                ${total.toFixed(2)}
-                                            </p>
+                                        {(() => {
+                                            const paidAmount = selectedServices.reduce((acc, curr) => {
+                                                if (curr.payment_status?.toUpperCase() === 'PAID') {
+                                                    return acc + (getOriginalPrice(curr) || 0);
+                                                }
+                                                return acc;
+                                            }, 0);
 
-                                        </div>
+                                            // Grand Total is simply the Amount Paid + Amount Remaining (Total)
+                                            const grandTotal = paidAmount + total;
+
+                                            return (
+                                                <>
+                                                    <div className='flex items-center justify-between'>
+                                                        <p className='font-normal text-[14px] text-[#424242]'>Grand Total</p>
+                                                        <p className='font-normal text-[14px] text-[#424242]'>
+                                                            ${grandTotal.toFixed(2)}
+                                                        </p>
+                                                    </div>
+                                                    {paidAmount > 0 && (
+                                                        <div className='flex items-center justify-between text-[#6BAE41]'>
+                                                            <p className='font-normal text-[14px]'>Paid</p>
+                                                            <p className='font-normal text-[14px]'>
+                                                                -${paidAmount.toFixed(2)}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                    <div className='flex items-center justify-between mt-2 pt-2 border-t'>
+                                                        <p className='font-normal text-[20px] text-[#424242]'>
+                                                            {paidAmount > 0 ? "Balance Due" : "Amount Due"}
+                                                        </p>
+                                                        <p className='font-normal text-[20px] text-[#424242]'>
+                                                            ${total.toFixed(2)}
+                                                        </p>
+                                                    </div>
+                                                </>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                                 {!userType &&

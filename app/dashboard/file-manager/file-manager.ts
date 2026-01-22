@@ -479,6 +479,7 @@ export async function createPayment(
     serviceId?: string;
     paymentType?: "full" | "service";
     serviceName?: string;
+    amount?: string | number;
   }
 ) {
   try {
@@ -495,7 +496,7 @@ export async function createPayment(
     const body = {
       agent_uuid: order.agent.uuid,
       url,
-      amount: order.amount,
+      amount: options?.amount || order.amount,
       currency: "USD",
       order_id: order.id,
       description: description,

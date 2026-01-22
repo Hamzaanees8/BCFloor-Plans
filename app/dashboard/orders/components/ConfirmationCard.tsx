@@ -44,16 +44,24 @@ export default function ConfirmationCard({ title, service, selectedService, slot
                         </div>
                     </div>
                 </div>
-                <div className="flex flex-col gap-1">
-                    {slotInfo?.map((info, idx) => (
-                        <div key={idx} className="flex flex-col mb-2">
-                            <p className="text-[#666666] text-[12px] font-semibold">Vendor: {info.vendorName}</p>
-                            {info.timeRanges.map((range, i) => (
-                                <p key={i} className="text-[#666666] text-[12px] font-normal">{range}</p>
-                            ))}
-                        </div>
-                    ))}
+                <div className="flex items-start justify-between">
+                    <div className="flex flex-col gap-1">
+                        {slotInfo?.map((info, idx) => (
+                            <div key={idx} className="flex flex-col mb-2">
+                                <p className="text-[#666666] text-[12px] font-semibold">Vendor: {info.vendorName}</p>
+                                {info.timeRanges.map((range, i) => (
+                                    <p key={i} className="text-[#666666] text-[12px] font-normal">{range}</p>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                    {selectedService.payment_status?.toUpperCase() === 'PAID' && (
+                        <span className="text-[10px] bg-[#6BAE41] text-white px-2 py-0.5 rounded-full font-semibold uppercase border border-green-200">
+                            Already Paid
+                        </span>
+                    )}
                 </div>
+
                 {service.product_options && service.product_options.length > 0 && (
                     <Accordion type="single" collapsible >
                         <AccordionItem value="pricing" className="border-none">

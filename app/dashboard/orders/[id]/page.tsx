@@ -9,13 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from "@/components/ui/switch";
-import { TriangleAlert, Copy } from "lucide-react";
+import { Copy, File } from "lucide-react";
 //import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
 import { EditOrderStatus, GetOneOrder, GetVendors } from "../orders";
+import { GetServices, GetPackages } from "../../services/services";
+import { Services, Packages } from "../../services/page";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Order } from "../page";
+import { Order, OrderService } from "../page";
 import { Country } from "country-state-city";
 import { useAppContext } from "@/app/context/AppContext";
 import VendorOrderEdit from "../components/VendorOrderEdit";
@@ -116,7 +118,6 @@ function Page() {
   const [order_status, setOrder_status] = useState('');
   const [property_website, setProperty_website] = useState('');
   const [mls_property, setMls_property] = useState('');
-  const [amount, setAmount] = useState("");
   const [country, setCountry] = useState("");
   const [countries, setCountries] = useState<
     { name: string; isoCode: string }[]
@@ -137,7 +138,55 @@ function Page() {
   const [isLoading, setIsLoading] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [paymentConfirm, setPaymentConfirm] = useState(false);
+
   const [origin, setOrigin] = useState("");
+
+  const [services, setServices] = useState<Services[]>([]);
+  const [packagesData, setPackagesData] = useState<Packages[]>([]);
+  const [activePackage, setActivePackage] = useState<Packages | null>(null);
+
+  const getOriginalPrice = (sel: OrderService) => {
+    let originalPrice = Number(sel.amount) || 0;
+    const sqFootage = Number(orderData?.property?.square_footage || 0);
+
+    if (sel.payment_status?.toUpperCase() !== 'PAID' && !sel.custom) {
+      const fullService = services?.find(s => s.uuid === sel.service?.uuid);
+      const catalogOption = fullService?.product_options?.find(o => o.uuid === sel.option?.uuid || o.title === sel.optionName);
+
+      if (catalogOption) {
+        if (catalogOption.sq_ft_rate && parseFloat(catalogOption.sq_ft_rate) > 0 && sqFootage > 0) {
+          const calculated = parseFloat(catalogOption.sq_ft_rate) * sqFootage;
+          originalPrice = catalogOption.min_price
+            ? Math.max(calculated, catalogOption.min_price)
+            : calculated;
+        } else if (Number(catalogOption.amount) > 0) {
+          originalPrice = Number(catalogOption.amount);
+        }
+      }
+    }
+    return originalPrice;
+  };
+
+  useEffect(() => {
+    if (!orderData?.services || !packagesData.length) return;
+
+    const selectedIds = orderData.services.map(s => s.service.uuid);
+    let foundPackage = null;
+
+    for (const pkg of packagesData) {
+      const pkgServiceIds = pkg.services.map(s => s.uuid);
+      const isMatch =
+        pkgServiceIds.length > 0 &&
+        pkgServiceIds.length === selectedIds.length &&
+        pkgServiceIds.every(id => selectedIds.includes(id));
+
+      if (isMatch) {
+        foundPackage = pkg;
+        break;
+      }
+    }
+    setActivePackage(foundPackage);
+  }, [orderData, packagesData]);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -191,7 +240,6 @@ function Page() {
         setOrder_status(data.data.order_status);
         setProperty_website(data.data.property.property_website);
         setMls_property(data.data.property.mls_number);
-        setAmount(data.data.amount);
         setselectedVendors(data.data.vendor.uuid);
 
       })
@@ -199,31 +247,37 @@ function Page() {
   }, [orderId]);
   useEffect(() => {
     const token = localStorage.getItem("token");
-
-    if (!token) {
-      console.log("Token not found.");
-      return;
-    }
+    if (!token) return;
 
     GetVendors(token)
       .then((data) => {
         setVendors(data.data);
       })
       .catch((err) => console.log(err.message));
-  }, [orderId]);
-  const totalServiceAmount =
-    orderData?.services?.reduce((sum, s) => {
-      return sum + parseFloat(s.amount || "0");
-    }, 0) ?? 0;
-  const totalDiscountValue =
-    orderData?.totals?.reduce((sum, d) => {
-      return sum + parseFloat(d.discount_value || "0");
-    }, 0) ?? 0;
 
-  const discountPercent =
-    totalServiceAmount > 0
-      ? ((totalDiscountValue / totalServiceAmount) * 100).toFixed(2)
-      : "0.00";
+    GetServices(token).then(res => setServices(Array.isArray(res.data) ? res.data : [])).catch(console.log);
+    GetPackages(token).then(res => setPackagesData(Array.isArray(res.data) ? res.data : [])).catch(console.log);
+  }, [orderId]);
+  // Use backend amount as the source of truth for the Grand Total (Net Price)
+  const calculatedGrandTotal = parseFloat(orderData?.amount || "0");
+
+  // For Balance Due, we check the payment status
+  // If PAID, balance is 0. If UNPAID, balance is the full amount.
+  // TODO: Add support for partial payments if backend supports it.
+  const calculatedBalanceDue = orderData?.payment_status === 'PAID' ? 0 : calculatedGrandTotal;
+
+  const calculatedPaidAmount = calculatedGrandTotal - calculatedBalanceDue;
+  console.log("calculatedPaidAmount", calculatedPaidAmount)
+  const totalServiceAmount = calculatedGrandTotal; // For display compatibility
+
+  // const totalServiceAmount = calculatedGrandTotal; // For display compatibility
+
+  // Determine discount value for display
+  const rawSubTotalAll = orderData?.services?.reduce((sum, s) => sum + getOriginalPrice(s), 0) ?? 0;
+  const totalDiscountValue = rawSubTotalAll - calculatedGrandTotal;
+
+  const discountPercent = activePackage?.discount ||
+    (totalServiceAmount > 0 ? ((totalDiscountValue / rawSubTotalAll) * 100) : 0);
 
   const uniqueVendorsMap = new Map();
 
@@ -295,7 +349,8 @@ function Page() {
 
       // Call createPayment function which will redirect to Stripe
       await createPayment(orderData, token, currentUrl, {
-        paymentType: "full"
+        paymentType: "full",
+        amount: calculatedBalanceDue.toFixed(2)
       });
     } catch (error) {
       console.error("Payment error:", error);
@@ -754,109 +809,110 @@ function Page() {
           </AccordionTrigger>
           <AccordionContent className="grid gap-4">
             <div className="w-full flex flex-col items-center">
-              <div className="w-full md:w-[470px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[48px] text-[14px] font-[400]" style={{ color: roleSettings.pageText }}>
-                <div className="flex justify-between gap-[12px]">
-                  <div className="flex gap-[12px] items-center">
-                    <TriangleAlert className={`h-[24px] w-[30px] md:h-[36px] md:w-[40px]`} style={{ color: roleSettings.pageTabColor }} />
-                    <p className={`text-[24px] md:text-[36px] font-[400]`} style={{ color: roleSettings.pageTabColor }}>
-                      ORDER {orderData?.id}
-                    </p>
+              <div className="w-full md:w-[450px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[48px] text-[#424242] text-[14px] font-[400]">
+                <div className='flex flex-col gap-[10px]'>
+                  <div className='flex justify-between gap-[12px]'>
+                    <div className='flex gap-[12px] items-center'>
+                      <File className='text-[#4290E9] h-[24px]w-[30px]  md:h-[36px] md:w-[40px]' />
+                      <p className='text-[#4290E9] text-[24px] md:text-[36px] font-[400]'>Order {orderData?.id}</p>
+                    </div>
+                    <div className='flex items-center gap-[12px] hidden'>
+                      <Switch className=' data-[state=checked]:bg-[#6BAE41] ' />
+                      <p className='text-[#666666] text-[16px]'>Open</p>
+                    </div>
                   </div>
-                  {/* <div className='flex items-center gap-[12px]'>
-                                        <Switch className=' data-[state=checked]:bg-[#6BAE41] ' />
-                                        <p className='text-[#666666] text-[16px]'>Open</p>
-                                    </div> */}
+                  <p className='text-[#666666] text-[16px] font-[400]'>This is only a quote. Invoiced amount will likely change based on actual measured area.</p>
                 </div>
-                <div
-                  className="flex gap-x-[20px]"
-                  style={{
-                    color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)`,
-                  }}
-                >
-                  <div className="flex flex-col gap-y-[20px] w-1/2 text-wrap">
+                <div className='text-[#666666] flex gap-x-[20px]'>
+                  <div className='flex flex-col gap-y-[20px] w-1/2 text-wrap'>
                     <p>{uniqueVendors?.length > 1 ? "Vendors" : "Vendor"}</p>
                     {uniqueVendors?.map((vendor) => (
-                      <div key={vendor.uuid}>
-                        <p>
-                          {vendor.first_name} {vendor.last_name}
-                        </p>
+                      <div key={vendor.uuid} >
+                        <p>{vendor.first_name} {vendor.last_name}</p>
                         <p>{vendor.company?.company_name ?? "N/A"}</p>
                         <p>{vendor.email}</p>
                       </div>
                     ))}
                   </div>
-                  <div className="w-1/2 text-wrap">
-                    <p className="mb-[20px]">Customer</p>
+
+
+                  <div className='w-1/2 text-wrap'>
+                    <p className='mb-[20px]'>Customer</p>
                     <p>Realtor</p>
-                    <p>
-                      {orderData?.agent?.first_name}{" "}
-                      {orderData?.agent?.last_name}
-                    </p>
+                    <p>{orderData?.agent?.first_name} {orderData?.agent?.last_name}</p>
                     <p>{orderData?.agent?.company_name}</p>
                     <p>{orderData?.agent?.email}</p>
                   </div>
                 </div>
-                <div className="flex flex-col gap-[18px] text-[16px]" style={{ color: roleSettings.pageText }}>
-                  <p className="text-[20px] font-[700]" style={{ color: roleSettings.pageText }}>
-                    Order Details
-                  </p>
-                  <p className="grid grid-cols-4 gap-[15px]">
-                    <span className="col-span-3">Package</span>
-                    <span className="col-span-1">
-                      $
-                      {orderData?.services
-                        ?.reduce(
-                          (total, service) =>
-                            total + parseFloat(service.amount),
-                          0
-                        )
-                        .toFixed(2)}
+                <div className='flex flex-col gap-[18px] text-[#666666] text-[16px]'>
+                  <p className='text-[20px] text-[#666666] font-[700]'>Order Details</p>
+                  <p className='grid grid-cols-4 gap-[15px]'>
+                    <span className='col-span-3'>Package</span>
+                    <span className='col-span-1'>
+                      ${orderData?.services
+                        ?.reduce((total, service) => total + getOriginalPrice(service), 0).toFixed(2)}
                     </span>
                   </p>
 
-                  <p className="grid grid-cols-4 gap-[15px]">
-                    <span className="col-span-3">Items</span>
-                    <span className="col-span-1">
-                      {orderData?.services?.length}
-                    </span>
+                  <p className='grid grid-cols-4 gap-[15px]'>
+                    <span className='col-span-3'>Items</span>
+                    <span className='col-span-1'>{orderData?.services?.length}</span>
                   </p>
                   <div className="grid gap-[15px]">
-                    {orderData?.services?.map((service) => (
-                      <p
-                        key={service.id}
-                        className="grid grid-cols-4 gap-[15px]"
-                      >
-                        <span className="col-span-3">
-                          {service.service?.name ?? ""}
-                        </span>
-                        <span className="col-span-1">
-                          ${parseFloat(service.amount).toFixed(2)}
-                        </span>
-                      </p>
-                    ))}
+                    {orderData?.services?.map((service) => {
+                      const isPaid = service.payment_status?.toUpperCase() === 'PAID';
+                      const originalPrice = getOriginalPrice(service);
+                      return (
+                        <p key={service.id} className="grid grid-cols-4 gap-[15px] items-center">
+                          <span className="col-span-3 flex items-center gap-2">
+                            {service.service?.name || service.optionName || 'Unknown Service'}
+                            {isPaid && (
+                              <span className="text-[10px] bg-[#6BAE41] text-white px-1.5 py-0.5 rounded font-semibold uppercase">Paid</span>
+                            )}
+                          </span>
+                          <span className="col-span-1">${originalPrice.toFixed(2)}</span>
+                        </p>
+                      );
+                    })}
                   </div>
-                  <p className="grid grid-cols-4 gap-[15px]">
-                    <span className="col-span-3">Discount</span>
-                    <span className="col-span-1">
-                      -${totalDiscountValue.toFixed(2)} ({discountPercent}%)
-                    </span>
+                  <p className='grid grid-cols-4 gap-[15px]'>
+                    <span className='col-span-3'>GST/HST</span>
+                    <span className='col-span-1'>$0.00</span>
                   </p>
-                  <p className="grid grid-cols-4 gap-[15px]">
-                    <span className="col-span-3">GST/HST</span>
-                    <span className="col-span-1">$0.00</span>
+                  <p className='grid grid-cols-4 gap-[15px]'>
+                    <span className='col-span-3'>PST/RST/QST</span>
+                    <span className='col-span-1'>$0.00</span>
                   </p>
-                  <p className="grid grid-cols-4 gap-[15px]">
-                    <span className="col-span-3">PST/RST/QST</span>
-                    <span className="col-span-1">$0.00</span>
-                  </p>
-                  <p className="grid grid-cols-4 gap-[15px]">
-                    <span className="col-span-3">Subtotal</span>
-                    <span className="col-span-1">${amount}</span>
-                  </p>
-                  <p className="grid grid-cols-4 gap-[15px] text-[20px] md:text-[24px] font-[500]">
-                    <span className="col-span-3">Grand Total</span>
-                    <span className="col-span-1">${amount}</span>
-                  </p>
+                  {(() => {
+                    return (
+                      <>
+                        <p className='grid grid-cols-4 gap-[15px]'>
+                          <span className='col-span-3'>Subtotal</span>
+                          <span className='col-span-1'>${rawSubTotalAll.toFixed(2)}</span>
+                        </p>
+                        <p className='grid grid-cols-4 gap-[15px]'>
+                          <span className='col-span-3'>Discount</span>
+                          <span className='col-span-1'>
+                            -${totalDiscountValue.toFixed(2)} ({Number(discountPercent).toFixed(2)}%)
+                          </span>
+                        </p>
+                        <p className='grid grid-cols-4 gap-[15px]'>
+                          <span className='col-span-3'>Grand Total</span>
+                          <span className='col-span-1'>${calculatedGrandTotal.toFixed(2)}</span>
+                        </p>
+                        {calculatedPaidAmount > 0 && (
+                          <p className='grid grid-cols-4 gap-[15px] text-[#6BAE41]'>
+                            <span className='col-span-3'>Paid</span>
+                            <span className='col-span-1'>-${calculatedPaidAmount.toFixed(2)}</span>
+                          </p>
+                        )}
+                        <p className='grid grid-cols-4 gap-[15px] text-[20px] md:text-[24px] font-[500]'>
+                          <span className='col-span-3'>{calculatedPaidAmount > 0 ? "Balance Due" : "Amount Due"}</span>
+                          <span className='col-span-1'>${calculatedBalanceDue.toFixed(2)}</span>
+                        </p>
+                      </>
+                    );
+                  })()}
                   {userType !== 'vendor' && (orderData?.payment_status !== 'PAID' || paymentConfirm) &&
                     <Button
                       onClick={handlePaymentClick}
@@ -864,21 +920,16 @@ function Page() {
                       className={`col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px] border-[1px] text-[14px] md:text-[14px] font-[600] flex gap-[5px] justify-center items-center hover:opacity-90 font-raleway`}
                       style={{ backgroundColor: roleSettings.pageTabColor, color: '#FFFFFF', borderColor: roleSettings.pageTabColor }}
                     >
-                      {isPaymentLoading ? "Processing..." : `Make Payment $${amount}`}
+                      {isPaymentLoading ? "Processing..." : `Make Payment $${calculatedBalanceDue.toFixed(2)}`}
                     </Button>
                   }
                 </div>
                 <div>
-                  <p className="text-[12px]">
-                    Lorem ipsum dolor sit amet. Et minus internos rem culpa
-                    ratione quo harum obcaecati ut minima quia. Eos aliquid
-                    inventore et dicta sint quo autem ipsam ea officiis iste et
-                    quia temporibus eum ratione sunt non dolorum cumque. Aut
-                    quas optio cum dolorem voluptatibus ut quae culpa aut
-                    repellat quod qui suscipit consequuntur. Qui explicabo
-                    distinctio est eveniet dolorem sed voluptatem perspiciatis
-                    eum Quis dolorum et voluptatem corporis cum minima ipsa.
-                  </p>
+                  <p className='text-[12px]'>Lorem ipsum dolor sit amet. Et minus internos rem culpa ratione quo harum obcaecati ut minima quia.
+                    Eos aliquid inventore et dicta sint quo autem ipsam ea officiis iste et quia temporibus eum ratione sunt
+                    non dolorum cumque. Aut quas optio cum dolorem voluptatibus ut quae culpa aut repellat quod qui suscipit
+                    consequuntur. Qui explicabo distinctio est eveniet dolorem sed voluptatem perspiciatis eum Quis dolorum
+                    et voluptatem corporis cum minima ipsa.</p>
                 </div>
               </div>
             </div>

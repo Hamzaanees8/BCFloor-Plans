@@ -168,6 +168,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
     }, {} as Record<string, Services[]>);
 
     const rawTotalPrice = selectedServices?.reduce((total, service) => {
+        if (service.payment_status?.toUpperCase() === 'PAID') return total;
         return total + (Number(service.price) || 0);
     }, 0);
 

@@ -48,7 +48,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
   }, [selectedServices, service.uuid]);
 
   const isSelected = !!selectedServiceItem;
-  const isPaid = selectedServiceItem?.payment_status === 'PAID';
+  const isPaid = selectedServiceItem?.payment_status?.toUpperCase() === 'PAID';
   const selectedPrice = useMemo(() => {
     const option = selectedOptions[service.uuid];
     if (!option) return null;
@@ -199,15 +199,14 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                   });
                 }
               }}
-
+              title={isPaid ? "Cannot modify - service has been paid" : ""}
               style={{
                 backgroundColor: isSelected ? roleSettings.pageTabColor : `color-mix(in srgb, ${roleSettings.pageTabColor} 100%, black)`
               }}
               className={`
-                        ${isPaid ? "cursor-not-allowed opacity-80" : "cursor-pointer"}
-                        ${isSelected ? "bg-[#6BAE41]" : "bg-[#4290E9]"}
-                        ${!selectedOption ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
                         p-1 w-6 h-6 flex justify-center items-center rounded-md
+                        ${isPaid ? "cursor-not-allowed opacity-70" : !selectedOption ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
+                        ${isSelected ? "bg-[#6BAE41]" : "bg-[#4290E9]"}
                       `}
             >
               {isSelected ? (
@@ -272,6 +271,8 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                       <div key={idx} className="w-full flex items-center justify-between">
                         <RadioGroupItem
                           value={option?.title ?? ""}
+                          disabled={isPaid}
+                          title={isPaid ? "Cannot modify - service has been paid" : ""}
                           id={`option-${idx}`}
                           className={`w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
                                   appearance-none
@@ -309,6 +310,8 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                       <RadioGroupItem
                         value="custom"
                         id="custom"
+                        disabled={isPaid}
+                        title={isPaid ? "Cannot modify - service has been paid" : ""}
                         className="w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
                           appearance-none
                           after:hidden
@@ -328,9 +331,11 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                       />
                       <Input
                         placeholder="Service Name"
+                        disabled={isPaid}
                         className="h-[26px] px-[5px] bg-white text-[10px] col-span-5"
                         value={customServiceName}
                         onChange={(e) => {
+                          if (isPaid) return;
                           setCustomServiceNames(prev => ({
                             ...prev,
                             [service.uuid]: e.target.value,
@@ -341,9 +346,11 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                         type="number"
                         min={0}
                         placeholder="$__"
+                        disabled={isPaid}
                         className="h-[26px] px-[3px] bg-white text-[10px] col-span-2"
                         value={customPrice}
                         onChange={e => {
+                          if (isPaid) return;
                           setCustomPrices(prev => ({
                             ...prev,
                             [service.uuid]: e.target.value,
