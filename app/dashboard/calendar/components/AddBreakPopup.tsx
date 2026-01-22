@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Calendar as DatePicker } from '@/components/ui/calendar';
 import { useAppContext } from '@/app/context/AppContext';
@@ -170,6 +170,7 @@ export default function AddBreakPopup({
         suggestions: ' border-gray-400'
     });
     const [openCombobox, setOpenCombobox] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleAddressChange = (value: string) => {
         setAddress(value);
@@ -407,6 +408,7 @@ export default function AddBreakPopup({
         }
 
         try {
+            setIsLoading(true);
             if (!selectedVendor.company?.vendor_id) {
                 toast.error('Vendor ID is required');
                 return;
@@ -444,6 +446,7 @@ export default function AddBreakPopup({
             console.error(error);
             toast.error(currentBreak ? 'Failed to update break' : 'Failed to add break');
         } finally {
+            setIsLoading(false);
             setOpen(false);
             setSelectedVendor(null);
             setTitle('');
@@ -663,10 +666,11 @@ export default function AddBreakPopup({
                         Cancel
                     </Button>
                     <Button
+                        disabled={isLoading}
                         className={`${userType}-bg text-white hover-${userType}-bg w-full md:w-[170px] h-[44px] font-[400] text-[20px]`}
                         onClick={addBreak}
                     >
-                        Save
+                        {isLoading ? <Loader2 className="animate-spin" /> : "Save"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

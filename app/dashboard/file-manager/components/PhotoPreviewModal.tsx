@@ -1,6 +1,13 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import { AlertDialog, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { useAppContext } from '@/app/context/AppContext';
 
 type Props = {
@@ -19,23 +26,24 @@ const PhotoPreviewModal: React.FC<Props> = ({ file, open, onClose, title, onDele
     const imageUrl = URL.createObjectURL(file);
 
     return (
-        <AlertDialog open={open} onOpenChange={onClose}>
-            <AlertDialogContent className="w-[320px] md:w-[730px] md:max-w-[730px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
-                <AlertDialogHeader>
-                    <AlertDialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
+        <Dialog open={open} onOpenChange={onClose}>
+            <DialogContent className="w-[320px] md:w-[730px] md:max-w-[730px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
+                <DialogHeader>
+                    <DialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
                         {title}
-                        <button
+                        <Button
+                            variant="ghost"
                             onClick={() => {
                                 onClose();
                             }}
-                            className="border-none !shadow-none bg-transparent"
+                            className="border-none !shadow-none bg-transparent p-0 h-auto hover:bg-transparent"
                             aria-label="Close"
                         >
                             <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                        </button>
-                    </AlertDialogTitle>
+                        </Button>
+                    </DialogTitle>
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
-                </AlertDialogHeader>
+                </DialogHeader>
                 <div className="w-full h-[500px] flex justify-center items-center py-[42px]">
                     {/* eslint-disable @next/next/no-img-element */}
                     <img
@@ -45,7 +53,7 @@ const PhotoPreviewModal: React.FC<Props> = ({ file, open, onClose, title, onDele
                     />
                 </div>
 
-                <AlertDialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px] mt-2 font-raleway">
+                <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px] mt-2 font-raleway">
                     <button
                         onClick={() => {
                             onReplace();
@@ -62,9 +70,9 @@ const PhotoPreviewModal: React.FC<Props> = ({ file, open, onClose, title, onDele
                     >
                         Delete
                     </button>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 };
 

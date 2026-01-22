@@ -2,16 +2,7 @@
 "use client"
 
 import React, { useState } from "react"
-import {
-    AlertDialog,
-    AlertDialogContent,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogCancel,
-    AlertDialogFooter,
-    AlertDialogAction,
-} from "@/components/ui/alert-dialog"
-import { X } from "lucide-react"
+import { Loader2, X } from "lucide-react"
 import { Input } from "./ui/input"
 import { Eye } from "./Icons"
 import { toast } from "sonner"
@@ -19,6 +10,8 @@ import { ResetPasswordAgent } from "@/app/dashboard/agents/agents"
 import { ResetPasswordSubAccount } from "@/app/dashboard/sub-accounts/subaccounts"
 import { ResetPasswordVendor } from "@/app/dashboard/vendors/vendors"
 import { useAppContext } from "@/app/context/AppContext"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog"
+import { Button } from "./ui/button"
 
 type Props = {
     open: boolean
@@ -40,9 +33,12 @@ const ChangePasswordDialog: React.FC<Props> = ({
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [isShowAgain, setIsShowAgain] = useState(false)
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+    const [isLoading, setIsLoading] = useState(false);
+
     const handleReset = async (e: React.FormEvent) => {
         try {
             e.preventDefault();
+            setIsLoading(true);
             const token = localStorage.getItem('token');
             if (!token) {
                 toast.error('Authentication token not found.');
@@ -107,21 +103,25 @@ const ChangePasswordDialog: React.FC<Props> = ({
             } else {
                 toast.error('Failed to submit user data');
             }
+        } finally {
+            setIsLoading(false);
         }
 
     }
     const { userType } = useAppContext();
     return (
-        <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent className="w-[320px] md:w-[416px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria">
-                <AlertDialogHeader>
-                    <AlertDialogTitle className={`flex items-center justify-between ${userType}-text text-[18px] font-[600]`}>
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="w-[320px] md:w-[416px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria [&>button]:hidden">
+                <DialogHeader>
+                    <DialogTitle className={`flex items-center justify-between ${userType}-text text-[18px] font-[600]`}>
                         CHANGE PASSWORD
-                        <AlertDialogCancel className="border-none !shadow-none">
+                        <Button
+                            onClick={() => setOpen(false)}
+                            className="border-none !shadow-none bg-transparent hover:bg-transparent">
                             <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                        </AlertDialogCancel>
-                    </AlertDialogTitle>
-                </AlertDialogHeader>
+                        </Button>
+                    </DialogTitle>
+                </DialogHeader>
                 <div className="flex flex-col gap-y-4">
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
                     <div className='grid grid-cols-2 gap-[16px] text-sm font-normal text-[#424242]'>
@@ -194,21 +194,23 @@ const ChangePasswordDialog: React.FC<Props> = ({
                         </div>
                     </div>
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
-                    <AlertDialogFooter className="flex flex-col md:flex-row md:justify-between gap-[5px]  mt-2 font-alexandria">
-                        <AlertDialogCancel
+                    <DialogFooter className="flex flex-col md:flex-row md:justify-between gap-[5px]  mt-2 font-alexandria">
+                        <Button
+                            onClick={() => setOpen(false)}
                             className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400] border ${userType}-border ${userType}-text hover-${userType}-bg ${userType}-button`}
                         >
                             Cancel
-                        </AlertDialogCancel>
-                        <AlertDialogAction onClick={handleReset}
+                        </Button>
+                        <Button onClick={handleReset}
+                            disabled={isLoading}
                             className={`${userType}-bg text-white hover-${userType}-bg hover:opacity-90 w-full  md:w-[170px] h-[44px] font-[400] text-[20px]`}
                         >
-                            Update
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
+                            {isLoading ? <Loader2 className="animate-spin w-5 h-5" /> : "Update"}
+                        </Button>
+                    </DialogFooter>
                 </div>
-            </AlertDialogContent>
-        </AlertDialog>
+            </DialogContent>
+        </Dialog>
     )
 }
 

@@ -1,15 +1,14 @@
-// components/ConfirmationDialog.tsx
 "use client"
 import React, { useEffect, useState } from "react"
 import {
-    AlertDialog,
-    AlertDialogContent,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogCancel,
-    AlertDialogFooter,
-    AlertDialogAction,
-} from "@/components/ui/alert-dialog"
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogClose,
+    DialogFooter,
+} from "@/components/ui/dialog"
+
 import { Pencil, Plus, X, ChevronDown, ChevronUp } from "lucide-react"
 import { Input } from "../../../../components/ui/input"
 import DynamicMap from "../../../../components/DYnamicMap"
@@ -21,6 +20,7 @@ import { GetRole } from "@/app/dashboard/orders/orders"
 import { toast } from "sonner"
 import { SaveModal } from "../../../../components/SaveModal"
 import { useAppContext } from "@/app/context/AppContext"
+import { Button } from "@/components/ui/button"
 
 type CoAgent = {
     email: string;
@@ -311,18 +311,18 @@ const AddAgentDialog: React.FC<Props> = ({
         setCoAgents(updatedAgents);
     };
     return (
-        <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent className="w-[320px] md:w-[685px] max-w-none bg-[#E4E4E4] h-[650px] rounded-[8px] sidebar-scroll p-4 md:px-6 md:py-4 gap-[10px] font-alexandria overflow-y-auto">
-                <AlertDialogHeader>
-                    <AlertDialogTitle className="flex items-center  border-b border-[#BBBBBB] uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="w-[320px] md:w-[685px] max-w-none bg-[#E4E4E4] h-[650px] rounded-[8px] sidebar-scroll p-4 md:px-6 md:py-4 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden custom-scroll">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center  border-b border-[#BBBBBB] uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
                         {uuid ? "Edit Agent" : "New Agent"}
-                        <AlertDialogCancel className="border-none !shadow-none bg-[#E4E4E4]">
+                        <DialogClose className="border-none !shadow-none bg-[#E4E4E4]">
                             <X className="!w-[20px] !h-[20px] cursor-pointer  text-[#7D7D7D]" />
-                        </AlertDialogCancel>
-                    </AlertDialogTitle>
-                </AlertDialogHeader>
-                <div className='w-full flex flex-col items-center'>
-                    <div className='w-full md:w-[620px] py-[16px] px-0 md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                        </DialogClose>
+                    </DialogTitle>
+                </DialogHeader>
+                <div className='w-full flex flex-col items-center custom-scroll'>
+                    <div className='w-full md:w-[620px] py-[16px] px-0 md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400] custom-scroll'>
                         <div className='grid grid-cols-2 gap-[16px] overflow-y-auto px-1'>
                             <div className="col-span-2">
                                 <p className="text-sm font-semibold text-[#4290E9] mb-2">Mandatory Fields</p>
@@ -550,17 +550,17 @@ const AddAgentDialog: React.FC<Props> = ({
                                 </>
                             )}
                         </div>
-                        <AlertDialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
-                            <AlertDialogCancel className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">
+                        <DialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
+                            <DialogClose className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">
                                 Cancel
-                            </AlertDialogCancel>
-                            <AlertDialogAction
+                            </DialogClose>
+                            <Button
                                 onClick={(e) => { handleSubmit(e) }}
                                 className="bg-[#4290E9] text-white hover:bg-[#005fb8] w-full  md:w-[176px] h-[44px] font-[400] text-[20px]"
                             >
                                 Save
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
+                            </Button>
+                        </DialogFooter>
                     </div>
                 </div>
                 <SaveModal
@@ -569,8 +569,8 @@ const AddAgentDialog: React.FC<Props> = ({
                     isLoading={isLoading}
                     isSuccess={true}
                 />
-            </AlertDialogContent>
-        </AlertDialog>
+            </DialogContent>
+        </Dialog>
     )
 }
 

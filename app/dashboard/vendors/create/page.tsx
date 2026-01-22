@@ -39,7 +39,7 @@ import {
   WorkHours,
 } from "../vendors";
 
-import { Plus, X } from "lucide-react";
+import { Plus, X, Loader2 } from "lucide-react";
 import { PaymentCard } from "@/components/GlobalSettings";
 import TravelTable from "@/components/TravelTable";
 import { useAppContext } from "@/app/context/AppContext";
@@ -195,7 +195,7 @@ const VendorForm = () => {
   const [avatarUrl, setAvatarUrl] = useState("");
   const CompanyBannerfileInputRef = useRef(null);
   const [CompanyBannerfileName, setCompanyBannerFileName] = useState("");
-  // const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [CompanyBannerUrl, setCompanyBannerUrl] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [companyLogoFile, setCompanyLogoFile] = useState<File | null>(null);
@@ -812,9 +812,8 @@ const VendorForm = () => {
       }
       if (idToUse) {
         const updatedPayload = { ...payload, _method: "PUT" };
-
+        setIsLoading(true);
         await Edit(idToUse, updatedPayload);
-        // setIsLoading(true);
         setIsDirty(false);
         if (userType !== "vendor") {
           // setOpenSaveDialog(true);
@@ -823,18 +822,18 @@ const VendorForm = () => {
         } else {
           toast.success("Settings updated successfully");
         }
-        // setIsLoading(false);
+        setIsLoading(false);
       } else {
+        setIsLoading(true);
         await Create(payload);
         toast.success("Vendors created successfully");
-        // setIsLoading(true);
         // setOpenSaveDialog(true);
         router.push("/dashboard/vendors");
-        // setIsLoading(false);
+        setIsLoading(false);
         setIsDirty(false);
       }
     } catch (error) {
-      // setIsLoading(false);
+      setIsLoading(false);
       // setOpenSaveDialog(false);
       setFieldErrors({});
 
@@ -1010,9 +1009,14 @@ const VendorForm = () => {
               onClick={(e) => {
                 handleSubmit(e);
               }}
+              disabled={isLoading}
               className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}
             >
-              Save Changes
+              {isLoading ? (
+                <Loader2 className="animate-spin w-5 h-5" />
+              ) : (
+                "Save Changes"
+              )}
             </Button>
           )}
         </div>

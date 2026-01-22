@@ -4,7 +4,9 @@ import {
     Dialog,
     DialogContent,
     DialogHeader,
-    DialogTitle
+    DialogTitle,
+    DialogDescription,
+    DialogFooter
 } from "@/components/ui/dialog";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,7 +21,7 @@ import { useOrderContext } from "../../orders/context/OrderContext";
 import { toast } from "sonner";
 import { EditOrder } from "../calendar";
 import { GetServices } from "../../orders/orders";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+// Removed AlertDialog imports
 import WarningIcon from "@/components/Icons";
 import NotificationModal from "./NotificationModal";
 import { useAppContext } from "@/app/context/AppContext";
@@ -411,24 +413,24 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                         </div>}
                 </div>
             </DialogContent>
-            <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
-                <AlertDialogContent className="w-[320px] md:w-[565px] max-w-[565px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria">
-                    <AlertDialogHeader className="mb-2">
-                        <AlertDialogTitle className={`flex items-center justify-between ${userType}-text text-[18px] font-[600] border-b-[1px] border-[#E4E4E4] pb-2`}>
+            <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+                <DialogContent className="w-[320px] md:w-[565px] max-w-[565px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria [&>button]:hidden">
+                    <DialogHeader className="mb-2">
+                        <DialogTitle className={`flex items-center justify-between ${userType}-text text-[18px] font-[600] border-b-[1px] border-[#E4E4E4] pb-2`}>
                             SAVE AND EXIT
-                            <AlertDialogCancel onClick={handleClose} className="border-none !shadow-none">
+                            <Button variant="ghost" onClick={handleClose} className="border-none !shadow-none p-0 h-auto hover:bg-transparent">
                                 <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                            </AlertDialogCancel>
-                        </AlertDialogTitle>
-                    </AlertDialogHeader>
+                            </Button>
+                        </DialogTitle>
+                    </DialogHeader>
 
                     <div className="flex items-start gap-3">
                         <div className="w-fit">
                             <WarningIcon width={48} fill="#DC9600" />
                         </div>
-                        <AlertDialogDescription className="text-[16px] font-[400] text-[#666666]">
+                        <DialogDescription className="text-[16px] font-[400] text-[#666666]">
                             Are you sure you want to save and exit? This cannot be undone.
-                        </AlertDialogDescription>
+                        </DialogDescription>
                     </div>
 
                     <div className="mt-4 flex justify-between items-center gap-2 border-b-[1px] border-[#E4E4E4] pb-2">
@@ -463,8 +465,8 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                         </div>
                     </div>
 
-                    <AlertDialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px]  mt-2 font-alexandria">
-                        <AlertDialogCancel onClick={() => {
+                    <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px]  mt-2 font-alexandria">
+                        <Button onClick={() => {
                             handleClose()
                             setOrderServices([])
                             setSelectedSlots([])
@@ -473,15 +475,15 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                             className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400] ${userType}-text ${userType}-border text-[#0078D4] hover-${userType}-bg hover:opacity-95 ${userType}-button`}
                         >
                             Cancel
-                        </AlertDialogCancel>
-                        <AlertDialogAction
+                        </Button>
+                        <Button
                             className={`${userType}-border hover:opacity-95 text-white ${userType}-bg hover-${userType}-bg w-full  md:w-[170px] h-[44px] font-[400] text-[20px]`}
                             onClick={handleOkClick}
                         >
                             OK
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
                 <NotificationModal
                     open={showNotification}
                     setOpen={setShowNotification}
@@ -495,7 +497,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                     bothSelected={bothSelected}
                 />
 
-            </AlertDialog>
+            </Dialog>
         </Dialog>
     );
 }

@@ -2,14 +2,13 @@
 "use client"
 import React, { useEffect, useState } from "react"
 import {
-    AlertDialog,
-    AlertDialogContent,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogCancel,
-    AlertDialogFooter,
-    AlertDialogAction,
-} from "@/components/ui/alert-dialog"
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
 import { Input } from "../../../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../components/ui/select"
@@ -274,16 +273,16 @@ const AddListingDialog: React.FC<Props> = ({
     };
 
     return (
-        <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent className="w-[320px] md:w-[685px] max-w-none bg-[#E4E4E4] h-[650px] rounded-[8px] p-4 md:px-6 md:py-4 gap-[10px] font-alexandria overflow-y-auto">
-                <AlertDialogHeader>
-                    <AlertDialogTitle className="flex items-center  border-b border-[#BBBBBB] uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="w-[320px] md:w-[685px] max-w-none bg-[#E4E4E4] h-[650px] rounded-[8px] p-4 md:px-6 md:py-4 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center  border-b border-[#BBBBBB] uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
                         {uuid ? "Edit Agent" : "New Agent"}
-                        <AlertDialogCancel className="border-none !shadow-none bg-[#E4E4E4]">
+                        <Button onClick={() => setOpen(false)} variant="ghost" className="border-none !shadow-none bg-[#E4E4E4] p-0 h-auto hover:bg-[#E4E4E4]">
                             <X className="!w-[20px] !h-[20px] cursor-pointer  text-[#7D7D7D]" />
-                        </AlertDialogCancel>
-                    </AlertDialogTitle>
-                </AlertDialogHeader>
+                        </Button>
+                    </DialogTitle>
+                </DialogHeader>
                 <div className='w-full flex flex-col items-center'>
                     <div className='w-full md:w-[620px] py-[16px] px-0 md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
                         <div className='grid grid-cols-2 gap-[16px]'>
@@ -634,17 +633,17 @@ const AddListingDialog: React.FC<Props> = ({
                             <div className="col-span-2 border-b border-[#BBBBBB]">
                             </div>
                         </div>
-                        <AlertDialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
-                            <AlertDialogCancel className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">
+                        <DialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
+                            <Button onClick={() => setOpen(false)} className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">
                                 Cancel
-                            </AlertDialogCancel>
-                            <AlertDialogAction
+                            </Button>
+                            <Button
                                 onClick={(e) => { handleSubmit(e) }}
                                 className="bg-[#4290E9] text-white hover:bg-[#005fb8] w-full  md:w-[176px] h-[44px] font-[400] text-[20px]"
                             >
                                 Save
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
+                            </Button>
+                        </DialogFooter>
                     </div>
                 </div>
                 <SaveModal
@@ -653,8 +652,8 @@ const AddListingDialog: React.FC<Props> = ({
                     isLoading={isLoading}
                     isSuccess={true}
                 />
-            </AlertDialogContent>
-        </AlertDialog>
+            </DialogContent>
+        </Dialog>
     )
 }
 

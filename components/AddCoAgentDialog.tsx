@@ -1,21 +1,14 @@
 // components/ConfirmationDialog.tsx
 "use client"
 import React, { useState } from "react"
-import {
-    AlertDialog,
-    AlertDialogContent,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogCancel,
-    AlertDialogFooter,
-    AlertDialogAction,
-} from "@/components/ui/alert-dialog"
 import { X } from "lucide-react"
 import { Input } from "./ui/input"
 import { toast } from "sonner"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
 import { DropDownArrow } from "./Icons"
 import { useAppContext } from "@/app/context/AppContext"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog"
+import { Button } from "./ui/button"
 
 type Props = {
     open: boolean;
@@ -66,26 +59,24 @@ const AddCoAgentDialog: React.FC<Props> = ({
 
     const handleAddAgent = async (e: React.FormEvent) => {
         e.preventDefault();
-        // ... (existing commented out code)
     }
     const { userType } = useAppContext();
     return (
-        <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent className="w-[320px] md:w-[417px] h-[500px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
-                <div onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => e.stopPropagation()}>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="w-[320px] md:w-[417px] min-h-[300px] h-fit rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
+                <div className="w-full" onChange={(e) => e.stopPropagation()}>
+                    <DialogHeader>
+                        <DialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
                             {uuid || agent ? (
                                 <span>Edit Co-Agent</span>
                             ) : (
                                 <span>Add/Invite Co-Agent</span>
                             )}
-                            <AlertDialogCancel className="border-none !shadow-none">
+                            <Button onClick={() => setOpen(false)} className="border-none !shadow-none bg-transparent hover:bg-transparent">
                                 <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                            </AlertDialogCancel>
-                        </AlertDialogTitle>
-                    </AlertDialogHeader>
+                            </Button>
+                        </DialogTitle>
+                    </DialogHeader>
                     <div className="flex flex-col gap-y-4 " >
                         <hr className="w-full h-[1px] text-[#BBBBBB]" />
                         <div>
@@ -166,14 +157,14 @@ const AddCoAgentDialog: React.FC<Props> = ({
                                     )}
                                 </div>
                                 <hr className="w-full h-[1px] text-[#BBBBBB] my-[16px]" />
-                                <AlertDialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
-                                    <AlertDialogCancel onClick={(e) => {
+                                <DialogFooter className="flex justify-end gap-[5px]  mt-2 font-alexandria">
+                                    <Button onClick={(e) => {
                                         e.stopPropagation();
                                         setFieldErrors({});
                                     }} className={`bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] outline-none ${userType}-border ${userType}-text hover-${userType}-bg ${userType}-button`}>
                                         Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
+                                    </Button>
+                                    <Button
                                         onClick={(e) => {
                                             e.stopPropagation();
 
@@ -222,16 +213,16 @@ const AddCoAgentDialog: React.FC<Props> = ({
                                         className={`${userType}-bg text-white hover-${userType}-bg hover:opacity-85 w-full md:w-[176px] h-[44px] font-[400] text-[20px]`}
                                     >
                                         {uuid ? 'Done' : (agent ? 'Update' : 'Add')}
-                                    </AlertDialogAction>
+                                    </Button>
 
-                                </AlertDialogFooter>
+                                </DialogFooter>
                             </form>
                         </div>
 
                     </div>
                 </div>
-            </AlertDialogContent>
-        </AlertDialog>
+            </DialogContent>
+        </Dialog >
     )
 }
 

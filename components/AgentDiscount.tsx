@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/app/context/AppContext";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
 import { X, Calendar as CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar } from "./ui/calendar";
@@ -12,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Label } from "./ui/label";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 
 interface AgentDiscountData {
     uuid?: string;
@@ -114,16 +114,16 @@ const AgentDiscount: React.FC<Props> = ({ open, setOpen, addDiscount, isDetailed
     };
 
     return (
-        <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent className={` ${isDetailed ? "max-w-[600px]" : "max-w-md"} rounded-xl p-6 font-alexandria max-h-[600px] overflow-y-auto`}>
-                <AlertDialogHeader>
-                    <AlertDialogTitle className={`flex items-center justify-between ${userType}-text text-[18px] font-[600]`}>
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className={` ${isDetailed ? "max-w-[600px]" : "max-w-md"} rounded-xl p-6 font-alexandria max-h-[600px] overflow-y-auto [&>button]:hidden`}>
+                <DialogHeader>
+                    <DialogTitle className={`flex items-center justify-between ${userType}-text text-[18px] font-[600]`}>
                         {isDetailed ? "AGENT DISCOUNT" : "PAYMENT CARD"}
-                        <AlertDialogCancel className="border-none !shadow-none">
+                        <Button onClick={() => setOpen(false)} className="border-none !shadow-none bg-transparent hover:bg-transparent">
                             <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                        </AlertDialogCancel>
-                    </AlertDialogTitle>
-                </AlertDialogHeader>
+                        </Button>
+                    </DialogTitle>
+                </DialogHeader>
 
 
                 {isDetailed && (
@@ -311,18 +311,18 @@ const AgentDiscount: React.FC<Props> = ({ open, setOpen, addDiscount, isDetailed
                 </div>
 
 
-                <AlertDialogFooter className="flex flex-col md:flex-row md:justify-between gap-[5px]  mt-6 font-alexandria">
-                    <AlertDialogCancel className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400]  ${userType}-border ${userType}-text ${userType}-button hover-${userType}-bg`}>
+                <DialogFooter className="flex flex-col md:flex-row md:justify-between gap-[5px]  mt-6 font-alexandria">
+                    <Button className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400]  ${userType}-border ${userType}-text ${userType}-button hover-${userType}-bg`}>
                         Cancel
-                    </AlertDialogCancel>
-                    <AlertDialogAction onClick={handleAdd}
+                    </Button>
+                    <Button onClick={handleAdd}
                         className={`${userType}-bg text-white hover-${userType}-bg w-full  md:w-[170px] h-[44px] font-[400] text-[20px]`}
                     >
                         {initialData ? "Update" : "Add"}
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 };
 

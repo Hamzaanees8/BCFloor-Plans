@@ -1,15 +1,14 @@
 import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/app/context/AppContext";
+import { Button } from "@/components/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { X } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import {
@@ -104,18 +103,22 @@ const ManualPayment: React.FC<Props> = ({ open, setOpen, addPayment }) => {
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogContent className="max-w-md rounded-xl p-6 font-alexandria">
-        <AlertDialogHeader>
-          <AlertDialogTitle
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="max-w-md rounded-xl p-6 font-alexandria [&>button]:hidden">
+        <DialogHeader>
+          <DialogTitle
             className={`flex items-center justify-between ${userType}-text text-[18px] font-[600]`}
           >
             MANUAL PAYMENT
-            <AlertDialogCancel className="border-none !shadow-none">
+            <Button
+              variant="ghost"
+              onClick={() => setOpen(false)}
+              className="border-none !shadow-none p-0 h-auto hover:bg-transparent"
+            >
               <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-            </AlertDialogCancel>
-          </AlertDialogTitle>
-        </AlertDialogHeader>
+            </Button>
+          </DialogTitle>
+        </DialogHeader>
 
         <div className="space-y-4">
           {/* Payment Type */}
@@ -189,21 +192,23 @@ const ManualPayment: React.FC<Props> = ({ open, setOpen, addPayment }) => {
           </div>
         </div>
 
-        <AlertDialogFooter className="flex flex-col md:flex-row md:justify-between gap-[5px] mt-2 font-alexandria">
-          <AlertDialogCancel
+        <DialogFooter className="flex flex-col md:flex-row md:justify-between gap-[5px] mt-2 font-alexandria">
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
             className={`bg-white w-full md:w-[170px] h-[44px] font-[400] ${userType}-border ${userType}-text ${userType}-button hover-${userType}-bg`}
           >
             Cancel
-          </AlertDialogCancel>
-          <AlertDialogAction
+          </Button>
+          <Button
             onClick={handleAdd}
             className={`${userType}-bg text-white hover-${userType}-bg w-full md:w-[170px] h-[44px] font-[400]`}
           >
             Add Payment
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

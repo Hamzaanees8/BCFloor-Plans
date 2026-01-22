@@ -1,4 +1,4 @@
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -239,19 +239,23 @@ const HouseSheetModal: React.FC<Props> = ({
 
     // console.log("area", area)
     return (
-        <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent className="w-[730px] max-w-[730px] md:w-[730px] h-[600px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
-                <AlertDialogHeader>
-                    <AlertDialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[24px] font-[400]`}>
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="w-[730px] max-w-[730px] md:w-[730px] h-[600px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
+                <DialogHeader>
+                    <DialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[24px] font-[400]`}>
                         {orderData?.property_address}, {orderData?.property_location} › Order #{orderData?.id || ""}
-                        <AlertDialogCancel onClick={() => {
-                            setOpen(false)
-                        }} className="border-none !shadow-none">
+                        <Button
+                            variant="ghost"
+                            onClick={() => {
+                                setOpen(false)
+                            }}
+                            className="border-none !shadow-none p-0 h-auto hover:bg-transparent"
+                        >
                             <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                        </AlertDialogCancel>
-                    </AlertDialogTitle>
+                        </Button>
+                    </DialogTitle>
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
-                </AlertDialogHeader>
+                </DialogHeader>
                 <div className="bg-[#F5F5F5] p-4 rounded border border-gray-300 text-[16px] font-normal text-[#666666] font-alexandria space-y-6">
                     <div className="text-[24px] font-[400]">{orderData?.property_address}, {orderData?.property_location}</div>
                     <div className="space-y-3">
@@ -424,10 +428,14 @@ const HouseSheetModal: React.FC<Props> = ({
                 <div className="flex flex-col " >
                     <div className="flex flex-col gap-4">
                         <hr className="w-full h-[1px] text-[#BBBBBB] my-[16px]" />
-                        <AlertDialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px]  mt-2 font-raleway">
-                            <AlertDialogCancel className={`bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400]  ${userType}-border ${userType}-text hover:bg-[#f1f8ff]`}>
+                        <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px]  mt-2 font-raleway">
+                            <Button
+                                variant="outline"
+                                onClick={() => setOpen(false)}
+                                className={`bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400]  ${userType}-border ${userType}-text hover:bg-[#f1f8ff]`}
+                            >
                                 Close
-                            </AlertDialogCancel>
+                            </Button>
                             <Button
                                 onClick={(e) => {
                                     handleSubmitOrder(e)
@@ -437,12 +445,12 @@ const HouseSheetModal: React.FC<Props> = ({
                             >
                                 Save And Exit
                             </Button>
-                        </AlertDialogFooter>
+                        </DialogFooter>
                     </div>
 
                 </div>
-            </AlertDialogContent>
-        </AlertDialog>
+            </DialogContent>
+        </Dialog>
     )
 }
 

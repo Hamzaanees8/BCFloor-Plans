@@ -2,16 +2,7 @@
 "use client"
 import { parseDate } from "chrono-node"
 import React, { useEffect, useRef, useState } from "react"
-import {
-    AlertDialog,
-    AlertDialogContent,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogCancel,
-    AlertDialogFooter,
-    AlertDialogAction,
-} from "@/components/ui/alert-dialog"
-import { CalendarIcon, Plus, X } from "lucide-react"
+import { CalendarIcon, Loader2, Plus, X } from "lucide-react"
 import { Input } from "./ui/input"
 import { Button } from "./ui/button"
 import { Calendar } from "./ui/calendar"
@@ -19,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover"
 import { CreateCode, CreateDiscount, EditCode, EditDiscount, GetOne, GetServices } from "@/app/dashboard/global-settings/global-settings"
 import { toast } from "sonner"
 import { useAppContext } from "@/app/context/AppContext"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog"
 
 type Props = {
     type?: string;
@@ -45,6 +37,7 @@ const AddDiscountDialog: React.FC<Props> = ({
     const [codeDescription, setCodeDescription] = useState("");
     const [discountDescription, setDiscountDescription] = useState('');
     const [openCalendar, setOpenCalendar] = React.useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
     const [dateValue, setDateValue] = React.useState("")
@@ -173,6 +166,7 @@ const AddDiscountDialog: React.FC<Props> = ({
         e.preventDefault();
         if (isEdit) {
             try {
+                setIsLoading(true);
                 const validationErrors: Record<string, string[]> = {};
                 if (!codeKey.trim()) {
                     validationErrors.code_key = ['The code key field is required.'];
@@ -188,16 +182,19 @@ const AddDiscountDialog: React.FC<Props> = ({
                     setFieldErrors(validationErrors);
                     const firstError = Object.values(validationErrors).flat()[0];
                     toast.error(firstError || 'Please fill all required fields');
+                    setIsLoading(false);
                     return;
                 }
 
                 const token = localStorage.getItem('token');
                 if (!token) {
                     toast.error('Authentication token not found.');
+                    setIsLoading(false);
                     return;
                 }
                 if (!uuid) {
                     toast.error('Code ID (uuid) is missing.');
+                    setIsLoading(false);
                     return;
                 }
                 const payload = {
@@ -245,9 +242,12 @@ const AddDiscountDialog: React.FC<Props> = ({
                 } else {
                     toast.error('Failed to submit user data');
                 }
+            } finally {
+                setIsLoading(false);
             }
         } else {
             try {
+                setIsLoading(true);
                 const validationErrors: Record<string, string[]> = {};
                 if (!codeKey.trim()) {
                     validationErrors.code_key = ['The code key field is required.'];
@@ -263,12 +263,14 @@ const AddDiscountDialog: React.FC<Props> = ({
                     setFieldErrors(validationErrors);
                     const firstError = Object.values(validationErrors).flat()[0];
                     toast.error(firstError || 'Please fill all required fields');
+                    setIsLoading(false);
                     return;
                 }
 
                 const token = localStorage.getItem('token');
                 if (!token) {
                     toast.error('Authentication token not found.');
+                    setIsLoading(false);
                     return;
                 }
                 const payload = {
@@ -315,6 +317,8 @@ const AddDiscountDialog: React.FC<Props> = ({
                 } else {
                     toast.error('Failed to submit user data');
                 }
+            } finally {
+                setIsLoading(false);
             }
         }
 
@@ -339,6 +343,7 @@ const AddDiscountDialog: React.FC<Props> = ({
         }
         if (isEdit) {
             try {
+                setIsLoading(true);
                 const validationErrors: Record<string, string[]> = {};
 
                 if (!discountName.trim()) {
@@ -361,16 +366,19 @@ const AddDiscountDialog: React.FC<Props> = ({
                     setFieldErrors(validationErrors);
                     const firstError = Object.values(validationErrors).flat()[0];
                     toast.error(firstError || 'Please fill all required fields');
+                    setIsLoading(false);
                     return;
                 }
 
                 const token = localStorage.getItem('token');
                 if (!token) {
                     toast.error('Authentication token not found.');
+                    setIsLoading(false);
                     return;
                 }
                 if (!uuid) {
                     toast.error('Discount ID (uuid) is missing.');
+                    setIsLoading(false);
                     return;
                 }
                 const dateObj = new Date(dateValue);
@@ -427,10 +435,13 @@ const AddDiscountDialog: React.FC<Props> = ({
                 } else {
                     toast.error('Failed to submit user data');
                 }
+            } finally {
+                setIsLoading(false);
             }
         }
         else {
             try {
+                setIsLoading(true);
                 const validationErrors: Record<string, string[]> = {};
 
                 if (!discountName.trim()) {
@@ -453,12 +464,14 @@ const AddDiscountDialog: React.FC<Props> = ({
                     setFieldErrors(validationErrors);
                     const firstError = Object.values(validationErrors).flat()[0];
                     toast.error(firstError || 'Please fill all required fields');
+                    setIsLoading(false);
                     return;
                 }
 
                 const token = localStorage.getItem('token');
                 if (!token) {
                     toast.error('Authentication token not found.');
+                    setIsLoading(false);
                     return;
                 }
                 const dateObj = new Date(dateValue);
@@ -514,6 +527,8 @@ const AddDiscountDialog: React.FC<Props> = ({
                 } else {
                     toast.error('Failed to submit user data');
                 }
+            } finally {
+                setIsLoading(false);
             }
         }
 
@@ -590,22 +605,26 @@ const AddDiscountDialog: React.FC<Props> = ({
         }
     };
     return (
-        <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent className="w-[320px] md:w-[445px] h-[600px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="w-[320px] md:w-[445px] h-[600px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
                 <div onClick={(e) => e.stopPropagation()}
                     onChange={(e) => e.stopPropagation()}>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
                             {activeTab === 'discounts' ? (
                                 uuid ? <span>Edit Discount</span> : <span>Add Discount</span>
                             ) : (
                                 uuid ? <span>Edit Code</span> : <span>Add Code</span>
                             )}
-                            <AlertDialogCancel className="border-none !shadow-none">
+                            <Button
+                                type="button"
+                                onClick={() => setOpen(false)}
+                                className="border-none !shadow-none bg-transparent hover:bg-transparent"
+                            >
                                 <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                            </AlertDialogCancel>
-                        </AlertDialogTitle>
-                    </AlertDialogHeader>
+                            </Button>
+                        </DialogTitle>
+                    </DialogHeader>
                     <div className="flex flex-col gap-y-4 " >
                         <hr className="w-full h-[1px] text-[#BBBBBB]" />
                         <div className="flex items-center justify-between">
@@ -673,7 +692,7 @@ const AddDiscountDialog: React.FC<Props> = ({
                                             {fieldErrors.percentage && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.percentage[0]}</p>}
                                         </div>
                                         <div>
-                                            <label className="text-[#424242]" htmlFor="">Quantity <span className="text-red-500">*</span></label>
+                                            <label className="text-[#424242]" htmlFor="">Minimum Services <span className="text-red-500">*</span></label>
                                             <Input value={discountQuantity}
                                                 onChange={(e) => {
                                                     const val = Number(e.target.value);
@@ -863,17 +882,21 @@ const AddDiscountDialog: React.FC<Props> = ({
                                         </div>
                                     </div>
                                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
-                                    <AlertDialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
-                                        <AlertDialogCancel onClick={(e) => { e.stopPropagation() }} className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">
+                                    <DialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
+                                        <Button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+                                            className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]"
+                                        >
                                             Cancel
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
+                                        </Button>
+                                        <Button
                                             onClick={(e) => { handleAddDiscount(e); e.stopPropagation(); }}
                                             className="bg-[#4290E9] text-white hover:bg-[#005fb8] w-full  md:w-[176px] h-[44px] font-[400] text-[20px]"
                                         >
                                             Save
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
+                                        </Button>
+                                    </DialogFooter>
                                 </form>
                             )}
                             {activeTab === 'codes' && (
@@ -987,17 +1010,21 @@ const AddDiscountDialog: React.FC<Props> = ({
                                         </div>
                                     </div>
                                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
-                                    <AlertDialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
-                                        <AlertDialogCancel onClick={(e) => { e.stopPropagation() }} className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">
+                                    <DialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
+                                        <Button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); setOpen(false) }}
+                                            className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">
                                             Cancel
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={(e) => { handleAddCode(e); e.stopPropagation(); }}
+                                        </Button>
+                                        <Button
+                                            disabled={isLoading}
+                                            onClick={(e) => { handleAddCode(e) }}
                                             className="bg-[#4290E9] text-white hover:bg-[#005fb8] w-full  md:w-[176px] h-[44px] font-[400] text-[20px]"
                                         >
-                                            Save
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
+                                            {isLoading ? <Loader2 className="animate-spin w-5 h-5" /> : "Save"}
+                                        </Button>
+                                    </DialogFooter>
                                 </form>
                             )}
                         </div>
@@ -1005,8 +1032,8 @@ const AddDiscountDialog: React.FC<Props> = ({
                     </div>
                 </div>
 
-            </AlertDialogContent>
-        </AlertDialog>
+            </DialogContent>
+        </Dialog>
     )
 }
 

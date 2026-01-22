@@ -1,15 +1,6 @@
 // components/AddAreaPopup.tsx
 "use client";
 import React, { useState, useEffect } from "react";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -19,8 +10,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { useAppContext } from "@/app/context/AppContext";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Button } from "./ui/button";
 
 export interface AreaData {
   id?: number;
@@ -36,8 +29,8 @@ export interface AreaData {
 interface AddAreaPopupProps {
   open: boolean;
   setOpen: (v: boolean) => void;
-  onAdd: (area: Omit<AreaData, 'id' | 'uuid'>) => void;
-  onEdit?: (area: AreaData) => void;
+  onAdd: (area: Omit<AreaData, 'id' | 'uuid'>) => Promise<void> | void;
+  onEdit?: (area: AreaData) => Promise<void> | void;
   editingArea?: AreaData | null;
 }
 
@@ -55,6 +48,7 @@ export default function AddAreaPopup({
   const [discount, setDiscount] = useState<number | "">("");
   const [status, setStatus] = useState<boolean>(true);
   const [isPercentage, setIsPercentage] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Reset form when popup opens/closes or editingArea changes
   useEffect(() => {
@@ -79,7 +73,7 @@ export default function AddAreaPopup({
     }
   }, [open, editingArea]);
 
-  const handleSubmit = (e: React.MouseEvent) => {
+  const handleSubmit = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!customTitle || charge === "" || discount === "") return;
 
@@ -94,13 +88,19 @@ export default function AddAreaPopup({
       is_percentage: isPercentage
     };
 
-    if (editingArea && onEdit) {
-      onEdit(areaData);
-    } else {
-      onAdd(areaData);
+    try {
+      setIsLoading(true);
+      if (editingArea && onEdit) {
+        await onEdit(areaData);
+      } else {
+        await onAdd(areaData);
+      }
+      setOpen(false);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
     }
-
-    setOpen(false);
   };
 
   const handleClose = () => {
@@ -110,17 +110,17 @@ export default function AddAreaPopup({
   const isEditMode = !!editingArea;
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogContent className="w-[320px] md:w-[445px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="w-[320px] md:w-[445px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
         <div onClick={(e) => e.stopPropagation()} onChange={(e) => e.stopPropagation()}>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
               {isEditMode ? "Edit Area" : "Add an Area"}
-              <AlertDialogCancel className="border-none !shadow-none" onClick={handleClose}>
+              <Button className="border-none !shadow-none bg-transparent hover:bg-transparent" onClick={handleClose}>
                 <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-              </AlertDialogCancel>
-            </AlertDialogTitle>
-          </AlertDialogHeader>
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
 
           <div className="flex flex-col gap-y-4 mt-4">
             <hr className="w-full h-[1px] text-[#BBBBBB]" />
@@ -222,23 +222,23 @@ export default function AddAreaPopup({
           <hr className="w-full h-[1px] text-[#BBBBBB] mt-4" />
 
           {/* Footer Buttons */}
-          <AlertDialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px] mt-2 font-alexandria">
-            <AlertDialogCancel
+          <DialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px] mt-2 font-alexandria">
+            <Button
               onClick={handleClose}
               className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]"
             >
               Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
+            </Button>
+            <Button
               onClick={handleSubmit}
-              disabled={!customTitle || charge === "" || discount === ""}
+              disabled={!customTitle || charge === "" || discount === "" || isLoading}
               className="bg-[#4290E9] text-white hover:bg-[#005fb8] w-full md:w-[176px] h-[44px] font-[400] text-[20px] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isEditMode ? "Update" : "Add"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+              {isLoading ? <Loader2 className="animate-spin w-5 h-5" /> : (isEditMode ? "Update" : "Add")}
+            </Button>
+          </DialogFooter>
         </div>
-      </AlertDialogContent>
-    </AlertDialog>
+      </DialogContent>
+    </Dialog>
   );
 }

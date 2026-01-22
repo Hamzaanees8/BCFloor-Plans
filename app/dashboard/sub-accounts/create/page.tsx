@@ -11,6 +11,7 @@ import { Country, State } from 'country-state-city';
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 //import { Plus, X } from 'lucide-react'
 //import PaymentDialog from '@/components/PaymentDialog'
 //import CloseDialog from '@/components/CloseDialog'
@@ -472,9 +473,9 @@ const OrdersForm = () => {
             if (subAccountId) {
                 // Add _method: 'PUT' to payload for method override
                 const updatedPayload = { ...payload, _method: 'PUT' };
+                setIsLoading(true)
                 await Edit(subAccountId, updatedPayload, token);
                 toast.success('Sub-Account updated successfully');
-                setIsLoading(true)
                 setOpenSaveDialog(true)
                 if (agentId) {
                     router.push(`/dashboard/agents/create/${agentId}`);
@@ -484,9 +485,9 @@ const OrdersForm = () => {
                 setIsLoading(false)
                 setIsDirty(false)
             } else {
+                setIsLoading(true)
                 await Create(payload, token);
                 toast.success('Sub-Account created successfully');
-                setIsLoading(true)
                 setOpenSaveDialog(true)
                 if (agentId) {
                     router.push(`/dashboard/agents/create/${agentId}`);
@@ -535,7 +536,9 @@ const OrdersForm = () => {
             <div className='w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}> Sub Account
                     {currentUser ? ` › ${currentUser.first_name} ${currentUser.last_name}` : ' › Create'}</p>
-                <Button onClick={(e) => { handleSubmit(e) }} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>Save Changes</Button>
+                <Button onClick={(e) => { handleSubmit(e) }} disabled={isLoading} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>
+                    {isLoading ? <Loader2 className="animate-spin w-5 h-5" /> : "Save Changes"}
+                </Button>
             </div>
             <SaveModal
                 isOpen={openSaveDialog}

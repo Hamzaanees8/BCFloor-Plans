@@ -130,7 +130,7 @@ export default function DiscountTable({ discounts, fetchDiscounts, setDiscounts,
         },
         {
             accessorKey: "quantity",
-            header: "QTY",
+            header: "MIN QUANTITY",
             cell: ({ row }) => (
                 <div className="text-[#666666]">
                     {row.getValue("quantity") || row.getValue("quantity") === 0

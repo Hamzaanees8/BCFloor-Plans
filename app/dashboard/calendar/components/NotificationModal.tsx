@@ -2,15 +2,13 @@
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { ChevronDown, Minus, Plus, X } from "lucide-react";
 import {
   Select,
@@ -359,21 +357,22 @@ const NotificationModal: React.FC<Props> = ({
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogContent className="bg-[#FAFAFA]  w-[750px] max-w-[750px] max-h-[650px] rounded-[8px] font-alexandria gap-y-3 overflow-y-auto">
-        <AlertDialogHeader>
-          <AlertDialogTitle
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="bg-[#FAFAFA]  w-[750px] max-w-[750px] max-h-[650px] rounded-[8px] font-alexandria gap-y-3 overflow-y-auto [&>button]:hidden">
+        <DialogHeader>
+          <DialogTitle
             className={`${userType}-text flex items-center justify-between text-[18px] uppercase font-semibold border-b border-[#E4E4E4] pb-2`}
           >
             Edit Notification
             <Button
               onClick={handleClose}
-              className="bg-transparent hover:bg-transparent shadow-none"
+              variant="ghost"
+              className="bg-transparent hover:bg-transparent shadow-none p-0 h-auto"
             >
               <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
             </Button>
-          </AlertDialogTitle>
-        </AlertDialogHeader>
+          </DialogTitle>
+        </DialogHeader>
         <div className="text-[#666666] text-[16px] font-[400]">
           {showAgentModal && <p>Choose Template: Agents</p>}
           {showVendorModal && <p>Choose Template: Vendors</p>}
@@ -447,28 +446,29 @@ const NotificationModal: React.FC<Props> = ({
                 </p>
                 <Plus className="w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm " />
               </div>
-              <AlertDialog
+              <Dialog
                 open={openAddCoAgentDialog}
                 onOpenChange={setOpenAddCoAgentDialog}
               >
-                <AlertDialogContent className="w-[320px] md:w-[470px] h-[360px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className="flex items-center uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
+                <DialogContent className="w-[320px] md:w-[470px] h-[360px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
                       CC
-                      <AlertDialogCancel
+                      <Button
+                        variant="ghost"
                         onClick={(e) => {
                           e.stopPropagation();
                           setOpenAddCoAgentDialog(false);
                           setCoAgentEmail("");
                           setDraftCoAgents([]);
                         }}
-                        className="border-none !shadow-none"
+                        className="border-none !shadow-none p-0 h-auto"
                       >
                         <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                      </AlertDialogCancel>
-                    </AlertDialogTitle>
+                      </Button>
+                    </DialogTitle>
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
-                  </AlertDialogHeader>
+                  </DialogHeader>
 
                   <div className="flex flex-col ">
                     <div
@@ -567,8 +567,9 @@ const NotificationModal: React.FC<Props> = ({
                           </div>
                         </div>
                         <hr className="w-full h-[1px] text-[#BBBBBB] my-[16px]" />
-                        <AlertDialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
-                          <AlertDialogCancel
+                        <DialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
+                          <Button
+                            variant="outline"
                             onClick={(e) => {
                               e.stopPropagation();
                               setOpenAddCoAgentDialog(false);
@@ -578,7 +579,7 @@ const NotificationModal: React.FC<Props> = ({
                             className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]"
                           >
                             Cancel
-                          </AlertDialogCancel>
+                          </Button>
                           <button
                             type="button"
                             onClick={(e) => {
@@ -614,12 +615,12 @@ const NotificationModal: React.FC<Props> = ({
                           >
                             Add
                           </button>
-                        </AlertDialogFooter>
+                        </DialogFooter>
                       </form>
                     </div>
                   </div>
-                </AlertDialogContent>
-              </AlertDialog>
+                </DialogContent>
+              </Dialog>
             </div>
             <div className="border border-[#BBBBBB] mt-[12px] px-[6px] py-[8px] rounded-[6px] bg-[#EEEEEE] flex flex-wrap gap-[6px] min-h-[67px]">
               {adminEmail && (
@@ -674,28 +675,29 @@ const NotificationModal: React.FC<Props> = ({
                 </p>
                 <Plus className="w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm " />
               </div>
-              <AlertDialog
+              <Dialog
                 open={openAddCoAgentDialog}
                 onOpenChange={setOpenAddCoAgentDialog}
               >
-                <AlertDialogContent className="w-[320px] md:w-[470px] h-[360px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className="flex items-center uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
+                <DialogContent className="w-[320px] md:w-[470px] h-[360px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
                       CC
-                      <AlertDialogCancel
+                      <Button
+                        variant="ghost"
                         onClick={(e) => {
                           e.stopPropagation();
                           setOpenAddCoAgentDialog(false);
                           setCoAgentEmailVendor("");
                           setDraftCoAgentsVendor([]);
                         }}
-                        className="border-none !shadow-none"
+                        className="border-none !shadow-none p-0 h-auto"
                       >
                         <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                      </AlertDialogCancel>
-                    </AlertDialogTitle>
+                      </Button>
+                    </DialogTitle>
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
-                  </AlertDialogHeader>
+                  </DialogHeader>
 
                   <div className="flex flex-col ">
                     <div
@@ -794,8 +796,9 @@ const NotificationModal: React.FC<Props> = ({
                           </div>
                         </div>
                         <hr className="w-full h-[1px] text-[#BBBBBB] my-[16px]" />
-                        <AlertDialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
-                          <AlertDialogCancel
+                        <DialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
+                          <Button
+                            variant="outline"
                             onClick={(e) => {
                               e.stopPropagation();
                               setOpenAddCoAgentDialog(false);
@@ -805,7 +808,7 @@ const NotificationModal: React.FC<Props> = ({
                             className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]"
                           >
                             Cancel
-                          </AlertDialogCancel>
+                          </Button>
                           <button
                             type="button"
                             onClick={(e) => {
@@ -839,12 +842,12 @@ const NotificationModal: React.FC<Props> = ({
                           >
                             Add
                           </button>
-                        </AlertDialogFooter>
+                        </DialogFooter>
                       </form>
                     </div>
                   </div>
-                </AlertDialogContent>
-              </AlertDialog>
+                </DialogContent>
+              </Dialog>
             </div>
             <div className="border border-[#BBBBBB] mt-[12px] px-[6px] py-[8px] rounded-[6px] bg-[#EEEEEE] flex flex-wrap gap-[6px] min-h-[67px]">
               {adminEmailVendor && (
@@ -891,12 +894,13 @@ const NotificationModal: React.FC<Props> = ({
           {bothSelected && showAgentModal && (
             // Step 1 of 2 (Agent only)
             <div className="flex items-center gap-x-4 font-raleway">
-              <AlertDialogCancel
+              <Button
+                variant="outline"
                 onClick={handleClose}
                 className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[600] ${userType}-border ${userType}-text hover-${userType}-bg  ${userType}-button`}
               >
                 Cancel
-              </AlertDialogCancel>
+              </Button>
               <Button
                 onClick={handleNext}
                 className={`${userType}-bg  w-full md:w-[170px] h-[44px] text-[20px] font-[600] hover:opacity-95 text-white hover-${userType}-bg`}
@@ -926,12 +930,13 @@ const NotificationModal: React.FC<Props> = ({
 
           {!bothSelected && showAgentModal && (
             <div className="flex items-center gap-x-4 font-raleway">
-              <AlertDialogCancel
+              <Button
+                variant="outline"
                 onClick={handleClose}
                 className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[600] ${userType}-border ${userType}-text hover-${userType}-bg ${userType}-button`}
               >
                 Cancel
-              </AlertDialogCancel>
+              </Button>
               <Button
                 onClick={handleSave}
                 className={`${userType}-bg  w-full md:w-[170px] h-[44px] text-[20px] font-[600] hover:opacity-95 text-white hover-${userType}-bg`}
@@ -943,12 +948,13 @@ const NotificationModal: React.FC<Props> = ({
 
           {!bothSelected && showVendorModal && (
             <div className="flex items-center gap-x-4 font-raleway">
-              <AlertDialogCancel
+              <Button
+                variant="outline"
                 onClick={handleClose}
                 className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[600] ${userType}-border ${userType}-text hover-${userType}-bg ${userType}-button `}
               >
                 Cancel
-              </AlertDialogCancel>
+              </Button>
               <Button
                 onClick={handleSave}
                 className={`${userType}-bg  w-full md:w-[170px] h-[44px] text-[20px] font-[600] hover:opacity-95 text-white hover-${userType}-bg`}
@@ -958,49 +964,49 @@ const NotificationModal: React.FC<Props> = ({
             </div>
           )}
         </div>
-      </AlertDialogContent>
-      <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
-        <AlertDialogContent className="w-[320px] md:w-[565px] max-w-[565px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria">
-          <AlertDialogHeader className="mb-2">
-            <AlertDialogTitle className="flex items-center justify-between text-[#4290E9] text-[18px] font-[600] border-b-[1px] border-[#E4E4E4] pb-2">
+      </DialogContent>
+      <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+        <DialogContent className="w-[320px] md:w-[565px] max-w-[565px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria [&>button]:hidden">
+          <DialogHeader className="mb-2">
+            <DialogTitle className="flex items-center justify-between text-[#4290E9] text-[18px] font-[600] border-b-[1px] border-[#E4E4E4] pb-2">
               SAVE AND EXIT
-              <AlertDialogCancel className="border-none !shadow-none">
+              <Button variant="ghost" onClick={() => setShowConfirmation(false)} className="border-none !shadow-none p-0 h-auto hover:bg-transparent">
                 <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-              </AlertDialogCancel>
-            </AlertDialogTitle>
-          </AlertDialogHeader>
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
 
           <div className="flex items-start gap-3">
             <div className="w-fit">
               <WarningIcon width={48} fill="#DC9600" />
             </div>
-            <AlertDialogDescription className="text-[16px] font-[400] text-[#666666]">
+            <DialogDescription className="text-[16px] font-[400] text-[#666666]">
               Are you sure you want to save and exit? This cannot be undone.
-            </AlertDialogDescription>
+            </DialogDescription>
           </div>
 
-          <AlertDialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px]  mt-2 font-alexandria">
-            <AlertDialogCancel className="bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">
+          <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px]  mt-2 font-alexandria">
+            <Button onClick={() => setShowConfirmation(false)} className="bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">
               Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
+            </Button>
+            <Button
               className="bg-[#4290E9] text-white hover:bg-[#005fb8] w-full  md:w-[170px] h-[44px] font-[400] text-[20px]"
               onClick={handleOkClick}
             >
               OK
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
         <SaveModal
           isOpen={openSave}
           onClose={() => setOpenSave(false)}
           // isLoading={true}
           isSuccess={true}
-          // backLink="/dashboard/agents"
-          // title={'Agents'}
+        // backLink="/dashboard/agents"
+        // title={'Agents'}
         />
-      </AlertDialog>
-    </AlertDialog>
+      </Dialog>
+    </Dialog>
   );
 };
 

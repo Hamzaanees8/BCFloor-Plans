@@ -1,13 +1,9 @@
 'use client'
 import React from 'react'
 import { X } from 'lucide-react'
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogTitle
-} from './ui/alert-dialog'
 import Image from 'next/image'
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
+import { useAppContext } from '@/app/context/AppContext'
 
 interface ImagePopupProps {
   imageUrl?: string
@@ -16,20 +12,25 @@ interface ImagePopupProps {
 }
 
 export default function ImagePopup({ imageUrl, open, onClose }: ImagePopupProps) {
+  const { userType } = useAppContext();
+
   if (!open || !imageUrl) return null
 
   return (
-    <AlertDialog open={open} onOpenChange={onClose}>
-      <AlertDialogContent className="bg-white overflow-hidden flex-col shadow-lg border rounded-xl p-4 !w-[700px] !max-w-none h-[500px] flex fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-        <div className="w-full h-[40px] px-5 flex items-center border-b-2 border-gray-200">
-          <AlertDialogTitle className="text-[#6BAE41] font-[700] text-[18px]">
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="bg-white overflow-hidden flex-col shadow-lg border rounded-xl p-4 !w-[700px] !max-w-none h-[500px] flex fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 [&>button]:hidden">
+        <DialogHeader className="mb-2">
+          <DialogTitle className={`flex items-center justify-between ${userType}-text text-[18px] font-[700] border-b-[1px] border-[#E4E4E4] pb-2`}>
             PHOTO
-          </AlertDialogTitle>
-        </div>
+            <DialogClose className="border-none !shadow-none">
+              <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
+            </DialogClose>
+          </DialogTitle>
+        </DialogHeader>
 
-        <AlertDialogDescription className="sr-only">
+        <DialogDescription className="sr-only">
           This is an image preview modal. Press escape or close to dismiss.
-        </AlertDialogDescription>
+        </DialogDescription>
 
         <button
           onClick={onClose}
@@ -48,7 +49,7 @@ export default function ImagePopup({ imageUrl, open, onClose }: ImagePopupProps)
             unoptimized
           />
         </div>
-      </AlertDialogContent>
-    </AlertDialog>
+      </DialogContent>
+    </Dialog>
   )
 }

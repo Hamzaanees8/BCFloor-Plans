@@ -1,11 +1,11 @@
 import { useAppContext } from '@/app/context/AppContext';
 import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogFooter,
-} from '@/components/ui/alert-dialog';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
@@ -143,25 +143,26 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
     setSelectedFiles([]);
   };
   return (
-    <AlertDialog open={open} onOpenChange={onClose}>
-      <AlertDialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#E4E4E4] rounded-xl shadow-lg border p-6 w-full max-w-[700px] font-Alexandria">
-        <AlertDialogHeader>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#E4E4E4] rounded-xl shadow-lg border p-6 w-full max-w-[700px] font-Alexandria [&>button]:hidden">
+        <DialogHeader>
           <div className="flex items-center justify-between">
-            <AlertDialogTitle className={`uppercase ${userType}-text text-[18px] font-[600]`}>
+            <DialogTitle className={`uppercase ${userType}-text text-[18px] font-[600]`}>
               Download Files
-            </AlertDialogTitle>
-            <button
+            </DialogTitle>
+            <Button
+              variant="ghost"
               onClick={() => {
                 onClose();
                 setSelectedFiles([]);
               }}
-              className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-1 hover:bg-gray-100 rounded-full transition-colors h-auto"
               aria-label="Close"
             >
               <X className="w-5 h-5 text-[#7D7D7D]" />
-            </button>
+            </Button>
           </div>
-        </AlertDialogHeader>
+        </DialogHeader>
 
         <hr className="w-full h-[1px] bg-[#BBBBBB]" />
         <div className="flex items-center gap-x-2.5 mb-3">
@@ -246,7 +247,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
 
         </div>
         <hr className="w-full h-[1px] bg-[#BBBBBB]" />
-        <AlertDialogFooter className="flex flex-col md:flex-row md:justify-end gap-3 font-raleway">
+        <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-3 font-raleway">
           <button
             onClick={() => {
               onClose();
@@ -263,28 +264,29 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
           >
             Download Selected
           </button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
+        </DialogFooter>
+      </DialogContent>
       {openModal && (
-        <AlertDialog open={openModal} onOpenChange={setOpenModal}>
-          <AlertDialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white rounded-xl shadow-lg border p-6 w-full max-w-[500px] font-Alexandria">
-            <AlertDialogHeader>
+        <Dialog open={openModal} onOpenChange={setOpenModal}>
+          <DialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white rounded-xl shadow-lg border p-6 w-full max-w-[500px] font-Alexandria [&>button]:hidden">
+            <DialogHeader>
               <div className="flex items-center justify-between">
-                <AlertDialogTitle className={`uppercase ${userType}-text text-[18px] font-[600]`}>
+                <DialogTitle className={`uppercase ${userType}-text text-[18px] font-[600]`}>
                   Download Size
-                </AlertDialogTitle>
-                <button
+                </DialogTitle>
+                <Button
+                  variant="ghost"
                   onClick={() => {
                     setOpenModal(false)
                     setSelectedFiles([]);
                   }}
-                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                  className="p-1 hover:bg-gray-100 rounded-full transition-colors h-auto"
                   aria-label="Close"
                 >
                   <X className="w-5 h-5 text-[#7D7D7D]" />
-                </button>
+                </Button>
               </div>
-            </AlertDialogHeader>
+            </DialogHeader>
             <hr className="w-full h-[1px] bg-[#BBBBBB]" />
             <div className="flex flex-col items-center justify-center gap-y-2 my-4">
               <Button
@@ -309,18 +311,18 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
               </Button>
             </div>
             <hr className="w-full h-[1px] bg-[#BBBBBB]" />
-            <AlertDialogFooter className="flex justify-end gap-3 font-raleway">
+            <DialogFooter className="flex justify-end gap-3 font-raleway">
               <button
                 onClick={handleDownloadSelected}
                 className={`bg-white rounded-[6px] w-full md:w-[176px] h-[44px] text-[16px] font-[600] border ${userType}-border ${userType}-text hover:bg-[#f1f8ff]`}
               >
                 Download
               </button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
-    </AlertDialog>
+    </Dialog>
   );
 };
 

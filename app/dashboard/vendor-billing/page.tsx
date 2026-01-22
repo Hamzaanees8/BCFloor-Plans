@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { useAppContext } from "@/app/context/AppContext";
-import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, Loader2 } from "lucide-react";
 import { Get, GetVendors } from "../orders/orders";
 import { toast } from "sonner";
 import { payVendor } from "./vendorBilling";
@@ -836,21 +836,18 @@ const Page = () => {
                                                                                 triggerPaymentAction(() => handlePayAllUnpaid(vg.vendor.uuid));
                                                                             }
                                                                         }}
-                                                                        disabled={!hasUnpaidServices(vg.vendorId) || processingBulkPayments.has(`bulk-${vg.vendorId}`)}
+                                                                        disabled={!hasUnpaidServices(vg.vendorId) || processingBulkPayments.has(`bulk-${vg.vendor.uuid}`)}
                                                                         className={`px-4 py-2 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[120px]
             ${!hasUnpaidServices(vg.vendorId)
                                                                                 ? 'bg-gray-400 cursor-not-allowed'
-                                                                                : processingBulkPayments.has(`bulk-${vg.vendorId}`)
-                                                                                    ? 'bg-blue-400 cursor-not-allowed'
+                                                                                : processingBulkPayments.has(`bulk-${vg.vendor.uuid}`)
+                                                                                    ? 'bg-[#6bae41] hover:bg-[#6bae41]/80 cursor-not-allowed'
                                                                                     : 'bg-[#6bae41] hover:bg-[#6bae41]/80 cursor-pointer'
                                                                             }`}
                                                                     >
-                                                                        {processingBulkPayments.has(`bulk-${vg.vendorId}`) ? (
-                                                                            <span className="flex items-center">
-                                                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                                </svg>
+                                                                        {processingBulkPayments.has(`bulk-${vg.vendor.uuid}`) ? (
+                                                                            <span className="flex items-center text-white">
+                                                                                <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" />
                                                                                 Processing...
                                                                             </span>
                                                                         ) : (
@@ -933,11 +930,8 @@ const Page = () => {
                                                                                                             } `}
                                                                                                     >
                                                                                                         {processingPayments.has(`${svc.uuid}-${svc.slots[0].vendor.uuid}`) ? (
-                                                                                                            <span className="flex items-center">
-                                                                                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                                                                </svg>
+                                                                                                            <span className="flex items-center text-white">
+                                                                                                                <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" />
                                                                                                                 Processing...
                                                                                                             </span>
                                                                                                         ) : svc.vendor_payment != null ? (

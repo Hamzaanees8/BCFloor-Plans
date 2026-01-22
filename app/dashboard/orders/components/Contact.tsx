@@ -686,12 +686,12 @@ const Contact = () => {
                                         <div className="flex flex-col gap-4">
                                             <form onSubmit={handleAddNote}>
                                                 <div className="flex flex-col gap-4">
-                                                    <input
+                                                    {/* <input
                                                         type="text"
                                                         disabled
                                                         className="w-full h-[42px] p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] text-[#666666] font-medium"
                                                         value={userName}
-                                                    />
+                                                    /> */}
                                                     {token && userType !== 'agent' &&
                                                         (
                                                             isEditing ? (

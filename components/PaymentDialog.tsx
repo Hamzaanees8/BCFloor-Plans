@@ -1,16 +1,16 @@
-// components/ConfirmationDialog.tsx
+// components/PaymentDialog.tsx
 "use client"
 
 import React, { useState } from "react"
 import {
-    AlertDialog,
-    AlertDialogContent,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogCancel,
-    AlertDialogFooter,
-    AlertDialogAction,
-} from "@/components/ui/alert-dialog"
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    DialogClose,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
 import { Input } from "./ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
@@ -114,16 +114,17 @@ const PaymentDialog: React.FC<Props> = ({
     const cardOptions: CardType[] = ["mastercard", "visa", "amex"];
 
     return (
-        <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent className="w-[320px] md:w-[416px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria">
-                <AlertDialogHeader>
-                    <AlertDialogTitle className={`flex items-center justify-between ${userType}-text text-[18px] font-[600]`}>
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="w-[320px] md:w-[416px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria [&>button]:hidden">
+                <DialogHeader>
+                    <DialogTitle className={`flex items-center justify-between ${userType}-text text-[18px] font-[600]`}>
                         PAYMENT CARD
-                        <AlertDialogCancel className="border-none !shadow-none">
+                        <DialogClose className="border-none !shadow-none opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
                             <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                        </AlertDialogCancel>
-                    </AlertDialogTitle>
-                </AlertDialogHeader>
+                            <span className="sr-only">Close</span>
+                        </DialogClose>
+                    </DialogTitle>
+                </DialogHeader>
                 <div className="flex flex-col gap-y-4">
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
                     <div className='grid grid-cols-2 gap-[16px] text-sm font-normal text-[#424242]'>
@@ -201,19 +202,21 @@ const PaymentDialog: React.FC<Props> = ({
                         </div>
                     </div>
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
-                    <AlertDialogFooter className="flex flex-col md:flex-row md:justify-between gap-[5px]  mt-2 font-alexandria">
-                        <AlertDialogCancel className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400]  ${userType}-border ${userType}-text ${userType}-button hover-${userType}-bg`}>
+                    <DialogFooter className="flex flex-col md:flex-row md:justify-between gap-[5px]  mt-2 font-alexandria">
+                        <Button
+                            onClick={() => setOpen(false)}
+                            className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400]  ${userType}-border ${userType}-text ${userType}-button hover-${userType}-bg hover:text-white border border-gray-200 hover:bg-gray-100`}>
                             Cancel
-                        </AlertDialogCancel>
-                        <AlertDialogAction onClick={handleAddCard}
+                        </Button>
+                        <Button onClick={handleAddCard}
                             className={`${userType}-bg text-white hover-${userType}-bg w-full  md:w-[170px] h-[44px] font-[400] text-[20px]`}
                         >
                             Add
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
+                        </Button>
+                    </DialogFooter>
                 </div>
-            </AlertDialogContent>
-        </AlertDialog>
+            </DialogContent>
+        </Dialog>
     )
 }
 
