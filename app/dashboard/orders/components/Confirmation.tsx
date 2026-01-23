@@ -386,7 +386,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
 
                         // Verify they are contiguous (sanity check)
                         let isContiguous = true;
-                        for (let i = 0;i < sortedSlots.length - 1;i++) {
+                        for (let i = 0; i < sortedSlots.length - 1; i++) {
                             if (sortedSlots[i].end_time !== sortedSlots[i + 1].start_time) {
                                 isContiguous = false;
                                 console.warn('Non-contiguous slots detected for service:', sortedSlots[i].service_id);
@@ -495,7 +495,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                             <File className='text-[#4290E9] h-[24px]w-[30px]  md:h-[36px] md:w-[40px]' />
                                             <p className='text-[#4290E9] text-[24px] md:text-[36px] font-[400]'>Order {orderData?.id}</p>
                                         </div>
-                                        <div className='flex items-center gap-[12px] hidden'>
+                                        <div className='items-center gap-[12px] hidden'>
                                             <Switch className=' data-[state=checked]:bg-[#6BAE41] ' />
                                             <p className='text-[#666666] text-[16px]'>Open</p>
                                         </div>
