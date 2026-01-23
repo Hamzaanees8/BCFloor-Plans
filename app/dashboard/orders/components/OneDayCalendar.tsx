@@ -1,7 +1,7 @@
 'use client'
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Dispatch, SetStateAction } from 'react';
 import { useParams } from 'next/navigation';
 import dayjs from "dayjs";
 import { SelectedService } from './Services';
@@ -69,6 +69,9 @@ interface CalendarProps {
   vendorDistances: Record<string, number>;
   propertyTimezone?: string;
   masterDate: Date;
+  externalSetSelectedSlots?: Dispatch<SetStateAction<Slot[]>>;
+  externalSelectedSlots?: Slot[];
+  externalVendorsData?: VendorData[];
 }
 
 interface MinimalSlot {
@@ -275,16 +278,21 @@ export function getDistanceColor(distance: number | undefined): string {
   return "#171484";
 }
 
-export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, vendorDistances, propertyTimezone, masterDate }: CalendarProps) {
+export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, vendorDistances, propertyTimezone, masterDate, externalSetSelectedSlots, externalSelectedSlots, externalVendorsData }: CalendarProps) {
   const {
-    selectedSlots,
-    setSelectedSlots,
+    selectedSlots: contextSelectedSlots,
+    setSelectedSlots: contextSetSelectedSlots,
     selectedServices,
-    vendorsData,
+    vendorsData: contextVendorsData,
     ordersData,
     selectedCurrentListing,
     tempPropertyData,
   } = useOrderContext();
+
+  // Use external data if provided (for BookNow), otherwise use context
+  const selectedSlots = externalSelectedSlots || contextSelectedSlots;
+  const setSelectedSlots = externalSetSelectedSlots || contextSetSelectedSlots;
+  const vendorsData = externalVendorsData || contextVendorsData;
   const { id } = useParams();
 
   const existingSlot = selectedSlots.find((s: Slot) => s.service_id === service.uuid);

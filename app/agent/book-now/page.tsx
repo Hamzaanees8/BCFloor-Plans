@@ -1,21 +1,57 @@
 "use client";
-import Header from '@/components/Header'
-import { Button } from '@/components/ui/button';
-import React, { useState } from 'react'
-import Property from './components/property';
-import Services from '@/app/dashboard/orders/components/Services';
-import Schedule from '@/app/dashboard/orders/components/Schedule';
-import Contact from '@/app/dashboard/orders/components/Contact';
-import Confirmation from '@/app/dashboard/orders/components/Confirmation';
 
-function Page() {
-    const tabs = ["services", "property", "schedule", "contact", "order"];
-    const [active, setActive] = useState("services");
-    const agentSession = localStorage.getItem('agentSession')
+import Header from '@/components/Header'
+import { Button } from '@/components/ui/button'
+import React, { useRef, useState } from 'react'
+import Property from './components/property'
+import BookNowServices from './components/Services'
+import Schedule from './components/Schedule'
+import Contact from './components/Contact'
+import Confirmation from './components/Confirmation'
+import { BookNowProvider, useBookNowContext } from './context/BookNowContext'
+import type { BookNowConfirmationHandle } from './components/Confirmation'
+
+function BookNowPageContent() {
+    const { tempPropertyData, selectedServices, selectedSlots } = useBookNowContext();
+    const tabs = ["property", "services", "schedule", "contact", "confirmation"];
+    const [active, setActive] = useState("property");
+    const [hasAgentToken, setHasAgentToken] = useState(false);
+    const confirmationRef = useRef<BookNowConfirmationHandle>(null);
+
+    React.useEffect(() => {
+
+        const checkToken = () => {
+            if (typeof window !== 'undefined') {
+                const token = localStorage.getItem('agentToken');
+                setHasAgentToken(!!token);
+                return token;
+            }
+            return null;
+        };
+
+        const handleStorageChange = () => {
+            checkToken();
+        };
+
+        const handleLoginEvent = () => {
+            checkToken();
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        window.addEventListener('agentLogin', handleLoginEvent);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('agentLogin', handleLoginEvent);
+        };
+    }, []);
+
+
     const handleNext = () => {
+        if (!isValid()) return;
         const currentIndex = tabs.indexOf(active);
         const nextIndex = currentIndex + 1;
-        if (isValid() && nextIndex < tabs.length) {
+        if (nextIndex < tabs.length) {
             setActive(tabs[nextIndex]);
         }
     };
@@ -29,136 +65,112 @@ function Page() {
     };
 
     const isValid = () => {
-        if (active === 'services') {
-            return true
-        } else if (active === 'property') {
-            return true
-        } else if (active === 'schedule') {
-            return true;
-        } else if (active === 'contact') {
-            return true;
-        } else if (active === 'order') {
-            return true;
+        // Validate based on current tab
+        if (active === "property") {
+            // Property tab requires address
+            return !!(tempPropertyData?.address && tempPropertyData.address.trim() !== "");
+        } else if (active === "services") {
+            // Services tab requires at least one service selected
+            return selectedServices && selectedServices.length > 0;
+        } else if (active === "schedule") {
+            // Schedule tab requires slots selected
+            return selectedSlots && selectedSlots.length > 0;
+        } else if (active === "contact") {
+            // Contact tab requires user to be logged in
+            return hasAgentToken;
         }
-        return false;
+        // Confirmation can be empty
+        return true;
     };
+
+    const handleSubmitOrder = async (e: React.MouseEvent<HTMLButtonElement>) => {
+        if (confirmationRef.current) {
+            await confirmationRef.current.handleSubmitOrder(e);
+        }
+    };
+
     return (
-        <div>
-            <div>
-                <Header />
+        <div className='font-alexandria'>
+            {/* Tab Navigation */}
+            <div className='flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600]'>
+                <div className="flex gap-2 flex-wrap justify-center">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab}
+                            className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[140px] h-[35px] transition-all ${active === tab
+                                ? 'bg-[#4290E9] text-white'
+                                : 'bg-[#E4E4E4] text-[#666666]'
+                                }`}
+                        >
+                            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                        </button>
+                    ))}
+                </div>
             </div>
-            <div className='font-alexandria mt-[100px]'>
 
-                <div className='flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600]' >
-                    <div className="flex gap-2">
-                        <button
-                            //onClick={() => setActive("services")}
-                            className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                                     ${active === "services" ? `bg-[#4290E9] text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
+            {/* Navigation Buttons */}
+            <div className='flex justify-center'>
+                <div className='flex justify-between gap-2 py-[40px] w-[90%] lg:w-[80%]'>
+                    {active !== "property" && (
+                        <Button
+                            onClick={handleBack}
+                            className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] border-[#4290E9] bg-white text-[#4290E9] hover:bg-[#4290E9] hover:text-white text-[14px] md:text-[16px] font-[400]'
                         >
-                            SERVICES
-                        </button>
-                        <button
-                            //onClick={() => setActive("property")}
-                            className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                             ${active === "property" ? `bg-[#4290E9] text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
-                        >
-                            PROPERTY
-                        </button>
-                        <button
-                            //onClick={() => setActive("schedule")}
-                            className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                             ${active === "schedule" ? `bg-[#4290E9] text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
-                        >
-                            SCHEDULE
-                        </button>
-                        <button
-                            //onClick={() => setActive("contact")}
-                            className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
-                             ${active === "contact" ? `bg-[#4290E9] text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
-                        >
-                            CONTACT
-                        </button>
-                        <button
-                            //onClick={() => setActive("order")}
-                            className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[230px] h-[35px]
-                             ${active === "order" ? `bg-[#4290E9] text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
-                        >
-                            ORDER CONFIRMATION
-                        </button>
-                    </div>
-
-                </div>
-                {active === 'property' &&
-                    <div className='flex justify-center mt-[40px]'>
-                        <div className="flex items-start justify-between w-[60%]">
-                            {/* <button className="bg-[#4290E9] hover:bg-[#4290E9] text-white font-medium px-4 py-2 rounded-md">
-                                Realtor Sign In
-                            </button> */}
-
-                            <div className="text-sm text-[#666666] leading-tight">
-                                <p className="font-[700] text-[12px]">MEMBER SIGN IN</p>
-                                <p className="text-[#666666]">
-                                    Sign in now to manage your orders, marketing materials, property listings and other content.
-                                </p>
-                            </div>
-                        </div>
-
-                    </div>
-                }
-                <div className='flex justify-center'>
-                    <div className='flex justify-end gap-2 py-[40px] w-[60%]'>
-                        {active !== "services" && (
-                            <Button
-                                onClick={handleBack}
-                                className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] border-[#4290E9] bg-white  text-[#4290E9] hover:bg-[#4290E9] hover:text-white text-[14px] md:text-[16px] font-[400] flex gap-[5px] items-center`}
-                            >
-                                Back
-                            </Button>
-                        )}
-
-                        {active !== "order" && (
-                            <Button
-                                onClick={handleNext}
-                                className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] border-[#4290E9] ${agentSession ? 'bg-[#4290E9]' : 'bg-[#8E8E8E]'} bg-[#4290E9] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-white hover:bg-[#4290E9]`}
-                            >
-                                Next
-                            </Button>
-                        )
-                        }
-                    </div>
-                </div>
-
-                <div className='px-10'>
-                    {active === "services" && (
-                        <div>
-                            <Services showAll={true} />
-                        </div>
+                            Back
+                        </Button>
                     )}
-                    {active === "property" && (
-                        <div>
-                            <Property />
-                        </div>
+
+                    <div className='flex-1' />
+
+                    {active !== "confirmation" && (
+                        <Button
+                            onClick={handleNext}
+                            disabled={!isValid()}
+                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] transition-all ${isValid()
+                                ? 'border-[#4290E9] bg-[#4290E9] text-white hover:bg-[#3077C0] cursor-pointer'
+                                : 'border-[#BBBBBB] bg-[#EEEEEE] text-[#999999] cursor-not-allowed'
+                                }`}
+                        >
+                            Next
+                        </Button>
                     )}
-                    {active === "schedule" && (
-                        <div>
-                            <Schedule />
-                        </div>
-                    )}
-                    {active === "contact" && (
-                        <div>
-                            <Contact />
-                        </div>
-                    )}
-                    {active === "order" && (
-                        <div>
-                            <Confirmation />
-                        </div>
+
+                    {active === "confirmation" && (
+                        <Button
+                            onClick={handleSubmitOrder}
+                            className='w-[140px] md:w-[180px] h-[35px] md:h-[44px] bg-[#4290E9] text-white hover:bg-[#3077C0] text-[14px] md:text-[16px] font-[600]'
+                        >
+                            Submit Order
+                        </Button>
                     )}
                 </div>
-            </div >
+            </div>
+
+            {/* Content Area */}
+            <div className='px-4 md:px-10 py-8'>
+                {active === "property" && <Property />}
+                {active === "services" && <BookNowServices showAll={true} />}
+                {active === "schedule" && <Schedule />}
+                {active === "contact" && <Contact />}
+                {active === "confirmation" && <Confirmation ref={confirmationRef} />}
+            </div>
         </div>
-    )
+    );
 }
 
-export default Page
+function BookNowPage() {
+    return (
+        <BookNowProvider>
+            <div>
+                <div>
+                    <Header />
+                </div>
+                <div className='font-alexandria mt-[100px]'>
+                    <BookNowPageContent />
+                </div>
+            </div>
+        </BookNowProvider>
+    );
+}
+
+export default BookNowPage;
