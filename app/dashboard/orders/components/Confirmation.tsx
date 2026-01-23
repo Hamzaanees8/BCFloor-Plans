@@ -14,7 +14,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 
 
 import { VendorData } from '../[id]/page';
-import { Order, OrderService, OrderDiscount } from '../page';
+import { Order, OrderService } from '../page';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useAppContext } from '@/app/context/AppContext';
@@ -84,14 +84,12 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     const [vendorsData, setVendorsData] = React.useState<VendorData[]>([]);
     const [createdOrderUuid, setCreatedOrderUuid] = useState<string>("");
     const [orderData, setOrderData] = React.useState<Order | null>(null);
-    const [amount, setAmount] = React.useState('');
     const params = useParams();
     const userId = params?.id as string;
 
     const currentListing = listingsData.find(l => l.uuid === selectedListingId);
     const sqFootage = Number(currentListing?.square_footage || tempPropertyData?.square_footage || 0);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     const getOriginalPrice = React.useCallback((sel: SelectedService) => {
         let originalPrice = Number(sel.price) || 0;
 
@@ -113,6 +111,30 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         return originalPrice;
     }, [services, sqFootage]);
 
+    // Helper function to calculate discounted price for a service
+    const calculateDiscountedPrice = React.useCallback((sel: SelectedService) => {
+        const originalPrice = getOriginalPrice(sel);
+        const codeDiscount = appliedCodeDiscount?.services?.some(d => d.uuid === sel.uuid)
+            ? appliedCodeDiscount
+            : null;
+        const quantityDiscounts = appliedQuantityDiscounts.filter(d =>
+            d.services?.some(s => s.uuid === sel.uuid)
+        );
+        const allDiscounts: Discount[] = [];
+        if (codeDiscount) allDiscounts.push(codeDiscount);
+        allDiscounts.push(...quantityDiscounts);
+        const bestDiscount = allDiscounts.reduce((best, curr) => {
+            const currPercent = parseFloat(curr.percentage ?? "0");
+            const bestPercent = best ? parseFloat(best.percentage ?? "0") : 0;
+            return currPercent > bestPercent ? curr : best;
+        }, null as Discount | null);
+        const finalPrice = bestDiscount
+            ? originalPrice * ((100 - parseFloat(bestDiscount.percentage ?? "0")) / 100)
+            : originalPrice;
+
+        return finalPrice;
+    }, [getOriginalPrice, appliedCodeDiscount, appliedQuantityDiscounts]);
+
     useEffect(() => {
         const token = localStorage.getItem("token");
 
@@ -124,19 +146,10 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         GetOneOrder(token, createdOrderUuid)
             .then((data) => {
                 setOrderData(data.data);
-                setOrderData(data.data);
-                // If the entire order is paid, balance is 0.
-                if (data.data.payment_status?.toUpperCase() === 'PAID') {
-                    setAmount("0.00");
-                } else {
-                    // For UNPAID (or others), we assume the balance due is the total order amount
-                    // TODO: Handle partial payments if necessary by checking individual service statuses or transaction logs if available
-                    // For now, reliance on data.data.amount (which is the final discounted total from backend) is safer than summing service amounts manually
-                    setAmount(data.data.amount || "0.00");
-                }
             })
             .catch((err) => console.log(err.message));
     }, [createdOrderUuid]);
+
     useEffect(() => {
         const token = localStorage.getItem("token");
 
@@ -151,6 +164,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             })
             .catch((err) => console.log(err.message));
     }, []);
+
     useEffect(() => {
         const token = localStorage.getItem("token");
 
@@ -163,6 +177,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             .then((data) => setDiscounts(Array.isArray(data.data) ? data.data : []))
             .catch((err) => console.log(err.message));
     }, []);
+
     useEffect(() => {
         const validQuantityDiscounts = discounts.filter((discount) => {
             if (discount.type !== "quantity" || !discount.services) return false;
@@ -186,44 +201,18 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
 
         setAppliedQuantityDiscounts(validQuantityDiscounts);
     }, [selectedServices, discounts, setAppliedQuantityDiscounts]);
+
     useEffect(() => {
         if (!selectedServices?.length || !services?.length) return;
 
         let newTotal = 0;
 
         selectedServices.forEach(sel => {
-            if (sel.payment_status?.toUpperCase() === 'PAID') return;
-
-            const originalPrice = getOriginalPrice(sel);
-
-            const codeDiscount = appliedCodeDiscount?.services?.some(d => d.uuid === sel.uuid)
-                ? appliedCodeDiscount
-                : null;
-
-            const quantityDiscounts = appliedQuantityDiscounts.filter(d =>
-                d.services?.some(s => s.uuid === sel.uuid)
-            );
-
-            const allDiscounts: Discount[] = [];
-            if (codeDiscount) allDiscounts.push(codeDiscount);
-            allDiscounts.push(...quantityDiscounts);
-
-            const bestDiscount = allDiscounts.reduce((best, curr) => {
-                const currPercent = parseFloat(curr.percentage ?? "0");
-                const bestPercent = best ? parseFloat(best.percentage ?? "0") : 0;
-                return currPercent > bestPercent ? curr : best;
-            }, null as Discount | null);
-
-            const finalPrice = bestDiscount
-                ? originalPrice * ((100 - parseFloat(bestDiscount.percentage ?? "0")) / 100)
-                : originalPrice;
-
-            newTotal += finalPrice;
+            newTotal += calculateDiscountedPrice(sel);
         });
 
         if (activePackage && (activePackage.discount || 0) > 0) {
             const rawShopTotal = selectedServices.reduce((sum, s) => {
-                if (s.payment_status?.toUpperCase() === 'PAID') return sum;
                 return sum + getOriginalPrice(s);
             }, 0);
             const pkgDiscount = (rawShopTotal * (activePackage.discount || 0)) / 100;
@@ -232,7 +221,8 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         }
 
         setTotal(newTotal);
-    }, [selectedServices, services, appliedCodeDiscount, appliedQuantityDiscounts, setTotal, activePackage, listingsData, selectedListingId, tempPropertyData, getOriginalPrice]);
+    }, [selectedServices, services, appliedCodeDiscount, appliedQuantityDiscounts, setTotal, activePackage, listingsData, selectedListingId, tempPropertyData, getOriginalPrice, calculateDiscountedPrice]);
+
     const handleApplyDiscount = () => {
         const matched = discounts.find(
             (d) => d.type === "code" && d.code_key?.toLowerCase() === discountCode.toLowerCase()
@@ -242,13 +232,8 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             toast.error("Invalid discount code");
             return;
         }
-        // if (appliedCodeDiscount?.uuid === matched?.uuid) {
-        //     toast.error("This discount is already applied.");
-        //     return;
-        // }
-        // Check if selectedServices contains at least one of the services eligible for this discount (unpaid only)
+        // Check if selectedServices contains at least one of the services eligible for this discount
         const validForService = selectedServices.some(sel =>
-            sel.payment_status?.toUpperCase() !== 'PAID' &&
             matched.services?.some(dService => dService.uuid === sel.uuid)
         );
 
@@ -270,7 +255,6 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         }[] = [];
 
         selectedServices.forEach(sel => {
-            if (sel.payment_status?.toUpperCase() === 'PAID') return;
             const allApplicableDiscounts: Discount[] = [];
 
             if (appliedCodeDiscount?.services?.some(d => d.uuid === sel.uuid)) {
@@ -483,14 +467,6 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             return sum + parseFloat(s.amount || "0");
         }, 0) ?? 0;
 
-    const totalDiscountValue = orderData?.totals?.reduce((sum: number, d: OrderDiscount) => {
-        return sum + parseFloat(d.discount_value || "0");
-    }, 0) ?? 0;
-
-    const discountPercent = totalServiceAmount > 0
-        ? ((totalDiscountValue / totalServiceAmount) * 100).toFixed(2)
-        : "0.00";
-
     const uniqueVendorsMap = new Map();
 
     if (Array.isArray(orderData?.slots)) {
@@ -506,6 +482,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     useImperativeHandle(ref, () => ({
         handleSubmitOrder,
     }));
+    console.log("orderData", orderData);
     return (
         <div className="w-full space-y-4">
             <div className="grid gap-4">
@@ -549,11 +526,12 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                 </div>
                                 <div className='flex flex-col gap-[18px] text-[#666666] text-[16px]'>
                                     <p className='text-[20px] text-[#666666] font-[700]'>Order Details</p>
+
+                                    {/* Package amount - this should show the sum of all services */}
                                     <p className='grid grid-cols-4 gap-[15px]'>
                                         <span className='col-span-3'>Package</span>
                                         <span className='col-span-1'>
-                                            ${orderData?.services
-                                                ?.reduce((total, service) => total + parseFloat(service.amount), 0).toFixed(2)}
+                                            ${totalServiceAmount.toFixed(2)}
                                         </span>
                                     </p>
 
@@ -561,6 +539,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                         <span className='col-span-3'>Items</span>
                                         <span className='col-span-1'>{orderData?.services?.length}</span>
                                     </p>
+
                                     <div className="grid gap-[15px]">
                                         {orderData?.services?.map((service) => {
                                             const isPaid = service.payment_status?.toUpperCase() === 'PAID';
@@ -569,7 +548,9 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                     <span className="col-span-3 flex items-center gap-2">
                                                         {service.service?.name ?? ""}
                                                         {isPaid && (
-                                                            <span className="text-[10px] bg-[#6BAE41] text-white px-1.5 py-0.5 rounded font-semibold uppercase">Paid</span>
+                                                            <span className="text-[10px] bg-[#6BAE41] text-white px-1.5 py-0.5 rounded font-semibold uppercase">
+                                                                Paid
+                                                            </span>
                                                         )}
                                                     </span>
                                                     <span className="col-span-1">${parseFloat(service.amount).toFixed(2)}</span>
@@ -577,58 +558,84 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                             );
                                         })}
                                     </div>
+
                                     <p className='grid grid-cols-4 gap-[15px]'>
                                         <span className='col-span-3'>GST/HST</span>
                                         <span className='col-span-1'>$0.00</span>
                                     </p>
+
                                     <p className='grid grid-cols-4 gap-[15px]'>
                                         <span className='col-span-3'>PST/RST/QST</span>
                                         <span className='col-span-1'>$0.00</span>
                                     </p>
-                                    {(() => {
-                                        const netAmount = totalServiceAmount - totalDiscountValue;
-                                        // amount is the "Amount/Balance Due" from state (calculated in useEffect)
-                                        // Therefore, the "Paid" amount is (Total Order Value) - (Balance Due)
-                                        // effectively: Net Total - Amount Due
-                                        const paidVal = netAmount - parseFloat(amount || "0");
 
-                                        // Safety check for negative paidVal due to floating point or initial state mismatch
-                                        const displayPaidVal = Math.max(0, paidVal);
+                                    {(() => {
+                                        // Calculate subtotal from services
+                                        const subtotal = orderData?.services?.reduce((sum, s) => sum + parseFloat(s.amount || "0"), 0) || 0;
+
+                                        // Calculate total discount from orderData.totals array
+                                        const totalDiscount = orderData?.totals?.reduce((total, item) => {
+                                            if (item.amount && parseFloat(item.amount) < 0) {
+                                                return total + Math.abs(parseFloat(item.amount));
+                                            }
+                                            return total;
+                                        }, 0) || 0;
+
+                                        // Calculate discount percentage
+                                        const discountPercent = subtotal > 0 ? ((totalDiscount / subtotal) * 100).toFixed(2) : "0.00";
+
+                                        // Grand total is the final amount from the order
+                                        const grandTotal = parseFloat(orderData?.amount || "0");
+
+                                        // Get paid amount from order data
+                                        const paidAmount = parseFloat(orderData?.paid_amount || "0") || 0;
+
+                                        // Calculate balance due
+                                        const balanceDue = grandTotal - paidAmount;
 
                                         return (
                                             <>
+                                                {/* Subtotal */}
                                                 <p className='grid grid-cols-4 gap-[15px]'>
                                                     <span className='col-span-3'>Subtotal</span>
-                                                    <span className='col-span-1'>${totalServiceAmount.toFixed(2)}</span>
+                                                    <span className='col-span-1'>${subtotal.toFixed(2)}</span>
                                                 </p>
-                                                <p className='grid grid-cols-4 gap-[15px]'>
-                                                    <span className='col-span-3'>Discount</span>
-                                                    <span className='col-span-1'>
-                                                        -${totalDiscountValue.toFixed(2)} ({discountPercent}%)
-                                                    </span>
-                                                </p>
-                                                <p className='grid grid-cols-4 gap-[15px]'>
-                                                    <span className='col-span-3'>Grand Total</span>
-                                                    <span className='col-span-1'>${netAmount.toFixed(2)}</span>
-                                                </p>
-                                                {displayPaidVal > 0.01 && (
-                                                    <p className='grid grid-cols-4 gap-[15px] text-[#6BAE41]'>
-                                                        <span className='col-span-3'>Paid</span>
-                                                        <span className='col-span-1'>-${displayPaidVal.toFixed(2)}</span>
+
+                                                {/* Discount */}
+                                                {totalDiscount > 0 && (
+                                                    <p className='grid grid-cols-4 gap-[15px]'>
+                                                        <span className='col-span-3'>Discount</span>
+                                                        <span className='col-span-1'>
+                                                            -${totalDiscount.toFixed(2)} ({discountPercent}%)
+                                                        </span>
                                                     </p>
                                                 )}
-                                                <p className='grid grid-cols-4 gap-[15px] text-[20px] md:text-[24px] font-[500]'>
-                                                    <span className='col-span-3'>{displayPaidVal > 0.01 ? "Balance Due" : "Amount Due"}</span>
-                                                    <span className='col-span-1'>${amount}</span>
+
+                                                {/* Grand Total */}
+                                                <p className='grid grid-cols-4 gap-[15px]'>
+                                                    <span className='col-span-3'>Grand Total</span>
+                                                    <span className='col-span-1'>${grandTotal.toFixed(2)}</span>
+                                                </p>
+
+                                                {/* Show paid amount if any payment has been made */}
+                                                {paidAmount > 0 && (
+                                                    <p className='grid grid-cols-4 gap-[15px] text-[#6BAE41]'>
+                                                        <span className='col-span-3'>Paid</span>
+                                                        <span className='col-span-1'>-${paidAmount.toFixed(2)}</span>
+                                                    </p>
+                                                )}
+
+                                                {/* Show balance due */}
+                                                <p className='grid grid-cols-4 gap-[15px] text-[20px] md:text-[24px] font-[500] border-t pt-2'>
+                                                    <span className='col-span-3'>
+                                                        {paidAmount > 0 ? "Balance Due" : "Amount Due"}
+                                                    </span>
+                                                    <span className='col-span-1'>${Math.max(0, balanceDue).toFixed(2)}</span>
                                                 </p>
                                             </>
                                         );
                                     })()}
-                                    {/* <Button
-                                        className="col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px]  border-[1px] border-[#4290E9] bg-[#EEEEEE] text-[14px] md:text-[14px] font-[600] text-[#4290E9] flex gap-[5px] justify-center items-center hover:text-[#fff] hover:bg-[#4290E9] font-raleway pointer-events-none"
-                                    >
-                                        Payment Due: ${amount}
-                                    </Button> */}
+
                                     <Button
                                         onClick={handleDone}
                                         className="col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px] bg-[#4290E9] text-[14px] md:text-[14px] font-[600] text-white flex gap-[5px] justify-center items-center hover:bg-[#005fb8] font-raleway"
@@ -783,21 +790,97 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                 </p>
                                                 <p className='font-normal text-[14px] text-green-600'>
                                                     - ${(
-                                                        (selectedServices.reduce((sum, s) => sum + (getOriginalPrice(s) || 0), 0) * (activePackage.discount || 0)) / 100
+                                                        (selectedServices.reduce((sum, s) => {
+                                                            if (s.payment_status?.toUpperCase() === 'PAID') return sum;
+                                                            return sum + getOriginalPrice(s);
+                                                        }, 0) * (activePackage.discount || 0)) / 100
                                                     ).toFixed(2)}
                                                 </p>
                                             </div>
                                         )}
                                         {(() => {
+                                            // Calculate original total for all services
+                                            const totalOriginalPrice = selectedServices.reduce((sum, sel) => {
+                                                return sum + getOriginalPrice(sel);
+                                            }, 0);
+
+                                            // Calculate total discount for ALL services (both paid and unpaid)
+                                            const totalDiscountValue = selectedServices.reduce((sum, sel) => {
+                                                const originalPrice = getOriginalPrice(sel);
+                                                const codeDiscount = appliedCodeDiscount?.services?.some(d => d.uuid === sel.uuid)
+                                                    ? appliedCodeDiscount
+                                                    : null;
+                                                const quantityDiscounts = appliedQuantityDiscounts.filter(d =>
+                                                    d.services?.some(s => s.uuid === sel.uuid)
+                                                );
+                                                const allDiscounts: Discount[] = [];
+                                                if (codeDiscount) allDiscounts.push(codeDiscount);
+                                                allDiscounts.push(...quantityDiscounts);
+                                                const bestDiscount = allDiscounts.reduce((best, curr) => {
+                                                    const currPercent = parseFloat(curr.percentage ?? "0");
+                                                    const bestPercent = best ? parseFloat(best.percentage ?? "0") : 0;
+                                                    return currPercent > bestPercent ? curr : best;
+                                                }, null as Discount | null);
+
+                                                if (bestDiscount) {
+                                                    const discountPercent = parseFloat(bestDiscount.percentage ?? "0");
+                                                    return sum + (originalPrice * discountPercent / 100);
+                                                }
+                                                return sum;
+                                            }, 0);
+
+                                            // Calculate package discount for ALL services
+                                            let packageDiscount = 0;
+                                            if (activePackage && (activePackage.discount || 0) > 0) {
+                                                const rawShopTotal = selectedServices.reduce((sum, s) => {
+                                                    return sum + getOriginalPrice(s);
+                                                }, 0);
+                                                packageDiscount = (rawShopTotal * (activePackage.discount || 0)) / 100;
+                                            }
+
+                                            // Grand Total = Original total - All discounts
+                                            const grandTotal = totalOriginalPrice - (totalDiscountValue + packageDiscount);
+
+                                            // Calculate paid amount (use discounted price for paid services if applicable)
                                             const paidAmount = selectedServices.reduce((acc, curr) => {
                                                 if (curr.payment_status?.toUpperCase() === 'PAID') {
-                                                    return acc + (getOriginalPrice(curr) || 0);
+                                                    const originalPrice = getOriginalPrice(curr);
+
+                                                    // Calculate discount for this specific paid service
+                                                    const codeDiscount = appliedCodeDiscount?.services?.some(d => d.uuid === curr.uuid)
+                                                        ? appliedCodeDiscount
+                                                        : null;
+                                                    const quantityDiscounts = appliedQuantityDiscounts.filter(d =>
+                                                        d.services?.some(s => s.uuid === curr.uuid)
+                                                    );
+                                                    const allDiscounts: Discount[] = [];
+                                                    if (codeDiscount) allDiscounts.push(codeDiscount);
+                                                    allDiscounts.push(...quantityDiscounts);
+                                                    const bestDiscount = allDiscounts.reduce((best, currDiscount) => {
+                                                        const currPercent = parseFloat(currDiscount.percentage ?? "0");
+                                                        const bestPercent = best ? parseFloat(best.percentage ?? "0") : 0;
+                                                        return currPercent > bestPercent ? currDiscount : best;
+                                                    }, null as Discount | null);
+
+                                                    let discountAmount = 0;
+                                                    if (bestDiscount) {
+                                                        const discountPercent = parseFloat(bestDiscount.percentage ?? "0");
+                                                        discountAmount = originalPrice * discountPercent / 100;
+                                                    }
+
+                                                    // Add package discount proportionally
+                                                    if (activePackage && packageDiscount > 0) {
+                                                        const serviceRatio = originalPrice / totalOriginalPrice;
+                                                        discountAmount += (packageDiscount * serviceRatio);
+                                                    }
+
+                                                    return acc + (originalPrice - discountAmount);
                                                 }
                                                 return acc;
                                             }, 0);
 
-                                            // Grand Total is simply the Amount Paid + Amount Remaining (Total)
-                                            const grandTotal = paidAmount + total;
+                                            // Amount Due = Grand Total - Paid Amount
+                                            const amountDue = grandTotal - paidAmount;
 
                                             return (
                                                 <>
@@ -820,7 +903,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                             {paidAmount > 0 ? "Balance Due" : "Amount Due"}
                                                         </p>
                                                         <p className='font-normal text-[20px] text-[#424242]'>
-                                                            ${total.toFixed(2)}
+                                                            ${Math.max(0, amountDue).toFixed(2)}
                                                         </p>
                                                     </div>
                                                 </>

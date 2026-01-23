@@ -14,8 +14,8 @@ import { Copy, File } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
 import { EditOrderStatus, GetOneOrder, GetVendors } from "../orders";
-import { GetServices, GetPackages } from "../../services/services";
-import { Services, Packages } from "../../services/page";
+import { GetServices } from "../../services/services";
+import { Services } from "../../services/page";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Order, OrderService } from "../page";
 import { Country } from "country-state-city";
@@ -142,8 +142,7 @@ function Page() {
   const [origin, setOrigin] = useState("");
 
   const [services, setServices] = useState<Services[]>([]);
-  const [packagesData, setPackagesData] = useState<Packages[]>([]);
-  const [activePackage, setActivePackage] = useState<Packages | null>(null);
+
 
   const getOriginalPrice = (sel: OrderService) => {
     let originalPrice = Number(sel.amount) || 0;
@@ -167,26 +166,7 @@ function Page() {
     return originalPrice;
   };
 
-  useEffect(() => {
-    if (!orderData?.services || !packagesData.length) return;
 
-    const selectedIds = orderData.services.map(s => s.service.uuid);
-    let foundPackage = null;
-
-    for (const pkg of packagesData) {
-      const pkgServiceIds = pkg.services.map(s => s.uuid);
-      const isMatch =
-        pkgServiceIds.length > 0 &&
-        pkgServiceIds.length === selectedIds.length &&
-        pkgServiceIds.every(id => selectedIds.includes(id));
-
-      if (isMatch) {
-        foundPackage = pkg;
-        break;
-      }
-    }
-    setActivePackage(foundPackage);
-  }, [orderData, packagesData]);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -256,28 +236,14 @@ function Page() {
       .catch((err) => console.log(err.message));
 
     GetServices(token).then(res => setServices(Array.isArray(res.data) ? res.data : [])).catch(console.log);
-    GetPackages(token).then(res => setPackagesData(Array.isArray(res.data) ? res.data : [])).catch(console.log);
   }, [orderId]);
   // Use backend amount as the source of truth for the Grand Total (Net Price)
   const calculatedGrandTotal = parseFloat(orderData?.amount || "0");
+  const calculatedPaidAmount = parseFloat(orderData?.paid_amount || "0") || 0;
 
-  // For Balance Due, we check the payment status
-  // If PAID, balance is 0. If UNPAID, balance is the full amount.
-  // TODO: Add support for partial payments if backend supports it.
-  const calculatedBalanceDue = orderData?.payment_status === 'PAID' ? 0 : calculatedGrandTotal;
+  // For Balance Due, we subtract the paid amount from the total
+  const calculatedBalanceDue = Math.max(0, calculatedGrandTotal - calculatedPaidAmount);
 
-  const calculatedPaidAmount = calculatedGrandTotal - calculatedBalanceDue;
-  console.log("calculatedPaidAmount", calculatedPaidAmount)
-  const totalServiceAmount = calculatedGrandTotal; // For display compatibility
-
-  // const totalServiceAmount = calculatedGrandTotal; // For display compatibility
-
-  // Determine discount value for display
-  const rawSubTotalAll = orderData?.services?.reduce((sum, s) => sum + getOriginalPrice(s), 0) ?? 0;
-  const totalDiscountValue = rawSubTotalAll - calculatedGrandTotal;
-
-  const discountPercent = activePackage?.discount ||
-    (totalServiceAmount > 0 ? ((totalDiscountValue / rawSubTotalAll) * 100) : 0);
 
   const uniqueVendorsMap = new Map();
 
@@ -884,31 +850,67 @@ function Page() {
                     <span className='col-span-1'>$0.00</span>
                   </p>
                   {(() => {
+                    // Calculate subtotal from services
+                    const subtotal = orderData?.services?.reduce((sum, s) => sum + parseFloat(s.amount || "0"), 0) || 0;
+
+                    // Calculate total discount from orderData.totals array
+                    const totalDiscount = orderData?.totals?.reduce((total, item) => {
+                      if (item.amount && parseFloat(item.amount) < 0) {
+                        return total + Math.abs(parseFloat(item.amount));
+                      }
+                      return total;
+                    }, 0) || 0;
+
+                    // Calculate discount percentage
+                    const discountPercent = subtotal > 0 ? ((totalDiscount / subtotal) * 100).toFixed(2) : "0.00";
+
+                    // Grand total is the final amount from the order
+                    const grandTotal = parseFloat(orderData?.amount || "0");
+
+                    // Get paid amount from order data
+                    const paidAmount = parseFloat(orderData?.paid_amount || "0") || 0;
+
+                    // Calculate balance due
+                    const balanceDue = grandTotal - paidAmount;
+
                     return (
                       <>
+                        {/* Subtotal */}
                         <p className='grid grid-cols-4 gap-[15px]'>
                           <span className='col-span-3'>Subtotal</span>
-                          <span className='col-span-1'>${rawSubTotalAll.toFixed(2)}</span>
+                          <span className='col-span-1'>${subtotal.toFixed(2)}</span>
                         </p>
-                        <p className='grid grid-cols-4 gap-[15px]'>
-                          <span className='col-span-3'>Discount</span>
-                          <span className='col-span-1'>
-                            -${totalDiscountValue.toFixed(2)} ({Number(discountPercent).toFixed(2)}%)
-                          </span>
-                        </p>
-                        <p className='grid grid-cols-4 gap-[15px]'>
-                          <span className='col-span-3'>Grand Total</span>
-                          <span className='col-span-1'>${calculatedGrandTotal.toFixed(2)}</span>
-                        </p>
-                        {calculatedPaidAmount > 0 && (
-                          <p className='grid grid-cols-4 gap-[15px] text-[#6BAE41]'>
-                            <span className='col-span-3'>Paid</span>
-                            <span className='col-span-1'>-${calculatedPaidAmount.toFixed(2)}</span>
+
+                        {/* Discount */}
+                        {totalDiscount > 0 && (
+                          <p className='grid grid-cols-4 gap-[15px]'>
+                            <span className='col-span-3'>Discount</span>
+                            <span className='col-span-1'>
+                              -${totalDiscount.toFixed(2)} ({discountPercent}%)
+                            </span>
                           </p>
                         )}
-                        <p className='grid grid-cols-4 gap-[15px] text-[20px] md:text-[24px] font-[500]'>
-                          <span className='col-span-3'>{calculatedPaidAmount > 0 ? "Balance Due" : "Amount Due"}</span>
-                          <span className='col-span-1'>${calculatedBalanceDue.toFixed(2)}</span>
+
+                        {/* Grand Total */}
+                        <p className='grid grid-cols-4 gap-[15px]'>
+                          <span className='col-span-3'>Grand Total</span>
+                          <span className='col-span-1'>${grandTotal.toFixed(2)}</span>
+                        </p>
+
+                        {/* Show paid amount if any payment has been made */}
+                        {paidAmount > 0 && (
+                          <p className='grid grid-cols-4 gap-[15px] text-[#6BAE41]'>
+                            <span className='col-span-3'>Paid</span>
+                            <span className='col-span-1'>-${paidAmount.toFixed(2)}</span>
+                          </p>
+                        )}
+
+                        {/* Show balance due */}
+                        <p className='grid grid-cols-4 gap-[15px] text-[20px] md:text-[24px] font-[500] border-t pt-2'>
+                          <span className='col-span-3'>
+                            {paidAmount > 0 ? "Balance Due" : "Amount Due"}
+                          </span>
+                          <span className='col-span-1'>${Math.max(0, balanceDue).toFixed(2)}</span>
                         </p>
                       </>
                     );

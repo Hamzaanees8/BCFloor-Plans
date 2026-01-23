@@ -33,6 +33,7 @@ export type Order = {
     created_at: string;
     updated_at: string;
     agent: Agent;
+    paid_amount: string;
     services: OrderService[];
     logs: {
         id: number;
