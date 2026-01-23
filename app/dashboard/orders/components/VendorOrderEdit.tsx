@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Trash } from "lucide-react";
 import { Order } from "../../orders/page";
-import {  GetServices } from "../../orders/orders";
+import { GetServices } from "../../orders/orders";
 import { Services } from "../../services/page";
 import { useOrderContext } from "../../orders/context/OrderContext";
 import { useAppContext } from "@/app/context/AppContext";
@@ -55,8 +55,6 @@ function VendorOrderEdit({
     >([]);
     const { setCalendarServices, calendarServices } = useOrderContext();
 
-    console.log('servicesPayload', servicesPayload);
-
     useEffect(() => {
         setCalendarServices(calendarServices);
     });
@@ -84,7 +82,6 @@ function VendorOrderEdit({
             .catch((err) => console.log(err.message));
     }, []);
 
-    console.log('servicesData', servicesData);
     const handleSubmitServices = async () => {
         // try {
         //     const token = localStorage.getItem("token") || "";

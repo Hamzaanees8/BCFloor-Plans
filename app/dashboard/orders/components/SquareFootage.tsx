@@ -9,12 +9,10 @@ function SquareFootage({ currentOrder }: SquareFootageProps) {
     const levelAreas = areas?.filter(area =>
         area.type.toLowerCase().includes('level')
     )
-    console.log('levelAreas', levelAreas);
 
     const otherAreas = areas?.filter(area =>
         !area.type.toLowerCase().includes('level')
     )
-    console.log('otherAreas', otherAreas);
 
 
     const calculateTotal = (items: typeof areas) =>

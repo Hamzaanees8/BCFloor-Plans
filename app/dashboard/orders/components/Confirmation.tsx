@@ -482,7 +482,6 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     useImperativeHandle(ref, () => ({
         handleSubmitOrder,
     }));
-    console.log("orderData", orderData);
     return (
         <div className="w-full space-y-4">
             <div className="grid gap-4">

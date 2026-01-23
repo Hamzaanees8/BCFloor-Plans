@@ -98,8 +98,6 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
     setArea([...levelAreas, ...extraAreas]);
   }, [levels, extras, setArea]);
 
-  console.log('levels and extras', [...levels, ...extras]);
-
   const handleChange = (id: number, list: Field[], setList: React.Dispatch<React.SetStateAction<Field[]>>, field: Partial<Field>) => {
     setList(list.map(item => item.id === id ? { ...item, ...field } : item));
   };

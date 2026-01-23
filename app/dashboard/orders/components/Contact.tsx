@@ -387,7 +387,7 @@ const Contact = () => {
                             {selectedAgent && userType === 'admin' && (
                                 <button
                                     type="button"
-                                    className="bg-[#4290E9] font-raleway text-white rounded-[3px] hover:bg-[#005fb8] w-full md:w-[130px] h-[30px] font-[600] text-[14px]"
+                                    className="bg-[#4290E9] font-raleway hidden text-white rounded-[3px] hover:bg-[#005fb8] w-full md:w-[130px] h-[30px] font-[600] text-[14px]"
                                     onClick={() => setOpenDropdown(true)}
                                 >
                                     Change

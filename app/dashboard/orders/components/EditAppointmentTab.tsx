@@ -110,7 +110,6 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentOrder, agentData, currentAgent])
-    console.log('notes', notes);
     const tabs =
         userType === 'admin'
             ? ['Notes', 'Internal Notes']
