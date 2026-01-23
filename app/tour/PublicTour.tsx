@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,6 +55,7 @@ const PublicTour = () => {
     const [mainVideo, setMainVideo] = useState<string | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | undefined>();
     const [visitorId, setVisitorId] = useState<string>('');
+    const viewedMediaRef = useRef<Set<string>>(new Set());
 
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
@@ -160,6 +161,11 @@ const PublicTour = () => {
 
     const trackMediaView = (mediaUuid?: string) => {
         if (!mediaUuid || !orderData?.tours?.[0]?.uuid || !visitorId) return;
+
+        // Only track if this media hasn't been viewed in this session
+        if (viewedMediaRef.current.has(mediaUuid)) return;
+
+        viewedMediaRef.current.add(mediaUuid);
         recordTourStat(orderData.tours[0].uuid, {
             type: 'media_view',
             visitor_id: visitorId,
