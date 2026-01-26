@@ -804,22 +804,6 @@ const ServicesFrom = () => {
                           </div>
                         </div>
 
-                        <div className="col-span-2 flex items-center justify-between">
-                          <label
-                            htmlFor="is_travel_required"
-                            className="text-sm font-medium"
-                            style={{ color: roleSettings.pageText }}
-                          >
-                            Travel Allowed
-                          </label>
-                          <Switch
-                            id="is_travel_required"
-                            checked={isTravelRequired}
-                            onCheckedChange={setIsTravelRequired}
-                            className="bg-gray-300 data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-red-500"
-                          />
-                        </div>
-
                         <div className="col-span-2">
                           <label htmlFor="" style={{ color: roleSettings.pageText }}>Description</label>
                           <Textarea
@@ -836,6 +820,21 @@ const ServicesFrom = () => {
                               {fieldErrors.description[0]}
                             </p>
                           )}
+                        </div>
+                        <div className="col-span-2 flex items-center justify-between">
+                          <label
+                            htmlFor="is_travel_required"
+                            className="text-sm font-medium"
+                            style={{ color: roleSettings.pageText }}
+                          >
+                            Travel Allowed
+                          </label>
+                          <Switch
+                            id="is_travel_required"
+                            checked={isTravelRequired}
+                            onCheckedChange={setIsTravelRequired}
+                            className="bg-gray-300 data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-red-500"
+                          />
                         </div>
                         {categoryObject?.name.toLocaleLowerCase() ===
                           "package" && (
