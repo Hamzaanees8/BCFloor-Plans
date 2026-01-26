@@ -19,6 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { getEffectiveServiceDuration } from '../utils/serviceTimeUtils';
 
 declare global {
   interface Window {
@@ -72,6 +73,7 @@ interface CalendarProps {
   externalSetSelectedSlots?: Dispatch<SetStateAction<Slot[]>>;
   externalSelectedSlots?: Slot[];
   externalVendorsData?: VendorData[];
+  onVendorSelected?: (vendorId: string) => void;
 }
 
 interface MinimalSlot {
@@ -278,7 +280,7 @@ export function getDistanceColor(distance: number | undefined): string {
   return "#171484";
 }
 
-export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, vendorDistances, propertyTimezone, masterDate, externalSetSelectedSlots, externalSelectedSlots, externalVendorsData }: CalendarProps) {
+export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, vendorDistances, propertyTimezone, masterDate, externalSetSelectedSlots, externalSelectedSlots, externalVendorsData, onVendorSelected }: CalendarProps) {
   const {
     selectedSlots: contextSelectedSlots,
     setSelectedSlots: contextSetSelectedSlots,
@@ -287,6 +289,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     ordersData,
     selectedCurrentListing,
     tempPropertyData,
+    servicesData,
   } = useOrderContext();
 
   // Use external data if provided (for BookNow), otherwise use context
@@ -836,34 +839,43 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     }
 
 
-    // CONSECUTIVE SLOT VALIDATION FOR SELECTION
-    // Check if there are already selected slots for this service on this date
-    const serviceSlotsForDate = selectedSlots
-      .filter((slot: Slot) => slot.service_id === service.uuid && slot.date === selectedDate)
-      .sort((a, b) => a.start_time.localeCompare(b.start_time));
+    // SERVICE DURATION VALIDATION
+    // Get the service duration (either defined or calculated from square footage)
+    const currentService = servicesData?.find((s) => s.uuid === service.uuid);
+    const productOption = currentService?.product_options?.find(
+      (option) => option.uuid === service.option_id
+    );
+    const squareFootage = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
+    const requiredDuration = getEffectiveServiceDuration(
+      productOption?.service_duration,
+      squareFootage
+    );
 
-    if (serviceSlotsForDate.length > 0) {
-      // Calculate the clicked slot's time in minutes from midnight for comparison
-      const clickedStartMinutes = dayjs(clicked.start).hour() * 60 + dayjs(clicked.start).minute();
-      const clickedEndMinutes = dayjs(clicked.end).hour() * 60 + dayjs(clicked.end).minute();
+    const currentServiceSlots = selectedSlots.filter(
+      (slot: Slot) => slot.service_id === service.uuid && slot.date === selectedDate
+    );
 
-      // Get first and last slot times
-      const firstSlot = serviceSlotsForDate[0];
-      const lastSlot = serviceSlotsForDate[serviceSlotsForDate.length - 1];
+    const requiredSlots = Math.ceil(requiredDuration / 15);
+    const remainingSlotsNeeded = requiredSlots - currentServiceSlots.length;
 
-      const firstSlotStartMinutes = parseInt(firstSlot.start_time.split(':')[0]) * 60 + parseInt(firstSlot.start_time.split(':')[1]);
-      const lastSlotEndMinutes = parseInt(lastSlot.end_time.split(':')[0]) * 60 + parseInt(lastSlot.end_time.split(':')[1]);
-
-      // Check if clicked slot is immediately before first slot or immediately after last slot
-      const isImmediatelyBefore = clickedEndMinutes === firstSlotStartMinutes;
-      const isImmediatelyAfter = clickedStartMinutes === lastSlotEndMinutes;
-
-      if (!isImmediatelyBefore && !isImmediatelyAfter) {
-        // Slot is not consecutive
-        toast.error('You must select consecutive time slots. Please select a slot immediately before or after your current booking.');
-        return;
-      }
+    if (remainingSlotsNeeded <= 0) {
+      toast.error(
+        `Service "${service.title}" only requires ${requiredDuration} minutes. You have already selected sufficient time slots.`
+      );
+      return;
     }
+
+    // Determine the range of slots to select
+    const slotsToSelect: { start: string; end: string }[] = [];
+    for (let i = 0; i < remainingSlotsNeeded; i++) {
+      const start = dayjs(clicked.start).add(i * 15, 'minute').toISOString();
+      const end = dayjs(clicked.start).add((i + 1) * 15, 'minute').toISOString();
+      slotsToSelect.push({ start, end });
+    }
+
+    // Check for "sticky" vendor: if a vendor is already assigned to this service on this date,
+    // and that vendor is available for ALL the current slots, auto-assign them.
+    const assignedVendorId = currentServiceSlots.length > 0 ? currentServiceSlots[0].vendor_id : null;
 
     const matching = vendorsData.filter(vendor => {
       if (!vendor.uuid || !selectedVendors.includes(vendor.uuid)) {
@@ -893,45 +905,57 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         15
       );
 
-      const isSlotAvailable = vendorAvailableSlots.some(availableSlot =>
-        dayjs(availableSlot.start).isSame(clicked.start) &&
-        dayjs(availableSlot.end).isSame(clicked.end)
+      // Check if ALL slots in slotsToSelect are available for this vendor
+      return slotsToSelect.every(slotToSelect =>
+        vendorAvailableSlots.some(availableSlot =>
+          dayjs(availableSlot.start).isSame(slotToSelect.start) &&
+          dayjs(availableSlot.end).isSame(slotToSelect.end)
+        )
       );
-
-      return isSlotAvailable;
     });
 
-    if (matching.length === 1) {
-      handleAssignVendor(matching[0], clicked);
-    } else if (selectedVendors.length === 1) {
-      const selectedVendorId = selectedVendors[0];
-      const targetVendor = matching.find(m => m.uuid === selectedVendorId);
-
-      if (targetVendor) {
-        handleAssignVendor(targetVendor, clicked);
-      } else if (matching.length > 1) {
-        setClickedSlot(clicked);
-        setAvailableSlotVendors(matching);
-        setShowVendorModal(true);
+    if (assignedVendorId) {
+      const stickyVendor = matching.find(v => v.uuid === assignedVendorId);
+      if (stickyVendor) {
+        handleAssignVendor(stickyVendor, slotsToSelect);
+        return;
       }
+    }
+
+    const vendorsInThisSlot = info.event.extendedProps?.availableVendorIds || [];
+    const vendorsToCheck = vendorsInThisSlot.filter((id: string) => selectedVendors.includes(id));
+
+    if (matching.length === 1) {
+      handleAssignVendor(matching[0], slotsToSelect);
     } else if (matching.length > 1) {
       setClickedSlot(clicked);
       setAvailableSlotVendors(matching);
       setShowVendorModal(true);
+    } else if (vendorsToCheck.length > 0) {
+      const vendorNames = vendorsToCheck.map((id: string) => {
+        const v = vendorsData.find(v => v.uuid === id);
+        return v ? `${v.first_name} ${v.last_name || ''}`.trim() : null;
+      }).filter(Boolean).join(', ');
+      toast.error(`There are not ${requiredDuration} min consecutive slots available for ${vendorNames} available at this time. Select another slots etc`);
+    } else {
+      // Edge case: no vendor even has the first slot available (shouldn't happen for light blue slots)
+      toast.error(`There are not ${requiredDuration} min consecutive slots available for any eligible vendor starting at this time. Please select another slot.`);
     }
   };
 
-  const handleAssignVendor = async (vendor: VendorData, slot: { start: string; end: string }) => {
+  const handleAssignVendor = async (vendor: VendorData, slots: { start: string; end: string }[]) => {
     const originAddress = vendor?.addresses?.find((address) => address.type === 'start_location')
     const origin = (originAddress?.address_line_1 + ',' + originAddress?.city + "," + originAddress?.province + "," + originAddress?.country)
 
     const result = await calculateDistance(origin, destinationAddress);
 
     const updatedEvents = events.map((event: Slots) => {
-      if (
+      const isMatchingSlot = slots.some(slot =>
         dayjs(event.start).isSame(slot.start) &&
         dayjs(event.end).isSame(slot.end)
-      ) {
+      );
+
+      if (isMatchingSlot) {
         return {
           ...event,
           title: `${vendor.first_name} ${vendor.last_name}\n${service.title}`,
@@ -943,7 +967,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
     setEvents(updatedEvents);
 
-    const newSlot = {
+    const newSlots = slots.map(slot => ({
       service_id: service.uuid ?? '',
       vendor_id: vendor.uuid ? vendor.uuid : '',
       show_all_vendors: showAllVendorsMap[calendarIdx] ?? 0,
@@ -956,9 +980,36 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       est_time: result?.est_time ?? null,
       distance: result?.distance ?? null,
       km_price: null,
-    };
-    setSelectedSlots((prev: Slot[]) => [...prev, newSlot]);
+    }));
+
+    setSelectedSlots((prev: Slot[]) => [...prev, ...newSlots]);
     setShowVendorModal(false);
+
+    // Show informational message about slot selection progress
+    // Recalculate service duration and current slots for toast message
+    const currentService = servicesData?.find((s) => s.uuid === service.uuid);
+    const productOption = currentService?.product_options?.find(
+      (option) => option.uuid === service.option_id
+    );
+    const squareFootage = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
+    const requiredDuration = getEffectiveServiceDuration(
+      productOption?.service_duration,
+      squareFootage
+    );
+
+    const selectedDate = dayjs(slots[0].start).format('YYYY-MM-DD');
+    const currentServiceSlots = selectedSlots.filter(
+      (s: Slot) => s.service_id === service.uuid && s.date === selectedDate
+    );
+    const newTotalSlots = currentServiceSlots.length + slots.length;
+    const newTotalDuration = newTotalSlots * 15;
+
+    if (newTotalDuration < requiredDuration) {
+      // Toast removed - validation now happens on "Next" button click
+    } else if (newTotalDuration === requiredDuration) {
+      // Toast removed - validation now handled elsewhere for better UX
+    }
+    onVendorSelected?.(vendor.uuid || '');
   };
 
   const vendorColorStyles = Object.entries(vendorDistances as Record<string, number>)
@@ -1167,7 +1218,21 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
                         <li
                           key={vendor.uuid}
                           className="cursor-pointer p-2 flex items-center gap-1 hover:bg-gray-100"
-                          onClick={() => handleAssignVendor(vendor, clickedSlot)}
+                          onClick={() => {
+                            const remainingSlotsNeeded = Math.ceil(getEffectiveServiceDuration(
+                              servicesData?.find(s => s.uuid === service.uuid)?.product_options?.find(opt => opt.uuid === service.option_id)?.service_duration,
+                              tempPropertyData?.square_footage || selectedCurrentListing?.square_footage
+                            ) / 15) - selectedSlots.filter(s => s.service_id === service.uuid && s.date === dayjs(clickedSlot.start).format('YYYY-MM-DD')).length;
+
+                            const slotsToSelect = [];
+                            for (let i = 0; i < remainingSlotsNeeded; i++) {
+                              slotsToSelect.push({
+                                start: dayjs(clickedSlot.start).add(i * 15, 'minute').toISOString(),
+                                end: dayjs(clickedSlot.start).add((i + 1) * 15, 'minute').toISOString(),
+                              });
+                            }
+                            handleAssignVendor(vendor, slotsToSelect);
+                          }}
                         >
                           <span
                             style={{ backgroundColor: color }}

@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/accordion";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -97,6 +98,7 @@ const ServicesFrom = () => {
   const [openColorPicker1, setOpenColorPicker1] = useState(false);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [discount, setDiscount] = useState<number>(0);
+  const [isTravelRequired, setIsTravelRequired] = useState<boolean>(true);
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const wrapperRef1 = useRef<HTMLDivElement | null>(null);
@@ -213,6 +215,7 @@ const ServicesFrom = () => {
 
           setServiceName(data.name);
           setDiscount(data.discount);
+          setIsTravelRequired(data.is_travel_required === true || data.is_travel_required === 1);
 
           if (data.services && Array.isArray(data.services)) {
             setSelectedServices(data.services.map((s: { uuid: string }) => s.uuid));
@@ -248,6 +251,7 @@ const ServicesFrom = () => {
           // setOptions(data.product_options)
           setThumbnailName(data.thumbnail);
           setServiceDescription(data.description);
+          setIsTravelRequired(data.is_travel_required === true || data.is_travel_required === 1);
           requestAnimationFrame(() => {
             isPopulatingData.current = false;
           });
@@ -342,6 +346,7 @@ const ServicesFrom = () => {
           discount: Number(discount),
           service_ids: selectedServices,
           status: 0,
+          is_travel_required: isTravelRequired ? 1 : 0,
         };
 
         if (ServiceId) {
@@ -421,6 +426,7 @@ const ServicesFrom = () => {
           thumbnail: thumbnailFile,
           product_options: cleanedProductOptions,
           add_ons: cleanedAddOns,
+          is_travel_required: isTravelRequired ? 1 : 0,
         };
 
         if (ServiceId) {
@@ -796,6 +802,22 @@ const ServicesFrom = () => {
                               }}
                             />
                           </div>
+                        </div>
+
+                        <div className="col-span-2 flex items-center justify-between">
+                          <label
+                            htmlFor="is_travel_required"
+                            className="text-sm font-medium"
+                            style={{ color: roleSettings.pageText }}
+                          >
+                            Travel Allowed
+                          </label>
+                          <Switch
+                            id="is_travel_required"
+                            checked={isTravelRequired}
+                            onCheckedChange={setIsTravelRequired}
+                            className="bg-gray-300 data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-red-500"
+                          />
                         </div>
 
                         <div className="col-span-2">

@@ -67,13 +67,15 @@ export interface ServiceRecord {
     service?: {
         id: number;
         name: string;
+        is_travel_required?: boolean | number;
     };
     service_name?: string;
     name?: string;
     option?: { title?: string };
     option_id?: string | number;
     amount?: string | number;
-    uuid?: string
+    uuid?: string;
+    is_travel_required?: boolean | number;
 }
 
 export interface Order {
@@ -91,6 +93,7 @@ export interface VendorService {
     amount: string | number;
     slots: Slot[];
     status?: string;
+    is_travel_required?: boolean | number;
 }
 
 export interface VendorOrder {
@@ -117,6 +120,7 @@ interface ServiceForVendor {
     slots: Slot[];
     status?: 'COMPLETE' | 'PENDING' | string;
     uuid?: string;
+    is_travel_required?: boolean | number;
     vendor_payment?: { stripe_transfer_id: string, uuid: string, invoice_url: string }
 }
 
@@ -345,6 +349,22 @@ const Page = () => {
                 const toAddress = `${vendorSlot.order.property_address}, ${vendorSlot.order.property_location}`;
                 const toAddressForDisplay = `${vendorSlot.order.property_address}, ${vendorSlot.order.property_location}`;
 
+                // Check if any service in this order requires travel
+                const requiresTravel = order.services.some(svc => svc.is_travel_required === true || svc.is_travel_required === 1);
+
+                if (!requiresTravel) {
+                    newTravelCosts.set(order.orderId, {
+                        orderId: order.orderId,
+                        distance: 0,
+                        estimatedTime: 0,
+                        travelCost: 0,
+                        fromAddress: currentFromAddressForDisplay,
+                        toAddress: toAddressForDisplay
+                    });
+                    // Skip distance calculation and don't update currentFromAddress
+                    continue;
+                }
+
                 // Calculate distance
                 try {
                     const result = await calculateDistance(currentFromAddress, toAddress);
@@ -457,6 +477,7 @@ const Page = () => {
                             `Service ${sid}`,
                         slots: slotsForService.filter((s) => s.vendor_id === vendorId),
                         amount: finalAmount,
+                        is_travel_required: svcRecord?.service?.is_travel_required || svcRecord?.is_travel_required
                     };
 
                     vendorEntry.orders.get(order.id)!.services.push(serviceForVendor);

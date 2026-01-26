@@ -15,9 +15,12 @@ import { cn } from "@/lib/utils"
 import React, { useEffect, useState } from 'react'
 import OneDayCalendar, { getDistanceColor } from '@/app/dashboard/orders/components/OneDayCalendar'
 import { getPropertyTimezone, PropertyLocation } from '@/app/dashboard/orders/orders'
-import { useBookNowContext, Slot } from '../context/BookNowContext'
+import { getEffectiveServiceDuration } from '@/app/dashboard/orders/utils/serviceTimeUtils'
+import { useBookNowContext, SelectedService, Slot } from '../context/BookNowContext'
 import { fetchVendorForBookNow, fetchServicesForBookNow } from '../book-now'
 import { VendorData } from '@/app/dashboard/orders/[id]/page';
+import { Services } from '@/app/dashboard/services/page';
+import { CleanedProductOption } from '@/app/dashboard/services/services';
 
 interface Coordinate {
     lat: number
@@ -39,10 +42,7 @@ interface Address {
 }
 
 
-interface Service {
-    uuid: string;
-    name?: string;
-}
+
 
 function isPointInPolygon(point: Coordinate, polygon: Coordinate[]): boolean {
     let inside = false
@@ -93,7 +93,11 @@ async function isPropertyInsideVendorArea(selectedCurrentListing: string, vendor
     }
 }
 
-const BookNowSchedule = () => {
+export interface ScheduleProps {
+    invalidServices?: string[];
+}
+
+const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
     const [selectedVendorMap, setSelectedVendorMap] = React.useState<Record<number, string | string[]>>({});
     const [showAllVendorsMap, setShowAllVendorsMap] = useState<Record<number, 0 | 1>>({});
     const [scheduleOverrideMap, setScheduleOverrideMap] = useState<Record<number, 0 | 1>>({});
@@ -105,13 +109,14 @@ const BookNowSchedule = () => {
     const [isCalculating, setIsCalculating] = useState(true);
     const [propertyLocation, setPropertyLocation] = useState<PropertyLocation | null>(null);
     const [vendorsData, setVendorsData] = useState<VendorData[]>([]);
-    const [servicesData, setServicesData] = useState<Service[]>([]);
 
     const {
         selectedServices,
         tempPropertyData,
         selectedSlots,
         setSelectedSlots,
+        servicesData,
+        setServicesData,
     } = useBookNowContext();
 
     // Fetch services data
@@ -122,7 +127,7 @@ const BookNowSchedule = () => {
         };
 
         fetchServices();
-    }, []);
+    }, [setServicesData]);
 
     // Fetch all vendors data
     useEffect(() => {
@@ -321,7 +326,7 @@ const BookNowSchedule = () => {
                 </div>
             </div>
             <div className="grid grid-cols-3 gap-16 text-[#7D7D7D] px-16 py-6 auto-rows-max">
-                {selectedServices?.map((service, idx) => {
+                {selectedServices?.map((service: SelectedService, idx: number) => {
                     const selectedVendor = selectedVendorMap[idx] ?? 'all';
 
                     const handleVendorChange = (value: string) => {
@@ -332,11 +337,13 @@ const BookNowSchedule = () => {
                     const scheduleOverride = scheduleOverrideMap[idx] ?? 0;
                     const recommendTime = recommendTimeMap[idx] ?? 0;
 
-                    const isScheduled = selectedSlots.some((s: Slot) => s.service_id === service.uuid);
 
                     return (
                         <React.Fragment key={idx}>
-                            <div className="flex flex-col gap-4">
+                            <div className={cn(
+                                "flex flex-col gap-4 p-4 rounded-lg border transition-all",
+                                invalidServices.includes(service.uuid || '') ? "border-red-500 bg-red-50/30" : "border-transparent"
+                            )}>
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="text-[12px]">
@@ -346,26 +353,61 @@ const BookNowSchedule = () => {
                                         <p className="text-[12px]">
                                             Approx. Duration <br />
                                             <span className="text-[16px] font-[700] block min-h-[24px]">
-                                                {service.optionName ? `${service.optionName}` : '-'}
+                                                {(() => {
+                                                    const productBase = servicesData?.find((s: Services) => s.uuid === service.uuid);
+                                                    const productOption = productBase?.product_options?.find((opt: CleanedProductOption) => opt.uuid === service.option_id);
+                                                    const squareFootage = tempPropertyData?.square_footage;
+                                                    const effectiveDuration = getEffectiveServiceDuration(
+                                                        productOption?.service_duration,
+                                                        squareFootage
+                                                    );
+                                                    const isCalculated = !productOption?.service_duration || productOption.service_duration === 0;
+
+                                                    return (
+                                                        <>
+                                                            {effectiveDuration} Minutes
+                                                            {isCalculated && (
+                                                                <span className="text-[10px] font-[400] text-gray-500 block mt-1">
+                                                                    (Calculated based on property size)
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    );
+                                                })()}
                                             </span>
                                         </p>
                                     </div>
-                                    <div className={cn(
-                                        "px-3 py-1 rounded-full text-[12px] font-[600] flex items-center gap-1",
-                                        isScheduled ? "bg-green-100 text-green-700 border border-green-200" : "bg-gray-100 text-gray-500 border border-gray-200"
-                                    )}>
-                                        {isScheduled ? (
-                                            <>
-                                                <span className="w-2 h-2 rounded-full bg-green-500" />
-                                                Scheduled
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span className="w-2 h-2 rounded-full bg-gray-400" />
-                                                Pending
-                                            </>
-                                        )}
-                                    </div>
+                                    {(() => {
+                                        const productBase = servicesData?.find((s: Services) => s.uuid === service.uuid);
+                                        const productOption = productBase?.product_options?.find((opt: CleanedProductOption) => opt.uuid === service.option_id);
+                                        const squareFootage = tempPropertyData?.square_footage;
+                                        const requiredDuration = getEffectiveServiceDuration(
+                                            productOption?.service_duration,
+                                            squareFootage
+                                        );
+                                        const serviceSlots = selectedSlots.filter((s: Slot) => s.service_id === service.uuid);
+                                        const currentDuration = serviceSlots.length * 15;
+                                        const isFullyScheduled = currentDuration >= requiredDuration && requiredDuration > 0;
+
+                                        return (
+                                            <div className={cn(
+                                                "px-3 py-1 rounded-full text-[12px] font-[600] flex items-center gap-1",
+                                                isFullyScheduled ? "bg-green-100 text-green-700 border border-green-200" : "bg-gray-100 text-gray-500 border border-gray-200"
+                                            )}>
+                                                {isFullyScheduled ? (
+                                                    <>
+                                                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                                                        Scheduled
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span className="w-2 h-2 rounded-full bg-gray-400" />
+                                                        Pending
+                                                    </>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                                 <div className="flex flex-col gap-4">
                                     <div className="flex justify-start gap-6 items-center">
@@ -559,6 +601,7 @@ const BookNowSchedule = () => {
                                                     externalSetSelectedSlots={setSelectedSlots}
                                                     externalSelectedSlots={selectedSlots}
                                                     externalVendorsData={vendorsData}
+                                                    onVendorSelected={handleVendorChange}
                                                 />
                                             );
                                         })()}

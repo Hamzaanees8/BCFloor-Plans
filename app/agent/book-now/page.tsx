@@ -10,11 +10,14 @@ import Contact from './components/Contact'
 import Confirmation from './components/Confirmation'
 import { BookNowProvider, useBookNowContext } from './context/BookNowContext'
 import type { BookNowConfirmationHandle } from './components/Confirmation'
+import { getEffectiveServiceDuration } from '@/app/dashboard/orders/utils/serviceTimeUtils'
+import { toast } from 'sonner'
 
 function BookNowPageContent() {
-    const { tempPropertyData, selectedServices, selectedSlots } = useBookNowContext();
+    const { tempPropertyData, selectedServices, selectedSlots, servicesData } = useBookNowContext();
     const tabs = ["property", "services", "schedule", "contact", "confirmation"];
     const [active, setActive] = useState("property");
+    const [invalidServices, setInvalidServices] = useState<string[]>([]);
     const [hasAgentToken, setHasAgentToken] = useState(false);
     const confirmationRef = useRef<BookNowConfirmationHandle>(null);
 
@@ -49,10 +52,46 @@ function BookNowPageContent() {
 
     const handleNext = () => {
         if (!isValid()) return;
+
+        if (active === 'schedule') {
+            const newInvalidServices: string[] = [];
+            let firstErrorToastShown = false;
+
+            for (const service of selectedServices) {
+                const serviceUuid = service.uuid;
+                if (!serviceUuid) continue;
+
+                const globalService = servicesData?.find(s => s.uuid === serviceUuid);
+                const productOption = globalService?.product_options?.find(opt => opt.uuid === service.option_id);
+
+                const squareFootage = tempPropertyData?.square_footage;
+                const requiredDuration = getEffectiveServiceDuration(
+                    productOption?.service_duration,
+                    squareFootage
+                );
+
+                const serviceSlots = selectedSlots.filter(s => s.service_id === serviceUuid);
+                const currentDuration = serviceSlots.length * 15;
+
+                if (currentDuration < requiredDuration) {
+                    newInvalidServices.push(serviceUuid);
+                    if (!firstErrorToastShown) {
+                        const slotsNeeded = Math.ceil((requiredDuration - currentDuration) / 15);
+                        toast.error(`Please add ${slotsNeeded} more slot(s) for "${service.title}". Required: ${requiredDuration} min, Selected: ${currentDuration} min`);
+                        firstErrorToastShown = true;
+                    }
+                }
+            }
+
+            setInvalidServices(newInvalidServices);
+            if (newInvalidServices.length > 0) return;
+        }
+
         const currentIndex = tabs.indexOf(active);
         const nextIndex = currentIndex + 1;
         if (nextIndex < tabs.length) {
             setActive(tabs[nextIndex]);
+            setInvalidServices([]); // Clear errors on success
         }
     };
 
@@ -150,7 +189,7 @@ function BookNowPageContent() {
             <div className='px-4 md:px-10 py-8'>
                 {active === "property" && <Property />}
                 {active === "services" && <BookNowServices showAll={true} />}
-                {active === "schedule" && <Schedule />}
+                {active === "schedule" && <Schedule invalidServices={invalidServices} />}
                 {active === "contact" && <Contact />}
                 {active === "confirmation" && <Confirmation ref={confirmationRef} />}
             </div>

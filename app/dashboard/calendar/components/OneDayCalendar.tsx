@@ -12,6 +12,8 @@ import { useAppContext } from '@/app/context/AppContext';
 import { Order } from '../../orders/page';
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
+import { toast } from 'sonner';
+import { getEffectiveServiceDuration } from '../../orders/utils/serviceTimeUtils';
 import { getDistanceColor } from './Schedule';
 
 interface WorkHours {
@@ -66,6 +68,7 @@ interface CalendarProps {
   targetDate?: string;
   currentOrderId?: number;
   vendorDistances?: Record<string, number>;
+  onVendorSelected?: (vendorId: string) => void;
 }
 
 
@@ -280,12 +283,15 @@ function generateAllDaySlots(date: string, interval = 15): Slots[] {
 
 
 
-export default function OneDayCalendar({ setSelectedDate, targetDate, selectedListingId, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, currentOrderId, vendorDistances }: CalendarProps) {
+export default function OneDayCalendar({ setSelectedDate, targetDate, selectedListingId, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, currentOrderId, vendorDistances, onVendorSelected }: CalendarProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const hasScrolledToFirstSlot = useRef(false);
   const {
     selectedSlots,
     setSelectedSlots,
+    servicesData,
+    selectedCurrentListing,
+    tempPropertyData,
   } = useOrderContext();
   const [events, setEvents] = useState<Slots[]>([]);
   const [vendors, setVendors] = React.useState<VendorData[]>([]);
@@ -632,6 +638,33 @@ export default function OneDayCalendar({ setSelectedDate, targetDate, selectedLi
       return;
     }
 
+    // SERVICE DURATION VALIDATION
+    // Get the service duration (either defined or calculated from square footage)
+    const currentService = servicesData?.find((s) => s.uuid === service.service.uuid);
+    const productOption = currentService?.product_options?.find(
+      (option) => option.uuid === service.option_id
+    );
+    const squareFootage = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
+    const requiredDuration = getEffectiveServiceDuration(
+      productOption?.service_duration,
+      squareFootage
+    );
+
+    // Calculate what the total duration would be if we add this slot
+    const currentServiceSlots = selectedSlots.filter(
+      (slot) => slot.service_id === service.service.uuid && slot.date === selectedDate
+    );
+    const wouldBeTotalSlots = currentServiceSlots.length + 1;
+    const wouldBeTotalDuration = wouldBeTotalSlots * 15; // Each slot is 15 minutes
+
+    // Check if adding this slot would exceed the required duration
+    if (wouldBeTotalDuration > requiredDuration) {
+      toast.error(
+        `Service "${service.service.name}" only requires ${requiredDuration} minutes. You have already selected sufficient time slots.`
+      );
+      return;
+    }
+
     const matching = vendors.filter(vendor => {
       if (!vendor.uuid || !selectedVendors.includes(vendor.uuid)) {
         return false;
@@ -664,6 +697,18 @@ export default function OneDayCalendar({ setSelectedDate, targetDate, selectedLi
       return isWithinWorkingHours && isNotDuringBreak;
     });
 
+
+    // Check for "sticky" vendor: if a vendor is already assigned to this service on this date,
+    // and that vendor is available for the current slot, auto-assign them.
+    const assignedVendorId = currentServiceSlots.length > 0 ? (currentServiceSlots[0].vendor?.uuid || currentServiceSlots[0].vendor_id) : null;
+
+    if (assignedVendorId) {
+      const stickyVendor = matching.find(v => v.uuid === assignedVendorId);
+      if (stickyVendor) {
+        handleAssignVendor(stickyVendor, clicked);
+        return;
+      }
+    }
 
     if (matching.length === 1) {
       //('Single vendor match, auto-assigning:', matching[0]);
@@ -716,6 +761,32 @@ export default function OneDayCalendar({ setSelectedDate, targetDate, selectedLi
     setSelectedSlots((prev) => [...prev, newSlot]);
 
     setShowVendorModal(false);
+
+    // Show informational message about slot selection progress
+    // Recalculate service duration and current slots for toast message
+    const currentService = servicesData?.find((s) => s.uuid === service.service.uuid);
+    const productOption = currentService?.product_options?.find(
+      (option) => option.uuid === service.option_id
+    );
+    const squareFootage = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
+    const requiredDuration = getEffectiveServiceDuration(
+      productOption?.service_duration,
+      squareFootage
+    );
+
+    const selectedDate = dayjs(slot.start).format('YYYY-MM-DD');
+    const currentServiceSlots = selectedSlots.filter(
+      (s) => s.service_id === service.service.uuid && s.date === selectedDate
+    );
+    const newTotalSlots = currentServiceSlots.length + 1;
+    const newTotalDuration = newTotalSlots * 15;
+
+    if (newTotalDuration < requiredDuration) {
+      // Toast removed - validation now happens on "Next" button click
+    } else if (newTotalDuration === requiredDuration) {
+      // Toast removed - validation now handled elsewhere for better UX
+    }
+    onVendorSelected?.(vendor.uuid || '');
   };
 
   const vendorColorStyles = Object.entries(vendorDistances || {})

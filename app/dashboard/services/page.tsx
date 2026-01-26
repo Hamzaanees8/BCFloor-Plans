@@ -15,12 +15,14 @@ export interface Services {
   uuid: string;
   id: number;
   name?: string;
+  description?: string;
   category?: { name: string };
   background_color?: string;
   border_color?: string;
   thumbnail?: string
   thumbnail_url?: string
   status?: boolean;
+  is_travel_required?: boolean;
   type?: string;
   duration?: boolean;
   service_add_ons: {

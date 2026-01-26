@@ -57,13 +57,15 @@ interface ServicePayload {
     status?: boolean;
     id?: number;
     updated_at?: string;
-    add_ons?: AddOns[]
+    add_ons?: AddOns[];
+    is_travel_required?: boolean | number;
 }
 interface PackagePayload {
     name: string;
     discount: number;
     service_ids: string[];
     status?: boolean | number;
+    is_travel_required?: boolean | number;
 }
 export interface UpdateServicePayload {
     status?: boolean,

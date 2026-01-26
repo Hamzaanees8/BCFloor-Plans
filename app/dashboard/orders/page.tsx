@@ -238,6 +238,7 @@ export type OrderService = {
         uuid: string;
         name: string;
         description: string;
+        is_travel_required?: boolean | number;
         category_id: number;
         status: boolean;
         thumbnail: string;

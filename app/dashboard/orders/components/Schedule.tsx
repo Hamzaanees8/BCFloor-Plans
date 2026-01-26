@@ -16,6 +16,9 @@ import { getPropertyTimezone, PropertyLocation } from '../orders'
 import { VendorData } from '../[id]/page'
 import { useOrderContext, Slot } from '../context/OrderContext'
 import VendorWorkCarousel from './VendorWorkCarousel'
+import { getEffectiveServiceDuration } from '../utils/serviceTimeUtils'
+import { Services } from '../../services/page'
+import { CleanedProductOption } from '../../services/services'
 
 interface Coordinate {
     lat: number
@@ -71,7 +74,11 @@ async function isPropertyInsideVendorArea(selectedCurrentListing: string, vendor
     }
 }
 
-const Schedule = () => {
+export interface ScheduleProps {
+    invalidServices?: string[];
+}
+
+const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
     const [selectedVendorMap, setSelectedVendorMap] = React.useState<Record<number, string | string[]>>({});
     const [showAllVendorsMap, setShowAllVendorsMap] = useState<Record<number, 0 | 1>>({});
     const [scheduleOverrideMap, setScheduleOverrideMap] = useState<Record<number, 0 | 1>>({});
@@ -294,16 +301,28 @@ const Schedule = () => {
                     const scheduleOverride = scheduleOverrideMap[idx] ?? 0;
                     const recommendTime = recommendTimeMap[idx] ?? 0;
 
-                    const currentService = servicesData?.find((s) => s.uuid === service.uuid);
+                    const currentService = servicesData?.find((s: Services) => s.uuid === service.uuid);
                     const productOption = currentService?.product_options?.find(
-                        (option) => option.uuid === service.option_id
+                        (option: CleanedProductOption) => option.uuid === service.option_id
                     );
 
-                    const isScheduled = selectedSlots.some((s: Slot) => s.service_id === service.uuid);
+                    const squareFootage = selectedCurrentListing?.square_footage || tempPropertyData?.square_footage;
+                    const requiredDuration = getEffectiveServiceDuration(
+                        productOption?.service_duration,
+                        squareFootage
+                    );
+
+                    const serviceSlots = selectedSlots.filter((s: Slot) => s.service_id === service.uuid);
+                    const currentDuration = serviceSlots.length * 15;
+                    const isFullyScheduled = currentDuration >= requiredDuration && requiredDuration > 0;
+                    const isInvalid = invalidServices.includes(service.uuid || '');
 
                     return (
                         <React.Fragment key={idx}>
-                            <div className="flex flex-col gap-4">
+                            <div className={cn(
+                                "flex flex-col gap-4 p-4 rounded-lg border transition-all",
+                                isInvalid ? "border-red-500 bg-red-50/30" : "border-transparent"
+                            )}>
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="text-[12px]">
@@ -313,15 +332,32 @@ const Schedule = () => {
                                         <p className="text-[12px]">
                                             Approx. Duration <br />
                                             <span className="text-[16px] font-[700] block min-h-[24px]">
-                                                {productOption?.service_duration ? `${productOption.service_duration} Minutes` : '-'}
+                                                {(() => {
+                                                    const effectiveDuration = getEffectiveServiceDuration(
+                                                        productOption?.service_duration,
+                                                        squareFootage
+                                                    );
+                                                    const isCalculated = !productOption?.service_duration || Number(productOption.service_duration) === 0;
+
+                                                    return (
+                                                        <>
+                                                            {effectiveDuration} Minutes
+                                                            {isCalculated && (
+                                                                <span className="text-[10px] font-[400] text-gray-500 block mt-1">
+                                                                    (Calculated based on property size)
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    );
+                                                })()}
                                             </span>
                                         </p>
                                     </div>
                                     <div className={cn(
                                         "px-3 py-1 rounded-full text-[12px] font-[600] flex items-center gap-1",
-                                        isScheduled ? "bg-green-100 text-green-700 border border-green-200" : "bg-gray-100 text-gray-500 border border-gray-200"
+                                        isFullyScheduled ? "bg-green-100 text-green-700 border border-green-200" : "bg-gray-100 text-gray-500 border border-gray-200"
                                     )}>
-                                        {isScheduled ? (
+                                        {isFullyScheduled ? (
                                             <>
                                                 <span className="w-2 h-2 rounded-full bg-green-500" />
                                                 Scheduled
@@ -570,6 +606,7 @@ const Schedule = () => {
                                             vendorDistances={vendorDistances}
                                             propertyTimezone={propertyLocation?.timeZoneId}
                                             masterDate={serviceDates[idx] || masterDate}
+                                            onVendorSelected={handleVendorChange}
                                         />
                                     </div>
 

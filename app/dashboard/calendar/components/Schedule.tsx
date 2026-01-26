@@ -6,7 +6,7 @@ import { Services } from '../../services/page'
 import { VendorData } from '../../orders/[id]/page'
 import { useOrderContext } from '../../orders/context/OrderContext'
 import { fetchTwilightTime, GetServices, GetVendors, TwilightResponse } from '../../orders/orders'
-import { Order } from '../../orders/page'
+import { Order, OrderService } from '../../orders/page'
 import { useAppContext } from '@/app/context/AppContext'
 // import OneDayCalendar from '../../orders/components/OneDayCalendar'
 
@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/popover"
 import { format } from "date-fns"
 import VendorWorkCarousel from '../../orders/components/VendorWorkCarousel'
+import { getEffectiveServiceDuration } from '../../orders/utils/serviceTimeUtils'
+import { Slot } from '../../orders/context/OrderContext'
 
 interface AppointmentTab {
     currentOrder?: Order;
@@ -91,7 +93,11 @@ async function isPropertyInsideVendorArea(selectedCurrentListing: string, vendor
         return false
     }
 }
-const Schedule = ({ currentOrder }: AppointmentTab) => {
+interface ScheduleProps extends AppointmentTab {
+    invalidServices?: string[];
+}
+
+const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
     const { userType } = useAppContext();
     const [vendorsData, setVendorsData] = React.useState<VendorData[]>([]);
     const [selectedVendorMap, setSelectedVendorMap] = React.useState<Record<number, string | string[]>>({});
@@ -100,8 +106,7 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
     const [recommendTimeMap, setRecommendTimeMap] = useState<Record<number, 0 | 1>>({});
     const [servicesData, setServicesData] = useState<Services[]>([]);
     const [filteredVendorsByService, setFilteredVendorsByService] = useState<Record<string, VendorData[]>>({});
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [mergedServices, setMergedServices] = useState<any[]>([]);
+    const [mergedServices, setMergedServices] = useState<OrderService[]>([]);
     const { setSelectedSlots, calendarServices, selectedSlots } = useOrderContext();
     const [data, setData] = useState<TwilightResponse | null>(null);
     const [selectedDate, setSelectedDate] = useState<string>(''); // For twilight
@@ -147,8 +152,8 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
 
         const newServiceDates: Record<number, Date | undefined> = {};
 
-        mergedServices.forEach((service, idx) => {
-            const slot = selectedSlots.find(s => s.service_id === service.service.uuid);
+        mergedServices.forEach((service: OrderService, idx: number) => {
+            const slot = selectedSlots.find((s: Slot) => s.service_id === service.service.uuid);
             if (slot && slot.date) {
                 // Create date objects for the picker using local time values from the date string
                 // assuming slot.date is YYYY-MM-DD
@@ -175,7 +180,7 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
     useEffect(() => {
         if (!servicesData.length) return;
 
-        const enriched = calendarServices?.map((item) => {
+        const enriched = (calendarServices?.map((item) => {
             const service = servicesData?.find(s => s.id === item.serviceId);
             if (!service) return null;
 
@@ -183,15 +188,43 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
             if (!option) return null;
 
             return {
+                id: 0,
+                order_id: currentOrder?.id || 0,
                 amount: item.price,
                 option_id: option.uuid,
-                option: option,
+                option: {
+                    ...option,
+                    id: option.id || 0,
+                    service_id: service.id,
+                    title: option.title || '',
+                    quantity: option.quantity || 1,
+                    amount: String(option.amount || 0),
+                    service_duration: String(option.service_duration || 0),
+                    sq_ft_range: option.sq_ft_range || '',
+                    sq_ft_rate: option.sq_ft_rate || null,
+                    min_price: String(option.min_price || 0),
+                    created_at: '',
+                    updated_at: ''
+                },
                 optuuid: option.uuid,
-                service_id: service.uuid,
-                service: service,
-                uuid: service.uuid,
-            };
-        }).filter(Boolean);
+                service_id: service.id,
+                service: {
+                    ...service,
+                    description: service.description || '',
+                    category_id: 0,
+                    thumbnail: service.thumbnail || '',
+                    thumbnail_url: service.thumbnail_url || '',
+                    background_color: service.background_color || '',
+                    border_color: service.border_color || '',
+                    created_at: '',
+                    updated_at: ''
+                },
+                uuid: '',
+                optionName: option.title || '',
+                created_at: '',
+                updated_at: ''
+            } as OrderService;
+        }).filter((item): item is OrderService => item !== null)) || [];
 
         setMergedServices([
             ...(currentOrder?.services || []),
@@ -423,11 +456,23 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
                     const scheduleOverride = scheduleOverrideMap[idx] ?? 0;
                     const recommendTime = recommendTimeMap[idx] ?? 0;
 
+                    const squareFootage = currentOrder?.property?.square_footage;
+                    const requiredDuration = getEffectiveServiceDuration(
+                        service.option?.service_duration,
+                        squareFootage
+                    );
 
+                    const serviceSlots = selectedSlots.filter((s: Slot) => s.service_id === service.service.uuid);
+                    const currentDuration = serviceSlots.length * 15;
+                    const isFullyScheduled = currentDuration >= requiredDuration && requiredDuration > 0;
+                    const isInvalid = invalidServices.includes(service.service.uuid || '');
 
                     return (
                         <React.Fragment key={idx}>
-                            <div className="flex flex-col gap-4">
+                            <div className={cn(
+                                "flex flex-col gap-4 p-4 rounded-lg border transition-all",
+                                isInvalid ? "border-red-500 bg-red-50/30" : "border-transparent"
+                            )}>
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="text-[12px]">
@@ -436,16 +481,33 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
                                         <p className="text-[16px] font-[700]">{service.service.name}</p>
                                         <p className="text-[12px]">
                                             Approx. Duration <br />
-                                            <span className="text-[16px] font-[700]">
-                                                {service.option?.service_duration || 0} Minutes
+                                            <span className="text-[16px] font-[700] block min-h-[24px]">
+                                                {(() => {
+                                                    const effectiveDuration = getEffectiveServiceDuration(
+                                                        service.option?.service_duration,
+                                                        squareFootage
+                                                    );
+                                                    const isCalculated = !service.option?.service_duration || Number(service.option.service_duration) === 0;
+
+                                                    return (
+                                                        <>
+                                                            {effectiveDuration} Minutes
+                                                            {isCalculated && (
+                                                                <span className="text-[10px] font-[400] text-gray-500 block mt-1">
+                                                                    (Calculated based on property size)
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    );
+                                                })()}
                                             </span>
                                         </p>
                                     </div>
                                     <div className={cn(
                                         "px-3 py-1 rounded-full text-[12px] font-[600] flex items-center gap-1",
-                                        selectedSlots.some((s) => s.service_id === service.service.uuid) ? "bg-green-100 text-green-700 border border-green-200" : "bg-gray-100 text-gray-500 border border-gray-200"
+                                        isFullyScheduled ? "bg-green-100 text-green-700 border border-green-200" : "bg-gray-100 text-gray-500 border border-gray-200"
                                     )}>
-                                        {selectedSlots.some((s) => s.service_id === service.service.uuid) ? (
+                                        {isFullyScheduled ? (
                                             <>
                                                 <span className="w-2 h-2 rounded-full bg-green-500" />
                                                 Scheduled
@@ -669,7 +731,7 @@ const Schedule = ({ currentOrder }: AppointmentTab) => {
                                             targetDate={serviceDates[idx] ? format(serviceDates[idx]!, 'yyyy-MM-dd') : undefined}
                                             currentOrderId={currentOrder?.id}
                                             vendorDistances={vendorDistances}
-                                        // serviceDuration={service?.option?.service_duration ?? ''}
+                                            onVendorSelected={handleVendorChange}
                                         />
                                     </div>
 

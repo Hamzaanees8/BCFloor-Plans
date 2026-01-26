@@ -8,14 +8,18 @@ import Property from '@/app/dashboard/orders/components/Property';
 import Services from '@/app/dashboard/orders/components/Services';
 import Schedule from '@/app/dashboard/orders/components/Schedule';
 import Contact from '@/app/dashboard/orders/components/Contact';
-import Confirmation, { OrderConfirmationHandle } from '@/app/dashboard/orders/components/Confirmation';
+import Confirmation, { OrderConfirmationHandle } from '../components/Confirmation';
 import { useOrderContext } from '../context/OrderContext';
-import { Order } from '../page';
+import { Order, OrderService, Slot as OrderSlot } from '../page';
 import { Get } from '../../agents/agents';
 import { GetServices, GetPackages } from '../../services/services';
+import { Services as ServiceType, Packages } from '../../services/page';
+import { Agent } from '@/components/AgentTable';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import OrderStepper from '../components/OrderStepper';
+import { getEffectiveServiceDuration } from '../utils/serviceTimeUtils';
+import { toast } from 'sonner';
 const OrderForm = () => {
     const confirmationRef = useRef<OrderConfirmationHandle>(null);
     const router = useRouter();
@@ -58,6 +62,7 @@ const OrderForm = () => {
         { id: "order", label: "ORDER CONFIRMATION" },
     ];
     const [active, setActive] = useState("property");
+    const [invalidServices, setInvalidServices] = useState<string[]>([]);
     const [currentUser, setCurrentUser] = useState<Order | null>(null);
     const { userType } = useAppContext()
     const { appliedSettings } = useWhiteLabel();
@@ -87,7 +92,10 @@ const OrderForm = () => {
         setServicesData,
         setAgentsData,
         setPackagesData,
-        isPropertyValid
+        isPropertyValid,
+        servicesData,
+        tempPropertyData,
+        selectedCurrentListing
     } = useOrderContext();
 
     useEffect(() => {
@@ -95,9 +103,9 @@ const OrderForm = () => {
         if (token) {
             // Fetch global data
             Promise.all([
-                GetServices(token).then(res => setServicesData(Array.isArray(res.data) ? res.data : [])),
-                Get().then(res => setAgentsData(Array.isArray(res.data) ? res.data : [])),
-                GetPackages(token).then(res => setPackagesData(Array.isArray(res.data) ? res.data : []))
+                GetServices(token).then((res: { data: ServiceType[] }) => setServicesData(Array.isArray(res.data) ? res.data : [])),
+                Get().then((res: { data: Agent[] }) => setAgentsData(Array.isArray(res.data) ? res.data : [])),
+                GetPackages(token).then((res: { data: Packages[] }) => setPackagesData(Array.isArray(res.data) ? res.data : []))
             ]).catch(err => console.log("Error fetching global data:", err));
         }
     }, [setServicesData, setAgentsData, setPackagesData]);
@@ -125,7 +133,7 @@ const OrderForm = () => {
             setSelectedAgentId(currentUser.agent?.uuid || "");
             setSelectedListingId(currentUser.property?.uuid || "");
             setSelectedServices(() => {
-                return (currentUser.services || []).map((s) => ({
+                return (currentUser.services || []).map((s: OrderService) => ({
                     title: s.service.name,
                     uuid: s.service.uuid, // Service template UUID
                     service_uuid: s.uuid, // Order service UUID for updates
@@ -139,7 +147,7 @@ const OrderForm = () => {
             });
             setCustomServiceNames(() => {
                 const names: Record<string, string> = {};
-                (currentUser.services || []).forEach(s => {
+                (currentUser.services || []).forEach((s: OrderService) => {
                     if (s.custom) {
                         names[s.service.uuid] = s.custom;
                     }
@@ -150,7 +158,7 @@ const OrderForm = () => {
             // Set customPrices
             setCustomPrices(() => {
                 const prices: Record<string, string> = {};
-                (currentUser.services || []).forEach(s => {
+                (currentUser.services || []).forEach((s: OrderService) => {
                     if (s.custom) {
                         prices[s.service.uuid] = s.amount;
                     }
@@ -159,7 +167,7 @@ const OrderForm = () => {
             });
             setSelectedOptions(() => {
                 const options: Record<string, string> = {};
-                currentUser.services.forEach(service => {
+                currentUser.services.forEach((service: OrderService) => {
                     if (service.option?.title) {
                         options[service.service.uuid] = service.option.title;
                     } else if (service.custom) {
@@ -171,9 +179,9 @@ const OrderForm = () => {
                 return options;
             });
             setSelectedSlots(
-                (currentUser.slots || []).map((slot) => {
+                (currentUser.slots || []).map((slot: OrderSlot) => {
                     const matchedService = (currentUser.services || []).find(
-                        (s) => s.service?.id === slot.service_id
+                        (s: OrderService) => s.service?.id === slot.service_id
                     );
 
                     return {
@@ -238,8 +246,44 @@ const OrderForm = () => {
     const handleNext = () => {
         const currentIndex = tabs.indexOf(active);
         const nextIndex = currentIndex + 1;
+
+        if (active === 'schedule') {
+            const newInvalidServices: string[] = [];
+            let firstErrorToastShown = false;
+
+            for (const service of selectedServices) {
+                const serviceUuid = typeof service === 'string' ? service : service.uuid;
+                if (!serviceUuid) continue;
+
+                const globalService = servicesData?.find(s => s.uuid === serviceUuid);
+                const productOption = globalService?.product_options?.find(opt => opt.uuid === service.option_id);
+
+                const squareFootage = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
+                const requiredDuration = getEffectiveServiceDuration(
+                    productOption?.service_duration,
+                    squareFootage
+                );
+
+                const serviceSlots = selectedSlots.filter(s => s.service_id === serviceUuid);
+                const currentDuration = serviceSlots.length * 15;
+
+                if (currentDuration < requiredDuration) {
+                    newInvalidServices.push(serviceUuid);
+                    if (!firstErrorToastShown) {
+                        const slotsNeeded = Math.ceil((requiredDuration - currentDuration) / 15);
+                        toast.error(`Please add ${slotsNeeded} more slot(s) for "${service.title}". Required: ${requiredDuration} min, Selected: ${currentDuration} min`);
+                        firstErrorToastShown = true;
+                    }
+                }
+            }
+
+            setInvalidServices(newInvalidServices);
+            if (newInvalidServices.length > 0) return;
+        }
+
         if (isValid() && nextIndex < tabs.length) {
             setActive(tabs[nextIndex]);
+            setInvalidServices([]); // Clear errors on successful navigation
         }
     };
 
@@ -429,7 +473,7 @@ const OrderForm = () => {
                 )}
                 {active === "schedule" && (
                     <div>
-                        <Schedule />
+                        <Schedule invalidServices={invalidServices} />
                     </div>
                 )}
                 {active === "contact" && (
