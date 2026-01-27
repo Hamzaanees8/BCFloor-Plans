@@ -159,18 +159,21 @@ function generateMarkedSlots(
       return (
         bookedVendorId === vendorId &&
         bookedSlot.date === date &&
-        current.isSame(bookedStart) &&
-        next.isSame(bookedEnd)
+        current.isSameOrAfter(bookedStart) &&
+        next.isSameOrBefore(bookedEnd)
       );
     }) || false;
 
     // Check for conflicts with locally selected slots for other services for the same vendor
     const isConflict = otherServiceSlots.some(conflictSlot => {
       const conflictStart = dayjs(`${conflictSlot.date}T${conflictSlot.start_time}`);
+      const conflictEnd = dayjs(`${conflictSlot.date}T${conflictSlot.end_time}`);
+
       return (
         (conflictSlot.vendor?.uuid === vendorId || conflictSlot.vendor_id === vendorId) &&
         conflictSlot.date === date &&
-        current.isSame(conflictStart)
+        current.isSameOrAfter(conflictStart) &&
+        next.isSameOrBefore(conflictEnd)
       );
     });
 

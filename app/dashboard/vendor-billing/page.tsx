@@ -47,6 +47,7 @@ export interface Slot {
     vendor_id: number | string;
     start_time: string;
     end_time: string;
+    date: string;
     vendor: Vendor;
     order?: {
         id: number;
@@ -329,69 +330,123 @@ const Page = () => {
 
             // Calculate travel costs for each order
             const newTravelCosts = new Map(travelCosts);
-            let currentFromAddress = startLocationAddress;
-            let currentFromAddressForDisplay = startLocationAddress;
 
-            // Sort orders by creation date
-            const sortedOrders = [...orders].sort((a, b) =>
-                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-            );
 
-            for (let i = 0; i < sortedOrders.length; i++) {
-                const order = sortedOrders[i];
-                const vendorSlot = orderSlotMap.get(order.orderId);
+            // Sort orders by actual appointment date and time
+            const getEarliestSlot = (order: VendorOrder) => {
+                const allSlots = order.services.flatMap(s => s.slots || []);
+                if (allSlots.length === 0) return { date: order.created_at.split('T')[0], time: "23:59:59" };
 
-                if (!vendorSlot || !vendorSlot.order) {
-                    console.error(`Could not find vendor slot for order ${order.orderId}`);
-                    continue;
+                // Find earliest date
+                const sortedByDate = allSlots.sort((a, b) => a.date.localeCompare(b.date));
+                const earliestDate = sortedByDate[0].date;
+
+                // Find earliest time on that date
+                const timesOnEarliestDate = allSlots
+                    .filter(s => s.date === earliestDate)
+                    .map(s => s.start_time)
+                    .sort();
+
+                return { date: earliestDate, time: timesOnEarliestDate[0] };
+            };
+
+            const sortedOrders = [...orders].sort((a, b) => {
+                const slotA = getEarliestSlot(a);
+                const slotB = getEarliestSlot(b);
+
+                if (slotA.date !== slotB.date) {
+                    return slotA.date.localeCompare(slotB.date);
+                }
+                return slotA.time.localeCompare(slotB.time);
+            });
+
+            // Group sorted orders by date for daily round-trip logic
+            const ordersByDate = new Map<string, VendorOrder[]>();
+            sortedOrders.forEach(order => {
+                const { date } = getEarliestSlot(order);
+                if (!ordersByDate.has(date)) ordersByDate.set(date, []);
+                ordersByDate.get(date)?.push(order);
+            });
+
+            for (const dayOrders of Array.from(ordersByDate.values())) {
+                let dailyCurrentFromAddress = startLocationAddress;
+                let dailyCurrentFromAddressForDisplay = startLocationAddress;
+
+                // Find the index of the last order in this day that actually requires travel
+                let lastTravelOrderIndex = -1;
+                for (let i = dayOrders.length - 1; i >= 0; i--) {
+                    if (dayOrders[i].services.some(svc => svc.is_travel_required === true || svc.is_travel_required === 1)) {
+                        lastTravelOrderIndex = i;
+                        break;
+                    }
                 }
 
-                const toAddress = `${vendorSlot.order.property_address}, ${vendorSlot.order.property_location}`;
-                const toAddressForDisplay = `${vendorSlot.order.property_address}, ${vendorSlot.order.property_location}`;
+                for (let i = 0; i < dayOrders.length; i++) {
+                    const order = dayOrders[i];
+                    const vendorSlot = orderSlotMap.get(order.orderId);
 
-                // Check if any service in this order requires travel
-                const requiresTravel = order.services.some(svc => svc.is_travel_required === true || svc.is_travel_required === 1);
+                    if (!vendorSlot || !vendorSlot.order) {
+                        console.error(`Could not find vendor slot for order ${order.orderId}`);
+                        continue;
+                    }
 
-                if (!requiresTravel) {
-                    newTravelCosts.set(order.orderId, {
-                        orderId: order.orderId,
-                        distance: 0,
-                        estimatedTime: 0,
-                        travelCost: 0,
-                        fromAddress: currentFromAddressForDisplay,
-                        toAddress: toAddressForDisplay
-                    });
-                    // Skip distance calculation and don't update currentFromAddress
-                    continue;
-                }
+                    const toAddress = `${vendorSlot.order.property_address}, ${vendorSlot.order.property_location}`;
+                    const toAddressForDisplay = `${vendorSlot.order.property_address}, ${vendorSlot.order.property_location}`;
 
-                // Calculate distance
-                try {
-                    const result = await calculateDistance(currentFromAddress, toAddress);
-                    if (result) {
-                        const distance = parseFloat(result.distance.toFixed(2));
-                        const estimatedTime = Math.round(result.est_time);
-                        const travelCost = parseFloat((distance * paymentPerKm).toFixed(2));
+                    const requiresTravel = order.services.some(svc => svc.is_travel_required === true || svc.is_travel_required === 1);
 
+                    if (!requiresTravel) {
                         newTravelCosts.set(order.orderId, {
                             orderId: order.orderId,
-                            distance,
-                            estimatedTime,
-                            travelCost,
-                            fromAddress: currentFromAddressForDisplay,
+                            distance: 0,
+                            estimatedTime: 0,
+                            travelCost: 0,
+                            fromAddress: dailyCurrentFromAddressForDisplay,
                             toAddress: toAddressForDisplay
                         });
-
-                        // Update current address for next iteration
-                        currentFromAddress = toAddress;
-                        currentFromAddressForDisplay = toAddressForDisplay;
+                        continue;
                     }
-                } catch (error) {
-                    console.error(`Distance calculation failed for order ${order.orderId}:`, error);
-                }
 
-                // Add delay to avoid API rate limiting
-                await new Promise((r) => setTimeout(r, 300));
+                    try {
+                        const result = await calculateDistance(dailyCurrentFromAddress, toAddress);
+                        if (result) {
+                            let distance = parseFloat(result.distance.toFixed(2));
+                            let estimatedTime = Math.round(result.est_time);
+
+                            // If this is the LAST order of the day that requires travel, add the return trip
+                            if (i === lastTravelOrderIndex) {
+                                try {
+                                    const returnResult = await calculateDistance(toAddress, startLocationAddress);
+                                    if (returnResult) {
+                                        distance += parseFloat(returnResult.distance.toFixed(2));
+                                        estimatedTime += Math.round(returnResult.est_time);
+                                    }
+                                } catch (error) {
+                                    console.error(`Return distance calculation failed for order ${order.orderId}:`, error);
+                                }
+                            }
+
+                            const travelCost = parseFloat((distance * paymentPerKm).toFixed(2));
+
+                            newTravelCosts.set(order.orderId, {
+                                orderId: order.orderId,
+                                distance,
+                                estimatedTime,
+                                travelCost,
+                                fromAddress: dailyCurrentFromAddressForDisplay,
+                                toAddress: toAddressForDisplay
+                            });
+
+                            // Update current address for next iteration in the same day
+                            dailyCurrentFromAddress = toAddress;
+                            dailyCurrentFromAddressForDisplay = toAddressForDisplay;
+                        }
+                    } catch (error) {
+                        console.error(`Distance calculation failed for order ${order.orderId}:`, error);
+                    }
+
+                    await new Promise((r) => setTimeout(r, 300));
+                }
             }
 
             setTravelCosts(newTravelCosts);
@@ -984,7 +1039,7 @@ const Page = () => {
                                                                                     );
                                                                                 })}
 
-                                                                                {travelCost && (
+                                                                                {travelCost && travelCost.travelCost > 0 && (
                                                                                     <div className="border rounded-md bg-orange-50 p-4 shadow-sm hover:shadow-md transition">
                                                                                         <div className="flex justify-between items-start gap-4">
                                                                                             <div>

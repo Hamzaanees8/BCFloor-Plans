@@ -18,7 +18,7 @@ import { Agent } from '@/components/AgentTable';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import OrderStepper from '../components/OrderStepper';
-import { getEffectiveServiceDuration } from '../utils/serviceTimeUtils';
+import { getEffectiveServiceDuration, splitSlotInto15MinChunks } from '../utils/serviceTimeUtils';
 import { toast } from 'sonner';
 const OrderForm = () => {
     const confirmationRef = useRef<OrderConfirmationHandle>(null);
@@ -179,22 +179,26 @@ const OrderForm = () => {
                 return options;
             });
             setSelectedSlots(
-                (currentUser.slots || []).map((slot: OrderSlot) => {
+                (currentUser.slots || []).flatMap((slot: OrderSlot) => {
                     const matchedService = (currentUser.services || []).find(
                         (s: OrderService) => s.service?.id === slot.service_id
                     );
 
-                    return {
+                    const chunks = splitSlotInto15MinChunks(slot.start_time, slot.end_time);
+
+                    return chunks.map(chunk => ({
                         ...slot,
-                        vendor_id: slot.vendor?.uuid || "",
-                        service_id: matchedService?.service?.uuid || "", // Get UUID from service object
+                        start_time: chunk.start_time,
+                        end_time: chunk.end_time,
+                        vendor_id: slot.vendor?.uuid || slot.vendor_id || "",
+                        service_id: matchedService?.service?.uuid || String(slot.service_id),
                         show_all_vendors: Number(slot.show_all_vendors),
                         schedule_override: Number(slot.schedule_override),
                         recommend_time: Number(slot.recommend_time),
                         est_time: slot.est_time ? Number(slot.est_time) : null,
                         distance: slot.distance ? Number(slot.distance) : null,
                         km_price: slot.km_price ? Number(slot.km_price) : null,
-                    };
+                    }));
                 })
             );
 

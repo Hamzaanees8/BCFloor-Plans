@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/popover"
 import { format } from "date-fns"
 import VendorWorkCarousel from '../../orders/components/VendorWorkCarousel'
-import { getEffectiveServiceDuration } from '../../orders/utils/serviceTimeUtils'
+import { getEffectiveServiceDuration, splitSlotInto15MinChunks } from '../../orders/utils/serviceTimeUtils'
 import { Slot } from '../../orders/context/OrderContext'
 
 interface AppointmentTab {
@@ -135,11 +135,16 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                 (slot) => !currentOrderServiceUuids.includes(slot.service_id)
             );
 
-            const convertedOrderSlots = currentOrder.slots.map((slot) => ({
-                ...slot,
-                service_id: serviceIdToUuidMap[slot.service_id] || String(slot.service_id),
-                vendor_id: slot.vendor?.uuid || slot.vendor_id,
-            }));
+            const convertedOrderSlots = (currentOrder.slots || []).flatMap((slot) => {
+                const chunks = splitSlotInto15MinChunks(slot.start_time, slot.end_time);
+                return chunks.map(chunk => ({
+                    ...slot,
+                    start_time: chunk.start_time,
+                    end_time: chunk.end_time,
+                    service_id: serviceIdToUuidMap[slot.service_id] || String(slot.service_id),
+                    vendor_id: slot.vendor?.uuid || slot.vendor_id,
+                }));
+            });
 
             return [...convertedOrderSlots, ...extraSlots];
         });

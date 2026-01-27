@@ -38,7 +38,7 @@ interface Notes {
 }
 function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent, setCoAgent }: AppointmentTab) {
     const { userType } = useAppContext();
-    const [agent, setAgent] = useState(currentOrder?.agent.uuid ?? '');
+    const [agent, setAgent] = useState(currentOrder?.agent?.uuid ?? '');
     const [contactNumber, setContactNumber] = useState("");
     const [contactEmail, setContactEmail] = useState("");
     const [openAddNotesDialog, setOpenAddNotesDialog] = useState(false);

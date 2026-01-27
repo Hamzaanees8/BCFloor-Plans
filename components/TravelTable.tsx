@@ -46,6 +46,12 @@ type OrderSlot = {
         order_status: 'Processing' | 'Pending' | 'Completed' | 'On Hold';
         payment_status: 'PAID' | 'UNPAID';
         created_at: string;
+        services?: {
+            is_travel_required?: boolean | number;
+            service?: {
+                is_travel_required?: boolean | number;
+            };
+        }[];
     };
 };
 
@@ -281,7 +287,6 @@ const TravelTable: React.FC<TravelTableProps> = ({ userId }) => {
     const sortedSlots = sortGroupedSlots(SlotsByDate)
     console.log('sortedSlots', sortedSlots);
 
-
     useEffect(() => {
         if (!vendor_address || sortedSlots.length === 0) return;
 
@@ -298,33 +303,82 @@ const TravelTable: React.FC<TravelTableProps> = ({ userId }) => {
                 est_time: number;
             }[] = [];
 
+            let currentFromAddress = vendor_address;
+
             for (const group of sortedSlots) {
                 const currentDate = group.date;
                 const slots = group.slots;
                 if (!slots || slots.length === 0) continue;
 
+                let lastOnSiteSlotIndex = -1;
+                for (let i = slots.length - 1; i >= 0; i--) {
+                    const orderServices = slots[i].order?.services || [];
+                    const requiresTravel = orderServices.some(svc =>
+                        svc.is_travel_required === true ||
+                        svc.is_travel_required === 1 ||
+                        svc.service?.is_travel_required === true ||
+                        svc.service?.is_travel_required === 1
+                    );
+                    if (requiresTravel) {
+                        lastOnSiteSlotIndex = i;
+                        break;
+                    }
+                }
+
                 for (let i = 0; i < slots.length; i++) {
                     const slot = slots[i];
-                    const startAddress =
-                        i === 0
-                            ? vendor_address
-                            : `${slots[i - 1].order.property_address}, ${slots[i - 1].order.property_location}`;
+
+                    // Check if this order requires travel
+                    const orderServices = slot.order?.services || [];
+                    const requiresTravel = orderServices.some(svc =>
+                        svc.is_travel_required === true ||
+                        svc.is_travel_required === 1 ||
+                        svc.service?.is_travel_required === true ||
+                        svc.service?.is_travel_required === 1
+                    );
+
+                    if (!requiresTravel) continue;
+
                     const endAddress = `${slot.order.property_address}, ${slot.order.property_location}`;
 
                     try {
-                        const result = await calculateDistance(startAddress, endAddress);
+                        const result = await calculateDistance(currentFromAddress, endAddress);
                         if (result) {
                             allResults.push({
                                 date: currentDate,
                                 service_id: slot.service_id,
                                 order_id: slot.order.id,
-                                from: startAddress,
+                                from: currentFromAddress,
                                 to: endAddress,
                                 start_time: slot.start_time,
                                 end_time: slot.end_time,
                                 distance: parseFloat(result.distance.toFixed(2)),
                                 est_time: Math.round(result.est_time),
                             });
+
+                            currentFromAddress = endAddress;
+
+                            // If this is the last on-site order of the day, calculate return trip
+                            if (i === lastOnSiteSlotIndex) {
+                                try {
+                                    const returnResult = await calculateDistance(endAddress, vendor_address);
+                                    if (returnResult) {
+                                        allResults.push({
+                                            date: currentDate,
+                                            service_id: 0, // 0 for return trip
+                                            order_id: slot.order.id,
+                                            from: endAddress,
+                                            to: vendor_address,
+                                            start_time: slot.end_time,
+                                            end_time: slot.end_time, // Placeholder
+                                            distance: parseFloat(returnResult.distance.toFixed(2)),
+                                            est_time: Math.round(returnResult.est_time),
+                                        });
+                                    }
+                                } catch (error) {
+                                    console.error("❌ Return distance calculation failed:", error);
+                                }
+                            }
                         }
                     } catch (error) {
                         console.error("❌ Distance calculation failed:", error);
@@ -332,6 +386,8 @@ const TravelTable: React.FC<TravelTableProps> = ({ userId }) => {
 
                     await new Promise((r) => setTimeout(r, 300));
                 }
+                // Reset currentFromAddress to vendor_address at end of each day
+                currentFromAddress = vendor_address;
             }
 
             console.log("All chained distance results:", allResults);
@@ -339,8 +395,7 @@ const TravelTable: React.FC<TravelTableProps> = ({ userId }) => {
         }
 
         calculateAllDistances();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [vendor_address]);
+    }, [vendor_address, sortedSlots]);
 
 
     const combinedTravel = Object.values(
@@ -456,7 +511,7 @@ const TravelTable: React.FC<TravelTableProps> = ({ userId }) => {
                                             // setShowQuickView(true);
                                         }}
                                     >
-                                        {slot.order_id ?? "-"}
+                                        {slot.service_id === 0 ? <span className="text-[#666666] font-semibold italic">Return Trip</span> : (slot.order_id ?? "-")}
                                     </TableCell>
                                     <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">{slot.from}</TableCell>
                                     <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">{slot.to}</TableCell>

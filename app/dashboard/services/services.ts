@@ -65,7 +65,6 @@ interface PackagePayload {
     discount: number;
     service_ids: string[];
     status?: boolean | number;
-    is_travel_required?: boolean | number;
 }
 export interface UpdateServicePayload {
     status?: boolean,

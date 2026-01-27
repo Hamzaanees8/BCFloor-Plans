@@ -346,7 +346,6 @@ const ServicesFrom = () => {
           discount: Number(discount),
           service_ids: selectedServices,
           status: 0,
-          is_travel_required: isTravelRequired ? 1 : 0,
         };
 
         if (ServiceId) {
@@ -371,16 +370,14 @@ const ServicesFrom = () => {
           );
         };
 
-        const allOptions = [
-          ...(currentService?.product_options || []),
-          ...options.filter(isOptionValid),
-        ];
-        const cleanedProductOptions: CleanedProductOption[] = allOptions.map(
-          (option) => {
+        const cleanedProductOptions: CleanedProductOption[] = options
+          .filter(isOptionValid)
+          .map((option) => {
             const baseOption: CleanedProductOption = {
               title: option.title,
               amount: option.amount,
               min_price: option.min_price,
+              uuid: option.uuid,
             };
 
             if (
@@ -404,8 +401,7 @@ const ServicesFrom = () => {
             }
 
             return baseOption;
-          }
-        );
+          });
 
         const combinedAddOns = [
           ...(currentService?.service_add_ons || []),
@@ -821,21 +817,23 @@ const ServicesFrom = () => {
                             </p>
                           )}
                         </div>
-                        <div className="col-span-2 flex items-center justify-between">
-                          <label
-                            htmlFor="is_travel_required"
-                            className="text-sm font-medium"
-                            style={{ color: roleSettings.pageText }}
-                          >
-                            Travel Allowed
-                          </label>
-                          <Switch
-                            id="is_travel_required"
-                            checked={isTravelRequired}
-                            onCheckedChange={setIsTravelRequired}
-                            className="bg-gray-300 data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-red-500"
-                          />
-                        </div>
+                        {categoryObject?.name.toLowerCase() !== "package" && (
+                          <div className="col-span-2 flex items-center justify-between">
+                            <label
+                              htmlFor="is_travel_required"
+                              className="text-sm font-medium"
+                              style={{ color: roleSettings.pageText }}
+                            >
+                              Travel Allowed
+                            </label>
+                            <Switch
+                              id="is_travel_required"
+                              checked={isTravelRequired}
+                              onCheckedChange={setIsTravelRequired}
+                              className="bg-gray-300 data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-red-500"
+                            />
+                          </div>
+                        )}
                         {categoryObject?.name.toLocaleLowerCase() ===
                           "package" && (
                             <div className="w-full col-span-2">

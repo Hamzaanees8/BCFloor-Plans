@@ -155,14 +155,17 @@ function generateMarkedSlots(
   const relevantBookedSlots = allBookedSlots
     ?.filter(s => (s.vendor?.uuid || s.vendor_id) === vendorId && s.date === date)
     .map(s => ({
-      start: dayjs(`${s.date}T${s.start_time}`).toISOString(),
-      end: dayjs(`${s.date}T${s.end_time}`).toISOString()
+      start: dayjs(`${s.date}T${s.start_time}`),
+      end: dayjs(`${s.date}T${s.end_time}`)
     })) || [];
 
   // Pre-process otherServiceSlots
   const relevantOtherSlots = otherServiceSlots
-    ?.filter(s => s.vendor_id === vendorId && s.date === date)
-    .map(s => dayjs(`${s.date}T${s.start_time}`).toISOString());
+    ?.filter(s => (s.vendor_id === vendorId || s.vendor?.uuid === vendorId) && s.date === date)
+    .map(s => ({
+      start: dayjs(`${s.date}T${s.start_time}`),
+      end: dayjs(`${s.date}T${s.end_time}`)
+    }));
 
   // Pre-process vendorTimeOffs
   const relevantTimeOffs = vendorTimeOffs
@@ -209,9 +212,13 @@ function generateMarkedSlots(
 
     const inBreak = breakStart && breakEnd && next.isAfter(breakStart) && current.isBefore(breakEnd);
 
-    const isBooked = relevantBookedSlots.some(s => s.start === currentISO && s.end === nextISO);
+    const isBooked = relevantBookedSlots.some(s =>
+      current.isSameOrAfter(s.start) && next.isSameOrBefore(s.end)
+    );
 
-    const isConflict = relevantOtherSlots.some(s => s === currentISO);
+    const isConflict = relevantOtherSlots.some(s =>
+      current.isSameOrAfter(s.start) && next.isSameOrBefore(s.end)
+    );
 
     const isTimeOff = relevantTimeOffs.some(timeOff => {
       if (!timeOff) return false;
@@ -856,17 +863,16 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     );
 
     const requiredSlots = Math.ceil(requiredDuration / 15);
-    const remainingSlotsNeeded = requiredSlots - currentServiceSlots.length;
-
-    if (remainingSlotsNeeded <= 0) {
-      toast.error(
-        `Service "${service.title}" only requires ${requiredDuration} minutes. You have already selected sufficient time slots.`
-      );
-      return;
-    }
+    let remainingSlotsNeeded = requiredSlots - currentServiceSlots.length;
 
     // Determine the range of slots to select
     const slotsToSelect: { start: string; end: string }[] = [];
+
+    // If we've already met the requirement, we just want to add 1 slot (the clicked one)
+    if (remainingSlotsNeeded <= 0) {
+      remainingSlotsNeeded = 1;
+    }
+
     for (let i = 0; i < remainingSlotsNeeded; i++) {
       const start = dayjs(clicked.start).add(i * 15, 'minute').toISOString();
       const end = dayjs(clicked.start).add((i + 1) * 15, 'minute').toISOString();
@@ -936,10 +942,13 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         const v = vendorsData.find(v => v.uuid === id);
         return v ? `${v.first_name} ${v.last_name || ''}`.trim() : null;
       }).filter(Boolean).join(', ');
-      toast.error(`There are not ${requiredDuration} min consecutive slots available for ${vendorNames} available at this time. Select another slots etc`);
+
+      const durationTryingToSelect = remainingSlotsNeeded * 15;
+      toast.error(`There are not ${durationTryingToSelect} min consecutive slots available for ${vendorNames} available at this time. Select another slots etc`);
     } else {
       // Edge case: no vendor even has the first slot available (shouldn't happen for light blue slots)
-      toast.error(`There are not ${requiredDuration} min consecutive slots available for any eligible vendor starting at this time. Please select another slot.`);
+      const durationTryingToSelect = remainingSlotsNeeded * 15;
+      toast.error(`There are not ${durationTryingToSelect} min consecutive slots available for any eligible vendor starting at this time. Please select another slot.`);
     }
   };
 

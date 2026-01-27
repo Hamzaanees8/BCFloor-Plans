@@ -353,7 +353,9 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     }, [selectedListingId, openAddListingDialog]);
     useEffect(() => {
         if (currentListing) {
-            setConnectedAgent(currentListing.agent.uuid);
+            if (currentListing.agent?.uuid) {
+                setConnectedAgent(currentListing.agent.uuid);
+            }
             setListingPrice(currentListing.listing_price?.toString() || "");
             setMls(currentListing.mls_number || "");
             setBedrooms(currentListing.bedrooms ?? "");
@@ -611,7 +613,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         let data = listingData;
 
         if (selectedAgentId) {
-            data = data.filter((listing) => listing.agent.uuid === selectedAgentId);
+            data = data.filter((listing) => listing.agent?.uuid === selectedAgentId);
         }
 
         if (keyword === "") return data;

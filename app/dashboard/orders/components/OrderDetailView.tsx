@@ -216,7 +216,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
             const token = localStorage.getItem('token') || '';
 
             const payload: OrderPayload = {
-                agent_id: String(currentOrder?.agent.uuid) || "",
+                agent_id: String(currentOrder?.agent?.uuid) || "",
                 property_id: currentOrder?.property.uuid || "",
                 amount: Number(currentOrder?.amount) || 0,
                 order_status: "Processing",
