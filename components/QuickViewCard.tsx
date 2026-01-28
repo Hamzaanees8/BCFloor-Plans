@@ -1,5 +1,13 @@
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { MapPin, Mail, Phone, Smartphone, X, File, Calendar } from "lucide-react";
+import {
+  MapPin,
+  Mail,
+  Phone,
+  Smartphone,
+  X,
+  File,
+  Calendar,
+} from "lucide-react";
 import React, { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import NotificationDialog from "./NotificationDialog";
@@ -130,12 +138,18 @@ export interface Slot {
 }
 
 export interface NotificationData {
+  id?: number;
+  uuid?: string;
   type: string;
   source?: string;
+  source_id?: string;
   created_by_name: string;
   Subject: string;
+  description?: string;
   created_at: string;
   updated_at?: string;
+  is_read?: boolean;
+  read_at?: string;
   diff_data?: {
     amount?: {
       before: string | number;
@@ -145,19 +159,75 @@ export interface NotificationData {
       before: string;
       after: string;
     };
-    slots?: Record<string, {
-      before: Slot | null;
-      after: Slot | null;
-    }>;
+    slots?: Record<
+      string,
+      {
+        before: Slot | null;
+        after: Slot | null;
+      }
+    >;
+    payment_details?: {
+      before: null | Record<string, unknown>;
+      after: {
+        // For VendorPayment
+        vendor_name?: string;
+        // For AgentPayment
+        agent_name?: string;
+        order_uuid?: string;
+        amount: string | number;
+        currency: string;
+        transfer_id?: string;
+        payment_type: string;
+        service_count?: number;
+        payment_method?: string;
+        status: string;
+        timestamp: string;
+        receipt_url?: string;
+      };
+    };
+    metadata?: Record<string, unknown>;
   };
   meta_data?: {
-    order_id: number;
-    order_uuid: string;
-    changes_summary: string[];
-    details: string;
-    updated_by: string;
+    // Common fields
+    order_id?: number;
+    order_uuid?: string;
+    changes_summary?: string[];
+    details?: string;
+    updated_by?: string;
+    broadcast_to_all_admins?: boolean;
+    // VendorPayment specific
+    vendor_id?: number;
+    vendor_uuid?: string;
+    vendor_payment_id?: number;
+    vendor_payment_uuid?: string;
+    vendor_name?: string;
+    vendor_email?: string;
+    transfer_id?: string;
+    service_count?: number;
+    is_bulk?: boolean;
+    // AgentPayment specific
+    agent_payment_id?: number;
+    agent_payment_uuid?: string;
+    agent_uuid?: string;
+    agent_name?: string;
+    agent_email?: string;
+    payment_method?: string;
+    is_quickbooks_synced?: boolean;
+    quickbooks_invoice_id?: string | null;
+    // Shared payment fields
+    amount?: string | number;
+    currency?: string;
+    payment_type?: string;
+    timestamp?: string;
+    // Property and Services
+    property_address?: string;
+    services?: Array<{
+      uuid?: string;
+      service_id?: number | string;
+      service_name?: string;
+      amount?: string | number;
+    }>;
   };
-  read_at?: string;
   order: {
     id: string | number;
     created_at: string;
@@ -221,7 +291,11 @@ export default function QuickViewCard({
   return (
     <>
       <Card
-        style={{ maxHeight: "calc(100vh)", minHeight: "calc(100vh)", backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+        style={{
+          maxHeight: "calc(100vh)",
+          minHeight: "calc(100vh)",
+          backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+        }}
         className="w-full sm:w-[405px] overflow-y-scroll custom-scroll  flex flex-col justify-between   font-alexandria p-4 border-[1px] border-[#BBBBBB] rounded-none space-y-4 fixed top-[0px] right-0 z-50"
       >
         <CardContent className="flex flex-col gap-[12px] p-0">
@@ -236,41 +310,45 @@ export default function QuickViewCard({
               <X className="w-5 h-5" />
             </button>
           </div>
-          {userType === "agent" || type === "listing" && (
-            <div className="">
-              <div className={`grid grid-cols-[auto_1fr]  gap-x-3 items-start`}>
-                <Avatar className="h-8 w-8 row-span-2">
-                  <AvatarImage
-                    src={
-                      data.agent.avatar_url
-                        ? data.agent.avatar_url
-                        : "https://github.com/shadcn.png"
-                    }
-                  />
-                  <AvatarImage src={"https://github.com/shadcn.png"} />
-                  <AvatarFallback>CN</AvatarFallback>
-                </Avatar>
+          {userType === "agent" ||
+            (type === "listing" && (
+              <div className="">
+                <div
+                  className={`grid grid-cols-[auto_1fr]  gap-x-3 items-start`}
+                >
+                  <Avatar className="h-8 w-8 row-span-2">
+                    <AvatarImage
+                      src={
+                        data.agent.avatar_url
+                          ? data.agent.avatar_url
+                          : "https://github.com/shadcn.png"
+                      }
+                    />
+                    <AvatarImage src={"https://github.com/shadcn.png"} />
+                    <AvatarFallback>CN</AvatarFallback>
+                  </Avatar>
 
-                <div className="text-[#4290E9] font-[400] text-[15px]">
-                  <div
-                    className={`text-[24px] font-[400] ${userType}-text font-alexandria`}
-                  >
-                    {data.agent.first_name} {data.agent.last_name}
+                  <div className="text-[#4290E9] font-[400] text-[15px]">
+                    <div
+                      className={`text-[24px] font-[400] ${userType}-text font-alexandria`}
+                    >
+                      {data.agent.first_name} {data.agent.last_name}
+                    </div>
+                  </div>
+
+                  <div className="text-[15px] font-[400] text-[#666666]">
+                    {data.agent.company_name}
                   </div>
                 </div>
-
-                <div className="text-[15px] font-[400] text-[#666666]">
-                  {data.agent.company_name}
-                </div>
               </div>
-            </div>
-          )}
+            ))}
 
           {/* Profile Info */}
 
           <div
-            className={`grid grid-cols-[auto_1fr] ${type === "notification" ? "grid-rows-1" : "grid-rows-2"
-              } gap-x-3 items-start`}
+            className={`grid grid-cols-[auto_1fr] ${
+              type === "notification" ? "grid-rows-1" : "grid-rows-2"
+            } gap-x-3 items-start`}
           >
             {type === "agent" && (
               <Avatar className="h-8 w-8 row-span-2">
@@ -338,11 +416,31 @@ export default function QuickViewCard({
               )}
               {type === "notification" && (
                 <span className="text-[15px] font-[400] text-[#666666] ]  ">
-                  Contact:{" "}
-                  <span className="text-[#4290E9]">
-                    {data?.order?.agent?.first_name}{" "}
-                    {data?.order?.agent?.last_name}{" "}
-                  </span>
+                  {data.source === "AgentPayment" ||
+                  data.source === "VendorPayment" ? (
+                    <>
+                      {data.source === "AgentPayment" ? "Agent: " : "Vendor: "}
+                      <span className="text-[#4290E9]">
+                        {data.source === "AgentPayment"
+                          ? data.meta_data?.agent_name ||
+                            data.diff_data?.payment_details?.after
+                              ?.agent_name ||
+                            "Unknown"
+                          : data.meta_data?.vendor_name ||
+                            data.diff_data?.payment_details?.after
+                              ?.vendor_name ||
+                            "Unknown"}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Contact:{" "}
+                      <span className="text-[#4290E9]">
+                        {data?.order?.agent?.first_name}{" "}
+                        {data?.order?.agent?.last_name}{" "}
+                      </span>
+                    </>
+                  )}
                 </span>
               )}
               {type === "admin" && (
@@ -417,7 +515,12 @@ export default function QuickViewCard({
                 <p
                   className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px] text-[#4290E9]`}
                 >
-                  #{data?.meta_data?.order_id}
+                  #
+                  {data?.meta_data?.order_id ||
+                    (data.source === "AgentPayment" &&
+                    data.diff_data?.payment_details?.after?.order_uuid
+                      ? "Order UUID"
+                      : "N/A")}
                 </p>
               </div>
             )}
@@ -435,35 +538,40 @@ export default function QuickViewCard({
               type === "subaccount" ||
               type === "listing" ||
               type === "notification") && (
-                <div className="flex items-center space-x-[18px] ">
-                  <MapPin
-                    className="w-[24px] basis-[7%] text-[#666666]"
-                    strokeWidth={1}
-                  />
-                  <p
-                    className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px]`}
-                  >
-                    {type === "admin" && (data as AdminData).address}
-                    {type === "subaccount" && (data as SubAccountData).address}
-                    {/* {type === "listing" && (data as Listings).address  } */}
-                    {type === "listing" &&
-                      [
-                        (data as Listings)?.address,
-                        (data as Listings)?.city,
-                        (data as Listings)?.province,
-                        (data as Listings)?.postal_code,
-                        (data as Listings)?.country,
-                      ]
-                        .filter(Boolean)
-                        .join(", ")}
+              <div className="flex items-center space-x-[18px] ">
+                <MapPin
+                  className="w-[24px] basis-[7%] text-[#666666]"
+                  strokeWidth={1}
+                />
+                <p
+                  className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px]`}
+                >
+                  {type === "admin" && (data as AdminData).address}
+                  {type === "subaccount" && (data as SubAccountData).address}
+                  {/* {type === "listing" && (data as Listings).address  } */}
+                  {type === "listing" &&
+                    [
+                      (data as Listings)?.address,
+                      (data as Listings)?.city,
+                      (data as Listings)?.province,
+                      (data as Listings)?.postal_code,
+                      (data as Listings)?.country,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
 
-                    {type === "notification" &&
-                      (data as NotificationData)?.order?.property_address}
-                    {type === "subaccount" && (data as SubAccountData).address}
-                  </p>
-                </div>
-              )}
-            {type === 'listing' && (
+                  {type === "notification" &&
+                    ((data as NotificationData).source === "AgentPayment" ||
+                    (data as NotificationData).source === "VendorPayment"
+                      ? (data as NotificationData).meta_data?.property_address
+                        ? (data as NotificationData).meta_data?.property_address
+                        : "Payment Transaction"
+                      : (data as NotificationData)?.order?.property_address)}
+                  {type === "subaccount" && (data as SubAccountData).address}
+                </p>
+              </div>
+            )}
+            {type === "listing" && (
               <div className="mb-5 pb-5">
                 <div className="flex items-center space-x-[18px] mt-4 ">
                   <Calendar
@@ -471,11 +579,13 @@ export default function QuickViewCard({
                     strokeWidth={1}
                   />
                   <div className="text-[15px] font-[400] text-[#8E8E8E]">
-                    {data?.created_at ? new Date(data.created_at).toLocaleDateString('en-US', {
-                      month: 'numeric',
-                      day: 'numeric',
-                      year: '2-digit'
-                    }) : 'N/A'}
+                    {data?.created_at
+                      ? new Date(data.created_at).toLocaleDateString("en-US", {
+                          month: "numeric",
+                          day: "numeric",
+                          year: "2-digit",
+                        })
+                      : "N/A"}
                   </div>
                 </div>
                 <div className="flex flex-col items-start  w-full mt-4 ">
@@ -487,7 +597,10 @@ export default function QuickViewCard({
                     <div
                       className={`hover:underline text-[15px] font-[400] text-[#8E8E8E] leading-[25px]`}
                     >
-                      <span>Order:</span> <span className={`${userType}-text`}>{data?.orders?.[0]?.id}</span>
+                      <span>Order:</span>{" "}
+                      <span className={`${userType}-text`}>
+                        {data?.orders?.[0]?.id}
+                      </span>
                     </div>
                   </div>
                   <div className="w-full mt-4">
@@ -515,16 +628,24 @@ export default function QuickViewCard({
                     <div className="mt-2">
                       {data?.orders?.[0] ? (
                         <div className="grid grid-cols-3 gap-x-4 gap-y-[19px] text-[10px] font-[400] text-[#666666]">
-                          <span className={`text-[10px] ${data.orders[0].payment_status === "PAID" ? "bg-green-500 text-white px-2 rounded-full" : "bg-red-500 text-white px-2 rounded-full"} w-fit`}>
+                          <span
+                            className={`text-[10px] ${data.orders[0].payment_status === "PAID" ? "bg-green-500 text-white px-2 rounded-full" : "bg-red-500 text-white px-2 rounded-full"} w-fit`}
+                          >
                             {data.orders[0].payment_status || "UNPAID"}
                           </span>
 
-                          <span className={`text-[10px] ${data.orders[0].order_status === "Completed" ? "bg-green-500 text-white px-2 rounded-full" : "bg-red-500 text-white px-2 rounded-full"} w-fit`}>
+                          <span
+                            className={`text-[10px] ${data.orders[0].order_status === "Completed" ? "bg-green-500 text-white px-2 rounded-full" : "bg-red-500 text-white px-2 rounded-full"} w-fit`}
+                          >
                             {data.orders[0].order_status || "N/A"}
                           </span>
 
-                          <span className={`text-[10px] ${data.tour_activated === true ? "bg-green-500 text-white px-2 rounded-full" : "bg-red-500 text-white px-2 rounded-full"} w-fit`}>
-                            {data.tour_activated === true ? "ACTIVE" : "INACTIVE"}
+                          <span
+                            className={`text-[10px] ${data.tour_activated === true ? "bg-green-500 text-white px-2 rounded-full" : "bg-red-500 text-white px-2 rounded-full"} w-fit`}
+                          >
+                            {data.tour_activated === true
+                              ? "ACTIVE"
+                              : "INACTIVE"}
                           </span>
                         </div>
                       ) : (
@@ -536,8 +657,7 @@ export default function QuickViewCard({
                   </div>
                 </div>
               </div>
-            )
-            }
+            )}
             {type === "agent" && (
               <div className="flex items-center space-x-[18px] ">
                 <MapPin className="w-[24px] text-[#666666]" strokeWidth={1} />
@@ -690,14 +810,248 @@ export default function QuickViewCard({
 
             {type === "notification" && (
               <>
-                {(data as NotificationData).source === "Order" ? (
+                {(data as NotificationData).source === "AgentPayment" ||
+                (data as NotificationData).source === "VendorPayment" ? (
+                  <div className="grid grid-cols-1 gap-y-[12px]">
+                    {/* Header Info */}
+                    <div className="flex flex-col gap-[4px] mb-2">
+                      <span className="text-[15px] font-[400] text-[#666666]">
+                        <span className="font-bold">Payment Type:</span>{" "}
+                        {data.source === "AgentPayment"
+                          ? "Agent Payment"
+                          : "Vendor Payment"}
+                      </span>
+                      <span className="text-[15px] font-[400] text-[#666666]">
+                        <span className="font-bold">Date:</span>{" "}
+                        {data.meta_data?.timestamp
+                          ? format(
+                              new Date(data.meta_data.timestamp),
+                              "MMM dd, yyyy h:mm a",
+                            )
+                          : "N/A"}
+                      </span>
+                    </div>
+
+                    {/* Property Address Section */}
+                    {/* {data.meta_data?.property_address && (
+                      <div className="bg-blue-50 p-3 border border-blue-100 rounded-md">
+                        <div className="text-[10px] text-[#8E8E8E] uppercase font-[700] mb-2">
+                          Property Address
+                        </div>
+                        <p className="text-[15px] text-[#666666] leading-relaxed">
+                          {data.meta_data.property_address}
+                        </p>
+                      </div>
+                    )} */}
+
+                    {/* Payment Details */}
+                    {data.diff_data?.payment_details?.after && (
+                      <div className="bg-white p-3 border rounded-md space-y-3">
+                        <div className="text-[12px] text-[#8E8E8E] uppercase font-[700]">
+                          Payment Information
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-2">
+                          {data.source === "VendorPayment" && (
+                            <>
+                              <div className="flex justify-between text-[15px]">
+                                <span className="text-[#666666]">Vendor:</span>
+                                <span
+                                  className={`${userType}-text font-medium`}
+                                >
+                                  {data.meta_data?.vendor_name || "Unknown"}
+                                </span>
+                              </div>
+                              {data.meta_data?.vendor_email && (
+                                <div className="flex justify-between text-[15px]">
+                                  <span className="text-[#666666]">Email:</span>
+                                  <span className="text-[#666666] text-sm">
+                                    {data.meta_data.vendor_email}
+                                  </span>
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          {data.source === "AgentPayment" && (
+                            <>
+                              <div className="flex justify-between text-[15px]">
+                                <span className="text-[#666666]">Agent:</span>
+                                <span
+                                  className={`${userType}-text font-medium`}
+                                >
+                                  {data.meta_data?.agent_name || "Unknown"}
+                                </span>
+                              </div>
+                              {data.meta_data?.agent_email && (
+                                <div className="flex justify-between text-[15px]">
+                                  <span className="text-[#666666]">Email:</span>
+                                  <span className="text-[#666666] text-sm">
+                                    {data.meta_data.agent_email}
+                                  </span>
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          {/* Payment Amount */}
+                          <div className="flex justify-between text-[15px] pt-2 border-t">
+                            <span className="text-[#666666] font-bold">
+                              Total Amount:
+                            </span>
+                            <span
+                              className={`${userType}-text font-bold text-lg`}
+                            >
+                              ${Number(data.meta_data?.amount || 0).toFixed(2)}{" "}
+                              {data.meta_data?.currency || "USD"}
+                            </span>
+                          </div>
+
+                          {/* Payment Method */}
+                          <div className="flex justify-between text-[15px]">
+                            <span className="text-[#666666]">Method:</span>
+                            <span className="text-[#666666]">
+                              {data.meta_data?.payment_method || "N/A"}
+                            </span>
+                          </div>
+
+                          {/* Payment Status */}
+                          <div className="flex justify-between text-[15px]">
+                            <span className="text-[#666666]">Status:</span>
+                            <span
+                              className={`font-medium ${
+                                data.diff_data.payment_details.after.status ===
+                                  "Payment Transferred" ||
+                                data.diff_data.payment_details.after.status ===
+                                  "Payment Received"
+                                  ? "text-green-600"
+                                  : "text-yellow-600"
+                              }`}
+                            >
+                              {data.diff_data.payment_details.after.status}
+                            </span>
+                          </div>
+
+                          {/* Transfer/Receipt Info */}
+                          {/* {data.source === "VendorPayment" &&
+                            data.meta_data?.transfer_id && (
+                              <div className="flex justify-between text-[15px]">
+                                <span className="text-[#666666]">
+                                  Transfer ID:
+                                </span>
+                                <span className="text-[#666666] font-mono text-xs">
+                                  {data.meta_data.transfer_id}
+                                </span>
+                              </div>
+                            )}
+
+                          {data.source === "AgentPayment" &&
+                            data.diff_data.payment_details.after
+                              .receipt_url && (
+                              <div className="flex justify-between text-[15px]">
+                                <span className="text-[#666666]">Receipt:</span>
+                                <a
+                                  href={
+                                    data.diff_data.payment_details.after
+                                      .receipt_url
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[#4290E9] hover:underline text-sm"
+                                >
+                                  View Stripe Receipt
+                                </a>
+                              </div>
+                            )} */}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Services Section */}
+                    {data.meta_data?.services &&
+                      data.meta_data.services.length > 0 && (
+                        <div className="bg-white p-3 border rounded-md">
+                          <div className="text-[12px] text-[#8E8E8E] uppercase font-[700] mb-3">
+                            Services ({data.meta_data.services.length})
+                          </div>
+                          <div className="space-y-2">
+                            {data.meta_data.services.map((service) => (
+                              <div
+                                key={service.uuid}
+                                className="flex justify-between items-start text-[15px] pb-2 border-b last:border-b-0"
+                              >
+                                <div className="flex-1">
+                                  <p className={`${userType}-text font-medium`}>
+                                    {service.service_name} {"  "}
+                                    <span className="text-[12px] text-[#999999]">
+                                      (ID: {service.service_id})
+                                    </span>
+                                  </p>
+                                </div>
+                                <span className="text-[#666666] font-medium ml-2">
+                                  ${Number(service.amount).toFixed(2)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                    {/* Order Info Section */}
+                    {/* {(data.meta_data?.order_id ||
+                      data.meta_data?.order_uuid) && (
+                      <div className="bg-white p-3 border rounded-md">
+                        <div className="text-[12px] text-[#8E8E8E] uppercase font-[700] mb-2">
+                          Order Information
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-[15px]">
+                            <span className="text-[#666666]">Order ID:</span>
+                            <span className={`${userType}-text font-medium`}>
+                              #{data.meta_data.order_id}
+                            </span>
+                          </div>
+                          {data.meta_data?.order_uuid && (
+                            <div className="flex justify-between text-[15px]">
+                              <span className="text-[#666666]">
+                                Order UUID:
+                              </span>
+                              <span className="text-[#666666] font-mono text-xs">
+                                {data.meta_data.order_uuid}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )} */}
+
+                    {/* Description */}
+                    {(data.description || data.Subject) && (
+                      <div className="bg-white p-3 border rounded-md">
+                        <div className="text-[10px] text-[#8E8E8E] uppercase font-[700] mb-2">
+                          Note
+                        </div>
+                        <p className="text-[15px] text-[#666666]">
+                          {data.description || data.Subject}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (data as NotificationData).source === "Order" ? (
                   <div className="grid grid-cols-1 gap-y-[12px]">
                     <div className="flex flex-col gap-[4px] mb-2">
                       <span className="text-[15px] font-[400] text-[#666666]">
-                        <span className="font-bold">Updated by:</span> {data.meta_data?.updated_by || data.created_by_name}
+                        <span className="font-bold">Updated by:</span>{" "}
+                        {data.meta_data?.updated_by || data.created_by_name}
                       </span>
                       <span className="text-[15px] font-[400] text-[#666666]">
-                        <span className="font-bold">Date:</span> {data.updated_at ? format(new Date(data.updated_at), "MMM dd, yyyy h:mm a") : "N/A"}
+                        <span className="font-bold">Date:</span>{" "}
+                        {data.updated_at
+                          ? format(
+                              new Date(data.updated_at),
+                              "MMM dd, yyyy h:mm a",
+                            )
+                          : "N/A"}
                       </span>
                     </div>
 
@@ -707,9 +1061,13 @@ export default function QuickViewCard({
                           Amount Changed
                         </div>
                         <div className="flex items-center gap-2 text-[15px]">
-                          <span className="text-[#666666] line-through">${Number(data.diff_data.amount.before).toFixed(2)}</span>
+                          <span className="text-[#666666] line-through">
+                            ${Number(data.diff_data.amount.before).toFixed(2)}
+                          </span>
                           <span>→</span>
-                          <span className={`${userType}-text font-medium`}>${Number(data.diff_data.amount.after).toFixed(2)}</span>
+                          <span className={`${userType}-text font-medium`}>
+                            ${Number(data.diff_data.amount.after).toFixed(2)}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -808,7 +1166,10 @@ export default function QuickViewCard({
                 ) : (
                   <div className="grid grid-cols-1 gap-y-[12px]">
                     <div className="flex items-center space-x-[18px]">
-                      <Mail className="w-[24px] text-[#666666]" strokeWidth={1} />
+                      <Mail
+                        className="w-[24px] text-[#666666]"
+                        strokeWidth={1}
+                      />
                       <span
                         className={`text-[15px] font-[400] ${userType}-text leading-[32px]`}
                       >
@@ -825,14 +1186,17 @@ export default function QuickViewCard({
                       </span>
                     </div>
                     <div className="flex items-center space-x-[18px]">
-                      <Phone className="w-[24px] text-[#666666]" strokeWidth={1} />
+                      <Phone
+                        className="w-[24px] text-[#666666]"
+                        strokeWidth={1}
+                      />
                       <span className="text-[15px] font-[400] text-[#666666] leading-[32px]">
                         {data?.order?.agent?.secondary_phone}
                       </span>
                     </div>
                     {data?.order?.services?.map((service, idx) => {
                       const currentserviceSlot = data?.order.slots.find(
-                        (slot) => slot.service_id == service.service_id
+                        (slot) => slot.service_id == service.service_id,
                       );
 
                       return (
@@ -854,7 +1218,7 @@ export default function QuickViewCard({
                               <br />
                               {formatTimeRange(
                                 currentserviceSlot?.start_time ?? "",
-                                currentserviceSlot?.end_time ?? ""
+                                currentserviceSlot?.end_time ?? "",
                               )}
                             </span>
                           </p>
@@ -876,7 +1240,7 @@ export default function QuickViewCard({
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             (total: number, service: any) =>
                               total + Number(service.amount || 0),
-                            0
+                            0,
                           )
                           .toFixed(2)}
                       </span>
@@ -937,11 +1301,12 @@ export default function QuickViewCard({
                   {data.permissions?.length === 7
                     ? "FULL"
                     : data.permissions?.map((perm, index) => (
-                      <span key={index}>
-                        {perm.name}
-                        {index !== (data.permissions?.length ?? 0) - 1 && ", "}
-                      </span>
-                    ))}
+                        <span key={index}>
+                          {perm.name}
+                          {index !== (data.permissions?.length ?? 0) - 1 &&
+                            ", "}
+                        </span>
+                      ))}
                 </p>
               </div>
             )}
@@ -1001,16 +1366,18 @@ export default function QuickViewCard({
                             </Button> */}
             </div>
           )}
-          {type === "listing" && Array.isArray((data as Listings)?.orders) && (data?.orders?.length ?? 0) > 0 && (
-            <Link
-              href={`/dashboard/file-manager/${(data as Listings)?.orders?.[0]?.uuid ?? ''}?listingId=${data.uuid}`}
-              className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
-            >
-              Media
-            </Link>
-          )}
+          {type === "listing" &&
+            Array.isArray((data as Listings)?.orders) &&
+            (data?.orders?.length ?? 0) > 0 && (
+              <Link
+                href={`/dashboard/file-manager/${(data as Listings)?.orders?.[0]?.uuid ?? ""}?listingId=${data.uuid}`}
+                className={`bg-transparent ${userType}-border flex justify-center items-center ${userType}-text rounded-none w-[132px] h-[32px] ${userType}-button hover-${userType}-bg`}
+              >
+                Media
+              </Link>
+            )}
         </CardFooter>
-      </Card >
+      </Card>
       <NotificationDialog
         open={showDialog}
         setOpen={setShowDialog}
@@ -1018,7 +1385,7 @@ export default function QuickViewCard({
           setShowDialog(false);
         }}
         showAgain={false}
-        toggleShowAgain={() => { }}
+        toggleShowAgain={() => {}}
       />
     </>
   );

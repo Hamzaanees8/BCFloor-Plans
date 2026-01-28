@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react"
+import * as React from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -12,9 +12,21 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Calendar, File, House, LogOut, PanelLeftClose, PanelLeftOpen, PanelTop, Settings, Sliders, UserCheck } from "lucide-react"
+import {
+  Bell,
+  Calendar,
+  File,
+  House,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelTop,
+  Settings,
+  Sliders,
+  UserCheck,
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Admin, BackArrow, MatterportIcon, Vendors } from "./Icons";
 import Image from "next/image";
@@ -24,7 +36,12 @@ import SafeLink from "./SafeLink";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import { usePermissions } from "@/app/hooks/usePermissions";
 import { PERMISSIONS } from "@/lib/permissions";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 
 // This is sample data.
@@ -125,14 +142,13 @@ const data = {
       ],
     },
   ],
-}
-
+};
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { userType } = useAppContext();
+  const { userType, unreadNotificationCount } = useAppContext();
   const pathname = usePathname();
   const router = useRouter();
-  const pathSegments = pathname.split('/').filter(Boolean);
+  const pathSegments = pathname.split("/").filter(Boolean);
   const showBackButton = pathSegments.length > 2;
   const { confirmNavigation } = useUnsaved();
   //const parentPath = `/${pathSegments.slice(0, -1).join('/')}`;
@@ -141,8 +157,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const { appliedSettings } = useWhiteLabel();
-  const role = (userType as string) || 'admin';
-  const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+  const role = (userType as string) || "admin";
+  const roleSettings =
+    appliedSettings[role as keyof typeof appliedSettings] ||
+    appliedSettings["admin"];
   const [isLogoutHovered, setIsLogoutHovered] = React.useState(false);
 
   async function logoutUser() {
@@ -153,11 +171,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       return;
     }
 
-    const redirectUrl = userType === "agent"
-      ? "/agent/login"
-      : userType === "vendor"
-        ? "/vendor/login"
-        : "/login";
+    const redirectUrl =
+      userType === "agent"
+        ? "/agent/login"
+        : userType === "vendor"
+          ? "/vendor/login"
+          : "/login";
 
     try {
       localStorage.removeItem("token");
@@ -172,25 +191,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         console.error("Logout failed:", error);
       }
     }
-
   }
 
   const goToDashboardSection = () => {
     confirmNavigation(() => router.back(), {
       title: "Unsaved Changes",
-      description: "You have unsaved changes. Do you want to discard them and go back?"
+      description:
+        "You have unsaved changes. Do you want to discard them and go back?",
     });
   };
 
-  const filteredNavMain = data.navMain.filter(group => {
-    // Hide entire PEOPLE group for agents
-    return !(userType === "agent" && group.title === "PEOPLE");
-  })
-    .map(group => ({
+  const filteredNavMain = data.navMain
+    .filter((group) => {
+      // Hide entire PEOPLE group for agents
+      return !(userType === "agent" && group.title === "PEOPLE");
+    })
+    .map((group) => ({
       ...group,
-      title: userType === "agent" && group.title === "GENERAL" ? "SETTINGS" : group.title,
-      items: group.items.filter(item => {
-
+      title:
+        userType === "agent" && group.title === "GENERAL"
+          ? "SETTINGS"
+          : group.title,
+      items: group.items.filter((item) => {
         if (item.url === "/dashboard/matterport" && userType !== "admin") {
           return false;
         }
@@ -204,34 +226,53 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           return false;
         }
 
-
         if (item.url === "/dashboard/sub-accounts") {
-          return (userType === "admin" && group.title === "PEOPLE") ||
-            (userType === "agent" && group.title === "DATA");
+          return (
+            (userType === "admin" && group.title === "PEOPLE") ||
+            (userType === "agent" && group.title === "DATA")
+          );
         }
 
-        if ((userType === "agent" || userType === "vendor") && item.url === "/dashboard/global-settings") {
+        if (
+          (userType === "agent" || userType === "vendor") &&
+          item.url === "/dashboard/global-settings"
+        ) {
           item.title = "Settings";
         }
 
         if (userType === "admin") {
-          if (item.url === "/dashboard/billing" && !hasPermission(PERMISSIONS.ACCESS_BILLING)) {
+          if (
+            item.url === "/dashboard/billing" &&
+            !hasPermission(PERMISSIONS.ACCESS_BILLING)
+          ) {
             return false;
           }
 
-          if (item.url === "/dashboard/vendor-billing" && !hasPermission(PERMISSIONS.ACCESS_BILLING)) {
+          if (
+            item.url === "/dashboard/vendor-billing" &&
+            !hasPermission(PERMISSIONS.ACCESS_BILLING)
+          ) {
             return false;
           }
 
-          if (item.url === "/dashboard/notifications" && !hasPermission(PERMISSIONS.RECEIVE_NOTIFICATIONS)) {
+          if (
+            item.url === "/dashboard/notifications" &&
+            !hasPermission(PERMISSIONS.RECEIVE_NOTIFICATIONS)
+          ) {
             return false;
           }
 
-          if (item.url === "/dashboard/services" && !hasPermission(PERMISSIONS.CREATE_SERVICES)) {
+          if (
+            item.url === "/dashboard/services" &&
+            !hasPermission(PERMISSIONS.CREATE_SERVICES)
+          ) {
             return false;
           }
 
-          if (item.url === "/dashboard/admin" && !hasPermission(PERMISSIONS.VIEW_ADMIN)) {
+          if (
+            item.url === "/dashboard/admin" &&
+            !hasPermission(PERMISSIONS.VIEW_ADMIN)
+          ) {
             return false;
           }
         }
@@ -241,33 +282,32 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             "/dashboard/admin",
             "/dashboard/services",
             "/dashboard/agents",
-            "/dashboard/vendors"
+            "/dashboard/vendors",
           ];
           return !restrictedUrls.includes(item.url);
         }
 
         // Existing filters for vendor
         if (userType === "vendor") {
-          const restrictedUrls = [
-            "/dashboard/admin",
-            "/dashboard/vendors"
-          ];
+          const restrictedUrls = ["/dashboard/admin", "/dashboard/vendors"];
           return !restrictedUrls.includes(item.url);
         }
 
         return true;
-      })
+      }),
     }));
   return (
     <Sidebar
       {...props}
       collapsible="icon"
       className="p-0 font-alexandria border border-[#BBBBBB] z-20"
-      style={{
-        backgroundColor: roleSettings.sidebarBg,
-        ['--sidebar-hover-bg' as string]: roleSettings.sidebarHoverBg,
-        ['--sidebar-hover-text' as string]: roleSettings.sidebarHoverText,
-      } as React.CSSProperties}
+      style={
+        {
+          backgroundColor: roleSettings.sidebarBg,
+          ["--sidebar-hover-bg" as string]: roleSettings.sidebarHoverBg,
+          ["--sidebar-hover-text" as string]: roleSettings.sidebarHoverText,
+        } as React.CSSProperties
+      }
     >
       <SidebarHeader
         className="p-0 h-fit"
@@ -281,7 +321,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 alt="Logo"
                 width={Number(roleSettings.logoWidth)}
                 height={50}
-                style={{ width: `${roleSettings.logoWidth}px`, height: 'auto' }}
+                style={{ width: `${roleSettings.logoWidth}px`, height: "auto" }}
                 className="shrink-0"
               />
             ) : (
@@ -298,16 +338,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             )}
             {!isCollapsed && (
               <div className="overflow-hidden">
-                <p className="text-[14px] font-normal text-white font-alexandria leading-4 truncate">BC Floor Plans</p>
-                {userType !== 'admin' && (
-                  <p className="text-[14px] font-normal text-white font-alexandria leading-4 truncate">Media Company Owner</p>
+                <p className="text-[14px] font-normal text-white font-alexandria leading-4 truncate">
+                  BC Floor Plans
+                </p>
+                {userType !== "admin" && (
+                  <p className="text-[14px] font-normal text-white font-alexandria leading-4 truncate">
+                    Media Company Owner
+                  </p>
                 )}
-                <p className="text-[12px] font-normal text-white font-alexandria leading-4 truncate">{userInfo.first_name} {userInfo.last_name}</p>
+                <p className="text-[12px] font-normal text-white font-alexandria leading-4 truncate">
+                  {userInfo.first_name} {userInfo.last_name}
+                </p>
               </div>
             )}
           </div>
-
-
         </div>
       </SidebarHeader>
       <button
@@ -333,7 +377,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <PanelLeftClose className="h-3" />
         )}
       </button>
-      <div className="pt-[20px] px-[25px]" style={{ backgroundColor: roleSettings.sidebarBg }}>
+      <div
+        className="pt-[20px] px-[25px]"
+        style={{ backgroundColor: roleSettings.sidebarBg }}
+      >
         {showBackButton && !isCollapsed ? (
           <div
             className={`min-h-[32px] w-full flex items-center cursor-pointer rounded-[24px]`}
@@ -342,15 +389,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           >
             <div className="flex items-center px-[14px] py-[4px] gap-x-[10px]">
               <BackArrow />
-              <p className="text-[16px] font-semibold text-white font-alexandria">BACK</p>
+              <p className="text-[16px] font-semibold text-white font-alexandria">
+                BACK
+              </p>
             </div>
           </div>
         ) : (
-          <div className={`${!isCollapsed ? 'h-[32px]' : ''}`} />
+          <div className={`${!isCollapsed ? "h-[32px]" : ""}`} />
         )}
       </div>
       <SidebarContent
-        className={`pt-[20px] custom-scroll transition-all duration-200 !overflow-y-auto ${isCollapsed ? 'px-0' : 'px-[25px]'}`}
+        className={`pt-[20px] custom-scroll transition-all duration-200 !overflow-y-auto ${isCollapsed ? "px-0" : "px-[25px]"}`}
         style={{ backgroundColor: roleSettings.sidebarBg }}
       >
         {filteredNavMain.map((item) => (
@@ -367,12 +416,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               {item?.items && (
                 <SidebarMenu>
                   {item.items.map((subItem) => {
-                    const isActive = pathname === subItem.url || pathname.startsWith(`${subItem.url}/`);
+                    const isActive =
+                      pathname === subItem.url ||
+                      pathname.startsWith(`${subItem.url}/`);
 
                     return (
                       <SidebarMenuItem
                         className="!justify-items-center"
-                        key={subItem.title}>
+                        key={subItem.title}
+                      >
                         <TooltipProvider delayDuration={0}>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -381,19 +433,50 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 isActive={isActive}
                                 className={`text-[16px] font-normal !justify-items-center flex gap-2 role-sidebar-item`}
                                 style={{
-                                  color: isActive ? roleSettings.activeColor : roleSettings.sidebarText,
-                                  fontWeight: isActive ? 'bold' : 'normal',
-                                  backgroundColor: isActive ? roleSettings.sidebarHoverBg : 'transparent'
+                                  color: isActive
+                                    ? roleSettings.activeColor
+                                    : roleSettings.sidebarText,
+                                  fontWeight: isActive ? "bold" : "normal",
+                                  backgroundColor: isActive
+                                    ? roleSettings.sidebarHoverBg
+                                    : "transparent",
                                 }}
                               >
-                                <SafeLink href={subItem.url} className="flex items-center gap-2 w-full">
-                                  {subItem.icon && (
-                                    <subItem.icon
-                                      className={`h-4 w-4 shrink-0`}
-                                      style={{ color: isActive ? roleSettings.activeColor : roleSettings.sidebarText }}
-                                    />
+                                <SafeLink
+                                  href={subItem.url}
+                                  className="flex items-center gap-2 w-full relative"
+                                >
+                                  <div className="relative">
+                                    {subItem.icon && (
+                                      <subItem.icon
+                                        className={`h-4 w-4 shrink-0`}
+                                        style={{
+                                          color: isActive
+                                            ? roleSettings.activeColor
+                                            : roleSettings.sidebarText,
+                                        }}
+                                      />
+                                    )}
+                                    {subItem.url ===
+                                      "/dashboard/notifications" &&
+                                      unreadNotificationCount > 0 && (
+                                        <span
+                                          className="absolute -top-2 -right-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none"
+                                          style={{
+                                            backgroundColor:
+                                              roleSettings.activeColor,
+                                            color: "white",
+                                          }}
+                                        >
+                                          {unreadNotificationCount}
+                                        </span>
+                                      )}
+                                  </div>
+                                  {!isCollapsed && (
+                                    <span className="flex items-center gap-2 flex-1">
+                                      {subItem.title}
+                                    </span>
                                   )}
-                                  {!isCollapsed && <span>{subItem.title}</span>}
                                 </SafeLink>
                               </SidebarMenuButton>
                             </TooltipTrigger>
@@ -408,11 +491,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           </Tooltip>
                         </TooltipProvider>
                       </SidebarMenuItem>
-
-
                     );
                   })}
-
                 </SidebarMenu>
               )}
             </SidebarGroupContent>
@@ -449,7 +529,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <Tooltip>
             <TooltipTrigger asChild>
               <div
-                className={`pb-[20px] ${isCollapsed ? 'flex justify-center pt-4' : 'pt-[120px] px-[25px]'}`}
+                className={`pb-[20px] ${isCollapsed ? "flex justify-center pt-4" : "pt-[120px] px-[25px]"}`}
               >
                 <div
                   onClick={logoutUser}
@@ -459,12 +539,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 >
                   <LogOut
                     className="h-[18px] w-[18px] shrink-0"
-                    style={{ color: isLogoutHovered ? roleSettings.sidebarHoverText : roleSettings.sidebarText }}
+                    style={{
+                      color: isLogoutHovered
+                        ? roleSettings.sidebarHoverText
+                        : roleSettings.sidebarText,
+                    }}
                   />
                   {!isCollapsed && (
                     <p
                       className="text-[16px] font-normal"
-                      style={{ color: isLogoutHovered ? roleSettings.sidebarHoverText : roleSettings.sidebarText }}
+                      style={{
+                        color: isLogoutHovered
+                          ? roleSettings.sidebarHoverText
+                          : roleSettings.sidebarText,
+                      }}
                     >
                       Log Out
                     </p>
@@ -483,7 +571,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </Tooltip>
         </TooltipProvider>
       </SidebarContent>
-
     </Sidebar>
-  )
+  );
 }
