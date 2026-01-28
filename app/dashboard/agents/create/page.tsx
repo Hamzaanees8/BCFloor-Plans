@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
 import { AgentPayload, CreateAgent, EditAgent, GetOne, GetRole } from '../agents'
+import { GetAgentAudios, UploadAgentAudio, DeleteAgentAudio, AgentAudio } from '../agent-audio'
 import { useParams, useRouter } from 'next/navigation'
 import { Pencil, Plus, X } from 'lucide-react'
 //import PaymentDialog from '@/components/PaymentDialog'
@@ -137,8 +138,9 @@ const AgentForm = () => {
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
     const [isTourMediaEnabled, setIsTourMediaEnabled] = useState<boolean>(true);
     const [mp3File, setMp3File] = useState<File | null>(null);
-    const [selectedMp3, setSelectedMp3] = useState<string>("");
+    const [selectedMp3, setSelectedMp3] = useState<string>(""); // Now stores UUID for custom audios
     const mp3FileInputRef = useRef<HTMLInputElement>(null);
+    const [agentAudios, setAgentAudios] = useState<AgentAudio[]>([]);
 
     const [availableMp3s, setAvailableMp3s] = useState<{ id: string; name: string; url: string }[]>([
         { id: 'tell-me-what', name: 'Tell-me-what', url: '/audio/tell-me-what.mp3' },
@@ -147,55 +149,95 @@ const AgentForm = () => {
         { id: 'showreel', name: 'Showreel', url: '/audio/showreel.mp3' },
     ]);
 
-    // Effect to fetch audios if an API capability exists in the future
+    // Fetch agent audios when editing an existing agent
     useEffect(() => {
-        // Placeholder for API call
-        // const fetchAudios = async () => {
-        //     try {
-        //         const response = await fetch('/api/audios');
-        //         const data = await response.json();
-        //         if (data && data.length > 0) setAvailableMp3s(data);
-        //     } catch (e) {
-        //         console.log("Using local audio files");
-        //     }
-        // };
-        // fetchAudios();
-    }, []);
+        if (currentUser?.uuid) {
+            GetAgentAudios(currentUser.uuid)
+                .then(data => {
+                    if (data.data && Array.isArray(data.data)) {
+                        setAgentAudios(data.data);
+                        // Add custom audios to the dropdown
+                        const customAudios = data.data.map((audio: AgentAudio) => ({
+                            id: audio.uuid,
+                            name: audio.name,
+                            url: audio.file_url
+                        }));
+                        setAvailableMp3s(prev => {
+                            // Filter out old custom audios and add new ones
+                            const defaultAudios = prev.filter(mp3 => !mp3.id.startsWith('custom-') && !prev.find(p => p.id === mp3.id && data.data.find((a: AgentAudio) => a.uuid === p.id)));
+                            return [...defaultAudios, ...customAudios];
+                        });
+                    }
+                })
+                .catch(err => console.log('Failed to fetch agent audios:', err.message));
+        }
+    }, [currentUser?.uuid]);
 
     const handleMp3Upload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            if (file.size > 10 * 1024 * 1024) { // 10MB limit
-                toast.error("File size exceeds 10MB limit");
+            // Validate file size (20MB limit as per backend)
+            if (file.size > 20 * 1024 * 1024) {
+                toast.error("File size exceeds 20MB limit");
                 return;
             }
-            if (!file.type.startsWith('audio/')) {
-                toast.error("Please upload a valid audio file");
+            // Validate file type
+            const validTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3'];
+            if (!validTypes.includes(file.type) && !file.type.startsWith('audio/')) {
+                toast.error("Please upload a valid audio file (MP3, WAV)");
                 return;
             }
             setMp3File(file);
 
-            // Create a new option for the uploaded file
-            const newId = `custom-${Date.now()}`;
+            // Create a temporary preview option
+            const newId = `pending-${Date.now()}`;
             const newOption = {
                 id: newId,
                 name: file.name,
-                url: URL.createObjectURL(file) // Create temporary URL
+                url: URL.createObjectURL(file)
             };
 
-            setAvailableMp3s(prev => [...prev, newOption]);
+            setAvailableMp3s(prev => {
+                // Remove any previous pending uploads
+                const filtered = prev.filter(mp3 => !mp3.id.startsWith('pending-'));
+                return [...filtered, newOption];
+            });
 
-            // Use setTimeout to ensure the new option is rendered before selecting it
+            // Select the new file
             setTimeout(() => {
                 setSelectedMp3(newId);
             }, 0);
 
-            // Reset input value to allow selecting the same file again if needed
+            // Reset input
             if (mp3FileInputRef.current) {
                 mp3FileInputRef.current.value = '';
             }
         }
     };
+
+    const handleDeleteAudio = async (audioUuid: string) => {
+        if (!confirm('Are you sure you want to delete this audio?')) {
+            return;
+        }
+
+        try {
+            await DeleteAgentAudio(audioUuid);
+            toast.success('Audio deleted successfully');
+
+            // Remove from state
+            setAgentAudios(prev => prev.filter(audio => audio.uuid !== audioUuid));
+            setAvailableMp3s(prev => prev.filter(mp3 => mp3.id !== audioUuid));
+
+            // Clear selection if deleted audio was selected
+            if (selectedMp3 === audioUuid) {
+                setSelectedMp3('');
+            }
+        } catch (error) {
+            console.error('Failed to delete audio:', error);
+            toast.error('Failed to delete audio');
+        }
+    };
+
     //const [cards, setCards] = useState<PaymentCard[]>([]);
     const { isDirty, setIsDirty } = useUnsaved();
     const [activeTab, setActiveTab] = useState('details');
@@ -460,29 +502,49 @@ const AgentForm = () => {
                 license_number: agentLicense,
                 co_agents: sanitizedCoAgents,
                 requires_payment: isPaymentRequired ? 1 : 0,
-                default_music: selectedMp3.startsWith('custom-') && mp3File ? mp3File.name : selectedMp3 || undefined,
                 agent_discount: agentDiscount || null,
             };
+
+            let agentUuid: string | null = null;
 
             if (userId) {
                 // Add _method: 'PUT' to payload for method override
                 const updatedPayload = { ...payload, _method: 'PUT' };
-                await EditAgent(userId, updatedPayload);
+                const response = await EditAgent(userId, updatedPayload);
+                agentUuid = response.data?.uuid || currentUser?.uuid || null;
                 toast.success('Agent updated successfully');
-                setIsLoading(true)
-                setOpen(true)
-                router.push('/dashboard/agents')
-                setIsLoading(false)
-                setIsDirty(false)
             } else {
-                await CreateAgent(payload);
+                const response = await CreateAgent(payload);
+                agentUuid = response.data?.uuid || null;
                 toast.success('Agent created successfully');
-                setIsLoading(true)
-                setOpen(true)
-                router.push('/dashboard/agents')
-                setIsLoading(false)
-                setIsDirty(false)
             }
+
+            // Upload audio file if selected and agent UUID is available
+            console.log('Audio upload check:', { mp3File, agentUuid, selectedMp3 });
+            if (mp3File && agentUuid) {
+                console.log('Attempting to upload audio...');
+                try {
+                    const uploadResult = await UploadAgentAudio({
+                        agent_id: agentUuid,
+                        audio: mp3File,
+                        name: mp3File.name
+                    });
+                    console.log('Audio upload result:', uploadResult);
+                    toast.success('Audio uploaded successfully');
+                } catch (audioError) {
+                    console.error('Failed to upload audio:', audioError);
+                    toast.error('Agent saved but audio upload failed');
+                }
+            } else {
+                console.log('Skipping audio upload - conditions not met');
+            }
+
+            setIsLoading(true)
+            setOpen(true)
+            router.push('/dashboard/agents')
+            setIsLoading(false)
+            setIsDirty(false)
+
 
         } catch (error) {
             setIsLoading(false)
@@ -950,9 +1012,8 @@ const AgentForm = () => {
                                                                     return;
                                                                 }
                                                                 setSelectedMp3(value);
-                                                                // Check if the selected value corresponds to a newly uploaded file (starts with 'custom-')
-                                                                // If it's a pre-defined one, clear the file object. 
-                                                                if (!value.startsWith('custom-')) {
+                                                                // Clear file if selecting a non-pending audio
+                                                                if (!value.startsWith('pending-')) {
                                                                     setMp3File(null);
                                                                 }
                                                             }}
@@ -972,6 +1033,29 @@ const AgentForm = () => {
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
+
+                                                    {/* Display list of custom audios with delete option */}
+                                                    {agentAudios.length > 0 && (
+                                                        <div className="w-full border border-[#BBBBBB] rounded-[6px] overflow-hidden">
+                                                            <div className="bg-[#F2F2F2] px-3 py-2 text-xs font-semibold text-[#666666]">
+                                                                Uploaded Audios
+                                                            </div>
+                                                            <div className="divide-y divide-[#BBBBBB]">
+                                                                {agentAudios.map((audio) => (
+                                                                    <div key={audio.uuid} className="flex items-center justify-between px-3 py-2 hover:bg-[#F9F9F9]">
+                                                                        <span className="text-xs text-[#666666] truncate flex-1">{audio.name}</span>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleDeleteAudio(audio.uuid)}
+                                                                            className="ml-2 text-red-500 hover:text-red-700"
+                                                                        >
+                                                                            <X className="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
 
                                                     <input
                                                         type="file"

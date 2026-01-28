@@ -13,13 +13,7 @@ export interface OrderPayload {
     percentage?: number;
   }[];
   notes: AgentNote[];
-  services: {
-    uuid?: string; // Order service UUID (for updates)
-    service_id: string;
-    option_id?: string;
-    amount: number;
-    custom?: string;
-  }[];
+  services: OrderServiceItem[];
   discounts: {
     discount_id: string;
     type: "code" | "quantity" | "manual" | string;
@@ -49,6 +43,13 @@ export interface EditOrderPayload {
   mls_property?: string,
   vendor_uuid?: string,
 
+}
+export interface OrderServiceItem {
+  uuid?: string; // Order service UUID (for updates)
+  service_id: string;
+  option_id?: string;
+  amount: number;
+  custom?: string;
 }
 type AgentNote = {
   note: string;
@@ -224,6 +225,46 @@ export async function EditOrderStatus(
 
   if (!response.ok) {
     const error = new Error(data.message || "Request failed");
+    (error as FetchErrors).errors = data.errors;
+    throw error;
+  }
+
+  return data;
+}
+
+export async function UpdateOrderService(
+  orderUuid: string,
+  services: OrderServiceItem[],
+  token: string
+) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  const formData = new FormData();
+  formData.append('_method', 'PUT');
+
+  services.forEach((service, index) => {
+    formData.append(`services[${index}][service_id]`, service.service_id);
+    if (service.option_id) {
+      formData.append(`services[${index}][option_id]`, service.option_id);
+    }
+    formData.append(`services[${index}][amount]`, String(service.amount));
+    if (service.uuid) {
+      formData.append(`services[${index}][uuid]`, service.uuid);
+    }
+  });
+
+  const response = await fetch(`${API_URL}/orders/${orderUuid}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = new Error(data.message || 'Failed to update service');
     (error as FetchErrors).errors = data.errors;
     throw error;
   }

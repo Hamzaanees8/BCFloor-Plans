@@ -322,7 +322,17 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
                     <Button
                         onClick={() => setOpenUpgrade(true)}
                         className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}>Upgrade Plan</Button>
-                    <UpgradeServicePopup open={openUpgrade} setOpen={setOpenUpgrade} currentService={currentService} currentOption={currentBookedService?.option} />
+                    <UpgradeServicePopup
+                        open={openUpgrade}
+                        setOpen={setOpenUpgrade}
+                        currentService={currentService}
+                        currentOption={currentBookedService?.option}
+                        orderData={orderData}
+                        currentBookedService={currentBookedService}
+                        onSuccess={() => {
+                            window.location.reload()
+                        }}
+                    />
                 </div>}
             <div className='flex flex-col items-center justify-center my-4'>
                 <div className='w-[650px]'>

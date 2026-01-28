@@ -206,126 +206,140 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled }: { c
                     </div>
                 </div>
             )}
-            {!isListing &&
 
-                <div
-                    className='h-[66px] w-full flex justify-between items-center px-4 font-alexandria'
-                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-                >
-                    <div>
-                        {userType !== 'agent' && (
-                            <div>
-                                <Button
 
-                                    onClick={handleFileInputClick}
-                                    className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}>Add File</Button>
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    multiple
-                                    hidden
-                                    accept="video/*"
-                                    onChange={handleFileSelect}
-                                />
-                            </div>
+            <div
+                className='h-[66px] w-full flex justify-between items-center px-4 font-alexandria'
+                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+            >
+                <div>
+                    {userType !== 'agent' && (
+                        <div>
+                            <Button
 
-                        )}
-                    </div>
-                    <div>
-                        <p className='flex flex-col items-center'>
-                            <span className={`${userType}-text font-bold`}>
-                                {currentService ? currentService.name : ''}
-                            </span>
+                                onClick={handleFileInputClick}
+                                className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}>Add File</Button>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                multiple
+                                hidden
+                                accept="video/*"
+                                onChange={handleFileSelect}
+                            />
+                        </div>
 
-                            <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title}</span>
-                        </p>
-                    </div>
-                    <div className='flex justify-center items-center gap-x-[14px]'>
-                        {(userType === 'agent') && currentBookedService?.payment_status === "PAID" && (
-                            <Button
-                                onClick={() => {
-                                    setShowDownloadModal(true);
-                                }}
-                                className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}
-                            >
-                                Download Files
-                            </Button>
-                        )}
-                        {userType === 'admin' && (
-                            <Button
-                                onClick={() => {
-                                    setShowDownloadModal(true);
-                                }}
-                                className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}
-                            >
-                                Download Files
-                            </Button>
-                        )}
-                        {userType !== 'agent' &&
-                            <Button
-                                onClick={() => {
-                                    setMediaUploaded(true);
-                                    setShowConfirmation(true)
-                                    // setSelectedVideoFiles(prev =>
-                                    //     prev.map(file => ({ ...file, upload: true }))
-                                    // );
-                                }}
-                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[#4290E9] hover:bg-[#4999f5]'}  h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Submit to Client'} </Button>
-                        }
-                        <AgentNotificationModal
-                            open={showConfirmation}
-                            onClose={() => setShowConfirmation(false)}
-                            serviceDate={currentService ? currentService : null}
-                            orderData={orderData ? orderData : null}
-                        />
-                        {userType === 'agent' &&
-                            <div className='flex flex-col justify-center items-center mr-4'>
-                                <p className='text-[18px] text-[#6BAE41]'>${currentBookedService?.option?.amount}</p>
-                                <p className='text-[#7D7D7D] text-[12px]'>{currentBookedService?.option?.title}</p>
-                            </div>
-                        }
-                        {userType === 'agent' &&
-                            <Button
-                                // onClick={() => setOpenPaymentModal(true)}
-                                className={`h-[32px] w-[150px] flex justify-center items-center 
+                    )}
+                </div>
+                <div>
+                    <p className='flex flex-col items-center'>
+                        <span className={`${userType}-text font-bold`}>
+                            {currentService ? currentService.name : ''}
+                        </span>
+
+                        <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title}</span>
+                    </p>
+                </div>
+                <div className='flex justify-center items-center gap-x-[14px]'>
+                    {(userType === 'agent') && currentBookedService?.payment_status === "PAID" && (
+                        <Button
+                            onClick={() => {
+                                setShowDownloadModal(true);
+                            }}
+                            className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}
+                        >
+                            Download Files
+                        </Button>
+                    )}
+                    {userType === 'admin' && (
+                        <Button
+                            onClick={() => {
+                                setShowDownloadModal(true);
+                            }}
+                            className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}
+                        >
+                            Download Files
+                        </Button>
+                    )}
+                    {userType !== 'agent' &&
+                        <Button
+                            onClick={() => {
+                                setMediaUploaded(true);
+                                setShowConfirmation(true)
+                                // setSelectedVideoFiles(prev =>
+                                //     prev.map(file => ({ ...file, upload: true }))
+                                // );
+                            }}
+                            className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[#4290E9] hover:bg-[#4999f5]'}  h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Submit to Client'} </Button>
+                    }
+                    <AgentNotificationModal
+                        open={showConfirmation}
+                        onClose={() => setShowConfirmation(false)}
+                        serviceDate={currentService ? currentService : null}
+                        orderData={orderData ? orderData : null}
+                    />
+                    {userType === 'agent' &&
+                        <div className='flex flex-col justify-center items-center mr-4'>
+                            <p className='text-[18px] text-[#6BAE41]'>${currentBookedService?.option?.amount}</p>
+                            <p className='text-[#7D7D7D] text-[12px]'>{currentBookedService?.option?.title}</p>
+                        </div>
+                    }
+                    {userType === 'agent' &&
+                        <Button
+                            // onClick={() => setOpenPaymentModal(true)}
+                            className={`h-[32px] w-[150px] flex justify-center items-center 
                                                                                               ${paymentSuccess
-                                        ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
-                                        : "bg-[#DC9600] hover:bg-[#eda304]"}`
-                                }>{currentBookedService?.payment_status == 'PAID' ? 'Paid' : 'UnPaid'}</Button>
-                        }
-                        <PayInvoiceModal open={openPaymentModal} setOpen={setOpenPaymentModal} success={paymentSuccess} setSuccess={setPaymentSuccess} />
+                                    ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
+                                    : "bg-[#DC9600] hover:bg-[#eda304]"}`
+                            }>{currentBookedService?.payment_status == 'PAID' ? 'Paid' : 'UnPaid'}</Button>
+                    }
+                    <PayInvoiceModal open={openPaymentModal} setOpen={setOpenPaymentModal} success={paymentSuccess} setSuccess={setPaymentSuccess} />
 
-                        {userType === 'admin' &&
-                            <div className="pl-4">
-                                {!success ? (
-                                    <Button
-                                        onClick={() => setOpenPayment(true)}
-                                        className="bg-[#4290E9] text-white hover:bg-[#4999f5] cursor-pointer  h-[32px]"
-                                    >
-                                        Add Manual Payment
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        // disabled
-                                        className="bg-[#6BAE41] hover:bg-[#7dc94f]  text-white flex items-center gap-2  h-[32px] cursor-default"
-                                    >
-                                        <CheckCircle2 className="w-5 h-5" />
-                                        Payment Added
-                                    </Button>
-                                )}
+                    {userType === 'admin' &&
+                        <div className="pl-4">
+                            {!success ? (
+                                <Button
+                                    onClick={() => setOpenPayment(true)}
+                                    className="bg-[#4290E9] text-white hover:bg-[#4999f5] cursor-pointer  h-[32px]"
+                                >
+                                    Add Manual Payment
+                                </Button>
+                            ) : (
+                                <Button
+                                    // disabled
+                                    className="bg-[#6BAE41] hover:bg-[#7dc94f]  text-white flex items-center gap-2  h-[32px] cursor-default"
+                                >
+                                    <CheckCircle2 className="w-5 h-5" />
+                                    Payment Added
+                                </Button>
+                            )}
 
-                                <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
-                            </div>}
-                    </div>
-                </div>}
-            {!isListing &&
+                            <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
+                        </div>
+                    }
+                </div>
+            </div>
 
-                <div className='p-4 flex justify-end'>
-                    <Button
-                        onClick={() => setOpenUpgrade(true)}
-                        className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}>Upgrade Plan</Button>
-                    <UpgradeServicePopup open={openUpgrade} setOpen={setOpenUpgrade} currentService={currentService} currentOption={currentBookedService?.option} />
-                </div>}
+            <div className='p-4 flex justify-end'>
+                <Button
+                    onClick={() => setOpenUpgrade(true)}
+                    className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}
+                >
+                    Upgrade Plan
+                </Button>
+                <UpgradeServicePopup
+                    open={openUpgrade}
+                    setOpen={setOpenUpgrade}
+                    currentService={currentService}
+                    currentOption={currentBookedService?.option}
+                    orderData={orderData}
+                    currentBookedService={currentBookedService}
+                    onSuccess={() => {
+                        window.location.reload();
+                    }}
+                />
+            </div>
+
             <div className="p-4">
                 <FilePreviewModal type='HDR_photos' open={open} onOpenChange={() => { setOpen(false) }} files={files} setSelectedFiles={setSelectedVideoFiles} serviceUuid={currentService?.uuid ?? ''} reviewFilesEnabled={reviewFilesEnabled} />
                 {(filesForService.length > 0 || (currentServiceFiles?.length ?? 0) > 0) && (

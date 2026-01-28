@@ -29,7 +29,6 @@ export interface AgentPayload {
     primary_phone?: string;
     split?: string;
   }[];
-  default_music?: string | null;
   agent_discount?: {
     uuid?: string;
     name?: string;

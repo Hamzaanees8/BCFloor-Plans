@@ -12,6 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Services } from "../../services/page"
 import { useAppContext } from "@/app/context/AppContext"
 import { toast } from "sonner"
+import { UpdateOrderService } from "../../orders/orders"
+import { Order, OrderService } from "../../orders/page"
 
 type OptionShape = {
     uuid: string
@@ -24,7 +26,9 @@ interface PricingPopupProps {
     setOpen: React.Dispatch<React.SetStateAction<boolean>>
     currentService?: Services
     currentOption?: OptionShape | null
-    onConfirm?: (selectedUuid: string | null) => void
+    orderData?: Order | null
+    currentBookedService?: OrderService
+    onSuccess?: () => void
 }
 
 export default function UpgradeServicePopup({
@@ -32,9 +36,12 @@ export default function UpgradeServicePopup({
     setOpen,
     currentService,
     currentOption = null,
-    onConfirm,
+    orderData,
+    currentBookedService,
+    onSuccess,
 }: PricingPopupProps) {
     const [selected, setSelected] = React.useState<string | null>(null)
+    const [isLoading, setIsLoading] = React.useState(false)
     const { userType } = useAppContext()
 
     React.useEffect(() => {
@@ -50,12 +57,65 @@ export default function UpgradeServicePopup({
             setSelected(null)
         }
     }
-    console.log('currentOption', currentOption);
 
-    const handleUpgrade = () => {
-        onConfirm?.(selected ?? null)
-        toast.success('Plan upgraded successfully')
-        setOpen(false)
+    const handleUpgrade = async () => {
+        if (!selected || !orderData || !currentBookedService || !currentService) {
+            toast.error('Missing required data')
+            return
+        }
+
+        // Find the selected option details
+        const selectedOption = currentService?.product_options?.find(opt => opt.uuid === selected)
+        if (!selectedOption) {
+            toast.error('Selected option not found')
+            return
+        }
+
+        setIsLoading(true)
+        try {
+            const token = localStorage.getItem('token') ?? ''
+
+            // Map all services from the order, updating the current one
+            const allServices = (orderData.services || []).map(orderService => {
+                if (orderService.uuid === currentBookedService.uuid) {
+                    return {
+                        service_id: currentService.uuid,
+                        option_id: selected,
+                        amount: Number(selectedOption.amount ?? 0),
+                        uuid: orderService.uuid
+                    }
+                }
+                return {
+                    service_id: orderService.service.uuid,
+                    option_id: orderService.option.uuid,
+                    amount: Number(orderService.amount),
+                    uuid: orderService.uuid
+                }
+            })
+
+            await UpdateOrderService(
+                orderData.uuid,
+                allServices,
+                token
+            )
+
+            toast.success('Plan upgraded successfully')
+            setOpen(false)
+
+            // Call success callback to refresh data
+            if (onSuccess) {
+                onSuccess()
+            }
+        } catch (error) {
+            console.error('Failed to upgrade service:', error)
+            if (error instanceof Error) {
+                toast.error(error.message || 'Failed to upgrade service')
+            } else {
+                toast.error('Failed to upgrade service')
+            }
+        } finally {
+            setIsLoading(false)
+        }
     }
 
     return (
@@ -86,6 +146,7 @@ export default function UpgradeServicePopup({
                                     <Checkbox
                                         checked={selected === opt.uuid}
                                         onCheckedChange={handleCheckedChange(opt.uuid ?? '')}
+                                        disabled={isLoading}
                                         className={`${userType === "admin"
                                             ? "data-[state=checked]:bg-[#4290E9] data-[state=checked]:border-[#4290E9]"
                                             : userType === "agent"
@@ -103,11 +164,11 @@ export default function UpgradeServicePopup({
 
                 {/* Upgrade Button */}
                 <Button
-                    className={`w-full mt-4 ${userType}-bg hover-${userType}-bgtext-white`}
+                    className={`w-full mt-4 ${userType}-bg hover-${userType}-bg text-white`}
                     onClick={handleUpgrade}
-                    disabled={!selected} // optional: disable if nothing selected
+                    disabled={!selected || isLoading}
                 >
-                    Upgrade
+                    {isLoading ? 'Upgrading...' : 'Upgrade'}
                 </Button>
             </DialogContent>
         </Dialog>

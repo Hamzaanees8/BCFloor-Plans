@@ -373,7 +373,18 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
                     <Button
                         onClick={() => setOpenUpgrade(true)}
                         className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}>Upgrade Plan</Button>
-                    <UpgradeServicePopup open={openUpgrade} setOpen={setOpenUpgrade} currentService={currentService} currentOption={currentBookedService?.option} />
+                    <UpgradeServicePopup
+                        open={openUpgrade}
+                        setOpen={setOpenUpgrade}
+                        currentService={currentService}
+                        currentOption={currentBookedService?.option}
+                        orderData={orderData}
+                        currentBookedService={currentBookedService}
+                        onSuccess={() => {
+                            // Refresh the page to get updated order data
+                            window.location.reload()
+                        }}
+                    />
                 </div>}
             <div className='px-[200px] pt-[54px]'>
                 <div className='px-[80px] pb-[60px] gap-y-6'>

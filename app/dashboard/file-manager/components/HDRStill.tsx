@@ -402,7 +402,17 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
                     <Button
                         onClick={() => setOpenUpgrade(true)}
                         className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}>Upgrade Plan</Button>
-                    <UpgradeServicePopup open={openUpgrade} setOpen={setOpenUpgrade} currentService={currentService} currentOption={currentBookedService?.option} />
+                    <UpgradeServicePopup
+                        open={openUpgrade}
+                        setOpen={setOpenUpgrade}
+                        currentService={currentService}
+                        currentOption={currentBookedService?.option}
+                        orderData={orderData}
+                        currentBookedService={currentBookedService}
+                        onSuccess={() => {
+                            window.location.reload()
+                        }}
+                    />
                 </div>}
             <div className="p-4">
                 <FilePreviewModal type='HDR_photos' open={open} onOpenChange={() => { setOpen(false) }} files={files} setSelectedFiles={setSelectedFiles} serviceUuid={currentService?.uuid ?? ''} reviewFilesEnabled={reviewFilesEnabled} />
