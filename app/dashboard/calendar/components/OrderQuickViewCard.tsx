@@ -3,7 +3,7 @@ import { Calendar, File, Mail, MapPin, Phone, Smartphone, X } from "lucide-react
 import React from "react";
 import { CalanderVendor } from "./BigCalendar";
 import dayjs from 'dayjs';
-import { Agent } from "@/components/AgentTable";
+import { Agent } from "@/lib/types";
 import { Services } from "../../services/page";
 import { Order } from "../../orders/page";
 import { Button } from "@/components/ui/button";

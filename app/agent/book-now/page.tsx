@@ -80,6 +80,13 @@ function BookNowPageContent() {
                         toast.error(`Please add ${slotsNeeded} more slot(s) for "${service.title}". Required: ${requiredDuration} min, Selected: ${currentDuration} min`);
                         firstErrorToastShown = true;
                     }
+                } else if (currentDuration > requiredDuration) {
+                    newInvalidServices.push(serviceUuid);
+                    if (!firstErrorToastShown) {
+                        const extraSlots = Math.ceil((currentDuration - requiredDuration) / 15);
+                        toast.error(`Please remove ${extraSlots} slot(s) for "${service.title}". Required: ${requiredDuration} min, Selected: ${currentDuration} min`);
+                        firstErrorToastShown = true;
+                    }
                 }
             }
 

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, Circle, Trash, X } from "lucide-react"
-import { Admin } from "./AdminTable"
+import { Admin } from "@/lib/types"
 import { useAppContext } from "@/app/context/AppContext"
 
 type Props = {

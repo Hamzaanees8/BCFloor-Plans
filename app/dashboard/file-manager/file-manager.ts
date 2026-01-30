@@ -535,10 +535,16 @@ export async function createPayment(
 
 export async function DownloadFile(
   token: string,
-  fileUuid: string
+  fileUuid: string,
+  size?: 'small' | 'large' | 'mls' | 'original'
 ) {
+  let url = `${process.env.NEXT_PUBLIC_API_URL}/tours/files/${fileUuid}/download`;
+  if (size && size !== 'original') {
+    url += `?size=${size}`;
+  }
+
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/tours/files/${fileUuid}/download`,
+    url,
     {
       method: 'GET',
       headers: {
@@ -554,6 +560,30 @@ export async function DownloadFile(
   }
 
   return response
+}
+
+export async function PublishTour(
+  token: string,
+  tourUuid: string,
+  isPublish: boolean
+) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  const response = await fetch(`${API_URL}/tours/publish/${tourUuid}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ is_publish: isPublish }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || `Publish failed with status ${response.status}`);
+  }
+
+  return response.json();
 }
 export async function ServiceCompletion(
   token: string,

@@ -61,6 +61,7 @@ export interface OrderData {
             auto_play: string;
             video_overlay: string;
         };
+        is_publish: boolean;
         created_at: string;
         updated_at: string;
         files: Array<{

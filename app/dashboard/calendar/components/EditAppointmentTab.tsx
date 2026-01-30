@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Pencil, Plus, Trash, X, Edit2, Eye, EyeOff } from 'lucide-react';
 import React, { useEffect, useState, useMemo } from 'react'
 import { Order } from '../../orders/page';
-import { Agent } from '@/components/AgentTable';
+import { Agent } from '@/lib/types';
 import Schedule from './Schedule';
 import { Button } from '@/components/ui/button';
 import AddNotesDialog from './AddNotesDialog';

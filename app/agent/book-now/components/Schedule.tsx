@@ -17,7 +17,7 @@ import OneDayCalendar, { getDistanceColor } from '@/app/dashboard/orders/compone
 import { getPropertyTimezone, PropertyLocation } from '@/app/dashboard/orders/orders'
 import { getEffectiveServiceDuration } from '@/app/dashboard/orders/utils/serviceTimeUtils'
 import { useBookNowContext, SelectedService, Slot } from '../context/BookNowContext'
-import { fetchVendorForBookNow, fetchServicesForBookNow } from '../book-now'
+import { fetchVendorForBookNow, fetchServicesForBookNow, fetchOrderSlots } from '../book-now'
 import { VendorData } from '@/app/dashboard/orders/[id]/page';
 import { Services } from '@/app/dashboard/services/page';
 import { CleanedProductOption } from '@/app/dashboard/services/services';
@@ -109,6 +109,7 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
     const [isCalculating, setIsCalculating] = useState(true);
     const [propertyLocation, setPropertyLocation] = useState<PropertyLocation | null>(null);
     const [vendorsData, setVendorsData] = useState<VendorData[]>([]);
+    const [bookedSlots, setBookedSlots] = useState<Slot[]>([]);
 
     const {
         selectedServices,
@@ -133,7 +134,8 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
     useEffect(() => {
         const fetchAllVendors = async () => {
             try {
-                const vendorsData = await fetchVendorForBookNow();
+                const token = localStorage.getItem("token");
+                const vendorsData = await fetchVendorForBookNow(token);
                 if (vendorsData && Array.isArray(vendorsData)) {
                     setVendorsData(vendorsData);
                 }
@@ -143,6 +145,22 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
         };
 
         fetchAllVendors();
+    }, []);
+
+    // Fetch booked slots data
+    useEffect(() => {
+        const fetchBookedSlots = async () => {
+            try {
+                const slots = await fetchOrderSlots();
+                if (slots && Array.isArray(slots)) {
+                    setBookedSlots(slots);
+                }
+            } catch (error) {
+                console.error('Failed to fetch booked slots:', error);
+            }
+        };
+
+        fetchBookedSlots();
     }, []);
 
     // Filter vendors by service and service area
@@ -600,6 +618,7 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                     masterDate={serviceDates[idx] || masterDate}
                                                     externalSetSelectedSlots={setSelectedSlots}
                                                     externalSelectedSlots={selectedSlots}
+                                                    externalBookedSlots={bookedSlots}
                                                     externalVendorsData={vendorsData}
                                                     onVendorSelected={handleVendorChange}
                                                 />

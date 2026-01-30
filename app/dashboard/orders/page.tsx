@@ -2,18 +2,23 @@
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link';
 import { toast } from 'sonner';
-import OrderTable from './components/OrdersTable';
 import { Delete, Get } from './orders';
-import { Address } from '@/components/VendorTable';
+import { Address } from '@/lib/types';
 import { useOrderContext } from './context/OrderContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import { useAppContext } from '@/app/context/AppContext';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
-import QuickViewCard, { VendorData } from '@/components/QuickViewCard';
+import QuickViewCard from '@/components/QuickViewCard';
 import { AgentData } from '../agents/page';
 import { Snapshoots } from '@/app/tour/PublicTour';
+import { DataTable } from '@/components/DataTable';
+import { ColumnDef, Row } from "@tanstack/react-table";
+import { Button } from "@/components/ui/button";
+import { ChevronDown, ChevronsUpDown, ChevronUp } from "lucide-react";
+import DropdownActions from "@/components/DropdownActions";
+
 export type Order = {
     id: number;
     uuid: string;
@@ -298,15 +303,17 @@ const Page = () => {
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
     const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
 
+    // Router for navigation
+    const router = useRouter();
+
     const [showCard, setShowCard] = React.useState(false);
     const [type, setType] = React.useState('');
-    const [showHeader, setShowHeader] = useState(true)
     const [orderData, setOrderData] = useState<Order[]>([]);
 
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<boolean>(false);
 
-    const [selectedData, setSelectedData] = useState<VendorData | null>(null);
+    // const [selectedData, setSelectedData] = useState<VendorData | null>(null); // Unused
     const [selectedData1, setSelectedData1] = useState<AgentData | null>(null);
     const [search, setSearch] = useState<string>('');
     const searchParams = useSearchParams();
@@ -332,6 +339,7 @@ const Page = () => {
         setIsSubmitted,
         setIsLoading
     } = useOrderContext();
+
     const handleClick = () => {
         setSelectedAgentId(null);
         setSelectedListingId(null);
@@ -347,7 +355,6 @@ const Page = () => {
         setCustomServiceNames({});
         setSelectedOptions({});
         setTotal(0);
-        setShowHeader(false);
         setIsSubmitted(false);
         setIsLoading(false);
     };
@@ -398,6 +405,213 @@ const Page = () => {
             }
         }
     };
+
+    const columns: ColumnDef<Order>[] = [
+        {
+            accessorKey: "id",
+
+            header: ({ column }) => {
+                const isSorted = column.getIsSorted();
+
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() => {
+                            if (isSorted === "asc") {
+                                column.toggleSorting(true); // to desc
+                            } else if (isSorted === "desc") {
+                                column.clearSorting(); // clear
+                            } else {
+                                column.toggleSorting(false); // to asc
+                            }
+                        }}
+                        className="p-0 hover:bg-transparent flex items-center gap-1 font-bold"
+                    >
+                        ORDER
+                        {isSorted === "asc" && <span><ChevronUp style={{ color: roleSettings.pageTabColor }} strokeWidth={3} /></span>}
+                        {isSorted === "desc" && <span><ChevronDown style={{ color: roleSettings.pageTabColor }} strokeWidth={3} /></span>}
+                        {!isSorted && <span className="text-gray-400"><ChevronsUpDown className="text-gray-400" strokeWidth={3} /></span>}
+                    </Button>
+                )
+            },
+
+            enableSorting: true,
+
+            cell: ({ row }: { row: Row<Order> }) => {
+                const id = row.original.id;
+
+                return (
+                    <div
+                        className={`cursor-pointer ml-[5px]`}
+                        style={{ color: roleSettings.pageTabColor }}
+                        onClick={() => {
+                            const canView = userType !== "admin" || (hasPermission(PERMISSIONS.VIEW_ORDERS) || hasPermission(PERMISSIONS.VIEW_APPOINTMENTS));
+
+                            if (!canView) {
+                                toast.error("You do not have permission to view orders");
+                                return;
+                            }
+
+                            const uuid = row.original.uuid;
+                            if (uuid) router.push(`/dashboard/orders/${uuid}`);
+                        }}
+
+                    >
+                        {id}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: "property_address",
+            header: "ADDRESS",
+            cell: ({ row }: { row: Row<Order> }) => {
+                const address = row.original.property_address;
+                const location = row.original.property_location;
+
+                return (
+                    <div className="truncate" style={{ color: roleSettings.pageText }}>
+                        {`${address}, ${location}`}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: "agent",
+            header: "AGENT",
+            cell: ({ row }: { row: Row<Order> }) => {
+                const agent = row.original.agent;
+                const first_name = agent?.first_name ?? "";
+                const last_name = agent?.last_name ?? "";
+                return (
+                    <div onClick={() => {
+                        setShowCard(true);
+                        setType("agent");
+                        setSelectedData1(agent as unknown as AgentData); // Type assertion if needed or ensure compatibility
+                    }}
+                        className={`cursor-pointer`}
+                        style={{ color: roleSettings.pageTabColor }}
+                    >{first_name} {last_name}</div>
+                );
+            },
+        },
+        {
+            accessorKey: "amount",
+            header: "TOTAL",
+            cell: ({ row }: { row: Row<Order> }) => {
+                const total = row.original.amount;
+                return (
+                    <div style={{ color: roleSettings.pageText }}>
+                        ${parseFloat(total).toFixed(2)}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: "created_at",
+            header: ({ column }) => {
+                const isSorted = column.getIsSorted();
+
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() => {
+                            if (isSorted === "asc") {
+                                column.toggleSorting(true); // Set to desc
+                            } else if (isSorted === "desc") {
+                                column.clearSorting(); // Clear sorting
+                            } else {
+                                column.toggleSorting(false); // Set to asc
+                            }
+                        }}
+                        className="p-0 hover:bg-transparent flex items-center gap-1 font-bold"
+                    >
+                        ADDED
+                        {isSorted === "asc" && <span><ChevronUp style={{ color: roleSettings.pageTabColor }} strokeWidth={3} /></span>}
+                        {isSorted === "desc" && <span><ChevronDown style={{ color: roleSettings.pageTabColor }} strokeWidth={3} /></span>}
+                        {!isSorted && <span className="text-gray-400"><ChevronsUpDown className="text-gray-400" strokeWidth={3} /></span>}
+                    </Button>
+                )
+            },
+            cell: ({ row }: { row: Row<Order> }) => {
+                const date = new Date(row.getValue("created_at")).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "2-digit",
+                });
+                return <div style={{ color: roleSettings.pageText }}>{date}</div>;
+            },
+            enableSorting: true,
+        },
+        {
+            accessorKey: "payment_status",
+            header: "STATUS",
+            cell: ({ row }: { row: Row<Order> }) => {
+                const status = row.original.payment_status;
+                const bgColor = status === "PAID" ? "#6BAE41" : "#E06D5E";
+
+                return (
+                    <div
+                        className="text-white px-3 py-1 rounded-full text-[10px] font-medium w-fit"
+                        style={{ backgroundColor: bgColor }}
+                    >
+                        {status}
+                    </div>
+                );
+            },
+        },
+        {
+            id: "actions",
+            enableHiding: false,
+            cell: ({ row }: { row: Row<Order> }) => {
+                const canEdit = userType !== "vendor" && (
+                    userType !== "admin" ||
+                    (hasPermission(PERMISSIONS.EDIT_ORDERS) || hasPermission(PERMISSIONS.BOOK_APPOINTMENTS))
+                );
+
+                const options = [
+                    ...(canEdit ? [{
+                        label: "Edit",
+                        onClick: () => {
+                            setIsSubmitted(false);
+                            const uuid = row.original.uuid;
+                            if (uuid) {
+                                router.push(`/dashboard/orders/create/${uuid}`);
+                            }
+                        },
+                    }] : []),
+                    {
+                        label: "Quick View",
+                        onClick: () => {
+                            const canView = userType !== "admin" || (hasPermission(PERMISSIONS.VIEW_ORDERS) || hasPermission(PERMISSIONS.VIEW_APPOINTMENTS));
+
+                            if (!canView) {
+                                toast.error("You do not have permission to view orders");
+                                return;
+                            }
+                            const uuid = row.original.uuid;
+                            if (uuid) {
+                                router.push(`/dashboard/orders/${uuid}`);
+                            }
+                        },
+                    },
+
+                    {
+                        label: "Delete",
+                        onClick: () => handleDelete(row.original.uuid ?? ""),
+                        confirm1: true,
+                    }
+                ];
+
+                return (
+                    userType !== "vendor" && (
+                        <DropdownActions
+                            options={options}
+                        />)
+                );
+            },
+        }
+    ];
 
     const filteredOrderData = orderData.filter(order => {
         const property_address = order.property_address + ' ' + order.property_location;
@@ -454,35 +668,23 @@ const Page = () => {
                 </div>    </div>
 
             <div className="w-full">
-                <OrderTable
-                    OrderData={filteredOrderData}
-                    showHeader={showHeader}
-                    setShowHeader={setShowHeader}
-                    onQuickView={(selectedType, data) => {
-                        setShowCard(true);
-                        setType(selectedType);
-                        setSelectedData(data);
-                    }}
-                    onQuickView1={(selectedType, data) => {
-                        setShowCard(true);
-                        setType(selectedType);
-                        setSelectedData1(data);
-                    }}
-                    onDelete={handleDelete}
+                <DataTable
+                    data={filteredOrderData}
+                    columns={columns}
                     loading={loading}
                     error={error}
+                    dataName="Orders"
+                    userType={userType}
+                    headerBgOverride={headerBg}
+                    rowClick={() => {
+                        // Optional: Add row click handler if needed, currently Actions handle navigation
+                    }}
                 />
+
                 {(type === "agent") && showCard && selectedData1 && (
                     <QuickViewCard
                         type="agent"
                         data={selectedData1}
-                        onClose={() => setShowCard(false)}
-                    />
-                )}
-                {(type === "vendor") && showCard && selectedData && (
-                    <QuickViewCard
-                        type="vendors"
-                        data={selectedData}
                         onClose={() => setShowCard(false)}
                     />
                 )}

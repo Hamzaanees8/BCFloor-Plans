@@ -6,7 +6,7 @@ import { Get, GetServices, GetVendors } from '../orders/orders';
 import { Order } from '../orders/page';
 import { Services } from '../services/page';
 import dayjs from 'dayjs';
-import { Agent } from '@/components/AgentTable';
+import { Agent } from '@/lib/types';
 import { GetAgents } from './calendar';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';

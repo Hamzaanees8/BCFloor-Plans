@@ -55,7 +55,7 @@ export default function TourTabs({ orderData }: TourProps) {
       case 'Matterport':
         return <div className="p-4"><TourMatterport /></div>;
       case 'Confirm':
-        return <div className="p-4"><TourConfirm orderData={orderData} /></div>;
+        return <div className=""><TourConfirm orderData={orderData} /></div>;
       default:
         return null;
     }

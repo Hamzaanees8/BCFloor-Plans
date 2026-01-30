@@ -11,7 +11,7 @@ import {
 import { X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Order } from "../../orders/page";
-import { Agent } from "@/components/AgentTable";
+import { Agent } from "@/lib/types";
 import { toast } from "sonner";
 import { GetServices } from "../../orders/orders";
 import WarningIcon from "@/components/Icons";

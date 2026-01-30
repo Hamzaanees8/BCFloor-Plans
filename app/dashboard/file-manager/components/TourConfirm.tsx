@@ -37,6 +37,9 @@ interface TourConfimation {
 }
 
 import { useAppContext } from "@/app/context/AppContext";
+import { PublishTour } from "../file-manager";
+import { toast } from "sonner";
+import ConfirmationDialog from "@/components/ConfirmationDialog";
 
 const TourConfirm = ({ orderData }: TourConfimation) => {
   const { userType } = useAppContext();
@@ -49,6 +52,18 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
   const [mainVideo, setMainVideo] = useState<string | null>(null);
   // const [confirmFloor, setConfirmFloor] = useState(false);
   const [open, setOpen] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showAgain, setShowAgain] = useState(true);
+
+  useEffect(() => {
+    if (filesData) {
+      // @ts-expect-error: is_publish might not be in the type definition but is present in the API response
+      setIsPublished(!!filesData.is_publish);
+    }
+  }, [filesData]);
+
   let currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === "photo");
 
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
@@ -127,33 +142,90 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
 
   const brandedLinks = links.filter(l => l.type === 'branded');
   const unbrandedLinks = links.filter(l => l.type === 'unbranded');
+
+  const tourUuid = filesData?.uuid;
+
+  const handlePostTour = async () => {
+    const token = localStorage.getItem("token");
+
+    if (!tourUuid || !token) {
+      toast.error("Missing tour UUID or authorization token.");
+      return;
+    }
+
+    setIsPublishing(true);
+    try {
+      const nextStatus = !isPublished;
+      await PublishTour(token, tourUuid, nextStatus);
+      setIsPublished(nextStatus);
+      toast.success(nextStatus ? "Tour published successfully!" : "Tour unpublished successfully!");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "An error occurred while updating the tour status."
+      );
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const slugify = (text: string) => {
+    return text
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')     // Replace spaces with -
+      .replace(/[^\w-]+/g, '')    // Remove all non-word chars
+      .replace(/--+/g, '-')      // Replace multiple - with single -
+      .replace(/^-+/, '')        // Trim - from start of text
+      .replace(/-+$/, '');       // Trim - from end of text
+  };
+
+  const tourUrl = `${mainUrl}/tour/${slugify(orderData?.property_address || "")}-${slugify(orderData?.property_location || "")}/${orderData?.uuid}`;
+
   return (
     <div className="w-full font-alexandria">
+      <ConfirmationDialog
+        open={showConfirmModal}
+        setOpen={setShowConfirmModal}
+        onConfirm={handlePostTour}
+        showAgain={showAgain}
+        toggleShowAgain={() => setShowAgain(!showAgain)}
+      />
       {/* Tour Link Input */}
-      <div className="flex  items-center justify-center py-4">
-        <div className="flex flex-col gap-4 ">
-          <div className="">Tour Link</div>
-          <div className="flex justify-between">
-            <Input
-              type="text"
-              value={`${mainUrl}/tour/${orderData?.property_address}-${orderData?.property_location}/${orderData?.uuid}`}
-              className=" w-[410px] border border-[#8E8E8E] text-[#666666]"
-              readOnly
-            />
-            <a
-              target="_blank"
-              href={`${mainUrl}/tour/${orderData?.property_address}-${orderData?.property_location}/${orderData?.uuid}`}
-              className="w-fit px-3 bg-[#6BAE41] h-[35px] text-[14px] rounded-[8px] flex items-center justify-center gap-2 text-white ml-4">
-              <span>View Tour</span> <UploadRightIcon size={18} />
-            </a>
-          </div>
-          <div className="flex items-center gap-x-3">
-            <Button className="w-[185px] bg-[#6BAE41]">Post Tour</Button>
-            <Button onClick={() => setOpen(true)} className={`w-[100px] ${userType}-bg`}>Stats</Button>
-          </div>
+      {tourUuid && (
+        <div className="flex  items-center justify-center py-4">
+          <div className="flex flex-col gap-4 ">
+            <div className="">Tour Link</div>
+            <div className="flex justify-between">
+              <Input
+                type="text"
+                value={tourUrl}
+                className=" w-[410px] border border-[#8E8E8E] text-[#666666]"
+                readOnly
+              />
+              <a
+                target="_blank"
+                href={tourUrl}
+                className="w-fit px-3 bg-[#6BAE41] h-[35px] text-[14px] rounded-[8px] flex items-center justify-center gap-2 text-white ml-4">
+                <span>View Tour</span> <UploadRightIcon size={18} />
+              </a>
+            </div>
+            <div className="flex items-center gap-x-3">
+              <Button
+                onClick={() => setShowConfirmModal(true)}
+                disabled={isPublishing}
+                className={`w-[185px] transition-all duration-300 ${isPublished ? `${userType}-bg hover:bg-blue-500` : "bg-[#6BAE41]"}`}
+              >
+                {isPublishing ? "Updating..." : isPublished ? "Unpublish Tour" : "Post Tour"}
+              </Button>
+              <Button onClick={() => setOpen(true)} className={`w-[100px] ${userType}-bg hover:bg-blue-600`}>Stats</Button>
+            </div>
 
+          </div>
         </div>
-      </div>
+      )}
       <Accordion type="single" defaultValue="Preview" className="w-full">
         <AccordionItem value="Preview">
           <AccordionTrigger className="px-[14px] py-[19px] border-t border-b border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-semibold uppercase [&>svg]:text-[#4290E9] [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-2">

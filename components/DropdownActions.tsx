@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { MoreHorizontal } from "lucide-react"
 import ConfirmationDialog from "./ConfirmationDialog"
 import MergeDialog from "./MergeDialog"
-import { Admin } from "./AdminTable"
+import { Admin } from "@/lib/types"
 
 type Option = {
   label: string

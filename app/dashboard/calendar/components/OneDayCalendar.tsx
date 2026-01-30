@@ -636,37 +636,11 @@ export default function OneDayCalendar({ setSelectedDate, targetDate, selectedLi
         )
       );
 
-      // Don't manually update events - let the useEffect regenerate them
-      // based on the updated selectedSlots state
       return;
     }
-
-    // SERVICE DURATION VALIDATION
-    // Get the service duration (either defined or calculated from square footage)
-    const currentService = servicesData?.find((s) => s.uuid === service.service.uuid);
-    const productOption = currentService?.product_options?.find(
-      (option) => option.uuid === service.option_id
-    );
-    const squareFootage = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
-    const requiredDuration = getEffectiveServiceDuration(
-      productOption?.service_duration,
-      squareFootage
-    );
-
-    // Calculate what the total duration would be if we add this slot
     const currentServiceSlots = selectedSlots.filter(
       (slot) => slot.service_id === service.service.uuid && slot.date === selectedDate
     );
-    const wouldBeTotalSlots = currentServiceSlots.length + 1;
-    const wouldBeTotalDuration = wouldBeTotalSlots * 15; // Each slot is 15 minutes
-
-    // Check if adding this slot would exceed the required duration
-    if (wouldBeTotalDuration > requiredDuration) {
-      toast.error(
-        `Service "${service.service.name}" only requires ${requiredDuration} minutes. You have already selected sufficient time slots.`
-      );
-      return;
-    }
 
     const matching = vendors.filter(vendor => {
       if (!vendor.uuid || !selectedVendors.includes(vendor.uuid)) {
@@ -788,6 +762,17 @@ export default function OneDayCalendar({ setSelectedDate, targetDate, selectedLi
       // Toast removed - validation now happens on "Next" button click
     } else if (newTotalDuration === requiredDuration) {
       // Toast removed - validation now handled elsewhere for better UX
+    } else {
+      const currentService = servicesData?.find((s) => s.uuid === service.service.uuid);
+      const productOption = currentService?.product_options?.find(
+        (option) => option.uuid === service.option_id
+      );
+      const squareFootage = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
+      const requiredDuration = getEffectiveServiceDuration(
+        productOption?.service_duration,
+        squareFootage
+      );
+      toast.info(`Note: You have selected more time than the required ${requiredDuration} minutes for "${service.service.name}".`);
     }
     onVendorSelected?.(vendor.uuid || '');
   };

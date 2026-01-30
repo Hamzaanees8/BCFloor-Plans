@@ -63,7 +63,6 @@ const AdminForm = () => {
   const [email, setEmail] = useState("");
   const [secondaryEmail, setSecondaryEmail] = useState("");
   const [notificationEmail, setNotificationEmail] = useState("");
-  const [emailType, setEmailType] = useState("both");
   const [primaryPhone, setPrimaryPhone] = useState("");
   const [secondaryPhone, setSecondaryPhone] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -105,10 +104,6 @@ const AdminForm = () => {
   useUnsavedChangesWarning(isDirty);
   const isPopulatingData = useRef(false);
 
-  console.log("emailType", emailType);
-  console.log("countries", countries);
-  console.log("province", province);
-
   const params = useParams();
   const userId = params?.id as string;
 
@@ -143,7 +138,6 @@ const AdminForm = () => {
       setEmail(currentUser.email || "");
       setSecondaryEmail(currentUser.secondary_email || "");
       setNotificationEmail(currentUser.notification_email || "");
-      setEmailType(currentUser.email_type || "both");
       setPrimaryPhone(currentUser.primary_phone || "");
       setSecondaryPhone(currentUser.secondary_phone || "");
       setCompanyName(currentUser.company_name || "");
@@ -505,9 +499,8 @@ const AdminForm = () => {
                               });
                             }
                           }}
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${
-                            fieldErrors.first_name ? "border-red-500" : ""
-                          }`}
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.first_name ? "border-red-500" : ""
+                            }`}
                           type="text"
                         />
                         {fieldErrors.first_name && (
@@ -543,9 +536,8 @@ const AdminForm = () => {
                           }}
                         >
                           <SelectTrigger
-                            className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${
-                              fieldErrors.roles ? "border-red-500" : ""
-                            }`}
+                            className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.roles ? "border-red-500" : ""
+                              }`}
                           >
                             <SelectValue placeholder="Select a role" />
                           </SelectTrigger>
@@ -580,9 +572,8 @@ const AdminForm = () => {
                               });
                             }
                           }}
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${
-                            fieldErrors.email ? "border-red-500" : ""
-                          }`}
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.email ? "border-red-500" : ""
+                            }`}
                           type="text"
                         />
 
@@ -612,7 +603,7 @@ const AdminForm = () => {
                           Notification Email
                         </p>
                       </div>
-                      <div className="">
+                      {/* <div className="">
                         <Select onValueChange={setEmailType}>
                           <SelectTrigger className="w-full  h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
                             <SelectValue placeholder="Both" />
@@ -627,7 +618,7 @@ const AdminForm = () => {
                             <SelectItem value="both">Both</SelectItem>
                           </SelectContent>
                         </Select>
-                      </div>
+                      </div> */}
                       <div>
                         <label htmlFor="">Primary Phone</label>
                         <Input
@@ -756,9 +747,8 @@ const AdminForm = () => {
                               });
                             }
                           }}
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${
-                            fieldErrors.password ? "border-red-500" : ""
-                          }`}
+                          className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.password ? "border-red-500" : ""
+                            }`}
                           type="password"
                         />
 
@@ -770,9 +760,8 @@ const AdminForm = () => {
                       </div>
                       <p
                         onClick={() => handlePasswordReset(userId)}
-                        className={`${
-                          userId ? "flex" : "hidden"
-                        } text-[16px] cursor-pointer hover:text-[#505050] font-normal text-[#666666]`}
+                        className={`${userId ? "flex" : "hidden"
+                          } text-[16px] cursor-pointer hover:text-[#505050] font-normal text-[#666666]`}
                       >
                         Reset Password
                       </p>

@@ -1,15 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -23,8 +14,9 @@ import {
 } from "./matterport";
 import { useAppContext } from "@/app/context/AppContext";
 import DropdownActions from "@/components/DropdownActions";
-import { Button } from "@/components/ui/button"; // Add this import
 import Link from "next/link";
+import { DataTable } from '@/components/DataTable';
+import { ColumnDef } from "@tanstack/react-table";
 
 const options = [
   { label: "Activate" },
@@ -39,9 +31,10 @@ const MatterportPage = () => {
   const { userType } = useAppContext();
   const [loading, setLoading] = useState<boolean>(false);
 
-  // Add pagination state
+  /*
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  */
 
   const filteredData = useMemo(() => {
     let result = matterports;
@@ -66,13 +59,72 @@ const MatterportPage = () => {
     }
 
     return result;
-  }, [matterports, filter, addressFilter]); // ✅ FIX
+  }, [matterports, filter, addressFilter]);
 
-  // Calculate paginated data
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedData = filteredData.slice(startIndex, endIndex);
+  const columns: ColumnDef<MatterportAd>[] = [
+    {
+      accessorKey: "agentName",
+      header: "AGENT NAME",
+      cell: ({ row }) => <div className="text-[15px] font-[400] text-[#666666]">{row.original.agentName}</div>
+    },
+    {
+      accessorKey: "orderNumber",
+      header: "ORDER NUMBER",
+      cell: ({ row }) => (
+        <div className="text-[15px] font-[400] text-[#4290E9]">
+          <Link href={`orders/${row.original.orderuud}`}>
+            {row.original.orderNumber}
+          </Link>
+        </div>
+      )
+    },
+    {
+      accessorKey: "address",
+      header: "ADDRESS",
+      cell: ({ row }) => (
+        <div className="text-[15px] font-[400] text-[#4290E9]">
+          <Link href={`listings/create/${row.original.propertyuuid}`}>
+            {row.original.address}
+          </Link>
+        </div>
+      )
+    },
+    {
+      accessorKey: "reminderDate",
+      header: "REMINDER DATE",
+      cell: ({ row }) => <div className="text-[15px] font-[400] text-[#666666]">{row.original.reminderDate}</div>
+    },
+    {
+      accessorKey: "renewalDate",
+      header: "RENEWAL DATE",
+      cell: ({ row }) => <div className="text-[15px] font-[400] text-[#666666]">{row.original.renewalDate}</div>
+    },
+    {
+      accessorKey: "status",
+      header: "STATUS",
+      cell: ({ row }) => {
+        const status = row.original.status;
+        return status ? (
+          <div className="text-center">
+            <span
+              className={`px-[7px] py-[1.5px] text-white rounded-[10px] text-[10px] leading-[100%] ${status === "ACTIVE" ? "!bg-[#6BAE41]" : "bg-[#DC9600]"}`}
+            >
+              {status}
+            </span>
+          </div>
+        ) : null;
+      }
+    },
+    {
+      id: "actions",
+      header: () => <div className="text-center">ACTION</div>,
+      cell: () => (
+        <div className="flex justify-center">
+          <DropdownActions options={options} />
+        </div>
+      )
+    }
+  ];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -185,154 +237,14 @@ const MatterportPage = () => {
       </div>
 
       <div className="w-full relative">
-        <Table className="font-alexandria px-0 overflow-x-auto whitespace-nowrap">
-          <TableHeader>
-            <TableRow
-              className="h-[54px] hover:bg-[#E4E4E4]"
-              style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-            >
-              <TableHead className="text-[14px] font-[700] text-[#666666] pl-[20px]">
-                AGENT NAME
-              </TableHead>
-              <TableHead className="text-[14px] font-[700] text-[#666666]">
-                ORDER NUMBER
-              </TableHead>
-              <TableHead className="text-[14px] font-[700] text-[#666666]">
-                ADDRESS
-              </TableHead>
-              <TableHead className="text-[14px] font-[700] text-[#666666]">
-                REMINDER DATE
-              </TableHead>
-              <TableHead className="text-[14px] font-[700] text-[#666666]">
-                RENEWAL DATE
-              </TableHead>
-              <TableHead className="text-[14px] font-[700] text-[#666666] text-center">
-                STATUS
-              </TableHead>
-              <TableHead className="text-[14px] font-[700] text-[#666666] text-center">
-                ACTION
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {loading ? (
-              // Skeleton Loading State
-              Array.from({ length: 5 }).map((_, index) => (
-                <TableRow key={index} className="h-[60px] bg-white border-b border-[#E4E4E4]">
-                  <TableCell className="pl-[20px]"><Skeleton className="h-4 w-[120px] bg-gray-200" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[80px] bg-gray-200" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[200px] bg-gray-200" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[100px] bg-gray-200" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[100px] bg-gray-200" /></TableCell>
-                  <TableCell className="text-center px-[20px]"><Skeleton className="h-5 w-[80px] bg-gray-200 rounded-full mx-auto" /></TableCell>
-                  <TableCell className="text-center"><Skeleton className="h-4 w-[20px] bg-gray-200 rounded-full mx-auto" /></TableCell>
-                </TableRow>
-              ))
-            ) : paginatedData.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-4">
-                  No records found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginatedData.map((item, index) => (
-                <TableRow key={index} className="!h-[60px]">
-                  <TableCell className="text-[15px] py-[10px] font-[400] text-[#666666]  pl-[20px]">
-                    {item.agentName}
-                  </TableCell>
-                  <TableCell className="text-[15px] py-[10px] font-[400] text-[#4290E9]">
-                    <Link href={`orders/${item.orderuud}`}>
-                      {item.orderNumber}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-[15px] py-[10px] font-[400] text-[#4290E9]">
-                    <Link href={`listings/create/${item.propertyuuid}`}>
-                      {item.address}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-[15px] py-[10px] font-[400] text-[#666666]">
-                    {item.reminderDate}
-                  </TableCell>
-                  <TableCell className="text-[15px] py-[10px] font-[400] text-[#666666]">
-                    {item.renewalDate}
-                  </TableCell>
-
-                  <TableCell className="text-center text-[10px] py-[10px] font-[400] text-[#666666]">
-                    {item.status && (
-                      <label
-                        className={`px-[7px] py-[1.5px] text-white rounded-[10px] leading-[100%] ${item.status === "ACTIVE"
-                          ? "!bg-[#6BAE41]"
-                          : "bg-[#DC9600]"
-                          }
-                             `}
-                      >
-                        {item.status}
-                      </label>
-                    )}
-                  </TableCell>
-
-                  <TableCell className="text-center text-[10px] py-[10px] font-[400] text-[#666666] ">
-                    <label
-                      className={`px-[7px] py-[1.5px] text-white rounded-[10px] leading-[100%] `}
-                    ></label>
-                    <DropdownActions options={options} />
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+        <DataTable
+          columns={columns}
+          data={filteredData}
+          loading={loading}
+          dataName="Matterports"
+          userType={userType}
+        />
       </div>
-
-      {/* Add pagination UI */}
-      {filteredData.length > 0 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t">
-          <div className="text-sm text-[#666666]">
-            Showing {paginatedData.length} of {filteredData.length} Matterports
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              className="text-[#666666]"
-            >
-              Previous
-            </Button>
-            <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                (page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCurrentPage(page)}
-                    className={`min-w-[40px] ${currentPage === page
-                      ? `${userType}-bg text-white`
-                      : "text-[#666666]"
-                      }`}
-                  >
-                    {page}
-                  </Button>
-                )
-              )}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-              }
-              disabled={currentPage === totalPages}
-              className="text-[#666666]"
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

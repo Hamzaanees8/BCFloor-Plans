@@ -1,6 +1,6 @@
 import { Get } from '@/app/dashboard/agents/agents';
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Agent } from '../../../../components/AgentTable';
+import { Agent } from '@/lib/types';
 
 import { ArrowDown, ArrowUp, DropDownArrow, EditIcon3 } from '../../../../components/Icons';
 import { Check, Plus, Loader2 } from 'lucide-react';

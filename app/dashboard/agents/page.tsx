@@ -4,11 +4,20 @@ import React, { useEffect, useState } from 'react'
 import { Delete, Get } from './agents';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import AgentTable, { Agent } from '@/components/AgentTable';
+import { Agent } from '@/lib/types';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
+import { DataTable } from '@/components/DataTable';
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import DropdownActions from "@/components/DropdownActions";
+import { useRouter } from "next/navigation";
+
+import { UploadRightIcon } from "@/components/Icons";
+import { UpdateAgentStatus } from './agents';
+import { ColumnDef } from "@tanstack/react-table";
 export interface AgentData {
     uuid?: string;
     first_name: string;
@@ -34,12 +43,218 @@ const Page = () => {
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
 
     const [showCard, setShowCard] = React.useState(false);
-    const [showHeader, setShowHeader] = useState(true)
     const [agentData, setAgentData] = useState<Agent[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<boolean>(false);
 
     const [selectedData, setSelectedData] = useState<AgentData | null>(null);
+    const router = useRouter();
+
+    const handleUpdateStatus = async (uuid: string, status: boolean) => {
+        try {
+            const payload = {
+                status: status,
+                _method: 'PUT'
+            };
+            const result = await UpdateAgentStatus(uuid, payload);
+            toast.success('Agent Status updated successfully');
+            return result
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                console.error(error.message);
+                toast.error(error.message || 'Failed to submit agent data');
+            }
+        }
+    };
+
+    const columns: ColumnDef<Agent>[] = [
+        {
+            id: "select",
+            header: () => <div></div>,
+            cell: ({ row }) => (
+                <Checkbox
+                    checked={row.getIsSelected()}
+                    onCheckedChange={(value) => row.toggleSelected(!!value)}
+                    aria-label="Select row"
+                />
+            ),
+            enableSorting: false,
+            enableHiding: false,
+        },
+        {
+            accessorKey: "name",
+            header: "AGENTS",
+            cell: ({ row }) => {
+                const { first_name, last_name, roles, ...rest } = row.original;
+
+                const handleClick = () => {
+                    const mappedRoles =
+                        roles && roles.length > 0
+                            ? [{ id: roles[0].id, name: roles[0].name }] as { id: number; name: string }[]
+                            : undefined;
+
+                    setShowCard(true);
+                    setSelectedData({
+                        ...rest,
+                        first_name,
+                        last_name,
+                        roles: mappedRoles,
+                    });
+                };
+
+                return (
+                    <div
+                        className={`text-[#4290E9] cursor-pointer ${userType}-text`}
+                        onClick={handleClick}
+                    >
+                        {first_name} {last_name}
+                    </div>
+                );
+            },
+        }
+
+        ,
+        {
+            accessorKey: "headquarter_address",
+            header: "ADDRESS",
+            cell: ({ row }) => {
+                const address = row.original.headquarter_address;
+                return (
+                    <div className="text-[#666666]">
+                        {address || "N/A"}
+                    </div>
+                );
+            },
+        },
+        {
+            header: "PAYMENT STATUS",
+            cell: ({ row }) => {
+                const status = row.original.payment_status;
+                const bgColor = status === "GOOD" ? "#6BAE41" : "#E06D5E";
+
+                return (
+                    <div
+                        className="text-white px-3 py-1 rounded-full text-[10px] font-medium w-fit"
+                        style={{ backgroundColor: bgColor }}
+                    >
+                        {status}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: "created_at",
+            header: "ADDED",
+            cell: ({ row }) => {
+                const date = new Date(row.getValue("created_at")).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "2-digit",
+                });
+                return <div className="text-[#666666]">{date}</div>;
+            },
+        },
+        {
+            accessorKey: "status",
+            header: "STATUS",
+            cell: ({ row }) => {
+                const status = row.getValue("status");
+                const uuid = row.original.uuid;
+
+                return (
+                    userType !== "vendor" && (
+                        <Switch
+                            checked={!!status}
+                            onCheckedChange={async (checked) => {
+                                const data = await handleUpdateStatus(uuid || "", checked);
+                                if (setAgentData && data?.data?.uuid) {
+                                    setAgentData((prev) =>
+                                        prev.map((agent) =>
+                                            agent.uuid === data.data.uuid
+                                                ? { ...agent, status: checked }
+                                                : agent
+                                        )
+                                    );
+                                }
+                            }}
+                            className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
+                        />
+                    )
+                );
+
+            },
+        },
+        {
+            id: "actions",
+            enableHiding: false,
+            cell: ({ row, table }) => {
+                const selectedRowIds = Object.keys(table.getState().rowSelection);
+                const selectedRowCount = selectedRowIds.length;
+                const selectedAgents = table.getRowModel().rows
+                    .filter(r => selectedRowIds.includes(r.id))
+                    .map(r => ({
+                        ...r.original,
+                        full_name: `${r.original.first_name} ${r.original.last_name}`
+                    }));
+
+                return (
+                    userType !== "vendor" &&
+                    <div className="flex gap-2 justify-center items-center">
+                        <Link
+                            className={`w-[90px]  h-[30px]   justify-center rounded-[6px] border-[1px] ${userType}-border ${userType}-bg text-[12px]  font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg hover:opacity-95`}
+                            href={`/dashboard/listings${row.original.uuid ? `?agent=${row.original.uuid}` : ''}`}
+                        >
+                            <span>Tour</span>
+                            <UploadRightIcon size={14} color="#fff" />
+                        </Link>
+
+                        <DropdownActions
+                            options={[
+                                {
+                                    label: "Edit",
+                                    onClick: () => {
+                                        const uuid = row.original.uuid;
+                                        if (uuid) {
+                                            router.push(`/dashboard/agents/create/${uuid}`);
+                                        }
+                                    },
+                                },
+                                {
+                                    label: "Quick View",
+                                    onClick: () => {
+                                        const { roles, ...rest } = row.original;
+                                        const mappedRoles =
+                                            roles && roles.length > 0
+                                                ? [{ id: roles[0].id, name: roles[0].name }] as { id: number; name: string; }[]
+                                                : undefined;
+                                        setShowCard(true);
+                                        setSelectedData({ ...rest, roles: mappedRoles });
+                                    },
+                                },
+                                ...(selectedRowCount === 2
+                                    ? [{
+                                        label: "Merge",
+                                        onClick: () => {
+                                            toast.success('Agents merged ')
+                                        },
+                                        confirm2: true,
+                                    }]
+                                    : []),
+                                {
+                                    label: "Delete",
+                                    onClick: () => handleDelete(row.original.uuid ?? ""),
+                                    confirm1: true,
+                                }
+                            ]}
+                            data={selectedAgents}
+                        />
+
+                    </div>
+                );
+            },
+        }
+
+    ];
 
 
     useEffect(() => {
@@ -94,9 +309,7 @@ const Page = () => {
                 {(userType !== 'vendor' && canCreateAgent) && (
                     <Link
                         href={'/dashboard/agents/create'}
-                        onClick={() => {
-                            setShowHeader(false)
-                        }}
+
                         className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] justify-center rounded-[6px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:brightness-110'
                         style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
                     >
@@ -106,18 +319,13 @@ const Page = () => {
             </div>
 
             <div className="w-full">
-                <AgentTable
-                    agentData={agentData}
-                    showHeader={showHeader}
-                    setAgentData={setAgentData}
-                    setShowHeader={setShowHeader}
-                    onQuickView={(data) => {
-                        setShowCard(true);
-                        setSelectedData(data);
-                    }}
-                    onDelete={handleDelete}
+                <DataTable
+                    columns={columns}
+                    data={agentData}
                     loading={loading}
                     error={error}
+                    dataName="Agents"
+                    userType={userType}
                 />
                 {showCard && selectedData && (
                     <QuickViewCard

@@ -14,7 +14,7 @@ import BreakQuickViewCard from './BreakQuickViewCard';
 import { ThreeDayView } from './ThreeDayView';
 import OrderQuickViewCard from './OrderQuickViewCard';
 import { Services } from '../../services/page';
-import { Agent } from '@/components/AgentTable';
+import { Agent } from '@/lib/types';
 import Link from 'next/link';
 import OrderDetailView from './OrderDetailView';
 import { useAppContext } from '@/app/context/AppContext';

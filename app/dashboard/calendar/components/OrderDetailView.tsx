@@ -16,7 +16,7 @@ import SquareFootage from "./SquareFootage";
 import HistoryTab from "./HistoryTab";
 import EditAppointmentTab from "./EditAppointmentTab";
 import EditSquareFootage from "./EditSquareFootage";
-import { Agent } from "@/components/AgentTable";
+import { Agent } from "@/lib/types";
 import { useOrderContext } from "../../orders/context/OrderContext";
 import { toast } from "sonner";
 import { EditOrder } from "../calendar";

@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Trash } from 'lucide-react';
 import React, { useEffect, useState } from 'react'
 import { Order } from '../../orders/page';
-import { Agent } from '@/components/AgentTable';
+import { Agent } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { GetServices } from '../../orders/orders';
 import { Services } from '../../services/page';

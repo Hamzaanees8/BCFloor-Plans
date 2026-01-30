@@ -1,17 +1,21 @@
-"use client";
-import React, { useEffect, useState } from "react";
-import QuickViewCard, { AgentData } from "@/components/QuickViewCard";
-import ListingsTable from "@/components/ListingsTable";
-import Link from "next/link";
-import { DeleteListing, GetListing } from "./listing";
-import { toast } from "sonner";
-import { useAppContext } from "@/app/context/AppContext";
-import { useWhiteLabel } from "@/app/context/Whitelabel";
-import { List } from "lucide-react";
-import KanbanViewCard from "./components/KanbanViewCard";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useSearchParams } from "next/navigation";
+'use client';
+import React, { useEffect, useState } from 'react';
+import QuickViewCard, { AgentData } from '@/components/QuickViewCard';
+import Link from 'next/link';
+import { DeleteListing, GetListing, UpdateListingStatus } from './listing';
+import { toast } from 'sonner';
+import { useAppContext } from '@/app/context/AppContext';
+import { useWhiteLabel } from '@/app/context/Whitelabel';
+import { List } from 'lucide-react';
+import KanbanViewCard from './components/KanbanViewCard';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { DataTable } from '@/components/DataTable';
+import { ColumnDef, Row } from '@tanstack/react-table';
+import { Switch } from '@/components/ui/switch';
+import DropdownActions from '@/components/DropdownActions';
+
 type Service = {
   id: number;
   uuid: string;
@@ -120,6 +124,7 @@ export interface Listings {
 
 const Page = () => {
   const { userType } = useAppContext();
+  const router = useRouter();
   const { appliedSettings } = useWhiteLabel();
   const role = (userType as string) || 'admin';
   const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
@@ -131,7 +136,7 @@ const Page = () => {
   const [selectedData1, setSelectedData1] = useState<AgentData>();
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
-  const [activeView, setActiveView] = useState('kanban');
+  const [activeView, setActiveView] = useState('kanban'); // Default to listings (table) view
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterTour, setFilterTour] = useState("all");
@@ -166,10 +171,11 @@ const Page = () => {
         setLoading(false);
       });
   }, []);
+
   const handleDelete = async (userId: string) => {
     try {
       await DeleteListing(userId);
-      toast.success("Sub-Account deleted successfully");
+      toast.success("Listing deleted successfully");
       setListingsData((prev) =>
         prev.filter((listingsData) => listingsData.uuid !== userId)
       );
@@ -184,6 +190,25 @@ const Page = () => {
     }
   };
 
+  const handleUpdateStatus = async (listingId: string, status: boolean) => {
+    try {
+
+      const payload = {
+        status: status,
+        _method: "POST",
+      };
+
+      const result = await UpdateListingStatus(listingId, payload);
+      toast.success("Listing status updated successfully");
+
+      return result;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error(error.message);
+        toast.error(error.message || "Failed to submit user data");
+      }
+    }
+  };
 
   const filteredListings = listingsData.filter((listing) => {
     const search = searchQuery.toLowerCase();
@@ -211,7 +236,166 @@ const Page = () => {
     return matchesSearch && matchesStatus && matchesTour && matchesAgent;
   });
 
+  const columns: ColumnDef<Listings>[] = [
+    {
+      accessorKey: "address",
+      header: "Location",
+      cell: ({ row }: { row: Row<Listings> }) => {
+        const listing = row.original;
+        return (
+          <div
+            onClick={() => {
+              setShowCard(true);
+              setType("listing");
+              setSelectedData(listing);
+            }}
+            className={`text-[15px] font-[400] ${userType}-text cursor-pointer hover:underline`}
+          >
+            {listing?.address +
+              ", " +
+              listing?.city +
+              ", " +
+              listing?.province +
+              ", " +
+              listing?.postal_code +
+              ", " +
+              listing?.country}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "bookings",
+      header: "Bookings",
+      cell: ({ row }: { row: Row<Listings> }) => {
+        const orders = row.original.orders;
+        return (
+          <div className="text-[15px] font-[400] text-[#7D7D7D] flex items-center gap-1">
+            {orders?.length
+              ? orders.map((order, index) => (
+                <div key={order.id}>
+                  <Link
+                    href={`/dashboard/orders/${order.uuid}`}
+                    className="text-[#4290E9] font-[500] hover:underline"
+                  >
+                    {order.id}
+                  </Link>
+                  {orders.length && index < orders.length - 1 && ", "}
+                </div>
+              ))
+              : "N/A"}
+          </div>
+        );
+      },
+    },
+    ...(userType === "admin" || userType === "vendor"
+      ? [
+        {
+          accessorKey: "agent",
+          header: "Agent",
+          cell: ({ row }: { row: Row<Listings> }) => {
+            const agent = row.original.agent;
+            return (
+              <div
+                onClick={() => {
+                  setShowCard(true);
+                  setType("agent");
+                  setSelectedData1(agent as unknown as AgentData);
+                }}
+                className={`text-[15px] font-[400] ${userType}-text cursor-pointer`}
+              >
+                {agent?.first_name + " " + agent?.last_name || "N/A"}
+              </div>
+            );
+          },
+        } as ColumnDef<Listings>,
+      ]
+      : []),
+    {
+      accessorKey: "created_at",
+      header: "Added",
+      cell: ({ row }: { row: Row<Listings> }) => {
+        const date = row.getValue("created_at");
+        return (
+          <div className="text-[15px] font-[400] text-[#7D7D7D]">
+            {date
+              ? new Date(date as string).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "2-digit",
+              })
+              : "N/A"}
+          </div>
+        );
+      },
+    },
+    ...(userType !== "vendor"
+      ? [
+        {
+          accessorKey: "status",
+          header: "Status",
+          cell: ({ row }: { row: Row<Listings> }) => {
+            const listing = row.original;
+            const options = [
+              {
+                label: "Edit",
+                onClick: () => {
+                  router.push(`/dashboard/listings/create/${listing.uuid}`);
+                },
+              },
+              {
+                label: "Quick View",
+                onClick: () => {
+                  setShowCard(true);
+                  setType("listing");
+                  setSelectedData(listing);
+                },
+              },
+              {
+                label: "Delete",
+                onClick: () => handleDelete(listing.uuid || ""),
+                confirm1: true,
+              },
+            ];
 
+            return (
+              <div className="text-[15px] font-[400] text-[#7D7D7D] flex justify-between items-center gap-2">
+                <Switch
+                  checked={!!listing.status}
+                  onCheckedChange={async (checked) => {
+                    const data = await handleUpdateStatus(
+                      listing.uuid || "",
+                      checked
+                    );
+                    if (setListingsData && data?.data?.uuid) {
+                      setListingsData((prev: Listings[]) =>
+                        prev.map((list: Listings) =>
+                          list.uuid === data.data.uuid
+                            ? { ...list, status: checked }
+                            : list
+                        )
+                      );
+                    }
+                  }}
+                  className={`${listing.status ? "!bg-[#6BAE41]" : "!bg-[#E06D5E]"
+                    } data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500`}
+                />
+
+                <DropdownActions options={options} />
+              </div>
+            );
+          },
+        } as ColumnDef<Listings>,
+      ]
+      : []),
+    {
+      id: "actions-mobile", // To ensure actions are available or consistent if needed, but DropdownActions covers it.
+      // keeping it simple as per original
+      enableHiding: true,
+      header: "",
+      cell: () => null
+    }
+  ].filter(c => c.id !== "actions-mobile"); // Clean up helper
 
 
   return (
@@ -311,23 +495,16 @@ const Page = () => {
       <>
         {activeView === 'listings' && (
           <div className="w-full">
-            <ListingsTable
+            <DataTable
               data={filteredListings}
-              setListingsData={setListingsData}
-              onQuickView={(selectedType, data) => {
-                setShowCard(true);
-                setType(selectedType);
-                setSelectedData(data);
-              }}
-              onQuickView1={(selectedType, data) => {
-                setShowCard(true);
-                setType(selectedType);
-                setSelectedData1(data);
-              }}
-              onDelete={handleDelete}
+              columns={columns}
               loading={loading}
               error={error}
+              userType={userType}
+              headerBgOverride={`var(--${userType}-page-bg, #E4E4E4)`}
+              dataName="Listings"
             />
+
             {type === "agent" && showCard && selectedData1 && (
               <QuickViewCard
                 type="agent"
@@ -382,11 +559,18 @@ const Page = () => {
                 ))}
               </div>
             )}
+            {type === "agent" && showCard && selectedData1 && (
+              <QuickViewCard
+                type="agent"
+                data={selectedData1}
+                onClose={() => setShowCard(false)}
+              />
+            )}
             {type === "listing" && showCard && selectedData && (
               <QuickViewCard
                 type="listing"
                 data={selectedData}
-                onClose={() => setShowCard(false)}
+                onClose={() => setShowCard(false)} // Fix logic here, was checking selectedData again
               />
             )}
           </>

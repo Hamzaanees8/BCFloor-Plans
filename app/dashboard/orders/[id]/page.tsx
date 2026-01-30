@@ -21,7 +21,7 @@ import { Order, OrderService } from "../page";
 import { Country } from "country-state-city";
 import { useAppContext } from "@/app/context/AppContext";
 import VendorOrderEdit from "../components/VendorOrderEdit";
-import { Agent } from "@/components/AgentTable";
+import { Agent } from "@/lib/types";
 import { GetAgents } from "../../calendar/calendar";
 import { toast } from "sonner";
 import { VendorPortfolioImage } from "../../vendors/create/page";
@@ -782,7 +782,7 @@ function Page() {
                       <File className='text-[#4290E9] h-[24px]w-[30px]  md:h-[36px] md:w-[40px]' />
                       <p className='text-[#4290E9] text-[24px] md:text-[36px] font-[400]'>Order {orderData?.id}</p>
                     </div>
-                    <div className='flex items-center gap-[12px] hidden'>
+                    <div className='hidden'>
                       <Switch className=' data-[state=checked]:bg-[#6BAE41] ' />
                       <p className='text-[#666666] text-[16px]'>Open</p>
                     </div>

@@ -1,7 +1,10 @@
 "use client";
 import React, { useEffect } from "react";
-import QuickViewCard, { NotificationData } from "@/components/QuickViewCard";
-import NotificationTable from "@/components/NotificationTable";
+import QuickViewCard from "@/components/QuickViewCard";
+import { NotificationData } from "@/lib/types";
+import { DataTable } from '@/components/DataTable';
+import { ColumnDef } from "@tanstack/react-table";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -25,7 +28,7 @@ const Page = () => {
   const [error, setError] = React.useState(false);
   const [monthsToLoad, setMonthsToLoad] = React.useState(1);
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
-  const [hasMore, setHasMore] = React.useState(true);
+
   const { userType, setUnreadNotificationCount } = useAppContext();
 
   const [searchAddress, setSearchAddress] = React.useState("");
@@ -61,7 +64,7 @@ const Page = () => {
           (newNotifications.length === 0 &&
             data.length === notificationData.length)
         ) {
-          setHasMore(false);
+
         }
 
         // Always combine data even if no new notifications
@@ -82,7 +85,6 @@ const Page = () => {
       } else {
         // Initial load
         setNotificationData(data);
-        setHasMore(data.length > 0);
 
         // Calculate unread from initial data
         const unreadCount = data.filter(
@@ -189,6 +191,82 @@ const Page = () => {
 
   const unreadCount = notificationData.filter((n) => !n.is_read).length;
 
+  const columns: ColumnDef<NotificationData>[] = [
+    {
+      accessorKey: "created_by_name",
+      header: "Created By",
+      cell: ({ row }) => (
+        <div className={`text-[15px] font-[400] ${userType}-text`}>
+          {row.original.created_by_name}
+        </div>
+      ),
+    },
+    {
+      header: "Type",
+      cell: ({ row }) => (
+        <div className="text-[15px] font-[400] text-[#7D7D7D]">
+          {(row.original.type || row.original.Subject)
+            ?.replace(/_/g, " ")
+            ?.replace(/\b\w/g, (char: string) => char.toUpperCase())}
+        </div>
+      ),
+    },
+    {
+      header: "Address",
+      cell: ({ row }) => {
+        const notification = row.original;
+        const text = notification.source === "AgentPayment" || notification.source === "VendorPayment"
+          ? notification.source === "AgentPayment"
+            ? `${notification.meta_data?.property_address || "N/A"}`
+            : `${notification.source === "VendorPayment" ? `${notification.meta_data?.property_address || "N/A"}` : "Payment"}`
+          : notification?.order?.property_address
+            ? `${notification.order?.property_address} ${notification.order?.property_location}`
+            : "-";
+
+        return (
+          <div className="text-[15px] font-[400] text-[#7D7D7D]">
+            {text}
+          </div>
+        );
+      },
+    },
+    {
+      header: "Diffrences",
+      cell: () => <div className="text-[15px] font-[400] text-[#7D7D7D]">-</div>
+    },
+    {
+      header: "Added",
+      cell: ({ row }) => {
+        const notification = row.original;
+        const date = notification.created_at
+          ? new Date(notification.created_at).toLocaleString("en-US", {
+            month: "short",
+            day: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          })
+          : notification.order?.created_at
+            ? new Date(notification.order.created_at).toLocaleString("en-US", {
+              month: "short",
+              day: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            })
+            : null;
+
+        return (
+          <div className="text-[15px] font-[400] text-[#7D7D7D]">
+            {date}
+          </div>
+        );
+      },
+    },
+  ];
+
   return (
     <div style={{ backgroundColor: `var(--${userType}-page-bg, #F2F2F2)` }}>
       <div
@@ -250,16 +328,28 @@ const Page = () => {
       </div>
 
       <div className="w-full">
-        <NotificationTable
+        <DataTable
+          columns={columns}
           data={filteredNotifications}
           loading={loading}
           error={error}
-          onQuickView={handleNotificationClick}
-          onLoadMore={handleLoadMore}
-          isLoadingMore={isLoadingMore}
-          hasMore={hasMore}
-          totalNotifications={notificationData.length}
+          dataName="Notifications"
+          userType={userType}
+          rowClick={handleNotificationClick}
         />
+
+        {/* Load More Months Button */}
+        <div className="flex justify-center py-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+            className="text-sm px-4 py-2 text-[#666666] border border-[#D1D5DB] hover:bg-gray-100"
+          >
+            {isLoadingMore ? "Loading..." : "Load Next Month Notifications"}
+          </Button>
+        </div>
 
         {showCard && selectedNotification && (
           <QuickViewCard

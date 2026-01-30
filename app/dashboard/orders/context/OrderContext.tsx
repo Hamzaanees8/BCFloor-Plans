@@ -7,7 +7,7 @@ import { Dispatch, SetStateAction } from 'react';
 import { Discount } from '../components/Confirmation';
 import { Order, OrderService } from '../page';
 import { Listings } from '../../listings/page';
-import { Agent } from '@/components/AgentTable';
+import { Agent } from '@/lib/types';
 import { Services, Packages } from '../../services/page';
 import { VendorData } from '../[id]/page';
 type CoAgent = {

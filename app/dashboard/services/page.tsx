@@ -1,14 +1,26 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import ServicesTable from '@/components/ServicesTable';
 import Link from 'next/link';
-import { CleanedProductOption, GetPackages, GetServices } from './services';
+import { CleanedProductOption, GetPackages, GetServices, UpdateServiceStatus, DeleteService } from './services';
 import ProtectedAdminRoute from '@/components/ProtectedAdminRoute';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
+import { DataTable } from '@/components/DataTable';
+import { ColumnDef, Row } from "@tanstack/react-table";
+import { Switch } from "@/components/ui/switch";
+import DropdownActions from "@/components/DropdownActions";
+import ImagePopup from "@/components/ImagePopup";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 
 export interface Services {
@@ -68,10 +80,221 @@ const Page = () => {
   const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
 
   const [servicesData, setServicesData] = useState<Services[]>([]);
-  const [packagesData, setPackagesData] = useState<Packages[] | null>(null);
+  const [packagesData, setPackagesData] = useState<Packages[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
   const { hasPermission } = usePermissions();
+
+  const [imagePopupOpen, setImagePopupOpen] = React.useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = React.useState<string | undefined>(undefined);
+  const router = useRouter();
+
+  const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
+
+  const handleUpdateStatus = async (serviceId: string, status: boolean) => {
+    try {
+      const token = localStorage.getItem("token") || "";
+      const payload = {
+        status: status,
+        _method: "POST",
+      };
+
+      const result = await UpdateServiceStatus(serviceId, payload, token);
+      toast.success("Service status updated successfully");
+      return result;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error(error.message);
+        toast.error(error.message || "Failed to submit user data");
+      }
+    }
+  };
+
+  const handleDelete = async (listingId: string, isPackage = false) => {
+    try {
+      const token = localStorage.getItem("token") || "";
+      await DeleteService(listingId, token);
+      toast.success(isPackage ? "Package deleted successfully" : "Service deleted successfully");
+      if (isPackage) {
+        setPackagesData((prev) => prev.filter((pkg) => pkg.uuid !== listingId));
+      } else {
+        setServicesData((prev) => prev.filter((service) => service.uuid !== listingId));
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error("Delete failed:", error.message);
+        toast.error(error.message || "Failed to delete");
+      } else {
+        console.error("Delete failed:", error);
+        toast.error("Failed to delete");
+      }
+    }
+  };
+
+  const serviceColumns: ColumnDef<Services>[] = [
+    {
+      accessorKey: "name",
+      header: "Description",
+      cell: ({ row }) => (
+        <div
+          className={`text-[15px] flex justify-start gap-4 items-center font-[400]`}
+          style={{ color: roleSettings.pageTabColor }}
+        >
+          <div
+            onClick={() => {
+              setSelectedImageUrl(row.original.thumbnail_url);
+              setImagePopupOpen(true);
+            }}
+            className="cursor-pointer rounded-full border border-gray-300"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={row.original.thumbnail_url}
+              alt={row.original.name}
+              className="w-[40px] h-[40px] object-cover rounded-full bg-gray-200"
+            />
+          </div>
+          {row.original.name}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "category.name",
+      header: "Category",
+      cell: ({ row }) => (
+        <div className="text-[15px] font-[400]" style={{ color: roleSettings.pageText }}>
+          {row.original.category?.name}
+        </div>
+      )
+    },
+    {
+      header: "Color",
+      cell: ({ row }) => (
+        <div className="text-[15px] font-[400] text-[#7D7D7D]">
+          <div
+            className="w-[20px] h-[20px] rounded-full"
+            style={{
+              backgroundColor: row.original.background_color,
+              border: `1px solid ${row.original.border_color}`,
+            }}
+          ></div>
+        </div>
+      )
+    },
+    ...(userType !== "vendor" ? [{
+      header: "Status",
+      id: "status",
+      cell: ({ row }: { row: Row<Services> }) => {
+        const service = row.original;
+        const options = [
+          {
+            label: "Edit",
+            onClick: () => {
+              if (service.uuid) {
+                router.push(
+                  `/dashboard/services/create/${service.uuid}`
+                );
+              }
+            },
+          },
+          {
+            label: "Delete",
+            onClick: () => handleDelete(service.uuid),
+            confirm1: true,
+          },
+        ];
+        return (
+          <div className="text-[15px] font-[400] text-[#7D7D7D] flex justify-between items-center gap-2 pr-[20px]">
+            <Switch
+              checked={!!service.status}
+              onCheckedChange={async (checked) => {
+                const data = await handleUpdateStatus(
+                  service.uuid || "",
+                  checked
+                );
+                if (data?.data?.uuid) {
+                  setServicesData((prev: Services[]) =>
+                    prev.map((list: Services) =>
+                      list.uuid === data.data.uuid
+                        ? { ...list, status: checked }
+                        : list
+                    )
+                  );
+                }
+              }}
+              className={`${service.status
+                ? "!bg-[#6BAE41]"
+                : "!bg-[#E06D5E]"
+                } data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500`}
+            />
+            <DropdownActions options={options} />
+          </div>
+        )
+      }
+    }] : [])
+  ];
+
+  const packageColumns: ColumnDef<Packages>[] = [
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row }) => (
+        <div
+          className={`text-[15px] font-[400]`}
+          style={{ color: roleSettings.pageTabColor }}
+        >
+          {row.original.name}
+        </div>
+      )
+    },
+    {
+      header: "Services",
+      cell: ({ row }) => (
+        <div className="text-[15px] font-[400]" style={{ color: roleSettings.pageText }}>
+          {row.original.services
+            ?.slice(0, 3)
+            .map((src) => src.name)
+            .join(", ")}
+          {row.original.services?.length > 3 && " ..."}
+        </div>
+      )
+    },
+    {
+      header: "Status",
+      cell: ({ row }) => {
+        const pkg = row.original;
+        const options = [
+          {
+            label: "Edit",
+            onClick: () => {
+              if (pkg.uuid) {
+                router.push(
+                  `/dashboard/services/create/${pkg.uuid}?isPackage=true`
+                );
+              }
+            },
+          },
+          {
+            label: "Delete",
+            onClick: () => handleDelete(pkg.uuid ?? '', true),
+            confirm1: true,
+          },
+        ];
+
+        return (
+          <div className="text-[15px] font-[400] text-[#666666] flex justify-between items-center pr-[20px]">
+            <Switch
+              className={`${pkg.status ? "!bg-[#6BAE41]" : "!bg-[#E06D5E]"
+                } data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500`}
+              checked={!!pkg.status}
+            />
+            <DropdownActions options={options} />
+          </div>
+        )
+      }
+    }
+
+  ];
 
   // Check if user can create services
   const canCreateService = userType !== 'admin' || hasPermission(PERMISSIONS.CREATE_SERVICES);
@@ -151,14 +374,53 @@ const Page = () => {
         </div>
 
         <div className="w-full">
-          <ServicesTable
+          <DataTable
             data={servicesData}
-            packagesData={packagesData}
-            setServicesData={setServicesData}
+            columns={serviceColumns}
             loading={loading}
             error={error}
+            dataName="Services"
+            userType={userType}
+            headerBgOverride={headerBg}
           />
+
+          <Accordion
+            type="multiple"
+            defaultValue={["packages"]}
+            className="w-full space-y-4"
+          >
+            <AccordionItem value="packages">
+              <AccordionTrigger
+                className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[18px] font-[600] uppercase [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:text-current animate-none`}
+                style={{ backgroundColor: headerBg, color: roleSettings.pageTabColor }}
+              >
+                Packages
+              </AccordionTrigger>
+              <AccordionContent>
+                <DataTable
+                  data={packagesData || []}
+                  columns={packageColumns}
+                  loading={loading}
+                  error={error}
+                  dataName="Packages"
+                  userType={userType}
+                  headerBgOverride={headerBg}
+                />
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
+
+        {selectedImageUrl && (
+          <ImagePopup
+            imageUrl={selectedImageUrl}
+            open={imagePopupOpen}
+            onClose={() => {
+              setImagePopupOpen(false);
+              setSelectedImageUrl(undefined);
+            }}
+          />
+        )}
       </div>
     </ProtectedAdminRoute>
   );

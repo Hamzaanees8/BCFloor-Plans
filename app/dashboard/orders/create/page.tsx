@@ -14,7 +14,7 @@ import { Order, OrderService, Slot as OrderSlot } from '../page';
 import { Get } from '../../agents/agents';
 import { GetServices, GetPackages } from '../../services/services';
 import { Services as ServiceType, Packages } from '../../services/page';
-import { Agent } from '@/components/AgentTable';
+import { Agent } from '@/lib/types';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import OrderStepper from '../components/OrderStepper';

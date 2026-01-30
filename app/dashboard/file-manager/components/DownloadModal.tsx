@@ -31,6 +31,7 @@ type CombinedFile = {
   url: string;
   isLocal: boolean;
   type: string;
+  uuid: string;
 }
 
 type Props = {
@@ -41,10 +42,10 @@ type Props = {
 };
 
 const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles }) => {
-  const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
   const { userType } = useAppContext();
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
-  const [openModal, setOpenModal] = useState(false)
+  const [selectedSizes, setSelectedSizes] = useState<Record<string, 'small' | 'large' | 'mls' | 'original'>>({});
+
   const files: CombinedFile[] = useMemo(() => {
     const local = localFiles?.map((f, idx) => ({
       id: `local-${idx}`,
@@ -52,22 +53,33 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
       url: URL.createObjectURL(f.file),
       isLocal: true,
       type: f.file.type,
+      uuid: '', // Local files don't have UUIDs
     }));
 
-    const api = apiFiles.map((f, idx) => ({
-      id: `api-${idx}`,
+    const api = apiFiles.map((f) => ({
+      id: `api-${f.uuid}`, // Use UUID for API files
       name: f.name,
-      url: `${API_URL}/${f.file_path}`,
+      url: '', // API files use DownloadFile function
       isLocal: false,
       type: f.type,
+      uuid: f.uuid,
     }));
 
-    return [...local ?? [], ...api];
-  }, [localFiles, apiFiles, API_URL]);
+    return [...local ?? [], ...api] as CombinedFile[];
+  }, [localFiles, apiFiles]);
+
   // ✅ Select / Deselect all files
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedFiles(files.map((f) => f.id));
+      // Default to original size for all if not set
+      const initialSizes: Record<string, 'small' | 'large' | 'mls' | 'original'> = {};
+      files.forEach(f => {
+        if (!selectedSizes[f.id]) {
+          initialSizes[f.id] = 'original';
+        }
+      });
+      setSelectedSizes(prev => ({ ...prev, ...initialSizes }));
     } else {
       setSelectedFiles([]);
     }
@@ -75,26 +87,27 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
 
   // ✅ Toggle a single file
   const handleToggleFile = (fileId: string) => {
-    setSelectedFiles((prev) =>
-      prev.includes(fileId) ? prev.filter((id) => id !== fileId) : [...prev, fileId]
-    );
+    setSelectedFiles((prev) => {
+      const isSelected = prev.includes(fileId);
+      if (!isSelected && !selectedSizes[fileId]) {
+        setSelectedSizes(s => ({ ...s, [fileId]: 'original' }));
+      }
+      return isSelected ? prev.filter((id) => id !== fileId) : [...prev, fileId];
+    });
   };
 
-  // const handleDownload = () => {
-  //   const selected = files.filter((f) => selectedFiles.includes(f.id));
-  //   selected.forEach((file) => {
-  //     const link = document.createElement('a');
-  //     link.href = file.urls.original; // or whichever size you want
-  //     link.download = file.name;
-  //     link.click();
-  //   });
-  //   onClose();
-  // };
-  const handledownloadFile = async (fileUuid: string, fileName: string) => {
+  const handleSizeSelect = (fileId: string, size: 'small' | 'large' | 'mls' | 'original') => {
+    setSelectedSizes(prev => ({ ...prev, [fileId]: size }));
+    if (!selectedFiles.includes(fileId)) {
+      setSelectedFiles(prev => [...prev, fileId]);
+    }
+  };
+
+  const handledownloadFile = async (fileUuid: string, fileName: string, size?: 'small' | 'large' | 'mls' | 'original') => {
     try {
       const token = localStorage.getItem('token') ?? "";
 
-      const response = await DownloadFile(token, fileUuid);
+      const response = await DownloadFile(token, fileUuid, size);
 
       if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
 
@@ -130,18 +143,25 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
         link.click();
         document.body.removeChild(link);
       } else {
-        // Download API files - you'll need the file UUID
-        const apiFile = apiFiles.find(f => f.name === file.name);
-        if (apiFile) {
-          await handledownloadFile(apiFile.uuid, file.name);
-        }
+        // Download API files
+        const size = selectedSizes[file.id] || 'original';
+        await handledownloadFile(file.uuid, file.name, size);
       }
     }
 
-    setOpenModal(false);
     onClose();
     setSelectedFiles([]);
+    setSelectedSizes({});
   };
+
+  const sizeButtonClasses = (fileId: string, size: string) => {
+    const isSelected = selectedSizes[fileId] === size;
+    return `h-[32px] justify-center rounded-[6px] font-raleway border-[1px] text-[14px] font-[600] transition-colors ${isSelected
+      ? `${userType}-bg ${userType}-border text-white`
+      : `bg-transparent border-[#BBBBBB] text-[#666666] hover:border-${userType}-border hover:bg-[#4290e9] hover:text-white`
+      }`;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#E4E4E4] rounded-xl shadow-lg border p-6 w-full max-w-[700px] font-Alexandria [&>button]:hidden">
@@ -155,6 +175,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
               onClick={() => {
                 onClose();
                 setSelectedFiles([]);
+                setSelectedSizes({});
               }}
               className="p-1 hover:bg-gray-100 rounded-full transition-colors h-auto"
               aria-label="Close"
@@ -179,9 +200,9 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
           </label>
         </div>
 
-        <div className="flex flex-col gap-y-3 max-h-[300px] overflow-y-auto pr-2 sidebar-scroll">
+        <div className="flex flex-col gap-y-3 max-h-[400px] overflow-y-auto pr-2 sidebar-scroll">
           {files.map((file) => (
-            <div key={file.id} className="flex items-center gap-x-4">
+            <div key={file.id} className="flex items-center gap-x-4 p-2 bg-white rounded-lg shadow-sm">
               <div
                 onClick={() => handleToggleFile(file.id)}
                 className="w-4 h-4 flex items-center justify-center rounded-[2px] cursor-pointer bg-white border border-[#666666]"
@@ -193,135 +214,92 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
 
 
               {file.type === 'photo' ? (
-                <>
+                <div className="relative w-[180px] h-[110px] shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={file.url}
+                    src={file.isLocal ? file.url : `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`}
                     alt={file.name}
-                    className="w-[210px] h-[125px] object-cover rounded-md"
+                    className="w-full h-full object-cover rounded-md"
                   />
-                </>
+                </div>
               ) : file.type === 'video' ? (
-                <video
-                  src={file.url}
-                  className="w-[210px] h-[125px] object-cover rounded-md"
-                  controls
-                />
+                <div className="relative w-[180px] h-[110px] shrink-0">
+                  <video
+                    src={file.isLocal ? file.url : `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`}
+                    className="w-full h-full object-cover rounded-md"
+                  />
+                </div>
               ) : (
-                <div className="w-[210px] h-[125px] flex items-center justify-center bg-gray-200 text-gray-600 rounded-md">
+                <div className="w-[180px] h-[110px] shrink-0 flex items-center justify-center bg-gray-200 text-gray-600 rounded-md">
                   {file.name.split('.').pop()?.toUpperCase() || 'FILE'}
                 </div>
               )}
 
-              <div className="flex flex-col gap-y-2 w-[385px]">
-                <p className="text-[#666666] text-[16px] font-normal max-w-[250px] truncate">{file.name}</p>
+              <div className="flex flex-col gap-y-2 flex-grow min-w-0">
+                <p className="text-[#666666] text-[15px] font-medium truncate">{file.name}</p>
 
-                <div className="flex items-center gap-x-[10px]">
-                  <Button
-                    className={`w-[200px] h-[32px] justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] font-[600] text-[#EEEEEE] hover:text-[#fff] hover-${userType}-bg`}
-                  >
-                    Original/Print Quality
-                  </Button>
-                  <Button
-                    className={`w-[100px] h-[32px] justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] font-[600] text-[#EEEEEE] hover:text-[#fff] hover-${userType}-bg`}
-                  >
-                    Small
-                  </Button>
-                </div>
+                {!file.isLocal && (
+                  <>
+                    <div className="flex items-center gap-x-2">
+                      <Button
+                        onClick={() => handleSizeSelect(file.id, 'original')}
+                        className={`w-[160px] ${sizeButtonClasses(file.id, 'original')}`}
+                      >
+                        Original Quality
+                      </Button>
+                      <Button
+                        onClick={() => handleSizeSelect(file.id, 'small')}
+                        className={`w-[80px] ${sizeButtonClasses(file.id, 'small')}`}
+                      >
+                        Small
+                      </Button>
+                    </div>
 
-                <div className="flex items-center gap-x-[10px]">
-                  <Button
-                    className={`w-[100px] h-[32px] justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] font-[600] text-[#EEEEEE] hover:text-[#fff] hover-${userType}-bg`}
-                  >
-                    Large
-                  </Button>
-                  <Button
-                    className={`w-[100px] h-[32px] justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] font-[600] text-[#EEEEEE] hover:text-[#fff] hover-${userType}-bg`}
-                  >
-                    MLS
-                  </Button>
-                </div>
+                    <div className="flex items-center gap-x-2">
+                      <Button
+                        onClick={() => handleSizeSelect(file.id, 'large')}
+                        className={`w-[80px] ${sizeButtonClasses(file.id, 'large')}`}
+                      >
+                        Large
+                      </Button>
+                      <Button
+                        onClick={() => handleSizeSelect(file.id, 'mls')}
+                        className={`w-[80px] ${sizeButtonClasses(file.id, 'mls')}`}
+                      >
+                        MLS
+                      </Button>
+                    </div>
+                  </>
+                )}
+                {file.isLocal && (
+                  <p className="text-[#999999] text-[13px]">Ready to download (Local)</p>
+                )}
               </div>
             </div>
           ))}
 
         </div>
-        <hr className="w-full h-[1px] bg-[#BBBBBB]" />
+        <hr className="w-full h-[1px] bg-[#BBBBBB] my-2" />
         <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-3 font-raleway">
           <button
             onClick={() => {
               onClose();
               setSelectedFiles([]);
+              setSelectedSizes({});
             }}
             className={`bg-white rounded-[6px] w-full md:w-[176px] h-[44px] text-[16px] font-[600] border ${userType}-border ${userType}-text hover:bg-[#f1f8ff]`}
           >
             Cancel
           </button>
           <button
-            onClick={() => setOpenModal(true)}
+            onClick={handleDownloadSelected}
             disabled={selectedFiles.length === 0}
-            className={`${userType}-bg rounded-[6px] text-white hover-${userType}-bg w-full md:w-[176px] h-[44px] font-[600] text-[16px] disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`${userType}-bg rounded-[6px] text-white hover:opacity-90 w-full md:w-[176px] h-[44px] font-[600] text-[16px] disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             Download Selected
           </button>
         </DialogFooter>
       </DialogContent>
-      {openModal && (
-        <Dialog open={openModal} onOpenChange={setOpenModal}>
-          <DialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white rounded-xl shadow-lg border p-6 w-full max-w-[500px] font-Alexandria [&>button]:hidden">
-            <DialogHeader>
-              <div className="flex items-center justify-between">
-                <DialogTitle className={`uppercase ${userType}-text text-[18px] font-[600]`}>
-                  Download Size
-                </DialogTitle>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setOpenModal(false)
-                    setSelectedFiles([]);
-                  }}
-                  className="p-1 hover:bg-gray-100 rounded-full transition-colors h-auto"
-                  aria-label="Close"
-                >
-                  <X className="w-5 h-5 text-[#7D7D7D]" />
-                </Button>
-              </div>
-            </DialogHeader>
-            <hr className="w-full h-[1px] bg-[#BBBBBB]" />
-            <div className="flex flex-col items-center justify-center gap-y-2 my-4">
-              <Button
-                className={`w-[100px] h-[32px] justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] font-[600] text-[#EEEEEE] hover:text-[#fff] hover-${userType}-bg`}
-              >
-                Small
-              </Button>
-              <Button
-                className={`w-[100px] h-[32px] justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] font-[600] text-[#EEEEEE] hover:text-[#fff] hover-${userType}-bg`}
-              >
-                Large
-              </Button>
-              <Button
-                className={`w-[100px] h-[32px] justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] font-[600] text-[#EEEEEE] hover:text-[#fff] hover-${userType}-bg`}
-              >
-                MLS
-              </Button>
-              <Button
-                className={`w-[200px] h-[32px] justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] font-[600] text-[#EEEEEE] hover:text-[#fff] hover-${userType}-bg`}
-              >
-                Original/Print Quality
-              </Button>
-            </div>
-            <hr className="w-full h-[1px] bg-[#BBBBBB]" />
-            <DialogFooter className="flex justify-end gap-3 font-raleway">
-              <button
-                onClick={handleDownloadSelected}
-                className={`bg-white rounded-[6px] w-full md:w-[176px] h-[44px] text-[16px] font-[600] border ${userType}-border ${userType}-text hover:bg-[#f1f8ff]`}
-              >
-                Download
-              </button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
     </Dialog>
   );
 };

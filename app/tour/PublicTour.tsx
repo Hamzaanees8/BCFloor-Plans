@@ -200,16 +200,20 @@ const PublicTour = () => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-lg">Loading...</div>
+            <div className="flex items-center justify-center min-h-screen bg-white">
+                <div className="text-lg font-alexandria">Loading...</div>
             </div>
         );
     }
 
-    if (error) {
+    const isPublished = orderData?.tours?.[0]?.is_publish ?? false;
+
+    if (error || !isPublished) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-red-500 text-lg">Error: {error}</div>
+            <div className="flex items-center justify-center min-h-screen bg-white">
+                <div className="text-[#444] text-2xl font-alexandria font-medium text-center border p-10 rounded-lg shadow-sm">
+                    This tour is not published yet.
+                </div>
             </div>
         );
     }

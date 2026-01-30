@@ -72,6 +72,7 @@ interface CalendarProps {
   masterDate: Date;
   externalSetSelectedSlots?: Dispatch<SetStateAction<Slot[]>>;
   externalSelectedSlots?: Slot[];
+  externalBookedSlots?: Slot[];
   externalVendorsData?: VendorData[];
   onVendorSelected?: (vendorId: string) => void;
 }
@@ -148,12 +149,14 @@ function generateMarkedSlots(
     end = end.add(1, 'day');
   }
 
+  // Pre-process breaks (global standard breaks)
+  // These should already be converted to property timezone if coming from convertedWorkHours
   const breakStart = workHours.break_start ? dayjs(`${date}T${workHours.break_start}`) : null;
   const breakEnd = workHours.break_end ? dayjs(`${date}T${workHours.break_end}`) : null;
 
   // Pre-process allBookedSlots for current vendor and date
   const relevantBookedSlots = allBookedSlots
-    ?.filter(s => (s.vendor?.uuid || s.vendor_id) === vendorId && s.date === date)
+    ?.filter(s => (s?.vendor?.uuid || s?.vendor_id) === vendorId && s?.date === date)
     .map(s => ({
       start: dayjs(`${s.date}T${s.start_time}`),
       end: dayjs(`${s.date}T${s.end_time}`)
@@ -161,13 +164,13 @@ function generateMarkedSlots(
 
   // Pre-process otherServiceSlots
   const relevantOtherSlots = otherServiceSlots
-    ?.filter(s => (s.vendor_id === vendorId || s.vendor?.uuid === vendorId) && s.date === date)
+    ?.filter(s => (s?.vendor_id === vendorId || s?.vendor?.uuid === vendorId) && s?.date === date)
     .map(s => ({
       start: dayjs(`${s.date}T${s.start_time}`),
       end: dayjs(`${s.date}T${s.end_time}`)
-    }));
+    })) || [];
 
-  // Pre-process vendorTimeOffs
+  // Pre-process vendorTimeOffs (additional_breaks)
   const relevantTimeOffs = vendorTimeOffs
     ?.map(timeOff => {
       const timeOffStartDate = timeOff.start_date || timeOff.date;
@@ -180,13 +183,10 @@ function generateMarkedSlots(
 
       if (!isDateInRange) return null;
 
-      const isSingleDay = startDateObj.isSame(endDateObj, 'day');
       const isStartDay = currentDateObj.isSame(startDateObj, 'day');
       const isEndDay = currentDateObj.isSame(endDateObj, 'day');
 
-      if (isSingleDay) {
-        return { start: dayjs(`${date}T${timeOff.start_time}`), end: dayjs(`${date}T${timeOff.end_time}`) };
-      } else if (isStartDay && isEndDay) {
+      if (isStartDay && isEndDay) {
         return { start: dayjs(`${date}T${timeOff.start_time}`), end: dayjs(`${date}T${timeOff.end_time}`) };
       } else if (isStartDay) {
         return { start: dayjs(`${date}T${timeOff.start_time}`), end: null, type: 'start' };
@@ -210,7 +210,12 @@ function generateMarkedSlots(
     const currentISO = current.toISOString();
     const nextISO = next.toISOString();
 
-    const inBreak = breakStart && breakEnd && next.isAfter(breakStart) && current.isBefore(breakEnd);
+    // Check against standard daily breaks
+    const inBreak = breakStart && breakEnd && (
+      (current.isSameOrAfter(breakStart) && current.isBefore(breakEnd)) ||
+      (next.isAfter(breakStart) && next.isSameOrBefore(breakEnd)) ||
+      (current.isBefore(breakStart) && next.isAfter(breakEnd))
+    );
 
     const isBooked = relevantBookedSlots.some(s =>
       current.isSameOrAfter(s.start) && next.isSameOrBefore(s.end)
@@ -287,7 +292,7 @@ export function getDistanceColor(distance: number | undefined): string {
   return "#171484";
 }
 
-export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, vendorDistances, propertyTimezone, masterDate, externalSetSelectedSlots, externalSelectedSlots, externalVendorsData, onVendorSelected }: CalendarProps) {
+export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, vendorDistances, propertyTimezone, masterDate, externalSetSelectedSlots, externalSelectedSlots, externalBookedSlots, externalVendorsData, onVendorSelected }: CalendarProps) {
   const {
     selectedSlots: contextSelectedSlots,
     setSelectedSlots: contextSetSelectedSlots,
@@ -362,7 +367,12 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
   const orderIdParam = Array.isArray(id) ? id[0] : id;
 
-  const AllBookedSlots = useMemo(() => ordersData?.filter((order: Order) => order.uuid !== orderIdParam).map((order: Order) => order.slots).flat() || [], [ordersData, orderIdParam]);
+  const AllBookedSlots = useMemo(() => {
+    if (externalBookedSlots) {
+      return externalBookedSlots;
+    }
+    return ordersData?.filter((order: Order) => order.uuid !== orderIdParam).map((order: Order) => order.slots).flat() || [];
+  }, [ordersData, orderIdParam, externalBookedSlots]);
 
   useEffect(() => {
     const date = currentDate;
@@ -903,7 +913,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       const vendorAvailableSlots = generateMarkedSlots(
         selectedDate,
         convertedWorkHours,
-        vendor.uuid,
+        vendor.uuid ?? '',
         AllBookedSlots,
         selectedSlots.filter((s: Slot) => s.service_id !== service.uuid && s.date === selectedDate),
         vendor.additional_breaks || [],
@@ -1017,6 +1027,8 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       // Toast removed - validation now happens on "Next" button click
     } else if (newTotalDuration === requiredDuration) {
       // Toast removed - validation now handled elsewhere for better UX
+    } else {
+      toast.info(`Note: You have selected more time than the required ${requiredDuration} minutes for "${service.title}".`);
     }
     onVendorSelected?.(vendor.uuid || '');
   };

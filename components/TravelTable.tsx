@@ -15,7 +15,7 @@ import { Card, CardContent, CardFooter } from './ui/card'
 import { Input } from './ui/input'
 import { calculateDistance, GetOne } from '@/app/dashboard/vendors/vendors'
 import { useAppContext } from '@/app/context/AppContext'
-import { Vendor } from './VendorTable'
+import { Vendor } from '@/lib/types'
 type OrderSlot = {
     id: number;
     uuid: string;

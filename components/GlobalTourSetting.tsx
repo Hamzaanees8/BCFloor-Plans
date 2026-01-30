@@ -8,11 +8,15 @@ import {
 } from "./ui/accordion";
 import { Plus } from "lucide-react";
 import { useAppContext } from "@/app/context/AppContext";
-import TourSettingTable from "./TourSettingTable";
 import AddAreaPopup, { AreaData } from "./AddAreaPopup";
 import { Input } from "./ui/input";
 import { CreateMediaSettings, SaveTourSettings, UpdateTourSetting, DeleteTourSetting, GetMediaSettings, GetTourSettings } from "@/app/dashboard/global-settings/global-settings";
 import { toast } from "sonner";
+import { DataTable } from "@/components/DataTable";
+import { ColumnDef, Row } from "@tanstack/react-table";
+import { Switch } from "./ui/switch";
+import DropdownActions from "./DropdownActions";
+
 
 type SizeType = {
     width: number;
@@ -220,6 +224,64 @@ export default function GlobalTourSetting() {
         }
     };
 
+    const columns: ColumnDef<AreaData>[] = [
+        {
+            accessorKey: "area",
+            header: "AREAS",
+            cell: ({ row }: { row: Row<AreaData> }) => (
+                <div className="text-[#666666]">{row.original.area}</div>
+            ),
+        },
+        {
+            accessorKey: "type",
+            header: "TYPE",
+            cell: ({ row }: { row: Row<AreaData> }) => (
+                <div className="text-[#666666]">{row.original.type}</div>
+            ),
+        },
+        {
+            accessorKey: "charge",
+            header: "CHARGE",
+            cell: ({ row }: { row: Row<AreaData> }) => (
+                <div className="text-[#666666]">{row.original.charge}</div>
+            ),
+        },
+        {
+            accessorKey: "discount",
+            header: "DISCOUNT",
+            cell: ({ row }: { row: Row<AreaData> }) => (
+                <div className="text-[#666666]">{row.original.discount}</div>
+            ),
+        },
+        {
+            accessorKey: "status",
+            header: "STATUS",
+            cell: ({ row }: { row: Row<AreaData> }) => (
+                <div className="flex items-center gap-2">
+                    <Switch
+                        checked={row.original.status}
+                        onCheckedChange={(checked) => handleStatusChange(row.original, checked)}
+                        className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
+                    />
+                    <DropdownActions
+                        options={[
+                            {
+                                label: "Edit",
+                                onClick: () => handleEditClick(row.original),
+                            },
+                            {
+                                label: "Delete",
+                                onClick: () => row.original.uuid && handleDeleteArea(row.original.uuid),
+                                confirm1: true,
+                            }
+                        ]}
+                    />
+                </div>
+            ),
+        },
+    ];
+
+
     return (
         <div>
             <Accordion
@@ -252,12 +314,13 @@ export default function GlobalTourSetting() {
                             </div>
                         </AccordionTrigger>
                         <AccordionContent className="w-full pb-0">
-                            <TourSettingTable
+                            <DataTable
                                 data={areas}
-                                onEdit={handleEditClick}
-                                onDelete={(area) => area.uuid && handleDeleteArea(area.uuid)}
-                                onStatusChange={handleStatusChange}
+                                columns={columns}
                                 loading={loading}
+                                dataName="Tour Settings"
+                                userType={userType || 'admin'}
+                                error={false}
                             />
                         </AccordionContent>
                     </AccordionItem>

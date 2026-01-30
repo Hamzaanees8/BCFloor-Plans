@@ -18,8 +18,11 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Check, Plus, X } from "lucide-react";
-import DiscountTable, { Discount } from "./DiscountTable";
 import { toast } from "sonner";
+import { ColumnDef, Row } from "@tanstack/react-table";
+import { DataTable } from "@/components/DataTable";
+import DropdownActions from "./DropdownActions";
+import { Delete, EditDiscountStatus } from "@/app/dashboard/global-settings/global-settings";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, DropDownArrow } from "./Icons";
 //import CloseDialog from './CloseDialog'
@@ -209,9 +212,28 @@ export const friendlyTimeZoneNames: Record<string, string> = {
     "Pacific/Tongatapu": "Tonga Time - Tongatapu",
 };
 
+// Types
+export type Discount = {
+    id: number;
+    name: string;
+    description: string;
+    quantity: number;
+    percentage: number;
+    status: boolean;
+    type: string;
+    uuid: string;
+    code_key: string;
+};
+
+interface SelectedDiscount {
+    uuid?: string;
+    type?: string;
+}
+
 const GlobalSettings = () => {
     const [companyData, setCompanyData] = useState<CompanyData | null>(null);
     const [openSaveDialog, setOpenSaveDialog] = useState(false);
+    const [selectedDiscount, setSelectedDiscount] = useState<SelectedDiscount | null>(null);
     const [companyName, setCompanyName] = useState("");
     const [companyWebsite, setCompanyWebsite] = useState("");
     const [email, setEmail] = useState("");
@@ -871,6 +893,140 @@ const GlobalSettings = () => {
         }
         setLoading(false);
     }
+
+    const handleDeleteDiscount = async (uuid: string) => {
+        try {
+            await Delete(uuid);
+            toast.success('Discount deleted successfully');
+            setDiscounts((prev: Discount[]) => prev.filter(discount => discount.uuid !== uuid));
+        } catch (error) {
+            if (error instanceof Error) {
+                console.error('Delete failed:', error.message);
+                toast.error(error.message || 'Failed to delete discount');
+            } else {
+                console.error('Delete failed:', error);
+                toast.error('Failed to delete discount');
+            }
+        }
+    };
+
+    const handleDiscountStatus = async (checked: boolean, uuid: string) => {
+        try {
+            const payload = {
+                status: checked,
+            };
+
+            await EditDiscountStatus(payload, uuid);
+            toast.success('Discount status updated successfully');
+        } catch (error) {
+            if (error instanceof Error) {
+                console.error('Submission failed:', error.message);
+                toast.error(error.message);
+            } else {
+                console.error('Submission failed:', error);
+                toast.error('Failed to submit user data');
+            }
+        }
+    };
+
+    const discountOptions = (row: Discount) => [
+        {
+            label: "Edit",
+            onClick: () => {
+                setSelectedDiscount({ uuid: row.uuid, type: row.type });
+                setOpenAddDiscountDialog(true);
+            },
+        },
+        {
+            label: "Delete",
+            onClick: () => { handleDeleteDiscount(row.uuid) },
+            confirm1: true,
+        },
+    ];
+
+    const discountColumns: ColumnDef<Discount>[] = [
+        {
+            id: "label",
+            header: "LABEL",
+            cell: ({ row }: { row: Row<Discount> }) => {
+                const original = row.original as { name?: string; code_key?: string };
+                const name = original.name;
+                const code_key = original.code_key;
+
+                const displayValue =
+                    name && name.trim() !== "" ? name : code_key || "n/a";
+
+                return <div className="text-[#666666]">{displayValue}</div>;
+            },
+        },
+        {
+            accessorKey: "description",
+            header: "DESCRIPTION",
+            cell: ({ row }: { row: Row<Discount> }) => (
+                <div className="text-[#666666]">
+                    {row.getValue("description") || row.getValue("description") === 0
+                        ? row.getValue("description") as string
+                        : "n/a"}
+                </div>
+            ),
+        },
+        {
+            accessorKey: "quantity",
+            header: "MIN QUANTITY",
+            cell: ({ row }: { row: Row<Discount> }) => (
+                <div className="text-[#666666]">
+                    {row.getValue("quantity") || row.getValue("quantity") === 0
+                        ? row.getValue("quantity") as string
+                        : "n/a"}
+                </div>
+            ),
+        },
+        {
+            accessorKey: "percentage",
+            header: "DISCOUNT",
+            cell: ({ row }: { row: Row<Discount> }) => {
+                const value = row.getValue("percentage");
+                const displayValue =
+                    value || value === 0
+                        ? `${Number(value)}%`
+                        : "n/a";
+                return <div className="text-[#666666]">{displayValue}</div>;
+            },
+        },
+        {
+            accessorKey: "status",
+            header: "STATUS",
+            cell: ({ row }: { row: Row<Discount> }) => {
+                const status = row.getValue("status") as boolean;
+                const uuid = row.original.uuid;
+
+                return (
+                    <Switch
+                        checked={status}
+                        onCheckedChange={(checked) => {
+                            setDiscounts((prev: Discount[]) =>
+                                prev.map((discount) =>
+                                    discount.uuid === uuid ? { ...discount, status: checked } : discount
+                                )
+                            );
+                            handleDiscountStatus(checked, uuid);
+                        }}
+                        className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
+                    />
+                );
+            },
+        },
+        {
+            id: "actions",
+            enableHiding: false,
+            cell: ({ row }: { row: Row<Discount> }) => {
+                return (
+                    <DropdownActions options={discountOptions(row.original)} />
+                );
+            },
+        },
+    ];
+
     return (
         <div className="font-alexandria">
             <div
@@ -964,6 +1120,7 @@ const GlobalSettings = () => {
                                     <div
                                         onClick={(e) => {
                                             e.stopPropagation();
+                                            setSelectedDiscount(null);
                                             setOpenAddDiscountDialog(true);
                                         }}
                                         className="flex items-center gap-x-[10px] pr-[24px]"
@@ -976,6 +1133,8 @@ const GlobalSettings = () => {
                                     <AddDiscountDialog
                                         open={openAddDiscountDialog}
                                         setOpen={setOpenAddDiscountDialog}
+                                        type={selectedDiscount?.type}
+                                        uuid={selectedDiscount?.uuid}
                                         onSuccess={() => {
                                             fetchDiscounts();
                                         }}
@@ -983,12 +1142,13 @@ const GlobalSettings = () => {
                                 </div>
                             </AccordionTrigger>
                             <AccordionContent className="w-full pb-0">
-                                <DiscountTable
-                                    discounts={discounts}
-                                    fetchDiscounts={fetchDiscounts}
-                                    setDiscounts={setDiscounts}
+                                <DataTable
+                                    data={discounts || []}
+                                    columns={discountColumns}
                                     loading={loading}
                                     error={error}
+                                    dataName="Discounts"
+                                    userType={userType}
                                 />
                             </AccordionContent>
                         </AccordionItem>

@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import NotificationDialog from "./NotificationDialog";
 import Link from "next/link";
 import { Listings } from "@/app/dashboard/listings/page";
-import { Address } from "./VendorTable";
+import { Address, NotificationData } from "@/lib/types";
 import { useAppContext } from "@/app/context/AppContext";
 import { format, parse } from "date-fns";
 
@@ -115,150 +115,6 @@ export interface SubAccountData {
   avatar_url?: string;
 }
 
-export interface Slot {
-  id: number;
-  uuid: string;
-  order_id: number;
-  service_id: number;
-  vendor_id: number;
-  start_time: string;
-  end_time: string;
-  date: string;
-  show_all_vendors?: boolean;
-  schedule_override?: boolean;
-  recommend_time?: boolean;
-  travel?: string;
-  created_at?: string;
-  updated_at?: string;
-  est_time?: string;
-  distance?: string;
-  km_price?: string;
-  address?: string;
-  location?: string;
-}
-
-export interface NotificationData {
-  id?: number;
-  uuid?: string;
-  type: string;
-  source?: string;
-  source_id?: string;
-  created_by_name: string;
-  Subject: string;
-  description?: string;
-  created_at: string;
-  updated_at?: string;
-  is_read?: boolean;
-  read_at?: string;
-  diff_data?: {
-    amount?: {
-      before: string | number;
-      after: string | number;
-    };
-    updated_at?: {
-      before: string;
-      after: string;
-    };
-    slots?: Record<
-      string,
-      {
-        before: Slot | null;
-        after: Slot | null;
-      }
-    >;
-    payment_details?: {
-      before: null | Record<string, unknown>;
-      after: {
-        // For VendorPayment
-        vendor_name?: string;
-        // For AgentPayment
-        agent_name?: string;
-        order_uuid?: string;
-        amount: string | number;
-        currency: string;
-        transfer_id?: string;
-        payment_type: string;
-        service_count?: number;
-        payment_method?: string;
-        status: string;
-        timestamp: string;
-        receipt_url?: string;
-      };
-    };
-    metadata?: Record<string, unknown>;
-  };
-  meta_data?: {
-    // Common fields
-    order_id?: number;
-    order_uuid?: string;
-    changes_summary?: string[];
-    details?: string;
-    updated_by?: string;
-    broadcast_to_all_admins?: boolean;
-    // VendorPayment specific
-    vendor_id?: number;
-    vendor_uuid?: string;
-    vendor_payment_id?: number;
-    vendor_payment_uuid?: string;
-    vendor_name?: string;
-    vendor_email?: string;
-    transfer_id?: string;
-    service_count?: number;
-    is_bulk?: boolean;
-    // AgentPayment specific
-    agent_payment_id?: number;
-    agent_payment_uuid?: string;
-    agent_uuid?: string;
-    agent_name?: string;
-    agent_email?: string;
-    payment_method?: string;
-    is_quickbooks_synced?: boolean;
-    quickbooks_invoice_id?: string | null;
-    // Shared payment fields
-    amount?: string | number;
-    currency?: string;
-    payment_type?: string;
-    timestamp?: string;
-    // Property and Services
-    property_address?: string;
-    services?: Array<{
-      uuid?: string;
-      service_id?: number | string;
-      service_name?: string;
-      amount?: string | number;
-    }>;
-  };
-  order: {
-    id: string | number;
-    created_at: string;
-    agent: {
-      first_name: string;
-      last_name: string;
-      email: string;
-      primary_phone: string;
-      secondary_phone: string;
-    };
-    property_address: string;
-    property_location: string;
-    services: Array<{
-      service_id: string | number;
-      service: {
-        name: string;
-      };
-      amount: string | number;
-    }>;
-    slots: Array<{
-      service_id: string | number;
-      vendor: {
-        first_name: string;
-        last_name: string;
-      };
-      date: string;
-      start_time: string;
-      end_time: string;
-    }>;
-  };
-}
 const typeToLabelMap: Record<QuickViewCardProps["type"], string> = {
   agent: "Agent Quick View",
   admin: "Admin Quick View",
@@ -346,9 +202,8 @@ export default function QuickViewCard({
           {/* Profile Info */}
 
           <div
-            className={`grid grid-cols-[auto_1fr] ${
-              type === "notification" ? "grid-rows-1" : "grid-rows-2"
-            } gap-x-3 items-start`}
+            className={`grid grid-cols-[auto_1fr] ${type === "notification" ? "grid-rows-1" : "grid-rows-2"
+              } gap-x-3 items-start`}
           >
             {type === "agent" && (
               <Avatar className="h-8 w-8 row-span-2">
@@ -417,19 +272,19 @@ export default function QuickViewCard({
               {type === "notification" && (
                 <span className="text-[15px] font-[400] text-[#666666] ]  ">
                   {data.source === "AgentPayment" ||
-                  data.source === "VendorPayment" ? (
+                    data.source === "VendorPayment" ? (
                     <>
                       {data.source === "AgentPayment" ? "Agent: " : "Vendor: "}
                       <span className="text-[#4290E9]">
                         {data.source === "AgentPayment"
                           ? data.meta_data?.agent_name ||
-                            data.diff_data?.payment_details?.after
-                              ?.agent_name ||
-                            "Unknown"
+                          data.diff_data?.payment_details?.after
+                            ?.agent_name ||
+                          "Unknown"
                           : data.meta_data?.vendor_name ||
-                            data.diff_data?.payment_details?.after
-                              ?.vendor_name ||
-                            "Unknown"}
+                          data.diff_data?.payment_details?.after
+                            ?.vendor_name ||
+                          "Unknown"}
                       </span>
                     </>
                   ) : (
@@ -518,7 +373,7 @@ export default function QuickViewCard({
                   #
                   {data?.meta_data?.order_id ||
                     (data.source === "AgentPayment" &&
-                    data.diff_data?.payment_details?.after?.order_uuid
+                      data.diff_data?.payment_details?.after?.order_uuid
                       ? "Order UUID"
                       : "N/A")}
                 </p>
@@ -538,39 +393,39 @@ export default function QuickViewCard({
               type === "subaccount" ||
               type === "listing" ||
               type === "notification") && (
-              <div className="flex items-center space-x-[18px] ">
-                <MapPin
-                  className="w-[24px] basis-[7%] text-[#666666]"
-                  strokeWidth={1}
-                />
-                <p
-                  className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px]`}
-                >
-                  {type === "admin" && (data as AdminData).address}
-                  {type === "subaccount" && (data as SubAccountData).address}
-                  {/* {type === "listing" && (data as Listings).address  } */}
-                  {type === "listing" &&
-                    [
-                      (data as Listings)?.address,
-                      (data as Listings)?.city,
-                      (data as Listings)?.province,
-                      (data as Listings)?.postal_code,
-                      (data as Listings)?.country,
-                    ]
-                      .filter(Boolean)
-                      .join(", ")}
+                <div className="flex items-center space-x-[18px] ">
+                  <MapPin
+                    className="w-[24px] basis-[7%] text-[#666666]"
+                    strokeWidth={1}
+                  />
+                  <p
+                    className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px]`}
+                  >
+                    {type === "admin" && (data as AdminData).address}
+                    {type === "subaccount" && (data as SubAccountData).address}
+                    {/* {type === "listing" && (data as Listings).address  } */}
+                    {type === "listing" &&
+                      [
+                        (data as Listings)?.address,
+                        (data as Listings)?.city,
+                        (data as Listings)?.province,
+                        (data as Listings)?.postal_code,
+                        (data as Listings)?.country,
+                      ]
+                        .filter(Boolean)
+                        .join(", ")}
 
-                  {type === "notification" &&
-                    ((data as NotificationData).source === "AgentPayment" ||
-                    (data as NotificationData).source === "VendorPayment"
-                      ? (data as NotificationData).meta_data?.property_address
+                    {type === "notification" &&
+                      ((data as NotificationData).source === "AgentPayment" ||
+                        (data as NotificationData).source === "VendorPayment"
                         ? (data as NotificationData).meta_data?.property_address
-                        : "Payment Transaction"
-                      : (data as NotificationData)?.order?.property_address)}
-                  {type === "subaccount" && (data as SubAccountData).address}
-                </p>
-              </div>
-            )}
+                          ? (data as NotificationData).meta_data?.property_address
+                          : "Payment Transaction"
+                        : (data as NotificationData)?.order?.property_address)}
+                    {type === "subaccount" && (data as SubAccountData).address}
+                  </p>
+                </div>
+              )}
             {type === "listing" && (
               <div className="mb-5 pb-5">
                 <div className="flex items-center space-x-[18px] mt-4 ">
@@ -581,10 +436,10 @@ export default function QuickViewCard({
                   <div className="text-[15px] font-[400] text-[#8E8E8E]">
                     {data?.created_at
                       ? new Date(data.created_at).toLocaleDateString("en-US", {
-                          month: "numeric",
-                          day: "numeric",
-                          year: "2-digit",
-                        })
+                        month: "numeric",
+                        day: "numeric",
+                        year: "2-digit",
+                      })
                       : "N/A"}
                   </div>
                 </div>
@@ -811,7 +666,7 @@ export default function QuickViewCard({
             {type === "notification" && (
               <>
                 {(data as NotificationData).source === "AgentPayment" ||
-                (data as NotificationData).source === "VendorPayment" ? (
+                  (data as NotificationData).source === "VendorPayment" ? (
                   <div className="grid grid-cols-1 gap-y-[12px]">
                     {/* Header Info */}
                     <div className="flex flex-col gap-[4px] mb-2">
@@ -825,9 +680,9 @@ export default function QuickViewCard({
                         <span className="font-bold">Date:</span>{" "}
                         {data.meta_data?.timestamp
                           ? format(
-                              new Date(data.meta_data.timestamp),
-                              "MMM dd, yyyy h:mm a",
-                            )
+                            new Date(data.meta_data.timestamp),
+                            "MMM dd, yyyy h:mm a",
+                          )
                           : "N/A"}
                       </span>
                     </div>
@@ -919,14 +774,13 @@ export default function QuickViewCard({
                           <div className="flex justify-between text-[15px]">
                             <span className="text-[#666666]">Status:</span>
                             <span
-                              className={`font-medium ${
+                              className={`font-medium ${data.diff_data.payment_details.after.status ===
+                                "Payment Transferred" ||
                                 data.diff_data.payment_details.after.status ===
-                                  "Payment Transferred" ||
-                                data.diff_data.payment_details.after.status ===
-                                  "Payment Received"
-                                  ? "text-green-600"
-                                  : "text-yellow-600"
-                              }`}
+                                "Payment Received"
+                                ? "text-green-600"
+                                : "text-yellow-600"
+                                }`}
                             >
                               {data.diff_data.payment_details.after.status}
                             </span>
@@ -1048,9 +902,9 @@ export default function QuickViewCard({
                         <span className="font-bold">Date:</span>{" "}
                         {data.updated_at
                           ? format(
-                              new Date(data.updated_at),
-                              "MMM dd, yyyy h:mm a",
-                            )
+                            new Date(data.updated_at),
+                            "MMM dd, yyyy h:mm a",
+                          )
                           : "N/A"}
                       </span>
                     </div>
@@ -1301,12 +1155,12 @@ export default function QuickViewCard({
                   {data.permissions?.length === 7
                     ? "FULL"
                     : data.permissions?.map((perm, index) => (
-                        <span key={index}>
-                          {perm.name}
-                          {index !== (data.permissions?.length ?? 0) - 1 &&
-                            ", "}
-                        </span>
-                      ))}
+                      <span key={index}>
+                        {perm.name}
+                        {index !== (data.permissions?.length ?? 0) - 1 &&
+                          ", "}
+                      </span>
+                    ))}
                 </p>
               </div>
             )}
@@ -1385,7 +1239,7 @@ export default function QuickViewCard({
           setShowDialog(false);
         }}
         showAgain={false}
-        toggleShowAgain={() => {}}
+        toggleShowAgain={() => { }}
       />
     </>
   );

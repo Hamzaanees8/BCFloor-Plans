@@ -57,7 +57,7 @@ export async function fetchServicesForBookNow() {
             return [];
         }
     } catch (error) {
-            console.log(error);
+        console.log(error);
         return [];
     }
 }
@@ -104,18 +104,24 @@ export async function fetchDiscountsForBookNow() {
     }
 }
 
-export async function fetchVendorForBookNow() {
+export async function fetchVendorForBookNow(token?: string | null) {
     try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL;
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 8000);
 
         try {
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+            };
+
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
             const response = await fetch(`${API_URL}/vendors`, {
                 method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers,
             });
 
             clearTimeout(timeout);
@@ -235,5 +241,26 @@ export async function createPropertyForBookNow(propertyData: unknown, token: str
         return await response.json();
     } catch (error) {
         throw error;
+    }
+}
+// Fetch booked slots for book-now
+export async function fetchOrderSlots() {
+    try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL;
+        if (!API_URL) return [];
+        const response = await fetch(`${API_URL}/order-slots`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+        if (response.ok) {
+            const data = await response.json();
+            return data.data || data || [];
+        }
+        return [];
+    } catch (error) {
+        console.log(error);
+        return [];
     }
 }

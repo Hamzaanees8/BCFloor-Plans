@@ -7,13 +7,17 @@ import {
   Dispatch,
   SetStateAction,
   useEffect,
+  useCallback,
 } from "react";
+import { GetNotifications } from "@/app/dashboard/notifications/notification";
+import { NotificationData } from "@/lib/types";
 
 type AppContextType = {
   userType: string;
   setUserType: Dispatch<SetStateAction<string>>;
   unreadNotificationCount: number;
   setUnreadNotificationCount: Dispatch<SetStateAction<number>>;
+  refreshNotifications: () => Promise<void>;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -26,7 +30,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const userType = localStorage.getItem("userType");
     setUserType(userType || "");
   }, []);
-  console.log("userType", userType);
+
+  const refreshNotifications = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const res = await GetNotifications(token, 1);
+      const data = res.data || [];
+      const unreadCount = data.filter((n: NotificationData) => !n.is_read).length;
+      setUnreadNotificationCount(unreadCount);
+    } catch (error) {
+      console.error("Failed to fetch notifications in context:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshNotifications();
+  }, [refreshNotifications]);
 
   return (
     <AppContext.Provider
@@ -35,6 +56,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setUserType,
         unreadNotificationCount,
         setUnreadNotificationCount,
+        refreshNotifications,
       }}
     >
       {children}
