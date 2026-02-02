@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { CleanedProductOption, GetPackages, GetServices, UpdateServiceStatus, DeleteService } from './services';
+import { CleanedProductOption, GetPackages, GetServices, UpdateServiceStatus, DeleteService, UpdatePackageStatus } from './services';
 import ProtectedAdminRoute from '@/components/ProtectedAdminRoute';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
@@ -88,6 +88,28 @@ const Page = () => {
   const [imagePopupOpen, setImagePopupOpen] = React.useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = React.useState<string | undefined>(undefined);
   const router = useRouter();
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    let ancestor = header.parentElement;
+    while (ancestor) {
+      const style = window.getComputedStyle(ancestor);
+      if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+        ancestor.style.setProperty('overflow-x', 'visible', 'important');
+        ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+        const target = ancestor;
+        return () => {
+          target.style.removeProperty('overflow-x');
+          target.style.removeProperty('overflow-y');
+        };
+      }
+      ancestor = ancestor.parentElement;
+    }
+  }, []);
 
   const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
 
@@ -95,8 +117,8 @@ const Page = () => {
     try {
       const token = localStorage.getItem("token") || "";
       const payload = {
-        status: status,
-        _method: "POST",
+        status: status ? 1 : 0,
+        _method: "PUT",
       };
 
       const result = await UpdateServiceStatus(serviceId, payload, token);
@@ -106,6 +128,24 @@ const Page = () => {
       if (error instanceof Error) {
         console.error(error.message);
         toast.error(error.message || "Failed to submit user data");
+      }
+    }
+  };
+
+  const handleUpdatePackageStatus = async (packageId: string, status: boolean) => {
+    try {
+      const token = localStorage.getItem("token") || "";
+      const payload = {
+        status: status ? 1 : 0,
+      };
+
+      const result = await UpdatePackageStatus(packageId, payload, token);
+      toast.success("Package status updated successfully");
+      return result;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error(error.message);
+        toast.error(error.message || "Failed to update package status");
       }
     }
   };
@@ -287,6 +327,21 @@ const Page = () => {
               className={`${pkg.status ? "!bg-[#6BAE41]" : "!bg-[#E06D5E]"
                 } data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500`}
               checked={!!pkg.status}
+              onCheckedChange={async (checked) => {
+                const data = await handleUpdatePackageStatus(
+                  pkg.uuid || "",
+                  checked
+                );
+                if (data?.data?.uuid) {
+                  setPackagesData((prev: Packages[]) =>
+                    prev.map((p: Packages) =>
+                      p.uuid === data.data.uuid
+                        ? { ...p, status: checked }
+                        : p
+                    )
+                  );
+                }
+              }}
             />
             <DropdownActions options={options} />
           </div>
@@ -355,7 +410,7 @@ const Page = () => {
   return (
     <ProtectedAdminRoute>
       <div style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh', color: roleSettings.pageText }}>
-        <div className='w-full h-[80px] font-alexandria z-[10] sticky top-0 flex justify-between px-[20px] items-center' style={{ position: 'sticky', top: 0, backgroundColor: `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`, boxShadow: "0px 4px 4px #0000001F" }}>
+        <div ref={headerRef} className='w-full h-[80px] font-alexandria z-[50] sticky top-0 flex justify-between px-[20px] items-center' style={{ position: 'sticky', top: 0, backgroundColor: `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`, boxShadow: "0px 4px 4px #0000001F" }}>
           <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>
             Services ({servicesData.length})
           </p>

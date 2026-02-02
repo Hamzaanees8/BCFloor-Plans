@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import BigCalendar from './components/BigCalendar'
 import { MultiSelectDropdown } from './components/MultiSelectDropdown';
 import { Get, GetServices, GetVendors } from '../orders/orders';
@@ -50,6 +50,28 @@ type Vendor = {
 
 const Page = () => {
     const { userType } = useAppContext();
+    const headerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const header = headerRef.current;
+        if (!header) return;
+
+        let ancestor = header.parentElement;
+        while (ancestor) {
+            const style = window.getComputedStyle(ancestor);
+            if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+                ancestor.style.setProperty('overflow-x', 'visible', 'important');
+                ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+                const target = ancestor;
+                return () => {
+                    target.style.removeProperty('overflow-x');
+                    target.style.removeProperty('overflow-y');
+                };
+            }
+            ancestor = ancestor.parentElement;
+        }
+    }, []);
     const { appliedSettings } = useWhiteLabel();
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
@@ -156,7 +178,7 @@ const Page = () => {
 
     return (
         <div>
-            <div className='w-full h-[80px] font-alexandria z-10 relative grid grid-cols-4 gap-[10px] grid-rows-1 justify-between px-[20px] items-center' style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }} >
+            <div ref={headerRef} className='w-full h-[80px] font-alexandria z-50 sticky top-0 grid grid-cols-4 gap-[10px] grid-rows-1 justify-between px-[20px] items-center' style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className='text-[16px] md:text-[22px] font-[400] capitalize' style={{ color: roleSettings.pageTabColor }}>Calendar › {currentMonthYear.month} {currentMonthYear.year}</p>
                 <MultiSelectDropdown
                     options={serviceData}

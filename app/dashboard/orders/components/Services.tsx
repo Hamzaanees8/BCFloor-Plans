@@ -7,7 +7,7 @@ import type { Services } from '../../services/page'
 import { useOrderContext } from '../context/OrderContext'
 import { useAppContext } from '@/app/context/AppContext'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
-import { Listings } from '../../listings/page'
+import { Listings } from '@/lib/types'
 
 
 export interface SelectedService {

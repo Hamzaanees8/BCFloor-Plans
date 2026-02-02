@@ -1,6 +1,6 @@
 "use client";
 import QuickViewCard, { VendorData } from '@/components/QuickViewCard';
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { Delete, Get } from './vendors';
@@ -22,6 +22,28 @@ const Page = () => {
     const { appliedSettings } = useWhiteLabel();
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+    const headerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const header = headerRef.current;
+        if (!header) return;
+
+        let ancestor = header.parentElement;
+        while (ancestor) {
+            const style = window.getComputedStyle(ancestor);
+            if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+                ancestor.style.setProperty('overflow-x', 'visible', 'important');
+                ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+                const target = ancestor;
+                return () => {
+                    target.style.removeProperty('overflow-x');
+                    target.style.removeProperty('overflow-y');
+                };
+            }
+            ancestor = ancestor.parentElement;
+        }
+    }, []);
 
     const [showCard, setShowCard] = React.useState(false);
     const [vendorData, setVendorData] = useState<Vendor[]>([]);
@@ -266,7 +288,7 @@ const Page = () => {
 
     return (
         <div>
-            <div className='w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center' style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }} >
+            <div ref={headerRef} className='w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center' style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>Vendors ({length})</p>
                 {canCreateVendor && (
                     <Link

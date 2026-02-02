@@ -12,7 +12,7 @@ import React, { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import NotificationDialog from "./NotificationDialog";
 import Link from "next/link";
-import { Listings } from "@/app/dashboard/listings/page";
+import { Listings } from "@/lib/types";
 import { Address, NotificationData } from "@/lib/types";
 import { useAppContext } from "@/app/context/AppContext";
 import { format, parse } from "date-fns";
@@ -152,7 +152,7 @@ export default function QuickViewCard({
           minHeight: "calc(100vh)",
           backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
         }}
-        className="w-full sm:w-[405px] overflow-y-scroll custom-scroll  flex flex-col justify-between   font-alexandria p-4 border-[1px] border-[#BBBBBB] rounded-none space-y-4 fixed top-[0px] right-0 z-50"
+        className="w-full sm:w-[405px] overflow-y-scroll custom-scroll  flex flex-col justify-between   font-alexandria p-4 border-[1px] border-[#BBBBBB] rounded-none space-y-4 fixed top-[0px] right-0 z-[100]"
       >
         <CardContent className="flex flex-col gap-[12px] p-0">
           <div className="flex justify-between items-center mb-2">

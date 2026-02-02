@@ -26,7 +26,7 @@ import { useUnsaved } from '@/app/context/UnsavedContext'
 import useUnsavedChangesWarning from '@/app/hooks/useUnsavedChangesWarning'
 import AgentDiscount from '@/components/AgentDiscount'
 import SubAccountsTable from '../components/SubAccountsTable'
-import { Listings } from '../../listings/page'
+import { Listings } from '@/lib/types'
 import Link from 'next/link'
 // interface PaymentCard {
 //     uuid: string;
@@ -94,6 +94,28 @@ type CurrentAgent = {
 const AgentForm = () => {
     const { userType } = useAppContext();
     const [currentUser, setCurrentUser] = useState<CurrentAgent | null>(null);
+    const headerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const header = headerRef.current;
+        if (!header) return;
+
+        let ancestor = header.parentElement;
+        while (ancestor) {
+            const style = window.getComputedStyle(ancestor);
+            if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+                ancestor.style.setProperty('overflow-x', 'visible', 'important');
+                ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+                const target = ancestor;
+                return () => {
+                    target.style.removeProperty('overflow-x');
+                    target.style.removeProperty('overflow-y');
+                };
+            }
+            ancestor = ancestor.parentElement;
+        }
+    }, []);
 
     const [coAgents, setCoAgents] = useState<{ name: string; email: string; primary_phone: string; split: string }[]>([]);
     const [emailCC, setEmailCC] = useState("");
@@ -243,7 +265,12 @@ const AgentForm = () => {
     const [activeTab, setActiveTab] = useState('details');
 
     useUnsavedChangesWarning(isDirty)
-    const isPopulatingData = useRef(false);
+    const isPopulatingData = useRef(true);
+    const hasInitiallyRendered = useRef(false);
+
+    useEffect(() => {
+        setIsDirty(false);
+    }, [setIsDirty]);
 
     const handleReset = () => {
         setPassword("");
@@ -274,6 +301,19 @@ const AgentForm = () => {
 
         }
     }, [userType]);
+
+    // For create mode, mark as initially rendered after a short delay
+    // This prevents browser autofill from triggering dirty state
+    useEffect(() => {
+        if (!userId) {
+            setIsDirty(false); // Reset dirty state on mount for create mode
+            setTimeout(() => {
+                isPopulatingData.current = false;
+                hasInitiallyRendered.current = true;
+                setIsDirty(false); // Ensure clean state after settlement
+            }, 1500); // Longer delay to account for browser autofill and initial state settlement
+        }
+    }, [userId, setIsDirty]);
 
     useEffect(() => {
         if (currentUser) {
@@ -320,9 +360,11 @@ const AgentForm = () => {
             }
             setAgentNotes(currentUser.notes || "")
 
-            requestAnimationFrame(() => {
+            // Use setTimeout to ensure all state updates and DOM updates complete
+            setTimeout(() => {
                 isPopulatingData.current = false;
-            });
+                hasInitiallyRendered.current = true;
+            }, 100);
 
             setIsDirty(false);
         }
@@ -334,6 +376,7 @@ const AgentForm = () => {
             setAvatarFile(file);
             setAvatarFileName(file.name)
             setAvatarUrl(URL.createObjectURL(file))
+            if (hasInitiallyRendered.current) setIsDirty(true);
         }
     }
 
@@ -348,6 +391,7 @@ const AgentForm = () => {
             setCompanyLogoFile(file)
             setCompanyLogoFileName(file.name)
             setCompanyLogoUrl(URL.createObjectURL(file))
+            if (hasInitiallyRendered.current) setIsDirty(true);
         }
     }
 
@@ -362,6 +406,7 @@ const AgentForm = () => {
             setCompanyBannerFile(file)
             setCompanyBannerFileName(file.name)
             setCompanyBannerUrl(URL.createObjectURL(file))
+            if (hasInitiallyRendered.current) setIsDirty(true);
         }
     }
 
@@ -621,6 +666,7 @@ const AgentForm = () => {
     const removeAgent = (index: number) => {
         const updatedAgents = coAgents.filter((_, i) => i !== index);
         setCoAgents(updatedAgents);
+        if (hasInitiallyRendered.current) setIsDirty(true);
     };
 
     interface AgentDiscountData {
@@ -640,15 +686,17 @@ const AgentForm = () => {
     const [openDiscount, setOpenDiscount] = useState(false);
     const addDiscount = (discount: AgentDiscountData) => {
         setAgentDiscount(discount);
+        if (hasInitiallyRendered.current) setIsDirty(true);
     };
 
     const removeDiscount = () => {
         setAgentDiscount(null);
+        if (hasInitiallyRendered.current) setIsDirty(true);
     };
     console.log("currentUser", currentUser)
     return (
         <div className='font-alexandria'>
-            <div className='w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }} >
+            <div ref={headerRef} className='w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className={`text-[16px] md:text-[24px] font-[400] ${userType}-text`}>
                     Agents
                     {currentUser ? ` › ${currentUser.first_name} ${currentUser.last_name}` : ' › Create'}
@@ -671,7 +719,7 @@ const AgentForm = () => {
                 <ToggleButtons />
             </div> */}
             {
-                <div className="flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                <div className="flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600] sticky top-[80px] z-40" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
                     <div className="flex gap-2">
                         <button
                             onClick={() => setActiveTab("details")}
@@ -703,10 +751,11 @@ const AgentForm = () => {
                 <div>
                     <form
                         onChange={() => {
-                            if (!isPopulatingData.current && userId) {
+                            // Only mark as dirty if:
+                            // 1. Not currently populating data from API
+                            // 2. Has initially rendered (prevents autofill from triggering)
+                            if (!isPopulatingData.current && hasInitiallyRendered.current) {
                                 setIsDirty(true);
-                            } else if (!userId) {
-                                setIsDirty(true)
                             }
                         }}
                     >
@@ -758,6 +807,7 @@ const AgentForm = () => {
                                                             value={String(role)}
                                                             onValueChange={(val) => {
                                                                 setRole(val);
+                                                                if (hasInitiallyRendered.current) setIsDirty(true);
                                                                 if (fieldErrors.role_id) {
                                                                     const newErrors = { ...fieldErrors };
                                                                     delete newErrors.role_id;
@@ -791,7 +841,7 @@ const AgentForm = () => {
                                                                 setFieldErrors(newErrors);
                                                             }
                                                         }}
-                                                        autoComplete="email"
+                                                        autoComplete="off"
                                                         className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.email ? 'border-red-500' : 'border-[#BBBBBB]'}`} type="email" />
 
                                                     {fieldErrors.email && <p className='text-red-500 text-[10px]'>{fieldErrors.email[0]}</p>}
@@ -885,7 +935,10 @@ const AgentForm = () => {
                                                         className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" /> */}
                                                     <GooglePlacesAutocomplete
                                                         value={headquarterAddress}
-                                                        onChange={setHeadQuarterAddress}
+                                                        onChange={(val) => {
+                                                            setHeadQuarterAddress(val);
+                                                            if (hasInitiallyRendered.current) setIsDirty(true);
+                                                        }}
                                                         placeholder="Enter Headquarter Address"
                                                         inputClassName="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     />
@@ -922,6 +975,7 @@ const AgentForm = () => {
                                                                 } else {
                                                                     setCoAgents((prev) => [...prev, agent]);
                                                                 }
+                                                                if (hasInitiallyRendered.current) setIsDirty(true);
                                                             }}
                                                             agent={selectedCoAgent}
                                                         />
@@ -975,7 +1029,10 @@ const AgentForm = () => {
                                                     <div className='flex items-center justify-between'>
                                                         <p >Require payment before releasing materials</p>
                                                         <Switch checked={isPaymentRequired}
-                                                            onCheckedChange={setIsPaymentRequired} className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41] float-end" />
+                                                            onCheckedChange={(val) => {
+                                                                setIsPaymentRequired(val);
+                                                                if (hasInitiallyRendered.current) setIsDirty(true);
+                                                            }} className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41] float-end" />
                                                         {fieldErrors.review_files && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.review_files[0]}</p>}
                                                     </div>
                                                 </div>
@@ -997,7 +1054,10 @@ const AgentForm = () => {
                                         <div className='w-[440px] mt-10 mb-5 px-4'>
                                             <Label className='text-[#666666]'>Music on tour</Label>
                                             <Switch checked={isTourMediaEnabled}
-                                                onCheckedChange={setIsTourMediaEnabled} className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41] float-end" />
+                                                onCheckedChange={(val) => {
+                                                    setIsTourMediaEnabled(val);
+                                                    if (hasInitiallyRendered.current) setIsDirty(true);
+                                                }} className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41] float-end" />
                                         </div>
                                         {isTourMediaEnabled && (
                                             <div className="md:w-[410px] pb-[32px] px-[10px] items-center md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
@@ -1012,6 +1072,7 @@ const AgentForm = () => {
                                                                     return;
                                                                 }
                                                                 setSelectedMp3(value);
+                                                                if (hasInitiallyRendered.current) setIsDirty(true);
                                                                 // Clear file if selecting a non-pending audio
                                                                 if (!value.startsWith('pending-')) {
                                                                     setMp3File(null);

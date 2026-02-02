@@ -60,15 +60,15 @@ interface ServicePayload {
     add_ons?: AddOns[];
     is_travel_required?: boolean | number;
 }
-interface PackagePayload {
+export interface PackagePayload {
     name: string;
     discount: number;
     service_ids: string[];
     status?: boolean | number;
 }
 export interface UpdateServicePayload {
-    status?: boolean,
-
+    status?: boolean | number,
+    _method?: string;
 }
 
 function payloadToFormData(payload: ServicePayload): FormData {
@@ -357,6 +357,21 @@ export async function GetOnePackage(token: string, packageId: string) {
 export async function UpdateServiceStatus(listingId: string, payload: UpdateServicePayload, token: string) {
 
     const response = await api.put(`/services/${listingId}/status`, payload, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+
+    if (response.status !== 200) {
+        throw new Error(response.data.message || `Request failed with status ${response.status}`);
+    }
+
+    return response.data;
+}
+
+export async function UpdatePackageStatus(packageId: string, payload: UpdateServicePayload, token: string) {
+
+    const response = await api.put(`/packages/${packageId}/status`, payload, {
         headers: {
             Authorization: `Bearer ${token}`,
         },

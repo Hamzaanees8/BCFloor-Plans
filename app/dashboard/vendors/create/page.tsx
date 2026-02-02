@@ -150,6 +150,28 @@ const daysOfWeek = [
 
 const VendorForm = () => {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    let ancestor = header.parentElement;
+    while (ancestor) {
+      const style = window.getComputedStyle(ancestor);
+      if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+        ancestor.style.setProperty('overflow-x', 'visible', 'important');
+        ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+        const target = ancestor;
+        return () => {
+          target.style.removeProperty('overflow-x');
+          target.style.removeProperty('overflow-y');
+        };
+      }
+      ancestor = ancestor.parentElement;
+    }
+  }, []);
   // const [openSaveDialog, setOpenSaveDialog] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -246,6 +268,7 @@ const VendorForm = () => {
   const { isDirty, setIsDirty } = useUnsaved();
   useUnsavedChangesWarning(isDirty);
   const isPopulatingData = useRef(false);
+  const hasInitiallyRendered = useRef(false);
 
   const handleReset = () => {
     setPassword("");
@@ -303,6 +326,16 @@ const VendorForm = () => {
       setBillingProvince("");
     }
   }, [billingCountry]);
+
+  // For create mode, mark as initially rendered after a short delay
+  // This prevents browser autofill from triggering dirty state
+  useEffect(() => {
+    if (!userId) {
+      setTimeout(() => {
+        hasInitiallyRendered.current = true;
+      }, 500); // Longer delay to account for browser autofill
+    }
+  }, [userId]);
 
   const fetchPaymentMethods = useCallback(() => {
     const token = localStorage.getItem("token");
@@ -526,9 +559,12 @@ const VendorForm = () => {
       setAdminReviewRequired(currentUser.review_files);
       setIsSyncToGoogle(currentUser.sync_google);
       setSyncEmailType(currentUser.sync_email || "");
-      requestAnimationFrame(() => {
+
+      // Use setTimeout to ensure all state updates and DOM updates complete
+      setTimeout(() => {
         isPopulatingData.current = false;
-      });
+        hasInitiallyRendered.current = true;
+      }, 100);
 
       setIsDirty(false);
     }
@@ -1074,9 +1110,10 @@ const VendorForm = () => {
         {active === "details" && (
           <form
             onChange={() => {
-              if (!isPopulatingData.current && userId) {
-                setIsDirty(true);
-              } else if (!userId) {
+              // Only mark as dirty if:
+              // 1. Not currently populating data from API
+              // 2. Has initially rendered (prevents autofill from triggering)
+              if (!isPopulatingData.current && hasInitiallyRendered.current) {
                 setIsDirty(true);
               }
             }}

@@ -12,7 +12,6 @@ export interface FetchErrors {
 }
 export interface UpdateListingPayload {
     status?: boolean,
-
 }
 
 export async function GetListing(token: string) {

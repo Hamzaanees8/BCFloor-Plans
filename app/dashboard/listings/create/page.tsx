@@ -25,7 +25,7 @@ import {
 } from "../listing";
 import { useParams, useRouter } from "next/navigation";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
-import { Listings } from "../page";
+import { Listings } from "@/lib/types";
 import { SaveModal } from "@/components/SaveModal";
 import { State } from "country-state-city";
 import DynamicMap from "@/components/DYnamicMap";
@@ -99,6 +99,29 @@ const ListingsFrom = () => {
   const { isDirty, setIsDirty } = useUnsaved();
   useUnsavedChangesWarning(isDirty);
   const isPopulatingData = useRef(false);
+  const hasInitiallyRendered = useRef(false);
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    let ancestor = header.parentElement;
+    while (ancestor) {
+      const style = window.getComputedStyle(ancestor);
+      if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+        ancestor.style.setProperty('overflow-x', 'visible', 'important');
+        ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+        const target = ancestor;
+        return () => {
+          target.style.removeProperty('overflow-x');
+          target.style.removeProperty('overflow-y');
+        };
+      }
+      ancestor = ancestor.parentElement;
+    }
+  }, []);
 
   const confirmAndExecute1 = () => {
     pendingAction1?.();
@@ -126,6 +149,16 @@ const ListingsFrom = () => {
       console.log("User ID is undefined.");
     }
   }, []);
+
+  // For create mode, mark as initially rendered after a short delay
+  // This prevents browser autofill from triggering dirty state
+  useEffect(() => {
+    if (!listingId) {
+      setTimeout(() => {
+        hasInitiallyRendered.current = true;
+      }, 500); // Longer delay to account for browser autofill
+    }
+  }, [listingId]);
   useEffect(() => {
     const token = localStorage.getItem("token");
 
@@ -177,9 +210,11 @@ const ListingsFrom = () => {
             setIsStaticmail(!!data.send_statistics_email);
             setEmailFrequency(data.statistics_email_frequency || "");
             setstaticEmail(data.statistics_email_recipients || []);
-            requestAnimationFrame(() => {
+            // Use setTimeout to ensure all state updates and DOM updates complete
+            setTimeout(() => {
               isPopulatingData.current = false;
-            });
+              hasInitiallyRendered.current = true;
+            }, 100);
 
             setIsDirty(false);
           }
@@ -622,9 +657,11 @@ const ListingsFrom = () => {
 
         toast.success("MLS data fetched and populated successfully!");
 
-        requestAnimationFrame(() => {
+        // Use setTimeout to ensure all state updates and DOM updates complete
+        setTimeout(() => {
           isPopulatingData.current = false;
-        });
+          hasInitiallyRendered.current = true;
+        }, 100);
         setIsDirty(true);
       } else {
         toast.error("Failed to fetch MLS data or no data returned");
@@ -648,7 +685,8 @@ const ListingsFrom = () => {
   return (
     <div className="font-alexandria">
       <div
-        className="w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center"
+        ref={headerRef}
+        className="w-full h-[80px] bg-[#E4E4E4] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
         style={{ boxShadow: "0px 4px 4px #0000001F" }}
       >
         <p
@@ -696,7 +734,7 @@ const ListingsFrom = () => {
         </p>
       </div>
       {listingId && (
-        <div className="w-full h-[60px] bg-[#E4E4E4] font-alexandria pr-5 z-10 flex items-center border-b border-[#BBBBBB]">
+        <div className="w-full h-[60px] bg-[#E4E4E4] font-alexandria pr-5 sticky top-[80px] z-40 flex items-center border-b border-[#BBBBBB]">
           <div className="flex items-center justify-center w-full">
             <div className="flex items-center justify-center gap-x-6 w-full">
               <Link
@@ -747,9 +785,10 @@ const ListingsFrom = () => {
       <div>
         <form
           onChange={() => {
-            if (!isPopulatingData.current && listingId) {
-              setIsDirty(true);
-            } else if (!listingId) {
+            // Only mark as dirty if:
+            // 1. Not currently populating data from API
+            // 2. Has initially rendered (prevents autofill from triggering)
+            if (!isPopulatingData.current && hasInitiallyRendered.current) {
               setIsDirty(true);
             }
           }}

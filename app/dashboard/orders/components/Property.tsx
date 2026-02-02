@@ -5,7 +5,7 @@ import { Agent } from '@/lib/types';
 import { ArrowDown, ArrowUp, DropDownArrow, EditIcon3 } from '../../../../components/Icons';
 import { Check, Plus, Loader2 } from 'lucide-react';
 import AddAgentDialog from './AddAgentDialog';
-import { Listings } from '@/app/dashboard/listings/page';
+import { Listings } from '@/lib/types';
 import { GetListing } from '@/app/dashboard/listings/listing';
 import { Country, State } from "country-state-city";
 import { GetOneListing, fetchMlsData } from "../../listings/listing"

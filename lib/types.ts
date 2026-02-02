@@ -282,3 +282,123 @@ export interface NotificationData {
         }>;
     };
 }
+
+export interface Option {
+    quantity: number;
+}
+
+export interface OrderService {
+    id: number;
+    uuid: string;
+    amount: string;
+    created_at: string;
+    updated_at: string;
+    custom: string;
+    option_id: number;
+    order_id: number;
+    service_id: number;
+    service: Service;
+    option: Option;
+}
+
+export interface ListingOrder {
+    id: number;
+    uuid: string;
+    amount: string;
+    paid_amount: string | number;
+    distance: string;
+    km_price: string;
+    est_time: string;
+    order_status:
+    | "Processing"
+    | "In Progress"
+    | "Pending"
+    | "Completed"
+    | "Cancelled"
+    | "On Hold";
+    payment_status: "PAID" | "UNPAID" | "PARTIALLY_PAID";
+    property_address: string;
+    property_location: string;
+    vendor_address: string;
+    vendor_location: string;
+    created_at: string;
+    updated_at: string;
+    services: OrderService[];
+    lock_materials: boolean;
+    tours?: {
+        files?: {
+            is_featured?: boolean;
+            file_path?: string;
+        }[];
+    }[];
+}
+
+export interface Listings {
+    uuid: string;
+    id?: number;
+    payment_status: string;
+    full_name?: string;
+    company?: string;
+    address: string;
+    listing_price: number;
+    bedrooms: number;
+    bathrooms: number;
+    square_footage: number;
+    year_constructed: number;
+    parking_spots: string;
+    property_type: string;
+    lot_size: string;
+    agent: Agent;
+    property_status: string;
+    stats: {
+        photos: number;
+        tours: number;
+        visitors: number;
+        imageViews: number;
+    };
+    activity?: string;
+    postal_code?: string;
+    province?: string;
+    city?: string;
+    country?: string;
+    created_at?: string | Date;
+    status?: boolean;
+    orders?: ListingOrder[];
+    tour_activated?: boolean;
+}
+
+export interface TourFile {
+    id: number;
+    uuid: string;
+    tour_id: number;
+    type: string;
+    name: string;
+    file_path: string;
+    is_featured: boolean;
+    is_admin_approved: boolean;
+    is_agent_approved: boolean;
+    is_show: boolean;
+}
+
+export interface Tour {
+    id: number;
+    uuid: string;
+    order_id: number;
+    is_publish: boolean;
+    files: TourFile[];
+    created_at: string;
+    orders: {
+        id: number;
+        uuid: string;
+        property_address: string;
+        property_location: string;
+        property: {
+            address: string;
+            city: string;
+            province: string;
+            property_status: string;
+            tour_activated: boolean;
+            mls_number?: string;
+        };
+    };
+}

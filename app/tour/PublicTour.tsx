@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,14 @@ import DynamicMap from "@/components/DYnamicMap";
 import { fetchPublicTourData, OrderData, recordTourStat } from "./tour";
 import CustomSlideshow from "../dashboard/file-manager/components/CustomPreview";
 import PublicTourFloorPlans from "./components/PublicTourFloorPlans";
+import {
+    Carousel,
+    CarouselContent,
+    CarouselItem,
+    CarouselNext,
+    CarouselPrevious,
+    type CarouselApi,
+} from "@/components/ui/carousel";
 
 export interface Snapshoots {
     x_axis: number;
@@ -55,6 +63,7 @@ const PublicTour = () => {
     const [mainVideo, setMainVideo] = useState<string | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | undefined>();
     const [visitorId, setVisitorId] = useState<string>('');
+    const [api, setApi] = useState<CarouselApi>();
     const viewedMediaRef = useRef<Set<string>>(new Set());
 
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
@@ -91,13 +100,28 @@ const PublicTour = () => {
     }, [orderuuid]);
 
     // Extract files from orderData.tours[0].files
-    const tourPhotos = orderData?.tours?.[0]?.files?.filter(file =>
+    const tourPhotos = useMemo(() => orderData?.tours?.[0]?.files?.filter(file =>
         (file.service.category.name === "photo" || file.service.category.name === "HDR Photos" || file.service.category.name === "Standard Photos" || file.service.category.name === "Twilight Photos") && file.is_show !== false
-    ) || [];
+    ) || [], [orderData]);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    const videoFiles = orderData?.tours?.[0]?.files?.filter(file => file.service.category.name === "video" && file.is_show !== false) || [];
-    const floorPlanFiles = orderData?.tours?.[0]?.files?.filter(file => file.service.category.name === "Floor Plan" && file.is_show !== false) || [];;
+    const videoFiles = useMemo(() => orderData?.tours?.[0]?.files?.filter(file => file.service.category.name === "video" && file.is_show !== false) || [], [orderData]);
+    const floorPlanFiles = useMemo(() => orderData?.tours?.[0]?.files?.filter(file => file.service.category.name === "Floor Plan" && file.is_show !== false) || [], [orderData]);
+    const matterportLinks = useMemo(() => orderData?.tours?.[0]?.links || [], [orderData]);
+
+    const visibleTabs = useMemo(() => {
+        const tabs = ["Home"];
+        if (tourPhotos.length > 0) tabs.push("Photos");
+        if (videoFiles.length > 0) tabs.push("Videos");
+        if (floorPlanFiles.length > 0) tabs.push("Floorplan");
+        if (matterportLinks.length > 0) tabs.push("Matterport");
+        return tabs;
+    }, [tourPhotos, videoFiles, floorPlanFiles, matterportLinks]);
+
+    useEffect(() => {
+        if (!visibleTabs.includes(activeTab)) {
+            setActiveTab("Home");
+        }
+    }, [visibleTabs, activeTab]);
 
     useEffect(() => {
         if (!mainVideo && videoFiles.length > 0) {
@@ -106,26 +130,26 @@ const PublicTour = () => {
     }, [videoFiles, mainVideo, API_URL]);
 
 
+    useEffect(() => {
+        if (!api) return;
+
+        const onSelect = () => {
+            setCurrentImageIndex(api.selectedScrollSnap());
+        };
+
+        api.on("select", onSelect);
+        return () => {
+            api.off("select", onSelect);
+        };
+    }, [api]);
+
     const handlePrev = () => {
-        setCurrentImageIndex((prev) =>
-            prev === 0 ? tourPhotos.length - 1 : prev - 1
-        );
+        api?.scrollPrev();
     };
 
     const handleNext = () => {
-        setCurrentImageIndex((prev) =>
-            prev === tourPhotos.length - 1 ? 0 : prev + 1
-        );
+        api?.scrollNext();
     };
-
-
-
-
-    useEffect(() => {
-        if (!mainVideo && videoFiles.length > 0) {
-            setMainVideo(`${API_URL}/${videoFiles[0].file_path}`);
-        }
-    }, [videoFiles, mainVideo, API_URL]);
 
     // Track audio
     const audioFileName = orderData?.tours?.[0]?.slide_show?.background_audio;
@@ -230,8 +254,8 @@ const PublicTour = () => {
                 </div>
 
                 <div className="flex justify-center space-x-4 py-2 absolute top-16 z-50 place-self-center">
-                    {["Home", "Photos", "Videos", "Floorplan", "Matterport"].map(
-                        (tab) => (
+                    {visibleTabs.map(
+                        (tab: string) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
@@ -249,27 +273,39 @@ const PublicTour = () => {
                 {activeTab === "Home" && (
                     <div >
                         {tourPhotos.length > 0 && (
-                            <div className="relative w-full h-[100vh]  overflow-hidden">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                    src={`${API_URL}/${tourPhotos[currentImageIndex].file_path}`}
-                                    alt={`Slide ${currentImageIndex + 1}`}
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute bottom-4 right-4 flex space-x-2">
-                                    <button
+                            <div className="relative w-full h-[100vh] overflow-hidden group">
+                                <Carousel
+                                    setApi={setApi}
+                                    className="w-full h-full"
+                                    opts={{
+                                        loop: true,
+                                    }}
+                                >
+                                    <CarouselContent className="h-full ml-0">
+                                        {tourPhotos.map((photo, index) => (
+                                            <CarouselItem key={index} className="pl-0 h-[100vh]">
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                    src={`${API_URL}/${photo.file_path}`}
+                                                    alt={`Slide ${index + 1}`}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            </CarouselItem>
+                                        ))}
+                                    </CarouselContent>
+                                    <CarouselPrevious
+                                        className="absolute left-6 top-1/2 -translate-y-1/2 z-40 w-12 h-12 bg-gray-500 hover:bg-gray-600 hover:text-white border-0 rounded-full text-white transition-all flex items-center justify-center"
                                         onClick={handlePrev}
-                                        className="  shadow flex items-center justify-center"
                                     >
-                                        <CircleArrowLeft className="w-10 h-10 text-white" />
-                                    </button>
-                                    <button
+                                        <CircleArrowLeft className="w-10 h-4" />
+                                    </CarouselPrevious>
+                                    <CarouselNext
+                                        className="absolute right-6 top-1/2 -translate-y-1/2 z-40 w-12 h-12 bg-gray-500 hover:bg-gray-600 hover:text-white border-0 rounded-full text-white transition-all flex items-center justify-center"
                                         onClick={handleNext}
-                                        className=" shadow flex items-center justify-center"
                                     >
-                                        <CircleArrowRight className="w-10 h-10 text-white" />
-                                    </button>
-                                </div>
+                                        <CircleArrowRight className="w-10 h-4" />
+                                    </CarouselNext>
+                                </Carousel>
                             </div>
                         )}
 
@@ -505,10 +541,17 @@ const PublicTour = () => {
                 )
                 }
                 {activeTab === "Matterport" && (
-                    <div className="w-full flex flex-col items-center gap-10">
-                        <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
-                            <p>No Matterport Available.</p>
-                        </div>
+                    <div className="w-full flex flex-col items-center gap-10 px-6">
+                        {matterportLinks.map((link, idx) => (
+                            <div key={idx} className="w-full max-w-[1200px] h-[70vh] bg-black rounded-lg overflow-hidden shadow-lg">
+                                <iframe
+                                    src={link.link}
+                                    className="w-full h-full border-0"
+                                    allowFullScreen
+                                    allow="xr-spatial-tracking"
+                                />
+                            </div>
+                        ))}
                     </div>
                 )}
 

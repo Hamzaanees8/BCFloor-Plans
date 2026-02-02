@@ -117,6 +117,9 @@ const OrdersForm = () => {
     const { isDirty, setIsDirty } = useUnsaved();
     useUnsavedChangesWarning(isDirty)
     const isPopulatingData = useRef(false);
+    const hasInitiallyRendered = useRef(false);
+    const headerRef = useRef<HTMLDivElement>(null);
+    const [activeTab, setActiveTab] = useState("profile");
 
     const searchParams = useSearchParams();
 
@@ -163,8 +166,17 @@ const OrdersForm = () => {
 
         if (subAccountId) {
             GetOne(token, subAccountId)
-                .then(data => setCurrentUser(data.data))
+                .then(data => {
+                    isPopulatingData.current = true;
+                    setCurrentUser(data.data);
+                })
                 .catch(err => console.log(err.message));
+        } else {
+            // For create mode, mark as initially rendered after a short delay
+            // This prevents browser autofill from triggering dirty state
+            setTimeout(() => {
+                hasInitiallyRendered.current = true;
+            }, 500); // Longer delay to account for browser autofill
         }
     }, [subAccountId]);
     useEffect(() => {
@@ -213,9 +225,11 @@ const OrdersForm = () => {
             if (currentUser.avatar_url) setAvatarUrl(currentUser.avatar_url);
             if (currentUser.company_logo_url) setCompanyLogoUrl(currentUser.company_logo_url);
             if (currentUser.company_banner_url) setCompanyBannerUrl(currentUser.company_banner_url);
-            requestAnimationFrame(() => {
+            // Use setTimeout to ensure all state updates and DOM updates complete
+            setTimeout(() => {
                 isPopulatingData.current = false;
-            });
+                hasInitiallyRendered.current = true;
+            }, 100);
 
             setIsDirty(false);
         }
@@ -338,6 +352,27 @@ const OrdersForm = () => {
         setSelectedPermissions(newPermissions);
 
     }, [role, permissions, roles]);
+
+    useEffect(() => {
+        const header = headerRef.current;
+        if (!header) return;
+
+        let ancestor = header.parentElement;
+        while (ancestor) {
+            const style = window.getComputedStyle(ancestor);
+            if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+                ancestor.style.setProperty('overflow-x', 'visible', 'important');
+                ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+                const target = ancestor;
+                return () => {
+                    target.style.removeProperty('overflow-x');
+                    target.style.removeProperty('overflow-y');
+                };
+            }
+            ancestor = ancestor.parentElement;
+        }
+    }, [headerRef]);
 
     const validateForm = () => {
         const errors: Record<string, string[]> = {};
@@ -533,12 +568,47 @@ const OrdersForm = () => {
 
     return (
         <div className='font-alexandria'>
-            <div className='w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }} >
+            <div ref={headerRef} className='w-full h-[80px] font-alexandria z-50 sticky top-0 flex justify-between px-[20px] items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}> Sub Account
                     {currentUser ? ` › ${currentUser.first_name} ${currentUser.last_name}` : ' › Create'}</p>
                 <Button onClick={(e) => { handleSubmit(e) }} disabled={isLoading} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>
                     {isLoading ? <Loader2 className="animate-spin w-5 h-5" /> : "Save Changes"}
                 </Button>
+            </div>
+
+            <div className="flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600] sticky top-[80px] z-40" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setActiveTab("profile")}
+                        className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                        ${activeTab === "profile"
+                                ? `${userType}-bg text-white`
+                                : "bg-[#F2F2F2] text-[#666666]"
+                            }`}
+                    >
+                        PROFILE
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("permissions")}
+                        className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                        ${activeTab === "permissions"
+                                ? `${userType}-bg text-white`
+                                : "bg-[#F2F2F2] text-[#666666]"
+                            }`}
+                    >
+                        PERMISSIONS
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("payment")}
+                        className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                        ${activeTab === "payment"
+                                ? `${userType}-bg text-white`
+                                : "bg-[#F2F2F2] text-[#666666]"
+                            }`}
+                    >
+                        PAYMENT
+                    </button>
+                </div>
             </div>
             <SaveModal
                 isOpen={openSaveDialog}
@@ -551,467 +621,420 @@ const OrdersForm = () => {
             <div>
                 <form
                     onChange={() => {
-                        if (!isPopulatingData.current && subAccountId) {
+                        // Only mark as dirty if:
+                        // 1. Not currently populating data from API
+                        // 2. Has initially rendered (prevents autofill from triggering)
+                        if (!isPopulatingData.current && hasInitiallyRendered.current) {
                             setIsDirty(true);
-                        } else if (!subAccountId) {
-                            setIsDirty(true)
                         }
                     }}
                 >
-                    <Accordion type="multiple" defaultValue={["profile", "permissions", "branding", "payment", "account"]} className="w-full space-y-4">
-                        <AccordionItem value="profile">
-                            <AccordionTrigger
-                                className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-                            > PROFILE</AccordionTrigger>
-                            <AccordionContent className="grid gap-4">
-                                <div className='w-full flex flex-col items-center'>
-                                    <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                        <div className='grid grid-cols-2 gap-[16px]'>
-                                            <div>
-                                                <label htmlFor="">First Name <span className="text-red-500">*</span></label>
-                                                <Input
-                                                    required
-                                                    value={firstName}
-                                                    onChange={(e) => {
-                                                        setFirstName(e.target.value);
-                                                        if (fieldErrors.first_name) {
-                                                            setFieldErrors(prev => {
-                                                                const newErrors = { ...prev };
-                                                                delete newErrors.first_name;
-                                                                return newErrors;
-                                                            });
-                                                        }
-                                                    }}
-                                                    className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.first_name ? 'border-red-500' : ''}`} type="text" />
-                                                {fieldErrors.first_name && <p className='text-red-500 text-[10px]'>{fieldErrors.first_name[0]}</p>}
-                                            </div>
-                                            <div>
-                                                <label htmlFor="">Last Name <span className="text-red-500">*</span></label>
-                                                <Input
-                                                    value={lastName}
-                                                    onChange={(e) => {
-                                                        setLastName(e.target.value);
-                                                        if (fieldErrors.last_name) {
-                                                            setFieldErrors(prev => {
-                                                                const newErrors = { ...prev };
-                                                                delete newErrors.last_name;
-                                                                return newErrors;
-                                                            });
-                                                        }
-                                                    }}
-                                                    className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.last_name ? 'border-red-500' : ''}`} type="text" />
-                                                {fieldErrors.last_name && <p className='text-red-500 text-[10px]'>{fieldErrors.last_name[0]}</p>}
-                                            </div>
-                                            {userType === 'admin' &&
-                                                <div className='col-span-2'>
-                                                    <label htmlFor="">Connected Agents <span className="text-red-500">*</span></label>
-                                                    <Select value={connectedAgent} onValueChange={(val) => {
-                                                        setConnectedAgent(val);
-                                                        if (fieldErrors.agent_id) {
-                                                            setFieldErrors(prev => {
-                                                                const newErrors = { ...prev };
-                                                                delete newErrors.agent_id;
-                                                                return newErrors;
-                                                            });
-                                                        }
-                                                    }} disabled={!!agentId}>
-                                                        <SelectTrigger className={`w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB] ${fieldErrors.agent_id ? 'border-red-500' : ''}`}>
-                                                            <SelectValue placeholder="Select Agent" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {agent.map((ag) => (
-                                                                <SelectItem key={ag.uuid} value={ag.uuid}>
-                                                                    {ag.first_name} {ag.last_name}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-
-                                                    {fieldErrors.agent_id && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.agent_id[0]}</p>}
-                                                </div>
-                                            }
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Email <span className="text-red-500">*</span></label>
-                                                <Input value={email}
-                                                    onChange={(e) => {
-                                                        setEmail(e.target.value);
-                                                        if (fieldErrors.primary_email) {
-                                                            setFieldErrors(prev => {
-                                                                const newErrors = { ...prev };
-                                                                delete newErrors.primary_email;
-                                                                return newErrors;
-                                                            });
-                                                        }
-                                                    }}
-                                                    className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.primary_email ? 'border-red-500' : ''}`} type="email" />
-
-                                                {fieldErrors.primary_email && <p className='text-red-500 text-[10px]'>{fieldErrors.primary_email[0]}</p>}
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Email Secondary</label>
-                                                <Input value={secondaryEmail}
-                                                    onChange={(e) => setSecondaryEmail(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="email" />
-                                            </div>
-                                            <div className='flex items-center gap-[10px]'>
-                                                <div className='flex items-center gap-[10px]'>
+                    {activeTab === "profile" && (
+                        <Accordion type="multiple" defaultValue={["profile", "branding", "account"]} className="w-full space-y-4">
+                            <AccordionItem value="profile">
+                                <AccordionTrigger
+                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                > PROFILE</AccordionTrigger>
+                                <AccordionContent className="grid gap-4">
+                                    <div className='w-full flex flex-col items-center'>
+                                        <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                                            <div className='grid grid-cols-2 gap-[16px]'>
+                                                <div>
+                                                    <label htmlFor="">First Name <span className="text-red-500">*</span></label>
                                                     <Input
-                                                        type='checkbox'
-                                                        checked={notificationEmail}
-                                                        onChange={(e) => setNotificationEmail(e.target.checked)}
-                                                        className='h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'
-                                                    />
-                                                    <p className='text-[16px] font-normal text-[#666666] mt-[12px]'>
-                                                        Notification Email
-                                                    </p>
-                                                </div>
-
-                                            </div>
-                                            <div className=''>
-                                                <Select value={emailType} onValueChange={setEmailType}>
-                                                    <SelectTrigger className="w-full  h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
-                                                        <SelectValue placeholder="Select Email Type" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="primary">Primary Email</SelectItem>
-                                                        <SelectItem value="secondary">Secondary Email</SelectItem>
-                                                        <SelectItem value="both">Both</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div>
-                                                <label htmlFor="">Primary Phone <span className="text-red-500">*</span></label>
-                                                <Input value={primaryPhone}
-                                                    onChange={(e) => {
-                                                        setPrimaryPhone(e.target.value);
-                                                        if (fieldErrors.primary_phone) {
-                                                            setFieldErrors(prev => {
-                                                                const newErrors = { ...prev };
-                                                                delete newErrors.primary_phone;
-                                                                return newErrors;
-                                                            });
-                                                        }
-                                                    }}
-                                                    className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.primary_phone ? 'border-red-500' : ''}`} type="text" />
-                                                {fieldErrors.primary_phone && <p className='text-red-500 text-[10px]'>{fieldErrors.primary_phone[0]}</p>}
-                                            </div>
-                                            <div>
-                                                <label htmlFor="">Secondary Phone</label>
-                                                <Input value={secondaryPhone}
-                                                    onChange={(e) => setSecondaryPhone(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-                                            </div>
-
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Company Name</label>
-                                                <Input value={companyName}
-                                                    onChange={(e) => setCompanyName(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Company Website</label>
-                                                <Input value={companyWebsite}
-                                                    onChange={(e) => setCompanyWebsite(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-
-                                            </div>
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Address</label>
-                                                <GooglePlacesAutocomplete
-                                                    value={address}
-                                                    onChange={(val) => setAddress(val)}
-                                                    onAddressComponents={(components) => {
-                                                        setAddress(components.address_line_1);
-                                                        setCity(components.city);
-                                                        setCountry(components.country);
-                                                        setPostalCode(components.postal_code);
-                                                        setTimeout(() => {
-                                                            setProvince(components.province);
-                                                        }, 100);
-                                                    }}
-                                                    className="h-[42px] mt-[12px]"
-                                                    inputClassName="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB]"
-                                                    placeholder="Enter address"
-                                                    fieldErrors={fieldErrors}
-                                                />
-                                            </div>
-                                            <div className='hidden'>
-                                                <label htmlFor="">City</label>
-                                                <Input value={city}
-                                                    onChange={(e) => setCity(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-                                            </div>
-                                            <div className='hidden'>
-                                                <label htmlFor="">Province</label>
-                                                <Select
-                                                    value={province}
-                                                    onValueChange={(val) => setProvince(val)}
-                                                    disabled={!states.length}
-                                                >
-                                                    <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
-                                                        <SelectValue placeholder="Select Province" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {states.map((s, i) => (
-                                                            <SelectItem key={i} value={s.isoCode}>
-                                                                {s.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className='col-span-2 hidden'>
-                                                <label htmlFor="">Postal Code</label>
-                                                <Input value={postalCode}
-                                                    onChange={(e) => setPostalCode(e.target.value)}
-                                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-                                            </div>
-                                            <div className='col-span-2 hidden'>
-                                                <label htmlFor="">Country</label>
-                                                <Select value={country} onValueChange={(val) => {
-                                                    setCountry(val);
-                                                    setProvince("");
-                                                }}>
-                                                    <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
-                                                        <SelectValue placeholder="Select Country" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {countries.map((c, i) => (
-                                                            <SelectItem key={i} value={c.isoCode}>
-                                                                {c.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className='col-span-2 h-[200px]'>
-                                                <DynamicMap
-                                                    address={address}
-                                                    city={city}
-                                                    province={province}
-                                                    country={country}
-                                                />
-                                            </div>
-                                            {!currentUser && (
-                                                <div className='col-span-2'>
-                                                    <label htmlFor="">Password <span className="text-red-500">*</span></label>
-                                                    <Input
-                                                        value={password}
+                                                        required
+                                                        value={firstName}
                                                         onChange={(e) => {
-                                                            setPassword(e.target.value);
-                                                            if (fieldErrors.password) {
+                                                            setFirstName(e.target.value);
+                                                            if (fieldErrors.first_name) {
                                                                 setFieldErrors(prev => {
                                                                     const newErrors = { ...prev };
-                                                                    delete newErrors.password;
+                                                                    delete newErrors.first_name;
                                                                     return newErrors;
                                                                 });
                                                             }
                                                         }}
-                                                        className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.password ? 'border-red-500' : ''}`}
-                                                        type="password"
-                                                    />
-                                                    {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
+                                                        className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.first_name ? 'border-red-500' : ''}`} type="text" />
+                                                    {fieldErrors.first_name && <p className='text-red-500 text-[10px]'>{fieldErrors.first_name[0]}</p>}
                                                 </div>
-                                            )}
-                                            {currentUser && (<p className='text-[16px] font-normal text-[#666666]'>Reset Password</p>)}
+                                                <div>
+                                                    <label htmlFor="">Last Name <span className="text-red-500">*</span></label>
+                                                    <Input
+                                                        value={lastName}
+                                                        onChange={(e) => {
+                                                            setLastName(e.target.value);
+                                                            if (fieldErrors.last_name) {
+                                                                setFieldErrors(prev => {
+                                                                    const newErrors = { ...prev };
+                                                                    delete newErrors.last_name;
+                                                                    return newErrors;
+                                                                });
+                                                            }
+                                                        }}
+                                                        className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.last_name ? 'border-red-500' : ''}`} type="text" />
+                                                    {fieldErrors.last_name && <p className='text-red-500 text-[10px]'>{fieldErrors.last_name[0]}</p>}
+                                                </div>
+                                                {userType === 'admin' &&
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Connected Agents <span className="text-red-500">*</span></label>
+                                                        <Select value={connectedAgent} onValueChange={(val) => {
+                                                            setConnectedAgent(val);
+                                                            if (fieldErrors.agent_id) {
+                                                                setFieldErrors(prev => {
+                                                                    const newErrors = { ...prev };
+                                                                    delete newErrors.agent_id;
+                                                                    return newErrors;
+                                                                });
+                                                            }
+                                                        }} disabled={!!agentId}>
+                                                            <SelectTrigger className={`w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB] ${fieldErrors.agent_id ? 'border-red-500' : ''}`}>
+                                                                <SelectValue placeholder="Select Agent" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {agent.map((ag) => (
+                                                                    <SelectItem key={ag.uuid} value={ag.uuid}>
+                                                                        {ag.first_name} {ag.last_name}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
 
-                                        </div>
-                                    </div>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-
-                        <AccordionItem value="permissions">
-                            <AccordionTrigger
-                                className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-                            >PERMISSION ACCESS</AccordionTrigger>
-                            <AccordionContent className="grid gap-4">
-                                <div className='w-full flex flex-col items-center'>
-                                    <div className='flex flex-col w-full md:w-[410px] mt-[20px] px-[10px] md:px-0'>
-                                        <label htmlFor="">Role <span className="text-red-500">*</span></label>
-                                        <Select
-                                            value={String(role)}
-                                            onValueChange={(val) => {
-                                                setRole(val);
-                                                if (fieldErrors.role_id) {
-                                                    setFieldErrors(prev => {
-                                                        const newErrors = { ...prev };
-                                                        delete newErrors.role_id;
-                                                        return newErrors;
-                                                    });
-                                                }
-                                            }}
-                                        >
-                                            <SelectTrigger className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.role_id ? 'border-red-500' : ''}`}>
-                                                <SelectValue placeholder="Select a role" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {roles?.map((role) => (
-                                                    <SelectItem key={role.id} value={String(role.id)}>
-                                                        {role.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-
-                                        {fieldErrors.role_id && <p className='text-red-500 text-[10px]'>{fieldErrors.role_id[0]}</p>}
-                                    </div>
-                                    <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                        {permissions?.map((permission) => (
-                                            <div key={permission.id} className="flex items-center justify-between">
-                                                <p>{permission.name}</p>
-                                                <Switch
-                                                    checked={selectedPermissions.includes(Number(permission.id))}
-                                                    onCheckedChange={(checked) => togglePermission(Number(permission.id), checked)}
-                                                    className="bg-gray-300 data-[state=checked]:bg-[#6BAE41]"
-                                                />
-                                            </div>
-                                        ))}
-                                        {fieldErrors.permissions && <p className='text-red-500 text-[10px]'>{fieldErrors.permissions[0]}</p>}
-                                    </div>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-
-                        <AccordionItem value="branding">
-                            <AccordionTrigger
-                                className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-                            >Branding Assets</AccordionTrigger>
-                            <AccordionContent className="grid gap-4">
-                                <div className='w-full flex flex-col items-center'>
-                                    <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                        <div className='flex flex-col gap-y-[6px]'>
-                                            <div className='flex items-end gap-x-[6px]'>
-                                                {avatarUrl ?
-                                                    <Image
-                                                        unoptimized
-                                                        src={avatarUrl}
-                                                        alt="Avatar"
-                                                        width={64}
-                                                        height={64}
-                                                        className="h-16 w-16 object-cover border"
-                                                    />
-                                                    : <div className='w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]'></div>
-                                                }
-                                                <div className="flex-1">
-                                                    <Label className="text-sm  text-gray-600">Avatar</Label>
-                                                    <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
-                                                        <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">{AvatarfileName}
-                                                        </span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={triggerFileInput}
-                                                            className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                                                        >
-                                                            Replace
-                                                        </button>
+                                                        {fieldErrors.agent_id && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.agent_id[0]}</p>}
                                                     </div>
-                                                    <input
-                                                        type="file"
-                                                        accept="image/png, image/jpeg"
-                                                        ref={AvatarfileInputRef}
-                                                        onChange={handleFileChange}
-                                                        className="hidden"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <p className="text-[10px] text-[#6BAE41] ">
-                                                Avatar 96 x 96, PNG or JPG
-                                            </p>
-
-                                        </div>
-                                        <div className='flex flex-col gap-y-[6px]'>
-                                            <div className='flex items-end gap-x-[6px]'>
-                                                {CompanyLogoUrl ?
-                                                    <Image
-                                                        unoptimized
-                                                        src={CompanyLogoUrl}
-                                                        alt="Avatar"
-                                                        width={64}
-                                                        height={64}
-                                                        className="h-16 w-16 object-cover border"
-                                                    />
-                                                    : <div className='w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]'></div>
                                                 }
-                                                <div className="flex-1">
-                                                    <Label className="text-sm  text-gray-600">Company Logo</Label>
-                                                    <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
-                                                        <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">{CompanyLogofileName}
-                                                        </span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={triggerFileInput1}
-                                                            className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                                                        >
-                                                            Replace
-                                                        </button>
-                                                    </div>
-                                                    <input
-                                                        type="file"
-                                                        accept="image/png, image/jpeg"
-                                                        ref={CompanyLogofileInputRef}
-                                                        onChange={handleFileChange1}
-                                                        className="hidden"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <p className="text-[10px] text-[#6BAE41] ">
-                                                Company logo 512 x 512, PNG or JPG
-                                            </p>
+                                                <div className='col-span-2'>
+                                                    <label htmlFor="">Email <span className="text-red-500">*</span></label>
+                                                    <Input value={email}
+                                                        onChange={(e) => {
+                                                            setEmail(e.target.value);
+                                                            if (fieldErrors.primary_email) {
+                                                                setFieldErrors(prev => {
+                                                                    const newErrors = { ...prev };
+                                                                    delete newErrors.primary_email;
+                                                                    return newErrors;
+                                                                });
+                                                            }
+                                                        }}
+                                                        autoComplete="off"
+                                                        className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.primary_email ? 'border-red-500' : ''}`} type="email" />
 
-                                        </div>
-                                        <div className='flex flex-col gap-y-[6px]'>
-                                            <div className='flex items-end gap-x-[6px] flex-1'>
-                                                {CompanyBannerUrl ?
-                                                    <Image
-                                                        unoptimized
-                                                        src={CompanyBannerUrl}
-                                                        alt="Avatar"
-                                                        width={64}
-                                                        height={64}
-                                                        className="h-16 w-16 object-cover border"
-                                                    />
-                                                    : <div className='w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]'></div>
-                                                }
-                                                <div className="flex-1">
-                                                    <Label className="text-sm font-normal">Company Banner</Label>
-                                                    <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
-                                                        <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">
-                                                            {CompanyBannerfileName}
-                                                        </span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={triggerFileInput2}
-                                                            className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                                                        >
-                                                            Browse
-                                                        </button>
+                                                    {fieldErrors.primary_email && <p className='text-red-500 text-[10px]'>{fieldErrors.primary_email[0]}</p>}
+                                                </div>
+                                                <div className='col-span-2'>
+                                                    <label htmlFor="">Email Secondary</label>
+                                                    <Input value={secondaryEmail}
+                                                        onChange={(e) => setSecondaryEmail(e.target.value)}
+                                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="email" />
+                                                </div>
+                                                <div className='flex items-center gap-[10px]'>
+                                                    <div className='flex items-center gap-[10px]'>
+                                                        <Input
+                                                            type='checkbox'
+                                                            checked={notificationEmail}
+                                                            onChange={(e) => setNotificationEmail(e.target.checked)}
+                                                            className='h-[20px] w-[20px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                        />
+                                                        <p className='text-[16px] font-normal text-[#666666] mt-[12px]'>
+                                                            Notification Email
+                                                        </p>
                                                     </div>
 
+                                                </div>
+                                                <div className=''>
+                                                    <Select value={emailType} onValueChange={setEmailType}>
+                                                        <SelectTrigger className="w-full  h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
+                                                            <SelectValue placeholder="Select Email Type" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="primary">Primary Email</SelectItem>
+                                                            <SelectItem value="secondary">Secondary Email</SelectItem>
+                                                            <SelectItem value="both">Both</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div>
+                                                    <label htmlFor="">Primary Phone <span className="text-red-500">*</span></label>
+                                                    <Input value={primaryPhone}
+                                                        onChange={(e) => {
+                                                            setPrimaryPhone(e.target.value);
+                                                            if (fieldErrors.primary_phone) {
+                                                                setFieldErrors(prev => {
+                                                                    const newErrors = { ...prev };
+                                                                    delete newErrors.primary_phone;
+                                                                    return newErrors;
+                                                                });
+                                                            }
+                                                        }}
+                                                        className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.primary_phone ? 'border-red-500' : ''}`} type="text" />
+                                                    {fieldErrors.primary_phone && <p className='text-red-500 text-[10px]'>{fieldErrors.primary_phone[0]}</p>}
+                                                </div>
+                                                <div>
+                                                    <label htmlFor="">Secondary Phone</label>
+                                                    <Input value={secondaryPhone}
+                                                        onChange={(e) => setSecondaryPhone(e.target.value)}
+                                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                </div>
 
-                                                    <input
-                                                        type="file"
-                                                        accept="image/png, image/jpeg"
-                                                        ref={CompanyBannerfileInputRef}
-                                                        onChange={handleFileChange2}
-                                                        className="hidden"
+                                                <div className='col-span-2'>
+                                                    <label htmlFor="">Company Name</label>
+                                                    <Input value={companyName}
+                                                        onChange={(e) => setCompanyName(e.target.value)}
+                                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                </div>
+                                                <div className='col-span-2'>
+                                                    <label htmlFor="">Company Website</label>
+                                                    <Input value={companyWebsite}
+                                                        onChange={(e) => setCompanyWebsite(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+
+                                                </div>
+                                                <div className='col-span-2'>
+                                                    <label htmlFor="">Address</label>
+                                                    <GooglePlacesAutocomplete
+                                                        value={address}
+                                                        onChange={(val) => setAddress(val)}
+                                                        onAddressComponents={(components) => {
+                                                            setAddress(components.address_line_1);
+                                                            setCity(components.city);
+                                                            setCountry(components.country);
+                                                            setPostalCode(components.postal_code);
+                                                            setTimeout(() => {
+                                                                setProvince(components.province);
+                                                            }, 100);
+                                                        }}
+                                                        className="h-[42px] mt-[12px]"
+                                                        inputClassName="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB]"
+                                                        placeholder="Enter address"
+                                                        fieldErrors={fieldErrors}
                                                     />
                                                 </div>
+                                                <div className='hidden'>
+                                                    <label htmlFor="">City</label>
+                                                    <Input value={city}
+                                                        onChange={(e) => setCity(e.target.value)}
+                                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                </div>
+                                                <div className='hidden'>
+                                                    <label htmlFor="">Province</label>
+                                                    <Select
+                                                        value={province}
+                                                        onValueChange={(val) => setProvince(val)}
+                                                        disabled={!states.length}
+                                                    >
+                                                        <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                                                            <SelectValue placeholder="Select Province" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {states.map((s, i) => (
+                                                                <SelectItem key={i} value={s.isoCode}>
+                                                                    {s.name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className='col-span-2 hidden'>
+                                                    <label htmlFor="">Postal Code</label>
+                                                    <Input value={postalCode}
+                                                        onChange={(e) => setPostalCode(e.target.value)}
+                                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                </div>
+                                                <div className='col-span-2 hidden'>
+                                                    <label htmlFor="">Country</label>
+                                                    <Select value={country} onValueChange={(val) => {
+                                                        setCountry(val);
+                                                        setProvince("");
+                                                    }}>
+                                                        <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                                                            <SelectValue placeholder="Select Country" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {countries.map((c, i) => (
+                                                                <SelectItem key={i} value={c.isoCode}>
+                                                                    {c.name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className='col-span-2 h-[200px]'>
+                                                    <DynamicMap
+                                                        address={address}
+                                                        city={city}
+                                                        province={province}
+                                                        country={country}
+                                                    />
+                                                </div>
+                                                {!currentUser && (
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Password <span className="text-red-500">*</span></label>
+                                                        <Input
+                                                            value={password}
+                                                            onChange={(e) => {
+                                                                setPassword(e.target.value);
+                                                                if (fieldErrors.password) {
+                                                                    setFieldErrors(prev => {
+                                                                        const newErrors = { ...prev };
+                                                                        delete newErrors.password;
+                                                                        return newErrors;
+                                                                    });
+                                                                }
+                                                            }}
+                                                            className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.password ? 'border-red-500' : ''}`}
+                                                            autoComplete="new-password"
+                                                            type="password"
+                                                        />
+                                                        {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
+                                                    </div>
+                                                )}
+                                                {currentUser && (<p className='text-[16px] font-normal text-[#666666]'>Reset Password</p>)}
+
                                             </div>
-                                            <p className="text-[10px] text-[#4290E9] ">
-                                                Company banner 1600 x 720, PNG or JPG
-                                            </p>
                                         </div>
-                                        <p className='text-[#666666] text-sm font-normal pt-4'>Explanation of where these assets are used and leveraged, recommended/specify dimensions, color variations, etc.</p>
                                     </div>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
+                                </AccordionContent>
+                            </AccordionItem>
+
+                            <AccordionItem value="branding">
+                                <AccordionTrigger
+                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                >Branding Assets</AccordionTrigger>
+                                <AccordionContent className="grid gap-4">
+                                    <div className='w-full flex flex-col items-center'>
+                                        <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                                            <div className='flex flex-col gap-y-[6px]'>
+                                                <div className='flex items-end gap-x-[6px]'>
+                                                    {avatarUrl ?
+                                                        <Image
+                                                            unoptimized
+                                                            src={avatarUrl}
+                                                            alt="Avatar"
+                                                            width={64}
+                                                            height={64}
+                                                            className="h-16 w-16 object-cover border"
+                                                        />
+                                                        : <div className='w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]'></div>
+                                                    }
+                                                    <div className="flex-1">
+                                                        <Label className="text-sm  text-gray-600">Avatar</Label>
+                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
+                                                            <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">{AvatarfileName}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={triggerFileInput}
+                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                            >
+                                                                Replace
+                                                            </button>
+                                                        </div>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/png, image/jpeg"
+                                                            ref={AvatarfileInputRef}
+                                                            onChange={handleFileChange}
+                                                            className="hidden"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <p className="text-[10px] text-[#6BAE41] ">
+                                                    Avatar 96 x 96, PNG or JPG
+                                                </p>
+
+                                            </div>
+                                            <div className='flex flex-col gap-y-[6px]'>
+                                                <div className='flex items-end gap-x-[6px]'>
+                                                    {CompanyLogoUrl ?
+                                                        <Image
+                                                            unoptimized
+                                                            src={CompanyLogoUrl}
+                                                            alt="Avatar"
+                                                            width={64}
+                                                            height={64}
+                                                            className="h-16 w-16 object-cover border"
+                                                        />
+                                                        : <div className='w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]'></div>
+                                                    }
+                                                    <div className="flex-1">
+                                                        <Label className="text-sm  text-gray-600">Company Logo</Label>
+                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
+                                                            <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">{CompanyLogofileName}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={triggerFileInput1}
+                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                            >
+                                                                Replace
+                                                            </button>
+                                                        </div>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/png, image/jpeg"
+                                                            ref={CompanyLogofileInputRef}
+                                                            onChange={handleFileChange1}
+                                                            className="hidden"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <p className="text-[10px] text-[#6BAE41] ">
+                                                    Company logo 512 x 512, PNG or JPG
+                                                </p>
+
+                                            </div>
+                                            <div className='flex flex-col gap-y-[6px]'>
+                                                <div className='flex items-end gap-x-[6px] flex-1'>
+                                                    {CompanyBannerUrl ?
+                                                        <Image
+                                                            unoptimized
+                                                            src={CompanyBannerUrl}
+                                                            alt="Avatar"
+                                                            width={64}
+                                                            height={64}
+                                                            className="h-16 w-16 object-cover border"
+                                                        />
+                                                        : <div className='w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]'></div>
+                                                    }
+                                                    <div className="flex-1">
+                                                        <Label className="text-sm font-normal">Company Banner</Label>
+                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
+                                                            <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">
+                                                                {CompanyBannerfileName}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={triggerFileInput2}
+                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                            >
+                                                                Browse
+                                                            </button>
+                                                        </div>
 
 
-                        {/* <AccordionItem value="payment" className='border-none'>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/png, image/jpeg"
+                                                            ref={CompanyBannerfileInputRef}
+                                                            onChange={handleFileChange2}
+                                                            className="hidden"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <p className="text-[10px] text-[#4290E9] ">
+                                                    Company banner 1600 x 720, PNG or JPG
+                                                </p>
+                                            </div>
+                                            <p className='text-[#666666] text-sm font-normal pt-4'>Explanation of where these assets are used and leveraged, recommended/specify dimensions, color variations, etc.</p>
+                                        </div>
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+
+
+
+
+                            {/* <AccordionItem value="payment" className='border-none'>
                             <AccordionTrigger className='px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current'>PAYMENT</AccordionTrigger>
                             <AccordionContent className="grid gap-4">
                                 <div className='w-full flex flex-col items-center'>
@@ -1062,48 +1085,48 @@ const OrdersForm = () => {
                             </AccordionContent>
                         </AccordionItem> */}
 
-                        {currentUser && (
-                            <AccordionItem value="account" className='border-none'>
-                                <AccordionTrigger
-                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#4290E9]'} [&>svg]:text-[#6BAE41]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-                                >ACCOUNT MANAGEMENT</AccordionTrigger>
-                                <AccordionContent className="grid gap-4">
-                                    <div className='w-full flex flex-col items-center'>
-                                        <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                            <div className='grid grid-cols-2 gap-[16px]'>
-                                                <div className='col-span-2'>
-                                                    <label htmlFor="">Password Change</label>
-                                                    <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
-                                                        <input
-                                                            type="password"
-                                                            id="password"
-                                                            value={password}
-                                                            disabled
-                                                            onChange={(e) => setPassword(e.target.value)}
-                                                            className="bg-[#EEEEEE] text-[16px] font-medium w-full h-full px-4 focus:outline-none"
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                handleReset();
-                                                                setOpenChangePasswordDialog(true);
-                                                            }}
-                                                            className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                                                        >
-                                                            Reset
-                                                        </button>
-                                                        <ChangePasswordDialog
-                                                            userId={currentUser.uuid}
-                                                            open={openChangePasswordDialog}
-                                                            setOpen={setOpenChangePasswordDialog}
-                                                            type="subaccount"
-                                                        />
+                            {currentUser && (
+                                <AccordionItem value="account" className='border-none'>
+                                    <AccordionTrigger
+                                        className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#4290E9]'} [&>svg]:text-[#6BAE41]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                    >ACCOUNT MANAGEMENT</AccordionTrigger>
+                                    <AccordionContent className="grid gap-4">
+                                        <div className='w-full flex flex-col items-center'>
+                                            <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                                                <div className='grid grid-cols-2 gap-[16px]'>
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Password Change</label>
+                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
+                                                            <input
+                                                                type="password"
+                                                                id="password"
+                                                                value={password}
+                                                                disabled
+                                                                onChange={(e) => setPassword(e.target.value)}
+                                                                className="bg-[#EEEEEE] text-[16px] font-medium w-full h-full px-4 focus:outline-none"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    handleReset();
+                                                                    setOpenChangePasswordDialog(true);
+                                                                }}
+                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                            >
+                                                                Reset
+                                                            </button>
+                                                            <ChangePasswordDialog
+                                                                userId={currentUser.uuid}
+                                                                open={openChangePasswordDialog}
+                                                                setOpen={setOpenChangePasswordDialog}
+                                                                type="subaccount"
+                                                            />
+                                                        </div>
                                                     </div>
+                                                    <hr className='bg-[#666666] col-span-2' />
                                                 </div>
-                                                <hr className='bg-[#666666] col-span-2' />
-                                            </div>
-                                            {/* <div className='flex items-center justify-center'>
+                                                {/* <div className='flex items-center justify-center'>
                                                 <button
                                                     type="button"
                                                     onClick={() => setOpenCloseDialog(true)}
@@ -1117,13 +1140,77 @@ const OrdersForm = () => {
                                                     onConfirm={confirmAndExecute}
                                                 />
                                             </div> */}
+                                            </div>
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            )
+                            }
+                        </Accordion>
+                    )}
+
+                    {activeTab === "permissions" && (
+                        <Accordion type="multiple" defaultValue={["permissions"]} className="w-full space-y-4">
+                            <AccordionItem value="permissions">
+                                <AccordionTrigger
+                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                >PERMISSION ACCESS</AccordionTrigger>
+                                <AccordionContent className="grid gap-4">
+                                    <div className='w-full flex flex-col items-center'>
+                                        <div className='flex flex-col w-full md:w-[410px] mt-[20px] px-[10px] md:px-0'>
+                                            <label htmlFor="">Role <span className="text-red-500">*</span></label>
+                                            <Select
+                                                value={String(role)}
+                                                onValueChange={(val) => {
+                                                    setRole(val);
+                                                    if (fieldErrors.role_id) {
+                                                        setFieldErrors(prev => {
+                                                            const newErrors = { ...prev };
+                                                            delete newErrors.role_id;
+                                                            return newErrors;
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                <SelectTrigger className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.role_id ? 'border-red-500' : ''}`}>
+                                                    <SelectValue placeholder="Select a role" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {roles?.map((role) => (
+                                                        <SelectItem key={role.id} value={String(role.id)}>
+                                                            {role.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+
+                                            {fieldErrors.role_id && <p className='text-red-500 text-[10px]'>{fieldErrors.role_id[0]}</p>}
+                                        </div>
+                                        <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                                            {permissions?.map((permission) => (
+                                                <div key={permission.id} className="flex items-center justify-between">
+                                                    <p>{permission.name}</p>
+                                                    <Switch
+                                                        checked={selectedPermissions.includes(Number(permission.id))}
+                                                        onCheckedChange={(checked) => togglePermission(Number(permission.id), checked)}
+                                                        className="bg-gray-300 data-[state=checked]:bg-[#6BAE41]"
+                                                    />
+                                                </div>
+                                            ))}
+                                            {fieldErrors.permissions && <p className='text-red-500 text-[10px]'>{fieldErrors.permissions[0]}</p>}
                                         </div>
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
-                        )
-                        }
-                    </Accordion>
+                        </Accordion>
+                    )}
+
+                    {activeTab === "payment" && (
+                        <div className="w-full flex justify-center py-10">
+                            <p className="text-[#666666]">Payment settings are currently unavailable for this sub-account.</p>
+                        </div>
+                    )}
                 </form>
             </div>
         </div >

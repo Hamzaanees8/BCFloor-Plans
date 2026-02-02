@@ -56,11 +56,13 @@ export default function ServicesSelector({
                         <SelectValue placeholder="Select a service" />
                     </SelectTrigger>
                     <SelectContent>
-                        {servicesData?.map((service) => (
-                            <SelectItem key={service.uuid} value={service.uuid ?? ""}>
-                                {service.name}
-                            </SelectItem>
-                        ))}
+                        {servicesData
+                            ?.filter((service) => !services.includes(service.uuid ?? ""))
+                            .map((service) => (
+                                <SelectItem key={service.uuid} value={service.uuid ?? ""}>
+                                    {service.name}
+                                </SelectItem>
+                            ))}
                     </SelectContent>
                 </Select>
                 <Button

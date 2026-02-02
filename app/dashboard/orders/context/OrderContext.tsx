@@ -6,7 +6,7 @@ import { SelectedService } from '../components/Services';
 import { Dispatch, SetStateAction } from 'react';
 import { Discount } from '../components/Confirmation';
 import { Order, OrderService } from '../page';
-import { Listings } from '../../listings/page';
+import { Listings } from '@/lib/types';
 import { Agent } from '@/lib/types';
 import { Services, Packages } from '../../services/page';
 import { VendorData } from '../[id]/page';

@@ -314,6 +314,29 @@ const GlobalSettings = () => {
     const { isDirty, setIsDirty } = useUnsaved();
     useUnsavedChangesWarning(isDirty);
     const isPopulatingData = useRef(false);
+    const hasInitiallyRendered = useRef(false);
+    const headerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const header = headerRef.current;
+        if (!header) return;
+
+        let ancestor = header.parentElement;
+        while (ancestor) {
+            const style = window.getComputedStyle(ancestor);
+            if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+                ancestor.style.setProperty('overflow-x', 'visible', 'important');
+                ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+                const target = ancestor;
+                return () => {
+                    target.style.removeProperty('overflow-x');
+                    target.style.removeProperty('overflow-y');
+                };
+            }
+            ancestor = ancestor.parentElement;
+        }
+    }, []);
 
     const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const repeatOptions = [
@@ -393,9 +416,11 @@ const GlobalSettings = () => {
                 })
                 .finally(() => {
                     setLoading(false);
-                    requestAnimationFrame(() => {
+                    // Use setTimeout to ensure all state updates and DOM updates complete
+                    setTimeout(() => {
                         isPopulatingData.current = false;
-                    });
+                        hasInitiallyRendered.current = true;
+                    }, 100);
 
                     setIsDirty(false);
                 });
@@ -445,15 +470,25 @@ const GlobalSettings = () => {
                 })
                 .finally(() => {
                     setLoading(false);
-                    requestAnimationFrame(() => {
+                    // Use setTimeout to ensure all state updates and DOM updates complete
+                    setTimeout(() => {
                         isPopulatingData.current = false;
-                    });
+                        hasInitiallyRendered.current = true;
+                    }, 100);
 
                     setIsDirty(false);
                 });
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // For initial load, mark as initially rendered after a short delay
+    // This prevents browser autofill from triggering dirty state
+    useEffect(() => {
+        setTimeout(() => {
+            hasInitiallyRendered.current = true;
+        }, 500); // Longer delay to account for browser autofill
     }, []);
 
     useEffect(() => {
@@ -1030,7 +1065,8 @@ const GlobalSettings = () => {
     return (
         <div className="font-alexandria">
             <div
-                className="w-full h-[80px] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center"
+                ref={headerRef}
+                className="w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
                 style={{
                     backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
                     boxShadow: "0px 4px 4px #0000001F",
@@ -1064,7 +1100,7 @@ const GlobalSettings = () => {
             /> */}
             {userType === "admin" && (
                 <div
-                    className="flex justify-center h-[60px] items-center"
+                    className="flex justify-center h-[60px] items-center sticky top-[80px] z-40"
                     style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
                 >
                     <div className=" w-fit flex border-gray-300 gap-[10px]">
@@ -1083,7 +1119,16 @@ const GlobalSettings = () => {
                     </div>
                 </div>
             )}
-            <form>
+            <form
+                onChange={() => {
+                    // Only mark as dirty if:
+                    // 1. Not currently populating data from API
+                    // 2. Has initially rendered (prevents autofill from triggering)
+                    if (!isPopulatingData.current && hasInitiallyRendered.current) {
+                        setIsDirty(true);
+                    }
+                }}
+            >
                 <Accordion
                     type="multiple"
                     defaultValue={[

@@ -41,6 +41,7 @@ import {
   UpdateService,
   UpdatePackage,
   GetOnePackage,
+  PackagePayload,
 } from "../services";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Services } from "../page";
@@ -135,8 +136,30 @@ const ServicesFrom = () => {
   const { isDirty, setIsDirty } = useUnsaved();
   useUnsavedChangesWarning(isDirty);
   const isPopulatingData = useRef(false);
+  const hasInitiallyRendered = useRef(false);
   const isPackageCategory = categoryObject?.name.toLowerCase() === "package";
   const headerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    let ancestor = header.parentElement;
+    while (ancestor) {
+      const style = window.getComputedStyle(ancestor);
+      if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+        ancestor.style.setProperty('overflow-x', 'visible', 'important');
+        ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+        const target = ancestor;
+        return () => {
+          target.style.removeProperty('overflow-x');
+          target.style.removeProperty('overflow-y');
+        };
+      }
+      ancestor = ancestor.parentElement;
+    }
+  }, []);
 
   const addOption = () => {
     setOptions([
@@ -181,6 +204,16 @@ const ServicesFrom = () => {
       .catch((err) => console.log(err.message));
   }, []);
 
+  // For create mode, mark as initially rendered after a short delay
+  // This prevents browser autofill from triggering dirty state
+  useEffect(() => {
+    if (!ServiceId) {
+      setTimeout(() => {
+        hasInitiallyRendered.current = true;
+      }, 500); // Longer delay to account for browser autofill
+    }
+  }, [ServiceId]);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
 
@@ -193,6 +226,13 @@ const ServicesFrom = () => {
         isPopulatingData.current = true;
         const data = res.data;
         setServices(data);
+
+        // Use setTimeout to ensure all state updates and DOM updates complete
+        setTimeout(() => {
+          isPopulatingData.current = false;
+          hasInitiallyRendered.current = true;
+        }, 100);
+
         setIsDirty(false);
       })
       .catch((err) => console.log(err.message));
@@ -231,9 +271,11 @@ const ServicesFrom = () => {
             }
           }
 
-          requestAnimationFrame(() => {
+          // Use setTimeout to ensure all state updates and DOM updates complete
+          setTimeout(() => {
             isPopulatingData.current = false;
-          });
+            hasInitiallyRendered.current = true;
+          }, 100);
 
           setIsDirty(false);
         })
@@ -252,9 +294,11 @@ const ServicesFrom = () => {
           setThumbnailName(data.thumbnail);
           setServiceDescription(data.description);
           setIsTravelRequired(data.is_travel_required === true || data.is_travel_required === 1);
-          requestAnimationFrame(() => {
+          // Use setTimeout to ensure all state updates and DOM updates complete
+          setTimeout(() => {
             isPopulatingData.current = false;
-          });
+            hasInitiallyRendered.current = true;
+          }, 100);
 
           setIsDirty(false);
         })
@@ -341,11 +385,10 @@ const ServicesFrom = () => {
 
       // For Package Category
       if (isPackageCategory) {
-        const packagePayload = {
+        const packagePayload: PackagePayload = {
           name: serviceName,
           discount: Number(discount),
           service_ids: selectedServices,
-          status: 0,
         };
 
         if (ServiceId) {
@@ -353,7 +396,8 @@ const ServicesFrom = () => {
           toast.success("Package updated successfully");
         } else {
           // Create package
-          await CreatePackage(packagePayload, token);
+          const createPayload = { ...packagePayload, status: 1 };
+          await CreatePackage(createPayload, token);
           toast.success("Package created successfully");
         }
       }
@@ -474,9 +518,9 @@ const ServicesFrom = () => {
     <div style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh', color: roleSettings.pageText }}>
       <div className="font-alexandria pb-[80px]">
 
-        <div ref={headerRef} className='w-full h-[80px] font-alexandria sticky top-0 z-10 flex justify-between px-[20px] items-center' style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }} >
+        <div ref={headerRef} className='w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center' style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }} >
           <p className={`text-[16px] md:text-[24px] font-[400]`} style={{ color: roleSettings.pageTabColor }}>
-            Services › {ServiceId ? `Edit ${currentService?.name}` : `Create`}
+            {isPackage ? "Package" : "Services"} › {ServiceId ? (isPackage ? `Edit › ${serviceName}` : `Edit ${serviceName}`) : `Create`}
           </p>
           <div className="flex gap-[18px] f">
             <Button
@@ -524,9 +568,10 @@ const ServicesFrom = () => {
         <div>
           <form
             onChange={() => {
-              if (!isPopulatingData.current && ServiceId) {
-                setIsDirty(true);
-              } else if (!ServiceId) {
+              // Only mark as dirty if:
+              // 1. Not currently populating data from API
+              // 2. Has initially rendered (prevents autofill from triggering)
+              if (!isPopulatingData.current && hasInitiallyRendered.current) {
                 setIsDirty(true);
               }
             }}

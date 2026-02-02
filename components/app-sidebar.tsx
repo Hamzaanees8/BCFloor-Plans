@@ -300,7 +300,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <Sidebar
       {...props}
       collapsible="icon"
-      className="p-0 font-alexandria border border-[#BBBBBB] z-20"
+      className="p-0 font-alexandria border border-[#BBBBBB] z-[60]"
       style={
         {
           backgroundColor: roleSettings.sidebarBg,

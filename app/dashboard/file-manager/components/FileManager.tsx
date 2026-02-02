@@ -1,6 +1,6 @@
 "use client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { BackArrow } from "@/components/Icons";
 import {
   useParams,
@@ -29,7 +29,7 @@ import {
   UploadFilesData,
 } from "../file-manager";
 import { GetOneListing } from "../../listings/listing";
-import { Listings } from "../../listings/page";
+import { Listings } from "@/lib/types";
 import Link from "next/link";
 type Service = {
   uuid: string;
@@ -63,6 +63,28 @@ const FileManager = () => {
     changedFileUuids,
     setChangedFileUuids,
   } = useFileManagerContext();
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    let ancestor = header.parentElement;
+    while (ancestor) {
+      const style = window.getComputedStyle(ancestor);
+      if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+        ancestor.style.setProperty('overflow-x', 'visible', 'important');
+        ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+        const target = ancestor;
+        return () => {
+          target.style.removeProperty('overflow-x');
+          target.style.removeProperty('overflow-y');
+        };
+      }
+      ancestor = ancestor.parentElement;
+    }
+  }, []);
 
   const params = useParams();
   const searchParams = useSearchParams();
@@ -444,7 +466,8 @@ const FileManager = () => {
   return (
     <div>
       <div
-        className="w-full h-[80px] font-alexandria pr-5 z-10 relative  flex justify-between items-center"
+        ref={headerRef}
+        className="w-full h-[80px] font-alexandria pr-5 sticky top-0 z-50 flex justify-between items-center"
         style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
       >
         {/* Invoice Payment Dialog - Move this outside the header div */}
@@ -549,7 +572,7 @@ const FileManager = () => {
       )}
       {isListing && (
         <div
-          className="w-full h-[60px] font-alexandria pr-5 z-10 flex items-center border-b border-[#BBBBBB]"
+          className="w-full h-[60px] font-alexandria pr-5 sticky top-[80px] z-40 flex items-center border-b border-[#BBBBBB]"
           style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
         >
           <div className="flex items-center justify-center w-full">

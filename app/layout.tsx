@@ -45,6 +45,7 @@ export default function RootLayout({
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${alexandria.variable} ${raleway.variable} antialiased`}
+        suppressHydrationWarning
       >
         <OrderProvider>
           <AppProvider>

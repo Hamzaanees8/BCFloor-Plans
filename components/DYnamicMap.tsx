@@ -36,35 +36,35 @@ export default function DynamicMap({
 
   const [center, setCenter] = useState<google.maps.LatLngLiteral>(defaultCoords);
 
- useEffect(() => {
-  const timeout = setTimeout(() => {
-    const fullAddress = `${address}, ${city}, ${province}, ${country}`;
-    const isAnyAddressFieldProvided = address || city || province || country;
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      const fullAddress = `${address}, ${city}, ${province}, ${country}`;
+      const isAnyAddressFieldProvided = address || city || province || country;
 
-    if (!isAnyAddressFieldProvided) {
-      setCenter(defaultCoords);
-      return;
-    }
+      if (!isAnyAddressFieldProvided) {
+        setCenter(defaultCoords);
+        return;
+      }
 
-    fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-        fullAddress
-      )}&key=${process.env.NEXT_PUBLIC_PLACES_API_KEY}`
-    )
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.status === 'OK' && data.results.length > 0) {
-          const location = data.results[0].geometry.location;
-          setCenter(location);
-        } else {
-          setCenter(defaultCoords);
-        }
-      })
-      .catch(() => setCenter(defaultCoords));
-  }, 500);
+      fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+          fullAddress
+        )}&key=${process.env.NEXT_PUBLIC_PLACES_API_KEY}`
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.status === 'OK' && data.results.length > 0) {
+            const location = data.results[0].geometry.location;
+            setCenter(location);
+          } else {
+            setCenter(defaultCoords);
+          }
+        })
+        .catch(() => setCenter(defaultCoords));
+    }, 500);
 
-  return () => clearTimeout(timeout); 
-}, [address, city, province, country]);
+    return () => clearTimeout(timeout);
+  }, [address, city, province, country]);
 
 
   if (!isLoaded) return <div>Loading map...</div>;

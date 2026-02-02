@@ -95,7 +95,7 @@ export default function WorkAreaMap({
     drawingManagerRef.current = dm;
     dm.setMap(map);
 
-    google.maps.event.addListener(dm, "drawingmode_changed", () => {});
+    google.maps.event.addListener(dm, "drawingmode_changed", () => { });
 
     google.maps.event.addListener(map, "mousedown", () => {
       const mode = dm.getDrawingMode();

@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import QuickViewCard from "@/components/QuickViewCard";
 import { NotificationData } from "@/lib/types";
 import { DataTable } from '@/components/DataTable';
@@ -30,6 +30,28 @@ const Page = () => {
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
 
   const { userType, setUnreadNotificationCount } = useAppContext();
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    let ancestor = header.parentElement;
+    while (ancestor) {
+      const style = window.getComputedStyle(ancestor);
+      if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+        ancestor.style.setProperty('overflow-x', 'visible', 'important');
+        ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+        const target = ancestor;
+        return () => {
+          target.style.removeProperty('overflow-x');
+          target.style.removeProperty('overflow-y');
+        };
+      }
+      ancestor = ancestor.parentElement;
+    }
+  }, []);
 
   const [searchAddress, setSearchAddress] = React.useState("");
   const [searchName, setSearchName] = React.useState("");
@@ -270,7 +292,8 @@ const Page = () => {
   return (
     <div style={{ backgroundColor: `var(--${userType}-page-bg, #F2F2F2)` }}>
       <div
-        className="w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center"
+        ref={headerRef}
+        className="w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
         style={{
           backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
           boxShadow: "0px 4px 4px #0000001F",
@@ -286,7 +309,7 @@ const Page = () => {
       </div>
 
       <div
-        className="w-full px-4 py-3 border-b border-gray-200 border border-b-gray-300 grid grid-cols-3 gap-4 h-[60px] font-alexandria"
+        className="w-full px-4 py-3 border-b border-gray-200 border border-b-gray-300 grid grid-cols-3 gap-4 h-[60px] font-alexandria sticky top-[80px] z-40"
         style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
       >
         <Input

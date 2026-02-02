@@ -102,7 +102,34 @@ const AdminForm = () => {
 
   const { isDirty, setIsDirty } = useUnsaved();
   useUnsavedChangesWarning(isDirty);
-  const isPopulatingData = useRef(false);
+  const isPopulatingData = useRef(true);
+  const hasInitiallyRendered = useRef(false);
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setIsDirty(false);
+  }, [setIsDirty]);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    let ancestor = header.parentElement;
+    while (ancestor) {
+      const style = window.getComputedStyle(ancestor);
+      if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+        ancestor.style.setProperty('overflow-x', 'visible', 'important');
+        ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+        const target = ancestor;
+        return () => {
+          target.style.removeProperty('overflow-x');
+          target.style.removeProperty('overflow-y');
+        };
+      }
+      ancestor = ancestor.parentElement;
+    }
+  }, []);
 
   const params = useParams();
   const userId = params?.id as string;
@@ -123,6 +150,19 @@ const AdminForm = () => {
       setProvince("");
     }
   }, [country]);
+
+  // For create mode, mark as initially rendered after a short delay
+  // This prevents browser autofill from triggering dirty state
+  useEffect(() => {
+    if (!userId) {
+      setIsDirty(false); // Reset dirty state on mount for create mode
+      setTimeout(() => {
+        isPopulatingData.current = false;
+        hasInitiallyRendered.current = true;
+        setIsDirty(false); // Ensure clean state after settlement
+      }, 1500); // Longer delay to account for browser autofill and initial state settlement
+    }
+  }, [userId, setIsDirty]);
 
   useEffect(() => {
     if (currentUser) {
@@ -156,9 +196,11 @@ const AdminForm = () => {
       // if (currentUser.company_banner_url)
       //   setCompanyBannerUrl(currentUser.company_banner_url);
 
-      requestAnimationFrame(() => {
+      // Use setTimeout to ensure all state updates and DOM updates complete
+      setTimeout(() => {
         isPopulatingData.current = false;
-      });
+        hasInitiallyRendered.current = true;
+      }, 100);
 
       setIsDirty(false);
     }
@@ -435,7 +477,8 @@ const AdminForm = () => {
   return (
     <div className="font-alexandria">
       <div
-        className="w-full h-[80px] bg-[#E4E4E4] font-alexandria  z-10 relative  flex justify-between px-[20px] items-center"
+        ref={headerRef}
+        className="w-full h-[80px] bg-[#E4E4E4] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
         style={{ boxShadow: "0px 4px 4px #0000001F" }}
       >
         {userId ? (
@@ -462,9 +505,7 @@ const AdminForm = () => {
       <div>
         <form
           onChange={() => {
-            if (!isPopulatingData.current && userId) {
-              setIsDirty(true);
-            } else if (!userId) {
+            if (!isPopulatingData.current && hasInitiallyRendered.current) {
               setIsDirty(true);
             }
           }}
@@ -526,6 +567,9 @@ const AdminForm = () => {
                           value={String(role)}
                           onValueChange={(val) => {
                             setRole(val);
+                            if (hasInitiallyRendered.current) {
+                              setIsDirty(true);
+                            }
                             if (fieldErrors.roles) {
                               setFieldErrors((prev) => {
                                 const newErrors = { ...prev };
@@ -562,6 +606,7 @@ const AdminForm = () => {
                         </label>
                         <Input
                           value={email}
+                          autoComplete="off"
                           onChange={(e) => {
                             setEmail(e.target.value);
                             if (fieldErrors.email) {
@@ -680,7 +725,10 @@ const AdminForm = () => {
                         <label htmlFor="">Province</label>
                         <Select
                           value={province}
-                          onValueChange={(val) => setProvince(val)}
+                          onValueChange={(val) => {
+                            setProvince(val);
+                            if (hasInitiallyRendered.current) setIsDirty(true);
+                          }}
                           disabled={!states.length}
                         >
                           <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
@@ -699,7 +747,10 @@ const AdminForm = () => {
                         <label htmlFor="">Country</label>
                         <Select
                           value={country}
-                          onValueChange={(val) => setCountry(val)}
+                          onValueChange={(val) => {
+                            setCountry(val);
+                            if (hasInitiallyRendered.current) setIsDirty(true);
+                          }}
                         >
                           <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
                             <SelectValue placeholder="Select Country" />
@@ -737,6 +788,7 @@ const AdminForm = () => {
                         </label>
                         <Input
                           value={password}
+                          autoComplete="new-password"
                           onChange={(e) => {
                             setPassword(e.target.value);
                             if (fieldErrors.password) {

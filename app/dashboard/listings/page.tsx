@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import QuickViewCard, { AgentData } from '@/components/QuickViewCard';
 import Link from 'next/link';
 import { DeleteListing, GetListing, UpdateListingStatus } from './listing';
@@ -15,112 +15,8 @@ import { DataTable } from '@/components/DataTable';
 import { ColumnDef, Row } from '@tanstack/react-table';
 import { Switch } from '@/components/ui/switch';
 import DropdownActions from '@/components/DropdownActions';
+import { Listings } from '@/lib/types';
 
-type Service = {
-  id: number;
-  uuid: string;
-  name: string;
-  category_id: number;
-  thumbnail: string;
-  // Add more fields if there are others
-};
-type Option = {
-  quantity: number;
-};
-type OrderService = {
-  id: number;
-  uuid: string;
-  amount: string;
-  created_at: string;
-  updated_at: string;
-  custom: string; // Can be replaced with a better type if known
-  option_id: number;
-  order_id: number;
-  service_id: number;
-  service: Service;
-  option: Option;
-};
-interface Order {
-  id: number;
-  uuid: string;
-  amount: string;
-  paid_amount: string | number
-  distance: string;
-  km_price: string;
-  est_time: string;
-  order_status:
-  | "Processing"
-  | "In Progress"
-  | "Pending"
-  | "Completed"
-  | "Cancelled"
-  | "On Hold";
-  payment_status: "PAID" | "UNPAID" | "PARTIALLY_PAID";
-  property_address: string;
-  property_location: string;
-  vendor_address: string;
-  vendor_location: string;
-  created_at: string;
-  updated_at: string;
-  services: OrderService[];
-  lock_materials: boolean;
-  tours?: {
-    files?: {
-      is_featured?: boolean;
-      file_path?: string;
-    }[]
-  }[];
-}
-export interface Listings {
-  uuid: string;
-  id?: number;
-  payment_status: string
-  full_name?: string;
-  company?: string;
-  address: string;
-  listing_price: number;
-  bedrooms: number;
-  bathrooms: number;
-  square_footage: number;
-  year_constructed: number;
-  parking_spots: string;
-  property_type: string;
-  lot_size: string;
-  agent: {
-    uuid: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-    created_at: string;
-    company_name: string;
-    payment_status: string;
-    notes: string;
-    status?: boolean;
-    permissions?: { id: number; name: string }[];
-    roles?: { id: number; name: string }[];
-    headquarter_address?: string;
-    primary_phone?: string;
-    secondary_phone?: string;
-    avatar_url?: string;
-    activity?: string;
-  };
-  property_status: string;
-  stats: {
-    photos: number;
-    tours: number;
-    visitors: number;
-    imageViews: number;
-  };
-  activity?: string;
-  postal_code?: string;
-  province?: string;
-  city?: string;
-  country?: string;
-  created_at?: Date;
-  status?: boolean;
-  orders?: Order[];
-  tour_activated?: boolean
-}
 
 const Page = () => {
   const { userType } = useAppContext();
@@ -143,6 +39,28 @@ const Page = () => {
 
   const searchParams = useSearchParams();
   const agentFilter = searchParams.get("agent") || "";
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    let ancestor = header.parentElement;
+    while (ancestor) {
+      const style = window.getComputedStyle(ancestor);
+      if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+        ancestor.style.setProperty('overflow-x', 'visible', 'important');
+        ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+        const target = ancestor;
+        return () => {
+          target.style.removeProperty('overflow-x');
+          target.style.removeProperty('overflow-y');
+        };
+      }
+      ancestor = ancestor.parentElement;
+    }
+  }, []);
 
 
   const handleViewChange = (view: string) => {
@@ -401,7 +319,8 @@ const Page = () => {
   return (
     <div>
       <div
-        className="w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center"
+        ref={headerRef}
+        className="w-full h-[80px] font-alexandria z-50 sticky top-0 flex justify-between px-[20px] items-center"
         style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }}
       >
         <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>
@@ -549,7 +468,7 @@ const Page = () => {
                 {filteredListings.map((listing) => (
                   <KanbanViewCard
                     key={listing.uuid}
-                    listing={listing}
+                    data={listing}
                     onQuickView={() => {
                       setShowCard(true);
                       setType("listing");

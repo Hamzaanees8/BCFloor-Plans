@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
     Table,
     TableBody,
@@ -158,6 +158,28 @@ const Page = () => {
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
     const [showAgain, setShowAgain] = useState(true);
+    const headerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const header = headerRef.current;
+        if (!header) return;
+
+        let ancestor = header.parentElement;
+        while (ancestor) {
+            const style = window.getComputedStyle(ancestor);
+            if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+                ancestor.style.setProperty('overflow-x', 'visible', 'important');
+                ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+                const target = ancestor;
+                return () => {
+                    target.style.removeProperty('overflow-x');
+                    target.style.removeProperty('overflow-y');
+                };
+            }
+            ancestor = ancestor.parentElement;
+        }
+    }, []);
 
     useEffect(() => {
         const stored = localStorage.getItem("confirmation_dialog_payment_show_again");
@@ -780,7 +802,8 @@ const Page = () => {
     return (
         <div className="text-[#424242]">
             <div
-                className="w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center"
+                ref={headerRef}
+                className="w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
                 style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }}
             >
                 <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}>

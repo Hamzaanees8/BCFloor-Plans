@@ -18,14 +18,17 @@ const Header: React.FC = () => {
       <nav className="flex space-x-8 text-white text-[15px]">
         <Link
           href="/agent/about"
-          className={`hover:underline ${
-            pathname === "/agent/about" ? "underline " : ""
-          }`}
+          className={`hover:underline ${pathname === "/agent/about" ? "underline " : ""
+            }`}
         >
           About
         </Link>
 
-        <Link href="#tours" className="hover:underline">
+        <Link
+          href="/agent/tours"
+          className={`hover:underline ${pathname === "/agent/tours" ? "underline " : ""
+            }`}
+        >
           Tours
         </Link>
 
@@ -39,9 +42,8 @@ const Header: React.FC = () => {
 
         <Link
           href="/agent/book-now"
-          className={`hover:underline ${
-            pathname === "/agent/book-now" ? "underline font-semibold" : ""
-          }`}
+          className={`hover:underline ${pathname === "/agent/book-now" ? "underline font-semibold" : ""
+            }`}
         >
           BOOK NOW
         </Link>

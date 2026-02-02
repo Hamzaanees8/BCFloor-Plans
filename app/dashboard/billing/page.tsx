@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -31,6 +31,28 @@ const Page = () => {
   const { appliedSettings } = useWhiteLabel();
   const role = (userType as string) || 'admin';
   const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    let ancestor = header.parentElement;
+    while (ancestor) {
+      const style = window.getComputedStyle(ancestor);
+      if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+        ancestor.style.setProperty('overflow-x', 'visible', 'important');
+        ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+        const target = ancestor;
+        return () => {
+          target.style.removeProperty('overflow-x');
+          target.style.removeProperty('overflow-y');
+        };
+      }
+      ancestor = ancestor.parentElement;
+    }
+  }, []);
 
   const [billings, setBillings] = useState<BillingItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -233,7 +255,8 @@ const Page = () => {
   return (
     <div>
       <div
-        className="w-full h-[80px] font-alexandria z-10 relative flex justify-between px-[20px] items-center"
+        ref={headerRef}
+        className="w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
         style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }}
       >
         <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>
@@ -242,7 +265,7 @@ const Page = () => {
       </div>
 
       {/* Filters Section */}
-      <div className="p-4 border-b" style={{ backgroundColor: roleSettings.pageBg }}>
+      <div className="p-4 border-b sticky top-[80px] z-40" style={{ backgroundColor: roleSettings.pageBg }}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Status Filter */}
           <div>

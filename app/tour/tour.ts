@@ -80,6 +80,11 @@ export interface OrderData {
             is_show: boolean;
             service: { id: number; uuid: string; name: string; category: { id: number; name: string } };
         }>;
+        links: Array<{
+            uuid?: string;
+            link: string;
+            type: 'branded' | 'unbranded';
+        }>;
         snapshots: Snapshoots[];
     }>;
     agent: {
