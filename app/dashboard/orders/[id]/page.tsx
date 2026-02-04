@@ -6,12 +6,23 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Copy, File } from "lucide-react";
 //import Link from 'next/link';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
 import { EditOrderStatus, GetOneOrder, GetVendors } from "../orders";
 import { GetServices } from "../../services/services";
@@ -60,11 +71,11 @@ export interface VendorData {
   };
   addresses?: VendorAddress[];
   vendor_services: {
-    service: { uuid: string }
-  }[]
-  coordinates: string[]
-  company: { vendor_id: string }
-  portfolio_images?: VendorPortfolioImage[]
+    service: { uuid: string };
+  }[];
+  coordinates: string[];
+  company: { vendor_id: string };
+  portfolio_images?: VendorPortfolioImage[];
   settings?: {
     force_service_area: number | boolean;
   };
@@ -115,20 +126,22 @@ export interface OrderData {
 
 function Page() {
   const [orderData, setOrderData] = useState<Order | null>(null);
-  const [order_status, setOrder_status] = useState('');
-  const [property_website, setProperty_website] = useState('');
-  const [mls_property, setMls_property] = useState('');
+  const [order_status, setOrder_status] = useState("");
+  const [property_website, setProperty_website] = useState("");
+  const [mls_property, setMls_property] = useState("");
   const [country, setCountry] = useState("");
   const [countries, setCountries] = useState<
     { name: string; isoCode: string }[]
   >([]);
   const [vendors, setVendors] = useState<VendorData[]>([]);
-  const [selectedVendors, setselectedVendors] = useState('');
+  const [selectedVendors, setselectedVendors] = useState("");
   const [openEditPopup, setOpenEditPopup] = useState<boolean>(false);
   const { userType } = useAppContext();
   const { appliedSettings } = useWhiteLabel();
-  const role = (userType as string)?.toLowerCase() || 'admin';
-  const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+  const role = (userType as string)?.toLowerCase() || "admin";
+  const roleSettings =
+    appliedSettings[role as keyof typeof appliedSettings] ||
+    appliedSettings["admin"];
   const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
   const fieldBg = `color-mix(in srgb, ${roleSettings.pageBg} 95%, black)`;
 
@@ -143,17 +156,39 @@ function Page() {
 
   const [services, setServices] = useState<Services[]>([]);
 
+  const refreshOrders = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const data = await GetOneOrder(token, orderId);
+      setOrderData(data.data);
+      setCountry(data.data.property?.country || "CA");
+      setOrder_status(data.data.order_status);
+      setProperty_website(data.data.property.property_website);
+      setMls_property(data.data.property.mls_number);
+      setselectedVendors(data.data.vendor.uuid);
+    } catch (err) {
+      console.log("Error refreshing order:", err);
+    }
+  };
 
   const getOriginalPrice = (sel: OrderService) => {
     let originalPrice = Number(sel.amount) || 0;
     const sqFootage = Number(orderData?.property?.square_footage || 0);
 
-    if (sel.payment_status?.toUpperCase() !== 'PAID' && !sel.custom) {
-      const fullService = services?.find(s => s.uuid === sel.service?.uuid);
-      const catalogOption = fullService?.product_options?.find(o => o.uuid === sel.option?.uuid || o.title === sel.optionName);
+    if (sel.payment_status?.toUpperCase() !== "PAID" && !sel.custom) {
+      const fullService = services?.find((s) => s.uuid === sel.service?.uuid);
+      const catalogOption = fullService?.product_options?.find(
+        (o) => o.uuid === sel.option?.uuid || o.title === sel.optionName,
+      );
 
       if (catalogOption) {
-        if (catalogOption.sq_ft_rate && parseFloat(catalogOption.sq_ft_rate) > 0 && sqFootage > 0) {
+        if (
+          catalogOption.sq_ft_rate &&
+          parseFloat(catalogOption.sq_ft_rate) > 0 &&
+          sqFootage > 0
+        ) {
           const calculated = parseFloat(catalogOption.sq_ft_rate) * sqFootage;
           originalPrice = catalogOption.min_price
             ? Math.max(calculated, catalogOption.min_price)
@@ -166,12 +201,9 @@ function Page() {
     return originalPrice;
   };
 
-
-
   useEffect(() => {
     setOrigin(window.location.origin);
   }, []);
-
 
   const router = useRouter();
   const params = useParams();
@@ -181,15 +213,13 @@ function Page() {
     setCountries(Country.getAllCountries());
   }, []);
 
-
   useEffect(() => {
     if (orderData) {
-      setselectedVendors(orderData?.slots[0].vendor.uuid)
-
+      setselectedVendors(orderData?.slots[0].vendor.uuid);
     }
-  }, [orderData])
+  }, [orderData]);
   useEffect(() => {
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("token");
 
     if (!token) {
       console.log("Token not found.");
@@ -199,11 +229,12 @@ function Page() {
     GetAgents()
       .then((data) => {
         const allAgents = Array.isArray(data.data) ? data.data : [];
-        const filteredAgents = allAgents.filter((agent: Agent) => agent.status === true);
+        const filteredAgents = allAgents.filter(
+          (agent: Agent) => agent.status === true,
+        );
         setAgentData(filteredAgents);
       })
       .catch((err) => console.log("Error fetching data:", err.message));
-
   }, []);
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -221,7 +252,6 @@ function Page() {
         setProperty_website(data.data.property.property_website);
         setMls_property(data.data.property.mls_number);
         setselectedVendors(data.data.vendor.uuid);
-
       })
       .catch((err) => console.log(err.message));
   }, [orderId]);
@@ -235,15 +265,19 @@ function Page() {
       })
       .catch((err) => console.log(err.message));
 
-    GetServices(token).then(res => setServices(Array.isArray(res.data) ? res.data : [])).catch(console.log);
+    GetServices(token)
+      .then((res) => setServices(Array.isArray(res.data) ? res.data : []))
+      .catch(console.log);
   }, [orderId]);
   // Use backend amount as the source of truth for the Grand Total (Net Price)
   const calculatedGrandTotal = parseFloat(orderData?.amount || "0");
   const calculatedPaidAmount = parseFloat(orderData?.paid_amount || "0") || 0;
 
   // For Balance Due, we subtract the paid amount from the total
-  const calculatedBalanceDue = Math.max(0, calculatedGrandTotal - calculatedPaidAmount);
-
+  const calculatedBalanceDue = Math.max(
+    0,
+    calculatedGrandTotal - calculatedPaidAmount,
+  );
 
   const uniqueVendorsMap = new Map();
 
@@ -257,13 +291,12 @@ function Page() {
   }
   function getCountryNameByIso(
     isoCode: string,
-    countries: { name: string; isoCode: string }[]
+    countries: { name: string; isoCode: string }[],
   ) {
     const found = countries.find((c) => c.isoCode === isoCode);
     return found ? found.name : isoCode;
   }
   const uniqueVendors = Array.from(uniqueVendorsMap.values());
-
 
   const handleSubmit = async () => {
     const token = localStorage.getItem("token");
@@ -280,7 +313,7 @@ function Page() {
         property_website: property_website,
         mls_property: mls_property,
         vendor_uuid: selectedVendors,
-        _method: 'PUT'
+        _method: "PUT",
       };
 
       await EditOrderStatus(orderId, payload, token);
@@ -288,8 +321,7 @@ function Page() {
       // const updatedOrder = await GetOneOrder(token, orderId);
       // setOrderData(updatedOrder.data);
 
-      toast.success("Order updated successfully")
-
+      toast.success("Order updated successfully");
     } catch (error) {
       console.error("Error updating order:", error);
     } finally {
@@ -311,12 +343,15 @@ function Page() {
     setIsPaymentLoading(true);
     try {
       // Get the current page URL for the redirect
-      const currentUrl = typeof window !== "undefined" ? window.location.pathname.substring(1) : "";
+      const currentUrl =
+        typeof window !== "undefined"
+          ? window.location.pathname.substring(1)
+          : "";
 
       // Call createPayment function which will redirect to Stripe
       await createPayment(orderData, token, currentUrl, {
         paymentType: "full",
-        amount: calculatedBalanceDue.toFixed(2)
+        amount: calculatedBalanceDue.toFixed(2),
       });
     } catch (error) {
       console.error("Payment error:", error);
@@ -342,16 +377,16 @@ function Page() {
               "Content-Type": "application/json",
               Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
             },
-          }
+          },
         );
         const result = await response.json();
 
         if (!response.ok || !result.success) {
           throw new Error(
-            result.message || result.error || "Payment processing failed"
+            result.message || result.error || "Payment processing failed",
           );
         }
-        setPaymentConfirm(true)
+        setPaymentConfirm(true);
         toast.success("Payment processed successfully! ");
 
         // remove session_id from URL
@@ -363,7 +398,7 @@ function Page() {
         toast.error(
           error instanceof Error
             ? error.message || "Unable to verify payment session."
-            : "Unable to verify payment session."
+            : "Unable to verify payment session.",
         );
       }
     };
@@ -371,20 +406,39 @@ function Page() {
     processStripePayment();
   }, [searchParams, router]);
 
-
   return (
-    <div className="font-alexandria" style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh', color: roleSettings.pageText }}>
-      {openEditPopup && userType === "vendor" &&
+    <div
+      className="font-alexandria"
+      style={{
+        backgroundColor: roleSettings.pageBg,
+        minHeight: "100vh",
+        color: roleSettings.pageText,
+      }}
+    >
+      {openEditPopup && userType === "vendor" && (
         <VendorOrderEdit
           currentOrder={orderData ?? undefined}
           open={openEditPopup}
           onOpenChange={setOpenEditPopup}
         />
-      }
-      <OrderDetailView agentData={agentData} open={openDetails} onClose={() => { setOpenDetails(false) }} orderId={orderData?.uuid ?? ''} serviceId={22} orderData={orderData ? [orderData] : []} />
+      )}
+      <OrderDetailView
+        agentData={agentData}
+        open={openDetails}
+        onClose={() => {
+          setOpenDetails(false);
+        }}
+        orderId={orderData?.uuid ?? ""}
+        serviceId={22}
+        orderData={orderData ? [orderData] : []}
+        refreshOrders={refreshOrders}
+      />
       <div
         className="w-full h-[80px] font-alexandria  z-10 sticky top-0  flex justify-between px-[20px] items-center"
-        style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }}
+        style={{
+          backgroundColor: headerBg,
+          boxShadow: "0px 4px 4px #0000001F",
+        }}
       >
         <p
           className={`text-[16px] md:text-[24px] font-[400]`}
@@ -399,12 +453,18 @@ function Page() {
             {orderData?.id || ""} {`(${orderData?.property?.address || ""})`}
           </span>
         </p>
-        {userType !== 'vendor' &&
+        {userType !== "vendor" && (
           <div className="flex gap-[18px]">
             <Button
-              onClick={() => { setOpenDetails(true) }}
+              onClick={() => {
+                setOpenDetails(true);
+              }}
               className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] text-[14px] md:text-[16px] font-[400] flex gap-[5px] justify-center items-center hover:opacity-90`}
-              style={{ backgroundColor: roleSettings.pageBg, color: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+              style={{
+                backgroundColor: roleSettings.pageBg,
+                color: roleSettings.pageTabColor,
+                borderColor: roleSettings.pageTabColor,
+              }}
             >
               Edit Order
             </Button>
@@ -412,7 +472,10 @@ function Page() {
               disabled={isLoading}
               onClick={handleSubmit}
               className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:opacity-90`}
-              style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+              style={{
+                backgroundColor: roleSettings.pageTabColor,
+                borderColor: roleSettings.pageTabColor,
+              }}
             >
               {isLoading ? (
                 <div role="status">
@@ -437,12 +500,14 @@ function Page() {
               ) : (
                 "Save Changes"
               )}
-
             </Button>
-
-          </div>}
+          </div>
+        )}
       </div>
-      <div className={` relative w-full h-[160px] flex flex-col md:flex-row justify-between items-start py-[32px] px-[25px]`} style={{ backgroundColor: roleSettings.pageTabColor }}>
+      <div
+        className={` relative w-full h-[160px] flex flex-col md:flex-row justify-between items-start py-[32px] px-[25px]`}
+        style={{ backgroundColor: roleSettings.pageTabColor }}
+      >
         <div
           className="absolute inset-0 bg-center bg-cover"
           style={{
@@ -472,20 +537,38 @@ function Page() {
             <Link
               href={`/dashboard/file-manager/${orderId}?listingId=${orderData?.property?.uuid}`}
               className="h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-bold text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px]"
-              style={false
-                ? { backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor, color: '#FFFFFF' }
-                : { backgroundColor: '#FFFFFF', borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }
+              style={
+                false
+                  ? {
+                      backgroundColor: roleSettings.pageTabColor,
+                      borderColor: roleSettings.pageTabColor,
+                      color: "#FFFFFF",
+                    }
+                  : {
+                      backgroundColor: "#FFFFFF",
+                      borderColor: roleSettings.pageTabColor,
+                      color: roleSettings.pageTabColor,
+                    }
               }
             >
               Media
             </Link>
-            {userType !== 'vendor' && (
+            {userType !== "vendor" && (
               <Link
                 href={`/dashboard/listings/create/${orderData?.property?.uuid}`}
                 className="h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-bold text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px]"
-                style={false
-                  ? { backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor, color: '#FFFFFF' }
-                  : { backgroundColor: '#FFFFFF', borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }
+                style={
+                  false
+                    ? {
+                        backgroundColor: roleSettings.pageTabColor,
+                        borderColor: roleSettings.pageTabColor,
+                        color: "#FFFFFF",
+                      }
+                    : {
+                        backgroundColor: "#FFFFFF",
+                        borderColor: roleSettings.pageTabColor,
+                        color: roleSettings.pageTabColor,
+                      }
                 }
               >
                 Property details
@@ -494,9 +577,18 @@ function Page() {
             <Link
               href={`/dashboard/orders/${orderData?.uuid}`}
               className="h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-bold text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px]"
-              style={true
-                ? { backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor, color: '#FFFFFF' }
-                : { backgroundColor: '#FFFFFF', borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }
+              style={
+                true
+                  ? {
+                      backgroundColor: roleSettings.pageTabColor,
+                      borderColor: roleSettings.pageTabColor,
+                      color: "#FFFFFF",
+                    }
+                  : {
+                      backgroundColor: "#FFFFFF",
+                      borderColor: roleSettings.pageTabColor,
+                      color: roleSettings.pageTabColor,
+                    }
               }
             >
               Order details
@@ -512,18 +604,24 @@ function Page() {
         <AccordionItem value="property">
           <AccordionTrigger
             className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[18px] font-[600] uppercase [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:text-current`}
-            style={{ backgroundColor: headerBg, color: roleSettings.pageTabColor }}
+            style={{
+              backgroundColor: headerBg,
+              color: roleSettings.pageTabColor,
+            }}
           >
             Order Details
           </AccordionTrigger>
           <AccordionContent className="grid gap-4">
             <div className="w-full flex flex-col items-center">
-              <div className="w-full md:w-[470px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[14px] font-[400]" style={{ color: roleSettings.pageText }}>
-
+              <div
+                className="w-full md:w-[470px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[14px] font-[400]"
+                style={{ color: roleSettings.pageText }}
+              >
                 <div className="grid grid-cols-2 gap-[16px]">
-
                   <div className="col-span-2">
-                    <label htmlFor="">Order Status <span className="text-red-500">*</span></label>
+                    <label htmlFor="">
+                      Order Status <span className="text-red-500">*</span>
+                    </label>
                     <div className="flex items-center gap-2 mt-[12px]">
                       <div className="flex-1">
                         <Select
@@ -538,7 +636,9 @@ function Page() {
                             <SelectValue placeholder="Select Order Status" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Processing">Processing</SelectItem>
+                            <SelectItem value="Processing">
+                              Processing
+                            </SelectItem>
                             <SelectItem value="Pending">Pending</SelectItem>
                             <SelectItem value="Completed">Completed</SelectItem>
                             <SelectItem value="On Hold">On Hold</SelectItem>
@@ -552,61 +652,147 @@ function Page() {
                               className="cursor-pointer p-2 rounded-md border-[1px] border-[#BBBBBB] h-[42px] w-[42px] flex justify-center items-center hover:bg-gray-200 transition-colors"
                               style={{ backgroundColor: fieldBg }}
                             >
-                              <Info className="h-5 w-5" style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }} />
+                              <Info
+                                className="h-5 w-5"
+                                style={{
+                                  color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)`,
+                                }}
+                              />
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent className="w-80 p-0 border-[#BBBBBB] shadow-[0px_4px_4px_#0000001F] rounded-[6px] font-alexandria overflow-hidden" style={{ backgroundColor: roleSettings.pageBg, color: roleSettings.pageText }} sideOffset={5}>
+                          <TooltipContent
+                            className="w-80 p-0 border-[#BBBBBB] shadow-[0px_4px_4px_#0000001F] rounded-[6px] font-alexandria overflow-hidden"
+                            style={{
+                              backgroundColor: roleSettings.pageBg,
+                              color: roleSettings.pageText,
+                            }}
+                            sideOffset={5}
+                          >
                             <div className="flex flex-col">
                               <div
                                 className="px-4 py-3 border-b border-[#BBBBBB]"
                                 style={{ backgroundColor: headerBg }}
                               >
-                                <h4 className="font-[600] text-[14px] uppercase" style={{ color: roleSettings.pageText }}>Order Details</h4>
+                                <h4
+                                  className="font-[600] text-[14px] uppercase"
+                                  style={{ color: roleSettings.pageText }}
+                                >
+                                  Order Details
+                                </h4>
                               </div>
                               <div className="p-4 space-y-4">
                                 <div className="grid grid-cols-2 gap-2 text-[13px]">
-                                  <span style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 30%)` }}>Status:</span>
-                                  <span className="font-[500]">{orderData?.order_status || 'N/A'}</span>
-                                  <span style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 30%)` }}>Payment:</span>
-                                  <span className={`font-[500] px-2 py-0.5 rounded-full w-fit text-[11px] ${orderData?.payment_status === 'PAID' ? 'bg-green-500 text-white' :
-                                    orderData?.payment_status === 'UNPAID' ? 'bg-red-500 text-white text-nowrap' :
-                                      'bg-orange-100 text-orange-700'
-                                    }`}>
-                                    {orderData?.payment_status || 'N/A'}
+                                  <span
+                                    style={{
+                                      color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 30%)`,
+                                    }}
+                                  >
+                                    Status:
+                                  </span>
+                                  <span className="font-[500]">
+                                    {orderData?.order_status || "N/A"}
+                                  </span>
+                                  <span
+                                    style={{
+                                      color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 30%)`,
+                                    }}
+                                  >
+                                    Payment:
+                                  </span>
+                                  <span
+                                    className={`font-[500] px-2 py-0.5 rounded-full w-fit text-[11px] ${
+                                      orderData?.payment_status === "PAID"
+                                        ? "bg-green-500 text-white"
+                                        : orderData?.payment_status === "UNPAID"
+                                          ? "bg-red-500 text-white text-nowrap"
+                                          : "bg-orange-100 text-orange-700"
+                                    }`}
+                                  >
+                                    {orderData?.payment_status || "N/A"}
                                   </span>
                                 </div>
 
                                 <div>
-                                  <h4 className="font-[600] text-[13px] mb-2 border-b pb-1" style={{ color: roleSettings.pageText, borderColor: `color-mix(in srgb, ${roleSettings.pageText}, transparent 80%)` }}>Services</h4>
+                                  <h4
+                                    className="font-[600] text-[13px] mb-2 border-b pb-1"
+                                    style={{
+                                      color: roleSettings.pageText,
+                                      borderColor: `color-mix(in srgb, ${roleSettings.pageText}, transparent 80%)`,
+                                    }}
+                                  >
+                                    Services
+                                  </h4>
                                   <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                                    {orderData?.services?.map((service, index) => (
-                                      <div
-                                        key={index}
-                                        className="flex flex-col text-[12px] p-2 rounded-[4px] border border-[#E4E4E4] gap-2"
-                                        style={{ backgroundColor: fieldBg }}
+                                    {orderData?.services?.map(
+                                      (service, index) => (
+                                        <div
+                                          key={index}
+                                          className="flex flex-col text-[12px] p-2 rounded-[4px] border border-[#E4E4E4] gap-2"
+                                          style={{ backgroundColor: fieldBg }}
+                                        >
+                                          <span
+                                            className="font-[600]"
+                                            style={{
+                                              color: roleSettings.pageText,
+                                            }}
+                                          >
+                                            {service.service?.name ||
+                                              service.optionName ||
+                                              "Unknown Service"}
+                                          </span>
+                                          <div className="flex justify-between items-center">
+                                            <span
+                                              style={{
+                                                color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 30%)`,
+                                              }}
+                                            >
+                                              Payment:
+                                            </span>
+                                            <span
+                                              className={`px-2 py-0.5 rounded-full text-[11px] font-[500] ${
+                                                service.payment_status ===
+                                                "PAID"
+                                                  ? "bg-green-500 text-white"
+                                                  : "bg-red-500 text-white"
+                                              }`}
+                                            >
+                                              {service.payment_status ||
+                                                "Pending"}
+                                            </span>
+                                          </div>
+                                          <div className="flex justify-between items-center">
+                                            <span
+                                              style={{
+                                                color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 30%)`,
+                                              }}
+                                            >
+                                              Completion:
+                                            </span>
+                                            <span
+                                              className={`px-2 py-0.5 rounded-full text-[11px] font-[500] ${
+                                                service.is_completed
+                                                  ? "bg-green-500 text-white"
+                                                  : "bg-gray-200 text-gray-700"
+                                              }`}
+                                            >
+                                              {service.is_completed
+                                                ? "Completed"
+                                                : "Pending"}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      ),
+                                    )}
+                                    {(!orderData?.services ||
+                                      orderData.services.length === 0) && (
+                                      <p
+                                        style={{
+                                          color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 40%)`,
+                                        }}
+                                        className="text-[12px] italic"
                                       >
-                                        <span className="font-[600]" style={{ color: roleSettings.pageText }}>
-                                          {service.service?.name || service.optionName || 'Unknown Service'}
-                                        </span>
-                                        <div className="flex justify-between items-center">
-                                          <span style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 30%)` }}>Payment:</span>
-                                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-[500] ${service.payment_status === 'PAID' ? 'bg-green-500 text-white' :
-                                            'bg-red-500 text-white'
-                                            }`}>
-                                            {service.payment_status || 'Pending'}
-                                          </span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                          <span style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 30%)` }}>Completion:</span>
-                                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-[500] ${service.is_completed ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'
-                                            }`}>
-                                            {service.is_completed ? 'Completed' : 'Pending'}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    ))}
-                                    {(!orderData?.services || orderData.services.length === 0) && (
-                                      <p style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 40%)` }} className="text-[12px] italic">No services found</p>
+                                        No services found
+                                      </p>
                                     )}
                                   </div>
                                 </div>
@@ -640,11 +826,13 @@ function Page() {
 
                   </div> */}
                   <div className="col-span-2">
-                    <label htmlFor="">Team Member <span className="text-red-500">*</span></label>
+                    <label htmlFor="">
+                      Team Member <span className="text-red-500">*</span>
+                    </label>
                     <Select
                       value={selectedVendors}
                       onValueChange={(value) => setselectedVendors(value)}
-                      disabled={userType !== 'admin'}
+                      disabled={userType !== "admin"}
                     >
                       <SelectTrigger
                         className="w-full  h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
@@ -658,7 +846,6 @@ function Page() {
                             {`${vendor.first_name} ${vendor.last_name}`}
                           </SelectItem>
                         ))}
-
                       </SelectContent>
                     </Select>
                     {/* {fieldErrors.property_status && (
@@ -672,7 +859,7 @@ function Page() {
                     {orderData?.uuid ? (
                       <div className="relative w-full">
                         <Input
-                          value={`${origin}/tour/${orderData?.property?.address?.replace(/\s+/g, '-')}/${orderData?.uuid}`}
+                          value={`${origin}/tour/${orderData?.property?.address?.replace(/\s+/g, "-")}/${orderData?.uuid}`}
                           readOnly
                           type="text"
                           className="h-[42px] border-[1px] border-[#BBBBBB] truncate mt-[12px] pr-10"
@@ -680,7 +867,7 @@ function Page() {
                         />
                         <Copy
                           onClick={() => {
-                            const url = `${origin}/tour/${orderData?.property?.address?.replace(/\s+/g, '-')}/${orderData?.uuid}`;
+                            const url = `${origin}/tour/${orderData?.property?.address?.replace(/\s+/g, "-")}/${orderData?.uuid}`;
                             navigator.clipboard.writeText(url);
                             toast.success("Tour link copied to clipboard");
                           }}
@@ -700,8 +887,13 @@ function Page() {
                           type="text"
                           readOnly
                         />
-                        <div className='flex justify-end'>
-                          <p className={`underline text-[12px] w-fit cursor-pointer`} style={{ color: roleSettings.pageTabColor }}>Customize URL</p>
+                        <div className="flex justify-end">
+                          <p
+                            className={`underline text-[12px] w-fit cursor-pointer`}
+                            style={{ color: roleSettings.pageTabColor }}
+                          >
+                            Customize URL
+                          </p>
                         </div>
                       </>
                     )}
@@ -712,7 +904,9 @@ function Page() {
                                         )} */}
                   </div>
                   <div className="col-span-2">
-                    <label htmlFor="">MLS Property <span className="text-red-500">*</span></label>
+                    <label htmlFor="">
+                      MLS Property <span className="text-red-500">*</span>
+                    </label>
                     <Input
                       value={mls_property}
                       onChange={(e) => setMls_property(e.target.value)}
@@ -729,39 +923,54 @@ function Page() {
                   </div>
                   <div className="col-span-2 flex flex-col gap-[16px]">
                     <Button
-                      onClick={() => router.push(`/dashboard/file-manager/${orderId}?listingId=${orderData?.property?.uuid}`)}
+                      onClick={() =>
+                        router.push(
+                          `/dashboard/file-manager/${orderId}?listingId=${orderData?.property?.uuid}`,
+                        )
+                      }
                       className={`col-span-3 w-full md:w-full h-[32px] md:h-[32px] rounded-[3px] border-[1px] text-[14px] md:text-[14px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:opacity-85 font-raleway`}
-                      style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+                      style={{
+                        backgroundColor: roleSettings.pageTabColor,
+                        borderColor: roleSettings.pageTabColor,
+                      }}
                     >
                       Go To File Manager
                     </Button>
-                    {(userType === 'admin' || userType === 'agent') && (
-                      <div className='grid grid-cols-2 gap-[16px] font-[400] text-[14px] justify-items-end' style={{ color: roleSettings.pageText }}>
+                    {(userType === "admin" || userType === "agent") && (
+                      <div
+                        className="grid grid-cols-2 gap-[16px] font-[400] text-[14px] justify-items-end"
+                        style={{ color: roleSettings.pageText }}
+                      >
                         <p>Require payment before releasing materials</p>
                         <Switch
                           checked={isChecked}
                           onCheckedChange={setIsChecked}
                           className="data-[state=checked]:bg-transparent"
-                          style={{ backgroundColor: isChecked ? roleSettings.pageTabColor : undefined }}
+                          style={{
+                            backgroundColor: isChecked
+                              ? roleSettings.pageTabColor
+                              : undefined,
+                          }}
                         />
                       </div>
                     )}
                   </div>
-                  {userType === 'vendor' &&
+                  {userType === "vendor" && (
                     <div className="col-span-2 flex flex-col gap-[16px] mt-[40px]">
                       <Button
                         onClick={() => setOpenEditPopup(true)}
                         className={`col-span-3 w-full md:w-full h-[32px] md:h-[32px] rounded-[3px] border-[1px] text-[14px] md:text-[14px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:opacity-85 font-raleway`}
-                        style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+                        style={{
+                          backgroundColor: roleSettings.pageTabColor,
+                          borderColor: roleSettings.pageTabColor,
+                        }}
                       >
                         Upgrade/Downgrade Order
                       </Button>
-
-                    </div>}
+                    </div>
+                  )}
                 </div>
               </div>
-
-
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -769,106 +978,146 @@ function Page() {
         <AccordionItem value="additional">
           <AccordionTrigger
             className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[18px] font-[600] uppercase [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:text-current`}
-            style={{ backgroundColor: headerBg, color: roleSettings.pageTabColor }}
+            style={{
+              backgroundColor: headerBg,
+              color: roleSettings.pageTabColor,
+            }}
           >
             Order Details
           </AccordionTrigger>
           <AccordionContent className="grid gap-4">
             <div className="w-full flex flex-col items-center">
               <div className="w-full md:w-[450px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[48px] text-[#424242] text-[14px] font-[400]">
-                <div className='flex flex-col gap-[10px]'>
-                  <div className='flex justify-between gap-[12px]'>
-                    <div className='flex gap-[12px] items-center'>
-                      <File className='text-[#4290E9] h-[24px]w-[30px]  md:h-[36px] md:w-[40px]' />
-                      <p className='text-[#4290E9] text-[24px] md:text-[36px] font-[400]'>Order {orderData?.id}</p>
+                <div className="flex flex-col gap-[10px]">
+                  <div className="flex justify-between gap-[12px]">
+                    <div className="flex gap-[12px] items-center">
+                      <File className="text-[#4290E9] h-[24px]w-[30px]  md:h-[36px] md:w-[40px]" />
+                      <p className="text-[#4290E9] text-[24px] md:text-[36px] font-[400]">
+                        Order {orderData?.id}
+                      </p>
                     </div>
-                    <div className='hidden'>
-                      <Switch className=' data-[state=checked]:bg-[#6BAE41] ' />
-                      <p className='text-[#666666] text-[16px]'>Open</p>
+                    <div className="flex items-center gap-[12px] hidden">
+                      <Switch className=" data-[state=checked]:bg-[#6BAE41] " />
+                      <p className="text-[#666666] text-[16px]">Open</p>
                     </div>
                   </div>
-                  <p className='text-[#666666] text-[16px] font-[400]'>This is only a quote. Invoiced amount will likely change based on actual measured area.</p>
+                  <p className="text-[#666666] text-[16px] font-[400]">
+                    This is only a quote. Invoiced amount will likely change
+                    based on actual measured area.
+                  </p>
                 </div>
-                <div className='text-[#666666] flex gap-x-[20px]'>
-                  <div className='flex flex-col gap-y-[20px] w-1/2 text-wrap'>
+                <div className="text-[#666666] flex gap-x-[20px]">
+                  <div className="flex flex-col gap-y-[20px] w-1/2 text-wrap">
                     <p>{uniqueVendors?.length > 1 ? "Vendors" : "Vendor"}</p>
                     {uniqueVendors?.map((vendor) => (
-                      <div key={vendor.uuid} >
-                        <p>{vendor.first_name} {vendor.last_name}</p>
+                      <div key={vendor.uuid}>
+                        <p>
+                          {vendor.first_name} {vendor.last_name}
+                        </p>
                         <p>{vendor.company?.company_name ?? "N/A"}</p>
                         <p>{vendor.email}</p>
                       </div>
                     ))}
                   </div>
 
-
-                  <div className='w-1/2 text-wrap'>
-                    <p className='mb-[20px]'>Customer</p>
+                  <div className="w-1/2 text-wrap">
+                    <p className="mb-[20px]">Customer</p>
                     <p>Realtor</p>
-                    <p>{orderData?.agent?.first_name} {orderData?.agent?.last_name}</p>
+                    <p>
+                      {orderData?.agent?.first_name}{" "}
+                      {orderData?.agent?.last_name}
+                    </p>
                     <p>{orderData?.agent?.company_name}</p>
                     <p>{orderData?.agent?.email}</p>
                   </div>
                 </div>
-                <div className='flex flex-col gap-[18px] text-[#666666] text-[16px]'>
-                  <p className='text-[20px] text-[#666666] font-[700]'>Order Details</p>
-                  <p className='grid grid-cols-4 gap-[15px]'>
-                    <span className='col-span-3'>Package</span>
-                    <span className='col-span-1'>
-                      ${orderData?.services
-                        ?.reduce((total, service) => total + getOriginalPrice(service), 0).toFixed(2)}
+                <div className="flex flex-col gap-[18px] text-[#666666] text-[16px]">
+                  <p className="text-[20px] text-[#666666] font-[700]">
+                    Order Details
+                  </p>
+                  <p className="grid grid-cols-4 gap-[15px]">
+                    <span className="col-span-3">Package</span>
+                    <span className="col-span-1">
+                      $
+                      {orderData?.services
+                        ?.reduce(
+                          (total, service) => total + getOriginalPrice(service),
+                          0,
+                        )
+                        .toFixed(2)}
                     </span>
                   </p>
 
-                  <p className='grid grid-cols-4 gap-[15px]'>
-                    <span className='col-span-3'>Items</span>
-                    <span className='col-span-1'>{orderData?.services?.length}</span>
+                  <p className="grid grid-cols-4 gap-[15px]">
+                    <span className="col-span-3">Items</span>
+                    <span className="col-span-1">
+                      {orderData?.services?.length}
+                    </span>
                   </p>
                   <div className="grid gap-[15px]">
                     {orderData?.services?.map((service) => {
-                      const isPaid = service.payment_status?.toUpperCase() === 'PAID';
+                      const isPaid =
+                        service.payment_status?.toUpperCase() === "PAID";
                       const originalPrice = getOriginalPrice(service);
                       return (
-                        <p key={service.id} className="grid grid-cols-4 gap-[15px] items-center">
+                        <p
+                          key={service.id}
+                          className="grid grid-cols-4 gap-[15px] items-center"
+                        >
                           <span className="col-span-3 flex items-center gap-2">
-                            {service.service?.name || service.optionName || 'Unknown Service'}
+                            {service.service?.name ||
+                              service.optionName ||
+                              "Unknown Service"}
                             {isPaid && (
-                              <span className="text-[10px] bg-[#6BAE41] text-white px-1.5 py-0.5 rounded font-semibold uppercase">Paid</span>
+                              <span className="text-[10px] bg-[#6BAE41] text-white px-1.5 py-0.5 rounded font-semibold uppercase">
+                                Paid
+                              </span>
                             )}
                           </span>
-                          <span className="col-span-1">${originalPrice.toFixed(2)}</span>
+                          <span className="col-span-1">
+                            ${originalPrice.toFixed(2)}
+                          </span>
                         </p>
                       );
                     })}
                   </div>
-                  <p className='grid grid-cols-4 gap-[15px]'>
-                    <span className='col-span-3'>GST/HST</span>
-                    <span className='col-span-1'>$0.00</span>
+                  <p className="grid grid-cols-4 gap-[15px]">
+                    <span className="col-span-3">GST/HST</span>
+                    <span className="col-span-1">$0.00</span>
                   </p>
-                  <p className='grid grid-cols-4 gap-[15px]'>
-                    <span className='col-span-3'>PST/RST/QST</span>
-                    <span className='col-span-1'>$0.00</span>
+                  <p className="grid grid-cols-4 gap-[15px]">
+                    <span className="col-span-3">PST/RST/QST</span>
+                    <span className="col-span-1">$0.00</span>
                   </p>
                   {(() => {
                     // Calculate subtotal from services
-                    const subtotal = orderData?.services?.reduce((sum, s) => sum + parseFloat(s.amount || "0"), 0) || 0;
+                    const subtotal =
+                      orderData?.services?.reduce(
+                        (sum, s) => sum + parseFloat(s.amount || "0"),
+                        0,
+                      ) || 0;
 
                     // Calculate total discount from orderData.totals array
-                    const totalDiscount = orderData?.totals?.reduce((total, item) => {
-                      if (item.amount && parseFloat(item.amount) < 0) {
-                        return total + Math.abs(parseFloat(item.amount));
-                      }
-                      return total;
-                    }, 0) || 0;
+                    const totalDiscount =
+                      orderData?.totals?.reduce((total, item) => {
+                        if (item.amount && parseFloat(item.amount) < 0) {
+                          return total + Math.abs(parseFloat(item.amount));
+                        }
+                        return total;
+                      }, 0) || 0;
 
                     // Calculate discount percentage
-                    const discountPercent = subtotal > 0 ? ((totalDiscount / subtotal) * 100).toFixed(2) : "0.00";
+                    const discountPercent =
+                      subtotal > 0
+                        ? ((totalDiscount / subtotal) * 100).toFixed(2)
+                        : "0.00";
 
                     // Grand total is the final amount from the order
                     const grandTotal = parseFloat(orderData?.amount || "0");
 
                     // Get paid amount from order data
-                    const paidAmount = parseFloat(orderData?.paid_amount || "0") || 0;
+                    const paidAmount =
+                      parseFloat(orderData?.paid_amount || "0") || 0;
 
                     // Calculate balance due
                     const balanceDue = grandTotal - paidAmount;
@@ -876,69 +1125,90 @@ function Page() {
                     return (
                       <>
                         {/* Subtotal */}
-                        <p className='grid grid-cols-4 gap-[15px]'>
-                          <span className='col-span-3'>Subtotal</span>
-                          <span className='col-span-1'>${subtotal.toFixed(2)}</span>
+                        <p className="grid grid-cols-4 gap-[15px]">
+                          <span className="col-span-3">Subtotal</span>
+                          <span className="col-span-1">
+                            ${subtotal.toFixed(2)}
+                          </span>
                         </p>
 
                         {/* Discount */}
                         {totalDiscount > 0 && (
-                          <p className='grid grid-cols-4 gap-[15px]'>
-                            <span className='col-span-3'>Discount</span>
-                            <span className='col-span-1'>
+                          <p className="grid grid-cols-4 gap-[15px]">
+                            <span className="col-span-3">Discount</span>
+                            <span className="col-span-1">
                               -${totalDiscount.toFixed(2)} ({discountPercent}%)
                             </span>
                           </p>
                         )}
 
                         {/* Grand Total */}
-                        <p className='grid grid-cols-4 gap-[15px]'>
-                          <span className='col-span-3'>Grand Total</span>
-                          <span className='col-span-1'>${grandTotal.toFixed(2)}</span>
+                        <p className="grid grid-cols-4 gap-[15px]">
+                          <span className="col-span-3">Grand Total</span>
+                          <span className="col-span-1">
+                            ${grandTotal.toFixed(2)}
+                          </span>
                         </p>
 
                         {/* Show paid amount if any payment has been made */}
                         {paidAmount > 0 && (
-                          <p className='grid grid-cols-4 gap-[15px] text-[#6BAE41]'>
-                            <span className='col-span-3'>Paid</span>
-                            <span className='col-span-1'>-${paidAmount.toFixed(2)}</span>
+                          <p className="grid grid-cols-4 gap-[15px] text-[#6BAE41]">
+                            <span className="col-span-3">Paid</span>
+                            <span className="col-span-1">
+                              -${paidAmount.toFixed(2)}
+                            </span>
                           </p>
                         )}
 
                         {/* Show balance due */}
-                        <p className='grid grid-cols-4 gap-[15px] text-[20px] md:text-[24px] font-[500] border-t pt-2'>
-                          <span className='col-span-3'>
+                        <p className="grid grid-cols-4 gap-[15px] text-[20px] md:text-[24px] font-[500] border-t pt-2">
+                          <span className="col-span-3">
                             {paidAmount > 0 ? "Balance Due" : "Amount Due"}
                           </span>
-                          <span className='col-span-1'>${Math.max(0, balanceDue).toFixed(2)}</span>
+                          <span className="col-span-1">
+                            ${Math.max(0, balanceDue).toFixed(2)}
+                          </span>
                         </p>
                       </>
                     );
                   })()}
-                  {userType !== 'vendor' && (orderData?.payment_status !== 'PAID' || paymentConfirm) &&
-                    <Button
-                      onClick={handlePaymentClick}
-                      disabled={isPaymentLoading}
-                      className={`col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px] border-[1px] text-[14px] md:text-[14px] font-[600] flex gap-[5px] justify-center items-center hover:opacity-90 font-raleway`}
-                      style={{ backgroundColor: roleSettings.pageTabColor, color: '#FFFFFF', borderColor: roleSettings.pageTabColor }}
-                    >
-                      {isPaymentLoading ? "Processing..." : `Make Payment $${calculatedBalanceDue.toFixed(2)}`}
-                    </Button>
-                  }
+                  {userType !== "vendor" &&
+                    (orderData?.payment_status !== "PAID" ||
+                      paymentConfirm) && (
+                      <Button
+                        onClick={handlePaymentClick}
+                        disabled={isPaymentLoading}
+                        className={`col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px] border-[1px] text-[14px] md:text-[14px] font-[600] flex gap-[5px] justify-center items-center hover:opacity-90 font-raleway`}
+                        style={{
+                          backgroundColor: roleSettings.pageTabColor,
+                          color: "#FFFFFF",
+                          borderColor: roleSettings.pageTabColor,
+                        }}
+                      >
+                        {isPaymentLoading
+                          ? "Processing..."
+                          : `Make Payment $${calculatedBalanceDue.toFixed(2)}`}
+                      </Button>
+                    )}
                 </div>
                 <div>
-                  <p className='text-[12px]'>Lorem ipsum dolor sit amet. Et minus internos rem culpa ratione quo harum obcaecati ut minima quia.
-                    Eos aliquid inventore et dicta sint quo autem ipsam ea officiis iste et quia temporibus eum ratione sunt
-                    non dolorum cumque. Aut quas optio cum dolorem voluptatibus ut quae culpa aut repellat quod qui suscipit
-                    consequuntur. Qui explicabo distinctio est eveniet dolorem sed voluptatem perspiciatis eum Quis dolorum
-                    et voluptatem corporis cum minima ipsa.</p>
+                  <p className="text-[12px]">
+                    Lorem ipsum dolor sit amet. Et minus internos rem culpa
+                    ratione quo harum obcaecati ut minima quia. Eos aliquid
+                    inventore et dicta sint quo autem ipsam ea officiis iste et
+                    quia temporibus eum ratione sunt non dolorum cumque. Aut
+                    quas optio cum dolorem voluptatibus ut quae culpa aut
+                    repellat quod qui suscipit consequuntur. Qui explicabo
+                    distinctio est eveniet dolorem sed voluptatem perspiciatis
+                    eum Quis dolorum et voluptatem corporis cum minima ipsa.
+                  </p>
                 </div>
               </div>
             </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
-    </div >
+    </div>
   );
 }
 

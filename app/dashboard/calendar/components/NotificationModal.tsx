@@ -2,13 +2,15 @@
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ChevronDown, Minus, Plus, X } from "lucide-react";
 import {
   Select,
@@ -17,16 +19,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import WarningIcon, {
-  DropDownArrow,
-} from "@/components/Icons";
+import WarningIcon, { DropDownArrow } from "@/components/Icons";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { GetUser } from "../../orders/orders";
 import { SaveModal } from "@/components/SaveModal";
 import RichTextEditor from "./RichTextEditor";
 import { useAppContext } from "@/app/context/AppContext";
-const templateOptions = [{ id: "schedule_change", name: "Schedule Change" }];
+import { sendEmailNotification } from "../calendar";
+const templateOptions = [
+  { id: "schedule_change", name: "Your upcoming appointment has changed" },
+];
 export const templateHTMLs: Record<string, string> = {
   schedule_change: `
     <h1 style="font-size: 28px; font-weight: 400;">Appointment Change</h1>
@@ -152,6 +155,12 @@ type CoAgent = {
   split?: string;
   percentage?: number;
 };
+import type { Order } from "../../orders/page";
+import type { VendorData as Vendor } from "@/components/QuickViewCard";
+import { AgentData } from "../../agents/page";
+// Service type is nested in OrderService, but we can infer its shape from usage
+type Service = { name?: string };
+
 type Props = {
   open: boolean;
   setOpen: (value: boolean) => void;
@@ -163,6 +172,10 @@ type Props = {
   vendorSelected?: boolean;
   setAgentChecked?: (value: boolean) => void;
   setVendorChecked?: (value: boolean) => void;
+  order?: Order;
+  agent?: AgentData;
+  vendor?: Vendor;
+  service?: Service;
 };
 
 const NotificationModal: React.FC<Props> = ({
@@ -175,6 +188,9 @@ const NotificationModal: React.FC<Props> = ({
   bothSelected,
   setAgentChecked,
   setVendorChecked,
+  order,
+  agent,
+  service,
 }) => {
   const { userType } = useAppContext();
   const [selectedAgentTemplate, setSelectedAgentTemplate] =
@@ -196,6 +212,7 @@ const NotificationModal: React.FC<Props> = ({
   const [draftCoAgentsVendor, setDraftCoAgentsVendor] = useState<
     typeof coAgentsVendor
   >([]);
+  const [isSendingEmails, setIsSendingEmails] = useState(false);
   useEffect(() => {
     if (openAddCoAgentDialog) {
       const token = localStorage.getItem("token");
@@ -218,34 +235,161 @@ const NotificationModal: React.FC<Props> = ({
       setSelectedAgentTemplate("schedule_change");
       handleAgentTemplateChange("schedule_change");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   useEffect(() => {
     if (open) {
       setSelectedVendorTemplate("schedule_change");
       handleVendorTemplateChange("schedule_change");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   const handleNext = () => {
     setShowAgentModal?.(false);
     setShowVendorModal?.(true);
   };
 
-  const handleSave = () => {
-    setAgentChecked?.(false);
-    setVendorChecked?.(false);
-    setCoAgents([]);
-    setDraftCoAgents([]);
-    setCoAgentsVendor([]);
-    setDraftCoAgentsVendor([]);
-    setDescriptionAgent("");
-    setDescriptionVendor("");
-    setSelectedAgentTemplate("");
-    setSelectedVendorTemplate("");
-    setCoAgentEmail("");
-    setCoAgentEmailVendor("");
-    setAdminEmail("");
-    setAdminEmailVendor("");
-    setShowConfirmation(true);
+  const handleSave = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        toast.error("Authentication token not found");
+        return;
+      }
+
+      setIsSendingEmails(true);
+      const emailPromises: Promise<unknown>[] = [];
+
+      // Collect agent emails
+      if (showAgentModal && descriptionAgent) {
+        const agentEmails: string[] = [];
+
+        // Add main agent email from order
+        if (agent?.email) {
+          agentEmails.push(agent.email);
+        }
+
+        // Add admin email if present
+        if (adminEmail) {
+          agentEmails.push(adminEmail);
+        }
+
+        // Add co-agents emails
+        coAgents.forEach((coAgent) => {
+          if (coAgent.email) {
+            agentEmails.push(coAgent.email);
+          }
+        });
+
+        console.log("Sending agent emails to:", agentEmails);
+
+        // Create promises for all agent emails
+        agentEmails.forEach((email) => {
+          console.log("Preparing email to agent:", email);
+          emailPromises.push(
+            sendEmailNotification(
+              {
+                to: email,
+                subject: selectedAgentTemplate
+                  .replace(/_/g, " ")
+                  .replace(/\b\w/g, (l) => l.toUpperCase()),
+                html: descriptionAgent,
+              },
+              token,
+            ),
+          );
+        });
+      }
+
+      // Collect vendor emails
+      if (showVendorModal && descriptionVendor) {
+        const vendorEmails: string[] = [];
+
+        // Get vendor email from order's slots
+        if (order?.slots && order.slots.length > 0) {
+          order.slots.forEach((slot: Slot) => {
+            if (slot?.vendor?.email) {
+              vendorEmails.push(slot.vendor.email);
+            }
+          });
+        }
+
+        // Add admin email if present
+        if (adminEmailVendor) {
+          vendorEmails.push(adminEmailVendor);
+        }
+
+        // Add co-agents emails for vendor
+        coAgentsVendor.forEach((coAgent) => {
+          if (coAgent.email) {
+            vendorEmails.push(coAgent.email);
+          }
+        });
+
+        // Remove duplicates
+        const uniqueVendorEmails = [...new Set(vendorEmails)];
+
+        console.log("Sending vendor emails to:", uniqueVendorEmails);
+
+        // Create promises for all vendor emails
+        uniqueVendorEmails.forEach((email) => {
+          console.log("Preparing email to vendor:", email);
+          emailPromises.push(
+            sendEmailNotification(
+              {
+                to: email,
+                subject: selectedVendorTemplate
+                  .replace(/_/g, " ")
+                  .replace(/\b\w/g, (l) => l.toUpperCase()),
+                html: descriptionVendor,
+              },
+              token,
+            ),
+          );
+        });
+      }
+
+      if (emailPromises.length === 0) {
+        setIsSendingEmails(false);
+        toast.warning(
+          "No recipients found. Please ensure email addresses are available.",
+        );
+        return;
+      }
+
+      // Send all emails in parallel
+      console.log(`Sending ${emailPromises.length} emails in parallel...`);
+      await Promise.all(emailPromises);
+      console.log("All emails sent successfully!");
+
+      // Clear form state after successful sending
+      setAgentChecked?.(false);
+      setVendorChecked?.(false);
+      setCoAgents([]);
+      setDraftCoAgents([]);
+      setCoAgentsVendor([]);
+      setDraftCoAgentsVendor([]);
+      setDescriptionAgent("");
+      setDescriptionVendor("");
+      setSelectedAgentTemplate("");
+      setSelectedVendorTemplate("");
+      setCoAgentEmail("");
+      setCoAgentEmailVendor("");
+      setAdminEmail("");
+      setAdminEmailVendor("");
+
+      toast.success(
+        `Email notifications sent successfully to ${emailPromises.length} recipient(s)`,
+      );
+      setShowConfirmation(true);
+    } catch (error) {
+      console.error("Failed to send email notifications:", error);
+      toast.error(
+        "Failed to send email notifications. Please check console for details.",
+      );
+    } finally {
+      setIsSendingEmails(false);
+    }
   };
   const handleOkClick = () => {
     setShowConfirmation(false);
@@ -281,18 +425,123 @@ const NotificationModal: React.FC<Props> = ({
     setDraftCoAgents(coAgents); // clear input
     setOpenAddCoAgentDialog(true);
   };
+  // Slot and Vendor types for type safety
+
+  type Slot = {
+    service?: { name?: string; uuid?: string };
+    service_id?: string | number;
+    service_name?: string;
+    vendor?: Vendor;
+    date?: string;
+    start_time?: string;
+    end_time?: string;
+  };
+
+  function getSingleServiceSummary(slots: Slot[] = []) {
+    if (!slots.length) return null;
+    // Assume all slots are for the same service
+    const firstSlot = slots[0];
+    const serviceName = service?.name;
+
+    const vendor = firstSlot?.vendor;
+    // Merge all slots into a single time range (across all dates)
+    const sorted = [...slots].sort((a, b) => {
+      if (a.date === b.date) return a.start_time!.localeCompare(b.start_time!);
+      return a.date!.localeCompare(b.date!);
+    });
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    // If all slots are on the same date, show one range, else show date range
+    const allSameDate = sorted.every((s) => s.date === first.date);
+    let timeStr = "";
+    if (allSameDate) {
+      timeStr = `${first.date} | ${formatTime(first.start_time!)} - ${formatTime(last.end_time!)}`;
+    } else {
+      timeStr = `${formatTime(first.start_time!)} ${first.date} - ${formatTime(last.end_time!)} ${last.date}`;
+    }
+    return { serviceName, vendor, timeStr };
+  }
+
+  function fillTemplate(template: string) {
+    // Use first slot for vendor info if available
+    // Build time section HTML
+    let timeSection = "";
+    const slots = order?.slots || [];
+    const summary = getSingleServiceSummary(slots);
+    const vendorInfo: Vendor | undefined = summary?.vendor;
+    if (summary) {
+      // Service title
+      timeSection += `<h3 style=\"margin: 0 0 8px 0; font-size: 18px\">${service?.name ?? ""}</h3>`;
+      // Service name in bold after service work
+
+      timeSection += `<p style=\"margin: 4px 0; color: #d33434 !important; font-weight: bold; font-size: 16px\">${summary.timeStr}</p>`;
+      if (vendorInfo) {
+        timeSection += `<p style=\"margin: 8px 0 0\">Vendor: ${(vendorInfo.first_name || "") + " " + (vendorInfo.last_name || "")}</p>`;
+        timeSection += `<ul style=\"margin: 4px 0 0; padding-left: 20px\">`;
+        if (vendorInfo.email) timeSection += `<li>${vendorInfo.email}</li>`;
+        if (vendorInfo.primary_phone)
+          timeSection += `<li>${vendorInfo.primary_phone}</li>`;
+        if (vendorInfo.address) timeSection += `<li>${vendorInfo.address}</li>`;
+        timeSection += `</ul>`;
+      }
+    }
+    return template
+      .replace(
+        /\{agent name\}/gi,
+        agent
+          ? `${agent.first_name || ""} ${agent.last_name || ""}`.trim()
+          : "",
+      )
+      .replace(
+        /\{service name\}/gi,
+        summary?.serviceName || service?.name || "",
+      )
+      .replace(
+        /\{vendor name\}/gi,
+        vendorInfo
+          ? `${vendorInfo.first_name || ""} ${vendorInfo.last_name || ""}`.trim()
+          : "",
+      )
+      .replace(
+        /\{listing location\}/gi,
+        order?.property_address || order?.property?.address || "",
+      )
+      .replace(/\{vendor email\}/gi, vendorInfo?.email || "")
+      .replace(/\{vendor phone\}/gi, vendorInfo?.primary_phone || "")
+      .replace(/\{vendor address\}/gi, vendorInfo?.address || "")
+      .replace(/\{agent email\}/gi, agent?.email || "")
+      .replace(/\{agent phone\}/gi, agent?.primary_phone || "")
+      .replace(/\{agent address\}/gi, agent?.headquarter_address || "")
+      .replace(
+        /<div\s+className="se-listing"[\s\S]*?<\/div>/,
+        `<div className=\"se-listing\" style=\"padding-left: 50px; padding-right: 50px; margin-bottom: 10px;\">${timeSection}</div>`,
+      );
+  }
+
+  // Helper to format time as 12-hour with am/pm
+  function formatTime(time: string) {
+    if (!time) return "";
+    const [h, m] = time.split(":");
+    let hour = parseInt(h, 10);
+    const min = m;
+    const ampm = hour >= 12 ? "PM" : "AM";
+    hour = hour % 12;
+    if (hour === 0) hour = 12;
+    return `${hour}:${min} ${ampm}`;
+  }
+
   const handleAgentTemplateChange = (val: string) => {
     setSelectedAgentTemplate(val);
     const html = templateHTMLs[val];
     if (html) {
-      setDescriptionAgent(html);
+      setDescriptionAgent(fillTemplate(html));
     }
   };
   const handleVendorTemplateChange = (val: string) => {
     setSelectedVendorTemplate(val);
     const html = templateHTMLs2[val];
     if (html) {
-      setDescriptionVendor(html);
+      setDescriptionVendor(fillTemplate(html));
     }
   };
   const removeAdmin = () => setAdminEmail("");
@@ -357,22 +606,21 @@ const NotificationModal: React.FC<Props> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="bg-[#FAFAFA]  w-[750px] max-w-[750px] max-h-[650px] rounded-[8px] font-alexandria gap-y-3 overflow-y-auto [&>button]:hidden">
-        <DialogHeader>
-          <DialogTitle
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogContent className="bg-[#FAFAFA]  w-[750px] max-w-[750px] max-h-[650px] rounded-[8px] font-alexandria gap-y-3 overflow-y-auto">
+        <AlertDialogHeader>
+          <AlertDialogTitle
             className={`${userType}-text flex items-center justify-between text-[18px] uppercase font-semibold border-b border-[#E4E4E4] pb-2`}
           >
             Edit Notification
             <Button
               onClick={handleClose}
-              variant="ghost"
-              className="bg-transparent hover:bg-transparent shadow-none p-0 h-auto"
+              className="bg-transparent hover:bg-transparent shadow-none"
             >
               <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
             </Button>
-          </DialogTitle>
-        </DialogHeader>
+          </AlertDialogTitle>
+        </AlertDialogHeader>
         <div className="text-[#666666] text-[16px] font-[400]">
           {showAgentModal && <p>Choose Template: Agents</p>}
           {showVendorModal && <p>Choose Template: Vendors</p>}
@@ -446,29 +694,28 @@ const NotificationModal: React.FC<Props> = ({
                 </p>
                 <Plus className="w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm " />
               </div>
-              <Dialog
+              <AlertDialog
                 open={openAddCoAgentDialog}
                 onOpenChange={setOpenAddCoAgentDialog}
               >
-                <DialogContent className="w-[320px] md:w-[470px] h-[360px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
+                <AlertDialogContent className="w-[320px] md:w-[470px] h-[360px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
                       CC
-                      <Button
-                        variant="ghost"
+                      <AlertDialogCancel
                         onClick={(e) => {
                           e.stopPropagation();
                           setOpenAddCoAgentDialog(false);
                           setCoAgentEmail("");
                           setDraftCoAgents([]);
                         }}
-                        className="border-none !shadow-none p-0 h-auto"
+                        className="border-none !shadow-none"
                       >
                         <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                      </Button>
-                    </DialogTitle>
+                      </AlertDialogCancel>
+                    </AlertDialogTitle>
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
-                  </DialogHeader>
+                  </AlertDialogHeader>
 
                   <div className="flex flex-col ">
                     <div
@@ -567,9 +814,8 @@ const NotificationModal: React.FC<Props> = ({
                           </div>
                         </div>
                         <hr className="w-full h-[1px] text-[#BBBBBB] my-[16px]" />
-                        <DialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
-                          <Button
-                            variant="outline"
+                        <AlertDialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
+                          <AlertDialogCancel
                             onClick={(e) => {
                               e.stopPropagation();
                               setOpenAddCoAgentDialog(false);
@@ -579,7 +825,7 @@ const NotificationModal: React.FC<Props> = ({
                             className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]"
                           >
                             Cancel
-                          </Button>
+                          </AlertDialogCancel>
                           <button
                             type="button"
                             onClick={(e) => {
@@ -615,12 +861,12 @@ const NotificationModal: React.FC<Props> = ({
                           >
                             Add
                           </button>
-                        </DialogFooter>
+                        </AlertDialogFooter>
                       </form>
                     </div>
                   </div>
-                </DialogContent>
-              </Dialog>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
             <div className="border border-[#BBBBBB] mt-[12px] px-[6px] py-[8px] rounded-[6px] bg-[#EEEEEE] flex flex-wrap gap-[6px] min-h-[67px]">
               {adminEmail && (
@@ -675,29 +921,28 @@ const NotificationModal: React.FC<Props> = ({
                 </p>
                 <Plus className="w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm " />
               </div>
-              <Dialog
+              <AlertDialog
                 open={openAddCoAgentDialog}
                 onOpenChange={setOpenAddCoAgentDialog}
               >
-                <DialogContent className="w-[320px] md:w-[470px] h-[360px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
+                <AlertDialogContent className="w-[320px] md:w-[470px] h-[360px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center uppercase justify-between text-[#4290E9] text-[18px] font-[600]">
                       CC
-                      <Button
-                        variant="ghost"
+                      <AlertDialogCancel
                         onClick={(e) => {
                           e.stopPropagation();
                           setOpenAddCoAgentDialog(false);
                           setCoAgentEmailVendor("");
                           setDraftCoAgentsVendor([]);
                         }}
-                        className="border-none !shadow-none p-0 h-auto"
+                        className="border-none !shadow-none"
                       >
                         <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                      </Button>
-                    </DialogTitle>
+                      </AlertDialogCancel>
+                    </AlertDialogTitle>
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
-                  </DialogHeader>
+                  </AlertDialogHeader>
 
                   <div className="flex flex-col ">
                     <div
@@ -796,9 +1041,8 @@ const NotificationModal: React.FC<Props> = ({
                           </div>
                         </div>
                         <hr className="w-full h-[1px] text-[#BBBBBB] my-[16px]" />
-                        <DialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
-                          <Button
-                            variant="outline"
+                        <AlertDialogFooter className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
+                          <AlertDialogCancel
                             onClick={(e) => {
                               e.stopPropagation();
                               setOpenAddCoAgentDialog(false);
@@ -808,7 +1052,7 @@ const NotificationModal: React.FC<Props> = ({
                             className="bg-white w-full md:w-[176px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]"
                           >
                             Cancel
-                          </Button>
+                          </AlertDialogCancel>
                           <button
                             type="button"
                             onClick={(e) => {
@@ -842,12 +1086,12 @@ const NotificationModal: React.FC<Props> = ({
                           >
                             Add
                           </button>
-                        </DialogFooter>
+                        </AlertDialogFooter>
                       </form>
                     </div>
                   </div>
-                </DialogContent>
-              </Dialog>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
             <div className="border border-[#BBBBBB] mt-[12px] px-[6px] py-[8px] rounded-[6px] bg-[#EEEEEE] flex flex-wrap gap-[6px] min-h-[67px]">
               {adminEmailVendor && (
@@ -894,13 +1138,12 @@ const NotificationModal: React.FC<Props> = ({
           {bothSelected && showAgentModal && (
             // Step 1 of 2 (Agent only)
             <div className="flex items-center gap-x-4 font-raleway">
-              <Button
-                variant="outline"
+              <AlertDialogCancel
                 onClick={handleClose}
                 className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[600] ${userType}-border ${userType}-text hover-${userType}-bg  ${userType}-button`}
               >
                 Cancel
-              </Button>
+              </AlertDialogCancel>
               <Button
                 onClick={handleNext}
                 className={`${userType}-bg  w-full md:w-[170px] h-[44px] text-[20px] font-[600] hover:opacity-95 text-white hover-${userType}-bg`}
@@ -915,98 +1158,100 @@ const NotificationModal: React.FC<Props> = ({
             <div className="flex items-center gap-x-4 font-raleway">
               <Button
                 onClick={handleBack}
-                className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[600] ${userType}-border ${userType}-text hover-${userType}-bg  ${userType}-button`}
+                disabled={isSendingEmails}
+                className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[600] ${userType}-border ${userType}-text hover-${userType}-bg  ${userType}-button disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 Back
               </Button>
               <Button
                 onClick={handleSave}
-                className={`${userType}-bg  w-full md:w-[170px] h-[44px] text-[20px] font-[600] hover:opacity-95 text-white hover-${userType}-bg`}
+                disabled={isSendingEmails}
+                className={`${userType}-bg  w-full md:w-[170px] h-[44px] text-[20px] font-[600] hover:opacity-95 text-white hover-${userType}-bg disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                Save And Exit
+                {isSendingEmails ? "Sending..." : "Save And Exit"}
               </Button>
             </div>
           )}
 
           {!bothSelected && showAgentModal && (
             <div className="flex items-center gap-x-4 font-raleway">
-              <Button
-                variant="outline"
+              <AlertDialogCancel
                 onClick={handleClose}
                 className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[600] ${userType}-border ${userType}-text hover-${userType}-bg ${userType}-button`}
               >
                 Cancel
-              </Button>
+              </AlertDialogCancel>
               <Button
                 onClick={handleSave}
-                className={`${userType}-bg  w-full md:w-[170px] h-[44px] text-[20px] font-[600] hover:opacity-95 text-white hover-${userType}-bg`}
+                disabled={isSendingEmails}
+                className={`${userType}-bg  w-full md:w-[170px] h-[44px] text-[20px] font-[600] hover:opacity-95 text-white hover-${userType}-bg disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                Save And Exit
+                {isSendingEmails ? "Sending..." : "Save And Exit"}
               </Button>
             </div>
           )}
 
           {!bothSelected && showVendorModal && (
             <div className="flex items-center gap-x-4 font-raleway">
-              <Button
-                variant="outline"
+              <AlertDialogCancel
                 onClick={handleClose}
                 className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[600] ${userType}-border ${userType}-text hover-${userType}-bg ${userType}-button `}
               >
                 Cancel
-              </Button>
+              </AlertDialogCancel>
               <Button
                 onClick={handleSave}
-                className={`${userType}-bg  w-full md:w-[170px] h-[44px] text-[20px] font-[600] hover:opacity-95 text-white hover-${userType}-bg`}
+                disabled={isSendingEmails}
+                className={`${userType}-bg  w-full md:w-[170px] h-[44px] text-[20px] font-[600] hover:opacity-95 text-white hover-${userType}-bg disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                Save And Exit
+                {isSendingEmails ? "Sending..." : "Save And Exit"}
               </Button>
             </div>
           )}
         </div>
-      </DialogContent>
-      <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
-        <DialogContent className="w-[320px] md:w-[565px] max-w-[565px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria [&>button]:hidden">
-          <DialogHeader className="mb-2">
-            <DialogTitle className="flex items-center justify-between text-[#4290E9] text-[18px] font-[600] border-b-[1px] border-[#E4E4E4] pb-2">
+      </AlertDialogContent>
+      <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+        <AlertDialogContent className="w-[320px] md:w-[565px] max-w-[565px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria">
+          <AlertDialogHeader className="mb-2">
+            <AlertDialogTitle className="flex items-center justify-between text-[#4290E9] text-[18px] font-[600] border-b-[1px] border-[#E4E4E4] pb-2">
               SAVE AND EXIT
-              <Button variant="ghost" onClick={() => setShowConfirmation(false)} className="border-none !shadow-none p-0 h-auto hover:bg-transparent">
+              <AlertDialogCancel className="border-none !shadow-none">
                 <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-              </Button>
-            </DialogTitle>
-          </DialogHeader>
+              </AlertDialogCancel>
+            </AlertDialogTitle>
+          </AlertDialogHeader>
 
           <div className="flex items-start gap-3">
             <div className="w-fit">
               <WarningIcon width={48} fill="#DC9600" />
             </div>
-            <DialogDescription className="text-[16px] font-[400] text-[#666666]">
+            <AlertDialogDescription className="text-[16px] font-[400] text-[#666666]">
               Are you sure you want to save and exit? This cannot be undone.
-            </DialogDescription>
+            </AlertDialogDescription>
           </div>
 
-          <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px]  mt-2 font-alexandria">
-            <Button onClick={() => setShowConfirmation(false)} className="bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">
+          <AlertDialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px]  mt-2 font-alexandria">
+            <AlertDialogCancel className="bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">
               Cancel
-            </Button>
-            <Button
+            </AlertDialogCancel>
+            <AlertDialogAction
               className="bg-[#4290E9] text-white hover:bg-[#005fb8] w-full  md:w-[170px] h-[44px] font-[400] text-[20px]"
               onClick={handleOkClick}
             >
               OK
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
         <SaveModal
           isOpen={openSave}
           onClose={() => setOpenSave(false)}
           // isLoading={true}
           isSuccess={true}
-        // backLink="/dashboard/agents"
-        // title={'Agents'}
+          // backLink="/dashboard/agents"
+          // title={'Agents'}
         />
-      </Dialog>
-    </Dialog>
+      </AlertDialog>
+    </AlertDialog>
   );
 };
 

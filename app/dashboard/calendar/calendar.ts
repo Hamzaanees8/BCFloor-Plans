@@ -98,7 +98,7 @@ export async function GetAgents() {
 
     if (response.status !== 200) {
       throw new Error(
-        agentData.message || `Request failed with status ${response.status}`
+        agentData.message || `Request failed with status ${response.status}`,
       );
     }
 
@@ -109,16 +109,14 @@ export async function GetAgents() {
   }
 }
 
-
 export async function GetOne(orderId: string) {
-
   try {
     const response = await api.get(`/orders/${orderId}`);
 
     if (response.status !== 200) {
       const error = await response.data;
       throw new Error(
-        error.message || `Request failed with status ${response.status}`
+        error.message || `Request failed with status ${response.status}`,
       );
     }
 
@@ -130,11 +128,10 @@ export async function GetOne(orderId: string) {
   }
 }
 
-
 export async function EditOrder(
   orderId: string,
   payload: OrderPayload,
-  token: string
+  token: string,
 ) {
   const formData = payloadToFormData(payload);
 
@@ -157,19 +154,21 @@ export async function EditOrder(
 
 export interface AddVendorBreakPayload {
   vendor_id: number;
-  title: string
+  title: string;
   date: string;
   start_date: string;
   end_date: string;
   start_time: string;
   end_time: string;
-  address: string
+  address: string;
   type?: string;
 }
 
-export async function addVendorBreak(payload: AddVendorBreakPayload, token: string) {
+export async function addVendorBreak(
+  payload: AddVendorBreakPayload,
+  token: string,
+) {
   try {
-
     const res = await api.post(`/vendor-breaks/add`, payload, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -177,37 +176,42 @@ export async function addVendorBreak(payload: AddVendorBreakPayload, token: stri
     });
 
     if (res.data.status === false) {
-      throw new Error(
-        `failed to add vendor break`
-      );
+      throw new Error(`failed to add vendor break`);
     }
 
     return await res.data;
   } catch (err) {
-    console.error('addVendorBreak error', err);
+    console.error("addVendorBreak error", err);
     throw err;
   }
 }
 
-export async function updateVendorBreak(breakId: string, payload: AddVendorBreakPayload, token: string) {
+export async function updateVendorBreak(
+  breakId: string,
+  payload: AddVendorBreakPayload,
+  token: string,
+) {
   try {
-
-    const res = await api.post(`/vendor-breaks/edit/${breakId}`, { ...payload, _method: 'PUT' }, {
-      headers: {
-        Authorization: `Bearer ${token}`,
+    const res = await api.post(
+      `/vendor-breaks/edit/${breakId}`,
+      { ...payload, _method: "PUT" },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       },
-    });
+    );
 
     if (res.status !== 200) {
       const error = await res.data;
       throw new Error(
-        error.message || `Request failed with status ${res.status}`
+        error.message || `Request failed with status ${res.status}`,
       );
     }
 
     return await res.data;
   } catch (err) {
-    console.error('update VendorBreak error', err);
+    console.error("update VendorBreak error", err);
     throw err;
   }
 }
@@ -222,8 +226,49 @@ export async function DeleteVendorBreak(uuid: string, token: string) {
   const data = await response.data;
 
   if (response.status !== 200) {
-    throw new Error(data.message || 'Failed to delete vendor break');
+    throw new Error(data.message || "Failed to delete vendor break");
   }
 
   return data;
+}
+
+export interface SendEmailPayload {
+  to: string;
+  subject: string;
+  html: string;
+}
+
+export async function sendEmailNotification(
+  payload: SendEmailPayload,
+  token: string,
+) {
+  try {
+    console.log("=== Sending Email Notification ===");
+    console.log("To:", payload.to);
+    console.log("Subject:", payload.subject);
+    console.log("API URL:", `/notifications/email`);
+    console.log("Token:", token ? "Present" : "Missing");
+
+    const response = await api.post(`/notifications/email`, payload, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    console.log("Response status:", response.status);
+    console.log("Response data:", response.data);
+
+    const data = await response.data;
+
+    if (response.status !== 200 || data.status === false) {
+      throw new Error(data.message || "Failed to send email notification");
+    }
+
+    console.log("✅ Email sent successfully to:", payload.to);
+    return data;
+  } catch (error) {
+    console.error("❌ Failed to send email notification:", error);
+    console.error("Error details:", error);
+    throw error;
+  }
 }
