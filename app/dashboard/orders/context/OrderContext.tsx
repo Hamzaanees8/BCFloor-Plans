@@ -161,6 +161,7 @@ type OrderContextType = {
     isPropertyValid: boolean;
     setIsPropertyValid: Dispatch<SetStateAction<boolean>>;
     resetOrderData: () => void;
+    clearSelections: () => void;
 };
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -216,6 +217,29 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
         setAppliedQuantityDiscounts([]);
         setOrderServices([]);
         setSelectedCurrentListing(null);
+        setTotal(0);
+        setIsSplitInvoice(false);
+        setInternal(false);
+        setSelectedSlots([]);
+        setIsSubmitted(false);
+        setActivePackage(null);
+        setTempPropertyData(null);
+        setIsPropertyValid(false);
+    };
+
+    const clearSelections = () => {
+        setInitComplete(false);
+        setSelectedServices([]);
+        setCalendarServices([]);
+        setAgentNotes([]);
+        setCoAgents([]);
+        setSelectedOptions({});
+        setCustomPrices({});
+        setCustomServiceNames({});
+        setDiscountCode('');
+        setAppliedCodeDiscount(null);
+        setAppliedQuantityDiscounts([]);
+        setOrderServices([]);
         setTotal(0);
         setIsSplitInvoice(false);
         setInternal(false);
@@ -289,7 +313,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
                 setTempPropertyData,
                 isPropertyValid,
                 setIsPropertyValid,
-                resetOrderData
+                resetOrderData,
+                clearSelections
             }}
         >
             {children}

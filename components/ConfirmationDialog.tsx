@@ -24,6 +24,8 @@ type Props = {
   showAgain: boolean
   toggleShowAgain: () => void
   dialogType?: 'delete' | 'merge' | 'payment' // ADD THIS PROP
+  title?: string
+  description?: string
 }
 
 const getStorageKey = (type: 'delete' | 'merge' | 'payment' = 'delete') => {
@@ -43,7 +45,9 @@ const ConfirmationDialog: React.FC<Props> = ({
   onConfirm,
   showAgain,
   toggleShowAgain,
-  dialogType = 'delete'
+  dialogType = 'delete',
+  title,
+  description
 }) => {
   const { userType } = useAppContext();
 
@@ -60,7 +64,7 @@ const ConfirmationDialog: React.FC<Props> = ({
         className="w-[320px] md:w-[593px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria [&>button]:hidden">
         <DialogHeader className="mb-2">
           <DialogTitle className={`flex items-center justify-between ${userType}-text text-[18px] font-[600] border-b-[1px] border-[#E4E4E4] pb-2`}>
-            CONFIRMATION
+            {title || "CONFIRMATION"}
             <DialogClose className="border-none !shadow-none">
               <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
             </DialogClose>
@@ -72,9 +76,10 @@ const ConfirmationDialog: React.FC<Props> = ({
             <WarningIcon width={48} />
           </div>
           <DialogDescription className="text-[14px] font-[400] text-[#666666]">
-            {dialogType === 'payment'
-              ? "Are you sure you want to proceed with this payment? This action cannot be undone."
-              : "Are you sure you want to take this action? This cannot be undone and you will have to re-enter the information."}
+            {description ? description :
+              dialogType === 'payment'
+                ? "Are you sure you want to proceed with this payment? This action cannot be undone."
+                : "Are you sure you want to take this action? This cannot be undone and you will have to re-enter the information."}
           </DialogDescription>
         </div>
 

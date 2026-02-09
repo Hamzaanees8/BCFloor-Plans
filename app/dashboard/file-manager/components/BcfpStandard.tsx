@@ -3,17 +3,29 @@ import { LinkedIcon, ReltorIcon } from "@/components/Icons";
 // import { Avatar, AvatarImage } from "@radix-ui/react-avatar";
 import { CircleCheckBig, Eye, File, Mail, Phone, Wrench, Pencil, Trash, ZoomOut, ZoomIn } from "lucide-react";
 import Image from "next/image";
-import { useFileManagerContext } from "../FileManagerContext ";
-import React, { JSX, useRef, useState } from "react";
+import { useFileManagerContext } from "../FileManagerContext";
+import React from "react";
 import { Order } from "../../orders/page";
 import '../../../globals.css';
 import StyledInput from "./StyledInput";
 import FileManagerGallery from "./fileManagerGallery";
 
-interface BcfpStandard {
+// Feature Sheet Service
+import { featureSheetService } from "../file-manager";
+import type { FeatureSheetPayload, FeatureSheetResponse, HighlightItem } from "../types/featureSheetTypes";
+import { forwardRef, useImperativeHandle, useRef, useState, JSX } from "react";
+
+// Interface for methods exposed to parent component
+export interface BcfpStandardRef {
+  exportToPayload: () => Promise<FeatureSheetPayload>;
+  importFromPayload: (payload: FeatureSheetResponse) => void;
+}
+
+interface BcfpStandardProps {
   orderData: Order | null;
 }
-const BcfpStandard = ({ orderData }: BcfpStandard) => {
+
+const BcfpStandard = forwardRef<BcfpStandardRef, BcfpStandardProps>(({ orderData }, ref) => {
   const { formData } = useFileManagerContext();
 
   // State for editable text fields
@@ -47,7 +59,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
     value: highlight.value || "Value"
   })));
 
-// --- images States ---
+  // --- images States ---
   const [images, setImages] = useState({
     image1: null as string | null,
     image2: null as string | null,
@@ -144,7 +156,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
   const fileInputRef11 = useRef<HTMLInputElement | null>(null);
   const fileInputRef12 = useRef<HTMLInputElement | null>(null);
   const fileInputRef13 = useRef<HTMLInputElement | null>(null);
-  
+
 
   // --- Handlers ---
   const handleImageChange = (
@@ -350,14 +362,62 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
 
 
 
+  // Expose methods to parent component via ref
+  useImperativeHandle(ref, () => ({
+    exportToPayload: async () => {
+      const payload = await featureSheetService.buildPayload({
+        orderUuid: orderData?.uuid || "",
+        templateKey: "BCFPStandard",
+        uploadedBy: "admin",
+        type: "template",
+        primaryColor: "#4290E9",
+        offeredAtPrice,
+        realtorTitle,
+        realtorName,
+        companyName,
+        keyHighlightLabel,
+        keyHighlights,
+        propertyNotesTitle,
+        propertyNotesDescription,
+        expandedDetail1Title,
+        expandedDetail1Description,
+        expandedDetail2Title,
+        expandedDetail2Description,
+        contactLabel,
+        contactInfo,
+        ctaText,
+        highlights,
+        images,
+        imageScales: scale,
+        imagePositions: position,
+      });
+      return payload;
+    },
 
+    importFromPayload: (payload: FeatureSheetResponse) => {
+      const state = featureSheetService.parsePayloadToState(payload);
+      if (state.offeredAtPrice) setOfferedAtPrice(state.offeredAtPrice as string);
+      if (state.realtorTitle) setRealtorTitle(state.realtorTitle as string);
+      if (state.realtorName) setRealtorName(state.realtorName as string);
+      if (state.companyName) setCompanyName(state.companyName as string);
+      if (state.keyHighlightLabel) setKeyHighlightLabel(state.keyHighlightLabel as string);
+      if (state.keyHighlights) setKeyHighlights(state.keyHighlights as string[]);
+      if (state.propertyNotesTitle) setPropertyNotesTitle(state.propertyNotesTitle as string);
+      if (state.propertyNotesDescription) setPropertyNotesDescription(state.propertyNotesDescription as string);
+      if (state.expandedDetail1Title) setExpandedDetail1Title(state.expandedDetail1Title as string);
+      if (state.expandedDetail1Description) setExpandedDetail1Description(state.expandedDetail1Description as string);
+      if (state.expandedDetail2Title) setExpandedDetail2Title(state.expandedDetail2Title as string);
+      if (state.expandedDetail2Description) setExpandedDetail2Description(state.expandedDetail2Description as string);
+      if (state.contactLabel) setContactLabel(state.contactLabel as string);
+      if (state.contactInfo) setContactInfo(state.contactInfo as string);
+      if (state.ctaText) setCtaText(state.ctaText as string);
+      if (state.highlights) setHighlights(state.highlights as HighlightItem[]);
 
-
-
-
-
-
-
+      setImages(state.images as typeof images);
+      setScale(state.imageScales as typeof scale);
+      setPosition(state.imagePositions as typeof position);
+    },
+  }));
 
 
   return (
@@ -389,50 +449,50 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
           </div>
         </div>
       )}
-    
-          {showGallery && (
-            <FileManagerGallery
-              isOpen={showGallery}
-              onClose={() => {
-                setShowGallery(false);
-                setCurrentImageSlot(null);
-              }}
-              onImageSelect={handleGalleryImageSelect}
-            />
-          )}
-    <div className="w-full items-center justify-center">
-      <div className={`bg-[#4290E9] h-auto md:h-[221px] w-full flex flex-col md:flex-row items-center justify-between px-5 py-5 md:py-0`}>
-        <div className="flex flex-col text-[14px] md:text-[18px] font-[400] text-[#F2F2F2] gap-1 md:gap-3 mb-4 md:mb-0">
-          <div className="flex justify-center">
-            <ReltorIcon className="w-10 h-10 md:w-auto md:h-auto" />
-          </div>
-          <div className="text-center md:text-left">
-            <div>{orderData?.agent.first_name}{" "}{orderData?.agent.last_name}</div>
-            <div>{orderData?.agent.company_name} Realtor</div>
-          </div>
-        </div>
 
-        <div className="flex flex-col md:flex-row gap-4 md:gap-[60px] items-center w-full md:w-auto">
-          <div className="flex flex-col font-alexandria gap-2 md:gap-5 text-center md:text-right w-full md:w-auto">
-            <div className="font-bold text-[20px] md:text-[26px] text-[#F2F2F2]">
-              Offered at
+      {showGallery && (
+        <FileManagerGallery
+          isOpen={showGallery}
+          onClose={() => {
+            setShowGallery(false);
+            setCurrentImageSlot(null);
+          }}
+          onImageSelect={handleGalleryImageSelect}
+        />
+      )}
+      <div className="w-full items-center justify-center">
+        <div className={`bg-[#4290E9] h-auto md:h-[221px] w-full flex flex-col md:flex-row items-center justify-between px-5 py-5 md:py-0`}>
+          <div className="flex flex-col text-[14px] md:text-[18px] font-[400] text-[#F2F2F2] gap-1 md:gap-3 mb-4 md:mb-0">
+            <div className="flex justify-center">
+              <ReltorIcon className="w-10 h-10 md:w-auto md:h-auto" />
             </div>
-            {/* <input
+            <div className="text-center md:text-left">
+              <div>{orderData?.agent.first_name}{" "}{orderData?.agent.last_name}</div>
+              <div>{orderData?.agent.company_name} Realtor</div>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-4 md:gap-[60px] items-center w-full md:w-auto">
+            <div className="flex flex-col font-alexandria gap-2 md:gap-5 text-center md:text-right w-full md:w-auto">
+              <div className="font-bold text-[20px] md:text-[26px] text-[#F2F2F2]">
+                Offered at
+              </div>
+              {/* <input
               type="text"
               value={offeredAtPrice}
               onChange={(e) => setOfferedAtPrice(e.target.value)}
               className="text-[40px] md:text-[80px] leading-[40px] md:leading-[80px] font-light text-[#F2F2F2] bg-transparent border-none outline-none text-center md:text-right w-full"
             /> */}
-            <StyledInput
+              <StyledInput
                 value={offeredAtPrice}
                 onChange={(e) => setOfferedAtPrice(e.target.value)}
                 className=" text-[80px] text-[#F2F2F2] bg-transparent text-right w-full focus:outline-none border-none placeholder-[#F2F2F2] placeholder:font-[500]"
                 placeholder="FIRSTNAME LASTNAME"
               />
-          </div>
+            </div>
 
-          <div className="flex flex-col md:flex-row gap-3 md:gap-5 items-center font-alexandria w-full justify-center md:justify-start">
-            
+            <div className="flex flex-col md:flex-row gap-3 md:gap-5 items-center font-alexandria w-full justify-center md:justify-start">
+
               {/* <Avatar className="h-[60px] w-[60px] md:h-[80px] md:w-[80px]">
                 <AvatarImage src={agentAvatar} />
                 <AvatarFallback>CN</AvatarFallback>
@@ -459,11 +519,11 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                         cursor: dragging.image1
                           ? "grabbing"
                           : scale.image1 > 1
-                          ? "grab"
-                          : "default",
+                            ? "grab"
+                            : "default",
                       }}
                     />
-              
+
                     {/* Zoom Buttons */}
                     <div className="absolute bottom-[3px] left-[8px] flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
                       <button
@@ -483,7 +543,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                         <ZoomOut className="w-3 h-3 text-gray-700" />
                       </button>
                     </div>
-              
+
                     {/* Edit/Delete */}
                     <button
                       type="button"
@@ -519,57 +579,57 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                 />
               </div>
 
-            <div className="text-[14px] md:text-[16px] rounded-full font-normal text-[#F2F2F2] text-center md:text-left">
-              <input
-                type="text"
-                value={realtorTitle}
-                onChange={(e) => setRealtorTitle(e.target.value)}
-                className="bg-transparent border-none outline-none w-full text-center md:text-left"
-              />
-              <input
-                type="text"
-                value={realtorName}
-                onChange={(e) => setRealtorName(e.target.value)}
-                className="bg-transparent border-none outline-none w-full text-center md:text-left"
-              />
-              <input
-                type="text"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                className="bg-transparent border-none outline-none w-full text-center md:text-left"
-              />
-            </div>
+              <div className="text-[14px] md:text-[16px] rounded-full font-normal text-[#F2F2F2] text-center md:text-left">
+                <input
+                  type="text"
+                  value={realtorTitle}
+                  onChange={(e) => setRealtorTitle(e.target.value)}
+                  className="bg-transparent border-none outline-none w-full text-center md:text-left"
+                />
+                <input
+                  type="text"
+                  value={realtorName}
+                  onChange={(e) => setRealtorName(e.target.value)}
+                  className="bg-transparent border-none outline-none w-full text-center md:text-left"
+                />
+                <input
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  className="bg-transparent border-none outline-none w-full text-center md:text-left"
+                />
+              </div>
 
-            <div className="flex flex-row md:flex-col gap-3 md:gap-2">
-              {orderData?.agent.primary_phone && (
-                <a href={`tel:${orderData.agent.primary_phone}`}>
-                  <Phone className="text-transparent fill-white w-6 h-6" />
-                </a>
-              )}
-              {orderData?.agent.email && (
-                <a href={`mailto:${orderData.agent.email}`}>
-                  <LinkedIcon className="text-white w-10 h-10 md:w-auto md:h-auto" />
-                </a>
-              )}
-              {orderData?.agent.email && (
-                <a href={`mailto:${orderData.agent.email}`}>
-                  <Mail className="text-white w-6 h-6" />
-                </a>
-              )}
+              <div className="flex flex-row md:flex-col gap-3 md:gap-2">
+                {orderData?.agent.primary_phone && (
+                  <a href={`tel:${orderData.agent.primary_phone}`}>
+                    <Phone className="text-transparent fill-white w-6 h-6" />
+                  </a>
+                )}
+                {orderData?.agent.email && (
+                  <a href={`mailto:${orderData.agent.email}`}>
+                    <LinkedIcon className="text-white w-10 h-10 md:w-auto md:h-auto" />
+                  </a>
+                )}
+                {orderData?.agent.email && (
+                  <a href={`mailto:${orderData.agent.email}`}>
+                    <Mail className="text-white w-6 h-6" />
+                  </a>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="relative group">
-        {/* <ImageBlock
+        <div className="relative group">
+          {/* <ImageBlock
           image={mainImage}
           fileRef={mainImageRef}
           onChange={handleImageChange(setMainImage)}
           onDelete={handleDeleteImage(setMainImage, "/featuresheetimage.png")}
           defaultImage="/featuresheetimage.png"
         /> */}
-        <div
+          <div
             className="h-[640px] w-full group relative overflow-hidden"
             onMouseDown={(e) => handleMouseDown("image2", e)}
             onMouseMove={(e) => handleMouseMove("image2", e)}
@@ -579,7 +639,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
             {images.image2 ? (
               <>
                 <Image
-                unoptimized
+                  unoptimized
                   src={images.image2}
                   alt="uploaded"
                   width={200}
@@ -649,53 +709,53 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
               className="hidden"
             />
           </div>
-      </div>
+        </div>
 
-      <div className="flex flex-col md:flex-row px-4 md:px-5 py-4 mt-4 gap-4 md:gap-6">
-        <div className="flex flex-col w-full md:w-[30%]">
-          <StyledInput
-            value={keyHighlightLabel}
-            onChange={(e) => setKeyHighlightLabel(e.target.value)}
-            className="font-semibold text-[#4290E9] text-[36px]  h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
-            placeholder="Key Highlight "
-          />
-          <div className="grid grid-cols-2  gap-y-3 md:gap-y-5 gap-x-4 md:gap-x-6 mt-[24px] md:mt-[48px]">
-            {keyHighlights.map((item, index) => (
-              <div key={index} className="flex items-center gap-3 md:gap-5 font-alexandria">
-                <span className="w-[16px] h-[16px] flex-none bg-blue-500 rounded-full"></span>
+        <div className="flex flex-col md:flex-row px-4 md:px-5 py-4 mt-4 gap-4 md:gap-6">
+          <div className="flex flex-col w-full md:w-[30%]">
+            <StyledInput
+              value={keyHighlightLabel}
+              onChange={(e) => setKeyHighlightLabel(e.target.value)}
+              className="font-semibold text-[#4290E9] text-[36px]  h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
+              placeholder="Key Highlight "
+            />
+            <div className="grid grid-cols-2  gap-y-3 md:gap-y-5 gap-x-4 md:gap-x-6 mt-[24px] md:mt-[48px]">
+              {keyHighlights.map((item, index) => (
+                <div key={index} className="flex items-center gap-3 md:gap-5 font-alexandria">
+                  <span className="w-[16px] h-[16px] flex-none bg-blue-500 rounded-full"></span>
 
-                <StyledInput
-                  value={item ?? ""}
-                  onChange={(e) => handleKeyHighlightChange(index, e.target.value)}
-                  className="font-semibold text-[#303030] text-[20px]  h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
-                  placeholder="Add key highlight"
-                />
-              </div>
-            ))}
+                  <StyledInput
+                    value={item ?? ""}
+                    onChange={(e) => handleKeyHighlightChange(index, e.target.value)}
+                    className="font-semibold text-[#303030] text-[20px]  h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
+                    placeholder="Add key highlight"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col w-full md:w-[70%] gap-[24px] md:gap-[48px] font-alexandria">
+
+            <StyledInput
+              value={propertyNotesTitle}
+              onChange={(e) => setPropertyNotesTitle(e.target.value)}
+              className="font-semibold text-[#4290E9] text-[24px] md:text-[36px] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
+              placeholder="Enter Property Notes "
+            />
+            <StyledInput
+              value={propertyNotesDescription}
+              onChange={(e) => setPropertyNotesDescription(e.target.value)}
+              className="font-semibold text-[#4290E9] text-[16px] md:text-[20px] h-[120%] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
+              placeholder="No property notes provided."
+            />
+
           </div>
         </div>
 
-        <div className="flex flex-col w-full md:w-[70%] gap-[24px] md:gap-[48px] font-alexandria">
-          
-          <StyledInput
-            value={propertyNotesTitle}
-            onChange={(e) => setPropertyNotesTitle(e.target.value)}
-            className="font-semibold text-[#4290E9] text-[24px] md:text-[36px] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
-            placeholder="Enter Property Notes "
-          />
-          <StyledInput
-            value={propertyNotesDescription}
-            onChange={(e) => setPropertyNotesDescription(e.target.value)}
-            className="font-semibold text-[#4290E9] text-[16px] md:text-[20px] h-[120%] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
-            placeholder="No property notes provided."
-          />
-          
-        </div>
-      </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-4">
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mt-4">
-        
-        <div
+          <div
             className="h-[200px] md:h-[300px] w-full group relative overflow-hidden"
             onMouseDown={(e) => handleMouseDown("image3", e)}
             onMouseMove={(e) => handleMouseMove("image3", e)}
@@ -705,7 +765,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
             {images.image3 ? (
               <>
                 <Image
-                unoptimized
+                  unoptimized
                   src={images.image3}
                   alt="uploaded"
                   width={200}
@@ -785,7 +845,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
             {images.image4 ? (
               <>
                 <Image
-                unoptimized
+                  unoptimized
                   src={images.image4}
                   alt="uploaded"
                   width={200}
@@ -865,7 +925,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
             {images.image5 ? (
               <>
                 <Image
-                unoptimized
+                  unoptimized
                   src={images.image5}
                   alt="uploaded"
                   width={200}
@@ -935,115 +995,117 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
               className="hidden"
             />
           </div>
-      </div>
-
-      <div className="flex flex-col md:flex-row gap-5 px-4 md:px-5 py-6 md:py-10">
-        <div className="flex flex-col w-full md:w-[50%] gap-[24px] md:gap-[48px] font-alexandria">
-          
-          <StyledInput
-            value={expandedDetail1Title}
-            onChange={(e) => setExpandedDetail1Title(e.target.value)}
-            className="font-semibold text-[#4290E9] text-[36px] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
-            placeholder="Enter Property Notes "
-          />
-          <StyledInput
-            value={expandedDetail1Description}
-            onChange={(e) => setExpandedDetail1Description(e.target.value)}
-            className="font-semibold text-[#303030] text-[20px] h-[120%] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
-            placeholder="No Expanded Detail provided. "
-          />
         </div>
 
-        <div className="flex flex-col w-full md:w-[50%] gap-[24px] md:gap-[48px] font-alexandria">
-          <StyledInput
-            value={expandedDetail2Title}
-            onChange={(e) => setExpandedDetail2Title(e.target.value)}
-            className="font-semibold text-[#4290E9] text-[36px] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
-            placeholder="Enter Property Notes "
-          />
-          <StyledInput
-            value={expandedDetail2Description}
-            onChange={(e) => setExpandedDetail2Description(e.target.value)}
-            className="font-semibold text-[#303030] text-[20px] h-[120%] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
-            placeholder="No Expanded Detail provided. "
-          />
-        </div>
-      </div>
+        <div className="flex flex-col md:flex-row gap-5 px-4 md:px-5 py-6 md:py-10">
+          <div className="flex flex-col w-full md:w-[50%] gap-[24px] md:gap-[48px] font-alexandria">
 
-      <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-6 px-4 md:px-5 py-6 md:py-10">
-        {highlights.map((highlight, index) => (
-          <div
-            key={index}
-            className="flex flex-col items-center gap-4 md:gap-6 font-alexandria w-full sm:w-[45%] md:w-[300px]"
-          >
             <StyledInput
-              value={highlight.title}
-              onChange={(e) => handleHighlightTitleChange(index, e.target.value)}
-              className=" text-[#4290E9] text-[36px] h-[30px] bg-transparent text-center w-full focus:outline-none border-none placeholder:font-[500]"
-              placeholder="No Expanded Detail provided. "
+              value={expandedDetail1Title}
+              onChange={(e) => setExpandedDetail1Title(e.target.value)}
+              className="font-semibold text-[#4290E9] text-[36px] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
+              placeholder="Enter Property Notes "
             />
-
-            <div className="relative">
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => toggleIconMenu(index)}
-                className="text-[20px] justify-center self-center cursor-pointer"
-              >
-                {iconMap[highlight.icon] || defaultIcon}
-              </div>
-
-              {openIconMenu === index && (
-                <div className="absolute left-1/2 transform -translate-x-1/2 mt-2 bg-white p-2 rounded shadow z-20 flex gap-2">
-                  {iconOptions.map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setHighlightIcon(index, key)}
-                      className="p-1 rounded hover:bg-gray-100"
-                    >
-                      {iconMap[key] || defaultIcon}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
             <StyledInput
-              value={highlight.value}
-              onChange={(e) => handleHighlightValueChange(index, e.target.value)}
-              className=" text-[#303030] text-[20px] h-[30px] bg-transparent text-center w-full focus:outline-none border-none placeholder:font-[500]"
+              value={expandedDetail1Description}
+              onChange={(e) => setExpandedDetail1Description(e.target.value)}
+              className="font-semibold text-[#303030] text-[20px] h-[120%] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
               placeholder="No Expanded Detail provided. "
             />
           </div>
-        ))}
-      </div>
 
-      <div className="flex justify-between px-4 md:px-5 py-6 md:py-10 bg-[#4290E9] font-alexandria">
-        <div className="flex flex-col gap-3 md:gap-5">
-          
-          <StyledInput
-            value={contactLabel}
-            onChange={(e) => setContactLabel(e.target.value)}
-            className=" text-[#F2F2F2] text-[16px] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
-            placeholder="Realtor contact info "
-          />
-          <StyledInput
-            value={contactInfo}
-            onChange={(e) => setContactInfo(e.target.value)}
-            className=" text-[#F2F2F2] text-[16px] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
-            placeholder="Realtor contact info "
-          />
-          <StyledInput
-            value={ctaText}
-            onChange={(e) => setCtaText(e.target.value)}
-            className=" text-[#F2F2F2] text-[16px] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
-            placeholder="Realtor contact info "
-          />
+          <div className="flex flex-col w-full md:w-[50%] gap-[24px] md:gap-[48px] font-alexandria">
+            <StyledInput
+              value={expandedDetail2Title}
+              onChange={(e) => setExpandedDetail2Title(e.target.value)}
+              className="font-semibold text-[#4290E9] text-[36px] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
+              placeholder="Enter Property Notes "
+            />
+            <StyledInput
+              value={expandedDetail2Description}
+              onChange={(e) => setExpandedDetail2Description(e.target.value)}
+              className="font-semibold text-[#303030] text-[20px] h-[120%] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
+              placeholder="No Expanded Detail provided. "
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-6 px-4 md:px-5 py-6 md:py-10">
+          {highlights.map((highlight, index) => (
+            <div
+              key={index}
+              className="flex flex-col items-center gap-4 md:gap-6 font-alexandria w-full sm:w-[45%] md:w-[300px]"
+            >
+              <StyledInput
+                value={highlight.title}
+                onChange={(e) => handleHighlightTitleChange(index, e.target.value)}
+                className=" text-[#4290E9] text-[36px] h-[30px] bg-transparent text-center w-full focus:outline-none border-none placeholder:font-[500]"
+                placeholder="No Expanded Detail provided. "
+              />
+
+              <div className="relative">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleIconMenu(index)}
+                  className="text-[20px] justify-center self-center cursor-pointer"
+                >
+                  {iconMap[highlight.icon] || defaultIcon}
+                </div>
+
+                {openIconMenu === index && (
+                  <div className="absolute left-1/2 transform -translate-x-1/2 mt-2 bg-white p-2 rounded shadow z-20 flex gap-2">
+                    {iconOptions.map((key) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setHighlightIcon(index, key)}
+                        className="p-1 rounded hover:bg-gray-100"
+                      >
+                        {iconMap[key] || defaultIcon}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <StyledInput
+                value={highlight.value}
+                onChange={(e) => handleHighlightValueChange(index, e.target.value)}
+                className=" text-[#303030] text-[20px] h-[30px] bg-transparent text-center w-full focus:outline-none border-none placeholder:font-[500]"
+                placeholder="No Expanded Detail provided. "
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-between px-4 md:px-5 py-6 md:py-10 bg-[#4290E9] font-alexandria">
+          <div className="flex flex-col gap-3 md:gap-5">
+
+            <StyledInput
+              value={contactLabel}
+              onChange={(e) => setContactLabel(e.target.value)}
+              className=" text-[#F2F2F2] text-[16px] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
+              placeholder="Realtor contact info "
+            />
+            <StyledInput
+              value={contactInfo}
+              onChange={(e) => setContactInfo(e.target.value)}
+              className=" text-[#F2F2F2] text-[16px] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
+              placeholder="Realtor contact info "
+            />
+            <StyledInput
+              value={ctaText}
+              onChange={(e) => setCtaText(e.target.value)}
+              className=" text-[#F2F2F2] text-[16px] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder:font-[500]"
+              placeholder="Realtor contact info "
+            />
+          </div>
         </div>
       </div>
-    </div>
     </>
   );
-};
+});
+
+BcfpStandard.displayName = "BcfpStandard";
 
 export default BcfpStandard;

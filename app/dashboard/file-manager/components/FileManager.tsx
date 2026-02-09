@@ -20,7 +20,7 @@ import Video from "./Video";
 import CreateFeatureSheet from "./CreateFeatureSheet";
 import { useAppContext } from "@/app/context/AppContext";
 import { Button } from "@/components/ui/button";
-import { useFileManagerContext } from "../FileManagerContext ";
+import { useFileManagerContext } from "../FileManagerContext";
 import { toast } from "sonner";
 import InvoicePaymentDialog from "./invoicePaymentDialog";
 import {

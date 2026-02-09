@@ -2,7 +2,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import React, { useState } from 'react'
-import { useFileManagerContext } from '../FileManagerContext ';
+import { useFileManagerContext } from "../FileManagerContext";
 import { CheckIcon } from 'lucide-react';
 const TourMatterport = () => {
     const { links, setLinks, } = useFileManagerContext();

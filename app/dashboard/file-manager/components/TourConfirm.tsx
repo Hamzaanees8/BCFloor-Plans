@@ -15,7 +15,7 @@ import {
   Mail,
   Phone,
 } from "lucide-react";
-import { useFileManagerContext } from "../FileManagerContext ";
+import { useFileManagerContext } from "../FileManagerContext";
 import {
   BathIcon,
   BedIcon,

@@ -23,6 +23,7 @@ import { useWhiteLabel } from '@/app/context/Whitelabel';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import GooglePlacesAutocomplete from '../../calendar/components/AutoCompleteInput';
 import { SearchableSelect } from './SearchableSelect';
+import ConfirmationDialog from '@/components/ConfirmationDialog';
 
 declare global {
     interface Window {
@@ -89,6 +90,11 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         tempPropertyData,
         setTempPropertyData,
         setIsPropertyValid,
+        clearSelections,
+        selectedServices,
+        selectedSlots,
+        agentNotes,
+        coAgents,
     } = useOrderContext();
     const { userType } = useAppContext()
     const { appliedSettings } = useWhiteLabel();
@@ -116,6 +122,121 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     const [openAddListingDialog, setOpenAddListingDialog] = useState(true);
     const [openListing, setOpenListing] = useState(false);
     const [openAgent, setOpenAgent] = useState(false);
+
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [pendingListingId, setPendingListingId] = useState<string | null | 'NEW'>(null);
+    const [showAgain, setShowAgain] = useState(true);
+
+    const [isAgentConfirmOpen, setIsAgentConfirmOpen] = useState(false);
+    const [pendingAgentId, setPendingAgentId] = useState<string | null>(null);
+    const [agentShowAgain, setAgentShowAgain] = useState(true);
+
+    const hasSelections = useCallback(() => {
+        return (selectedServices?.length ?? 0) > 0 ||
+            (selectedSlots?.length ?? 0) > 0 ||
+            (agentNotes?.length ?? 0) > 0 ||
+            (coAgents?.length ?? 0) > 0;
+    }, [selectedServices, selectedSlots, agentNotes, coAgents]);
+
+    const [currentListing, setCurrentListing] = useState<Listing | null>(null);
+    const [connectedAgent, setConnectedAgent] = useState("");
+    const [listingPrice, setListingPrice] = useState("");
+    const [mls, setMls] = useState("");
+    const [bedrooms, setBedrooms] = useState<number | "">("");
+    const [bathrooms, setBathrooms] = useState<number | "">("");
+    const [suite, setSuite] = useState("");
+    const [address, setAddress] = useState("");
+    const [city, setCity] = useState("");
+    const [province, setProvince] = useState("");
+    const [postalCode, setPostalCode] = useState("");
+    const [country, setCountry] = useState("CA");
+
+    const [states, setStates] = useState<{ name: string; isoCode: string }[]>([]);
+    const [squareFootage, setSquareFootage] = useState("");
+    const [lotSize, setLotSize] = useState<string | "">("");
+    const [yearConstructed, setYearConstructed] = useState("");
+    const [parkingSpots, setParkingSpots] = useState("");
+    const [propertyType, setPropertyType] = useState("");
+    const [propertyStatus, setPropertyStatus] = useState("");
+    const [heading, setHeading] = useState("");
+    const [description, setDescription] = useState("");
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+
+    const resetForm = useCallback(() => {
+        setConnectedAgent(selectedAgentId || '');
+        setListingPrice('');
+        setMls('');
+        setBedrooms('');
+        setBathrooms('');
+        setSquareFootage('');
+        setLotSize('');
+        setYearConstructed('');
+        setParkingSpots('');
+        setPropertyType('');
+        setPropertyStatus('');
+        setHeading('');
+        setDescription('');
+        setSuite('');
+        setAddress('');
+        setFieldErrors({});
+        setCity('');
+        setProvince('');
+        setPostalCode('');
+        setCountry('CA');
+    }, [selectedAgentId]);
+
+    const proceedWithListingChange = useCallback((id: string | null | 'NEW') => {
+        clearSelections();
+        if (id === 'NEW') {
+            setOpenAddListingDialog(true);
+            setSelectedListingId(null);
+            setCurrentListing(null);
+            resetForm();
+        } else {
+            setSelectedListingId(id);
+            setOpenListing(false);
+            setOpenAddListingDialog(false);
+            setListingSearchValue("");
+        }
+    }, [clearSelections, setSelectedListingId, resetForm]);
+
+    const proceedWithAgentChange = useCallback((id: string | null) => {
+        clearSelections();
+        setSelectedListingId(null);
+        setCurrentListing(null);
+        resetForm();
+        setSelectedAgentId(id || "");
+        setOpenAgent(false);
+        setSearchValue("");
+    }, [clearSelections, setSelectedListingId, resetForm, setSelectedAgentId]);
+
+    const handleAgentSelect = useCallback((id: string | null) => {
+        if (id === selectedAgentId) {
+            setOpenAgent(false);
+            return;
+        }
+
+        if (selectedListingId || hasSelections()) {
+            setPendingAgentId(id);
+            setIsAgentConfirmOpen(true);
+        } else {
+            proceedWithAgentChange(id);
+        }
+    }, [hasSelections, proceedWithAgentChange, selectedAgentId, selectedListingId]);
+
+    const handleListingSelect = useCallback((id: string | null | 'NEW') => {
+        if (id !== 'NEW' && id === selectedListingId) {
+            setOpenListing(false);
+            return;
+        }
+
+        if (hasSelections()) {
+            setPendingListingId(id);
+            setIsConfirmOpen(true);
+        } else {
+            proceedWithListingChange(id);
+        }
+    }, [hasSelections, proceedWithListingChange, selectedListingId]);
 
 
     const fetchAgents = useCallback(() => {
@@ -211,29 +332,6 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         fetchOrdersData();
     }, [fetchServices, fetchVendors, fetchOrdersData]);
 
-    const [currentListing, setCurrentListing] = useState<Listing | null>(null);
-    const [connectedAgent, setConnectedAgent] = useState("");
-    const [listingPrice, setListingPrice] = useState("");
-    const [mls, setMls] = useState("");
-    const [bedrooms, setBedrooms] = useState<number | "">("");
-    const [bathrooms, setBathrooms] = useState<number | "">("");
-    const [suite, setSuite] = useState("");
-    const [address, setAddress] = useState("");
-    const [city, setCity] = useState("");
-    const [province, setProvince] = useState("");
-    const [postalCode, setPostalCode] = useState("");
-    const [country, setCountry] = useState("CA");
-
-    const [states, setStates] = useState<{ name: string; isoCode: string }[]>([]);
-    const [squareFootage, setSquareFootage] = useState("");
-    const [lotSize, setLotSize] = useState<string | "">("");
-    const [yearConstructed, setYearConstructed] = useState("");
-    const [parkingSpots, setParkingSpots] = useState("");
-    const [propertyType, setPropertyType] = useState("");
-    const [propertyStatus, setPropertyStatus] = useState("");
-    const [heading, setHeading] = useState("");
-    const [description, setDescription] = useState("");
-    const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '');
 
     const sortedCountries = useMemo(() => {
@@ -474,28 +572,6 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             setIsLoading(false);
         }
     };
-    const resetForm = () => {
-        setConnectedAgent(selectedAgentId || '');
-        setListingPrice('');
-        setMls('');
-        setBedrooms('');
-        setBathrooms('');
-        setSquareFootage('');
-        setLotSize('');
-        setYearConstructed('');
-        setParkingSpots('');
-        setPropertyType('');
-        setPropertyStatus('');
-        setHeading('');
-        setDescription('');
-        setSuite('');
-        setAddress('');
-        setFieldErrors({});
-        setCity('');
-        setProvince('');
-        setPostalCode('');
-        setCountry('CA');
-    };
     const handleMlsFetch = async (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
 
@@ -672,9 +748,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                         <CommandItem
                                                             key={agent.uuid}
                                                             onSelect={() => {
-                                                                setSelectedAgentId(agent.uuid || "");
-                                                                setOpenAgent(false);
-                                                                setSearchValue("");
+                                                                handleAgentSelect(agent.uuid || "");
                                                             }}
                                                         >
                                                             <Check
@@ -713,8 +787,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                             style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}
                             onClick={() => {
                                 setIsEditingAgent(false);
-                                setOpenAddAgentDialog(true);
-                                setSelectedAgentId(null);
+                                handleAgentSelect(null);
                             }}
                         >
                             <Plus className='w-4 h-4' />
@@ -807,10 +880,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                         <CommandItem
                                                             key={listing.uuid}
                                                             onSelect={() => {
-                                                                setSelectedListingId(listing.uuid);
-                                                                setOpenListing(false);
-                                                                setOpenAddListingDialog(false);
-                                                                setListingSearchValue("");
+                                                                handleListingSelect(listing.uuid);
                                                             }}
                                                             className="cursor-pointer"
                                                         >
@@ -851,11 +921,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                             className="flex items-center gap-2 px-4 py-2 rounded-md border transition-colors"
                             style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}
                             onClick={() => {
-                                // setIsEditingListing(false);
-                                setOpenAddListingDialog(true);
-                                setSelectedListingId(null);
-                                setCurrentListing(null);
-                                resetForm();
+                                handleListingSelect('NEW');
                             }}
                         >
                             <Plus className='w-4 h-4' />
@@ -1334,6 +1400,35 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                     )
                 }
             </div >
+            <ConfirmationDialog
+                open={isConfirmOpen}
+                setOpen={setIsConfirmOpen}
+                title="Are you sure you want to change the listing?"
+                description="If you change the listing, all your selections (slots, services, notes, etc.) will be undone or removed."
+                onConfirm={() => {
+                    if (pendingListingId) {
+                        proceedWithListingChange(pendingListingId);
+                        setPendingListingId(null);
+                    }
+                }}
+                showAgain={showAgain}
+                toggleShowAgain={() => setShowAgain(!showAgain)}
+            />
+            <ConfirmationDialog
+                open={isAgentConfirmOpen}
+                setOpen={setIsAgentConfirmOpen}
+                title="Are you sure you want to change the agent?"
+                description="If you change the agent, all your selections (property, slots, services, notes, etc.) will be undone or removed."
+                onConfirm={() => {
+                    proceedWithAgentChange(pendingAgentId);
+                    setPendingAgentId(null);
+                    if (!pendingAgentId) {
+                        setOpenAddAgentDialog(true);
+                    }
+                }}
+                showAgain={agentShowAgain}
+                toggleShowAgain={() => setAgentShowAgain(!agentShowAgain)}
+            />
         </div >
     )
 }

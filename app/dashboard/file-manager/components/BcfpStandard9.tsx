@@ -1,15 +1,24 @@
 import { House, Pencil, Trash, ZoomIn, ZoomOut } from "lucide-react";
 import Image from "next/image";
-import React, { useRef, useState } from "react";
+import React, { forwardRef, useImperativeHandle, useRef, useState, useEffect } from "react";
 import { Order } from "../../orders/page";
 import "../../../globals.css";
 import StyledInput from "./StyledInput";
 import FileManagerGallery from "./fileManagerGallery";
+import { useFileManagerContext } from "../FileManagerContext";
+import { featureSheetService } from "../file-manager";
+import { FeatureSheetResponse, FeatureSheetPayload } from "../types/featureSheetTypes";
 
-interface BcfpStandard {
+export interface BcfpStandard9Ref {
+  exportToPayload: () => Promise<FeatureSheetPayload>;
+  importFromPayload: (payload: FeatureSheetResponse) => void;
+}
+
+interface BcfpStandard9Props {
   orderData: Order | null;
 }
-const BcfpStandard = ({ orderData }: BcfpStandard) => {
+
+const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderData }, ref) => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [propertyName, setPropertyName] = useState("");
@@ -49,71 +58,38 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
   });
 
   const [scale, setScale] = useState({
-    image1: 1,
-    image2: 1,
-    image3: 1,
-    image4: 1,
-    image5: 1,
-    image6: 1,
-    image7: 1,
-    image8: 1,
-    image9: 1,
-    image10: 1,
-    image11: 1,
-    image12: 1,
-    image13: 1,
+    image1: 1, image2: 1, image3: 1, image4: 1, image5: 1,
+    image6: 1, image7: 1, image8: 1, image9: 1, image10: 1,
+    image11: 1, image12: 1, image13: 1,
   });
 
   const [position, setPosition] = useState({
-    image1: { x: 0, y: 0 },
-    image2: { x: 0, y: 0 },
-    image3: { x: 0, y: 0 },
-    image4: { x: 0, y: 0 },
-    image5: { x: 0, y: 0 },
-    image6: { x: 0, y: 0 },
-    image7: { x: 0, y: 0 },
-    image8: { x: 0, y: 0 },
-    image9: { x: 0, y: 0 },
-    image10: { x: 0, y: 0 },
-    image11: { x: 0, y: 0 },
-    image12: { x: 0, y: 0 },
-    image13: { x: 0, y: 0 },
+    image1: { x: 0, y: 0 }, image2: { x: 0, y: 0 }, image3: { x: 0, y: 0 }, image4: { x: 0, y: 0 }, image5: { x: 0, y: 0 },
+    image6: { x: 0, y: 0 }, image7: { x: 0, y: 0 }, image8: { x: 0, y: 0 }, image9: { x: 0, y: 0 }, image10: { x: 0, y: 0 },
+    image11: { x: 0, y: 0 }, image12: { x: 0, y: 0 }, image13: { x: 0, y: 0 },
   });
 
   const [dragging, setDragging] = useState({
-    image1: false,
-    image2: false,
-    image3: false,
-    image4: false,
-    image5: false,
-    image6: false,
-    image7: false,
-    image8: false,
-    image9: false,
-    image10: false,
-    image11: false,
-    image12: false,
-    image13: false,
+    image1: false, image2: false, image3: false, image4: false, image5: false,
+    image6: false, image7: false, image8: false, image9: false, image10: false,
+    image11: false, image12: false, image13: false,
   });
 
   const lastPosition = useRef({
-    image1: { x: 0, y: 0 },
-    image2: { x: 0, y: 0 },
-    image3: { x: 0, y: 0 },
-    image4: { x: 0, y: 0 },
-    image5: { x: 0, y: 0 },
-    image6: { x: 0, y: 0 },
-    image7: { x: 0, y: 0 },
-    image8: { x: 0, y: 0 },
-    image9: { x: 0, y: 0 },
-    image10: { x: 0, y: 0 },
-    image11: { x: 0, y: 0 },
-    image12: { x: 0, y: 0 },
-    image13: { x: 0, y: 0 },
+    image1: { x: 0, y: 0 }, image2: { x: 0, y: 0 }, image3: { x: 0, y: 0 }, image4: { x: 0, y: 0 }, image5: { x: 0, y: 0 },
+    image6: { x: 0, y: 0 }, image7: { x: 0, y: 0 }, image8: { x: 0, y: 0 }, image9: { x: 0, y: 0 }, image10: { x: 0, y: 0 },
+    image11: { x: 0, y: 0 }, image12: { x: 0, y: 0 }, image13: { x: 0, y: 0 },
   });
+
   const [showImageSourceModal, setShowImageSourceModal] = useState(false);
   const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(null);
   const [showGallery, setShowGallery] = useState(false);
+
+  const openImageSourceModal = (slot: string | null) => {
+    setCurrentImageSlot(slot);
+    setShowImageSourceModal(true);
+  };
+
   // --- Refs ---
   const fileInputRef1 = useRef<HTMLInputElement | null>(null);
   const fileInputRef2 = useRef<HTMLInputElement | null>(null);
@@ -128,8 +104,160 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
   const fileInputRef11 = useRef<HTMLInputElement | null>(null);
   const fileInputRef12 = useRef<HTMLInputElement | null>(null);
   const fileInputRef13 = useRef<HTMLInputElement | null>(null);
+
+  const { formData, updateFormData } = useFileManagerContext();
+
+  // Initial sync from context on mount
+  useEffect(() => {
+    if (formData) {
+      if (formData.fullName) setFullName(formData.fullName);
+      if (formData.email) setEmail(formData.email);
+      if (formData.propertyName) setPropertyName(formData.propertyName);
+      if (formData.amount) setAmount(formData.amount);
+      if (formData.byLawRestrictions) setByLawRestrictions(formData.byLawRestrictions);
+      if (formData.maintenanceFees) setMaintenanceFees(formData.maintenanceFees);
+      if (formData.maintenanceFeesInclude) setMaintenanceFeesInclude(formData.maintenanceFeesInclude);
+      if (formData.featuresIncluded) setFeaturesIncluded(formData.featuresIncluded);
+      if (formData.siteInfluences) setSiteInfluences(formData.siteInfluences);
+      if (formData.amenities) setAmenities(formData.amenities);
+      if (formData.mlsNumber) setMlsNumber(formData.mlsNumber);
+      if (formData.view) setView(formData.view);
+      if (formData.bedroom) setBedroom(formData.bedroom);
+      if (formData.bathroom) setBathroom(formData.bathroom);
+      if (formData.sqft) setSqft(formData.sqft);
+      if (formData.builtYear) setBuiltYear(formData.builtYear);
+      if (formData.description) setDescription(formData.description);
+      if (formData.addressCode) setAddressCode(formData.addressCode);
+      if (formData.roadName) setRoadName(formData.roadName);
+      if (formData.cityLine) setCityLine(formData.cityLine);
+
+      if (formData.images) {
+        setImages(prev => ({ ...prev, ...(formData.images as typeof images) }));
+      }
+      if (formData.imageScales) {
+        setScale(prev => ({ ...prev, ...(formData.imageScales as typeof scale) }));
+      }
+      if (formData.imagePositions) {
+        setPosition(prev => ({ ...prev, ...(formData.imagePositions as typeof position) }));
+      }
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Update context when local state changes
+  useEffect(() => {
+    updateFormData({
+      fullName,
+      email,
+      propertyName,
+      amount,
+      byLawRestrictions,
+      maintenanceFees,
+      maintenanceFeesInclude,
+      featuresIncluded,
+      siteInfluences,
+      amenities,
+      mlsNumber,
+      view,
+      bedroom,
+      bathroom,
+      sqft,
+      builtYear,
+      description,
+      addressCode,
+      roadName,
+      cityLine,
+      images,
+      imageScales: scale,
+      imagePositions: position
+    });
+  }, [
+    fullName, email, propertyName, amount, byLawRestrictions, maintenanceFees,
+    maintenanceFeesInclude, featuresIncluded, siteInfluences, amenities, mlsNumber,
+    view, bedroom, bathroom, sqft, builtYear, description, addressCode, roadName,
+    cityLine, images, scale, position, updateFormData
+  ]);
+
+  // Expose methods via ref
+  useImperativeHandle(ref, () => ({
+    exportToPayload: async () => {
+      const payload = await featureSheetService.buildPayload({
+        orderUuid: orderData?.uuid || "",
+        templateKey: "BCFPStandard9",
+        uploadedBy: "admin",
+        type: "template",
+        primaryColor: "#376173",
+        offeredAtPrice: amount,
+        realtorName: fullName,
+        emailLink: email,
+        propertyNotesTitle: roadName,
+        propertyNotesDescription: description,
+        expandedDetail1Title: "By-law Restrictions",
+        expandedDetail1Description: byLawRestrictions,
+        expandedDetail2Title: "Maint. Fees",
+        expandedDetail2Description: maintenanceFees,
+        expandedDetail3Title: "Maint. Fees Include",
+        expandedDetail3Description: maintenanceFeesInclude,
+        expandedDetail4Title: "Features Included",
+        expandedDetail4Description: featuresIncluded,
+        keyHighlightLabel: "Site Influences",
+        keyHighlights: siteInfluences ? siteInfluences.split("\n").filter(Boolean) : [],
+        otherDetails: {
+          amenities,
+          view,
+          bedroom,
+          bathroom,
+          sqft,
+          builtYear,
+          addressCode,
+          cityLine,
+          mlsNumber,
+          propertyName
+        },
+        images,
+        imageScales: scale,
+        imagePositions: position,
+      });
+      return payload;
+    },
+
+    importFromPayload: (payload: FeatureSheetResponse) => {
+      const state = featureSheetService.parsePayloadToState(payload);
+      if (state.offeredAtPrice) setAmount(state.offeredAtPrice as string);
+      if (state.realtorName) setFullName(state.realtorName as string);
+      if (state.emailLink) setEmail(state.emailLink as string);
+      if (state.propertyNotesTitle) setRoadName(state.propertyNotesTitle as string);
+      if (state.propertyNotesDescription) setDescription(state.propertyNotesDescription as string);
+
+      if (state.expandedDetail1Description) setByLawRestrictions(state.expandedDetail1Description as string);
+      if (state.expandedDetail2Description) setMaintenanceFees(state.expandedDetail2Description as string);
+      if (state.expandedDetail3Description) setMaintenanceFeesInclude(state.expandedDetail3Description as string);
+      if (state.expandedDetail4Description) setFeaturesIncluded(state.expandedDetail4Description as string);
+
+      if (state.keyHighlights) setSiteInfluences(state.keyHighlights.join("\n"));
+
+      if (state.otherDetails) {
+        const details = state.otherDetails as Record<string, unknown>;
+        if (details.amenities) setAmenities(details.amenities as string);
+        if (details.view) setView(details.view as string);
+        if (details.bedroom) setBedroom(details.bedroom as string);
+        if (details.bathroom) setBathroom(details.bathroom as string);
+        if (details.sqft) setSqft(details.sqft as string);
+        if (details.builtYear) setBuiltYear(details.builtYear as string);
+        if (details.addressCode) setAddressCode(details.addressCode as string);
+        if (details.cityLine) setCityLine(details.cityLine as string);
+        if (details.mlsNumber) setMlsNumber(details.mlsNumber as string);
+        if (details.propertyName) setPropertyName(details.propertyName as string);
+      }
+
+      setImages(state.images as unknown as typeof images);
+      setScale(state.imageScales as unknown as typeof scale);
+      setPosition(state.imagePositions as unknown as typeof position);
+    },
+  }));
   console.log('orderData', orderData);
-  
+
 
   // --- Handlers ---
   const handleImageChange = (
@@ -293,10 +421,6 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
     setCurrentImageSlot(null);
   };
 
-  const openImageSourceModal = (imageSlot: string) => {
-    setCurrentImageSlot(imageSlot);
-    setShowImageSourceModal(true);
-  };
   return (
     <div className="w-full items-center justify-center font-alexandria">
 
@@ -358,7 +482,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
             {images.image1 ? (
               <>
                 <Image
-                unoptimized
+                  unoptimized
                   src={images.image1}
                   alt="uploaded"
                   width={200}
@@ -442,7 +566,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
               {images.image2 ? (
                 <>
                   <Image
-                  unoptimized
+                    unoptimized
                     src={images.image2}
                     alt="selected"
                     width={200}
@@ -738,7 +862,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                   }}
                 >
                   <Image
-                  unoptimized
+                    unoptimized
                     src={images.image3}
                     alt="uploaded"
                     width={200}
@@ -869,7 +993,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                 {images.image4 ? (
                   <>
                     <Image
-                    unoptimized
+                      unoptimized
                       src={images.image4}
                       alt="selected"
                       width={200}
@@ -1070,7 +1194,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
               {images.image5 ? (
                 <>
                   <Image
-                  unoptimized
+                    unoptimized
                     src={images.image5}
                     alt="uploaded"
                     width={200}
@@ -1197,7 +1321,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                 {images.image6 ? (
                   <>
                     <Image
-                    unoptimized
+                      unoptimized
                       src={images.image6}
                       alt="uploaded"
                       width={200}
@@ -1278,7 +1402,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                 {images.image7 ? (
                   <>
                     <Image
-                    unoptimized
+                      unoptimized
                       src={images.image7}
                       alt="uploaded"
                       width={200}
@@ -1362,7 +1486,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                 {images.image8 ? (
                   <>
                     <Image
-                    unoptimized
+                      unoptimized
                       src={images.image8}
                       alt="uploaded"
                       width={200}
@@ -1545,7 +1669,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                   {images.image9 ? (
                     <>
                       <Image
-                      unoptimized
+                        unoptimized
                         src={images.image9}
                         alt="uploaded"
                         width={200}
@@ -1625,7 +1749,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                   {images.image10 ? (
                     <>
                       <Image
-                      unoptimized
+                        unoptimized
                         src={images.image10}
                         alt="uploaded"
                         width={200}
@@ -1704,7 +1828,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                   {images.image11 ? (
                     <>
                       <Image
-                      unoptimized
+                        unoptimized
                         src={images.image11}
                         alt="uploaded"
                         width={200}
@@ -1783,7 +1907,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                   {images.image12 ? (
                     <>
                       <Image
-                      unoptimized
+                        unoptimized
                         src={images.image12}
                         alt="uploaded"
                         width={200}
@@ -1865,7 +1989,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                 {images.image13 ? (
                   <>
                     <Image
-                    unoptimized
+                      unoptimized
                       src={images.image13}
                       alt="selected"
                       width={200}
@@ -1942,6 +2066,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
       </div>
     </div>
   );
-};
+});
 
-export default BcfpStandard;
+BcfpStandard9.displayName = "BcfpStandard9";
+
+export default BcfpStandard9;

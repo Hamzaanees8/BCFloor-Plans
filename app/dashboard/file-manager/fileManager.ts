@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 import { SelectedFiles } from "./components/HDRStill";
-import { DroppedMarker } from "./FileManagerContext ";
+import { DroppedMarker } from "./FileManagerContext";
 
 
 export async function GetFilesData(

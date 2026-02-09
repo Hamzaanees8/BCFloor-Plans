@@ -1,22 +1,21 @@
 import ConfirmationDialog from '@/components/ConfirmationDialog'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import HouseSheetModal from './HouseSheetModal';
 import { Order } from '../../orders/page';
 import { Check, CheckCircle2, X } from 'lucide-react';
 import { Area, DownloadFile, ServiceCompletion } from '../file-manager';
-import FileUploader from './FileUploader';
 import FilePreviewModal from './FilePreviewModal';
 import { Services } from '../../services/page';
-import { useFileManagerContext } from '../FileManagerContext ';
-import PhotoPreviewModal from './PhotoPreviewModal';
+import { Files, SelectedFiles, useFileManagerContext } from "../FileManagerContext";
 import { DownloadIcon } from '@/components/Icons';
 import { useAppContext } from '@/app/context/AppContext';
 import ManualPayment from './ManualPayment';
 import UpgradeServicePopup from './UpgradeServicePopup';
 import PayInvoiceModal from './PayInvoiceModal';
 import AgentNotificationModal from './AgentNotificationModal';
-import ImagePopup from '@/components/ImagePopup';
+import PhotoPreviewModal from './PhotoPreviewModal';
 import DownloadModal from './DownloadModal';
 import { toast } from 'sonner';
 type Props = {
@@ -28,16 +27,13 @@ type Props = {
 const Service: React.FC<Props> = ({ orderData, currentService, isListing, reviewFilesEnabled }) => {
     const { floorFiles, setFloorFiles, filesData, setFilesData, setChangedFileUuids } = useFileManagerContext();
     const [replacingFile, setReplacingFile] = useState<File | null>(null);
-    const [selectedPreviewFile, setSelectedPreviewFile] = useState<File | null>(null);
-    const [title, setTitle] = useState('');
-    const [showFilePreviewModal, setShowFilePreviewModal] = useState(false);
+    const [openPreview, setOpenPreview] = useState(false);
     const [area, setArea] = useState<Area[]>([]);
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [files, setFiles] = useState<File[]>([]);
     const [showAgain, setShowAgain] = useState(true);
     const [open, setOpen] = useState(false);
-    const [openPreview, setOpenPreview] = useState(false);
     const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
     const [openPayment, setOpenPayment] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -52,6 +48,11 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
     const { userType } = useAppContext()
     const dragCounter = useRef(0);
     const [showDownloadModal, setShowDownloadModal] = useState(false);
+    const [editingFile, setEditingFile] = useState<SelectedFiles | Files | null>(null);
+    const floorPlans = [
+        "Dimensions PDF", "Branded Floor Plan", "UnBranded Floor Plan",
+        "Branded Image", "Unbranded Image", "Additional Files"
+    ];
 
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
@@ -97,6 +98,10 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
         currentServiceFiles = currentServiceFiles?.filter(file => file.is_admin_approved);
     }
 
+    const hasUnsavedFiles = floorFiles.some(file =>
+        file.service_id === currentService?.uuid && (userType !== 'agent' || file.is_show !== false)
+    );
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleAddPayment = (paymentData: any) => {
         console.log("Payment Added:", paymentData);
@@ -134,8 +139,6 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
                 )
             );
             setReplacingFile(null);
-            setSelectedPreviewFile(null);
-            setTitle('');
             return;
         }
 
@@ -201,8 +204,9 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
     const vendorName = vendor ? `${vendor.first_name} ${vendor.last_name}` : "Taylor Tayburn";
 
 
-    const handleImageClick = (imageUrl: string) => {
+    const handleImageClick = (imageUrl: string, file: SelectedFiles | Files) => {
         setSelectedImageUrl(imageUrl);
+        setEditingFile(file);
         setImagePopupOpen(true);
     };
 
@@ -411,480 +415,352 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
                 </div>
             </div>
             <div className='w-full py-[54px] flex flex-col items-center'>
-                <div className='grid grid-cols-3 w-[80%] gap-y-7'>
-                    {(() => {
-                        const otherApiFiles = currentServiceFiles?.filter(file => file.group !== "Additional Files");
-                        const additionalApiFiles = currentServiceFiles?.filter(file => file.group === "Additional Files");
+                <Accordion type="multiple" defaultValue={['unsaved', 'saved']} className="w-[80%]">
+                    {hasUnsavedFiles && (
+                        <AccordionItem value="unsaved">
+                            <AccordionTrigger className={`text-lg font-semibold uppercase ${userType}-text`}>Unsaved Images</AccordionTrigger>
+                            <AccordionContent>
+                                <div className='grid grid-cols-3 gap-y-7 pt-4'>
+                                    {(() => {
+                                        let otherFiles = floorFiles.filter(file => file.type !== "Additional Files" && file.service_id === currentService?.uuid);
+                                        let additionalFiles = floorFiles.filter(file => file.type === "Additional Files" && file.service_id === currentService?.uuid);
 
-                        return (
-                            <>
-                                {otherApiFiles?.map((file, idx) => (
-                                    <div key={idx} className='justify-self-center group'>
-                                        <div>
-                                            <p className={`uppercase text-lg font-semibold ${userType}-text pl-3 pb-2`}>{file.type}</p>
-                                            <div
-                                                className="relative w-[280px] h-[175px] border border-[#A8A8A8] rounded-[6px] overflow-hidden"
-                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                            >
-                                                {/* eslint-disable @next/next/no-img-element */}
-                                                <img
-                                                    src={`${API_URL}/${file.file_path}`}
-                                                    onClick={() => handleImageClick(`${API_URL}/${file.file_path}`)}
-                                                    alt="Preview"
-                                                    className={`object-contain h-auto w-full cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
-                                                />
-                                                {userType !== 'agent' && (
-                                                    <span
-                                                        className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
-                                                        style={{
-                                                            clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                                            backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
-                                                        }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setFilesData(prev => {
-                                                                if (!prev) return prev;
-                                                                return {
-                                                                    ...prev,
-                                                                    files: prev.files.map(f => {
-                                                                        if (f.uuid === file.uuid) {
-                                                                            setChangedFileUuids(prevSet => {
-                                                                                const newSet = new Set(prevSet);
-                                                                                newSet.add(f.uuid);
-                                                                                return newSet;
-                                                                            });
-                                                                            return { ...f, is_show: f.is_show === false ? true : false };
-                                                                        }
-                                                                        return f;
-                                                                    })
-                                                                };
-                                                            });
-                                                        }}
-                                                    >
-                                                        {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
-                                                    </span>
-                                                )}
-                                                {/* Admin Approved Checkbox */}
-                                                {userType === 'admin' && reviewFilesEnabled && (
-                                                    <div
-                                                        className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setFilesData(prev => {
-                                                                if (!prev) return prev;
-                                                                return {
-                                                                    ...prev,
-                                                                    files: prev.files.map(f => {
-                                                                        if (f.uuid === file.uuid) {
-                                                                            setChangedFileUuids(prevSet => {
-                                                                                const newSet = new Set(prevSet);
-                                                                                newSet.add(f.uuid);
-                                                                                return newSet;
-                                                                            });
-                                                                            return { ...f, is_admin_approved: !f.is_admin_approved };
-                                                                        }
-                                                                        return f;
-                                                                    })
-                                                                };
-                                                            });
-                                                        }}
-                                                    >
-                                                        <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                                            {file.is_admin_approved && <Check color="white" size={12} />}
-                                                        </div>
-                                                        <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
-                                                    </div>
-                                                )}
+                                        if (userType === 'agent') {
+                                            otherFiles = otherFiles.filter(file => file.is_show !== false);
+                                            additionalFiles = additionalFiles.filter(file => file.is_show !== false);
+                                        }
 
-                                                {/* Agent Approved Checkbox */}
-                                                {userType === 'agent' && (
-                                                    <div
-                                                        className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setFilesData(prev => {
-                                                                if (!prev) return prev;
-                                                                return {
-                                                                    ...prev,
-                                                                    files: prev.files.map(f => {
-                                                                        if (f.uuid === file.uuid) {
-                                                                            setChangedFileUuids(prevSet => {
-                                                                                const newSet = new Set(prevSet);
-                                                                                newSet.add(f.uuid);
-                                                                                return newSet;
-                                                                            });
-                                                                            return { ...f, is_agent_approved: !f.is_agent_approved }; // This line was modified
-                                                                        }
-                                                                        return f;
-                                                                    })
-                                                                };
-                                                            });
-                                                        }}
-                                                    >
-                                                        <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                                            {file.is_agent_approved && <Check color="white" size={12} />}
-                                                        </div>
-                                                        <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div
-                                            className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 text-[9px]'
-                                            style={{ backgroundColor: `var(--${userType}-page-bg, #ffffff)` }}
-                                        >
-                                            <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">Uploaded by: {vendorName}</p>
-                                            <div className='col-span-2 flex items-center justify-between'>
-                                                <p className='text-[#8E8E8E] mt-1'>05/15/2025</p>
-                                                {userType === 'agent' && currentBookedService?.payment_status === "PAID" &&
-                                                    <span
-                                                        onClick={() => handledownloadFile(file.uuid, file.name)}
-                                                        className='flex w-[24px] h-[24px] cursor-pointer'>
-                                                        <DownloadIcon width='24px' height='24px' fill='#6BAE41' />
-                                                    </span>}
-                                            </div>
-                                        </div>
-
-                                    </div>
-                                ))}
-
-                                {additionalApiFiles && additionalApiFiles?.length > 0 && (
-                                    <div className="col-span-3">
-                                        <p className='uppercase text-lg font-semibold text-[#4290E9] pl-3 ml-11 pb-2'>Additional Files</p>
-                                        <div className="grid grid-cols-3 gap-6">
-                                            {additionalApiFiles?.map((file, idx) => (
-                                                <div key={idx} className='justify-self-center group'>
-                                                    <div
-                                                        className="relative w-[280px] h-[175px] border border-[#A8A8A8] rounded-[6px] overflow-hidden"
-                                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                                    >
-                                                        {/* eslint-disable @next/next/no-img-element */}
-                                                        <img
-                                                            src={`${API_URL}/${file.file_path}`}
-                                                            alt="Preview"
-                                                            onClick={() => handleImageClick(`${API_URL}/${file.file_path}`)}
-                                                            className={`object-contain h-auto w-full cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
-                                                        />
-                                                        {userType !== 'agent' && (
-                                                            <span
-                                                                className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
-                                                                style={{
-                                                                    clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                                                    backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
-                                                                }}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setFilesData(prev => {
-                                                                        if (!prev) return prev;
-                                                                        return {
-                                                                            ...prev,
-                                                                            files: prev.files.map(f => {
-                                                                                if (f.uuid === file.uuid) {
-                                                                                    setChangedFileUuids(prevSet => {
-                                                                                        const newSet = new Set(prevSet);
-                                                                                        newSet.add(f.uuid);
-                                                                                        return newSet;
-                                                                                    });
-                                                                                    return { ...f, is_show: f.is_show === false ? true : false };
-                                                                                }
-                                                                                return f;
-                                                                            })
-                                                                        };
-                                                                    });
-                                                                }}
-                                                            >
-                                                                {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
-                                                            </span>
-                                                        )}
-                                                        {userType === 'admin' && reviewFilesEnabled && (
+                                        return (
+                                            <>
+                                                {otherFiles.map((file, idx) => (
+                                                    <div key={idx} className='justify-self-center group'>
+                                                        <div>
+                                                            <p className='uppercase text-lg font-semibold text-[#4290E9] pl-3 pb-2'>{file.type}</p>
                                                             <div
-                                                                className="absolute top-2 left-2 z-10 cursor-pointer bg-white/80 p-1 rounded"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setFilesData(prev => {
-                                                                        if (!prev) return prev;
-                                                                        return {
-                                                                            ...prev,
-                                                                            files: prev.files.map(f => {
-                                                                                if (f.uuid === file.uuid) {
-                                                                                    setChangedFileUuids(prevSet => {
-                                                                                        const newSet = new Set(prevSet);
-                                                                                        newSet.add(f.uuid);
-                                                                                        return newSet;
-                                                                                    });
-                                                                                    return { ...f, is_admin_approved: !f.is_admin_approved };
-                                                                                }
-                                                                                return f;
-                                                                            })
-                                                                        };
-                                                                    });
-                                                                }}
+                                                                className="relative w-[280px] h-[175px] border border-[#A8A8A8] rounded-[6px]"
+                                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                             >
-                                                                <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                                                    {file.is_admin_approved && <Check color="white" size={12} />}
+                                                                <div className="absolute inset-0 overflow-hidden rounded-[6px]">
+                                                                    {/* eslint-disable @next/next/no-img-element */}
+                                                                    <img
+                                                                        src={URL.createObjectURL(file.file)}
+                                                                        alt="Preview"
+                                                                        className={`object-contain h-auto w-full cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : (!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : '')}`}
+                                                                        onClick={() => {
+                                                                            if (file.is_deleted) return;
+                                                                            handleImageClick(URL.createObjectURL(file.file), file);
+                                                                        }}
+                                                                    />
+                                                                    {file.is_deleted && (
+                                                                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 z-[30] gap-2">
+                                                                            <p className="text-white font-medium text-lg drop-shadow-lg uppercase mb-4">Deleted</p>
+                                                                            <Button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setFloorFiles(prev =>
+                                                                                        prev.map(f => {
+                                                                                            if (file.file === f.file) {
+                                                                                                return { ...f, is_deleted: false };
+                                                                                            }
+                                                                                            return f;
+                                                                                        })
+                                                                                    );
+                                                                                }}
+                                                                                className="bg-white text-black hover:bg-gray-100 h-7 px-3 text-[10px] font-bold rounded-full shadow-lg"
+                                                                            >
+                                                                                Restore
+                                                                            </Button>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
-                                                                <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div
-                                                        className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 text-[9px]'
-                                                        style={{ backgroundColor: `var(--${userType}-page-bg, #ffffff)` }}
-                                                    >
-                                                        <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">Uploaded by: {vendorName}</p>
-                                                        <div className='col-span-2 flex items-center justify-between'>
-                                                            <p className='text-[#8E8E8E] mt-1'>05/15/2025</p>
-                                                            <span
-                                                                onClick={() => handledownloadFile(file.uuid, file.name)}
-                                                                className='flex w-[24px] h-[24px] cursor-pointer'>
-                                                                <DownloadIcon width='24px' height='24px' fill='#6BAE41' />
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </>
-                        );
-                    })()}
-                    {(() => {
-                        let otherFiles = floorFiles.filter(file => file.type !== "Additional Files" && file.service_id === currentService?.uuid);
-                        let additionalFiles = floorFiles.filter(file => file.type === "Additional Files" && file.service_id === currentService?.uuid);
-
-                        if (userType === 'agent') {
-                            otherFiles = otherFiles.filter(file => file.is_show !== false);
-                            additionalFiles = additionalFiles.filter(file => file.is_show !== false);
-                        }
-
-                        return (
-                            <>
-                                {otherFiles.map((file, idx) => (
-                                    <div key={idx} className='justify-self-center group'>
-                                        <div>
-                                            <p className='uppercase text-lg font-semibold text-[#4290E9] pl-3 pb-2'>{file.type}</p>
-                                            <div
-                                                className="relative w-[280px] h-[175px] border border-[#A8A8A8] rounded-[6px]"
-                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                            >
-                                                <div className="absolute inset-0 overflow-hidden rounded-[6px]">
-                                                    {/* eslint-disable @next/next/no-img-element */}
-                                                    <img
-                                                        src={URL.createObjectURL(file.file)}
-                                                        alt="Preview"
-                                                        className={`object-contain h-auto w-full cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : (!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : '')}`}
-                                                        onClick={() => {
-                                                            if (file.is_deleted) return;
-                                                            setSelectedPreviewFile(file.file);
-                                                            setShowFilePreviewModal(true);
-                                                            setTitle(file.type);
-                                                        }}
-                                                    />
-                                                    {file.is_deleted && (
-                                                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 z-[30] gap-2">
-                                                            <p className="text-white font-medium text-lg drop-shadow-lg uppercase mb-4">Deleted</p>
-                                                            <Button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setFloorFiles(prev =>
-                                                                        prev.map(f => {
-                                                                            if (file.file === f.file) {
-                                                                                return { ...f, is_deleted: false };
-                                                                            }
-                                                                            return f;
-                                                                        })
-                                                                    );
-                                                                }}
-                                                                className="bg-white text-black hover:bg-gray-100 h-7 px-3 text-[10px] font-bold rounded-full shadow-lg"
-                                                            >
-                                                                Restore
-                                                            </Button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                {userType !== 'agent' && (
-                                                    <span
-                                                        className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
-                                                        style={{
-                                                            clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                                            backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
-                                                        }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setFloorFiles(prev =>
-                                                                prev.map(f => {
-                                                                    if (file.file === f.file) {
-                                                                        return { ...f, is_show: f.is_show === false ? true : false };
-                                                                    }
-                                                                    return f;
-                                                                })
-                                                            );
-                                                        }}
-                                                    >
-                                                        {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
-                                                    </span>
-                                                )}
-                                                {!file.is_deleted && (
-                                                    <div
-                                                        className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-500 rounded-full p-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-300 z-[20] shadow-md hover:scale-110"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setFloorFiles(prev =>
-                                                                prev.map(f => {
-                                                                    if (file.file === f.file) {
-                                                                        return { ...f, is_deleted: true };
-                                                                    }
-                                                                    return f;
-                                                                })
-                                                            );
-                                                        }}
-                                                    >
-                                                        <X color="white" size={14} strokeWidth={3} />
-                                                    </div>
-                                                )}
-                                                {userType === 'admin' && reviewFilesEnabled && (
-                                                    <div
-                                                        className="absolute top-2 left-2 z-10 cursor-pointer bg-white/80 p-1 rounded"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setFloorFiles(prev =>
-                                                                prev.map(f =>
-                                                                    f.file === file.file ? { ...f, is_admin_approved: !f.is_admin_approved } : f
-                                                                )
-                                                            );
-                                                        }}
-                                                    >
-                                                        <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                                            {file.is_admin_approved && <Check color="white" size={12} />}
-                                                        </div>
-                                                        <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div
-                                            className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 text-[9px]'
-                                            style={{ backgroundColor: `var(--${userType}-page-bg, #ffffff)` }}
-                                        >
-                                            <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">Uploaded by: {vendorName}</p>
-                                            <div className='col-span-2 flex items-center justify-between'>
-                                                <p className='text-[#8E8E8E] mt-1'>05/15/2025</p>
-                                                <span
-                                                    className='flex w-[24px] h-[24px] cursor-not-allowed opacity-50'>
-                                                    <DownloadIcon width='24px' height='24px' fill='#6BAE41' />
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                    </div>
-                                ))}
-
-                                {additionalFiles.length > 0 && (
-                                    <div className="col-span-3">
-                                        <p className='uppercase text-lg font-semibold text-[#4290E9] pl-3 ml-11 pb-2'>Additional Files</p>
-                                        <div className="grid grid-cols-3 gap-6">
-                                            {additionalFiles.map((file, idx) => (
-                                                <div key={idx} className='justify-self-center group'>
-                                                    <div
-                                                        className="relative w-[280px] h-[175px] border border-[#A8A8A8] rounded-[6px]"
-                                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                                    >
-                                                        <div className="absolute inset-0 overflow-hidden rounded-[6px]">
-                                                            {/* eslint-disable @next/next/no-img-element */}
-                                                            <img
-                                                                src={URL.createObjectURL(file.file)}
-                                                                alt="Preview"
-                                                                className={`object-contain h-auto w-full cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : (!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : '')}`}
-                                                                onClick={() => {
-                                                                    if (file.is_deleted) return;
-                                                                    setSelectedPreviewFile(file.file);
-                                                                    setShowFilePreviewModal(true);
-                                                                    setTitle(file.type);
-                                                                }}
-                                                            />
-                                                            {file.is_deleted && (
-                                                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 z-[30] gap-2">
-                                                                    <p className="text-white font-medium text-lg drop-shadow-lg uppercase mb-4">Deleted</p>
-                                                                    <Button
+                                                                {userType !== 'agent' && (
+                                                                    <span
+                                                                        className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
+                                                                        style={{
+                                                                            clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
+                                                                            backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
+                                                                        }}
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             setFloorFiles(prev =>
                                                                                 prev.map(f => {
-                                                                                    if (f.file === file.file) {
-                                                                                        return { ...f, is_deleted: false };
+                                                                                    if (file.file === f.file) {
+                                                                                        return { ...f, is_show: f.is_show === false ? true : false };
                                                                                     }
                                                                                     return f;
                                                                                 })
                                                                             );
                                                                         }}
-                                                                        className="bg-white text-black hover:bg-gray-100 h-7 px-3 text-[10px] font-bold rounded-full shadow-lg"
                                                                     >
-                                                                        Restore
-                                                                    </Button>
+                                                                        {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
+                                                                    </span>
+                                                                )}
+                                                                {!file.is_deleted && (
+                                                                    <div
+                                                                        className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-500 rounded-full p-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-300 z-[20] shadow-md hover:scale-110"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setFloorFiles(prev =>
+                                                                                prev.map(f => {
+                                                                                    if (file.file === f.file) {
+                                                                                        return { ...f, is_deleted: true };
+                                                                                    }
+                                                                                    return f;
+                                                                                })
+                                                                            );
+                                                                        }}
+                                                                    >
+                                                                        <X color="white" size={14} strokeWidth={3} />
+                                                                    </div>
+                                                                )}
+                                                                {userType === 'admin' && reviewFilesEnabled && (
+                                                                    <div
+                                                                        className="absolute top-2 left-2 z-10 cursor-pointer bg-white/80 p-1 rounded"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setFloorFiles(prev =>
+                                                                                prev.map(f =>
+                                                                                    f.file === file.file ? { ...f, is_admin_approved: !f.is_admin_approved } : f
+                                                                                )
+                                                                            );
+                                                                        }}
+                                                                    >
+                                                                        <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                                                            {file.is_admin_approved && <Check color="white" size={12} />}
+                                                                        </div>
+                                                                        <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div
+                                                            className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 text-[9px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #ffffff)` }}
+                                                        >
+                                                            <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">Uploaded by: {vendorName}</p>
+                                                            <div className='col-span-2 flex items-center justify-between'>
+                                                                <p className='text-[#8E8E8E] mt-1'>05/15/2025</p>
+                                                                <span
+                                                                    className='flex w-[24px] h-[24px] cursor-not-allowed opacity-50'>
+                                                                    <DownloadIcon width='24px' height='24px' fill='#6BAE41' />
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+
+                                                {additionalFiles && additionalFiles.length > 0 && (
+                                                    <div className="col-span-3">
+                                                        <p className='uppercase text-lg font-semibold text-[#4290E9] pl-3 ml-11 pb-2'>Additional Files</p>
+                                                        <div className="grid grid-cols-3 gap-6">
+                                                            {additionalFiles.map((file, idx) => (
+                                                                <div key={idx} className='justify-self-center group'>
+                                                                    <div
+                                                                        className="relative w-[280px] h-[175px] border border-[#A8A8A8] rounded-[6px] overflow-hidden"
+                                                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                                    >
+                                                                        {/* eslint-disable @next/next/no-img-element */}
+                                                                        <img
+                                                                            src={URL.createObjectURL(file.file)}
+                                                                            alt="Preview"
+                                                                            className={`object-contain h-auto w-full cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : (!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : '')}`}
+                                                                            onClick={() => {
+                                                                                if (file.is_deleted) return;
+                                                                                handleImageClick(URL.createObjectURL(file.file), file);
+
+
+                                                                            }}
+                                                                        />
+                                                                        {file.is_deleted && (
+                                                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 z-[30] gap-2">
+                                                                                <p className="text-white font-medium text-lg drop-shadow-lg uppercase mb-4">Deleted</p>
+                                                                                <Button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        setFloorFiles(prev =>
+                                                                                            prev.map(f => {
+                                                                                                if (file.file === f.file) {
+                                                                                                    return { ...f, is_deleted: false };
+                                                                                                }
+                                                                                                return f;
+                                                                                            })
+                                                                                        );
+                                                                                    }}
+                                                                                    className="bg-white text-black hover:bg-gray-100 h-7 px-3 text-[10px] font-bold rounded-full shadow-lg"
+                                                                                >
+                                                                                    Restore
+                                                                                </Button>
+                                                                            </div>
+                                                                        )}
+                                                                        {userType !== 'agent' && (
+                                                                            <span
+                                                                                className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
+                                                                                style={{
+                                                                                    clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
+                                                                                    backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
+                                                                                }}
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setFloorFiles(prev =>
+                                                                                        prev.map(f => {
+                                                                                            if (file.file === f.file) {
+                                                                                                return { ...f, is_show: f.is_show === false ? true : false };
+                                                                                            }
+                                                                                            return f;
+                                                                                        })
+                                                                                    );
+                                                                                }}
+                                                                            >
+                                                                                {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div
+                                                                        className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 text-[9px]'
+                                                                        style={{ backgroundColor: `var(--${userType}-page-bg, #ffffff)` }}
+                                                                    >
+                                                                        <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">Uploaded by: {vendorName}</p>
+                                                                        <div className='col-span-2 flex items-center justify-between'>
+                                                                            <p className='text-[#8E8E8E] mt-1'>05/15/2025</p>
+                                                                            <span
+                                                                                className='flex w-[24px] h-[24px] cursor-not-allowed opacity-50'>
+                                                                                <DownloadIcon width='24px' height='24px' fill='#6BAE41' />
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    )}
+
+                    <AccordionItem value="saved">
+                        <AccordionTrigger className={`text-lg font-semibold uppercase ${userType}-text`}>Saved Images</AccordionTrigger>
+                        <AccordionContent>
+                            <div className='grid grid-cols-3 gap-y-7 pt-4'>
+                                {(() => {
+                                    const otherApiFiles = currentServiceFiles?.filter(file => file.group !== "Additional Files");
+                                    const additionalApiFiles = currentServiceFiles?.filter(file => file.group === "Additional Files");
+
+                                    return (
+                                        <>
+                                            {otherApiFiles?.map((file, idx) => (
+                                                <div key={idx} className='justify-self-center group'>
+                                                    <div>
+                                                        <p className={`uppercase text-lg font-semibold ${userType}-text pl-3 pb-2`}>{file.type}</p>
+                                                        <div
+                                                            className="relative w-[280px] h-[175px] border border-[#A8A8A8] rounded-[6px] overflow-hidden"
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                        >
+                                                            {/* eslint-disable @next/next/no-img-element */}
+                                                            <img
+                                                                src={`${API_URL}/${file.file_path}`}
+                                                                onClick={() => handleImageClick(`${API_URL}/${file.file_path}`, file)}
+                                                                alt="Preview"
+                                                                className={`object-contain h-auto w-full cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                                            />
+                                                            {userType !== 'agent' && (
+                                                                <span
+                                                                    className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
+                                                                    style={{
+                                                                        clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
+                                                                        backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
+                                                                    }}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setFilesData(prev => {
+                                                                            if (!prev) return prev;
+                                                                            return {
+                                                                                ...prev,
+                                                                                files: prev.files.map(f => {
+                                                                                    if (f.uuid === file.uuid) {
+                                                                                        setChangedFileUuids(prevSet => {
+                                                                                            const newSet = new Set(prevSet);
+                                                                                            newSet.add(f.uuid);
+                                                                                            return newSet;
+                                                                                        });
+                                                                                        return { ...f, is_show: f.is_show === false ? true : false };
+                                                                                    }
+                                                                                    return f;
+                                                                                })
+                                                                            };
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
+                                                                </span>
+                                                            )}
+                                                            {/* Admin Approved Checkbox */}
+                                                            {userType === 'admin' && reviewFilesEnabled && (
+                                                                <div
+                                                                    className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setFilesData(prev => {
+                                                                            if (!prev) return prev;
+                                                                            return {
+                                                                                ...prev,
+                                                                                files: prev.files.map(f => {
+                                                                                    if (f.uuid === file.uuid) {
+                                                                                        setChangedFileUuids(prevSet => {
+                                                                                            const newSet = new Set(prevSet);
+                                                                                            newSet.add(f.uuid);
+                                                                                            return newSet;
+                                                                                        });
+                                                                                        return { ...f, is_admin_approved: !f.is_admin_approved };
+                                                                                    }
+                                                                                    return f;
+                                                                                })
+                                                                            };
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                                                        {file.is_admin_approved && <Check color="white" size={12} />}
+                                                                    </div>
+                                                                    <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
+                                                                </div>
+                                                            )}
+
+                                                            {/* Agent Approved Checkbox */}
+                                                            {userType === 'agent' && (
+                                                                <div
+                                                                    className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setFilesData(prev => {
+                                                                            if (!prev) return prev;
+                                                                            return {
+                                                                                ...prev,
+                                                                                files: prev.files.map(f => {
+                                                                                    if (f.uuid === file.uuid) {
+                                                                                        setChangedFileUuids(prevSet => {
+                                                                                            const newSet = new Set(prevSet);
+                                                                                            newSet.add(f.uuid);
+                                                                                            return newSet;
+                                                                                        });
+                                                                                        return { ...f, is_agent_approved: !f.is_agent_approved };
+                                                                                    }
+                                                                                    return f;
+                                                                                })
+                                                                            };
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                                                        {file.is_agent_approved && <Check color="white" size={12} />}
+                                                                    </div>
+                                                                    <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        {userType !== 'agent' && (
-                                                            <span
-                                                                className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
-                                                                style={{
-                                                                    clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                                                    backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
-                                                                }}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setFloorFiles(prev =>
-                                                                        prev.map(f => {
-                                                                            if (f.file === file.file) {
-                                                                                return { ...f, is_show: f.is_show === false ? true : false };
-                                                                            }
-                                                                            return f;
-                                                                        })
-                                                                    );
-                                                                }}
-                                                            >
-                                                                {file.is_show !== false ?
-                                                                    <Check color="#fff" size={14} />
-                                                                    : <X color="#fff" size={14} />}
-                                                            </span>
-                                                        )}
-                                                        {!file.is_deleted && (
-                                                            <div
-                                                                className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-500 rounded-full p-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-300 z-[20] shadow-md hover:scale-110"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setFloorFiles(prev =>
-                                                                        prev.map(item => {
-                                                                            if (item.file === file.file) {
-                                                                                return { ...item, is_deleted: true };
-                                                                            }
-                                                                            return item;
-                                                                        })
-                                                                    );
-                                                                }}
-                                                            >
-                                                                <X color="white" size={14} strokeWidth={3} />
-                                                            </div>
-                                                        )}
-                                                        {userType === 'admin' && reviewFilesEnabled && (
-                                                            <div
-                                                                className="absolute top-2 left-2 z-10 cursor-pointer bg-white/80 p-1 rounded"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setFloorFiles(prev =>
-                                                                        prev.map(f =>
-                                                                            f.file === file.file ? { ...f, is_admin_approved: !f.is_admin_approved } : f
-                                                                        )
-                                                                    );
-                                                                }}
-                                                            >
-                                                                <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                                                    {file.is_admin_approved && <Check color="white" size={12} />}
-                                                                </div>
-                                                                <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
-                                                            </div>
-                                                        )}
                                                     </div>
                                                     <div
                                                         className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 text-[9px]'
@@ -893,30 +769,123 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
                                                         <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">Uploaded by: {vendorName}</p>
                                                         <div className='col-span-2 flex items-center justify-between'>
                                                             <p className='text-[#8E8E8E] mt-1'>05/15/2025</p>
-                                                            <span
-                                                                className='flex w-[24px] h-[24px] cursor-not-allowed opacity-50'>
-                                                                <DownloadIcon width='24px' height='24px' fill='#6BAE41' />
-                                                            </span>
+                                                            {userType === 'agent' && currentBookedService?.payment_status === "PAID" &&
+                                                                <span
+                                                                    onClick={() => handledownloadFile(file.uuid, file.name)}
+                                                                    className='flex w-[24px] h-[24px] cursor-pointer'>
+                                                                    <DownloadIcon width='24px' height='24px' fill='#6BAE41' />
+                                                                </span>}
                                                         </div>
                                                     </div>
+
                                                 </div>
                                             ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </>
-                        );
-                    })()}
-                </div>
-                {userType !== 'agent' ? (
-                    <div className="mt-8">
-                        <FileUploader onFilesChange={handleFilesChange} />
-                    </div>
-                ) : (filesData?.files?.length === 0 && (
-                    <div className="flex flex-col items-center justify-center text-gray-400 mt-8">
-                        <p className="text-lg">No floor plans added by vendor yet</p>
-                    </div>
-                ))}
+
+                                            {additionalApiFiles && additionalApiFiles?.length > 0 && (
+                                                <div className="col-span-3">
+                                                    <p className='uppercase text-lg font-semibold text-[#4290E9] pl-3 ml-11 pb-2'>Additional Files</p>
+                                                    <div className="grid grid-cols-3 gap-6">
+                                                        {additionalApiFiles?.map((file, idx) => (
+                                                            <div key={idx} className='justify-self-center group'>
+                                                                <div
+                                                                    className="relative w-[280px] h-[175px] border border-[#A8A8A8] rounded-[6px] overflow-hidden"
+                                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                                >
+                                                                    {/* eslint-disable @next/next/no-img-element */}
+                                                                    <img
+                                                                        src={`${API_URL}/${file.file_path}`}
+                                                                        alt="Preview"
+                                                                        onClick={() => handleImageClick(`${API_URL}/${file.file_path}`, file)}
+                                                                        className={`object-contain h-auto w-full cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                                                    />
+                                                                    {userType !== 'agent' && (
+                                                                        <span
+                                                                            className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
+                                                                            style={{
+                                                                                clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
+                                                                                backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
+                                                                            }}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setFilesData(prev => {
+                                                                                    if (!prev) return prev;
+                                                                                    return {
+                                                                                        ...prev,
+                                                                                        files: prev.files.map(f => {
+                                                                                            if (f.uuid === file.uuid) {
+                                                                                                setChangedFileUuids(prevSet => {
+                                                                                                    const newSet = new Set(prevSet);
+                                                                                                    newSet.add(f.uuid);
+                                                                                                    return newSet;
+                                                                                                });
+                                                                                                return { ...f, is_show: f.is_show === false ? true : false };
+                                                                                            }
+                                                                                            return f;
+                                                                                        })
+                                                                                    };
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
+                                                                        </span>
+                                                                    )}
+                                                                    {userType === 'admin' && reviewFilesEnabled && (
+                                                                        <div
+                                                                            className="absolute top-2 left-2 z-10 cursor-pointer bg-white/80 p-1 rounded"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setFilesData(prev => {
+                                                                                    if (!prev) return prev;
+                                                                                    return {
+                                                                                        ...prev,
+                                                                                        files: prev.files.map(f => {
+                                                                                            if (f.uuid === file.uuid) {
+                                                                                                setChangedFileUuids(prevSet => {
+                                                                                                    const newSet = new Set(prevSet);
+                                                                                                    newSet.add(f.uuid);
+                                                                                                    return newSet;
+                                                                                                });
+                                                                                                return { ...f, is_admin_approved: !f.is_admin_approved };
+                                                                                            }
+                                                                                            return f;
+                                                                                        })
+                                                                                    };
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                                                                {file.is_admin_approved && <Check color="white" size={12} />}
+                                                                            </div>
+                                                                            <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div
+                                                                    className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 text-[9px]'
+                                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #ffffff)` }}
+                                                                >
+                                                                    <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">Uploaded by: {vendorName}</p>
+                                                                    <div className='col-span-2 flex items-center justify-between'>
+                                                                        <p className='text-[#8E8E8E] mt-1'>05/15/2025</p>
+                                                                        <span
+                                                                            onClick={() => handledownloadFile(file.uuid, file.name)}
+                                                                            className='flex w-[24px] h-[24px] cursor-pointer'>
+                                                                            <DownloadIcon width='24px' height='24px' fill='#6BAE41' />
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
             </div>
             <ConfirmationDialog
                 open={showConfirmation}
@@ -932,26 +901,56 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
                 setOpen={setOpen}
             />
             <PhotoPreviewModal
-                file={selectedPreviewFile}
-                open={showFilePreviewModal}
-                title={title}
-                onClose={() => setShowFilePreviewModal(false)}
-                onDelete={() => {
-                    setFloorFiles(prev =>
-                        prev.filter(f => f.file !== selectedPreviewFile)
-                    );
-                    setSelectedPreviewFile(null);
-                }}
-                onReplace={() => {
-                    setReplacingFile(selectedPreviewFile);
-                    setShowFilePreviewModal(false);
-                    fileInputRef.current?.click();
-                }}
-            />
-            <ImagePopup
-                imageUrl={selectedImageUrl}
                 open={imagePopupOpen}
-                onClose={() => setImagePopupOpen(false)}
+                onClose={() => {
+                    setImagePopupOpen(false);
+                    setEditingFile(null);
+                }}
+                file={selectedImageUrl}
+                title={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || '2D Floor Plan') : '2D Floor Plan'}
+                initialName={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || '2D Floor Plan') : ''}
+                onSave={(newName) => {
+                    if (!editingFile) return;
+
+                    if ('file' in editingFile) {
+                        // Unsaved
+                        setFloorFiles(prev => prev.map(f => {
+                            if (f.file === editingFile.file) {
+                                return { ...f, type: newName };
+                            }
+                            return f;
+                        }));
+                    } else {
+                        // Saved
+                        setFilesData(prev => {
+                            if (!prev) return prev;
+                            return {
+                                ...prev,
+                                files: prev.files.map(f => {
+                                    if (f.uuid === editingFile.uuid) {
+                                        setChangedFileUuids(prevSet => {
+                                            const newSet = new Set(prevSet);
+                                            newSet.add(f.uuid);
+                                            return newSet;
+                                        });
+                                        return { ...f, group: newName };
+                                    }
+                                    return f;
+                                })
+                            };
+                        });
+                    }
+                }}
+                onDelete={editingFile && 'file' in editingFile ? () => {
+                    setFloorFiles(prev => prev.map(f =>
+                        f.file === editingFile.file ? { ...f, is_deleted: true } : f
+                    ));
+                } : undefined}
+                onReplace={editingFile && 'file' in editingFile ? () => {
+                    setReplacingFile(editingFile.file);
+                    fileInputRef.current?.click();
+                } : undefined}
+                suggestions={floorPlans}
             />
             <DownloadModal
                 open={showDownloadModal}

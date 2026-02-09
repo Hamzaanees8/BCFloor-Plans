@@ -1,16 +1,25 @@
 import { Pencil, Trash, ZoomIn, ZoomOut } from "lucide-react";
 import Image from "next/image";
-import React, { useRef, useState } from "react";
+import React, { forwardRef, useImperativeHandle, useRef, useState, useEffect } from "react";
 import { Order } from "../../orders/page";
 import "../../../globals.css";
 import StyledInput from "./StyledInput";
 import ImageSourceModal from "./ImageSourceModal";
 import FileManagerGallery from "./fileManagerGallery";
+import { featureSheetService } from "../file-manager";
+import { FeatureSheetResponse, FeatureSheetPayload } from "../types/featureSheetTypes";
+import { useFileManagerContext } from "../FileManagerContext";
 
-interface BcfpStandard {
+export interface BcfpStandard11Ref {
+  exportToPayload: () => Promise<FeatureSheetPayload>;
+  importFromPayload: (payload: FeatureSheetResponse) => void;
+}
+
+interface BcfpStandard11Props {
   orderData: Order | null;
 }
-const BcfpStandard = ({ orderData }: BcfpStandard) => {
+
+const BcfpStandard11 = forwardRef<BcfpStandard11Ref, BcfpStandard11Props>(({ orderData }, ref) => {
   const [byLawRestrictions, setByLawRestrictions] = useState("");
   const [maintFees, setMaintFees] = useState("");
   const [maintFeesInclude, setMaintFeesInclude] = useState("");
@@ -54,94 +63,35 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
     image17: null as string | null,
     image18: null as string | null,
   });
-   
 
   const [scale, setScale] = useState({
-    image1: 1,
-    image2: 1,
-    image3: 1,
-    image4: 1,
-    image5: 1,
-    image6: 1,
-    image7: 1,
-    image8: 1,
-    image9: 1,
-    image10: 1,
-    image11: 1,
-    image12: 1,
-    image13: 1,
-    image14: 1,
-    image15: 1,
-    image16: 1,
-    image17: 1,
-    image18: 1,
+    image1: 1, image2: 1, image3: 1, image4: 1, image5: 1, image6: 1, image7: 1, image8: 1, image9: 1,
+    image10: 1, image11: 1, image12: 1, image13: 1, image14: 1, image15: 1, image16: 1, image17: 1, image18: 1,
   });
 
   const [position, setPosition] = useState({
-    image1: { x: 0, y: 0 },
-    image2: { x: 0, y: 0 },
-    image3: { x: 0, y: 0 },
-    image4: { x: 0, y: 0 },
-    image5: { x: 0, y: 0 },
-    image6: { x: 0, y: 0 },
-    image7: { x: 0, y: 0 },
-    image8: { x: 0, y: 0 },
-    image9: { x: 0, y: 0 },
-    image10: { x: 0, y: 0 },
-    image11: { x: 0, y: 0 },
-    image12: { x: 0, y: 0 },
-    image13: { x: 0, y: 0 },
-    image14: { x: 0, y: 0 },
-    image15: { x: 0, y: 0 },
-    image16: { x: 0, y: 0 },
-    image17: { x: 0, y: 0 },
-    image18: { x: 0, y: 0 },
+    image1: { x: 0, y: 0 }, image2: { x: 0, y: 0 }, image3: { x: 0, y: 0 }, image4: { x: 0, y: 0 }, image5: { x: 0, y: 0 }, image6: { x: 0, y: 0 }, image7: { x: 0, y: 0 }, image8: { x: 0, y: 0 }, image9: { x: 0, y: 0 },
+    image10: { x: 0, y: 0 }, image11: { x: 0, y: 0 }, image12: { x: 0, y: 0 }, image13: { x: 0, y: 0 }, image14: { x: 0, y: 0 }, image15: { x: 0, y: 0 }, image16: { x: 0, y: 0 }, image17: { x: 0, y: 0 }, image18: { x: 0, y: 0 },
   });
 
   const [dragging, setDragging] = useState({
-    image1: false,
-    image2: false,
-    image3: false,
-    image4: false,
-    image5: false,
-    image6: false,
-    image7: false,
-    image8: false,
-    image9: false,
-    image10: false,
-    image11: false,
-    image12: false,
-    image13: false,
-    image14: false,
-    image15: false,
-    image16: false,
-    image17: false,
-    image18: false,
+    image1: false, image2: false, image3: false, image4: false, image5: false, image6: false, image7: false, image8: false, image9: false,
+    image10: false, image11: false, image12: false, image13: false, image14: false, image15: false, image16: false, image17: false, image18: false,
   });
 
   const lastPosition = useRef({
-    image1: { x: 0, y: 0 },
-    image2: { x: 0, y: 0 },
-    image3: { x: 0, y: 0 },
-    image4: { x: 0, y: 0 },
-    image5: { x: 0, y: 0 },
-    image6: { x: 0, y: 0 },
-    image7: { x: 0, y: 0 },
-    image8: { x: 0, y: 0 },
-    image9: { x: 0, y: 0 },
-    image10: { x: 0, y: 0 },
-    image11: { x: 0, y: 0 },
-    image12: { x: 0, y: 0 },
-    image13: { x: 0, y: 0 },
-    image14: { x: 0, y: 0 },
-    image15: { x: 0, y: 0 },
-    image16: { x: 0, y: 0 },
-    image17: { x: 0, y: 0 },
-    image18: { x: 0, y: 0 },
+    image1: { x: 0, y: 0 }, image2: { x: 0, y: 0 }, image3: { x: 0, y: 0 }, image4: { x: 0, y: 0 }, image5: { x: 0, y: 0 }, image6: { x: 0, y: 0 }, image7: { x: 0, y: 0 }, image8: { x: 0, y: 0 }, image9: { x: 0, y: 0 },
+    image10: { x: 0, y: 0 }, image11: { x: 0, y: 0 }, image12: { x: 0, y: 0 }, image13: { x: 0, y: 0 }, image14: { x: 0, y: 0 }, image15: { x: 0, y: 0 }, image16: { x: 0, y: 0 }, image17: { x: 0, y: 0 }, image18: { x: 0, y: 0 },
   });
+
   const [showImageSourceModal, setShowImageSourceModal] = useState(false);
   const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(null);
   const [showGallery, setShowGallery] = useState(false);
+
+  const openImageSourceModal = (slot: string | null) => {
+    setCurrentImageSlot(slot);
+    setShowImageSourceModal(true);
+  };
   // --- Refs ---
   const fileInputRef1 = useRef<HTMLInputElement | null>(null);
   const fileInputRef2 = useRef<HTMLInputElement | null>(null);
@@ -161,8 +111,177 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
   const fileInputRef16 = useRef<HTMLInputElement | null>(null);
   const fileInputRef17 = useRef<HTMLInputElement | null>(null);
   const fileInputRef18 = useRef<HTMLInputElement | null>(null);
+
+  // Expose methods via ref
+  useImperativeHandle(ref, () => ({
+    exportToPayload: async () => {
+      const payload = await featureSheetService.buildPayload({
+        orderUuid: orderData?.uuid || "",
+        templateKey: "BCFPStandard11",
+        uploadedBy: "admin",
+        type: "template",
+        primaryColor: "#376173",
+        offeredAtPrice: amount,
+        realtorName: fullName,
+        emailLink: email,
+        propertyNotesTitle: roadName,
+        propertyNotesDescription: description,
+        expandedDetail1Title: "By-law Restrictions",
+        expandedDetail1Description: byLawRestrictions,
+        expandedDetail2Title: "Maint. Fees",
+        expandedDetail2Description: maintFees,
+        expandedDetail3Title: "Maint. Fees Include",
+        expandedDetail3Description: maintFeesInclude,
+        expandedDetail4Title: "Features Included",
+        expandedDetail4Description: featuresIncluded,
+        keyHighlightLabel: "Site Influences",
+        keyHighlights: siteInfluences ? siteInfluences.split("\n").filter(Boolean) : [],
+        otherDetails: {
+          amenities,
+          view,
+          bedroom,
+          bathroom,
+          sqft,
+          builtYear,
+          number,
+          addressCode,
+          cityLine,
+          mlsNumber,
+          propertyName
+        },
+        images,
+        imageScales: scale,
+        imagePositions: position,
+      });
+      return payload;
+    },
+
+    importFromPayload: (payload: FeatureSheetResponse) => {
+      const state = featureSheetService.parsePayloadToState(payload);
+      if (state.offeredAtPrice) setAmount(state.offeredAtPrice as string);
+      if (state.realtorName) setFullName(state.realtorName as string);
+      if (state.emailLink) setEmail(state.emailLink as string);
+      if (state.propertyNotesTitle) setRoadName(state.propertyNotesTitle as string);
+      if (state.propertyNotesDescription) setDescription(state.propertyNotesDescription as string);
+
+      if (state.expandedDetail1Description) setByLawRestrictions(state.expandedDetail1Description as string);
+      if (state.expandedDetail2Description) setMaintFees(state.expandedDetail2Description as string);
+      if (state.expandedDetail3Description) setMaintFeesInclude(state.expandedDetail3Description as string);
+      if (state.expandedDetail4Description) setFeaturesIncluded(state.expandedDetail4Description as string);
+
+      if (state.keyHighlights) setSiteInfluences(state.keyHighlights.join("\n"));
+
+      if (state.otherDetails) {
+        const details = state.otherDetails as Record<string, unknown>;
+        if (details.amenities) setAmenities(details.amenities as string);
+        if (details.view) setView(details.view as string);
+        if (details.bedroom) setBedroom(details.bedroom as string);
+        if (details.bathroom) setBathroom(details.bathroom as string);
+        if (details.sqft) setSqft(details.sqft as string);
+        if (details.builtYear) setBuiltYear(details.builtYear as string);
+        if (details.number) setNumber(details.number as string);
+        if (details.addressCode) setAddressCode(details.addressCode as string);
+        if (details.cityLine) setCityLine(details.cityLine as string);
+        if (details.mlsNumber) setMlsNumber(details.mlsNumber as string);
+        if (details.propertyName) setPropertyName(details.propertyName as string);
+      }
+
+      if (state.images) setImages(state.images as unknown as typeof images);
+      if (state.imageScales) setScale(state.imageScales as unknown as typeof scale);
+      if (state.imagePositions) setPosition(state.imagePositions as unknown as typeof position);
+    },
+  }));
   console.log("orderData", orderData);
-   
+  const { formData, updateFormData } = useFileManagerContext();
+
+  // Initial sync from context on mount
+  useEffect(() => {
+    if (formData) {
+      if (formData.byLawRestrictions) setByLawRestrictions(formData.byLawRestrictions);
+      if (formData.maintenanceFees) setMaintFees(formData.maintenanceFees);
+      if (formData.maintenanceFeesInclude) setMaintFeesInclude(formData.maintenanceFeesInclude);
+      if (formData.featuresIncluded) setFeaturesIncluded(formData.featuresIncluded);
+      if (formData.siteInfluences) setSiteInfluences(formData.siteInfluences);
+      if (formData.amenities) setAmenities(formData.amenities);
+      if (formData.view) setView(formData.view);
+      if (formData.description) setDescription(formData.description);
+      if (formData.fullName) setFullName(formData.fullName);
+      if (formData.email) setEmail(formData.email);
+      if (formData.propertyName) setPropertyName(formData.propertyName);
+      if (formData.amount) setAmount(formData.amount);
+      if (formData.number) setNumber(formData.number);
+      if (formData.addressCode) setAddressCode(formData.addressCode);
+      if (formData.roadName) setRoadName(formData.roadName);
+      if (formData.cityLine) setCityLine(formData.cityLine);
+      if (formData.mlsNumber) setMlsNumber(formData.mlsNumber);
+      if (formData.bedroom) setBedroom(formData.bedroom);
+      if (formData.bathroom) setBathroom(formData.bathroom);
+      if (formData.sqft) setSqft(formData.sqft);
+      if (formData.builtYear) setBuiltYear(formData.builtYear);
+
+      if (formData.images) {
+        setImages(prev => ({ ...prev, ...(formData.images as typeof images) }));
+      }
+      if (formData.imageScales) {
+        setScale(prev => ({ ...prev, ...(formData.imageScales as typeof scale) }));
+      }
+      if (formData.imagePositions) {
+        setPosition(prev => ({ ...prev, ...(formData.imagePositions as typeof position) }));
+      }
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    updateFormData({
+      byLawRestrictions,
+      maintenanceFees: maintFees,
+      maintenanceFeesInclude: maintFeesInclude,
+      featuresIncluded,
+      siteInfluences,
+      amenities,
+      view,
+      description,
+      fullName,
+      email,
+      propertyName,
+      amount,
+      number,
+      addressCode,
+      roadName,
+      cityLine,
+      mlsNumber,
+      bedroom,
+      bathroom,
+      sqft,
+      builtYear
+    });
+  }, [
+    byLawRestrictions,
+    maintFees,
+    maintFeesInclude,
+    featuresIncluded,
+    siteInfluences,
+    amenities,
+    view,
+    description,
+    fullName,
+    email,
+    propertyName,
+    amount,
+    number,
+    addressCode,
+    roadName,
+    cityLine,
+    mlsNumber,
+    bedroom,
+    bathroom,
+    sqft,
+    builtYear,
+    updateFormData
+  ]);
+
 
   // --- Handlers ---
   const handleImageChange = (
@@ -293,7 +412,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
 
   const handleGalleryImageSelect = (imageUrl: string) => {
     if (!currentImageSlot) return;
-     
+
 
     switch (currentImageSlot) {
       case "image1":
@@ -355,11 +474,6 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
     }
     setShowGallery(false);
     setCurrentImageSlot(null);
-  };
-
-  const openImageSourceModal = (imageSlot: string) => {
-    setCurrentImageSlot(imageSlot);
-    setShowImageSourceModal(true);
   };
 
   return (
@@ -465,8 +579,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                         cursor: dragging.image1
                           ? "grabbing"
                           : scale.image1 > 1
-                          ? "grab"
-                          : "default",
+                            ? "grab"
+                            : "default",
                       }}
                     />
 
@@ -592,8 +706,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                       cursor: dragging.image2
                         ? "grabbing"
                         : scale.image2 > 1
-                        ? "grab"
-                        : "default",
+                          ? "grab"
+                          : "default",
                     }}
                   />
 
@@ -693,8 +807,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                       cursor: dragging.image3
                         ? "grabbing"
                         : scale.image3 > 1
-                        ? "grab"
-                        : "default",
+                          ? "grab"
+                          : "default",
                     }}
                   />
 
@@ -779,8 +893,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                       cursor: dragging.image4
                         ? "grabbing"
                         : scale.image4 > 1
-                        ? "grab"
-                        : "default",
+                          ? "grab"
+                          : "default",
                     }}
                   />
 
@@ -861,8 +975,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                       cursor: dragging.image5
                         ? "grabbing"
                         : scale.image5 > 1
-                        ? "grab"
-                        : "default",
+                          ? "grab"
+                          : "default",
                     }}
                   />
 
@@ -943,8 +1057,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                       cursor: dragging.image6
                         ? "grabbing"
                         : scale.image6 > 1
-                        ? "grab"
-                        : "default",
+                          ? "grab"
+                          : "default",
                     }}
                   />
 
@@ -1025,8 +1139,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                       cursor: dragging.image7
                         ? "grabbing"
                         : scale.image7 > 1
-                        ? "grab"
-                        : "default",
+                          ? "grab"
+                          : "default",
                     }}
                   />
 
@@ -1107,8 +1221,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                       cursor: dragging.image8
                         ? "grabbing"
                         : scale.image8 > 1
-                        ? "grab"
-                        : "default",
+                          ? "grab"
+                          : "default",
                     }}
                   />
 
@@ -1215,7 +1329,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                 </div>
               </div>
             </div>
-            
+
           </div>
           <div className="text-white flex flex-col items-center justify-center py-10 space-y-2">
             <div className="tracking-wide mt-0 flex">
@@ -1342,8 +1456,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                           cursor: dragging.image9
                             ? "grabbing"
                             : scale.image9 > 1
-                            ? "grab"
-                            : "default",
+                              ? "grab"
+                              : "default",
                         }}
                       />
 
@@ -1424,8 +1538,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                           cursor: dragging.image10
                             ? "grabbing"
                             : scale.image10 > 1
-                            ? "grab"
-                            : "default",
+                              ? "grab"
+                              : "default",
                         }}
                       />
 
@@ -1529,8 +1643,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                       cursor: dragging.image11
                         ? "grabbing"
                         : scale.image11 > 1
-                        ? "grab"
-                        : "default",
+                          ? "grab"
+                          : "default",
                     }}
                   />
 
@@ -1614,8 +1728,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                           cursor: dragging.image12
                             ? "grabbing"
                             : scale.image12 > 1
-                            ? "grab"
-                            : "default",
+                              ? "grab"
+                              : "default",
                         }}
                       />
                       <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1690,8 +1804,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                           cursor: dragging.image13
                             ? "grabbing"
                             : scale.image13 > 1
-                            ? "grab"
-                            : "default",
+                              ? "grab"
+                              : "default",
                         }}
                       />
                       <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1766,8 +1880,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                           cursor: dragging.image14
                             ? "grabbing"
                             : scale.image14 > 1
-                            ? "grab"
-                            : "default",
+                              ? "grab"
+                              : "default",
                         }}
                       />
                       <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1842,8 +1956,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                           cursor: dragging.image15
                             ? "grabbing"
                             : scale.image15 > 1
-                            ? "grab"
-                            : "default",
+                              ? "grab"
+                              : "default",
                         }}
                       />
                       <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1919,8 +2033,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                         cursor: dragging.image17
                           ? "grabbing"
                           : scale.image17 > 1
-                          ? "grab"
-                          : "default",
+                            ? "grab"
+                            : "default",
                       }}
                     />
 
@@ -2058,84 +2172,84 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                 </div>
               </div>
               <div
-  className="w-full h-[430px] place-self-center border-2 z-10 border-[#fff] relative overflow-hidden flex items-center justify-center group"
-  onMouseDown={(e) => handleMouseDown("image18", e)}
-  onMouseMove={(e) => handleMouseMove("image18", e)}
-  onMouseUp={() => handleMouseUp("image18")}
-  onMouseLeave={() => handleMouseLeave("image18")}
->
-  {images.image18 ? (
-    <>
-      <Image
-        unoptimized
-        src={images.image18}
-        alt="uploaded"
-        width={200}
-        height={300}
-        className="w-full h-full object-cover transition-transform duration-150"
-        style={{
-          transform: `scale(${scale.image18}) translate(${position.image18.x}px, ${position.image18.y}px)`,
-          cursor:
-            dragging.image18
-              ? "grabbing"
-              : scale.image18 > 1
-              ? "grab"
-              : "default",
-        }}
-      />
+                className="w-full h-[430px] place-self-center border-2 z-10 border-[#fff] relative overflow-hidden flex items-center justify-center group"
+                onMouseDown={(e) => handleMouseDown("image18", e)}
+                onMouseMove={(e) => handleMouseMove("image18", e)}
+                onMouseUp={() => handleMouseUp("image18")}
+                onMouseLeave={() => handleMouseLeave("image18")}
+              >
+                {images.image18 ? (
+                  <>
+                    <Image
+                      unoptimized
+                      src={images.image18}
+                      alt="uploaded"
+                      width={200}
+                      height={300}
+                      className="w-full h-full object-cover transition-transform duration-150"
+                      style={{
+                        transform: `scale(${scale.image18}) translate(${position.image18.x}px, ${position.image18.y}px)`,
+                        cursor:
+                          dragging.image18
+                            ? "grabbing"
+                            : scale.image18 > 1
+                              ? "grab"
+                              : "default",
+                      }}
+                    />
 
-      <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-        <button
-          onClick={() => handleZoom("image18", "in")}
-          className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-          title="Zoom In"
-        >
-          <ZoomIn className="w-4 h-4 text-gray-700" />
-        </button>
-        <button
-          onClick={() => handleZoom("image18", "out")}
-          className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-          title="Zoom Out"
-        >
-          <ZoomOut className="w-4 h-4 text-gray-700" />
-        </button>
-      </div>
+                    <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                      <button
+                        onClick={() => handleZoom("image18", "in")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom In"
+                      >
+                        <ZoomIn className="w-4 h-4 text-gray-700" />
+                      </button>
+                      <button
+                        onClick={() => handleZoom("image18", "out")}
+                        className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut className="w-4 h-4 text-gray-700" />
+                      </button>
+                    </div>
 
-      <button
-        type="button"
-        onClick={() => openImageSourceModal("image18")}
-        className="absolute top-2 right-10 bg-white p-1 rounded-full shadow opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-        title="Edit image"
-      >
-        <Pencil className="w-4 h-4 text-gray-700" />
-      </button>
+                    <button
+                      type="button"
+                      onClick={() => openImageSourceModal("image18")}
+                      className="absolute top-2 right-10 bg-white p-1 rounded-full shadow opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      title="Edit image"
+                    >
+                      <Pencil className="w-4 h-4 text-gray-700" />
+                    </button>
 
-      <button
-        type="button"
-        onClick={() => handleDelete("image18", fileInputRef18)}
-        className="absolute top-2 right-2 bg-white p-1 rounded-full shadow opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-        title="Delete image"
-      >
-        <Trash className="w-4 h-4 text-red-500" />
-      </button>
-    </>
-  ) : (
-    <div
-      onClick={() => openImageSourceModal("image18")}
-      className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
-    >
-      Select Image
-    </div>
-  )}
+                    <button
+                      type="button"
+                      onClick={() => handleDelete("image18", fileInputRef18)}
+                      className="absolute top-2 right-2 bg-white p-1 rounded-full shadow opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      title="Delete image"
+                    >
+                      <Trash className="w-4 h-4 text-red-500" />
+                    </button>
+                  </>
+                ) : (
+                  <div
+                    onClick={() => openImageSourceModal("image18")}
+                    className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                  >
+                    Select Image
+                  </div>
+                )}
 
-  <input
-    type="file"
-    accept="image/*"
-    ref={fileInputRef18}
-    onChange={(e) => handleImageChange("image18", e)}
-    className="hidden"
-  />
-</div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef18}
+                  onChange={(e) => handleImageChange("image18", e)}
+                  className="hidden"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -2197,6 +2311,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
       </div>
     </>
   );
-};
+});
 
-export default BcfpStandard;
+BcfpStandard11.displayName = "BcfpStandard11";
+export default BcfpStandard11;

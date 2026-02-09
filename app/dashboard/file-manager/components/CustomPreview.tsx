@@ -1,10 +1,9 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { SelectedFiles } from './HDRStill';
 import { PauseCircle, Play, Volume2, VolumeX } from 'lucide-react'; // Lucide icons
 import './SlideshowAnimations.css';
-import { Files } from '../FileManagerContext ';
+import { Files, SelectedFiles } from '../FileManagerContext';
 
 interface CustomSlideshowProps {
   images?: SelectedFiles[];

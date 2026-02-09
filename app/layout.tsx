@@ -5,6 +5,8 @@ import { Toaster } from "sonner";
 import Script from "next/script";
 import { AppProvider } from "./context/AppContext";
 import { OrderProvider } from "./dashboard/orders/context/OrderContext";
+import { UploadQueueProvider } from '@/context/UploadQueueContext';
+import { UploadProgressToast } from '@/components/upload/UploadProgressToast';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -47,12 +49,15 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${alexandria.variable} ${raleway.variable} antialiased`}
         suppressHydrationWarning
       >
-        <OrderProvider>
-          <AppProvider>
-            {children}
-          </AppProvider>
-        </OrderProvider>
-        <Toaster position="bottom-right" />
+        <UploadQueueProvider>
+          <OrderProvider>
+            <AppProvider>
+              {children}
+            </AppProvider>
+          </OrderProvider>
+          <UploadProgressToast />
+          <Toaster position="bottom-right" />
+        </UploadQueueProvider>
       </body>
     </html>
   );

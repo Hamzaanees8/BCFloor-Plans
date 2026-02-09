@@ -16,7 +16,7 @@ import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import { Order } from "../../orders/page";
-import { useFileManagerContext } from "../FileManagerContext ";
+import { useFileManagerContext } from "../FileManagerContext";
 import BcfpStandard from "./BcfpStandard";
 import DownloadPdf from "./DownloadPdf";
 // import BcfpStandard1 from "./BcfpStandard1";
@@ -44,6 +44,13 @@ import BcfpStandard22 from "./BcfpStandard22";
 import BcfpStandard23 from "./BcfpStandard23";
 import BcfpStandard24 from "./BcfpStandard24";
 import { useAppContext } from "@/app/context/AppContext";
+import { featureSheetService } from "../file-manager";
+import { FeatureSheetResponse, FeatureSheetPayload } from "../types/featureSheetTypes";
+
+interface FeatureSheetComponentRef {
+  exportToPayload: () => Promise<FeatureSheetPayload>;
+  importFromPayload: (payload: FeatureSheetResponse) => void;
+}
 
 interface TourSettingProps {
   orderData: Order | null;
@@ -55,7 +62,7 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
   const [email, setEmail] = useState<string>("");
   const [linkedin, setLinkedin] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
-  const { formData, setFormData } = useFileManagerContext();
+  const { formData, setFormData, updateFormData, featureSheets, setFeatureSheets } = useFileManagerContext();
   const { userType } = useAppContext()
   const [openColorPicker, setOpenColorPicker] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -66,6 +73,8 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
   const [customPdf, setCustomPdf] = useState<{ name: string; url: string } | null>(null);
   const [uploadedPdfs, setUploadedPdfs] = useState<{ name: string; url: string }[]>([]);
   const [activeTab, setActiveTab] = useState<'listing' | 'tabloid'>('listing');
+  const activeStandardRef = useRef<FeatureSheetComponentRef>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const templateImages = [
     { id: "BCFPStandard2", type: "tabloid", url: 'BcfpStandard2' },
@@ -101,6 +110,26 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
     const file = e.target.files?.[0];
     if (file) {
       setRealtorPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSaveFeatureSheet = async () => {
+    try {
+      if (activeStandardRef.current) {
+        setIsSaving(true);
+        const payload = await activeStandardRef.current.exportToPayload();
+
+        await featureSheetService.uploadFeatureSheet(payload);
+
+        alert("Feature sheet saved successfully!");
+      } else {
+        alert("Save functionality is not available for this template yet.");
+      }
+    } catch (error) {
+      console.error("Error saving feature sheet:", error);
+      alert("Failed to save feature sheet. Please try again.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -160,6 +189,65 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
     };
   }, []);
 
+  useEffect(() => {
+    const fetchFeatureSheets = async () => {
+      if (!orderData?.uuid) return;
+
+      try {
+        const response = await featureSheetService.getFeatureSheetsByOrder(orderData.uuid);
+        console.log('getFeatureSheetsByOrder response', response);
+
+        // Since my service returns data directly
+        const dataArray = Array.isArray(response) ? response : ((response as unknown as { data: FeatureSheetResponse[] }).data || []);
+
+        if (dataArray.length > 0) {
+          setFeatureSheets(dataArray);
+
+          // Sort by updated_at descending to get the latest one for initial selection
+          const latestSheet = [...dataArray].sort((a, b) =>
+            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+          )[0];
+
+          if (latestSheet?.template_key) {
+            setSelectedTemplate(latestSheet.template_key);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching existing feature sheets:", error);
+      }
+    };
+
+    fetchFeatureSheets();
+  }, [orderData?.uuid, setFeatureSheets]);
+
+  // Load data into formData when selectedTemplate changes
+  useEffect(() => {
+    if (!selectedTemplate || featureSheets.length === 0) return;
+
+    const sheetData = featureSheets.find(s => s.template_key === selectedTemplate);
+    if (sheetData) {
+      console.log('Loading data for template:', selectedTemplate, sheetData);
+      const state = featureSheetService.parsePayloadToState(sheetData);
+
+      // We only update if the template data is different from current context to avoid unnecessary loops
+      updateFormData({
+        ...state,
+        // Ensure string fields are strings
+        siteInfluences: (state.siteInfluences as string) || "",
+        grossTaxes: (state.grossTaxes as string) || "",
+        featuresIncluded: (state.featuresIncluded as string) || "",
+        // When initial loading a template, we take its data as primary.
+        // If we need to preserve current images, we should do it carefully.
+        // For now, let's just load the template state.
+        images: state.images || {},
+        imageScales: state.imageScales || {},
+        imagePositions: state.imagePositions || {},
+      });
+    }
+    // We intentionally only run this when selectedTemplate or featureSheets (data source) changes.
+    // Including formData components in deps creates a loop.
+  }, [selectedTemplate, featureSheets, updateFormData]);
+
 
 
   const handlePdfUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -172,7 +260,6 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
       setCustomPdf(pdfData);
       setSelectedTemplate(file.name);
 
-      // Add to uploaded PDFs list if not already present
       setUploadedPdfs(prev => {
         const exists = prev.find(pdf => pdf.name === file.name);
         if (!exists) {
@@ -185,7 +272,6 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
   const handleTemplateChange = (template: string) => {
     setSelectedTemplate(template);
 
-    // If it's a custom PDF, find and set it
     if (template !== "BCFPStandard" && !template.startsWith("BCFPStandard")) {
       const pdf = uploadedPdfs.find(pdf => pdf.name === template);
       if (pdf) {
@@ -233,6 +319,14 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
             className={`text-center px-4 py-2 text-[13px] w-[164px] h-[32px] transition-colors ${userType}-bg text-white  rounded-[6px] font-[500]`}>
             Download PDF
           </button>
+
+          <button
+            onClick={handleSaveFeatureSheet}
+            disabled={isSaving}
+            className={`ml-4 text-center px-4 py-2 text-[13px] w-[164px] h-[32px] transition-colors ${userType}-bg text-white rounded-[6px] font-[500] disabled:opacity-50`}
+          >
+            {isSaving ? "Saving..." : "Save Feature Sheet"}
+          </button>
         </div>
         <div className="text-center">
           <div className={`text-[16px] font-alexandria font-bold ${userType}-text`}>
@@ -254,87 +348,92 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
         </div>
       </div>
 
-      {!selectedTemplate && (
-        <div className="flex flex-col items-center w-full">
+      {
+        !selectedTemplate && (
+          <div className="flex flex-col items-center w-full">
 
-          <div className="flex gap-[20px] justify-center items-center bg-[#E4E4E4] w-full h-[60px] border-t-[1px] border-[#BBBBBB]">
-            <button
-              onClick={() => setActiveTab('listing')}
-              className={`flex items-center w-[200px] justify-center font-medium text-sm transition-colors h-[40px] rounded-[6px] ${activeTab === 'listing'
-                ? `text-white border-b-2 ${userType}-bg`
-                : 'bg-[#EEEEEE] hover:text-gray-700'
-                }`}
-            >
-              Listing Flyers
-            </button>
-            <button
-              onClick={() => setActiveTab('tabloid')}
-              className={`flex items-center w-[200px] justify-center font-medium text-sm transition-colors h-[40px] rounded-[6px] ${activeTab === 'tabloid'
-                ? `text-white border-b-2  ${userType}-bg`
-                : 'bg-[#EEEEEE] hover:text-gray-700'
-                }`}
-            >
-              Tabloid Feature Sheet
-            </button>
+            <div className="flex gap-[20px] justify-center items-center bg-[#E4E4E4] w-full h-[60px] border-t-[1px] border-[#BBBBBB]">
+              <button
+                onClick={() => setActiveTab('listing')}
+                className={`flex items-center w-[200px] justify-center font-medium text-sm transition-colors h-[40px] rounded-[6px] ${activeTab === 'listing'
+                  ? `text-white border-b-2 ${userType}-bg`
+                  : 'bg-[#EEEEEE] hover:text-gray-700'
+                  }`}
+              >
+                Listing Flyers
+              </button>
+              <button
+                onClick={() => setActiveTab('tabloid')}
+                className={`flex items-center w-[200px] justify-center font-medium text-sm transition-colors h-[40px] rounded-[6px] ${activeTab === 'tabloid'
+                  ? `text-white border-b-2  ${userType}-bg`
+                  : 'bg-[#EEEEEE] hover:text-gray-700'
+                  }`}
+              >
+                Tabloid Feature Sheet
+              </button>
+            </div>
+
+            <div className="mt-10">
+              <button
+                onClick={() => document.getElementById("custom-pdf-upload")?.click()}
+                className="px-6 py-2 bg-[#4290E9] text-white rounded-md text-sm font-medium hover:bg-[#3578c6]"
+              >
+                + Upload Feature Sheet
+              </button>
+              <input
+                id="custom-pdf-upload"
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={handlePdfUpload}
+              />
+
+            </div>
           </div>
-
-          <div className="mt-10">
-            <button
-              onClick={() => document.getElementById("custom-pdf-upload")?.click()}
-              className="px-6 py-2 bg-[#4290E9] text-white rounded-md text-sm font-medium hover:bg-[#3578c6]"
-            >
-              + Upload Feature Sheet
-            </button>
-            <input
-              id="custom-pdf-upload"
-              type="file"
-              accept="application/pdf"
-              className="hidden"
-              onChange={handlePdfUpload}
-            />
-
-          </div>
-        </div>
-      )}
+        )
+      }
 
 
-      {!selectedTemplate && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-20 mt-8 mb-20 h-auto px-20">
-          {templateImages
-            .filter(template => template.type === activeTab)
-            .map((template) => (
-              <div key={template.id} className="flex flex-col gap-2">
-                <div className="text-start">
-                  <p className="text-[24px] text-[#666666]">{template.id}</p>
-                  <p
-                    className="text-[15px] text-[#4290E9] hover:underline cursor-pointer"
-                    onClick={() => setSelectedTemplate(template.id)}
-                  >
-                    Edit Feature Sheet
-                  </p>
-                </div>
-                <div
-                  onClick={() => setSelectedTemplate(template.id)}
-                  className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform ${selectedTemplate === template.id
-                    ? "border-blue-500 shadow-md"
-                    : "border-gray-300"
-                    }`}
-                >
-                  <div
-                    className="w-full h-[400px] bg-center bg-no-repeat"
-                    style={{
-                      backgroundImage: `url(/${template.url}.png)`,
-                      backgroundSize: 'contain'
-                    }}
-                  >
+      {
+        !selectedTemplate && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-20 mt-8 mb-20 h-auto px-20">
+            {templateImages
+              .filter(template => template.type === activeTab)
+              .map((template) => (
+                <div key={template.id} className="flex flex-col gap-2">
+                  <div className="text-start">
+                    <p className="text-[24px] text-[#666666]">{template.id}</p>
+                    <p
+                      className="text-[15px] text-[#4290E9] hover:underline cursor-pointer"
+                      onClick={() => setSelectedTemplate(template.id)}
+                    >
+                      Edit Feature Sheet
+                    </p>
                   </div>
+                  <div
+                    onClick={() => setSelectedTemplate(template.id)}
+                    className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform ${selectedTemplate === template.id
+                      ? "border-blue-500 shadow-md"
+                      : "border-gray-300"
+                      }`}
+                  >
+                    <div
+                      className="w-full h-[400px] bg-center bg-no-repeat"
+                      style={{
+                        backgroundImage: `url(/${template.url}.png)`,
+                        backgroundSize: 'contain'
+                      }}
+                    >
+                    </div>
 
+                  </div>
                 </div>
-              </div>
-            ))}
-        </div>
-      )}
-      {selectedTemplate &&
+              ))}
+          </div>
+        )
+      }
+      {
+        selectedTemplate &&
         <form>
           <Accordion
             type="multiple"
@@ -629,31 +728,36 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
                 )}
 
                 <div id="pdf-section" style={{ fontFamily: "'Alexandria', sans-serif" }}>
-                  {selectedTemplate === "BCFPStandard" && <BcfpStandard orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard" && <BcfpStandard ref={activeStandardRef} orderData={orderData || null} />}
                   {/* {selectedTemplate === "BCFPStandard1" && <BcfpStandard1 orderData={orderData || null} />} */}
-                  {selectedTemplate === "BCFPStandard2" && <BcfpStandard2 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard3" && <BcfpStandard3 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard4" && <BcfpStandard4 orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard2" && (
+                    <BcfpStandard2
+                      ref={activeStandardRef}
+                      orderData={orderData || null}
+                    />
+                  )}
+                  {selectedTemplate === "BCFPStandard3" && <BcfpStandard3 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard4" && <BcfpStandard4 ref={activeStandardRef} orderData={orderData || null} />}
                   {/* {selectedTemplate === "BCFP Standard5" && <BcfpStandard5 orderData={orderData || null} />} */}
-                  {selectedTemplate === "BCFPStandard6" && <BcfpStandard6 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard7" && <BcfpStandard7 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard8" && <BcfpStandard8 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard9" && <BcfpStandard9 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard10" && <BcfpStandard10 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard11" && <BcfpStandard11 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard12" && <BcfpStandard12 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard13" && <BcfpStandard13 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard14" && <BcfpStandard14 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard15" && <BcfpStandard15 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard16" && <BcfpStandard16 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard17" && <BcfpStandard17 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard18" && <BcfpStandard18 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard19" && <BcfpStandard19 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard20" && <BcfpStandard20 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard21" && <BcfpStandard21 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard22" && <BcfpStandard22 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard23" && <BcfpStandard23 orderData={orderData || null} />}
-                  {selectedTemplate === "BCFPStandard24" && <BcfpStandard24 orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard6" && <BcfpStandard6 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard7" && <BcfpStandard7 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard8" && <BcfpStandard8 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard9" && <BcfpStandard9 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard10" && <BcfpStandard10 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard11" && <BcfpStandard11 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard12" && <BcfpStandard12 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard13" && <BcfpStandard13 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard14" && <BcfpStandard14 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard15" && <BcfpStandard15 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard16" && <BcfpStandard16 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard17" && <BcfpStandard17 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard18" && <BcfpStandard18 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard19" && <BcfpStandard19 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard20" && <BcfpStandard20 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard21" && <BcfpStandard21 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard22" && <BcfpStandard22 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard23" && <BcfpStandard23 ref={activeStandardRef} orderData={orderData || null} />}
+                  {selectedTemplate === "BCFPStandard24" && <BcfpStandard24 ref={activeStandardRef} orderData={orderData || null} />}
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -661,7 +765,7 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
         </form>
       }
 
-    </div>
+    </div >
   );
 };
 

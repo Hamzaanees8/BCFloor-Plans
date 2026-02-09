@@ -6,7 +6,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import React, { useState } from "react";
-import { useFileManagerContext } from "../FileManagerContext ";
+import { useFileManagerContext } from "../FileManagerContext";
 import { Check, X } from "lucide-react";
 import { DownloadIcon } from "@/components/Icons";
 import {

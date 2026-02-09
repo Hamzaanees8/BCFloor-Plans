@@ -41,7 +41,6 @@ const InvoicePaymentDialog: React.FC<InvoicePaymentDialogProps> = ({
 }) => {
   const [paymentType, setPaymentType] = useState<"full" | "service">("full");
   const [isProcessing, setIsProcessing] = useState(false);
-  console.log('url', url);
 
   // Safely calculate amounts - ensure they are numbers
   const fullAmount = Number(orderData?.amount) || 0;
@@ -115,15 +114,6 @@ const InvoicePaymentDialog: React.FC<InvoicePaymentDialogProps> = ({
       // Prepare order object for createPayment function
 
       // Log for debugging (using the activeTab parameter)
-      console.log("Payment Details:", {
-        activeTab,
-        paymentType: paymentTypeParam,
-        serviceId,
-        serviceName: serviceNameParam,
-        amount,
-      });
-
-      // Use your existing createPayment function with service info
       if (orderData?.id !== undefined) {
         const paymentOrder = {
           ...orderData,

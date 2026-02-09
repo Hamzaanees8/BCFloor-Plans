@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useFileManagerContext } from '../FileManagerContext ';
+import { useFileManagerContext } from "../FileManagerContext";
 import { Check, X } from 'lucide-react';
 
 import { useAppContext } from "@/app/context/AppContext";

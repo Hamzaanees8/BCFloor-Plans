@@ -10,7 +10,6 @@ import { AvatarFallback } from "@/components/ui/avatar";
 import { Avatar, AvatarImage } from "@radix-ui/react-avatar";
 import { Mail, Pencil, Phone, Trash2, ZoomIn, ZoomOut } from "lucide-react";
 import Image from "next/image";
-// import { useFileManagerContext } from "../FileManagerContext ";
 import React, { useRef, useState } from "react";
 import { Order } from "../../orders/page";
 import FileManagerGallery from "./fileManagerGallery";
@@ -379,91 +378,91 @@ const BcfpStandard1 = ({ orderData }: BcfpStandard) => {
             </div>
           </div>
           <div className="relative flex w-full group">
-    <div 
-      className="w-full h-full relative overflow-hidden flex items-center justify-center"
-      onMouseDown={(e) => handleMouseDown("image1", e)}
-      onMouseMove={(e) => handleMouseMove("image1", e)}
-      onMouseUp={() => handleMouseUp("image1")}
-      onMouseLeave={() => handleMouseLeave("image1")}
-    >
-      {images.image1 ? (
-        <>
-          <Image
-            unoptimized
-            src={images.image1}
-            alt="featured property"
-            width={800}
-            height={400}
-            className="w-full h-auto object-cover transition-transform duration-150"
-            style={{
-              transform: `scale(${scale.image1}) translate(${position.image1.x}px, ${position.image1.y}px)`,
-              cursor: dragging.image1
-                ? "grabbing"
-                : scale.image1 > 1
-                ? "grab"
-                : "default",
-            }}
-          />
-
-          {/* Zoom Controls */}
-          <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-            <button
-              type="button"
-              onClick={() => handleZoom("image1", "in")}
-              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-              title="Zoom In"
+            <div
+              className="w-full h-full relative overflow-hidden flex items-center justify-center"
+              onMouseDown={(e) => handleMouseDown("image1", e)}
+              onMouseMove={(e) => handleMouseMove("image1", e)}
+              onMouseUp={() => handleMouseUp("image1")}
+              onMouseLeave={() => handleMouseLeave("image1")}
             >
-              <ZoomIn className="w-4 h-4 text-gray-700" />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleZoom("image1", "out")}
-              className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-              title="Zoom Out"
-            >
-              <ZoomOut className="w-4 h-4 text-gray-700" />
-            </button>
-          </div>
+              {images.image1 ? (
+                <>
+                  <Image
+                    unoptimized
+                    src={images.image1}
+                    alt="featured property"
+                    width={800}
+                    height={400}
+                    className="w-full h-auto object-cover transition-transform duration-150"
+                    style={{
+                      transform: `scale(${scale.image1}) translate(${position.image1.x}px, ${position.image1.y}px)`,
+                      cursor: dragging.image1
+                        ? "grabbing"
+                        : scale.image1 > 1
+                          ? "grab"
+                          : "default",
+                    }}
+                  />
 
-          {/* Edit Button */}
-          <button
-            type="button"
-            onClick={() => openImageSourceModal("image1")}
-            className="absolute top-3 right-12 bg-white p-2 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-            title="Edit image"
-          >
-            <Pencil className="w-4 h-4 text-gray-700" />
-          </button>
+                  {/* Zoom Controls */}
+                  <div className="absolute bottom-3 left-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                    <button
+                      type="button"
+                      onClick={() => handleZoom("image1", "in")}
+                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                      title="Zoom In"
+                    >
+                      <ZoomIn className="w-4 h-4 text-gray-700" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleZoom("image1", "out")}
+                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut className="w-4 h-4 text-gray-700" />
+                    </button>
+                  </div>
 
-          {/* Delete Button */}
-          <button
-            type="button"
-            onClick={() => handleDelete("image1", fileInputRef1)}
-            className="absolute top-3 right-3 bg-white p-2 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-            title="Delete image"
-          >
-            <Trash2 className="w-4 h-4 text-red-500" />
-          </button>
-        </>
-      ) : (
-        <div
-          onClick={() => openImageSourceModal("image1")}
-          className="w-full h-[700px] bg-gray-200 rounded-md cursor-pointer flex items-center justify-center text-gray-400 min-h-[200px]"
-        >
-          <div className="text-center">
-            Select Image
+                  {/* Edit Button */}
+                  <button
+                    type="button"
+                    onClick={() => openImageSourceModal("image1")}
+                    className="absolute top-3 right-12 bg-white p-2 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    title="Edit image"
+                  >
+                    <Pencil className="w-4 h-4 text-gray-700" />
+                  </button>
+
+                  {/* Delete Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleDelete("image1", fileInputRef1)}
+                    className="absolute top-3 right-3 bg-white p-2 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    title="Delete image"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </button>
+                </>
+              ) : (
+                <div
+                  onClick={() => openImageSourceModal("image1")}
+                  className="w-full h-[700px] bg-gray-200 rounded-md cursor-pointer flex items-center justify-center text-gray-400 min-h-[200px]"
+                >
+                  <div className="text-center">
+                    Select Image
+                  </div>
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef1}
+                onChange={(e) => handleImageChange("image1", e)}
+                className="hidden"
+              />
+            </div>
           </div>
-        </div>
-      )}
-      <input
-        type="file"
-        accept="image/*"
-        ref={fileInputRef1}
-        onChange={(e) => handleImageChange("image1", e)}
-        className="hidden"
-      />
-    </div>
-  </div>
         </div>
 
         <div className="mt-[-80px] md:mt-[-120px]">
@@ -526,113 +525,113 @@ const BcfpStandard1 = ({ orderData }: BcfpStandard) => {
 
         <div className="flex flex-col md:flex-row gap-[20px] md:gap-[50px] py-[20px] md:py-[50px] px-[20px] sm:px-[50px] md:px-[100px] bg-white w-full md:w-[90%] lg:w-[80%] m-auto">
           <div className="grid grid-cols-2 gap-4 md:gap-7 flex-shrink-0 w-full md:w-[60%]">
-  {['LIVING ROOM', 'MASTER BEDROOM', 'KITCHEN', 'BASEMENT'].map((room, index) => {
-    const imageId = `image${index + 2}` as keyof typeof images; // Creates image2, image3, image4, image5
-    
-    // Proper ref assignment based on index
-    const getFileInputRef = () => {
-      switch (imageId) {
-        case 'image2': return fileInputRef2;
-        case 'image3': return fileInputRef3;
-        case 'image4': return fileInputRef4;
-        case 'image5': return fileInputRef5;
-        default: return fileInputRef2;
-      }
-    };
+            {['LIVING ROOM', 'MASTER BEDROOM', 'KITCHEN', 'BASEMENT'].map((room, index) => {
+              const imageId = `image${index + 2}` as keyof typeof images; // Creates image2, image3, image4, image5
 
-    const fileInputRef = getFileInputRef();
-    
-    return (
-      <div key={room} className="flex flex-col">
-        <div className="relative flex w-full group">
-          <div 
-            className="w-full h-[100px] md:h-[150px] relative overflow-hidden flex items-center justify-center"
-            onMouseDown={(e) => handleMouseDown(imageId, e)}
-            onMouseMove={(e) => handleMouseMove(imageId, e)}
-            onMouseUp={() => handleMouseUp(imageId)}
-            onMouseLeave={() => handleMouseLeave(imageId)}
-          >
-            {images[imageId] ? (
-              <>
-                <Image
-                  unoptimized
-                  src={images[imageId]!}
-                  alt={room.toLowerCase()}
-                  width={200}
-                  height={300}
-                  className="w-full h-full object-cover transition-transform duration-150"
-                  style={{
-                    transform: `scale(${scale[imageId]}) translate(${position[imageId].x}px, ${position[imageId].y}px)`,
-                    cursor: dragging[imageId]
-                      ? "grabbing"
-                      : scale[imageId] > 1
-                      ? "grab"
-                      : "default",
-                  }}
-                />
+              // Proper ref assignment based on index
+              const getFileInputRef = () => {
+                switch (imageId) {
+                  case 'image2': return fileInputRef2;
+                  case 'image3': return fileInputRef3;
+                  case 'image4': return fileInputRef4;
+                  case 'image5': return fileInputRef5;
+                  default: return fileInputRef2;
+                }
+              };
 
-                {/* Zoom Controls */}
-                <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                  <button
-                    type="button"
-                    onClick={() => handleZoom(imageId, "in")}
-                    className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
-                    title="Zoom In"
-                  >
-                    <ZoomIn className="w-3 h-3 md:w-4 md:h-4 text-gray-700" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleZoom(imageId, "out")}
-                    className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
-                    title="Zoom Out"
-                  >
-                    <ZoomOut className="w-3 h-3 md:w-4 md:h-4 text-gray-700" />
-                  </button>
+              const fileInputRef = getFileInputRef();
+
+              return (
+                <div key={room} className="flex flex-col">
+                  <div className="relative flex w-full group">
+                    <div
+                      className="w-full h-[100px] md:h-[150px] relative overflow-hidden flex items-center justify-center"
+                      onMouseDown={(e) => handleMouseDown(imageId, e)}
+                      onMouseMove={(e) => handleMouseMove(imageId, e)}
+                      onMouseUp={() => handleMouseUp(imageId)}
+                      onMouseLeave={() => handleMouseLeave(imageId)}
+                    >
+                      {images[imageId] ? (
+                        <>
+                          <Image
+                            unoptimized
+                            src={images[imageId]!}
+                            alt={room.toLowerCase()}
+                            width={200}
+                            height={300}
+                            className="w-full h-full object-cover transition-transform duration-150"
+                            style={{
+                              transform: `scale(${scale[imageId]}) translate(${position[imageId].x}px, ${position[imageId].y}px)`,
+                              cursor: dragging[imageId]
+                                ? "grabbing"
+                                : scale[imageId] > 1
+                                  ? "grab"
+                                  : "default",
+                            }}
+                          />
+
+                          {/* Zoom Controls */}
+                          <div className="absolute bottom-1 left-1 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
+                            <button
+                              type="button"
+                              onClick={() => handleZoom(imageId, "in")}
+                              className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                              title="Zoom In"
+                            >
+                              <ZoomIn className="w-3 h-3 md:w-4 md:h-4 text-gray-700" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleZoom(imageId, "out")}
+                              className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                              title="Zoom Out"
+                            >
+                              <ZoomOut className="w-3 h-3 md:w-4 md:h-4 text-gray-700" />
+                            </button>
+                          </div>
+
+                          {/* Edit Button */}
+                          <button
+                            type="button"
+                            onClick={() => openImageSourceModal(imageId)}
+                            className="absolute top-2 right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                            title="Edit image"
+                          >
+                            <Pencil className="w-3 h-3 md:w-4 md:h-4 text-gray-700" />
+                          </button>
+
+                          {/* Delete Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(imageId, fileInputRef)}
+                            className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                            title="Delete image"
+                          >
+                            <Trash2 className="w-3 h-3 md:w-4 md:h-4 text-red-500" />
+                          </button>
+                        </>
+                      ) : (
+                        <div
+                          onClick={() => openImageSourceModal(imageId)}
+                          className="w-full h-full bg-gray-300 cursor-pointer flex items-center justify-center text-gray-400 text-xs md:text-sm"
+                        >
+                          Select Image
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef}
+                        onChange={(e) => handleImageChange(imageId, e)}
+                        className="hidden"
+                      />
+                    </div>
+                  </div>
+                  <span className="mt-2 text-xs md:text-sm font-bold">{room}</span>
                 </div>
-
-                {/* Edit Button */}
-                <button
-                  type="button"
-                  onClick={() => openImageSourceModal(imageId)}
-                  className="absolute top-2 right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                  title="Edit image"
-                >
-                  <Pencil className="w-3 h-3 md:w-4 md:h-4 text-gray-700" />
-                </button>
-
-                {/* Delete Button */}
-                <button
-                  type="button"
-                  onClick={() => handleDelete(imageId, fileInputRef)}
-                  className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                  title="Delete image"
-                >
-                  <Trash2 className="w-3 h-3 md:w-4 md:h-4 text-red-500" />
-                </button>
-              </>
-            ) : (
-              <div
-                onClick={() => openImageSourceModal(imageId)}
-                className="w-full h-full bg-gray-300 cursor-pointer flex items-center justify-center text-gray-400 text-xs md:text-sm"
-              >
-                Select Image
-              </div>
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              ref={fileInputRef}
-              onChange={(e) => handleImageChange(imageId, e)}
-              className="hidden"
-            />
+              );
+            })}
           </div>
-        </div>
-        <span className="mt-2 text-xs md:text-sm font-bold">{room}</span>
-      </div>
-    );
-  })}
-</div>
 
           <div className="flex flex-col justify-between w-full md:w-[40%] gap-4 md:gap-0 font-alexandria">
             <div>

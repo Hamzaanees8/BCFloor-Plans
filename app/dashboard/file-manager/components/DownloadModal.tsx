@@ -164,7 +164,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#E4E4E4] rounded-xl shadow-lg border p-6 w-full max-w-[700px] font-Alexandria [&>button]:hidden">
+      <DialogContent className="bg-[#E4E4E4] rounded-xl shadow-lg border p-6 w-full max-w-[700px] font-Alexandria [&>button]:hidden">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className={`uppercase ${userType}-text text-[18px] font-[600]`}>

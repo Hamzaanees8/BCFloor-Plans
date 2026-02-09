@@ -1,16 +1,24 @@
 import { House, Pencil, Trash, ZoomIn, ZoomOut } from "lucide-react";
 import Image from "next/image";
-import React, { useRef, useState } from "react";
+import React, { forwardRef, useImperativeHandle, useRef, useState, useEffect } from "react";
 import { Order } from "../../orders/page";
 import "../../../globals.css";
 import StyledInput from "./StyledInput";
 import FileManagerGallery from "./fileManagerGallery";
+import { useFileManagerContext } from "../FileManagerContext";
+import { featureSheetService } from "../file-manager";
+import { FeatureSheetResponse, FeatureSheetPayload } from "../types/featureSheetTypes";
 
-interface BcfpStandard {
+export interface BcfpStandard8Ref {
+  exportToPayload: () => Promise<FeatureSheetPayload>;
+  importFromPayload: (payload: FeatureSheetResponse) => void;
+}
+
+interface BcfpStandard8Props {
   orderData: Order | null;
 }
 
-const BcfpStandard = ({ }: BcfpStandard) => {
+const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(({ orderData }, ref) => {
   // Form state
   const [byLawRestrictions, setByLawRestrictions] = useState("");
   const [maintFees, setMaintFees] = useState("");
@@ -116,6 +124,11 @@ const BcfpStandard = ({ }: BcfpStandard) => {
   const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(null);
   const [showGallery, setShowGallery] = useState(false);
 
+  const openImageSourceModal = (slot: string | null) => {
+    setCurrentImageSlot(slot);
+    setShowImageSourceModal(true);
+  };
+
   // Refs
   const fileInputRef1 = useRef<HTMLInputElement | null>(null);
   const fileInputRef2 = useRef<HTMLInputElement | null>(null);
@@ -129,6 +142,162 @@ const BcfpStandard = ({ }: BcfpStandard) => {
   const fileInputRef10 = useRef<HTMLInputElement | null>(null);
   const fileInputRef11 = useRef<HTMLInputElement | null>(null);
   const fileInputRef12 = useRef<HTMLInputElement | null>(null);
+
+  const { formData, updateFormData } = useFileManagerContext();
+
+  // Initial sync from context on mount
+  useEffect(() => {
+    if (formData) {
+      if (formData.byLawRestrictions) setByLawRestrictions(formData.byLawRestrictions);
+      if (formData.maintenanceFees) setMaintFees(formData.maintenanceFees);
+      if (formData.maintenanceFeesInclude) setMaintFeesInclude(formData.maintenanceFeesInclude);
+      if (formData.featuresIncluded) setFeaturesIncluded(formData.featuresIncluded);
+      if (formData.siteInfluences) setSiteInfluences(formData.siteInfluences);
+      if (formData.amenities) setAmenities(formData.amenities);
+      if (formData.view) setView(formData.view);
+      if (formData.description) setDescription(formData.description);
+      if (formData.fullName) setFullName(formData.fullName);
+      if (formData.email) setEmail(formData.email);
+      if (formData.mlsNumber) setMlsNumber(formData.mlsNumber);
+      if (formData.amount) setAmount(formData.amount);
+      if (formData.number) setNumber(formData.number);
+      if (formData.address) setAddress(formData.address);
+      if (formData.addressCode) setAddressCode(formData.addressCode);
+      if (formData.roadName) setRoadName(formData.roadName);
+      if (formData.cityLine) setCityLine(formData.cityLine);
+      if (formData.bedroom) setBedroom(formData.bedroom);
+      if (formData.bathroom) setBathroom(formData.bathroom);
+      if (formData.sqft) setSqft(formData.sqft);
+      if (formData.builtYear) setBuiltYear(formData.builtYear);
+
+      if (formData.images) {
+        setImages(prev => ({ ...prev, ...(formData.images as typeof images) }));
+      }
+      if (formData.imageScales) {
+        setScale(prev => ({ ...prev, ...(formData.imageScales as typeof scale) }));
+      }
+      if (formData.imagePositions) {
+        setPosition(prev => ({ ...prev, ...(formData.imagePositions as typeof position) }));
+      }
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Update context when local state changes
+  useEffect(() => {
+    updateFormData({
+      byLawRestrictions,
+      maintenanceFees: maintFees,
+      maintenanceFeesInclude: maintFeesInclude,
+      featuresIncluded,
+      siteInfluences,
+      amenities,
+      view,
+      description,
+      fullName,
+      email,
+      mlsNumber,
+      amount,
+      number,
+      address,
+      addressCode,
+      roadName,
+      cityLine,
+      bedroom,
+      bathroom,
+      sqft,
+      builtYear,
+      images,
+      imageScales: scale,
+      imagePositions: position
+    });
+  }, [
+    byLawRestrictions, maintFees, maintFeesInclude, featuresIncluded, siteInfluences,
+    amenities, view, description, fullName, email, mlsNumber, amount, number,
+    address, addressCode, roadName, cityLine, bedroom, bathroom, sqft, builtYear,
+    images, scale, position, updateFormData
+  ]);
+
+  // Expose methods via ref
+  useImperativeHandle(ref, () => ({
+    exportToPayload: async () => {
+      const payload = await featureSheetService.buildPayload({
+        orderUuid: orderData?.uuid || "",
+        templateKey: "BCFPStandard8",
+        uploadedBy: "admin",
+        type: "template",
+        primaryColor: "#647074",
+        offeredAtPrice: amount,
+        realtorName: fullName,
+        emailLink: email,
+        propertyNotesTitle: roadName,
+        propertyNotesDescription: description,
+        expandedDetail1Title: "By-law Restrictions",
+        expandedDetail1Description: byLawRestrictions,
+        expandedDetail2Title: "Maint. Fees",
+        expandedDetail2Description: maintFees,
+        expandedDetail3Title: "Maint. Fees Include",
+        expandedDetail3Description: maintFeesInclude,
+        expandedDetail4Title: "Features Included",
+        expandedDetail4Description: featuresIncluded,
+        keyHighlightLabel: "Site Influences",
+        keyHighlights: siteInfluences ? siteInfluences.split("\n").filter(Boolean) : [],
+        otherDetails: {
+          amenities,
+          view,
+          bedroom,
+          bathroom,
+          sqft,
+          builtYear,
+          number,
+          address,
+          addressCode,
+          cityLine,
+          mlsNumber
+        },
+        images,
+        imageScales: scale,
+        imagePositions: position,
+      });
+      return payload;
+    },
+
+    importFromPayload: (payload: FeatureSheetResponse) => {
+      const state = featureSheetService.parsePayloadToState(payload);
+      if (state.offeredAtPrice) setAmount(state.offeredAtPrice as string);
+      if (state.realtorName) setFullName(state.realtorName as string);
+      if (state.emailLink) setEmail(state.emailLink as string);
+      if (state.propertyNotesDescription) setDescription(state.propertyNotesDescription as string);
+
+      if (state.expandedDetail1Description) setByLawRestrictions(state.expandedDetail1Description as string);
+      if (state.expandedDetail2Description) setMaintFees(state.expandedDetail2Description as string);
+      if (state.expandedDetail3Description) setMaintFeesInclude(state.expandedDetail3Description as string);
+      if (state.expandedDetail4Description) setFeaturesIncluded(state.expandedDetail4Description as string);
+
+      if (state.keyHighlights) setSiteInfluences(state.keyHighlights.join("\n"));
+
+      if (state.otherDetails) {
+        const details = state.otherDetails as Record<string, unknown>;
+        if (details.amenities) setAmenities(details.amenities as string);
+        if (details.view) setView(details.view as string);
+        if (details.bedroom) setBedroom(details.bedroom as string);
+        if (details.bathroom) setBathroom(details.bathroom as string);
+        if (details.sqft) setSqft(details.sqft as string);
+        if (details.builtYear) setBuiltYear(details.builtYear as string);
+        if (details.number) setNumber(details.number as string);
+        if (details.address) setAddress(details.address as string);
+        if (details.addressCode) setAddressCode(details.addressCode as string);
+        if (details.cityLine) setCityLine(details.cityLine as string);
+        if (details.roadName) setRoadName(details.roadName as string);
+        if (details.mlsNumber) setMlsNumber(details.mlsNumber as string);
+      }
+
+      setImages(state.images as unknown as typeof images);
+      setScale(state.imageScales as unknown as typeof scale);
+      setPosition(state.imagePositions as unknown as typeof position);
+    },
+  }));
 
   // Unified handlers
   const handleImageChange = (
@@ -245,11 +414,6 @@ const BcfpStandard = ({ }: BcfpStandard) => {
     setImages(prev => ({ ...prev, [currentImageSlot]: imageUrl }));
     setShowGallery(false);
     setCurrentImageSlot(null);
-  };
-
-  const openImageSourceModal = (imageSlot: string) => {
-    setCurrentImageSlot(imageSlot);
-    setShowImageSourceModal(true);
   };
 
   // Helper function to render image with controls
@@ -731,6 +895,8 @@ const BcfpStandard = ({ }: BcfpStandard) => {
       </div>
     </>
   );
-};
+});
 
-export default BcfpStandard;
+BcfpStandard8.displayName = "BcfpStandard8";
+
+export default BcfpStandard8;

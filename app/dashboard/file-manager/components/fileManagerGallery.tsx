@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { DownloadIcon } from "@/components/Icons";
-import { useFileManagerContext } from "../FileManagerContext ";
+import { useFileManagerContext } from "../FileManagerContext";
 
 interface FileManagerGalleryProps {
   onImageSelect: (imageUrl: string) => void;

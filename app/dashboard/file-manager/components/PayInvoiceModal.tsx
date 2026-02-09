@@ -12,7 +12,6 @@ interface PopupProps {
 
 export default function PayInvoiceModal({ open, setOpen, success, setSuccess }: PopupProps) {
   const [loading, setLoading] = useState(false);
-console.log('success',success);
 
   const handlePayService = async () => {
     setLoading(true);

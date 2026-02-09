@@ -1,4 +1,5 @@
-import React from 'react';
+'use client';
+import React, { useEffect, useState, useRef } from 'react';
 import { X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
@@ -8,22 +9,78 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAppContext } from '@/app/context/AppContext';
+import { useFileManagerContext } from '../FileManagerContext';
 
-type Props = {
-    file: File | null;
+interface Props {
+    file: File | string | null;
     open: boolean;
     title: string;
     onClose: () => void;
-    onDelete: () => void;
-    onReplace: () => void;
-};
+    onDelete?: () => void;
+    onReplace?: () => void;
+    initialName?: string;
+    onSave?: (newName: string) => void;
+    type?: 'photo' | 'video';
+    suggestions?: string[];
+}
 
-const PhotoPreviewModal: React.FC<Props> = ({ file, open, onClose, title, onDelete, onReplace }) => {
+const defaultMediaOptions = [
+    "Attic", "Bathroom 1", "Bathroom 2", "Bathroom 3", "Bathroom 4",
+    "Master Bedroom", "Master Bedroom Bathroom", "Bedroom 1", "Bedroom 2",
+    "Bedroom 3", "Bedroom 4", "Basement", "Foyer", "Garage", "Kitchen",
+    "Laundry Room", "Living Room", "Office", "Shed"
+];
+
+const PhotoPreviewModal: React.FC<Props> = ({
+    file,
+    open,
+    onClose,
+    title,
+    onDelete,
+    onReplace,
+    initialName = '',
+    onSave,
+    type = 'photo',
+    suggestions
+}) => {
     const { userType } = useAppContext();
+    const { filesData } = useFileManagerContext();
+    const [name, setName] = useState(initialName);
+    const [openDropdown, setOpenDropdown] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const existingGroups = Array.from(new Set(filesData?.files?.map(f => f.group).filter(Boolean) || [])) as string[];
+    const allSuggestions = Array.from(new Set([...(suggestions || defaultMediaOptions), ...existingGroups]));
+
+    useEffect(() => {
+        if (open) {
+            setName(initialName);
+        }
+    }, [initialName, open]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setOpenDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     if (!open || !file) return null;
 
-    const imageUrl = URL.createObjectURL(file);
+    const mediaUrl = typeof file === 'string' ? file : URL.createObjectURL(file);
+
+    const handleSave = () => {
+        if (onSave) {
+            onSave(name);
+            onClose();
+        }
+    };
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
@@ -33,9 +90,7 @@ const PhotoPreviewModal: React.FC<Props> = ({ file, open, onClose, title, onDele
                         {title}
                         <Button
                             variant="ghost"
-                            onClick={() => {
-                                onClose();
-                            }}
+                            onClick={onClose}
                             className="border-none !shadow-none bg-transparent p-0 h-auto hover:bg-transparent"
                             aria-label="Close"
                         >
@@ -44,32 +99,93 @@ const PhotoPreviewModal: React.FC<Props> = ({ file, open, onClose, title, onDele
                     </DialogTitle>
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
                 </DialogHeader>
-                <div className="w-full h-[500px] flex justify-center items-center py-[42px]">
-                    {/* eslint-disable @next/next/no-img-element */}
-                    <img
-                        src={imageUrl}
-                        alt="Preview"
-                        className="w-full h-full object-contain rounded-md"
-                    />
+
+                <div className="w-full h-[400px] flex justify-center items-center py-[20px] bg-gray-50 rounded-lg overflow-hidden">
+                    {type === 'video' ? (
+                        <video
+                            src={mediaUrl}
+                            controls
+                            className="max-w-full max-h-full rounded-md"
+                        />
+                    ) : (
+                        /* eslint-disable @next/next/no-img-element */
+                        <img
+                            src={mediaUrl}
+                            alt="Preview"
+                            className="max-w-full max-h-full object-contain rounded-md"
+                        />
+                    )}
                 </div>
 
-                <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px] mt-2 font-raleway">
-                    <button
-                        onClick={() => {
-                            onReplace();
-                        }}
-                        className={`bg-white rounded-[6px] w-full md:w-[176px] h-[44px] text-[20px] font-[600] border ${userType}-border ${userType}-text hover:bg-[#f1f8ff]`}
-                    >
-                        Replace
-                    </button>
-                    <button
-                        onClick={() => {
-                            onDelete();
-                        }}
-                        className={`${userType}-bg rounded-[6px] text-white hover-${userType}-bg w-full md:w-[176px] h-[44px] font-[600] text-[20px]`}
-                    >
-                        Delete
-                    </button>
+                {onSave && (
+                    <div className="mt-2 space-y-2 relative" ref={dropdownRef}>
+                        <Label className="text-[#7d7d7d] text-[14px]">Media Name</Label>
+                        <div className="relative">
+                            <Input
+                                value={name}
+                                onChange={(e) => {
+                                    setName(e.target.value);
+                                    setOpenDropdown(true);
+                                }}
+                                onFocus={() => setOpenDropdown(true)}
+                                placeholder="Select or Type Media Name"
+                                className="w-full h-[42px] border text-[#696868] border-[#7d7d7d]"
+                            />
+                            {openDropdown && (
+                                <div className="absolute z-[100] w-full bottom-full mb-1 bg-white border border-[#7d7d7d] rounded-md shadow-lg max-h-[150px] overflow-y-auto custom-scroll">
+                                    {allSuggestions
+                                        .filter(item => !name || item.toLowerCase().includes(name.toLowerCase()))
+                                        .map((item, i) => (
+                                            <div
+                                                key={i}
+                                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-[#696868] text-[14px]"
+                                                onClick={() => {
+                                                    setName(item);
+                                                    setOpenDropdown(false);
+                                                }}
+                                            >
+                                                {item}
+                                            </div>
+                                        ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[10px] mt-4 font-raleway">
+                    {onReplace && (
+                        <button
+                            onClick={onReplace}
+                            className={`bg-white rounded-[6px] w-full md:w-[150px] h-[40px] text-[16px] font-[600] border ${userType}-border ${userType}-text hover:bg-[#f1f8ff]`}
+                        >
+                            Replace
+                        </button>
+                    )}
+                    {onDelete && (
+                        <button
+                            onClick={onDelete}
+                            className={`bg-white rounded-[6px] w-full md:w-[150px] h-[40px] text-[16px] font-[600] border border-[#E06D5E] text-[#E06D5E] hover:bg-red-50`}
+                        >
+                            Delete
+                        </button>
+                    )}
+                    {onSave && (
+                        <button
+                            onClick={handleSave}
+                            className={`${userType}-bg rounded-[6px] text-white hover-${userType}-bg w-full md:w-[150px] h-[40px] font-[600] text-[16px]`}
+                        >
+                            Save
+                        </button>
+                    )}
+                    {!onSave && (
+                        <button
+                            onClick={onClose}
+                            className={`${userType}-bg rounded-[6px] text-white hover-${userType}-bg w-full md:w-[150px] h-[40px] font-[600] text-[16px]`}
+                        >
+                            Close
+                        </button>
+                    )}
                 </DialogFooter>
             </DialogContent>
         </Dialog>

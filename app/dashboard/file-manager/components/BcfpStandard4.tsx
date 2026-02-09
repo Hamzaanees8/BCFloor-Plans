@@ -1,16 +1,25 @@
 import { Pencil, Trash, ZoomIn, ZoomOut } from "lucide-react";
 import Image from "next/image";
-import React, { useRef, useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState, useEffect } from "react";
 import { Order } from "../../orders/page";
+import { featureSheetService } from "../file-manager";
+import { FeatureSheetResponse, FeatureSheetPayload } from "../types/featureSheetTypes";
 import "../../../globals.css";
 import StyledInput from "./StyledInput";
 import ImageSourceModal from "./ImageSourceModal";
 import FileManagerGallery from "./fileManagerGallery";
+import { useFileManagerContext } from "../FileManagerContext";
 
-interface BcfpStandard {
+export interface BcfpStandard4Ref {
+  exportToPayload: () => Promise<FeatureSheetPayload>;
+  importFromPayload: (payload: FeatureSheetResponse) => void;
+}
+
+interface BcfpStandard4Props {
   orderData: Order | null;
 }
-const BcfpStandard = ({ orderData }: BcfpStandard) => {
+
+const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(({ orderData }, ref) => {
   const [byLawRestrictions, setByLawRestrictions] = useState("");
   const [maintFees, setMaintFees] = useState("");
   const [maintFeesInclude, setMaintFeesInclude] = useState("");
@@ -54,7 +63,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
     image17: null as string | null,
     image18: null as string | null,
   });
-   
+
 
   const [scale, setScale] = useState({
     image1: 1,
@@ -162,7 +171,82 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
   const fileInputRef17 = useRef<HTMLInputElement | null>(null);
   const fileInputRef18 = useRef<HTMLInputElement | null>(null);
   console.log("orderData", orderData);
-   
+
+  const { formData, updateFormData } = useFileManagerContext();
+
+  // Initial sync from context on mount
+  useEffect(() => {
+    if (formData) {
+      if (formData.byLawRestrictions) setByLawRestrictions(formData.byLawRestrictions);
+      if (formData.maintenanceFees) setMaintFees(formData.maintenanceFees);
+      if (formData.maintenanceFeesInclude) setMaintFeesInclude(formData.maintenanceFeesInclude);
+      if (formData.featuresIncluded) setFeaturesIncluded(formData.featuresIncluded);
+      if (formData.siteInfluences) setSiteInfluences(formData.siteInfluences);
+      if (formData.amenities) setAmenities(formData.amenities);
+      if (formData.view) setView(formData.view);
+      if (formData.description) setDescription(formData.description);
+      if (formData.fullName) setFullName(formData.fullName);
+      if (formData.email) setEmail(formData.email);
+      if (formData.propertyName) setPropertyName(formData.propertyName);
+      if (formData.amount) setAmount(formData.amount);
+      if (formData.number) setNumber(formData.number);
+      if (formData.addressCode) setAddressCode(formData.addressCode);
+      if (formData.roadName) setRoadName(formData.roadName);
+      if (formData.cityLine) setCityLine(formData.cityLine);
+      if (formData.mlsNumber) setMlsNumber(formData.mlsNumber);
+      if (formData.bedroom) setBedroom(formData.bedroom);
+      if (formData.bathroom) setBathroom(formData.bathroom);
+      if (formData.sqft) setSqft(formData.sqft);
+      if (formData.builtYear) setBuiltYear(formData.builtYear);
+
+      if (formData.images) {
+        setImages(prev => ({ ...prev, ...(formData.images as typeof images) }));
+      }
+      if (formData.imageScales) {
+        setScale(prev => ({ ...prev, ...(formData.imageScales as typeof scale) }));
+      }
+      if (formData.imagePositions) {
+        setPosition(prev => ({ ...prev, ...(formData.imagePositions as typeof position) }));
+      }
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Update context when local state changes
+  useEffect(() => {
+    updateFormData({
+      byLawRestrictions,
+      maintenanceFees: maintFees,
+      maintenanceFeesInclude: maintFeesInclude,
+      featuresIncluded,
+      siteInfluences,
+      amenities,
+      view,
+      description,
+      fullName,
+      email,
+      propertyName,
+      amount,
+      number,
+      addressCode,
+      roadName,
+      cityLine,
+      mlsNumber,
+      bedroom,
+      bathroom,
+      sqft,
+      builtYear,
+      images,
+      imageScales: scale,
+      imagePositions: position
+    });
+  }, [
+    byLawRestrictions, maintFees, maintFeesInclude, featuresIncluded, siteInfluences,
+    amenities, view, description, fullName, email, propertyName, amount, number,
+    addressCode, roadName, cityLine, mlsNumber, bedroom, bathroom, sqft, builtYear,
+    images, scale, position, updateFormData
+  ]);
 
   // --- Handlers ---
   const handleImageChange = (
@@ -293,7 +377,7 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
 
   const handleGalleryImageSelect = (imageUrl: string) => {
     if (!currentImageSlot) return;
-     
+
 
     switch (currentImageSlot) {
       case "image1":
@@ -362,25 +446,103 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
     setShowImageSourceModal(true);
   };
 
+  // Expose methods to parent component via ref
+  useImperativeHandle(ref, () => ({
+    exportToPayload: async () => {
+      const payload = await featureSheetService.buildPayload({
+        orderUuid: orderData?.uuid || "",
+        templateKey: "BCFPStandard4",
+        uploadedBy: "admin",
+        type: "template",
+        primaryColor: "#376173",
+        offeredAtPrice: amount,
+        realtorName: fullName,
+        emailLink: email,
+        propertyNotesTitle: propertyName,
+        propertyNotesDescription: description,
+        expandedDetail1Title: "By-law Restrictions",
+        expandedDetail1Description: byLawRestrictions,
+        expandedDetail2Title: "Maintenance Fees",
+        expandedDetail2Description: maintFees,
+        expandedDetail3Title: "Maintenance Fee Includes",
+        expandedDetail3Description: maintFeesInclude,
+        expandedDetail4Title: "Amenities",
+        expandedDetail4Description: amenities,
+        keyHighlightLabel: "Features Included",
+        keyHighlights: featuresIncluded ? featuresIncluded.split("\n").filter(Boolean) : [],
+        otherDetails: {
+          view,
+          bedroom,
+          bathroom,
+          sqft,
+          builtYear,
+          mlsNumber,
+          siteInfluences,
+          number,
+          addressCode,
+          roadName,
+          cityLine
+        },
+        images,
+        imageScales: scale,
+        imagePositions: position,
+      });
+      return payload;
+    },
+
+    importFromPayload: (payload: FeatureSheetResponse) => {
+      const state = featureSheetService.parsePayloadToState(payload);
+      if (state.offeredAtPrice) setAmount(state.offeredAtPrice as string);
+      if (state.realtorName) setFullName(state.realtorName as string);
+      if (state.email) setEmail(state.email as string);
+      if (state.propertyNotesTitle) setPropertyName(state.propertyNotesTitle as string);
+      if (state.propertyNotesDescription) setDescription(state.propertyNotesDescription as string);
+      if (state.expandedDetail1Description) setByLawRestrictions(state.expandedDetail1Description as string);
+      if (state.expandedDetail2Description) setMaintFees(state.expandedDetail2Description as string);
+      if (state.expandedDetail3Description) setMaintFeesInclude(state.expandedDetail3Description as string);
+      if (state.expandedDetail4Description) setAmenities(state.expandedDetail4Description as string);
+      if (state.keyHighlights) setFeaturesIncluded(state.keyHighlights.join("\n"));
+
+      if (state.otherDetails) {
+        const others = state.otherDetails as Record<string, unknown>;
+        if (others.view) setView(others.view as string);
+        if (others.bedroom) setBedroom(others.bedroom as string);
+        if (others.bathroom) setBathroom(others.bathroom as string);
+        if (others.sqft) setSqft(others.sqft as string);
+        if (others.builtYear) setBuiltYear(others.builtYear as string);
+        if (others.mlsNumber) setMlsNumber(others.mlsNumber as string);
+        if (others.siteInfluences) setSiteInfluences(others.siteInfluences as string);
+        if (others.number) setNumber(others.number as string);
+        if (others.addressCode) setAddressCode(others.addressCode as string);
+        if (others.roadName) setRoadName(others.roadName as string);
+        if (others.cityLine) setCityLine(others.cityLine as string);
+      }
+
+      setImages(state.images as unknown as typeof images);
+      setScale(state.imageScales as unknown as typeof scale);
+      setPosition(state.imagePositions as unknown as typeof position);
+    },
+  }));
+
   return (
     <>
-    {showImageSourceModal && (
-      <ImageSourceModal
-        onClose={() => setShowImageSourceModal(false)}
-        onSelectSource={handleImageSourceSelect}
-      />
-    )}
+      {showImageSourceModal && (
+        <ImageSourceModal
+          onClose={() => setShowImageSourceModal(false)}
+          onSelectSource={handleImageSourceSelect}
+        />
+      )}
 
-    {showGallery && (
-      <FileManagerGallery
-        isOpen={showGallery}
-        onClose={() => {
-          setShowGallery(false);
-          setCurrentImageSlot(null);
-        }}
-        onImageSelect={handleGalleryImageSelect}
-      />
-    )}
+      {showGallery && (
+        <FileManagerGallery
+          isOpen={showGallery}
+          onClose={() => {
+            setShowGallery(false);
+            setCurrentImageSlot(null);
+          }}
+          onImageSelect={handleGalleryImageSelect}
+        />
+      )}
       <div className="w-full flex  justify-center font-alexandria">
         <div className="w-1/2 flex flex-col">
           <div className="p-[50px] pb-[120px] bg-[#376173] ">
@@ -405,8 +567,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                       cursor: dragging.image1
                         ? "grabbing"
                         : scale.image1 > 1
-                        ? "grab"
-                        : "default",
+                          ? "grab"
+                          : "default",
                     }}
                   />
 
@@ -600,8 +762,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                         cursor: dragging.image2
                           ? "grabbing"
                           : scale.image2 > 1
-                          ? "grab"
-                          : "default",
+                            ? "grab"
+                            : "default",
                       }}
                     />
 
@@ -748,8 +910,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                         cursor: dragging.image3
                           ? "grabbing"
                           : scale.image3 > 1
-                          ? "grab"
-                          : "default",
+                            ? "grab"
+                            : "default",
                       }}
                     />
 
@@ -833,8 +995,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                     cursor: dragging.image4
                       ? "grabbing"
                       : scale.image4 > 1
-                      ? "grab"
-                      : "default",
+                        ? "grab"
+                        : "default",
                   }}
                 />
 
@@ -916,8 +1078,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                       cursor: dragging.image5
                         ? "grabbing"
                         : scale.image5 > 1
-                        ? "grab"
-                        : "default",
+                          ? "grab"
+                          : "default",
                     }}
                   />
 
@@ -998,8 +1160,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                       cursor: dragging.image6
                         ? "grabbing"
                         : scale.image6 > 1
-                        ? "grab"
-                        : "default",
+                          ? "grab"
+                          : "default",
                     }}
                   />
 
@@ -1080,8 +1242,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                       cursor: dragging.image7
                         ? "grabbing"
                         : scale.image7 > 1
-                        ? "grab"
-                        : "default",
+                          ? "grab"
+                          : "default",
                     }}
                   />
 
@@ -1162,8 +1324,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                       cursor: dragging.image8
                         ? "grabbing"
                         : scale.image8 > 1
-                        ? "grab"
-                        : "default",
+                          ? "grab"
+                          : "default",
                     }}
                   />
 
@@ -1287,8 +1449,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                       cursor: dragging.image9
                         ? "grabbing"
                         : scale.image9 > 1
-                        ? "grab"
-                        : "default",
+                          ? "grab"
+                          : "default",
                     }}
                   />
 
@@ -1370,8 +1532,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                         cursor: dragging.image10
                           ? "grabbing"
                           : scale.image10 > 1
-                          ? "grab"
-                          : "default",
+                            ? "grab"
+                            : "default",
                       }}
                     />
 
@@ -1452,8 +1614,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                         cursor: dragging.image11
                           ? "grabbing"
                           : scale.image11 > 1
-                          ? "grab"
-                          : "default",
+                            ? "grab"
+                            : "default",
                       }}
                     />
 
@@ -1553,8 +1715,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                           cursor: dragging.image12
                             ? "grabbing"
                             : scale.image12 > 1
-                            ? "grab"
-                            : "default",
+                              ? "grab"
+                              : "default",
                         }}
                       />
 
@@ -1635,8 +1797,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                           cursor: dragging.image13
                             ? "grabbing"
                             : scale.image13 > 1
-                            ? "grab"
-                            : "default",
+                              ? "grab"
+                              : "default",
                         }}
                       />
 
@@ -1717,8 +1879,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                           cursor: dragging.image14
                             ? "grabbing"
                             : scale.image14 > 1
-                            ? "grab"
-                            : "default",
+                              ? "grab"
+                              : "default",
                         }}
                       />
 
@@ -1799,8 +1961,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                           cursor: dragging.image15
                             ? "grabbing"
                             : scale.image15 > 1
-                            ? "grab"
-                            : "default",
+                              ? "grab"
+                              : "default",
                         }}
                       />
 
@@ -1964,8 +2126,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
                         cursor: dragging.image16
                           ? "grabbing"
                           : scale.image16 > 1
-                          ? "grab"
-                          : "default",
+                            ? "grab"
+                            : "default",
                       }}
                     />
 
@@ -2124,6 +2286,8 @@ const BcfpStandard = ({ orderData }: BcfpStandard) => {
       </div>
     </>
   );
-};
+});
 
-export default BcfpStandard;
+BcfpStandard4.displayName = "BcfpStandard4";
+
+export default BcfpStandard4;

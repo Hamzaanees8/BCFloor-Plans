@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Check, CheckCircle2 } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Services } from '../../services/page';
-import { useFileManagerContext } from '../FileManagerContext ';
+import { useFileManagerContext } from '../FileManagerContext';
 import ManualPayment from './ManualPayment';
 import { useAppContext } from '@/app/context/AppContext';
 import { Order } from '../../orders/page';

@@ -8,7 +8,7 @@ import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SelectedFiles } from "./HDRStill";
 import { useAppContext } from "@/app/context/AppContext";
-import { useFileManagerContext } from "../FileManagerContext ";
+import { useFileManagerContext } from "../FileManagerContext";
 
 interface AddLevelDialogProps {
     open: boolean;
