@@ -1,13 +1,21 @@
 import { House, Pencil, Trash, ZoomIn, ZoomOut } from "lucide-react";
 import NextImage from "next/image";
-import React, { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import React, {
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { Order } from "../../orders/page";
 import "../../../globals.css";
 import StyledInput from "./StyledInput";
 import FileManagerGallery from "./fileManagerGallery";
 import ImageSourceModal from "./ImageSourceModal";
 import { featureSheetService } from "../file-manager";
-import { FeatureSheetPayload, FeatureSheetResponse } from "../types/featureSheetTypes";
+import {
+  FeatureSheetPayload,
+  FeatureSheetResponse,
+} from "../types/featureSheetTypes";
 
 export interface BcfpStandard16Ref {
   exportToPayload: () => Promise<FeatureSheetPayload>;
@@ -58,7 +66,6 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
       image12: null as string | null,
       image13: null as string | null,
     });
-
 
     const [scale, setScale] = useState({
       image1: 1,
@@ -124,7 +131,9 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
       image13: { x: 0, y: 0 },
     });
     const [showImageSourceModal, setShowImageSourceModal] = useState(false);
-    const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(null);
+    const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(
+      null,
+    );
     const [showGallery, setShowGallery] = useState(false);
     // --- Refs ---
     const fileInputRef1 = useRef<HTMLInputElement | null>(null);
@@ -164,7 +173,9 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
           expandedDetail4Title: "Features Included",
           expandedDetail4Description: featuresIncluded,
           keyHighlightLabel: "Site Influences",
-          keyHighlights: siteInfluences ? siteInfluences.split("\n").filter(Boolean) : [],
+          keyHighlights: siteInfluences
+            ? siteInfluences.split("\n").filter(Boolean)
+            : [],
           otherDetails: {
             maintenanceFees,
             maintenanceFeesInclude,
@@ -191,20 +202,29 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
         if (state.realtorName) setFullName(state.realtorName as string);
         if (state.emailLink) setEmail(state.emailLink as string);
         if (state.companyName) setPropertyName(state.companyName as string);
-        if (state.propertyNotesTitle) setRoadName(state.propertyNotesTitle as string);
-        if (state.propertyNotesDescription) setDescription(state.propertyNotesDescription as string);
+        if (state.propertyNotesTitle)
+          setRoadName(state.propertyNotesTitle as string);
+        if (state.propertyNotesDescription)
+          setDescription(state.propertyNotesDescription as string);
 
-        if (state.expandedDetail1Description) setByLawRestrictions(state.expandedDetail1Description as string);
-        if (state.expandedDetail2Description) setMaintenanceFees(state.expandedDetail2Description as string);
-        if (state.expandedDetail3Description) setMaintenanceFeesInclude(state.expandedDetail3Description as string);
-        if (state.expandedDetail4Description) setFeaturesIncluded(state.expandedDetail4Description as string);
+        if (state.expandedDetail1Description)
+          setByLawRestrictions(state.expandedDetail1Description as string);
+        if (state.expandedDetail2Description)
+          setMaintenanceFees(state.expandedDetail2Description as string);
+        if (state.expandedDetail3Description)
+          setMaintenanceFeesInclude(state.expandedDetail3Description as string);
+        if (state.expandedDetail4Description)
+          setFeaturesIncluded(state.expandedDetail4Description as string);
 
-        if (state.keyHighlights) setSiteInfluences(state.keyHighlights.join("\n"));
+        if (state.keyHighlights)
+          setSiteInfluences(state.keyHighlights.join("\n"));
 
         if (state.otherDetails) {
           const details = state.otherDetails as Record<string, unknown>;
-          if (details.maintenanceFees) setMaintenanceFees(details.maintenanceFees as string);
-          if (details.maintenanceFeesInclude) setMaintenanceFeesInclude(details.maintenanceFeesInclude as string);
+          if (details.maintenanceFees)
+            setMaintenanceFees(details.maintenanceFees as string);
+          if (details.maintenanceFeesInclude)
+            setMaintenanceFeesInclude(details.maintenanceFeesInclude as string);
           if (details.amenities) setAmenities(details.amenities as string);
           if (details.view) setView(details.view as string);
           if (details.bedroom) setBedroom(details.bedroom as string);
@@ -212,24 +232,39 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
           if (details.sqft) setSqft(details.sqft as string);
           if (details.builtYear) setBuiltYear(details.builtYear as string);
           if (details.number) setNumber(details.number as string);
-          if (details.addressCode) setAddressCode(details.addressCode as string);
+          if (details.addressCode)
+            setAddressCode(details.addressCode as string);
           if (details.cityLine) setCityLine(details.cityLine as string);
           if (details.mlsNumber) setMlsNumber(details.mlsNumber as string);
         }
 
-        if (state.images) setImages(state.images as unknown as typeof images);
-        if (state.imageScales) setScale(state.imageScales as unknown as typeof scale);
-        if (state.imagePositions) setPosition(state.imagePositions as unknown as typeof position);
+        if (state.images) {
+          setImages((prev) => ({
+            ...prev,
+            ...(state.images as unknown as typeof prev),
+          }));
+        }
+        if (state.imageScales) {
+          setScale((prev) => ({
+            ...prev,
+            ...(state.imageScales as unknown as typeof prev),
+          }));
+        }
+        if (state.imagePositions) {
+          setPosition((prev) => ({
+            ...prev,
+            ...(state.imagePositions as unknown as typeof prev),
+          }));
+        }
       },
     }));
 
     console.log("orderData", orderData);
 
-
     // --- Handlers ---
     const handleImageChange = (
       key: keyof typeof images,
-      e: React.ChangeEvent<HTMLInputElement>
+      e: React.ChangeEvent<HTMLInputElement>,
     ) => {
       if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
@@ -240,7 +275,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
 
     const handleDelete = (
       key: keyof typeof images,
-      ref: React.RefObject<HTMLInputElement | null>
+      ref: React.RefObject<HTMLInputElement | null>,
     ) => {
       setImages((prev) => ({ ...prev, [key]: null }));
       setScale((prev) => ({ ...prev, [key]: 1 }));
@@ -340,7 +375,6 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
 
     const handleGalleryImageSelect = (imageUrl: string) => {
       if (!currentImageSlot) return;
-
 
       switch (currentImageSlot) {
         case "image1":
@@ -567,9 +601,9 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
               <p className="text-[12px] font-thin leading-tight">
                 All information deemed reliable but not guaranteed and should be
                 independently veriﬁed. All properties are subject to prior sale,
-                change or withdrawal. Neither listing broker(s) nor BC Floorplans
-                shall be responsible for any typographical errors, misinformation,
-                misprints and shall be held totally harmless.
+                change or withdrawal. Neither listing broker(s) nor BC
+                Floorplans shall be responsible for any typographical errors,
+                misinformation, misprints and shall be held totally harmless.
               </p>
               <span className="flex flex-col">
                 <House className="w-4 h-4" />
@@ -933,7 +967,9 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 </div>
 
                 <div className="text-[#2B648E] text-[18px] flex">
-                  <div className="text-nowrap font-bold">FEATURES INCLUDED: </div>
+                  <div className="text-nowrap font-bold">
+                    FEATURES INCLUDED:{" "}
+                  </div>
                   <StyledInput
                     value={featuresIncluded}
                     rows={1}
@@ -1541,8 +1577,9 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                   className="w-full h-full flex items-center justify-center transition-transform duration-100 cursor-grab active:cursor-grabbing relative group-hover:z-10 group-hover:opacity-50"
                   onMouseDown={(e) => handleMouseDown("image8", e)}
                   style={{
-                    transform: `scale(${scale.image8}) translate(${position.image8.x / scale.image8
-                      }px, ${position.image8.y / scale.image8}px)`,
+                    transform: `scale(${scale.image8}) translate(${
+                      position.image8.x / scale.image8
+                    }px, ${position.image8.y / scale.image8}px)`,
                     transition: dragging.image8
                       ? "none"
                       : "transform 0.3s ease-out",
@@ -1617,7 +1654,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
         </div>
       </div>
     );
-  }
+  },
 );
 
 BcfpStandard16.displayName = "BcfpStandard16";

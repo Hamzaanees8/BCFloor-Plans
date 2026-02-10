@@ -48,7 +48,7 @@ function payloadToFormData(payload: OrderPayload): FormData {
 export async function EditOrder(
   orderId: string,
   payload: OrderPayload,
-  token: string
+  token: string,
 ) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const formData = payloadToFormData(payload);
@@ -76,7 +76,6 @@ import { toast } from "sonner";
 import { DroppedMarker, Files, SelectedFiles } from "./FileManagerContext";
 import { Order } from "../orders/page";
 
-
 export async function GetFilesData(token: string, orderUuid: string) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -94,7 +93,7 @@ export async function GetFilesData(token: string, orderUuid: string) {
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
     throw new Error(
-      error.message || `Upload failed with status ${response.status}`
+      error.message || `Upload failed with status ${response.status}`,
     );
   }
 
@@ -105,14 +104,26 @@ export async function UploadFilesData(
   token: string,
   orderUuid: string,
   files: SelectedFiles[],
-  links: { type: string; service_id: string; link: string; expiry_date?: string; uuid?: string }[],
+  links: {
+    type: string;
+    service_id: string;
+    link: string;
+    expiry_date?: string;
+    uuid?: string;
+  }[],
   snapshots: DroppedMarker[],
   delay: number,
   transition: string,
-  selectedAudioTrack: string
+  selectedAudioTrack: string,
 ) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
-  let uploads: { upload_id: string; s3_key: string; original_filename: string; content_type: string; presigned_url: string }[] = [];
+  let uploads: {
+    upload_id: string;
+    s3_key: string;
+    original_filename: string;
+    content_type: string;
+    presigned_url: string;
+  }[] = [];
 
   const fileUuids = new Map<File, string>();
 
@@ -120,33 +131,37 @@ export async function UploadFilesData(
   if (files.length > 0) {
     try {
       const presignedRequest = {
-        entity_type: 'order' as const,
+        entity_type: "order" as const,
         entity_id: orderUuid,
-        files: files.map(f => ({
+        files: files.map((f) => ({
           filename: f.file.name,
           content_type: f.file.type,
           size: f.file.size,
         })),
       };
 
-      const presignedResponse = await S3UploadService.getPresignedUrls(presignedRequest);
-      if (!presignedResponse.success) throw new Error('Failed to get presigned URLs');
+      const presignedResponse =
+        await S3UploadService.getPresignedUrls(presignedRequest);
+      if (!presignedResponse.success)
+        throw new Error("Failed to get presigned URLs");
 
       const S3Uploads = presignedResponse.data.uploads;
       uploads = S3Uploads;
 
       // Upload all files to S3 concurrently
-      await Promise.all(files.map(async (fileObj, index) => {
-        const upload = uploads[index];
-        await S3UploadService.uploadToS3(
-          upload.presigned_url,
-          fileObj.file,
-          upload.content_type
-        );
-        fileUuids.set(fileObj.file, upload.upload_id);
-      }));
+      await Promise.all(
+        files.map(async (fileObj, index) => {
+          const upload = uploads[index];
+          await S3UploadService.uploadToS3(
+            upload.presigned_url,
+            fileObj.file,
+            upload.content_type,
+          );
+          fileUuids.set(fileObj.file, upload.upload_id);
+        }),
+      );
     } catch (error) {
-      console.error('S3 upload in UploadFilesData failed:', error);
+      console.error("S3 upload in UploadFilesData failed:", error);
       throw error;
     }
   }
@@ -157,9 +172,13 @@ export async function UploadFilesData(
 
   links.forEach((linkObj, index) => {
     formData.append(`links[${index}][type]`, linkObj.type);
-    formData.append(`links[${index}][service_id]`, String(linkObj.service_id || ""));
+    formData.append(
+      `links[${index}][service_id]`,
+      String(linkObj.service_id || ""),
+    );
     formData.append(`links[${index}][link]`, linkObj.link);
-    if (linkObj.expiry_date) formData.append(`links[${index}][expiry_date]`, linkObj.expiry_date);
+    if (linkObj.expiry_date)
+      formData.append(`links[${index}][expiry_date]`, linkObj.expiry_date);
     if (linkObj.uuid) formData.append(`links[${index}][uuid]`, linkObj.uuid);
   });
 
@@ -167,7 +186,10 @@ export async function UploadFilesData(
     formData.append(`snapshots[${index}][name]`, snap.name || "");
     formData.append(`snapshots[${index}][file_name]`, snap.floorImageUrl || "");
     formData.append(`snapshots[${index}][description]`, snap.description || "");
-    formData.append(`snapshots[${index}][file]`, snap.file_path || snap.file || "");
+    formData.append(
+      `snapshots[${index}][file]`,
+      snap.file_path || snap.file || "",
+    );
     formData.append(`snapshots[${index}][x_axis]`, String(snap.x));
     formData.append(`snapshots[${index}][y_axis]`, String(snap.y));
   });
@@ -186,7 +208,10 @@ export async function UploadFilesData(
 
   if (!tourResponse.ok) {
     const errorData = await tourResponse.json().catch(() => ({}));
-    throw new Error(errorData.message || `Tour creation failed with status ${tourResponse.status}`);
+    throw new Error(
+      errorData.message ||
+        `Tour creation failed with status ${tourResponse.status}`,
+    );
   }
 
   const tourResult = await tourResponse.json();
@@ -196,7 +221,7 @@ export async function UploadFilesData(
   if (files.length > 0 && uploads.length > 0) {
     try {
       await S3UploadService.confirmUpload({
-        entity_type: 'tour',
+        entity_type: "tour",
         entity_id: tourUuid,
         tour_id: tourUuid,
         uploads: files.map((fileObj, index) => {
@@ -216,11 +241,13 @@ export async function UploadFilesData(
         }),
       });
     } catch (confirmError) {
-      console.error('Confirmation of S3 uploads failed after tour creation:', confirmError);
+      console.error(
+        "Confirmation of S3 uploads failed after tour creation:",
+        confirmError,
+      );
       throw confirmError;
     }
   }
-
 
   return tourResult;
 }
@@ -229,54 +256,66 @@ export async function UpdateFilesData(
   token: string,
   tourUuid: string,
   files: SelectedFiles[],
-  links: { type: string; service_id: string; link: string; expiry_date?: string; uuid?: string }[],
+  links: {
+    type: string;
+    service_id: string;
+    link: string;
+    expiry_date?: string;
+    uuid?: string;
+  }[],
   snapshots: DroppedMarker[],
   delay: number,
   transition: string,
   selectedAudioTrack: string,
-  existingFiles?: Files[]
+  existingFiles?: Files[],
 ) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   // Step 1: Identify and upload NEW files to S3
-  const newFiles = files.filter(f => f.file instanceof File);
+  const newFiles = files.filter((f) => f.file instanceof File);
   const fileUuids = new Map<File, string>();
 
   if (newFiles.length > 0) {
     try {
       const presignedRequest = {
-        entity_type: 'tour' as const,
+        entity_type: "tour" as const,
         entity_id: tourUuid,
-        files: newFiles.map(f => ({
+        files: newFiles.map((f) => ({
           filename: f.file.name,
           content_type: f.file.type,
           size: f.file.size,
         })),
       };
 
-      const presignedResponse = await S3UploadService.getPresignedUrls(presignedRequest);
-      if (!presignedResponse.success) throw new Error('Failed to get presigned URLs');
+      const presignedResponse =
+        await S3UploadService.getPresignedUrls(presignedRequest);
+      if (!presignedResponse.success)
+        throw new Error("Failed to get presigned URLs");
 
       const uploads = presignedResponse.data.uploads;
 
       // Upload all new files to S3 concurrently
-      await Promise.all(newFiles.map(async (fileObj, index) => {
-        const upload = uploads[index];
-        await S3UploadService.uploadToS3(
-          upload.presigned_url,
-          fileObj.file,
-          upload.content_type
-        );
-        fileUuids.set(fileObj.file, upload.upload_id);
-      }));
+      await Promise.all(
+        newFiles.map(async (fileObj, index) => {
+          const upload = uploads[index];
+          await S3UploadService.uploadToS3(
+            upload.presigned_url,
+            fileObj.file,
+            upload.content_type,
+          );
+          fileUuids.set(fileObj.file, upload.upload_id);
+        }),
+      );
 
       // Confirm uploads to create DB records
       await S3UploadService.confirmUpload({
-        entity_type: 'tour',
+        entity_type: "tour",
         entity_id: tourUuid,
         tour_id: tourUuid,
         uploads: newFiles.map((fileObj) => {
-          const uploadInfo = uploads.find(u => u.upload_id === fileUuids.get(fileObj.file));
+          const uploadInfo = uploads.find(
+            (u) => u.upload_id === fileUuids.get(fileObj.file),
+          );
 
           return {
             upload_id: uploadInfo?.upload_id || "",
@@ -293,7 +332,7 @@ export async function UpdateFilesData(
         }),
       });
     } catch (error) {
-      console.error('S3 upload in UpdateFilesData failed:', error);
+      console.error("S3 upload in UpdateFilesData failed:", error);
       throw error;
     }
   }
@@ -301,7 +340,6 @@ export async function UpdateFilesData(
   // Step 2: Prepare metadata update via old endpoint
   const formData = new FormData();
   let hasMetadataChanges = false;
-
 
   // Handle existing files (already uploaded, send UUID and file_path)
   existingFiles?.forEach((fileObj, index) => {
@@ -312,19 +350,38 @@ export async function UpdateFilesData(
     formData.append(`files[${index}][name]`, fileObj.name || "");
     formData.append(`files[${index}][type]`, fileObj.type || "photo");
     formData.append(`files[${index}][group]`, fileObj.group || "");
-    formData.append(`files[${index}][service_id]`, String(fileObj.service?.uuid || fileObj.service_id || ""));
-    formData.append(`files[${index}][is_featured]`, String(fileObj.is_featured ? 1 : 0));
-    formData.append(`files[${index}][is_admin_approved]`, String(fileObj.is_admin_approved === false ? 0 : 1));
-    formData.append(`files[${index}][is_agent_approved]`, String(fileObj.is_agent_approved === true ? 1 : 0));
-    formData.append(`files[${index}][is_show]`, String(fileObj.is_show === false ? 0 : 1));
+    formData.append(
+      `files[${index}][service_id]`,
+      String(fileObj.service?.uuid || fileObj.service_id || ""),
+    );
+    formData.append(
+      `files[${index}][is_featured]`,
+      String(fileObj.is_featured ? 1 : 0),
+    );
+    formData.append(
+      `files[${index}][is_admin_approved]`,
+      String(fileObj.is_admin_approved === false ? 0 : 1),
+    );
+    formData.append(
+      `files[${index}][is_agent_approved]`,
+      String(fileObj.is_agent_approved === true ? 1 : 0),
+    );
+    formData.append(
+      `files[${index}][is_show]`,
+      String(fileObj.is_show === false ? 0 : 1),
+    );
   });
 
   links.forEach((linkObj, index) => {
     hasMetadataChanges = true;
     formData.append(`links[${index}][type]`, linkObj.type);
-    formData.append(`links[${index}][service_id]`, String(linkObj.service_id || ""));
+    formData.append(
+      `links[${index}][service_id]`,
+      String(linkObj.service_id || ""),
+    );
     formData.append(`links[${index}][link]`, linkObj.link);
-    if (linkObj.expiry_date) formData.append(`links[${index}][expiry_date]`, linkObj.expiry_date);
+    if (linkObj.expiry_date)
+      formData.append(`links[${index}][expiry_date]`, linkObj.expiry_date);
     if (linkObj.uuid) formData.append(`links[${index}][uuid]`, linkObj.uuid);
   });
 
@@ -333,12 +390,19 @@ export async function UpdateFilesData(
     formData.append(`snapshots[${index}][name]`, snap.name || "");
     formData.append(`snapshots[${index}][description]`, snap.description || "");
     formData.append(`snapshots[${index}][file_name]`, snap.floorImageUrl || "");
-    formData.append(`snapshots[${index}][file]`, snap.file_path || snap.file || "");
+    formData.append(
+      `snapshots[${index}][file]`,
+      snap.file_path || snap.file || "",
+    );
     formData.append(`snapshots[${index}][x_axis]`, String(snap.x.toFixed(6)));
     formData.append(`snapshots[${index}][y_axis]`, String(snap.y.toFixed(6)));
   });
 
-  if (delay !== 3000 || transition !== 'none' || selectedAudioTrack !== 'none') {
+  if (
+    delay !== 3000 ||
+    transition !== "none" ||
+    selectedAudioTrack !== "none"
+  ) {
     hasMetadataChanges = true;
   }
 
@@ -361,7 +425,9 @@ export async function UpdateFilesData(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Update failed with status ${response.status}`);
+    throw new Error(
+      error.message || `Update failed with status ${response.status}`,
+    );
   }
 
   return response.json();
@@ -370,35 +436,42 @@ export async function UpdateFilesData(
 export async function UpdatePhotosData(
   token: string,
   tourUuid: string,
-  files?: SelectedFiles[]
+  files?: SelectedFiles[],
 ) {
   // Step 1: Upload new files to S3
-  const newFiles = files?.filter(f => f.file instanceof File) || [];
+  const newFiles = files?.filter((f) => f.file instanceof File) || [];
   const fileUuids = new Map<File, string>();
 
   if (newFiles.length > 0) {
     try {
       const presignedRequest = {
-        entity_type: 'tour' as const,
+        entity_type: "tour" as const,
         entity_id: tourUuid,
-        files: newFiles.map(f => ({
+        files: newFiles.map((f) => ({
           filename: f.file.name,
           content_type: f.file.type,
           size: f.file.size,
         })),
       };
 
-      const presignedResponse = await S3UploadService.getPresignedUrls(presignedRequest);
+      const presignedResponse =
+        await S3UploadService.getPresignedUrls(presignedRequest);
       const uploads = presignedResponse.data.uploads;
 
-      await Promise.all(newFiles.map(async (fileObj, index) => {
-        const upload = uploads[index];
-        await S3UploadService.uploadToS3(upload.presigned_url, fileObj.file, upload.content_type);
-        fileUuids.set(fileObj.file, upload.upload_id);
-      }));
+      await Promise.all(
+        newFiles.map(async (fileObj, index) => {
+          const upload = uploads[index];
+          await S3UploadService.uploadToS3(
+            upload.presigned_url,
+            fileObj.file,
+            upload.content_type,
+          );
+          fileUuids.set(fileObj.file, upload.upload_id);
+        }),
+      );
 
       const confirmResponse = await S3UploadService.confirmUpload({
-        entity_type: 'tour',
+        entity_type: "tour",
         entity_id: tourUuid,
         tour_id: tourUuid,
         uploads: newFiles.map((fileObj, index) => {
@@ -418,10 +491,9 @@ export async function UpdatePhotosData(
         }),
       });
 
-
       return confirmResponse;
     } catch (error) {
-      console.error('S3 upload in UpdatePhotosData failed:', error);
+      console.error("S3 upload in UpdatePhotosData failed:", error);
       throw error;
     }
   }
@@ -431,7 +503,7 @@ export async function UpdatePhotosData(
 export async function UpdateFloorPhotosData(
   token: string,
   tourUuid: string,
-  files?: SelectedFiles[]
+  files?: SelectedFiles[],
 ) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const formData = new FormData();
@@ -451,23 +523,23 @@ export async function UpdateFloorPhotosData(
     formData.append(`files[${index}][group]`, fileObj.type || "");
     formData.append(
       `files[${index}][service_id]`,
-      String(fileObj.service_id || "")
+      String(fileObj.service_id || ""),
     );
     formData.append(
       `files[${index}][is_featured]`,
-      String(fileObj.is_featured ? 1 : 0)
+      String(fileObj.is_featured ? 1 : 0),
     );
     formData.append(
       `files[${index}][is_admin_approved]`,
-      String(fileObj.is_admin_approved === false ? 0 : 1)
+      String(fileObj.is_admin_approved === false ? 0 : 1),
     );
     formData.append(
       `files[${index}][is_agent_approved]`,
-      String(fileObj.is_agent_approved === true ? 1 : 0)
+      String(fileObj.is_agent_approved === true ? 1 : 0),
     );
     formData.append(
       `files[${index}][is_show]`,
-      String(fileObj.is_show === false ? 0 : 1)
+      String(fileObj.is_show === false ? 0 : 1),
     );
   });
 
@@ -484,7 +556,7 @@ export async function UpdateFloorPhotosData(
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
     throw new Error(
-      error.message || `Upload failed with status ${response.status}`
+      error.message || `Upload failed with status ${response.status}`,
     );
   }
 
@@ -501,7 +573,7 @@ export async function createPayment(
     paymentType?: "full" | "service";
     serviceName?: string;
     amount?: string | number;
-  }
+  },
 ) {
   try {
     const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -557,36 +629,35 @@ export async function createPayment(
 export async function DownloadFile(
   token: string,
   fileUuid: string,
-  size?: 'small' | 'large' | 'mls' | 'original'
+  size?: "small" | "large" | "mls" | "original",
 ) {
   let url = `${process.env.NEXT_PUBLIC_API_URL}/tours/files/${fileUuid}/download`;
-  if (size && size !== 'original') {
+  if (size && size !== "original") {
     url += `?size=${size}`;
   }
 
-  const response = await fetch(
-    url,
-    {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    }
-  );
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Upload failed with status ${response.status}`);
+    throw new Error(
+      error.message || `Upload failed with status ${response.status}`,
+    );
   }
 
-  return response
+  return response;
 }
 
 export async function PublishTour(
   token: string,
   tourUuid: string,
-  isPublish: boolean
+  isPublish: boolean,
 ) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -601,7 +672,9 @@ export async function PublishTour(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Publish failed with status ${response.status}`);
+    throw new Error(
+      error.message || `Publish failed with status ${response.status}`,
+    );
   }
 
   return response.json();
@@ -610,12 +683,12 @@ export async function ServiceCompletion(
   token: string,
   serviceUUid: string,
   seviceStatus: boolean,
-  OrderUuid: string
+  OrderUuid: string,
 ) {
   const params = new URLSearchParams();
-  params.append('order_uuid', OrderUuid);
-  params.append('orderservice_uuid', serviceUUid);
-  params.append('is_completed', `${seviceStatus ? 1 : 0}`);
+  params.append("order_uuid", OrderUuid);
+  params.append("orderservice_uuid", serviceUUid);
+  params.append("is_completed", `${seviceStatus ? 1 : 0}`);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -630,16 +703,18 @@ export async function ServiceCompletion(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Upload failed with status ${response.status}`);
+    throw new Error(
+      error.message || `Upload failed with status ${response.status}`,
+    );
   }
 
-  return response
+  return response;
 }
 
 // ==================== S3 UPLOAD FUNCTIONS ====================
 // New S3-based upload functions using presigned URLs
 
-import { S3UploadService } from '@/lib/upload/s3-service';
+import { S3UploadService } from "@/lib/upload/s3-service";
 
 /**
  * Upload photos directly to S3 using presigned URLs
@@ -649,24 +724,25 @@ export async function UploadPhotosToS3(
   token: string,
   tourUuid: string,
   files: SelectedFiles[],
-  onProgress?: (uploadId: string, progress: number) => void
+  onProgress?: (uploadId: string, progress: number) => void,
 ) {
   try {
     // Step 1: Request presigned URLs
     const presignedRequest = {
-      entity_type: 'tour' as const,
+      entity_type: "tour" as const,
       entity_id: tourUuid,
-      files: files.map(f => ({
+      files: files.map((f) => ({
         filename: f.file.name,
         content_type: f.file.type,
         size: f.file.size,
       })),
     };
 
-    const presignedResponse = await S3UploadService.getPresignedUrls(presignedRequest);
+    const presignedResponse =
+      await S3UploadService.getPresignedUrls(presignedRequest);
 
     if (!presignedResponse.success || !presignedResponse.data.uploads) {
-      throw new Error('Failed to get presigned URLs');
+      throw new Error("Failed to get presigned URLs");
     }
 
     const uploads = presignedResponse.data.uploads;
@@ -686,7 +762,7 @@ export async function UploadPhotosToS3(
           if (onProgress) {
             onProgress(upload.upload_id, progress);
           }
-        }
+        },
       );
 
       return {
@@ -703,7 +779,7 @@ export async function UploadPhotosToS3(
 
     // Step 3: Confirm uploads with backend
     const confirmResponse = await S3UploadService.confirmUpload({
-      entity_type: 'tour',
+      entity_type: "tour",
       entity_id: tourUuid,
       uploads: uploadedFiles.map((file, index) => ({
         ...file,
@@ -717,12 +793,12 @@ export async function UploadPhotosToS3(
     });
 
     if (!confirmResponse.success) {
-      throw new Error('Failed to confirm uploads');
+      throw new Error("Failed to confirm uploads");
     }
 
     return confirmResponse;
   } catch (error) {
-    console.error('S3 upload error:', error);
+    console.error("S3 upload error:", error);
     throw error;
   }
 }
@@ -735,12 +811,18 @@ export async function UploadTourToS3(
   token: string,
   orderUuid: string,
   files: SelectedFiles[],
-  links: { type: string; service_id: string; link: string; expiry_date?: string; uuid?: string }[],
+  links: {
+    type: string;
+    service_id: string;
+    link: string;
+    expiry_date?: string;
+    uuid?: string;
+  }[],
   snapshots: DroppedMarker[],
   delay: number,
   transition: string,
   selectedAudioTrack: string,
-  onProgress?: (uploadId: string, progress: number) => void
+  onProgress?: (uploadId: string, progress: number) => void,
 ) {
   try {
     // Step 1: Upload files to S3 if there are any
@@ -755,19 +837,20 @@ export async function UploadTourToS3(
 
     if (files.length > 0) {
       const presignedRequest = {
-        entity_type: 'order' as const,
+        entity_type: "order" as const,
         entity_id: orderUuid,
-        files: files.map(f => ({
+        files: files.map((f) => ({
           filename: f.file.name,
           content_type: f.file.type,
           size: f.file.size,
         })),
       };
 
-      const presignedResponse = await S3UploadService.getPresignedUrls(presignedRequest);
+      const presignedResponse =
+        await S3UploadService.getPresignedUrls(presignedRequest);
 
       if (!presignedResponse.success || !presignedResponse.data.uploads) {
-        throw new Error('Failed to get presigned URLs');
+        throw new Error("Failed to get presigned URLs");
       }
 
       const uploads = presignedResponse.data.uploads;
@@ -787,7 +870,7 @@ export async function UploadTourToS3(
             if (onProgress) {
               onProgress(upload.upload_id, progress);
             }
-          }
+          },
         );
 
         return {
@@ -805,7 +888,7 @@ export async function UploadTourToS3(
 
     // Step 2: Confirm uploads with backend and include metadata
     const confirmResponse = await S3UploadService.confirmUpload({
-      entity_type: 'order',
+      entity_type: "order",
       entity_id: orderUuid,
       uploads: uploadedFiles.map((file, index) => ({
         ...file,
@@ -819,7 +902,7 @@ export async function UploadTourToS3(
     });
 
     if (!confirmResponse.success) {
-      throw new Error('Failed to confirm uploads');
+      throw new Error("Failed to confirm uploads");
     }
 
     // Step 3: Send additional metadata (links, snapshots, slideshow settings)
@@ -827,14 +910,14 @@ export async function UploadTourToS3(
     const API_URL = process.env.NEXT_PUBLIC_API_URL;
     const metadataPayload = {
       order_id: orderUuid,
-      links: links.map(link => ({
+      links: links.map((link) => ({
         type: link.type,
         service_id: link.service_id,
         link: link.link,
         expiry_date: link.expiry_date,
         uuid: link.uuid,
       })),
-      snapshots: snapshots.map(snap => ({
+      snapshots: snapshots.map((snap) => ({
         name: snap.name,
         file_name: snap.floorImageUrl,
         description: snap.description,
@@ -844,33 +927,32 @@ export async function UploadTourToS3(
       slide_show: {
         slide_delay: delay,
         transitions: transition,
-        background_audio: selectedAudioTrack || 'none',
+        background_audio: selectedAudioTrack || "none",
         auto_play: 0,
         video_overlay: 0,
       },
     };
 
     const metadataResponse = await fetch(`${API_URL}/tours/metadata`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(metadataPayload),
     });
 
     if (!metadataResponse.ok) {
       const error = await metadataResponse.json().catch(() => ({}));
-      throw new Error(error.message || 'Failed to save tour metadata');
+      throw new Error(error.message || "Failed to save tour metadata");
     }
 
     return confirmResponse;
   } catch (error) {
-    console.error('S3 tour upload error:', error);
+    console.error("S3 tour upload error:", error);
     throw error;
   }
 }
-
 
 import { api } from "@/lib/api";
 import {
@@ -887,9 +969,43 @@ import {
 
 export class FeatureSheetService {
   private apiBaseUrl: string;
+  private storageBaseUrl: string;
 
   constructor(apiBaseUrl: string = "/api") {
     this.apiBaseUrl = apiBaseUrl;
+    // Use FILES_API_URL for storage, fallback to API_URL if not set
+    this.storageBaseUrl =
+      process.env.NEXT_PUBLIC_FILES_API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "";
+  }
+
+  /**
+   * Build full storage URL from relative path
+   * Handles both relative paths (feature-sheets/xxx/xxx.jpeg) and full URLs
+   */
+  public buildStorageUrl(path: string | null | undefined): string | null {
+    if (!path) return null;
+
+    // Already a full URL (http/https or blob URL)
+    if (
+      path.startsWith("http://") ||
+      path.startsWith("https://") ||
+      path.startsWith("blob:") ||
+      path.startsWith("data:")
+    ) {
+      return path;
+    }
+
+    // Remove leading slash if present
+    const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+
+    // Build full URL: storageBaseUrl/path
+    // The storageBaseUrl already includes /storage if needed
+    const baseUrl = this.storageBaseUrl.endsWith("/")
+      ? this.storageBaseUrl.slice(0, -1)
+      : this.storageBaseUrl;
+    return `${baseUrl}/${cleanPath}`;
   }
 
   /**
@@ -925,7 +1041,7 @@ export class FeatureSheetService {
     fontWeight: string | number,
     color?: string,
     textAlign?: "left" | "center" | "right",
-    fontFamily: string = "Alexandria"
+    fontFamily: string = "Alexandria",
   ): StyledTextField {
     return {
       value,
@@ -940,8 +1056,8 @@ export class FeatureSheetService {
   }
 
   /**
- * Build feature sheet payload from component state
- */
+   * Build feature sheet payload from component state
+   */
   async buildPayload(params: {
     // Metadata (now at root level)
     orderUuid: string;
@@ -1010,7 +1126,7 @@ export class FeatureSheetService {
         "80px",
         "300",
         "#F2F2F2",
-        "right"
+        "right",
       );
     }
 
@@ -1019,7 +1135,7 @@ export class FeatureSheetService {
         params.realtorTitle,
         "16px",
         "400",
-        "#F2F2F2"
+        "#F2F2F2",
       );
     }
 
@@ -1028,7 +1144,7 @@ export class FeatureSheetService {
         params.realtorName,
         "16px",
         "400",
-        "#F2F2F2"
+        "#F2F2F2",
       );
     }
 
@@ -1037,7 +1153,7 @@ export class FeatureSheetService {
         params.companyName,
         "16px",
         "400",
-        "#F2F2F2"
+        "#F2F2F2",
       );
     }
 
@@ -1046,7 +1162,7 @@ export class FeatureSheetService {
         params.propertyNotesTitle,
         "36px",
         "600",
-        "#4290E9"
+        "#4290E9",
       );
     }
 
@@ -1055,7 +1171,7 @@ export class FeatureSheetService {
         params.propertyNotesDescription,
         "20px",
         "400",
-        "#4290E9"
+        "#4290E9",
       );
     }
 
@@ -1064,7 +1180,7 @@ export class FeatureSheetService {
         params.expandedDetail1Title,
         "36px",
         "600",
-        "#4290E9"
+        "#4290E9",
       );
     }
 
@@ -1073,7 +1189,7 @@ export class FeatureSheetService {
         params.expandedDetail1Description,
         "20px",
         "400",
-        "#4290E9"
+        "#4290E9",
       );
     }
 
@@ -1082,7 +1198,7 @@ export class FeatureSheetService {
         params.expandedDetail2Title,
         "36px",
         "600",
-        "#4290E9"
+        "#4290E9",
       );
     }
 
@@ -1091,7 +1207,7 @@ export class FeatureSheetService {
         params.expandedDetail2Description,
         "20px",
         "400",
-        "#4290E9"
+        "#4290E9",
       );
     }
 
@@ -1100,7 +1216,7 @@ export class FeatureSheetService {
         params.keyHighlightLabel,
         "36px",
         "600",
-        "#4290E9"
+        "#4290E9",
       );
     }
 
@@ -1131,7 +1247,7 @@ export class FeatureSheetService {
       payload.content.emailLink = this.buildStyledTextField(
         params.emailLink,
         "14px",
-        "400"
+        "400",
       );
     }
 
@@ -1139,7 +1255,7 @@ export class FeatureSheetService {
       payload.content.linkedinLink = this.buildStyledTextField(
         params.linkedinLink,
         "14px",
-        "400"
+        "400",
       );
     }
 
@@ -1147,33 +1263,71 @@ export class FeatureSheetService {
       payload.content.phoneNumber = this.buildStyledTextField(
         params.phoneNumber,
         "14px",
-        "400"
+        "400",
       );
     }
 
     if (params.contactLabel) {
-      payload.content.contactLabel = this.buildStyledTextField(params.contactLabel, "16px", "400", "#F2F2F2");
+      payload.content.contactLabel = this.buildStyledTextField(
+        params.contactLabel,
+        "16px",
+        "400",
+        "#F2F2F2",
+      );
     }
     if (params.contactInfo) {
-      payload.content.contactInfo = this.buildStyledTextField(params.contactInfo, "16px", "400", "#F2F2F2");
+      payload.content.contactInfo = this.buildStyledTextField(
+        params.contactInfo,
+        "16px",
+        "400",
+        "#F2F2F2",
+      );
     }
     if (params.ctaText) {
-      payload.content.ctaText = this.buildStyledTextField(params.ctaText, "16px", "400", "#F2F2F2");
+      payload.content.ctaText = this.buildStyledTextField(
+        params.ctaText,
+        "16px",
+        "400",
+        "#F2F2F2",
+      );
     }
     if (params.expandedDetail3Title) {
-      payload.content.expandedDetail3Title = this.buildStyledTextField(params.expandedDetail3Title, "36px", "600", "#4290E9");
+      payload.content.expandedDetail3Title = this.buildStyledTextField(
+        params.expandedDetail3Title,
+        "36px",
+        "600",
+        "#4290E9",
+      );
     }
     if (params.expandedDetail3Description) {
-      payload.content.expandedDetail3Description = this.buildStyledTextField(params.expandedDetail3Description, "20px", "400", "#4290E9");
+      payload.content.expandedDetail3Description = this.buildStyledTextField(
+        params.expandedDetail3Description,
+        "20px",
+        "400",
+        "#4290E9",
+      );
     }
     if (params.expandedDetail4Title) {
-      payload.content.expandedDetail4Title = this.buildStyledTextField(params.expandedDetail4Title, "36px", "600", "#4290E9");
+      payload.content.expandedDetail4Title = this.buildStyledTextField(
+        params.expandedDetail4Title,
+        "36px",
+        "600",
+        "#4290E9",
+      );
     }
     if (params.expandedDetail4Description) {
-      payload.content.expandedDetail4Description = this.buildStyledTextField(params.expandedDetail4Description, "20px", "400", "#4290E9");
+      payload.content.expandedDetail4Description = this.buildStyledTextField(
+        params.expandedDetail4Description,
+        "20px",
+        "400",
+        "#4290E9",
+      );
     }
     if (params.otherDetails) {
-      payload.content.otherDetails = params.otherDetails as unknown as (StyledTextField | StyledKeyHighlights | StyledHighlights);
+      payload.content.otherDetails = params.otherDetails as unknown as
+        | StyledTextField
+        | StyledKeyHighlights
+        | StyledHighlights;
     }
 
     // Build images section
@@ -1277,11 +1431,13 @@ export class FeatureSheetService {
     return payload;
   }
 
-
   async uploadFeatureSheet(
-    payload: FeatureSheetPayload
+    payload: FeatureSheetPayload,
   ): Promise<FeatureSheetResponse> {
-    const response = await api.post(`${process.env.NEXT_PUBLIC_API_URL}/feature-sheets`, payload);
+    const response = await api.post(
+      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets`,
+      payload,
+    );
 
     if (response.status !== 200 && response.status !== 201) {
       throw new Error("Failed to upload feature sheet");
@@ -1292,9 +1448,12 @@ export class FeatureSheetService {
 
   async updateFeatureSheet(
     uuid: string,
-    payload: FeatureSheetPayload
+    payload: FeatureSheetPayload,
   ): Promise<FeatureSheetResponse> {
-    const response = await api.put(`${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/${uuid}`, payload);
+    const response = await api.put(
+      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/${uuid}`,
+      payload,
+    );
 
     if (response.status !== 200 && response.status !== 204) {
       throw new Error("Failed to update feature sheet");
@@ -1303,9 +1462,10 @@ export class FeatureSheetService {
     return response.data;
   }
 
-
   async getFeatureSheet(uuid: string): Promise<FeatureSheetResponse> {
-    const response = await api.get(`${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/${uuid}`);
+    const response = await api.get(
+      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/${uuid}`,
+    );
 
     if (response.status !== 200) {
       throw new Error("Failed to fetch feature sheet");
@@ -1314,9 +1474,12 @@ export class FeatureSheetService {
     return response.data;
   }
 
-
-  async getFeatureSheetsByOrder(orderUuid: string): Promise<FeatureSheetResponse[]> {
-    const response = await api.get(`${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/order/${orderUuid}`);
+  async getFeatureSheetsByOrder(
+    orderUuid: string,
+  ): Promise<FeatureSheetResponse[]> {
+    const response = await api.get(
+      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/order/${orderUuid}`,
+    );
 
     if (response.status !== 200) {
       throw new Error("Failed to fetch feature sheets for order");
@@ -1331,7 +1494,9 @@ export class FeatureSheetService {
    */
   parsePayloadToState(payload: FeatureSheetResponse): FeatureSheetState {
     // Separate property images for indexing
-    const propertyImages = payload.images.filter(img => img.slot === "property" || img.slot?.startsWith("image"));
+    const propertyImages = payload.images.filter(
+      (img) => img.slot === "property" || img.slot?.startsWith("image"),
+    );
 
     return {
       // Metadata
@@ -1351,81 +1516,136 @@ export class FeatureSheetService {
       realtorName: payload.content.realtorName?.value || "",
       companyName: payload.content.companyName?.value || "",
       propertyNotesTitle: payload.content.propertyNotesTitle?.value || "",
-      propertyNotesDescription: payload.content.propertyNotesDescription?.value || "",
-      expandedDetail1Title: payload.content.expandedDetail1Title?.value || "Site Influences",
-      expandedDetail1Description: (payload.content.expandedDetail1Description?.value || payload.content.expandedDetail1?.value || "") as string,
-      expandedDetail2Title: (payload.content.expandedDetail2Title?.value || "Gross Taxes") as string,
-      expandedDetail2Description: (payload.content.expandedDetail2Description?.value || payload.content.expandedDetail2?.value || "") as string,
-      keyHighlightLabel: payload.content.keyHighlightLabel?.value || "Features Included",
+      propertyNotesDescription:
+        payload.content.propertyNotesDescription?.value || "",
+      expandedDetail1Title:
+        payload.content.expandedDetail1Title?.value || "Site Influences",
+      expandedDetail1Description: (payload.content.expandedDetail1Description
+        ?.value ||
+        payload.content.expandedDetail1?.value ||
+        "") as string,
+      expandedDetail2Title: (payload.content.expandedDetail2Title?.value ||
+        "Gross Taxes") as string,
+      expandedDetail2Description: (payload.content.expandedDetail2Description
+        ?.value ||
+        payload.content.expandedDetail2?.value ||
+        "") as string,
+      keyHighlightLabel:
+        payload.content.keyHighlightLabel?.value || "Features Included",
       keyHighlights: payload.content.keyHighlights?.value || [],
       highlights: payload.content.highlights?.value || [],
       emailLink: (payload.content.emailLink as StyledTextField)?.value || "",
-      linkedinLink: (payload.content.linkedinLink as StyledTextField)?.value || "",
-      phoneNumber: (payload.content.phoneNumber as StyledTextField)?.value || "",
-      contactLabel: (payload.content.contactLabel as StyledTextField)?.value || "",
-      contactInfo: (payload.content.contactInfo as StyledTextField)?.value || "",
+      linkedinLink:
+        (payload.content.linkedinLink as StyledTextField)?.value || "",
+      phoneNumber:
+        (payload.content.phoneNumber as StyledTextField)?.value || "",
+      contactLabel:
+        (payload.content.contactLabel as StyledTextField)?.value || "",
+      contactInfo:
+        (payload.content.contactInfo as StyledTextField)?.value || "",
       ctaText: (payload.content.ctaText as StyledTextField)?.value || "",
-      amount: (payload.content.otherDetails as unknown as Record<string, unknown>)?.amount as string || "",
-      mlsNumber: (payload.content.otherDetails as unknown as Record<string, unknown>)?.mlsNumber as string || "",
+      amount:
+        ((payload.content.otherDetails as unknown as Record<string, unknown>)
+          ?.amount as string) || "",
+      mlsNumber:
+        ((payload.content.otherDetails as unknown as Record<string, unknown>)
+          ?.mlsNumber as string) || "",
       email: (payload.content.emailLink as StyledTextField)?.value || "",
       phone: (payload.content.phoneNumber as StyledTextField)?.value || "",
       linkedin: (payload.content.linkedinLink as StyledTextField)?.value || "",
-      expandedDetail3Title: (payload.content.expandedDetail3Title as StyledTextField)?.value || "",
-      expandedDetail3Description: (payload.content.expandedDetail3Description as StyledTextField)?.value || "",
-      expandedDetail4Title: (payload.content.expandedDetail4Title as StyledTextField)?.value || "",
-      expandedDetail4Description: (payload.content.expandedDetail4Description as StyledTextField)?.value || "",
-      otherDetails: (payload.content.otherDetails as unknown as Record<string, unknown>) || {},
+      expandedDetail3Title:
+        (payload.content.expandedDetail3Title as StyledTextField)?.value || "",
+      expandedDetail3Description:
+        (payload.content.expandedDetail3Description as StyledTextField)
+          ?.value || "",
+      expandedDetail4Title:
+        (payload.content.expandedDetail4Title as StyledTextField)?.value || "",
+      expandedDetail4Description:
+        (payload.content.expandedDetail4Description as StyledTextField)
+          ?.value || "",
+      otherDetails:
+        (payload.content.otherDetails as unknown as Record<string, unknown>) ||
+        {},
 
       // Mapped for BcfpStandard2 state
-      title: ((payload.content.offeredAtPrice as StyledTextField)?.value || "") as string,
-      subtitle: ((payload.content.realtorTitle as StyledTextField)?.value || "") as string,
-      fullName: ((payload.content.realtorName as StyledTextField)?.value || "") as string,
-      propertyName: ((payload.content.propertyNotesTitle as StyledTextField)?.value || "") as string,
-      description: ((payload.content.propertyNotesDescription as StyledTextField)?.value || "") as string,
-      siteInfluences: (payload.content.expandedDetail1Description?.value || payload.content.expandedDetail1?.value || "") as string,
-      grossTaxes: (payload.content.expandedDetail2Description?.value || payload.content.expandedDetail2?.value || "") as string,
-      featuresIncluded: (payload.content.keyHighlights?.value?.join("\n") || "") as string,
+      title: ((payload.content.offeredAtPrice as StyledTextField)?.value ||
+        "") as string,
+      subtitle: ((payload.content.realtorTitle as StyledTextField)?.value ||
+        "") as string,
+      fullName: ((payload.content.realtorName as StyledTextField)?.value ||
+        "") as string,
+      propertyName: ((payload.content.propertyNotesTitle as StyledTextField)
+        ?.value || "") as string,
+      description: ((
+        payload.content.propertyNotesDescription as StyledTextField
+      )?.value || "") as string,
+      siteInfluences: (payload.content.expandedDetail1Description?.value ||
+        payload.content.expandedDetail1?.value ||
+        "") as string,
+      grossTaxes: (payload.content.expandedDetail2Description?.value ||
+        payload.content.expandedDetail2?.value ||
+        "") as string,
+      featuresIncluded: (payload.content.keyHighlights?.value?.join("\n") ||
+        "") as string,
 
       // Images
-      images: payload.images.reduce((acc, img) => {
-        let slot = img.slot;
-        // Map generic "property" to "imageX" based on its position in propertyImages
-        if (slot === "property") {
-          const propIndex = propertyImages.findIndex(p => p.id === img.id || p.uuid === img.uuid);
-          if (propIndex !== -1) slot = `image${propIndex + 1}`;
-        }
+      images: payload.images.reduce(
+        (acc, img) => {
+          let slot = img.slot;
+          // Map generic "property" to "imageX" based on its position in propertyImages
+          if (slot === "property") {
+            const propIndex = propertyImages.findIndex(
+              (p) => p.id === img.id || p.uuid === img.uuid,
+            );
+            if (propIndex !== -1) slot = `image${propIndex + 1}`;
+          }
 
-        if (slot) {
-          acc[slot] = img.url || img.storage_path || img.file || img.file_path || null;
-        }
-        return acc;
-      }, {} as { [key: string]: string | null }),
+          if (slot) {
+            // Get the raw path and build full storage URL
+            const rawPath =
+              img.url || img.storage_path || img.file || img.file_path || null;
+            acc[slot] = this.buildStorageUrl(rawPath);
+          }
+          return acc;
+        },
+        {} as { [key: string]: string | null },
+      ),
 
-      imageScales: payload.images.reduce((acc, img) => {
-        let slot = img.slot;
-        if (slot === "property") {
-          const propIndex = propertyImages.findIndex(p => p.id === img.id || p.uuid === img.uuid);
-          if (propIndex !== -1) slot = `image${propIndex + 1}`;
-        }
+      imageScales: payload.images.reduce(
+        (acc, img) => {
+          let slot = img.slot;
+          if (slot === "property") {
+            const propIndex = propertyImages.findIndex(
+              (p) => p.id === img.id || p.uuid === img.uuid,
+            );
+            if (propIndex !== -1) slot = `image${propIndex + 1}`;
+          }
 
-        if (slot) {
-          acc[slot] = img.meta?.scale || 1;
-        }
-        return acc;
-      }, {} as { [key: string]: number }),
+          if (slot) {
+            acc[slot] = img.meta?.scale || 1;
+          }
+          return acc;
+        },
+        {} as { [key: string]: number },
+      ),
 
-      imagePositions: payload.images.reduce((acc, img) => {
-        let slot = img.slot;
-        if (slot === "property") {
-          const propIndex = propertyImages.findIndex(p => p.id === img.id || p.uuid === img.uuid);
-          if (propIndex !== -1) slot = `image${propIndex + 1}`;
-        }
+      imagePositions: payload.images.reduce(
+        (acc, img) => {
+          let slot = img.slot;
+          if (slot === "property") {
+            const propIndex = propertyImages.findIndex(
+              (p) => p.id === img.id || p.uuid === img.uuid,
+            );
+            if (propIndex !== -1) slot = `image${propIndex + 1}`;
+          }
 
-        if (slot) {
-          acc[slot] = img.meta?.position || { x: 0, y: 0 };
-        }
-        return acc;
-      }, {} as { [key: string]: ImagePosition }),
+          if (slot) {
+            acc[slot] = img.meta?.position || { x: 0, y: 0 };
+          }
+          return acc;
+        },
+        {} as { [key: string]: ImagePosition },
+      ),
     };
   }
 }
