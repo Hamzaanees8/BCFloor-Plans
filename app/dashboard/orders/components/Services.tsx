@@ -63,7 +63,8 @@ const Services = ({ showAll }: { showAll: boolean }) => {
         packagesData,
         activePackage,
         setActivePackage,
-        tempPropertyData
+        tempPropertyData,
+        setTempPropertyData
     } = useOrderContext();
 
     const { userType } = useAppContext()
@@ -181,21 +182,52 @@ const Services = ({ showAll }: { showAll: boolean }) => {
     return (
         <div className='px-[10px] flex flex-col gap-[15px] font-alexandria'>
 
-            <div className='flex gap-[12px] items-center mt-[42px] py-[15px]'>
-                {/* <label htmlFor="" className='text-[#666666] text-[14px] font-[500]'>Sort By</label> */}
-                {/* <Select
-                    value={selected}
-                    onValueChange={(value) => setSelected(value)}
-                >
-                    <SelectTrigger className="w-[280px] h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB]">
-                        <SelectValue className='text-[#7D7D7D]' />
-                    </SelectTrigger>
-                    <SelectContent >
-                        <SelectItem value="Alphabetically" >Alphabetically</SelectItem>
-                        <SelectItem value="By Service">By Service</SelectItem>
-                    </SelectContent>
-                </Select> */}
-            </div>
+            {!selectedListingId && (
+                <div className='flex gap-[12px] items-center mt-[42px] py-[15px]'>
+                    <div className='flex flex-col gap-2'>
+                        <label className='text-[14px] font-[500]' style={{ color: roleSettings.pageText }}>Square Footage</label>
+                        <input
+                            type="number"
+                            value={tempPropertyData?.square_footage || listingData?.square_footage || ''}
+                            onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                setTempPropertyData((prev) => {
+                                    if (!prev && !listingData) return {
+                                        square_footage: val,
+                                        // minimal required fields to satisfy type, though usually this would be populated
+                                        listing_price: 0,
+                                        mls_number: '',
+                                        bedrooms: 0,
+                                        bathrooms: 0,
+                                        agent_id: '',
+                                        lot_size: '',
+                                        year_constructed: 0,
+                                        parking_spots: 0,
+                                        property_type: '',
+                                        property_status: '',
+                                        heading: '',
+                                        description: '',
+                                        suite: '',
+                                        address: '',
+                                        city: '',
+                                        province: '',
+                                        postal_code: '',
+                                        country: '',
+                                    };
+
+                                    return {
+                                        ...prev!,
+                                        square_footage: val
+                                    };
+                                });
+                            }}
+                            className='w-[280px] h-[42px] px-3 border-[1px] border-[#BBBBBB] rounded-md focus:outline-none focus:ring-1 focus:ring-black'
+                            style={{ backgroundColor: fieldBg, color: roleSettings.pageText }}
+                            placeholder="Square Footage"
+                        />
+                    </div>
+                </div>
+            )}
 
             <div className='flex gap-5'>
                 {accordionDefaults.length > 0 && groupedByCategory ? (

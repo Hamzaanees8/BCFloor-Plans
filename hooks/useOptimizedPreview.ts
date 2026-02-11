@@ -1,0 +1,191 @@
+import { useEffect, useRef, useState } from 'react';
+
+interface OptimizedPreviewResult {
+    previewUrl: string | null;
+    isLoading: boolean;
+    error: boolean;
+}
+
+/**
+ * Custom hook to generate optimized previews for large files
+ * - Images: Downscales to ~300x300px and compresses as JPEG
+ * - Videos: Extracts first frame as thumbnail
+ * - Manages object URL lifecycle automatically
+ */
+export function useOptimizedPreview(file: File | null): OptimizedPreviewResult {
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(false);
+    const urlRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        if (!file) {
+            setPreviewUrl(null);
+            setIsLoading(false);
+            setError(false);
+            return;
+        }
+
+        // Cleanup previous URL
+        if (urlRef.current) {
+            URL.revokeObjectURL(urlRef.current);
+            urlRef.current = null;
+        }
+
+        // Handle video files - extract first frame as thumbnail
+        if (file.type.startsWith('video/')) {
+            setIsLoading(true);
+            setError(false);
+
+            const generateVideoThumbnail = async () => {
+                try {
+                    const video = document.createElement('video');
+                    const fileUrl = URL.createObjectURL(file);
+
+                    video.src = fileUrl;
+                    video.muted = true;
+                    video.playsInline = true;
+
+                    // Wait for metadata to load
+                    await new Promise<void>((resolve, reject) => {
+                        video.onloadedmetadata = () => resolve();
+                        video.onerror = () => reject(new Error('Failed to load video'));
+                    });
+
+                    // Seek to first frame
+                    video.currentTime = 0;
+
+                    // Wait for seek to complete
+                    await new Promise<void>((resolve) => {
+                        video.onseeked = () => resolve();
+                    });
+
+                    // Draw frame to canvas
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 300;
+                    canvas.height = 300;
+                    const ctx = canvas.getContext('2d');
+
+                    if (!ctx) {
+                        throw new Error('Failed to get canvas context');
+                    }
+
+                    // Calculate aspect ratio and draw centered
+                    const aspectRatio = video.videoWidth / video.videoHeight;
+                    let drawWidth = canvas.width;
+                    let drawHeight = canvas.height;
+                    let offsetX = 0;
+                    let offsetY = 0;
+
+                    if (aspectRatio > 1) {
+                        drawHeight = canvas.width / aspectRatio;
+                        offsetY = (canvas.height - drawHeight) / 2;
+                    } else {
+                        drawWidth = canvas.height * aspectRatio;
+                        offsetX = (canvas.width - drawWidth) / 2;
+                    }
+
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
+
+                    // Clean up video element and URL
+                    URL.revokeObjectURL(fileUrl);
+
+                    // Convert canvas to JPEG blob
+                    canvas.toBlob(
+                        (blob) => {
+                            if (blob) {
+                                const url = URL.createObjectURL(blob);
+                                urlRef.current = url;
+                                setPreviewUrl(url);
+                                setIsLoading(false);
+                            } else {
+                                setError(true);
+                                setIsLoading(false);
+                            }
+                        },
+                        'image/jpeg',
+                        0.6
+                    );
+                } catch (err) {
+                    console.error('Error generating video thumbnail:', err);
+                    setError(true);
+                    setIsLoading(false);
+                }
+            };
+
+            generateVideoThumbnail();
+            return;
+        }
+
+        // Handle image files - generate optimized preview
+        if (file.type.startsWith('image/')) {
+            setIsLoading(true);
+            setError(false);
+
+            const generateOptimizedPreview = async () => {
+                try {
+                    // Create downscaled bitmap
+                    const bitmap = await createImageBitmap(file, {
+                        resizeWidth: 300,
+                        resizeHeight: 300,
+                        resizeQuality: 'low',
+                    });
+
+                    // Draw to canvas
+                    const canvas = document.createElement('canvas');
+                    canvas.width = bitmap.width;
+                    canvas.height = bitmap.height;
+                    const ctx = canvas.getContext('2d');
+
+                    if (!ctx) {
+                        throw new Error('Failed to get canvas context');
+                    }
+
+                    ctx.drawImage(bitmap, 0, 0);
+                    bitmap.close();
+
+                    // Convert to compressed JPEG blob
+                    canvas.toBlob(
+                        (blob) => {
+                            if (blob) {
+                                const url = URL.createObjectURL(blob);
+                                urlRef.current = url;
+                                setPreviewUrl(url);
+                                setIsLoading(false);
+                            } else {
+                                setError(true);
+                                setIsLoading(false);
+                            }
+                        },
+                        'image/jpeg',
+                        0.6
+                    );
+                } catch (err) {
+                    console.error('Error generating optimized preview:', err);
+                    setError(true);
+                    setIsLoading(false);
+                }
+            };
+
+            generateOptimizedPreview();
+        } else {
+            // For non-image/non-video files (PDFs, etc.), use original file
+            const url = URL.createObjectURL(file);
+            urlRef.current = url;
+            setPreviewUrl(url);
+            setIsLoading(false);
+        }
+
+        // Cleanup on unmount or file change
+        return () => {
+            if (urlRef.current) {
+                URL.revokeObjectURL(urlRef.current);
+                urlRef.current = null;
+            }
+        };
+    }, [file]);
+
+    return { previewUrl, isLoading, error };
+}

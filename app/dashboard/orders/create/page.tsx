@@ -10,6 +10,7 @@ import Schedule from '@/app/dashboard/orders/components/Schedule';
 import Contact from '@/app/dashboard/orders/components/Contact';
 import Confirmation, { OrderConfirmationHandle } from '../components/Confirmation';
 import { useOrderContext } from '../context/OrderContext';
+import { useUnsaved } from '@/app/context/UnsavedContext';
 import { Order, OrderService, Slot as OrderSlot } from '../page';
 import { Get } from '../../agents/agents';
 import { GetServices, GetPackages } from '../../services/services';
@@ -97,6 +98,23 @@ const OrderForm = () => {
         tempPropertyData,
         selectedCurrentListing
     } = useOrderContext();
+    const { setIsDirty } = useUnsaved();
+
+    useEffect(() => {
+        const warningTabs = ['schedule', 'contact', 'order'];
+        if (warningTabs.includes(active) && !isSubmitted) {
+            setIsDirty(true, {
+                title: "Are you sure you want to leave?",
+                description: "your changes will not be saved"
+            });
+        } else {
+            setIsDirty(false);
+        }
+
+        return () => {
+            setIsDirty(false);
+        };
+    }, [active, isSubmitted, setIsDirty]);
 
     useEffect(() => {
         const token = localStorage.getItem("token");

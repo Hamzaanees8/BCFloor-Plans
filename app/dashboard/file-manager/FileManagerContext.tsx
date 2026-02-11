@@ -13,6 +13,7 @@ export type SelectedFiles = {
     is_deleted?: boolean;
 };
 import { FeatureSheetResponse } from './types/featureSheetTypes';
+import { Area } from './file-manager';
 type PreviewFile = {
     file: File;
     upload: boolean;
@@ -217,6 +218,9 @@ type FileManagerContextType = {
 
     changedFileUuids: Set<string>;
     setChangedFileUuids: Dispatch<SetStateAction<Set<string>>>;
+
+    area: Area[];
+    setArea: Dispatch<SetStateAction<Area[]>>;
 };
 
 const FileManagerContext = createContext<FileManagerContextType | undefined>(undefined);
@@ -238,6 +242,7 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
     const [filesData, setFilesData] = useState<FilesData | null>(null);
     const [featureSheets, setFeatureSheets] = useState<FeatureSheetResponse[]>([]);
     const [changedFileUuids, setChangedFileUuids] = useState<Set<string>>(new Set());
+    const [area, setArea] = useState<Area[]>([]);
 
 
     const [formData, setFormData] = useState<FormData>({
@@ -370,12 +375,14 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
         featureSheets,
         setFeatureSheets,
         changedFileUuids,
-        setChangedFileUuids
+        setChangedFileUuids,
+        area,
+        setArea
     }), [
         files, floorFiles, selectedFiles, links, brandedSelected, unBrandedSelected,
         previewFiles, selectedVideoFiles, droppedMarkers, delay, transition,
         audioUrl, selectedAudioTrack, formData, updateFormData, filesData,
-        featureSheets, changedFileUuids
+        featureSheets, changedFileUuids, area
     ]);
 
     return (

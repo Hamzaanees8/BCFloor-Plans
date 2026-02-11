@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Check, Plus } from "lucide-react";
+import { Check } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { CleanedProductOption } from "../../services/services";
 import { SelectedService } from "./Services";
@@ -152,7 +152,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
       className={`!w-[250px] h-fit border-2 rounded-[6px] px-2 py-4`}
       style={{
         backgroundColor: fieldBg,
-        borderColor: isSelected ? roleSettings.pageTabColor : fieldBorder,
+        borderColor: isSelected ? "#6BAE41" : fieldBorder,
         color: roleSettings.pageText
       }}
     >
@@ -200,23 +200,65 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                 }
               }}
               title={isPaid ? "Cannot modify - service has been paid" : ""}
-              style={{
-                backgroundColor: isSelected ? roleSettings.pageTabColor : `color-mix(in srgb, ${roleSettings.pageTabColor} 100%, black)`
-              }}
+              // style={{
+              //   backgroundColor: isSelected ? roleSettings.pageTabColor : `color-mix(in srgb, ${roleSettings.pageTabColor} 100%, black)`
+              // }}
               className={`
-                        p-1 w-6 h-6 flex justify-center items-center rounded-md
-                        ${isPaid ? "cursor-not-allowed opacity-70" : !selectedOption ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
-                        ${isSelected ? "bg-[#6BAE41]" : "bg-[#4290E9]"}
+                        p-1 w-6 h-6 flex justify-center items-center rounded-md border-[2px]
+                        ${isPaid ? "cursor-not-allowed opacity-100" : !selectedOption ? "cursor-not-allowed opacity-100" : "cursor-pointer"}
+                        ${isSelected ? "bg-[#6BAE41] border-[#6BAE41]" : "bg-transparent border-[#BBBBBB]"}
                       `}
             >
-              {isSelected ? (
+              {isSelected && (
                 <Check className="text-white w-4 h-4" />
-              ) : (
-                <Plus className="text-white w-4 h-4" />
               )}
             </div>
-            <div className="text-[16px] text-center" style={{ color: roleSettings.pageText }}><p>{title}</p></div>
-            <div className={`text-[20px] font-[500]`} style={{ color: isSelected ? roleSettings.pageTabColor : roleSettings.pageText }}>
+            <div
+              className={`text-[16px] flex-1 text-left select-none ${!selectedOption || isPaid ? "" : "cursor-pointer"}`}
+              style={{ color: roleSettings.pageText }}
+              onClick={() => {
+                if (isPaid) return;
+                if (!selectedOption) return;
+
+                let price: number | undefined = undefined;
+                let quantity: number | undefined = 1;
+                let option_id: string | undefined = undefined;
+                let custom: string | undefined = undefined;
+                let optionName: string;
+                if (selectedOption === "custom") {
+                  price = customPrice ? Number(customPrice) : undefined;
+                  quantity = 1;
+                  option_id = undefined;
+                  optionName = customServiceName;
+                  custom = customServiceName;
+                } else {
+                  const selectedOptionData = pricingOptions?.find(opt => opt.title === selectedOption);
+                  if (selectedOptionData?.sq_ft_rate && parseFloat(selectedOptionData.sq_ft_rate) > 0) {
+                    const calculated = parseFloat(selectedOptionData.sq_ft_rate) * squareFootage;
+                    price = selectedOptionData.min_price ? Math.max(calculated, selectedOptionData.min_price) : calculated;
+                  } else {
+                    price = selectedOptionData?.amount ?? undefined;
+                  }
+                  quantity = selectedOptionData?.quantity ?? 1;
+                  option_id = selectedOptionData?.uuid;
+                  optionName = selectedOptionData?.title || "";
+                }
+
+                if (setSelectedServices) {
+                  setSelectedServices(prev => {
+                    const alreadySelected = prev.some(item => item.uuid === service.uuid);
+                    if (alreadySelected) {
+                      return prev.filter(item => item.uuid !== service.uuid);
+                    } else {
+                      return [...prev, { title, uuid: service.uuid, price, quantity, option_id, custom, optionName, payment_status: 'UNPAID' }];
+                    }
+                  });
+                }
+              }}
+            >
+              <p>{title}</p>
+            </div>
+            <div className={`text-[20px] font-[500]`} style={{ color: isSelected ? "#6BAE41" : roleSettings.pageText }}>
               ${selectedPrice ? Number(selectedPrice).toFixed(2) : ''}
             </div>
 

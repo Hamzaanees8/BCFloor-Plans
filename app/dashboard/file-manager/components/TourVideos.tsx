@@ -3,6 +3,7 @@ import { useFileManagerContext } from "../FileManagerContext";
 import { Check, X } from 'lucide-react';
 
 import { useAppContext } from "@/app/context/AppContext";
+import { OptimizedImagePreview } from './OptimizedPreview';
 
 function TourVideos() {
     const { userType } = useAppContext();
@@ -25,7 +26,7 @@ function TourVideos() {
                 ? `${API_URL}/${currentServiceFiles[0].file_path}`
                 : undefined);
 
-    if (!currentServiceFiles || currentServiceFiles?.length === 0) {
+    if ((!currentServiceFiles || currentServiceFiles?.length === 0) && selectedVideoFiles.length === 0) {
         return (
             <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
                 <p>No Video found — please add Video or select a Video service.</p>
@@ -42,15 +43,15 @@ function TourVideos() {
                 />
 
             </div>
-            {(selectedVideoFiles.length > 0 && (currentServiceFiles?.length ?? 0)) && (
+            {(selectedVideoFiles.length > 0 || (currentServiceFiles?.length ?? 0) > 0) && (
                 <div className="mt-4 w-full grid grid-cols-3 gap-5 p-3">
                     {selectedVideoFiles.map((file, idx) => (
                         <div key={idx} onClick={() => setMainVideo(URL.createObjectURL(file.file))} className=" h-auto relative">
                             <div className="relative w-full h-[240px] cursor-pointer">
-                                <video
-                                    src={URL.createObjectURL(file.file)}
+                                <OptimizedImagePreview
+                                    file={file.file}
+                                    alt="Video thumbnail"
                                     className="w-full h-full object-cover"
-
                                 />
                                 <span
                                     className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}

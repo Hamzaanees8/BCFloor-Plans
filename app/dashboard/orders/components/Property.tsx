@@ -208,6 +208,9 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         setSelectedAgentId(id || "");
         setOpenAgent(false);
         setSearchValue("");
+        if (!id) {
+            setOpenAddAgentDialog(true);
+        }
     }, [clearSelections, setSelectedListingId, resetForm, setSelectedAgentId]);
 
     const handleAgentSelect = useCallback((id: string | null) => {
@@ -413,9 +416,16 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     }, [states, currentListing]);
 
     useEffect(() => {
-        const isValid = !!(address?.trim() && selectedAgentId);
+        const isValid = !!(
+            address?.trim() &&
+            selectedAgentId &&
+            (selectedListingId || Number(squareFootage) > 0) &&
+            city?.trim() &&
+            country &&
+            postalCode?.trim()
+        );
         setIsPropertyValid(isValid);
-    }, [address, squareFootage, selectedAgentId, setIsPropertyValid]);
+    }, [address, squareFootage, selectedAgentId, city, country, postalCode, setIsPropertyValid, selectedListingId]);
 
 
     //     useEffect(() => {
@@ -495,11 +505,63 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             setCountry(tempPropertyData.country || "CA");
         }
     }, [currentListing, tempPropertyData, selectedListingId]);
+    useEffect(() => {
+        if (!selectedListingId && (address || squareFootage)) {
+            const payload = {
+                listing_price: Number(listingPrice),
+                mls_number: mls,
+                bedrooms: Number(bedrooms),
+                bathrooms: Number(bathrooms),
+                agent_id: connectedAgent,
+                square_footage: Number(squareFootage),
+                lot_size: lotSize,
+                year_constructed: Number(yearConstructed || 1801),
+                parking_spots: Number(parkingSpots),
+                property_type: propertyType,
+                property_status: propertyStatus,
+                heading: heading,
+                description: description,
+                suite: suite,
+                address: address,
+                city: city,
+                province: province,
+                postal_code: postalCode,
+                country: country,
+            };
+            setTempPropertyData(payload);
+        }
+    }, [
+        selectedListingId, listingPrice, mls, bedrooms, bathrooms, connectedAgent,
+        squareFootage, lotSize, yearConstructed, parkingSpots, propertyType,
+        propertyStatus, heading, description, suite, address, city, province,
+        postalCode, country, setTempPropertyData
+    ]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!connectedAgent) {
             toast.error('Agent field is required. Please select an agent.');
+            return;
+        }
+        if (!address?.trim()) {
+            toast.error('Address is required.');
+            return;
+        }
+        if (!currentListing?.uuid && (!squareFootage || Number(squareFootage) <= 0)) {
+            toast.error('Square Footage is required and must be greater than 0.');
+            return;
+        }
+        if (!city?.trim()) {
+            toast.error('City is required.');
+            return;
+        }
+        if (!country) {
+            toast.error('Country is required.');
+            return;
+        }
+        if (!postalCode?.trim()) {
+            toast.error('Postal Code is required.');
             return;
         }
 
@@ -856,7 +918,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                 {selectedListing.address}, {selectedListing.city}
                                             </span>
                                         ) : (
-                                            "Select and Search Listings"
+                                            "Search and Select listings"
                                         )}
                                         <DropDownArrow stroke={roleSettings.pageText} />
                                     </button>
@@ -865,7 +927,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                 <PopoverContent className="w-[432px] p-0">
                                     <Command shouldFilter={false}>
                                         <CommandInput
-                                            placeholder="Search listing..."
+                                            placeholder="Search and Select previous listings..."
                                             value={listingSearchValue}
                                             onValueChange={(val) => {
                                                 setListingSearchValue(val);
@@ -955,8 +1017,24 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                         <div className='w-full  py-[16px] px-0 md:px-0 flex justify-center flex-col gap-[16px] text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>
 
                             <div className='grid grid-cols-4 gap-[16px]'>
+                                <div className="col-span-1">
+                                    <label htmlFor="">Square Footage <span className="text-red-500">*</span></label>
+                                    <Input
+                                        value={squareFootage}
+                                        onChange={(e) => setSquareFootage(e.target.value)}
+                                        placeholder="e.g 2230 sq. ft."
+                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                        style={{ backgroundColor: fieldBg }}
+                                        type="text"
+                                    />
+                                    {fieldErrors.square_footage && (
+                                        <p className="text-red-500 text-[10px]">
+                                            {fieldErrors.square_footage[0]}
+                                        </p>
+                                    )}
+                                </div>
                                 <div className="col-span-3">
-                                    <label htmlFor="">Address</label>
+                                    <label htmlFor="">Address <span className="text-red-500">*</span></label>
                                     <GooglePlacesAutocomplete
                                         mode="single"
                                         addressComponents={{
@@ -1000,7 +1078,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                 </div>
 
                                 <div className="col-span-1">
-                                    <label htmlFor="">City</label>
+                                    <label htmlFor="">City <span className="text-red-500">*</span></label>
                                     <Input
                                         value={city}
                                         onChange={(e) => setCity(e.target.value)}
@@ -1028,7 +1106,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                 </div>
 
                                 <div className="col-span-1">
-                                    <label htmlFor="">Postal Code</label>
+                                    <label htmlFor="">Postal Code <span className="text-red-500">*</span></label>
                                     <Input
                                         value={postalCode}
                                         onChange={(e) => setPostalCode(e.target.value)}
@@ -1041,7 +1119,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                 </div>
 
                                 <div className="col-span-1">
-                                    <label htmlFor="">Country</label>
+                                    <label htmlFor="">Country <span className="text-red-500">*</span></label>
                                     <div className="mt-[12px]">
                                         <SearchableSelect
                                             options={sortedCountries}
@@ -1057,17 +1135,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                     </div>
                                 </div>
 
-                                <div className="col-span-1">
-                                    <label htmlFor="">Square Footage</label>
-                                    <Input
-                                        value={squareFootage}
-                                        onChange={(e) => setSquareFootage(e.target.value)}
-                                        placeholder="e.g 2230 sq. ft."
-                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                        style={{ backgroundColor: fieldBg }}
-                                        type="text"
-                                    />
-                                </div>
+
 
                                 <div className='col-span-1'>
                                     <label htmlFor="">Connected Agents</label>
@@ -1321,13 +1389,13 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                     Cancel
                                 </button>
                                 <button
-                                    disabled={isLoading || !address?.trim() || !selectedAgentId}
+                                    disabled={isLoading || !address?.trim() || !selectedAgentId || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim()}
                                     onClick={(e) => { handleSubmit(e) }}
                                     className={`w-full rounded-sm md:w-[176px] h-[40px] font-[400] text-[20px] flex items-center justify-center gap-2 text-white transition-all
-                                        ${(isLoading || !address?.trim() || !selectedAgentId)
+                                        ${(isLoading || !address?.trim() || !selectedAgentId || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim())
                                             ? 'bg-gray-400 cursor-not-allowed'
                                             : ''}`}
-                                    style={{ backgroundColor: (isLoading || !address?.trim() || !selectedAgentId) ? undefined : roleSettings.pageTabColor }}
+                                    style={{ backgroundColor: (isLoading || !address?.trim() || !selectedAgentId || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim()) ? undefined : roleSettings.pageTabColor }}
                                 >
                                     {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Next"}
                                 </button>

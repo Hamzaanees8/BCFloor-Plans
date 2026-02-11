@@ -64,6 +64,7 @@ const Contact = () => {
     const [editingNote, setEditingNote] = useState<AgentNote | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const [showSignIn, setShowSignIn] = useState(false);
+    const [inlineNote, setInlineNote] = useState('');
 
 
     const token = localStorage.getItem('token')
@@ -318,6 +319,24 @@ const Contact = () => {
             setTempNotes('');
             setEditingNote(null);
             setOpenAddNotesDialog(false);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (inlineNote.trim()) {
+                setAgentNotes(prev => [
+                    ...prev,
+                    {
+                        note: inlineNote.trim(),
+                        name: userName,
+                        date: new Date(),
+                        internal: activeTab === "appointment" ? "false" : "true"
+                    }
+                ]);
+                setInlineNote('');
+            }
         }
     };
     const handleCloseNotesDialog = () => {
@@ -618,9 +637,10 @@ const Contact = () => {
                                     {filteredNotes.length === 0 ? (
                                         <textarea
                                             className="w-full min-h-[150px] p-3 rounded-[6px] bg-[#E4E4E4] border-[1px] sidebar-scroll border-[#BBBBBB] resize-none overflow-y-auto"
-                                            disabled
-                                            placeholder="No notes yet..."
-                                            value=""
+                                            placeholder="Write a note and press Enter to save..."
+                                            value={inlineNote}
+                                            onChange={(e) => setInlineNote(e.target.value)}
+                                            onKeyDown={handleKeyDown}
                                         />
                                     ) : (
                                         filteredNotes.map((note, index) => (

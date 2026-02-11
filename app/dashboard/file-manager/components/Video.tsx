@@ -19,6 +19,7 @@ import AgentNotificationModal from './AgentNotificationModal';
 import DownloadModal from './DownloadModal';
 import PhotoPreviewModal from './PhotoPreviewModal';
 import { DownloadFile, ServiceCompletion } from '../file-manager';
+import { OptimizedImagePreview } from './OptimizedPreview';
 
 
 function Video({ currentService, orderData, isListing, reviewFilesEnabled }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean }) {
@@ -374,9 +375,10 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled }: { c
                                             style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
                                         >
                                             <div className="relative w-full h-[240px]">
-                                                <video
-                                                    src={URL.createObjectURL(file.file)}
-                                                    className={`w-full h-full object-cover transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''}`}
+                                                <OptimizedImagePreview
+                                                    file={file.file}
+                                                    alt="Video thumbnail"
+                                                    className={`w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''}`}
                                                     onClick={() => !file.is_deleted && handleVideoClick(URL.createObjectURL(file.file), file)}
                                                 />
                                                 {file.is_deleted && (
@@ -483,144 +485,146 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled }: { c
                         </AccordionItem>
                     )}
 
-                    <AccordionItem value="saved">
-                        <AccordionTrigger className={`text-lg font-semibold uppercase ${userType}-text px-4`}>Saved Videos</AccordionTrigger>
-                        <AccordionContent>
-                            {(currentServiceFiles?.length ?? 0) > 0 ? (
-                                <div
-                                    className="w-full grid grid-cols-4 gap-2 p-3"
-                                    style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
-                                >
-                                    {currentServiceFiles?.map((file, idx) => (
-                                        <div
-                                            key={idx}
-                                            className="h-auto relative group"
-                                            style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
-                                        >
-                                            <div className="relative w-full h-[240px]">
-                                                <video
-                                                    src={`${API_URL}/${file.file_path}`}
-                                                    className={`w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
-                                                    onClick={() => handleVideoClick(`${API_URL}/${file.file_path}`, file)}
-                                                />
-                                                {userType === 'admin' && reviewFilesEnabled && (
-                                                    <div
-                                                        className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setFilesData(prev => {
-                                                                if (!prev) return prev;
-                                                                return {
-                                                                    ...prev,
-                                                                    files: prev.files.map(f => {
-                                                                        if (f.uuid === file.uuid) {
-                                                                            setChangedFileUuids(prevSet => {
-                                                                                const newSet = new Set(prevSet);
-                                                                                newSet.add(f.uuid);
-                                                                                return newSet;
-                                                                            });
-                                                                            return { ...f, is_admin_approved: !f.is_admin_approved };
-                                                                        }
-                                                                        return f;
-                                                                    })
-                                                                };
-                                                            });
-                                                        }}
-                                                    >
-                                                        <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                                            {file.is_admin_approved && <Check color="white" size={12} />}
-                                                        </div>
-                                                        <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
-                                                    </div>
-                                                )}
-
-                                                {userType === 'agent' && (
-                                                    <div
-                                                        className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setFilesData(prev => {
-                                                                if (!prev) return prev;
-                                                                return {
-                                                                    ...prev,
-                                                                    files: prev.files.map(f => {
-                                                                        if (f.uuid === file.uuid) {
-                                                                            setChangedFileUuids(prevSet => {
-                                                                                const newSet = new Set(prevSet);
-                                                                                newSet.add(f.uuid);
-                                                                                return newSet;
-                                                                            });
-                                                                            return { ...f, is_agent_approved: !f.is_agent_approved };
-                                                                        }
-                                                                        return f;
-                                                                    })
-                                                                };
-                                                            });
-                                                        }}
-                                                    >
-                                                        <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                                            {file.is_agent_approved && <Check color="white" size={12} />}
-                                                        </div>
-                                                        <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
-                                                    </div>
-                                                )}
-                                                {userType !== 'agent' && (
-                                                    <span
-                                                        className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
-                                                        style={{
-                                                            clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                                            backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
-                                                        }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setFilesData(prev => {
-                                                                if (!prev) return prev;
-                                                                return {
-                                                                    ...prev,
-                                                                    files: prev.files.map(f => {
-                                                                        if (f.uuid === file.uuid) {
-                                                                            setChangedFileUuids(prevSet => {
-                                                                                const newSet = new Set(prevSet);
-                                                                                newSet.add(f.uuid);
-                                                                                return newSet;
-                                                                            });
-                                                                            return { ...f, is_show: f.is_show === false ? true : false };
-                                                                        }
-                                                                        return f;
-                                                                    })
-                                                                };
-                                                            });
-                                                        }}
-                                                    >
-                                                        {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
-                                                    </span>
-                                                )}
-                                            </div>
+                    {(currentServiceFiles?.length ?? 0) > 0 && (
+                        <AccordionItem value="saved">
+                            <AccordionTrigger className={`text-lg font-semibold uppercase ${userType}-text px-4`}>Saved Videos</AccordionTrigger>
+                            <AccordionContent>
+                                {(currentServiceFiles?.length ?? 0) > 0 ? (
+                                    <div
+                                        className="w-full grid grid-cols-4 gap-2 p-3"
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
+                                    >
+                                        {currentServiceFiles?.map((file, idx) => (
                                             <div
-                                                className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 text-[9px]'
+                                                key={idx}
+                                                className="h-auto relative group"
                                                 style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
                                             >
-                                                <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{file.name}</p>
-                                                <div className='col-span-2 flex items-center justify-between'>
-                                                    <p className='text-[#8E8E8E] mt-1'>{file.group || "Exterior"} ({idx + 1} of {currentServiceFiles?.length || 0})</p>
-                                                    {userType === 'agent' && currentBookedService?.payment_status === "PAID" &&
-                                                        <span
-                                                            onClick={() => handledownloadFile(file.uuid, file.name)}
-                                                            className="flex w-[24px] h-[24px] cursor-pointer hover:bg-gray-300"
+                                                <div className="relative w-full h-[240px]">
+                                                    <video
+                                                        src={`${API_URL}/${file.file_path}`}
+                                                        className={`w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                                        onClick={() => handleVideoClick(`${API_URL}/${file.file_path}`, file)}
+                                                    />
+                                                    {userType === 'admin' && reviewFilesEnabled && (
+                                                        <div
+                                                            className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setFilesData(prev => {
+                                                                    if (!prev) return prev;
+                                                                    return {
+                                                                        ...prev,
+                                                                        files: prev.files.map(f => {
+                                                                            if (f.uuid === file.uuid) {
+                                                                                setChangedFileUuids(prevSet => {
+                                                                                    const newSet = new Set(prevSet);
+                                                                                    newSet.add(f.uuid);
+                                                                                    return newSet;
+                                                                                });
+                                                                                return { ...f, is_admin_approved: !f.is_admin_approved };
+                                                                            }
+                                                                            return f;
+                                                                        })
+                                                                    };
+                                                                });
+                                                            }}
                                                         >
-                                                            <DownloadIcon width="24px" height="24px" fill="#6BAE41" />
+                                                            <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                                                {file.is_admin_approved && <Check color="white" size={12} />}
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
+                                                        </div>
+                                                    )}
+
+                                                    {userType === 'agent' && (
+                                                        <div
+                                                            className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setFilesData(prev => {
+                                                                    if (!prev) return prev;
+                                                                    return {
+                                                                        ...prev,
+                                                                        files: prev.files.map(f => {
+                                                                            if (f.uuid === file.uuid) {
+                                                                                setChangedFileUuids(prevSet => {
+                                                                                    const newSet = new Set(prevSet);
+                                                                                    newSet.add(f.uuid);
+                                                                                    return newSet;
+                                                                                });
+                                                                                return { ...f, is_agent_approved: !f.is_agent_approved };
+                                                                            }
+                                                                            return f;
+                                                                        })
+                                                                    };
+                                                                });
+                                                            }}
+                                                        >
+                                                            <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                                                {file.is_agent_approved && <Check color="white" size={12} />}
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
+                                                        </div>
+                                                    )}
+                                                    {userType !== 'agent' && (
+                                                        <span
+                                                            className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
+                                                            style={{
+                                                                clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
+                                                                backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
+                                                            }}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setFilesData(prev => {
+                                                                    if (!prev) return prev;
+                                                                    return {
+                                                                        ...prev,
+                                                                        files: prev.files.map(f => {
+                                                                            if (f.uuid === file.uuid) {
+                                                                                setChangedFileUuids(prevSet => {
+                                                                                    const newSet = new Set(prevSet);
+                                                                                    newSet.add(f.uuid);
+                                                                                    return newSet;
+                                                                                });
+                                                                                return { ...f, is_show: f.is_show === false ? true : false };
+                                                                            }
+                                                                            return f;
+                                                                        })
+                                                                    };
+                                                                });
+                                                            }}
+                                                        >
+                                                            {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
                                                         </span>
-                                                    }
+                                                    )}
+                                                </div>
+                                                <div
+                                                    className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 text-[9px]'
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
+                                                >
+                                                    <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{file.name}</p>
+                                                    <div className='col-span-2 flex items-center justify-between'>
+                                                        <p className='text-[#8E8E8E] mt-1'>{file.group || "Exterior"} ({idx + 1} of {currentServiceFiles?.length || 0})</p>
+                                                        {userType === 'agent' && currentBookedService?.payment_status === "PAID" &&
+                                                            <span
+                                                                onClick={() => handledownloadFile(file.uuid, file.name)}
+                                                                className="flex w-[24px] h-[24px] cursor-pointer hover:bg-gray-300"
+                                                            >
+                                                                <DownloadIcon width="24px" height="24px" fill="#6BAE41" />
+                                                            </span>
+                                                        }
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="p-4 text-center text-gray-500">No saved videos found.</div>
-                            )}
-                        </AccordionContent>
-                    </AccordionItem>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-4 text-center text-gray-500">No saved videos found.</div>
+                                )}
+                            </AccordionContent>
+                        </AccordionItem>
+                    )}
                 </Accordion>
 
                 {userType !== 'agent' && (

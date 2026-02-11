@@ -21,8 +21,8 @@ import CustomSlideshow from "./CustomPreview";
 import { Label } from "@/components/ui/label";
 import { Order } from "../../orders/page";
 import { DownloadFile } from "../file-manager";
-
 import { useAppContext } from "@/app/context/AppContext";
+import { OptimizedImagePreview } from "./OptimizedPreview";
 
 function TourPicture({ orderData }: { orderData: Order | null }) {
   const { userType } = useAppContext();
@@ -126,9 +126,8 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                   {selectedFiles?.map((file, idx) => (
                     <div key={idx} className="bg-[#BBBBBB] h-auto relative">
                       <div className="relative w-full h-[240px]">
-                        {/* eslint-disable @next/next/no-img-element */}
-                        <img
-                          src={URL.createObjectURL(file.file)}
+                        <OptimizedImagePreview
+                          file={file.file}
                           alt="preview"
                           className="w-full h-full object-cover"
                         />

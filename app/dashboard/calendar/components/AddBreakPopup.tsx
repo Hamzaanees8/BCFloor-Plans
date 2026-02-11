@@ -140,6 +140,28 @@ type Vendor = {
         address?: string;
 
     }[]
+    order_slots?: {
+        id: number;
+        uuid: string;
+        order_id: number;
+        service_id: number;
+        vendor_id: number;
+        show_all_vendors: boolean;
+        schedule_override: boolean;
+        recommend_time: boolean;
+        travel: null | unknown;
+        created_at: string;
+        updated_at: string;
+        start_time: string;
+        end_time: string;
+        est_time: string;
+        distance: string;
+        km_price: null | number | string;
+        address: string;
+        location: string;
+        date: string;
+        google_event_id: null | string;
+    }[];
 };
 
 
@@ -171,6 +193,17 @@ export default function AddBreakPopup({
     });
     const [openCombobox, setOpenCombobox] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+
+    type ValidationErrors = {
+        title?: boolean;
+        vendor?: boolean;
+        fromDate?: boolean;
+        fromTime?: boolean;
+        toDate?: boolean;
+        toTime?: boolean;
+        address?: boolean;
+    };
+    const [errors, setErrors] = useState<ValidationErrors>({});
 
     const handleAddressChange = (value: string) => {
         setAddress(value);
@@ -313,9 +346,15 @@ export default function AddBreakPopup({
             setFromTime('09:00');
             setToTime('10:00');
 
-            if (userType === 'vendor') {
-                const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-                const vendor = vendorData.find(v => v.uuid === userInfo.uuid) || null;
+            if (userType === 'vendor' || (popupType === 'hide' && vendorData.length > 0)) {
+                let vendor = null;
+                if (userType === 'vendor') {
+                    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+                    vendor = vendorData.find(v => v.uuid === userInfo.uuid) || null;
+                } else {
+                    vendor = vendorData[0];
+                }
+
                 setSelectedVendor(vendor);
                 if (vendor?.addresses?.[0]) {
                     const addr = `${vendor.addresses[0].address_line_1 || ''}, ${vendor.addresses[0].city || ''}, ${vendor.addresses[0].province || ''}, ${vendor.addresses[0].country || ''}`.trim();
@@ -364,6 +403,8 @@ export default function AddBreakPopup({
                 vendor.company?.vendor_id === updatedBreak.vendor_id?.toString();
         });
 
+        if (!currentBreakVendor) return;
+
 
         const updatedVendor = {
             ...currentBreakVendor,
@@ -394,28 +435,63 @@ export default function AddBreakPopup({
             toast.error('Token not found');
             return;
         }
-        if (address.trim() === '') {
-            toast.error('Address is required');
+
+        const newErrors: ValidationErrors = {};
+        if (!title.trim()) newErrors.title = true;
+        if (!selectedVendor) newErrors.vendor = true;
+        if (!fromDate) newErrors.fromDate = true;
+        if (!fromTime) newErrors.fromTime = true;
+        if (!toDate) newErrors.toDate = true;
+        if (!toTime) newErrors.toTime = true;
+        if (!address.trim()) newErrors.address = true;
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            toast.error('Please fill in all required fields');
             return;
         }
-        if (title.trim() === '') {
-            toast.error('Title is required');
-            return;
-        }
-        if (!selectedVendor) {
-            toast.error('Please select a vendor');
-            return;
+
+
+        // Overlap Validation
+        if (selectedVendor && (selectedVendor as Vendor).order_slots) {
+            const vendorOrderSlots = (selectedVendor as Vendor).order_slots || [];
+
+            // Convert break start/end to comparable timestamps
+            const breakStartStr = `${format(fromDate, 'yyyy-MM-dd')}T${fromTime}`;
+            const breakEndStr = `${format(toDate, 'yyyy-MM-dd')}T${toTime}`;
+            const breakStartTime = new Date(breakStartStr).getTime();
+            const breakEndTime = new Date(breakEndStr).getTime();
+
+            // Check for overlaps
+            const hasOverlap = vendorOrderSlots.some(slot => {
+                const slotStartStr = `${slot.date}T${slot.start_time}`;
+                const slotEndStr = `${slot.date}T${slot.end_time}`;
+                const slotStartTime = new Date(slotStartStr).getTime();
+                const slotEndTime = new Date(slotEndStr).getTime();
+
+                // Check if ranges overlap
+                // (StartA < EndB) && (EndA > StartB)
+                return (breakStartTime < slotEndTime) && (breakEndTime > slotStartTime);
+            });
+
+            if (hasOverlap) {
+                toast.error(
+                    `This time off overlaps with an existing schedule. Please select a different time.`
+                );
+
+                return;
+            }
         }
 
         try {
             setIsLoading(true);
-            if (!selectedVendor.company?.vendor_id) {
+            if (!selectedVendor?.company?.vendor_id) {
                 toast.error('Vendor ID is required');
                 return;
             }
 
             const payload = {
-                vendor_id: Number(selectedVendor.company.vendor_id),
+                vendor_id: Number(selectedVendor!.company!.vendor_id),
                 title,
                 date: format(fromDate, 'yyyy-MM-dd'),
                 start_date: format(fromDate, 'yyyy-MM-dd'),
@@ -456,6 +532,7 @@ export default function AddBreakPopup({
             setToTime('10:00');
             setAddress('');
             setSelectedValue('Paid_time_off');
+            setErrors({});
         }
     };
 
@@ -464,6 +541,8 @@ export default function AddBreakPopup({
         setSelectedVendor(vendor);
         const address = `${vendor?.addresses?.[0]?.address_line_1 || ''}, ${vendor?.addresses?.[0]?.city || ''}, ${vendor?.addresses?.[0]?.province || ''}, ${vendor?.addresses?.[0]?.country || ''}`.trim();
         setAddress(address)
+        if (errors.vendor) setErrors(prev => ({ ...prev, vendor: false }));
+        if (errors.address) setErrors(prev => ({ ...prev, address: false }));
     };
 
     return (
@@ -502,25 +581,28 @@ export default function AddBreakPopup({
                     )}
 
                     <div className="space-y-[10px]">
-                        <Label>Title</Label>
+                        <Label className={errors.title ? "text-red-500" : ""}>Title <span className="text-red-500">*</span></Label>
                         <Input
-                            className="bg-white h-[42px] border-[#BBBBBB]"
+                            className={`bg-white h-[42px] border-[#BBBBBB] ${errors.title ? "border-red-500" : ""}`}
                             value={title}
-                            onChange={(e) => setTitle(e.target.value)}
+                            onChange={(e) => {
+                                setTitle(e.target.value);
+                                if (errors.title) setErrors(prev => ({ ...prev, title: false }));
+                            }}
                             placeholder="Enter Break Title"
                         />
                     </div>
 
                     {popupType !== 'hide' && (
                         <div className="space-y-[10px] w-full">
-                            <Label>Vendor</Label>
+                            <Label className={errors.vendor ? "text-red-500" : ""}>Vendor <span className="text-red-500">*</span></Label>
                             <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
                                         role="combobox"
                                         aria-expanded={openCombobox}
-                                        className="w-full justify-between h-[42px] bg-white border-[#BBBBBB] font-normal"
+                                        className={`w-full justify-between h-[42px] bg-white border-[#BBBBBB] font-normal ${errors.vendor ? "border-red-500 text-red-500" : ""}`}
                                     >
                                         {selectedVendor?.uuid
                                             ? `${(selectedVendor as Vendor).first_name} ${(selectedVendor as Vendor).last_name}`
@@ -541,6 +623,7 @@ export default function AddBreakPopup({
                                                         onSelect={() => {
                                                             handleVendorSelect(vendor.uuid);
                                                             setOpenCombobox(false);
+                                                            if (errors.vendor) setErrors(prev => ({ ...prev, vendor: false }));
                                                         }}
                                                     >
                                                         <Check
@@ -563,29 +646,35 @@ export default function AddBreakPopup({
                     {/* ✅ From Date/Time */}
                     <div className="grid grid-cols-4 space-x-2">
                         <div className="col-span-2">
-                            <Label>From Date</Label>
+                            <Label className={errors.fromDate ? "text-red-500" : ""}>From Date <span className="text-red-500">*</span></Label>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
-                                        className="w-full h-[42px] border-[#BBBBBB] justify-start text-left font-normal"
+                                        className={`w-full h-[42px] border-[#BBBBBB] justify-start text-left font-normal ${errors.fromDate ? "border-red-500 text-red-500" : ""}`}
                                     >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
                                         {format(fromDate, 'PPP')}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
-                                    <DatePicker mode="single" selected={fromDate} onSelect={handleStartDateChange} />
+                                    <DatePicker mode="single" selected={fromDate} onSelect={(date) => {
+                                        handleStartDateChange(date);
+                                        if (errors.fromDate) setErrors(prev => ({ ...prev, fromDate: false }));
+                                    }} />
                                 </PopoverContent>
                             </Popover>
                         </div>
                         <div className="col-span-2">
-                            <Label>From Time</Label>
+                            <Label className={errors.fromTime ? "text-red-500" : ""}>From Time <span className="text-red-500">*</span></Label>
                             <Input
-                                className="bg-white h-[42px] border-[#BBBBBB] cursor-pointer"
+                                className={`bg-white h-[42px] border-[#BBBBBB] cursor-pointer ${errors.fromTime ? "border-red-500" : ""}`}
                                 type="time"
                                 value={fromTime}
-                                onChange={handleStartTimeChange}
+                                onChange={(e) => {
+                                    handleStartTimeChange(e);
+                                    if (errors.fromTime) setErrors(prev => ({ ...prev, fromTime: false }));
+                                }}
                                 onClick={(e) => (e.target as HTMLInputElement).showPicker && (e.target as HTMLInputElement).showPicker()}
                             />
                         </div>
@@ -600,12 +689,12 @@ export default function AddBreakPopup({
                     {/* ✅ To Date/Time */}
                     <div className="grid grid-cols-4 space-x-2">
                         <div className="col-span-2">
-                            <Label>To Date</Label>
+                            <Label className={errors.toDate ? "text-red-500" : ""}>To Date <span className="text-red-500">*</span></Label>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
-                                        className="w-full h-[42px] border-[#BBBBBB] justify-start text-left font-normal"
+                                        className={`w-full h-[42px] border-[#BBBBBB] justify-start text-left font-normal ${errors.toDate ? "border-red-500 text-red-500" : ""}`}
                                     >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
                                         {format(toDate, 'PPP')}
@@ -615,34 +704,44 @@ export default function AddBreakPopup({
                                     <DatePicker
                                         mode="single"
                                         selected={toDate}
-                                        onSelect={handleEndDateChange}
+                                        onSelect={(date) => {
+                                            handleEndDateChange(date);
+                                            if (errors.toDate) setErrors(prev => ({ ...prev, toDate: false }));
+                                        }}
                                         disabled={(date) => date < new Date(new Date(fromDate).setHours(0, 0, 0, 0))}
                                     />
                                 </PopoverContent>
                             </Popover>
                         </div>
                         <div className="col-span-2">
-                            <Label>To Time</Label>
+                            <Label className={errors.toTime ? "text-red-500" : ""}>To Time <span className="text-red-500">*</span></Label>
                             <Input
-                                className="bg-white h-[42px] border-[#BBBBBB] cursor-pointer"
+                                className={`bg-white h-[42px] border-[#BBBBBB] cursor-pointer ${errors.toTime ? "border-red-500" : ""}`}
                                 type="time"
                                 value={toTime}
-                                onChange={handleEndTimeChange}
+                                onChange={(e) => {
+                                    handleEndTimeChange(e);
+                                    if (errors.toTime) setErrors(prev => ({ ...prev, toTime: false }));
+                                }}
                                 onClick={(e) => (e.target as HTMLInputElement).showPicker && (e.target as HTMLInputElement).showPicker()}
                             />
                         </div>
                     </div>
 
-                    <Label>Address</Label>
+                    <Label className={errors.address ? "text-red-500" : ""}>Address <span className="text-red-500">*</span></Label>
                     <GooglePlacesAutocomplete
                         placeholder="Type address here..."
                         value={address}
-                        onChange={handleAddressChange}
+                        onChange={(value) => {
+                            handleAddressChange(value);
+                            if (errors.address) setErrors(prev => ({ ...prev, address: false }));
+                        }}
                         onAddressComponents={(components: AddressComponents) => {
                             setAddress(components.full_address);
+                            if (errors.address) setErrors(prev => ({ ...prev, address: false }));
                         }}
                         className="w-full"
-                        inputClassName={customStyles.input}
+                        inputClassName={`${customStyles.input} ${errors.address ? "!border-red-500" : ""}`}
                         suggestionsContainerClassName={customStyles.suggestions}
                     />
                 </div>

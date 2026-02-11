@@ -394,36 +394,80 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     );
 
     filteredVendors.forEach((vendor) => {
-      if (!vendor.work_hours) return;
+      // IF SCHEDULE OVERRIDE IS ON, FORCE FULL DAY AVAILABILITY
+      if (scheduleOverrideMap[calendarIdx] === 1) {
+        // Create 24h work hours
+        const fullDayWorkHours: WorkHours = {
+          start_time: '00:00:00',
+          end_time: '23:59:59',
+          timezone: propertyTimezone || 'America/Vancouver', // Use property timezone to ensure 00-24 coverage in local time
+          work_days: [
+            {
+              day: dayjs(currentDate).format('ddd').toLowerCase(),
+              start_time: '00:00:00',
+              end_time: '23:59:59',
+              is_off: 0,
+              is_twilight: 0
+            }
+          ]
+        };
 
-      const vendorTimezone = vendor.work_hours.timezone || 'America/Vancouver';
-      const targetTimezone = propertyTimezone || 'America/Vancouver';
+        // We don't need to convert timezone because we are forcing it to match property timezone
+        // directly to cover the full day in the displayed calendar
+        const convertedWorkHours = fullDayWorkHours;
+
+        const vendorSlots = generateMarkedSlots(
+          currentDate,
+          convertedWorkHours,
+          vendor.uuid ?? '',
+          AllBookedSlots,
+          otherServiceSlots,
+          [], // Ignore breaks/timeoffs when override is on
+          [], // Ignore calendar events when override is on
+          15
+        );
+
+        vendorSlots.forEach((slot) => {
+          const key = `${slot.start}_${slot.end}`;
+          if (!slotVendorsMap.has(key)) {
+            slotVendorsMap.set(key, []);
+          }
+          slotVendorsMap.get(key)!.push(vendor.uuid ?? '');
+        });
+
+      } else {
+        // NORMAL LOGIC
+        if (!vendor.work_hours) return;
+
+        const vendorTimezone = vendor.work_hours.timezone || 'America/Vancouver';
+        const targetTimezone = propertyTimezone || 'America/Vancouver';
 
 
-      const convertedWorkHours = convertVendorWorkHoursToPropertyTimezone(
-        currentDate,
-        vendor.work_hours,
-        vendorTimezone,
-        targetTimezone
-      );
+        const convertedWorkHours = convertVendorWorkHoursToPropertyTimezone(
+          currentDate,
+          vendor.work_hours,
+          vendorTimezone,
+          targetTimezone
+        );
 
-      const vendorSlots = generateMarkedSlots(
-        currentDate,
-        convertedWorkHours,
-        vendor.uuid ?? '',
-        AllBookedSlots,
-        otherServiceSlots,
-        vendor.additional_breaks || [],
-        vendor.calendar_events || [],
-        15
-      );
-      vendorSlots.forEach((slot) => {
-        const key = `${slot.start}_${slot.end}`;
-        if (!slotVendorsMap.has(key)) {
-          slotVendorsMap.set(key, []);
-        }
-        slotVendorsMap.get(key)!.push(vendor.uuid ?? '');
-      });
+        const vendorSlots = generateMarkedSlots(
+          currentDate,
+          convertedWorkHours,
+          vendor.uuid ?? '',
+          AllBookedSlots,
+          otherServiceSlots,
+          vendor.additional_breaks || [],
+          vendor.calendar_events || [],
+          15
+        );
+        vendorSlots.forEach((slot) => {
+          const key = `${slot.start}_${slot.end}`;
+          if (!slotVendorsMap.has(key)) {
+            slotVendorsMap.set(key, []);
+          }
+          slotVendorsMap.get(key)!.push(vendor.uuid ?? '');
+        });
+      }
     });
     let firstAvailableFound = false;
     const finalSlots = fullDaySlots.map((slot) => {
@@ -482,7 +526,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     });
 
     setEvents(finalSlots);
-  }, [vendorsData, ordersData, currentDate, selectedVendors, selectedSlots, service.title, service.uuid, AllBookedSlots, propertyTimezone, recommendTimeMap, calendarIdx]);
+  }, [vendorsData, ordersData, currentDate, selectedVendors, selectedSlots, service.title, service.uuid, AllBookedSlots, propertyTimezone, recommendTimeMap, calendarIdx, scheduleOverrideMap]);
 
   useEffect(() => {
     async function loadTwilight() {
@@ -1279,11 +1323,20 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         <div className="mt-4 p-3 bg-gray-50 rounded-md border border-[#EEEEEE]">
           <h4 className="text-sm font-[600] text-[#666666] mb-2">Twilight Times ({dayjs(currentDate).format('MMM D')})</h4>
           <div className="grid grid-cols-2 gap-2 text-[10px]">
+            <div className="col-span-2 mt-2 font-[500] text-gray-500">Morning </div>
             <div className="col-span-1">
-              <span className="text-gray-500">Morning Civil:</span> {formatLocalTime(twilightData.civil_twilight_begin)}
+              <span className="text-gray-500">Civil:</span> {formatLocalTime(twilightData.civil_twilight_begin)}
             </div>
             <div className="col-span-1">
-              <span className="text-gray-500">Evening Civil:</span> {formatLocalTime(twilightData.civil_twilight_end)}
+              <span className="text-gray-500">Nautical:</span> {formatLocalTime(twilightData.nautical_twilight_begin)}
+            </div>
+
+            <div className="col-span-2 mt-2 font-[500] text-gray-500">Evening </div>
+            <div className="col-span-1">
+              <span className="text-gray-500">Civil:</span> {formatLocalTime(twilightData.civil_twilight_end)}
+            </div>
+            <div className="col-span-1">
+              <span className="text-gray-500">Nautical:</span> {formatLocalTime(twilightData.nautical_twilight_end)}
             </div>
           </div>
         </div>

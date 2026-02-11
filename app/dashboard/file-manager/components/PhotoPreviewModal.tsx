@@ -54,6 +54,8 @@ const PhotoPreviewModal: React.FC<Props> = ({
 
     const existingGroups = Array.from(new Set(filesData?.files?.map(f => f.group).filter(Boolean) || [])) as string[];
     const allSuggestions = Array.from(new Set([...(suggestions || defaultMediaOptions), ...existingGroups]));
+    const [mediaUrl, setMediaUrl] = useState<string>('');
+    const urlRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (open) {
@@ -71,9 +73,33 @@ const PhotoPreviewModal: React.FC<Props> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    useEffect(() => {
+        if (!file) {
+            setMediaUrl('');
+            return;
+        }
+
+        if (typeof file === 'string') {
+            setMediaUrl(file);
+        } else {
+            const url = URL.createObjectURL(file as File);
+            urlRef.current = url;
+            setMediaUrl(url);
+        }
+
+        return () => {
+            if (urlRef.current) {
+                URL.revokeObjectURL(urlRef.current);
+                urlRef.current = null;
+            }
+        };
+    }, [file]);
+
     if (!open || !file) return null;
 
-    const mediaUrl = typeof file === 'string' ? file : URL.createObjectURL(file);
+    const isPdf = typeof file === 'string'
+        ? file.split('?')[0].toLowerCase().endsWith('.pdf')
+        : file?.type === 'application/pdf' || file?.name?.toLowerCase().endsWith('.pdf');
 
     const handleSave = () => {
         if (onSave) {
@@ -106,6 +132,12 @@ const PhotoPreviewModal: React.FC<Props> = ({
                             src={mediaUrl}
                             controls
                             className="max-w-full max-h-full rounded-md"
+                        />
+                    ) : isPdf ? (
+                        <iframe
+                            src={mediaUrl}
+                            className="w-full h-full rounded-md border-none"
+                            title="PDF Preview"
                         />
                     ) : (
                         /* eslint-disable @next/next/no-img-element */

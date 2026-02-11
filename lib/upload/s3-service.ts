@@ -49,10 +49,8 @@ export class S3UploadService {
         presignedUrl: string,
         file: File,
         contentType: string,
-        _onProgress?: (progress: number) => void
+        onProgress?: (progress: number) => void
     ): Promise<void> {
-        void _onProgress; // Silence unused variable lint error
-
         console.group("S3UploadService Debug");
         console.log("File Object:", file);
         console.log("File properties:", {
@@ -69,7 +67,6 @@ export class S3UploadService {
 
         try {
             // 1. Explicitly read file to ArrayBuffer to ensure we have the bytes
-            // This prevents "empty payload" issues if the File reference is stale
             const fileBuffer = await file.arrayBuffer();
             console.log(`Read File to ArrayBuffer. ByteLength: ${fileBuffer.byteLength}`);
 
@@ -77,26 +74,45 @@ export class S3UploadService {
                 throw new Error("S3UploadService: File is empty (0 bytes) after reading. Cannot upload.");
             }
 
-            // 2. Prepare Headers
-            const uploadHeaders = {
-                "Content-Type": contentType
-            };
+            // 2. Use XMLHttpRequest for progress tracking
+            await new Promise<void>((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
 
-            // 3. Send Request with ArrayBuffer
-            const response = await fetch(presignedUrl, {
-                method: "PUT",
-                headers: uploadHeaders,
-                body: fileBuffer
+                // Track upload progress
+                xhr.upload.addEventListener('progress', (event) => {
+                    if (event.lengthComputable && onProgress) {
+                        const percentComplete = Math.round((event.loaded / event.total) * 100);
+                        onProgress(percentComplete);
+                    }
+                });
+
+                // Handle completion
+                xhr.addEventListener('load', () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        console.log("S3 Upload Success:", xhr.status);
+                        if (onProgress) onProgress(100);
+                        resolve();
+                    } else {
+                        const errorText = xhr.responseText;
+                        console.error("S3 Upload Error Response Body (XML):", errorText);
+                        reject(new Error(`S3 upload failed with status ${xhr.status}. Details: ${errorText}`));
+                    }
+                });
+
+                // Handle errors
+                xhr.addEventListener('error', () => {
+                    reject(new Error('Network error during S3 upload'));
+                });
+
+                xhr.addEventListener('abort', () => {
+                    reject(new Error('S3 upload aborted'));
+                });
+
+                // Open and send request
+                xhr.open('PUT', presignedUrl);
+                xhr.setRequestHeader('Content-Type', contentType);
+                xhr.send(fileBuffer);
             });
-
-            if (!response.ok) {
-                // CRITICAL: Read the XML error response from S3 
-                const errorText = await response.text();
-                console.error("S3 Upload Error Response Body (XML):", errorText);
-                throw new Error(`S3 upload failed with status ${response.status}. Details: ${errorText}`);
-            }
-
-            console.log("S3 Upload Success:", response.status);
 
         } catch (err) {
             console.error("S3 Upload Exception:", err);

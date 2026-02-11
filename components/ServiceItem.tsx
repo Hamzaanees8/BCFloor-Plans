@@ -149,7 +149,7 @@ const ServiceItem = ({
                           htmlFor={`price-${option.uuid}`}
                           className="block text-sm font-normal mb-1"
                         >
-                          Package Amount<span className="text-red-500">*</span>
+                          Vendor Pay Amount<span className="text-red-500">*</span>
                         </Label>
                         <Input
                           id={`price-${option.uuid}`}

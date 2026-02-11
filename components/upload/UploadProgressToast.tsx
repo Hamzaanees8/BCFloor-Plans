@@ -2,15 +2,13 @@
 
 import React from 'react';
 import { useUploadQueue } from '@/context/UploadQueueContext';
-import { X, Upload, CheckCircle, AlertCircle, Loader2, ChevronUp, ChevronDown, RefreshCw } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, Loader2, ChevronUp, ChevronDown, RefreshCw } from 'lucide-react';
 
 export function UploadProgressToast() {
     const {
         queue,
         stats,
         isUploading,
-        isQueueVisible,
-        setQueueVisible,
         removeFromQueue,
         retryUpload,
         clearCompleted,

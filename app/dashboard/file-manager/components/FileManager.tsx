@@ -31,6 +31,8 @@ import {
 import { GetOneListing } from "../../listings/listing";
 import { Listings } from "@/lib/types";
 import Link from "next/link";
+import { FileUploadState } from "@/lib/upload/types";
+import { UploadProgressOverlay } from "./UploadProgressOverlay";
 type Service = {
   uuid: string;
   name: string;
@@ -64,6 +66,7 @@ const FileManager = () => {
     setChangedFileUuids,
   } = useFileManagerContext();
   const headerRef = useRef<HTMLDivElement>(null);
+  const progressIntervalsRef = useRef<NodeJS.Timeout[]>([]);
 
   useEffect(() => {
     const header = headerRef.current;
@@ -96,6 +99,11 @@ const FileManager = () => {
   const [currentListing, setCurrentListing] = useState<Listings | null>(null);
   const pathname = usePathname();
   const serviceIdFromURL = searchParams.get("serviceId");
+
+  // Upload progress state
+  const [uploadStates, setUploadStates] = useState<FileUploadState[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [overallProgress, setOverallProgress] = useState(0);
   const fullUrl = `/dashboard${pathname.replace("/dashboard", "")}${searchParams.toString() ? `?${searchParams.toString()}` : ""
     }`;
 
@@ -261,7 +269,7 @@ const FileManager = () => {
             <Video
               currentService={activeService}
               orderData={orderData}
-              isListing={isListing}
+              isListing={false}
               reviewFilesEnabled={reviewFilesEnabled}
             />
           </div>
@@ -386,10 +394,8 @@ const FileManager = () => {
         const filesData = await GetFilesData(token, orderData?.uuid || "");
         if (filesData.data[0]) {
           setFilesData(filesData.data[0]);
-          setInterval(
-            filesData.data[0].slide_show &&
-            (filesData.data[0].slide_show.slide_delay || 3000)
-          );
+          // Removed accidental setInterval call
+
           setSelectedAudioTrack(
             filesData.data[0].slide_show &&
             (filesData.data[0].slide_show.background_audio || "none")
@@ -419,6 +425,47 @@ const FileManager = () => {
     const token = localStorage.getItem("token");
     if (!token) return;
 
+    // Get all files to upload
+    const allFiles = [...selectedFiles, ...floorFiles, ...selectedVideoFiles].filter(f => !f.is_deleted);
+
+    // Initialize upload states
+    if (allFiles.length > 0) {
+      setIsUploading(true);
+      const initialStates: FileUploadState[] = allFiles.map(f => ({
+        file: f.file,
+        progress: 0,
+        status: 'pending' as const,
+      }));
+      setUploadStates(initialStates);
+
+      // Start simulated progress for all files
+      progressIntervalsRef.current = [];
+      allFiles.forEach((_, index) => {
+        const interval = setInterval(() => {
+          setUploadStates(prev => {
+            const newStates = [...prev];
+            if (newStates[index] && newStates[index].status === 'uploading' && newStates[index].progress < 95) {
+              // Gradually increase progress (slower as it gets higher)
+              const currentProgress = newStates[index].progress;
+              const increment = currentProgress < 50 ? 3 : currentProgress < 80 ? 2 : 1;
+              newStates[index] = {
+                ...newStates[index],
+                progress: Math.min(95, currentProgress + increment),
+              };
+            }
+            return newStates;
+          });
+        }, 500); // Update every 500ms
+        progressIntervalsRef.current.push(interval);
+      });
+
+      // Start uploading files (mark as uploading)
+      setUploadStates(prev => prev.map(state => ({
+        ...state,
+        status: 'uploading' as const,
+      })));
+    }
+
     try {
       if (filesData) {
         // Filter only the files that have changed (featured status changed)
@@ -429,7 +476,7 @@ const FileManager = () => {
         await UpdateFilesData(
           token,
           filesData?.uuid || "",
-          [...selectedFiles, ...floorFiles, ...selectedVideoFiles].filter(f => !f.is_deleted),
+          allFiles,
           links,
           droppedMarkers,
           delay,
@@ -444,17 +491,64 @@ const FileManager = () => {
         await UploadFilesData(
           token,
           orderData?.uuid || "",
-          [...selectedFiles, ...floorFiles, ...selectedVideoFiles].filter(f => !f.is_deleted),
+          allFiles,
           links,
           droppedMarkers,
           delay,
           transition,
-          selectedAudioTrack || "none"
+          selectedAudioTrack || "none",
+          (index, progress, status) => {
+            // Update individual file progress
+            setUploadStates(prev => {
+              const newStates = [...prev];
+              if (newStates[index]) {
+                newStates[index] = {
+                  ...newStates[index],
+                  progress,
+                  status,
+                };
+              }
+              return newStates;
+            });
+
+            // Calculate overall progress
+            setOverallProgress(() => {
+              const totalProgress = uploadStates.reduce((sum, state) => sum + state.progress, 0);
+              return uploadStates.length > 0 ? Math.round(totalProgress / uploadStates.length) : 0;
+            });
+          }
         );
       }
 
+      // Clear all progress intervals
+      progressIntervalsRef.current.forEach(interval => clearInterval(interval));
+      progressIntervalsRef.current = [];
+
+      // Mark all files as complete with 100% progress
+      setUploadStates(prev => prev.map(state => ({
+        ...state,
+        progress: 100,
+        status: 'complete' as const,
+      })));
+
+      // Calculate final overall progress
+      setOverallProgress(100);
+      setIsUploading(false);
+
       toast.success("All changes saved successfully!");
     } catch (error) {
+      // Clear all progress intervals
+      progressIntervalsRef.current.forEach(interval => clearInterval(interval));
+      progressIntervalsRef.current = [];
+
+      // Mark all files as error
+      setUploadStates(prev => prev.map(state => ({
+        ...state,
+        status: 'error' as const,
+        error: error instanceof Error ? error.message : 'Upload failed',
+      })));
+
+      setIsUploading(false);
       toast.error(
         error instanceof Error
           ? error.message
@@ -463,8 +557,22 @@ const FileManager = () => {
     }
   }
 
+  // Handler to close the upload progress overlay
+  const handleCloseUploadProgress = () => {
+    setUploadStates([]);
+    setOverallProgress(0);
+    setIsUploading(false);
+  };
+
   return (
     <div>
+      {/* Upload Progress Overlay */}
+      <UploadProgressOverlay
+        uploadStates={uploadStates}
+        overallProgress={overallProgress}
+        isUploading={isUploading}
+        onClose={handleCloseUploadProgress}
+      />
       <div
         ref={headerRef}
         className="w-full h-[80px] font-alexandria pr-5 sticky top-0 z-50 flex justify-between items-center"
@@ -584,7 +692,7 @@ const FileManager = () => {
                   }`}
                 style={{
                   backgroundColor: true
-                    ? `var(--${userType}-page-bg, #FFFFFF)`
+                    ? undefined
                     : "#FFFFFF",
                 }}
               >

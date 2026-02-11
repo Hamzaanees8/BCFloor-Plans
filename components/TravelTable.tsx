@@ -280,12 +280,11 @@ const TravelTable: React.FC<TravelTableProps> = ({ userId }) => {
         }
     }, [selectedSlot, totalDistance1, paymentPerKm]);
     console.log("orderData", slotData);
-    const groupedSlots = groupSlots(allslotData);
-    console.log('groupedSlots', groupedSlots);
-    const SlotsByDate = groupSlotsByDate(groupedSlots);
-    console.log('SlotsByDate', SlotsByDate);
-    const sortedSlots = sortGroupedSlots(SlotsByDate)
-    console.log('sortedSlots', sortedSlots);
+    const sortedSlots = React.useMemo(() => {
+        const groupedSlots = groupSlots(allslotData);
+        const SlotsByDate = groupSlotsByDate(groupedSlots);
+        return sortGroupedSlots(SlotsByDate)
+    }, [allslotData]);
 
     useEffect(() => {
         if (!vendor_address || sortedSlots.length === 0) return;

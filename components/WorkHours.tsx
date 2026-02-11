@@ -205,7 +205,31 @@ export type CurrentUser = {
     start_date: string;
     end_date: string;
   }[];
+  order_slots?: OrderSlot[];
 };
+
+export interface OrderSlot {
+  id: number;
+  uuid: string;
+  order_id: number;
+  service_id: number;
+  vendor_id: number;
+  show_all_vendors: boolean;
+  schedule_override: boolean;
+  recommend_time: boolean;
+  travel: null | unknown;
+  created_at: string;
+  updated_at: string;
+  start_time: string;
+  end_time: string;
+  est_time: string;
+  distance: string;
+  km_price: null | number | string;
+  address: string;
+  location: string;
+  date: string;
+  google_event_id: null | string;
+}
 
 interface WorkDetailProps {
   currentUser: CurrentUser | null;

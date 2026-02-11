@@ -109,14 +109,15 @@ export async function UploadFilesData(
   snapshots: DroppedMarker[],
   delay: number,
   transition: string,
-  selectedAudioTrack: string
+  selectedAudioTrack: string,
+  onProgress?: (index: number, progress: number, status: 'pending' | 'uploading' | 'confirming' | 'complete' | 'error') => void
 ) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   let uploads: { upload_id: string; s3_key: string; original_filename: string; content_type: string; presigned_url: string }[] = [];
 
   const fileUuids = new Map<File, string>();
 
-  // Step 1: Upload files to S3 (No confirmation yet)
+  // Step 1: Upload files to S3 in batches of 3
   if (files.length > 0) {
     try {
       const presignedRequest = {
@@ -135,16 +136,45 @@ export async function UploadFilesData(
       const S3Uploads = presignedResponse.data.uploads;
       uploads = S3Uploads;
 
-      // Upload all files to S3 concurrently
-      await Promise.all(files.map(async (fileObj, index) => {
-        const upload = uploads[index];
-        await S3UploadService.uploadToS3(
-          upload.presigned_url,
-          fileObj.file,
-          upload.content_type
-        );
-        fileUuids.set(fileObj.file, upload.upload_id);
-      }));
+      // Upload files in batches of 3
+      const BATCH_SIZE = 3;
+      for (let i = 0; i < files.length; i += BATCH_SIZE) {
+        const batch = files.slice(i, i + BATCH_SIZE);
+
+        await Promise.all(batch.map(async (fileObj, batchIndex) => {
+          const index = i + batchIndex;
+          const upload = uploads[index];
+
+          // Update status to uploading
+          if (onProgress) {
+            onProgress(index, 0, 'uploading');
+          }
+
+          try {
+            await S3UploadService.uploadToS3(
+              upload.presigned_url,
+              fileObj.file,
+              upload.content_type,
+              (progress) => {
+                if (onProgress) {
+                  onProgress(index, progress, 'uploading');
+                }
+              }
+            );
+            fileUuids.set(fileObj.file, upload.upload_id);
+
+            // Mark as complete
+            if (onProgress) {
+              onProgress(index, 100, 'complete');
+            }
+          } catch (error) {
+            if (onProgress) {
+              onProgress(index, 0, 'error');
+            }
+            throw error;
+          }
+        }));
+      }
     } catch (error) {
       console.error('S3 upload in UploadFilesData failed:', error);
       throw error;
@@ -370,9 +400,10 @@ export async function UpdateFilesData(
 export async function UpdatePhotosData(
   token: string,
   tourUuid: string,
-  files?: SelectedFiles[]
+  files?: SelectedFiles[],
+  onProgress?: (index: number, progress: number, status: 'pending' | 'uploading' | 'confirming' | 'complete' | 'error') => void
 ) {
-  // Step 1: Upload new files to S3
+  // Step 1: Upload new files to S3 in batches
   const newFiles = files?.filter(f => f.file instanceof File) || [];
   const fileUuids = new Map<File, string>();
 
@@ -391,11 +422,45 @@ export async function UpdatePhotosData(
       const presignedResponse = await S3UploadService.getPresignedUrls(presignedRequest);
       const uploads = presignedResponse.data.uploads;
 
-      await Promise.all(newFiles.map(async (fileObj, index) => {
-        const upload = uploads[index];
-        await S3UploadService.uploadToS3(upload.presigned_url, fileObj.file, upload.content_type);
-        fileUuids.set(fileObj.file, upload.upload_id);
-      }));
+      // Upload files in batches of 3
+      const BATCH_SIZE = 3;
+      for (let i = 0; i < newFiles.length; i += BATCH_SIZE) {
+        const batch = newFiles.slice(i, i + BATCH_SIZE);
+
+        await Promise.all(batch.map(async (fileObj, batchIndex) => {
+          const index = i + batchIndex;
+          const upload = uploads[index];
+
+          // Update status to uploading
+          if (onProgress) {
+            onProgress(index, 0, 'uploading');
+          }
+
+          try {
+            await S3UploadService.uploadToS3(
+              upload.presigned_url,
+              fileObj.file,
+              upload.content_type,
+              (progress) => {
+                if (onProgress) {
+                  onProgress(index, progress, 'uploading');
+                }
+              }
+            );
+            fileUuids.set(fileObj.file, upload.upload_id);
+
+            // Mark as complete
+            if (onProgress) {
+              onProgress(index, 100, 'complete');
+            }
+          } catch (error) {
+            if (onProgress) {
+              onProgress(index, 0, 'error');
+            }
+            throw error;
+          }
+        }));
+      }
 
       const confirmResponse = await S3UploadService.confirmUpload({
         entity_type: 'tour',

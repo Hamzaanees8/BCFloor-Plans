@@ -20,6 +20,7 @@ import PhotoPreviewModal from './PhotoPreviewModal';
 import DownloadModal from './DownloadModal';
 import { useS3Upload } from '@/hooks/useS3Upload';
 import { UploadProgressOverlay } from './UploadProgressOverlay';
+import { OptimizedImagePreview, PdfPlaceholder } from './OptimizedPreview';
 
 
 export interface PaymentData {
@@ -45,7 +46,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [imagePopupOpen, setImagePopupOpen] = useState(false);
-    const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
+    const [selectedImageUrl, setSelectedImageUrl] = useState<string | File>('');
     const [showDownloadModal, setShowDownloadModal] = useState(false);
     const [editingFile, setEditingFile] = useState<SelectedFiles | Files | null>(null);
     const [replacingFile, setReplacingFile] = useState<File | null>(null);
@@ -269,7 +270,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
 
 
 
-    const handleImageClick = (imageUrl: string, file: SelectedFiles | Files) => {
+    const handleImageClick = (imageUrl: string | File, file: SelectedFiles | Files) => {
         setSelectedImageUrl(imageUrl);
         setEditingFile(file);
         setImagePopupOpen(true);
@@ -346,7 +347,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
                                     type="file"
                                     multiple
                                     hidden
-                                    accept="image/*"
+                                    accept="image/*,.pdf"
                                     onChange={handleFileSelect}
                                 />
                             </div>
@@ -483,10 +484,9 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
                                             style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
                                         >
                                             <div className="relative w-full h-[240px]">
-                                                {/* eslint-disable @next/next/no-img-element */}
-                                                <img
-                                                    src={URL.createObjectURL(file.file)}
-                                                    onClick={() => !file.is_deleted && handleImageClick(URL.createObjectURL(file.file), file)}
+                                                <OptimizedImagePreview
+                                                    file={file.file}
+                                                    onClick={() => !file.is_deleted && handleImageClick(file.file, file)}
                                                     alt="preview"
                                                     className={`w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''}`}
                                                 />
@@ -623,13 +623,20 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
                                             style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
                                         >
                                             <div className="relative w-full h-[240px]">
-                                                {/* eslint-disable @next/next/no-img-element */}
-                                                <img
-                                                    src={`${API_URL}/${file.file_path}`}
-                                                    onClick={() => handleImageClick(`${API_URL}/${file.file_path}`, file)}
-                                                    alt="preview"
-                                                    className={`w-full h-full object-cover cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
-                                                />
+                                                {file.file_path.toLowerCase().endsWith('.pdf') ? (
+                                                    <PdfPlaceholder
+                                                        className="w-full h-full object-contain cursor-pointer"
+                                                        onClick={() => handleImageClick(`${API_URL}/${file.file_path}`, file)}
+                                                    />
+                                                ) : (
+                                                    // eslint-disable-next-line @next/next/no-img-element
+                                                    <img
+                                                        src={`${API_URL}/${file.file_path}`}
+                                                        onClick={() => handleImageClick(`${API_URL}/${file.file_path}`, file)}
+                                                        alt="preview"
+                                                        className={`w-full h-full object-cover cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                                    />
+                                                )}
                                                 <span
                                                     className="cursor-pointer absolute top-2 left-2 z-10"
                                                     onClick={(e) => {
@@ -800,7 +807,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
                         setImagePopupOpen(false);
                         setEditingFile(null);
                     }}
-                    file={selectedImageUrl}
+                    file={editingFile && 'file' in editingFile ? editingFile.file : selectedImageUrl}
                     title={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'HDR Photo') : 'HDR Photo'}
                     initialName={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'Exterior') : ''}
                     onSave={(newName) => {

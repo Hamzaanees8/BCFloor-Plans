@@ -8,7 +8,7 @@ import ImageSourceModal from "./ImageSourceModal";
 import FileManagerGallery from "./fileManagerGallery";
 import { BathIcon, Bedrooms, Sqft } from "@/components/Icons";
 import { featureSheetService } from "../file-manager";
-import { FeatureSheetPayload, FeatureSheetResponse, ImageState, ScaleState, PositionState } from "../types/featureSheetTypes";
+import { FeatureSheetPayload, FeatureSheetResponse, ImageState, ScaleState, PositionState, DraggingState } from "../types/featureSheetTypes";
 
 export interface BcfpStandard24Ref {
   exportToPayload: () => Promise<FeatureSheetPayload>;
@@ -333,7 +333,7 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
 
 
     // --- images States ---
-    const [images, setImages] = useState({
+    const [images, setImages] = useState<ImageState>({
       image1: null as string | null,
       image2: null as string | null,
       image3: null as string | null,
@@ -355,7 +355,7 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
     });
 
 
-    const [scale, setScale] = useState({
+    const [scale, setScale] = useState<ScaleState>({
       image1: 1,
       image2: 1,
       image3: 1,
@@ -376,7 +376,7 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
       image18: 1,
     });
 
-    const [position, setPosition] = useState({
+    const [position, setPosition] = useState<PositionState>({
       image1: { x: 0, y: 0 },
       image2: { x: 0, y: 0 },
       image3: { x: 0, y: 0 },
@@ -397,7 +397,7 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
       image18: { x: 0, y: 0 },
     });
 
-    const [dragging, setDragging] = useState({
+    const [dragging, setDragging] = useState<DraggingState>({
       image1: false,
       image2: false,
       image3: false,
@@ -418,7 +418,7 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
       image18: false,
     });
 
-    const lastPosition = useRef({
+    const lastPosition = useRef<PositionState>({
       image1: { x: 0, y: 0 },
       image2: { x: 0, y: 0 },
       image3: { x: 0, y: 0 },

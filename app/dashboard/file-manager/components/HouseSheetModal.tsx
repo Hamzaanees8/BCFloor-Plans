@@ -8,7 +8,7 @@ import AddLevelDialog from '../../calendar/components/AddLevelDialog';
 import AddExtraDialog from '../../calendar/components/AddExtraDialog';
 import { Order } from '../../orders/page';
 import { toast } from 'sonner';
-import { EditOrder } from '../file-manager';
+import { EditOrder, Area } from '../file-manager';
 import { GetOneOrder } from '../../orders/orders';
 import { useAppContext } from '@/app/context/AppContext';
 type Props = {
@@ -24,12 +24,6 @@ interface Field {
     custom_title?: string;
     showSecondInput?: boolean;
     secondValue?: number;
-}
-export interface Area {
-    type: string;
-    footage: number;
-    custom_title?: string;
-    uuid?: string;
 }
 let uniqueId = 0;
 const HouseSheetModal: React.FC<Props> = ({

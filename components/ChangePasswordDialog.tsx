@@ -38,6 +38,17 @@ const ChangePasswordDialog: React.FC<Props> = ({
     const handleReset = async (e: React.FormEvent) => {
         try {
             e.preventDefault();
+            setFieldErrors({});
+
+            if (newPassword !== confirmPassword) {
+                toast.error('Passwords do not match');
+                setFieldErrors({
+                    password: ['Passwords do not match'],
+                    password_confirmation: ['Passwords do not match']
+                });
+                return;
+            }
+
             setIsLoading(true);
             const token = localStorage.getItem('token');
             if (!token) {
@@ -125,25 +136,27 @@ const ChangePasswordDialog: React.FC<Props> = ({
                 <div className="flex flex-col gap-y-4">
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
                     <div className='grid grid-cols-2 gap-[16px] text-sm font-normal text-[#424242]'>
-                        <div className='col-span-2'>
-                            <label htmlFor="">Current Password</label>
-                            <div className="relative w-full">
-                                <Input
-                                    type={showCurrentPassword ? "text" : "password"}
-                                    value={currentPassword}
-                                    onChange={(e) => setCurrentPassword(e.target.value)}
-                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
-                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                />
-                                <span
-                                    className="absolute right-3 top-2.5 cursor-pointer"
-                                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                                >
-                                    <Eye />
-                                </span>
+                        {userType !== 'admin' && (
+                            <div className='col-span-2'>
+                                <label htmlFor="">Current Password</label>
+                                <div className="relative w-full">
+                                    <Input
+                                        type={showCurrentPassword ? "text" : "password"}
+                                        value={currentPassword}
+                                        onChange={(e) => setCurrentPassword(e.target.value)}
+                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                    />
+                                    <span
+                                        className="absolute right-3 top-2.5 cursor-pointer"
+                                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                    >
+                                        <Eye />
+                                    </span>
+                                </div>
+                                {fieldErrors.confirm_password && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.confirm_password[0]}</p>}
                             </div>
-                            {fieldErrors.confirm_password && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.confirm_password[0]}</p>}
-                        </div>
+                        )}
                         <div className='col-span-2'>
                             <label htmlFor="">New Password</label>
                             <div className="relative w-full">
@@ -151,7 +164,7 @@ const ChangePasswordDialog: React.FC<Props> = ({
                                     type={showNewPassword ? "text" : "password"}
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
-                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                    className={`h-[42px] border-[1px] mt-[10px] ${fieldErrors.password ? 'border-red-500 focus-visible:ring-red-500' : 'border-[#BBBBBB]'}`}
                                     style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                 />
                                 <span
@@ -170,7 +183,7 @@ const ChangePasswordDialog: React.FC<Props> = ({
                                     type={showConfirmPassword ? "text" : "password"}
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                    className={`h-[42px] border-[1px] mt-[10px] ${fieldErrors.password_confirmation ? 'border-red-500 focus-visible:ring-red-500' : 'border-[#BBBBBB]'}`}
                                     style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                 />
                                 <span
