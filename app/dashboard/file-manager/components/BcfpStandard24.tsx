@@ -1,6 +1,11 @@
 import { Pencil, Trash, ZoomIn, ZoomOut } from "lucide-react";
 import NextImage from "next/image";
-import React, { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import React, {
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { Order } from "../../orders/page";
 import "../../../globals.css";
 import StyledInput from "./StyledInput";
@@ -48,7 +53,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
 
     // last section stats
     const [presentedBy, setPresentedBy] = useState("Joe Chan");
-    const [presentedByCompany, setPresentedByCompany] = useState("Sutton Group - 1st West Realty");
+    const [presentedByCompany, setPresentedByCompany] = useState(
+      "Sutton Group - 1st West Realty",
+    );
     const [phone, setPhone] = useState("778-668-1668");
     const [email, setEmail] = useState("joechan@sutton.com");
     // Status + MLS Section
@@ -59,7 +66,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
     const [area, setArea] = useState("Vancouver West");
     const [neighborhood, setNeighborhood] = useState("Coal Harbour");
     const [postalCode, setPostalCode] = useState("V6E 4N1");
-    const [propertyCategory, setPropertyCategory] = useState("Residential Attached");
+    const [propertyCategory, setPropertyCategory] = useState(
+      "Residential Attached",
+    );
     const [listPrice, setListPrice] = useState("$799,000");
     const [soldPrice, setSoldPrice] = useState("");
     // Sold / Lot Info Section - Left Column
@@ -91,11 +100,15 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
     const [tour, setTour] = useState("");
     // Additional Info Section
     const [gstHst, setGstHst] = useState("");
-    const [managementCompany, setManagementCompany] = useState("FirstService Residentia");
+    const [managementCompany, setManagementCompany] = useState(
+      "FirstService Residentia",
+    );
     const [managementPhone, setManagementPhone] = useState("604-683-8900");
     const [view, setView] = useState("Yes: Coal Harbour & Burrard Inlet");
     const [complexSubdiv, setComplexSubdiv] = useState("Harbourside Park");
-    const [servicesConnected, setServicesConnected] = useState("Electricity, Sanitary Sewer, Water");
+    const [servicesConnected, setServicesConnected] = useState(
+      "Electricity, Sanitary Sewer, Water",
+    );
     // Property Details - Left Column
     const [styleOfHome, setStyleOfHome] = useState("Corner Unit");
     const [construction, setConstruction] = useState("Concrete");
@@ -128,14 +141,26 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
     const [titleToLand, setTitleToLand] = useState("Freehold Strata");
     const [propertyDisclosure, setPropertyDisclosure] = useState("No");
     const [fixturesLeased, setFixturesLeased] = useState("");
-    const [fixturesRemoved, setFixturesRemoved] = useState("Baseboard, Electric");
+    const [fixturesRemoved, setFixturesRemoved] = useState(
+      "Baseboard, Electric",
+    );
     const [floorFinish, setFloorFinish] = useState("Hardwood, Laminate, Mixed");
     // Maintenance & Features Section
-    const [maintFeeInc, setMaintFeeInc] = useState("Caretaker, Gardening, Hot Water, Management, Recreation Facility");
-    const [legal, setLegal] = useState("PL LMS2064 LT 253 DL 185 LD 36. GROUP 1, UNDIV 620/249910 SHARE IN COM PROP THEREIN TOGETHER WITH AN INTEREST IN THE COMMON PROPERTY IN PROPORTION TO THE UNIT ENTITLEMENT OF THE STRATA LOT AS SHOWN ON FORM 1 OR V, AS APPROPRIATE.");
-    const [amenities, setAmenities] = useState("Elevator, Exercise Centre, In Suite Laundry, Pool; Indoor, Storage, Swirlpool/Hot Tub");
-    const [siteInfluences, setSiteInfluences] = useState("Central Location, Recreation Nearby, Shopping Nearby, Waterfront Property");
-    const [features, setFeatures] = useState("ClthWsh/Dryr/Frdg/Stve/DW, Drapes/Window Coverings, Smoke Alarm, Sprinkler - Fire");
+    const [maintFeeInc, setMaintFeeInc] = useState(
+      "Caretaker, Gardening, Hot Water, Management, Recreation Facility",
+    );
+    const [legal, setLegal] = useState(
+      "PL LMS2064 LT 253 DL 185 LD 36. GROUP 1, UNDIV 620/249910 SHARE IN COM PROP THEREIN TOGETHER WITH AN INTEREST IN THE COMMON PROPERTY IN PROPORTION TO THE UNIT ENTITLEMENT OF THE STRATA LOT AS SHOWN ON FORM 1 OR V, AS APPROPRIATE.",
+    );
+    const [amenities, setAmenities] = useState(
+      "Elevator, Exercise Centre, In Suite Laundry, Pool; Indoor, Storage, Swirlpool/Hot Tub",
+    );
+    const [siteInfluences, setSiteInfluences] = useState(
+      "Central Location, Recreation Nearby, Shopping Nearby, Waterfront Property",
+    );
+    const [features, setFeatures] = useState(
+      "ClthWsh/Dryr/Frdg/Stve/DW, Drapes/Window Coverings, Smoke Alarm, Sprinkler - Fire",
+    );
     // Room Dimensions - First 7 Rooms
     const [floor1, setFloor1] = useState("Main");
     const [type1, setType1] = useState("Living Room");
@@ -277,7 +302,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
     const [cats, setCats] = useState("");
     const [dogs, setDogs] = useState("");
     const [rentalsAllowed, setRentalsAllowed] = useState("");
-    const [bylawRestrictions, setBylawRestrictions] = useState("Pets Allowed w/Rest., Rentals Allwd w/Restrctns");
+    const [bylawRestrictions, setBylawRestrictions] = useState(
+      "Pets Allowed w/Rest., Rentals Allwd w/Restrctns",
+    );
     const [basement, setBasement] = useState("None");
     // Bathroom Details
     // Bathroom Details - Complete from 1 to 8
@@ -328,9 +355,12 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
     const [garageSize, setGarageSize] = useState("");
     const [doorHeight, setDoorHeight] = useState("");
     // Final Sections
-    const [listingBroker, setListingBroker] = useState("Sutton Group - 1st West Realty");
-    const [description, setDescription] = useState("View! View! View! Ocean view Coal Harbour 1 Bedroom + Den/Office Condo with gorgeous water view of Burrard Inlet. Great layout with Floor-to-ceiling Windows in living room. Spacious bedroom with separate area for home office. Bright kitchen with windows. 1 underground parking & 1 storage locker. Very convenient location with just a few steps to the Seawall, Stanley Park, Robson St. This Harbourside Park condo complex is Architecturally Stunning designed by Arthur Erickson with full amenities including indoor pool, exercise centre, swirlpool/ hot tub. Don't miss the great opportunity to own this nice Condo at an affordable price! Won't last long! Come and visit the Open House on November 25th & 26th (Sat & Sunday) 2-4pm.");
-
+    const [listingBroker, setListingBroker] = useState(
+      "Sutton Group - 1st West Realty",
+    );
+    const [description, setDescription] = useState(
+      "View! View! View! Ocean view Coal Harbour 1 Bedroom + Den/Office Condo with gorgeous water view of Burrard Inlet. Great layout with Floor-to-ceiling Windows in living room. Spacious bedroom with separate area for home office. Bright kitchen with windows. 1 underground parking & 1 storage locker. Very convenient location with just a few steps to the Seawall, Stanley Park, Robson St. This Harbourside Park condo complex is Architecturally Stunning designed by Arthur Erickson with full amenities including indoor pool, exercise centre, swirlpool/ hot tub. Don't miss the great opportunity to own this nice Condo at an affordable price! Won't last long! Come and visit the Open House on November 25th & 26th (Sat & Sunday) 2-4pm.",
+    );
 
     // --- images States ---
     const [images, setImages] = useState<ImageState>({
@@ -439,7 +469,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
       image18: { x: 0, y: 0 },
     });
     const [showImageSourceModal, setShowImageSourceModal] = useState(false);
-    const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(null);
+    const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(
+      null,
+    );
     const [showGallery, setShowGallery] = useState(false);
     // --- Refs ---
     const fileInputRef1 = useRef<HTMLInputElement | null>(null);
@@ -572,46 +604,134 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
             unfinishedFloor,
             grandTotal,
             // Rooms
-            floor1, type1, dimensions1,
-            floor2, type2, dimensions2,
-            floor3, type3, dimensions3,
-            floor4, type4, dimensions4,
-            floor5, type5, dimensions5,
-            floor6, type6, dimensions6,
-            floor7, type7, dimensions7,
-            floor8, type8, dimensions8,
-            floor9, type9, dimensions9,
-            floor10, type10, dimensions10,
-            floor11, type11, dimensions11,
-            floor12, type12, dimensions12,
-            floor13, type13, dimensions13,
-            floor14, type14, dimensions14,
-            floor15, type15, dimensions15,
-            floor16, type16, dimensions16,
-            floor17, type17, dimensions17,
-            floor18, type18, dimensions18,
-            floor19, type19, dimensions19,
-            floor20, type20, dimensions20,
-            floor21, type21, dimensions21,
-            floor22, type22, dimensions22,
-            floor23, type23, dimensions23,
-            floor24, type24, dimensions24,
-            floor25, type25, dimensions25,
-            floor26, type26, dimensions26,
-            floor27, type27, dimensions27,
-            floor28, type28, dimensions28,
-            floor29, type29, dimensions29,
-            floor30, type30, dimensions30,
+            floor1,
+            type1,
+            dimensions1,
+            floor2,
+            type2,
+            dimensions2,
+            floor3,
+            type3,
+            dimensions3,
+            floor4,
+            type4,
+            dimensions4,
+            floor5,
+            type5,
+            dimensions5,
+            floor6,
+            type6,
+            dimensions6,
+            floor7,
+            type7,
+            dimensions7,
+            floor8,
+            type8,
+            dimensions8,
+            floor9,
+            type9,
+            dimensions9,
+            floor10,
+            type10,
+            dimensions10,
+            floor11,
+            type11,
+            dimensions11,
+            floor12,
+            type12,
+            dimensions12,
+            floor13,
+            type13,
+            dimensions13,
+            floor14,
+            type14,
+            dimensions14,
+            floor15,
+            type15,
+            dimensions15,
+            floor16,
+            type16,
+            dimensions16,
+            floor17,
+            type17,
+            dimensions17,
+            floor18,
+            type18,
+            dimensions18,
+            floor19,
+            type19,
+            dimensions19,
+            floor20,
+            type20,
+            dimensions20,
+            floor21,
+            type21,
+            dimensions21,
+            floor22,
+            type22,
+            dimensions22,
+            floor23,
+            type23,
+            dimensions23,
+            floor24,
+            type24,
+            dimensions24,
+            floor25,
+            type25,
+            dimensions25,
+            floor26,
+            type26,
+            dimensions26,
+            floor27,
+            type27,
+            dimensions27,
+            floor28,
+            type28,
+            dimensions28,
+            floor29,
+            type29,
+            dimensions29,
+            floor30,
+            type30,
+            dimensions30,
             // Baths
-            bath1, bathType1, bathPieces1, bathEnsuite1,
-            bath2, bathType2, bathPieces2, bathEnsuite2,
-            bath3, bathType3, bathPieces3, bathEnsuite3,
-            bath4, bathType4, bathPieces4, bathEnsuite4,
-            bath5, bathType5, bathPieces5, bathEnsuite5,
-            bath6, bathType6, bathPieces6, bathEnsuite6,
-            bath7, bathType7, bathPieces7, bathEnsuite7,
-            bath8, bathType8, bathPieces8, bathEnsuite8,
-            barn, workshopShed, pool, garageSize, doorHeight,
+            bath1,
+            bathType1,
+            bathPieces1,
+            bathEnsuite1,
+            bath2,
+            bathType2,
+            bathPieces2,
+            bathEnsuite2,
+            bath3,
+            bathType3,
+            bathPieces3,
+            bathEnsuite3,
+            bath4,
+            bathType4,
+            bathPieces4,
+            bathEnsuite4,
+            bath5,
+            bathType5,
+            bathPieces5,
+            bathEnsuite5,
+            bath6,
+            bathType6,
+            bathPieces6,
+            bathEnsuite6,
+            bath7,
+            bathType7,
+            bathPieces7,
+            bathEnsuite7,
+            bath8,
+            bathType8,
+            bathPieces8,
+            bathEnsuite8,
+            barn,
+            workshopShed,
+            pool,
+            garageSize,
+            doorHeight,
             listingBroker,
           },
           images,
@@ -625,144 +745,221 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
         if (state.offeredAtPrice) setListPrice(state.offeredAtPrice as string);
         if (state.realtorName) setPresentedBy(state.realtorName as string);
         if (state.emailLink) setEmail(state.emailLink as string);
-        if (state.companyName) setPresentedByCompany(state.companyName as string);
-        if (state.propertyNotesDescription) setDescription(state.propertyNotesDescription as string);
+        if (state.companyName)
+          setPresentedByCompany(state.companyName as string);
+        if (state.propertyNotesDescription)
+          setDescription(state.propertyNotesDescription as string);
 
         if (state.otherDetails) {
           const details = state.otherDetails as Record<string, unknown>;
-          if (details.presentedBy) setPresentedBy(details.presentedBy as string);
-          if (details.presentedByCompany) setPresentedByCompany(details.presentedByCompany as string);
+          if (details.presentedBy)
+            setPresentedBy(details.presentedBy as string);
+          if (details.presentedByCompany)
+            setPresentedByCompany(details.presentedByCompany as string);
           if (details.phone) setPhone(details.phone as string);
           if (details.email) setEmail(details.email as string);
           if (details.mlsNumber) setMlsNumber(details.mlsNumber as string);
           if (details.board) setBoard(details.board as string);
-          if (details.propertyType) setPropertyType(details.propertyType as string);
-          if (details.fullAddress) setFullAddress(details.fullAddress as string);
+          if (details.propertyType)
+            setPropertyType(details.propertyType as string);
+          if (details.fullAddress)
+            setFullAddress(details.fullAddress as string);
           if (details.area) setArea(details.area as string);
-          if (details.neighborhood) setNeighborhood(details.neighborhood as string);
+          if (details.neighborhood)
+            setNeighborhood(details.neighborhood as string);
           if (details.postalCode) setPostalCode(details.postalCode as string);
-          if (details.propertyCategory) setPropertyCategory(details.propertyCategory as string);
+          if (details.propertyCategory)
+            setPropertyCategory(details.propertyCategory as string);
           if (details.listPrice) setListPrice(details.listPrice as string);
           if (details.soldPrice) setSoldPrice(details.soldPrice as string);
           if (details.soldDate) setSoldDate(details.soldDate as string);
-          if (details.measureType) setMeasureType(details.measureType as string);
+          if (details.measureType)
+            setMeasureType(details.measureType as string);
           if (details.depthSize) setDepthSize(details.depthSize as string);
           if (details.lotArea) setLotArea(details.lotArea as string);
           if (details.floodPlain) setFloodPlain(details.floodPlain as string);
-          if (details.councilApproval) setCouncilApproval(details.councilApproval as string);
+          if (details.councilApproval)
+            setCouncilApproval(details.councilApproval as string);
           if (details.exposure) setExposure(details.exposure as string);
-          if (details.frontageFeet) setFrontageFeet(details.frontageFeet as string);
-          if (details.frontageMeters) setFrontageMeters(details.frontageMeters as string);
-          if (details.depthSizeFeet) setDepthSizeFeet(details.depthSizeFeet as string);
+          if (details.frontageFeet)
+            setFrontageFeet(details.frontageFeet as string);
+          if (details.frontageMeters)
+            setFrontageMeters(details.frontageMeters as string);
+          if (details.depthSizeFeet)
+            setDepthSizeFeet(details.depthSizeFeet as string);
           if (details.bedrooms) setBedrooms(details.bedrooms as string);
           if (details.bathrooms) setBathrooms(details.bathrooms as string);
           if (details.fullBaths) setFullBaths(details.fullBaths as string);
           if (details.halfBaths) setHalfBaths(details.halfBaths as string);
-          if (details.maintenanceFee) setMaintenanceFee(details.maintenanceFee as string);
-          if (details.originalPrice) setOriginalPrice(details.originalPrice as string);
+          if (details.maintenanceFee)
+            setMaintenanceFee(details.maintenanceFee as string);
+          if (details.originalPrice)
+            setOriginalPrice(details.originalPrice as string);
           if (details.depth) setDepth(details.depth as string);
           if (details.age) setAge(details.age as string);
           if (details.zoning) setZoning(details.zoning as string);
           if (details.grossTaxes) setGrossTaxes(details.grossTaxes as string);
           if (details.taxYear) setTaxYear(details.taxYear as string);
-          if (details.taxIncludeUtilities) setTaxIncludeUtilities(details.taxIncludeUtilities as string);
+          if (details.taxIncludeUtilities)
+            setTaxIncludeUtilities(details.taxIncludeUtilities as string);
           if (details.pid) setPid(details.pid as string);
           if (details.tour) setTour(details.tour as string);
           if (details.gstHst) setGstHst(details.gstHst as string);
-          if (details.managementCompany) setManagementCompany(details.managementCompany as string);
-          if (details.managementPhone) setManagementPhone(details.managementPhone as string);
+          if (details.managementCompany)
+            setManagementCompany(details.managementCompany as string);
+          if (details.managementPhone)
+            setManagementPhone(details.managementPhone as string);
           if (details.view) setView(details.view as string);
-          if (details.complexSubdiv) setComplexSubdiv(details.complexSubdiv as string);
-          if (details.servicesConnected) setServicesConnected(details.servicesConnected as string);
-          if (details.styleOfHome) setStyleOfHome(details.styleOfHome as string);
-          if (details.construction) setConstruction(details.construction as string);
+          if (details.complexSubdiv)
+            setComplexSubdiv(details.complexSubdiv as string);
+          if (details.servicesConnected)
+            setServicesConnected(details.servicesConnected as string);
+          if (details.styleOfHome)
+            setStyleOfHome(details.styleOfHome as string);
+          if (details.construction)
+            setConstruction(details.construction as string);
           if (details.exterior) setExterior(details.exterior as string);
           if (details.foundation) setFoundation(details.foundation as string);
           if (details.rainScreen) setRainScreen(details.rainScreen as string);
-          if (details.renovations) setRenovations(details.renovations as string);
-          if (details.waterSupply) setWaterSupply(details.waterSupply as string);
-          if (details.fireplaceFuel) setFireplaceFuel(details.fireplaceFuel as string);
-          if (details.fuelHeating) setFuelHeating(details.fuelHeating as string);
-          if (details.outdoorArea) setOutdoorArea(details.outdoorArea as string);
+          if (details.renovations)
+            setRenovations(details.renovations as string);
+          if (details.waterSupply)
+            setWaterSupply(details.waterSupply as string);
+          if (details.fireplaceFuel)
+            setFireplaceFuel(details.fireplaceFuel as string);
+          if (details.fuelHeating)
+            setFuelHeating(details.fuelHeating as string);
+          if (details.outdoorArea)
+            setOutdoorArea(details.outdoorArea as string);
           if (details.roofType) setRoofType(details.roofType as string);
           if (details.renoYear) setRenoYear(details.renoYear as string);
           if (details.riPlumbing) setRiPlumbing(details.riPlumbing as string);
-          if (details.riFireplaces) setRiFireplaces(details.riFireplaces as string);
-          if (details.numFireplaces) setNumFireplaces(details.numFireplaces as string);
-          if (details.totalParking) setTotalParking(details.totalParking as string);
-          if (details.coveredParking) setCoveredParking(details.coveredParking as string);
+          if (details.riFireplaces)
+            setRiFireplaces(details.riFireplaces as string);
+          if (details.numFireplaces)
+            setNumFireplaces(details.numFireplaces as string);
+          if (details.totalParking)
+            setTotalParking(details.totalParking as string);
+          if (details.coveredParking)
+            setCoveredParking(details.coveredParking as string);
           if (details.parking) setParking(details.parking as string);
-          if (details.distToPublicTransit) setDistToPublicTransit(details.distToPublicTransit as string);
-          if (details.unitsInDevelopment) setUnitsInDevelopment(details.unitsInDevelopment as string);
-          if (details.parkingAccess) setParkingAccess(details.parkingAccess as string);
+          if (details.distToPublicTransit)
+            setDistToPublicTransit(details.distToPublicTransit as string);
+          if (details.unitsInDevelopment)
+            setUnitsInDevelopment(details.unitsInDevelopment as string);
+          if (details.parkingAccess)
+            setParkingAccess(details.parkingAccess as string);
           if (details.locker) setLocker(details.locker as string);
-          if (details.distToSchoolBus) setDistToSchoolBus(details.distToSchoolBus as string);
-          if (details.totalUnitsInStrata) setTotalUnitsInStrata(details.totalUnitsInStrata as string);
-          if (details.titleToLand) setTitleToLand(details.titleToLand as string);
-          if (details.propertyDisclosure) setPropertyDisclosure(details.propertyDisclosure as string);
-          if (details.fixturesLeased) setFixturesLeased(details.fixturesLeased as string);
-          if (details.fixturesRemoved) setFixturesRemoved(details.fixturesRemoved as string);
-          if (details.floorFinish) setFloorFinish(details.floorFinish as string);
-          if (details.maintFeeInc) setMaintFeeInc(details.maintFeeInc as string);
+          if (details.distToSchoolBus)
+            setDistToSchoolBus(details.distToSchoolBus as string);
+          if (details.totalUnitsInStrata)
+            setTotalUnitsInStrata(details.totalUnitsInStrata as string);
+          if (details.titleToLand)
+            setTitleToLand(details.titleToLand as string);
+          if (details.propertyDisclosure)
+            setPropertyDisclosure(details.propertyDisclosure as string);
+          if (details.fixturesLeased)
+            setFixturesLeased(details.fixturesLeased as string);
+          if (details.fixturesRemoved)
+            setFixturesRemoved(details.fixturesRemoved as string);
+          if (details.floorFinish)
+            setFloorFinish(details.floorFinish as string);
+          if (details.maintFeeInc)
+            setMaintFeeInc(details.maintFeeInc as string);
           if (details.legal) setLegal(details.legal as string);
           if (details.amenities) setAmenities(details.amenities as string);
-          if (details.siteInfluences) setSiteInfluences(details.siteInfluences as string);
+          if (details.siteInfluences)
+            setSiteInfluences(details.siteInfluences as string);
           if (details.features) setFeatures(details.features as string);
           if (details.numRooms) setNumRooms(details.numRooms as string);
-          if (details.numKitchens) setNumKitchens(details.numKitchens as string);
+          if (details.numKitchens)
+            setNumKitchens(details.numKitchens as string);
           if (details.numLevels) setNumLevels(details.numLevels as string);
-          if (details.crawlBasementHeight) setCrawlBasementHeight(details.crawlBasementHeight as string);
-          if (details.restrictedAge) setRestrictedAge(details.restrictedAge as string);
+          if (details.crawlBasementHeight)
+            setCrawlBasementHeight(details.crawlBasementHeight as string);
+          if (details.restrictedAge)
+            setRestrictedAge(details.restrictedAge as string);
           if (details.numPets) setNumPets(details.numPets as string);
           if (details.cats) setCats(details.cats as string);
           if (details.dogs) setDogs(details.dogs as string);
-          if (details.rentalsAllowed) setRentalsAllowed(details.rentalsAllowed as string);
-          if (details.bylawRestrictions) setBylawRestrictions(details.bylawRestrictions as string);
+          if (details.rentalsAllowed)
+            setRentalsAllowed(details.rentalsAllowed as string);
+          if (details.bylawRestrictions)
+            setBylawRestrictions(details.bylawRestrictions as string);
           if (details.basement) setBasement(details.basement as string);
-          if (details.finishedFloorMain) setFinishedFloorMain(details.finishedFloorMain as string);
-          if (details.finishedFloorAbove) setFinishedFloorAbove(details.finishedFloorAbove as string);
-          if (details.finishedFloorBelow) setFinishedFloorBelow(details.finishedFloorBelow as string);
-          if (details.finishedFloorBasement) setFinishedFloorBasement(details.finishedFloorBasement as string);
-          if (details.finishedFloorTotal) setFinishedFloorTotal(details.finishedFloorTotal as string);
-          if (details.unfinishedFloor) setUnfinishedFloor(details.unfinishedFloor as string);
+          if (details.finishedFloorMain)
+            setFinishedFloorMain(details.finishedFloorMain as string);
+          if (details.finishedFloorAbove)
+            setFinishedFloorAbove(details.finishedFloorAbove as string);
+          if (details.finishedFloorBelow)
+            setFinishedFloorBelow(details.finishedFloorBelow as string);
+          if (details.finishedFloorBasement)
+            setFinishedFloorBasement(details.finishedFloorBasement as string);
+          if (details.finishedFloorTotal)
+            setFinishedFloorTotal(details.finishedFloorTotal as string);
+          if (details.unfinishedFloor)
+            setUnfinishedFloor(details.unfinishedFloor as string);
           if (details.grandTotal) setGrandTotal(details.grandTotal as string);
 
           // Rooms Loop (simplified but complete)
           for (let i = 1; i <= 30; i++) {
-            if (details[`floor${i}`]) eval(`setFloor${i}`)(details[`floor${i}`] as string);
-            if (details[`type${i}`]) eval(`setType${i}`)(details[`type${i}`] as string);
-            if (details[`dimensions${i}`]) eval(`setDimensions${i}`)(details[`dimensions${i}`] as string);
+            if (details[`floor${i}`])
+              eval(`setFloor${i}`)(details[`floor${i}`] as string);
+            if (details[`type${i}`])
+              eval(`setType${i}`)(details[`type${i}`] as string);
+            if (details[`dimensions${i}`])
+              eval(`setDimensions${i}`)(details[`dimensions${i}`] as string);
           }
 
           // Baths Loop
           for (let i = 1; i <= 8; i++) {
-            if (details[`bath${i}`]) eval(`setBath${i}`)(details[`bath${i}`] as string);
-            if (details[`bathType${i}`]) eval(`setBathType${i}`)(details[`bathType${i}`] as string);
-            if (details[`bathPieces${i}`]) eval(`setBathPieces${i}`)(details[`bathPieces${i}`] as string);
-            if (details[`bathEnsuite${i}`]) eval(`setBathEnsuite${i}`)(details[`bathEnsuite${i}`] as string);
+            if (details[`bath${i}`])
+              eval(`setBath${i}`)(details[`bath${i}`] as string);
+            if (details[`bathType${i}`])
+              eval(`setBathType${i}`)(details[`bathType${i}`] as string);
+            if (details[`bathPieces${i}`])
+              eval(`setBathPieces${i}`)(details[`bathPieces${i}`] as string);
+            if (details[`bathEnsuite${i}`])
+              eval(`setBathEnsuite${i}`)(details[`bathEnsuite${i}`] as string);
           }
 
           if (details.barn) setBarn(details.barn as string);
-          if (details.workshopShed) setWorkshopShed(details.workshopShed as string);
+          if (details.workshopShed)
+            setWorkshopShed(details.workshopShed as string);
           if (details.pool) setPool(details.pool as string);
           if (details.garageSize) setGarageSize(details.garageSize as string);
           if (details.doorHeight) setDoorHeight(details.doorHeight as string);
-          if (details.listingBroker) setListingBroker(details.listingBroker as string);
+          if (details.listingBroker)
+            setListingBroker(details.listingBroker as string);
         }
 
-        if (state.images) setImages(state.images as ImageState);
-        if (state.imageScales) setScale(state.imageScales as ScaleState);
-        if (state.imagePositions) setPosition(state.imagePositions as PositionState);
+        if (state.images) {
+          setImages((prev) => ({
+            ...prev,
+            ...(state.images as Partial<ImageState>),
+          }));
+        }
+        if (state.imageScales) {
+          setScale((prev) => ({
+            ...prev,
+            ...(state.imageScales as Partial<ScaleState>),
+          }));
+        }
+        if (state.imagePositions) {
+          setPosition((prev) => ({
+            ...prev,
+            ...(state.imagePositions as Partial<PositionState>),
+          }));
+        }
       },
     }));
 
     console.log("orderData", orderData);
 
-
     // --- Handlers ---
     const handleImageChange = (
       key: keyof typeof images,
-      e: React.ChangeEvent<HTMLInputElement>
+      e: React.ChangeEvent<HTMLInputElement>,
     ) => {
       if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
@@ -773,7 +970,7 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
 
     const handleDelete = (
       key: keyof typeof images,
-      ref: React.RefObject<HTMLInputElement | null>
+      ref: React.RefObject<HTMLInputElement | null>,
     ) => {
       setImages((prev) => ({ ...prev, [key]: null }));
       setScale((prev) => ({ ...prev, [key]: 1 }));
@@ -888,7 +1085,6 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
 
     const handleGalleryImageSelect = (imageUrl: string) => {
       if (!currentImageSlot) return;
-
 
       switch (currentImageSlot) {
         case "image1":
@@ -1559,11 +1755,26 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                   </div>
                 </div>
               </div>
-              <svg viewBox="0 0 621 801" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute bottom-0 left-0 top-0 right-0 w-full h-full pointer-events-none">
-                <path opacity={0.529999} d="M275.5 434H8V94.5L275.5 434Z" fill="#AE2621" />
-                <path d="M0 0V83.984L564.48 801H621V684L79.76 0H0Z" fill="#152255" />
+              <svg
+                viewBox="0 0 621 801"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="absolute bottom-0 left-0 top-0 right-0 w-full h-full pointer-events-none"
+              >
+                <path
+                  opacity={0.529999}
+                  d="M275.5 434H8V94.5L275.5 434Z"
+                  fill="#AE2621"
+                />
+                <path
+                  d="M0 0V83.984L564.48 801H621V684L79.76 0H0Z"
+                  fill="#152255"
+                />
                 <path d="M359 540L419.993 616H621V540H359Z" fill="#A92219" />
-                <path d="M274 433L357.018 539.558L621 540V433H274Z" fill="#1D1B3A" />
+                <path
+                  d="M274 433L357.018 539.558L621 540V433H274Z"
+                  fill="#1D1B3A"
+                />
                 <path d="M276.326 434H8V540H359L276.326 434Z" fill="#A92219" />
               </svg>
               <div className="flex flex-col gap-4 justify-between absolute bottom-0 left-0 top-0 right-0 w-auto h-full">
@@ -1650,7 +1861,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                   </div>
                   <div className="flex flex-col gap-2">
                     <div className="flex text-white content-center h-[40px] relative group-hover:z-[11]">
-                      <span className="whitespace-nowrap content-center">#</span>
+                      <span className="whitespace-nowrap content-center">
+                        #
+                      </span>
                       <StyledInput
                         value={strNum}
                         rows={1}
@@ -1673,7 +1886,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                 <div className="h-[50%] w-full flex flex-col px-[75px] pt-[190px] ">
                   <div className="flex flex-col gap-2 w-[170px] align-self-end ml-auto">
                     <div className="flex text-white content-center h-[40px] relative group-hover:z-[11]">
-                      <span className="whitespace-nowrap content-center">$</span>
+                      <span className="whitespace-nowrap content-center">
+                        $
+                      </span>
                       <StyledInput
                         value={strNum}
                         rows={1}
@@ -1718,7 +1933,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           onChange={(e) => setSqft(e.target.value)}
                           className="font-semibold text-[24px] bg-transparent text-left w-full h-[20px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
                           placeholder="0,000"
-                        /></div>
+                        />
+                      </div>
                       SQ. FT.
                     </div>
                   </div>
@@ -2057,7 +2273,6 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
             {/*  */}
             <div className="w-1/2 gap-4 flex flex-col py-[40px] pr-[10px]">
               <div className="bg-white text-black p-4 space-y-2">
-
                 {/* Header */}
                 <div className="flex items-center justify-between pb-2">
                   <div
@@ -2116,7 +2331,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
 
                         <button
                           type="button"
-                          onClick={() => handleDelete("image13", fileInputRef13)}
+                          onClick={() =>
+                            handleDelete("image13", fileInputRef13)
+                          }
                           className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                           title="Delete image"
                         >
@@ -2161,7 +2378,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         placeholder="Sutton Group - 1st West Realty"
                       />
                     </div>
-                    <div className="flex gap-1 justify-center w-fit content-center place-self-center">Phone:
+                    <div className="flex gap-1 justify-center w-fit content-center place-self-center">
+                      Phone:
                       <StyledInput
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
@@ -2237,7 +2455,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
 
                         <button
                           type="button"
-                          onClick={() => handleDelete("image14", fileInputRef14)}
+                          onClick={() =>
+                            handleDelete("image14", fileInputRef14)
+                          }
                           className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                           title="Delete image"
                         >
@@ -2276,7 +2496,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           placeholder="R2236953"
                         />
                       </div>
-                      <div className="flex gap-1  w-fit content-center font-normal "> Board:
+                      <div className="flex gap-1  w-fit content-center font-normal ">
+                        {" "}
+                        Board:
                         <StyledInput
                           value={board}
                           onChange={(e) => setBoard(e.target.value)}
@@ -2350,7 +2572,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           rows={1}
                           className=" h-full bg-transparent text-[12px] font-bold placeholder:font-bold text-black placeholder:text-black text-right w-full focus:outline-none border-none "
                           placeholder="$799,000 "
-                        />(LP)
+                        />
+                        (LP)
                       </div>
                       <div className="flex gap-1  w-fit content-center ">
                         <StyledInput
@@ -2363,7 +2586,6 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       </div>
                     </div>
                   </div>
-
 
                   {/* Image and Sold / Lot Info */}
                   <div className="flex gap-2 border border-[#929D9B]">
@@ -2424,7 +2646,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
 
                             <button
                               type="button"
-                              onClick={() => handleDelete("image15", fileInputRef15)}
+                              onClick={() =>
+                                handleDelete("image15", fileInputRef15)
+                              }
                               className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                               title="Delete image"
                             >
@@ -2453,7 +2677,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       <div className=" flex justify-between">
                         <div className="text-[10px]">
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Sold Date:</span>
+                            <span className="whitespace-nowrap">
+                              Sold Date:
+                            </span>
                             <StyledInput
                               value={soldDate}
                               onChange={(e) => setSoldDate(e.target.value)}
@@ -2463,7 +2689,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Meas. Type:</span>
+                            <span className="whitespace-nowrap">
+                              Meas. Type:
+                            </span>
                             <StyledInput
                               value={measureType}
                               onChange={(e) => setMeasureType(e.target.value)}
@@ -2473,7 +2701,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Depth / Size (ft.):</span>
+                            <span className="whitespace-nowrap">
+                              Depth / Size (ft.):
+                            </span>
                             <StyledInput
                               value={depthSize}
                               onChange={(e) => setDepthSize(e.target.value)}
@@ -2483,7 +2713,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Lot Area (sq.ft.): </span>
+                            <span className="whitespace-nowrap">
+                              Lot Area (sq.ft.):{" "}
+                            </span>
                             <StyledInput
                               value={lotArea}
                               onChange={(e) => setLotArea(e.target.value)}
@@ -2493,7 +2725,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Flood Plain:</span>
+                            <span className="whitespace-nowrap">
+                              Flood Plain:
+                            </span>
                             <StyledInput
                               value={floodPlain}
                               onChange={(e) => setFloodPlain(e.target.value)}
@@ -2503,10 +2737,14 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Council Apprv?:</span>
+                            <span className="whitespace-nowrap">
+                              Council Apprv?:
+                            </span>
                             <StyledInput
                               value={councilApproval}
-                              onChange={(e) => setCouncilApproval(e.target.value)}
+                              onChange={(e) =>
+                                setCouncilApproval(e.target.value)
+                              }
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-normal placeholder:font-normal text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
@@ -2524,8 +2762,10 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           </div>
                         </div>
                         <div className="text-[10px]">
-                          <div className="flex content-center h-[20px]" >
-                            <span className="whitespace-nowrap">Frontage (feet):</span>
+                          <div className="flex content-center h-[20px]">
+                            <span className="whitespace-nowrap">
+                              Frontage (feet):
+                            </span>
                             <StyledInput
                               value={frontageFeet}
                               onChange={(e) => setFrontageFeet(e.target.value)}
@@ -2535,17 +2775,23 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Frontage (metres):</span>
+                            <span className="whitespace-nowrap">
+                              Frontage (metres):
+                            </span>
                             <StyledInput
                               value={frontageMeters}
-                              onChange={(e) => setFrontageMeters(e.target.value)}
+                              onChange={(e) =>
+                                setFrontageMeters(e.target.value)
+                              }
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Depth / Size (ft.):</span>
+                            <span className="whitespace-nowrap">
+                              Depth / Size (ft.):
+                            </span>
                             <StyledInput
                               value={depthSizeFeet}
                               onChange={(e) => setDepthSizeFeet(e.target.value)}
@@ -2555,7 +2801,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Bedrooms: </span>
+                            <span className="whitespace-nowrap">
+                              Bedrooms:{" "}
+                            </span>
                             <StyledInput
                               value={bedrooms}
                               onChange={(e) => setBedrooms(e.target.value)}
@@ -2565,7 +2813,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Bathrooms: </span>
+                            <span className="whitespace-nowrap">
+                              Bathrooms:{" "}
+                            </span>
                             <StyledInput
                               value={bathrooms}
                               onChange={(e) => setBathrooms(e.target.value)}
@@ -2575,7 +2825,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Full Baths: </span>
+                            <span className="whitespace-nowrap">
+                              Full Baths:{" "}
+                            </span>
                             <StyledInput
                               value={fullBaths}
                               onChange={(e) => setFullBaths(e.target.value)}
@@ -2585,7 +2837,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Half Baths: </span>
+                            <span className="whitespace-nowrap">
+                              Half Baths:{" "}
+                            </span>
                             <StyledInput
                               value={halfBaths}
                               onChange={(e) => setHalfBaths(e.target.value)}
@@ -2595,10 +2849,14 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Maint. Fee: $</span>
+                            <span className="whitespace-nowrap">
+                              Maint. Fee: $
+                            </span>
                             <StyledInput
                               value={maintenanceFee}
-                              onChange={(e) => setMaintenanceFee(e.target.value)}
+                              onChange={(e) =>
+                                setMaintenanceFee(e.target.value)
+                              }
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="380.76"
@@ -2607,7 +2865,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         </div>
                         <div className="text-[10px]">
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Original Price: $</span>
+                            <span className="whitespace-nowrap">
+                              Original Price: $
+                            </span>
                             <StyledInput
                               value={originalPrice}
                               onChange={(e) => setOriginalPrice(e.target.value)}
@@ -2647,7 +2907,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Gross Taxes: $</span>
+                            <span className="whitespace-nowrap">
+                              Gross Taxes: $
+                            </span>
                             <StyledInput
                               value={grossTaxes}
                               onChange={(e) => setGrossTaxes(e.target.value)}
@@ -2657,7 +2919,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">For Tax Year: </span>
+                            <span className="whitespace-nowrap">
+                              For Tax Year:{" "}
+                            </span>
                             <StyledInput
                               value={taxYear}
                               onChange={(e) => setTaxYear(e.target.value)}
@@ -2667,10 +2931,14 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Tax Inc. Utilities?: </span>
+                            <span className="whitespace-nowrap">
+                              Tax Inc. Utilities?:{" "}
+                            </span>
                             <StyledInput
                               value={taxIncludeUtilities}
-                              onChange={(e) => setTaxIncludeUtilities(e.target.value)}
+                              onChange={(e) =>
+                                setTaxIncludeUtilities(e.target.value)
+                              }
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="No"
@@ -2700,7 +2968,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       </div>
                       <div className="text-[10px]">
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">If new, GST/HST inc?: </span>
+                          <span className="whitespace-nowrap">
+                            If new, GST/HST inc?:{" "}
+                          </span>
                           <StyledInput
                             value={gstHst}
                             onChange={(e) => setGstHst(e.target.value)}
@@ -2710,17 +2980,23 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Mgmt. Co&apos;s Name: </span>
+                          <span className="whitespace-nowrap">
+                            Mgmt. Co&apos;s Name:{" "}
+                          </span>
                           <StyledInput
                             value={managementCompany}
-                            onChange={(e) => setManagementCompany(e.target.value)}
+                            onChange={(e) =>
+                              setManagementCompany(e.target.value)
+                            }
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="FirstService Residentia"
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Mgmt. Co&apos;s Phone: </span>
+                          <span className="whitespace-nowrap">
+                            Mgmt. Co&apos;s Phone:{" "}
+                          </span>
                           <StyledInput
                             value={managementPhone}
                             onChange={(e) => setManagementPhone(e.target.value)}
@@ -2740,7 +3016,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Complex / Subdiv: </span>
+                          <span className="whitespace-nowrap">
+                            Complex / Subdiv:{" "}
+                          </span>
                           <StyledInput
                             value={complexSubdiv}
                             onChange={(e) => setComplexSubdiv(e.target.value)}
@@ -2750,10 +3028,14 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Services Connected: </span>
+                          <span className="whitespace-nowrap">
+                            Services Connected:{" "}
+                          </span>
                           <StyledInput
                             value={servicesConnected}
-                            onChange={(e) => setServicesConnected(e.target.value)}
+                            onChange={(e) =>
+                              setServicesConnected(e.target.value)
+                            }
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Electricity, Sanitary Sewer, Water"
@@ -2763,13 +3045,14 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                     </div>
                   </div>
 
-
                   {/* Property Details */}
                   <div className="flex ">
                     <div className="w-1/2 flex  border border-[#929D9B] text-[10px] p-1">
                       <div className="">
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Style of Home: </span>
+                          <span className="whitespace-nowrap">
+                            Style of Home:{" "}
+                          </span>
                           <StyledInput
                             value={styleOfHome}
                             onChange={(e) => setStyleOfHome(e.target.value)}
@@ -2779,7 +3062,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Construction: </span>
+                          <span className="whitespace-nowrap">
+                            Construction:{" "}
+                          </span>
                           <StyledInput
                             value={construction}
                             onChange={(e) => setConstruction(e.target.value)}
@@ -2799,7 +3084,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Foundation: </span>
+                          <span className="whitespace-nowrap">
+                            Foundation:{" "}
+                          </span>
                           <StyledInput
                             value={foundation}
                             onChange={(e) => setFoundation(e.target.value)}
@@ -2809,7 +3096,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Rain Screen: </span>
+                          <span className="whitespace-nowrap">
+                            Rain Screen:{" "}
+                          </span>
                           <StyledInput
                             value={rainScreen}
                             onChange={(e) => setRainScreen(e.target.value)}
@@ -2819,7 +3108,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Renovations: </span>
+                          <span className="whitespace-nowrap">
+                            Renovations:{" "}
+                          </span>
                           <StyledInput
                             value={renovations}
                             onChange={(e) => setRenovations(e.target.value)}
@@ -2829,7 +3120,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Water Supply:</span>
+                          <span className="whitespace-nowrap">
+                            Water Supply:
+                          </span>
                           <StyledInput
                             value={waterSupply}
                             onChange={(e) => setWaterSupply(e.target.value)}
@@ -2839,7 +3132,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Fireplace Fuel: </span>
+                          <span className="whitespace-nowrap">
+                            Fireplace Fuel:{" "}
+                          </span>
                           <StyledInput
                             value={fireplaceFuel}
                             onChange={(e) => setFireplaceFuel(e.target.value)}
@@ -2849,7 +3144,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Fuel/Heating: </span>
+                          <span className="whitespace-nowrap">
+                            Fuel/Heating:{" "}
+                          </span>
                           <StyledInput
                             value={fuelHeating}
                             onChange={(e) => setFuelHeating(e.target.value)}
@@ -2859,7 +3156,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Outdoor Area: </span>
+                          <span className="whitespace-nowrap">
+                            Outdoor Area:{" "}
+                          </span>
                           <StyledInput
                             value={outdoorArea}
                             onChange={(e) => setOutdoorArea(e.target.value)}
@@ -2869,7 +3168,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Type of Roof: </span>
+                          <span className="whitespace-nowrap">
+                            Type of Roof:{" "}
+                          </span>
                           <StyledInput
                             value={roofType}
                             onChange={(e) => setRoofType(e.target.value)}
@@ -2881,7 +3182,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       </div>
                       <div className="">
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Reno. Year: </span>
+                          <span className="whitespace-nowrap">
+                            Reno. Year:{" "}
+                          </span>
                           <StyledInput
                             value={renoYear}
                             onChange={(e) => setRenoYear(e.target.value)}
@@ -2891,7 +3194,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">R.I. Plumbing: </span>
+                          <span className="whitespace-nowrap">
+                            R.I. Plumbing:{" "}
+                          </span>
                           <StyledInput
                             value={riPlumbing}
                             onChange={(e) => setRiPlumbing(e.target.value)}
@@ -2901,7 +3206,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">R.I. Fireplaces: </span>
+                          <span className="whitespace-nowrap">
+                            R.I. Fireplaces:{" "}
+                          </span>
                           <StyledInput
                             value={riFireplaces}
                             onChange={(e) => setRiFireplaces(e.target.value)}
@@ -2911,7 +3218,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap"># of Fireplaces: </span>
+                          <span className="whitespace-nowrap">
+                            # of Fireplaces:{" "}
+                          </span>
                           <StyledInput
                             value={numFireplaces}
                             onChange={(e) => setNumFireplaces(e.target.value)}
@@ -2926,7 +3235,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       <div className="flex gap-4">
                         <div className="">
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Total Parking: </span>
+                            <span className="whitespace-nowrap">
+                              Total Parking:{" "}
+                            </span>
                             <StyledInput
                               value={totalParking}
                               onChange={(e) => setTotalParking(e.target.value)}
@@ -2936,10 +3247,14 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Covered Parking:</span>
+                            <span className="whitespace-nowrap">
+                              Covered Parking:
+                            </span>
                             <StyledInput
                               value={coveredParking}
-                              onChange={(e) => setCoveredParking(e.target.value)}
+                              onChange={(e) =>
+                                setCoveredParking(e.target.value)
+                              }
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="1"
@@ -2956,20 +3271,28 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Dist. to Public Transit:</span>
+                            <span className="whitespace-nowrap">
+                              Dist. to Public Transit:
+                            </span>
                             <StyledInput
                               value={distToPublicTransit}
-                              onChange={(e) => setDistToPublicTransit(e.target.value)}
+                              onChange={(e) =>
+                                setDistToPublicTransit(e.target.value)
+                              }
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="1 Block"
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Units in Development:</span>
+                            <span className="whitespace-nowrap">
+                              Units in Development:
+                            </span>
                             <StyledInput
                               value={unitsInDevelopment}
-                              onChange={(e) => setUnitsInDevelopment(e.target.value)}
+                              onChange={(e) =>
+                                setUnitsInDevelopment(e.target.value)
+                              }
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
@@ -2978,7 +3301,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         </div>
                         <div className="">
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Parking Access:</span>
+                            <span className="whitespace-nowrap">
+                              Parking Access:
+                            </span>
                             <StyledInput
                               value={parkingAccess}
                               onChange={(e) => setParkingAccess(e.target.value)}
@@ -2998,20 +3323,28 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Dist. to School Bus:</span>
+                            <span className="whitespace-nowrap">
+                              Dist. to School Bus:
+                            </span>
                             <StyledInput
                               value={distToSchoolBus}
-                              onChange={(e) => setDistToSchoolBus(e.target.value)}
+                              onChange={(e) =>
+                                setDistToSchoolBus(e.target.value)
+                              }
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
                             />
                           </div>
                           <div className="flex content-center h-[20px]">
-                            <span className="whitespace-nowrap">Total Units in Strata: </span>
+                            <span className="whitespace-nowrap">
+                              Total Units in Strata:{" "}
+                            </span>
                             <StyledInput
                               value={totalUnitsInStrata}
-                              onChange={(e) => setTotalUnitsInStrata(e.target.value)}
+                              onChange={(e) =>
+                                setTotalUnitsInStrata(e.target.value)
+                              }
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="382"
@@ -3021,7 +3354,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       </div>
                       <div className="">
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Title to Land:</span>
+                          <span className="whitespace-nowrap">
+                            Title to Land:
+                          </span>
                           <StyledInput
                             value={titleToLand}
                             onChange={(e) => setTitleToLand(e.target.value)}
@@ -3031,17 +3366,23 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Property Disc.:</span>
+                          <span className="whitespace-nowrap">
+                            Property Disc.:
+                          </span>
                           <StyledInput
                             value={propertyDisclosure}
-                            onChange={(e) => setPropertyDisclosure(e.target.value)}
+                            onChange={(e) =>
+                              setPropertyDisclosure(e.target.value)
+                            }
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="No"
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Fixtures Leased: </span>
+                          <span className="whitespace-nowrap">
+                            Fixtures Leased:{" "}
+                          </span>
                           <StyledInput
                             value={fixturesLeased}
                             onChange={(e) => setFixturesLeased(e.target.value)}
@@ -3051,7 +3392,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Fixtures Rmvd: </span>
+                          <span className="whitespace-nowrap">
+                            Fixtures Rmvd:{" "}
+                          </span>
                           <StyledInput
                             value={fixturesRemoved}
                             onChange={(e) => setFixturesRemoved(e.target.value)}
@@ -3061,7 +3404,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Floor Finish: </span>
+                          <span className="whitespace-nowrap">
+                            Floor Finish:{" "}
+                          </span>
                           <StyledInput
                             value={floorFinish}
                             onChange={(e) => setFloorFinish(e.target.value)}
@@ -3108,7 +3453,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       />
                     </div>
                     <div className="flex content-center h-[20px]">
-                      <span className="whitespace-nowrap">Site Influences:</span>
+                      <span className="whitespace-nowrap">
+                        Site Influences:
+                      </span>
                       <StyledInput
                         value={siteInfluences}
                         onChange={(e) => setSiteInfluences(e.target.value)}
@@ -3976,12 +4323,13 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                     </div>
                   </div>
 
-
                   {/* ---ffff */}
                   <div className="flex">
                     <div className="flex flex-col w-[25%] border border-[#929D9B] text-[10px] p-1">
                       <div className="flex content-center h-[20px]">
-                        <span className="whitespace-nowrap">Finished Floor (Main): </span>
+                        <span className="whitespace-nowrap">
+                          Finished Floor (Main):{" "}
+                        </span>
                         <StyledInput
                           value={finishedFloorMain}
                           onChange={(e) => setFinishedFloorMain(e.target.value)}
@@ -3991,47 +4339,66 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         />
                       </div>
                       <div className="flex content-center h-[20px]">
-                        <span className="whitespace-nowrap">Finished Floor (Above): </span>
+                        <span className="whitespace-nowrap">
+                          Finished Floor (Above):{" "}
+                        </span>
                         <StyledInput
                           value={finishedFloorAbove}
-                          onChange={(e) => setFinishedFloorAbove(e.target.value)}
+                          onChange={(e) =>
+                            setFinishedFloorAbove(e.target.value)
+                          }
                           rows={1}
                           className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-right w-full focus:outline-none border-none"
                           placeholder="0"
                         />
                       </div>
                       <div className="flex content-center h-[20px]">
-                        <span className="whitespace-nowrap">Finished Floor (Below): </span>
+                        <span className="whitespace-nowrap">
+                          Finished Floor (Below):{" "}
+                        </span>
                         <StyledInput
                           value={finishedFloorBelow}
-                          onChange={(e) => setFinishedFloorBelow(e.target.value)}
+                          onChange={(e) =>
+                            setFinishedFloorBelow(e.target.value)
+                          }
                           rows={1}
                           className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-right w-full focus:outline-none border-none"
                           placeholder="0"
                         />
                       </div>
                       <div className="flex content-center h-[20px]">
-                        <span className="whitespace-nowrap">Finished Floor (Basement): </span>
+                        <span className="whitespace-nowrap">
+                          Finished Floor (Basement):{" "}
+                        </span>
                         <StyledInput
                           value={finishedFloorBasement}
-                          onChange={(e) => setFinishedFloorBasement(e.target.value)}
+                          onChange={(e) =>
+                            setFinishedFloorBasement(e.target.value)
+                          }
                           rows={1}
                           className="h-full bg-transparent border-b border-dotted border-gray-400 border-x-0 border-t-0 rounded-none text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-right w-full focus:outline-none"
                           placeholder="0"
                         />
                       </div>
                       <div className="flex content-center h-[20px]">
-                        <span className="whitespace-nowrap">Finished Floor (Total): </span>
+                        <span className="whitespace-nowrap">
+                          Finished Floor (Total):{" "}
+                        </span>
                         <StyledInput
                           value={finishedFloorTotal}
-                          onChange={(e) => setFinishedFloorTotal(e.target.value)}
+                          onChange={(e) =>
+                            setFinishedFloorTotal(e.target.value)
+                          }
                           rows={1}
                           className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-right w-full focus:outline-none border-none"
                           placeholder="640"
-                        /> sqft
+                        />{" "}
+                        sqft
                       </div>
                       <div className="flex content-center h-[20px]">
-                        <span className="whitespace-nowrap">Unfinished Floor: </span>
+                        <span className="whitespace-nowrap">
+                          Unfinished Floor:{" "}
+                        </span>
                         <StyledInput
                           value={unfinishedFloor}
                           onChange={(e) => setUnfinishedFloor(e.target.value)}
@@ -4048,13 +4415,16 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           rows={1}
                           className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-right w-full focus:outline-none border-none"
                           placeholder="640"
-                        /> sqft
+                        />{" "}
+                        sqft
                       </div>
                     </div>
                     <div className="flex flex-col w-[35%] border border-[#929D9B] text-[10px] p-1">
                       <div className="flex">
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap"># of Rooms: </span>
+                          <span className="whitespace-nowrap">
+                            # of Rooms:{" "}
+                          </span>
                           <StyledInput
                             value={numRooms}
                             onChange={(e) => setNumRooms(e.target.value)}
@@ -4064,7 +4434,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap"># of Kitchens: </span>
+                          <span className="whitespace-nowrap">
+                            # of Kitchens:{" "}
+                          </span>
                           <StyledInput
                             value={numKitchens}
                             onChange={(e) => setNumKitchens(e.target.value)}
@@ -4074,7 +4446,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap"># of Levels: </span>
+                          <span className="whitespace-nowrap">
+                            # of Levels:{" "}
+                          </span>
                           <StyledInput
                             value={numLevels}
                             onChange={(e) => setNumLevels(e.target.value)}
@@ -4086,17 +4460,23 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       </div>
                       <div className="">
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Crawl/Bsmt. Height: </span>
+                          <span className="whitespace-nowrap">
+                            Crawl/Bsmt. Height:{" "}
+                          </span>
                           <StyledInput
                             value={crawlBasementHeight}
-                            onChange={(e) => setCrawlBasementHeight(e.target.value)}
+                            onChange={(e) =>
+                              setCrawlBasementHeight(e.target.value)
+                            }
                             rows={1}
                             className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Restricted Age: </span>
+                          <span className="whitespace-nowrap">
+                            Restricted Age:{" "}
+                          </span>
                           <StyledInput
                             value={restrictedAge}
                             onChange={(e) => setRestrictedAge(e.target.value)}
@@ -4140,7 +4520,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       </div>
                       <div className="">
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap"># or % of Rentals Allowed: </span>
+                          <span className="whitespace-nowrap">
+                            # or % of Rentals Allowed:{" "}
+                          </span>
                           <StyledInput
                             value={rentalsAllowed}
                             onChange={(e) => setRentalsAllowed(e.target.value)}
@@ -4150,10 +4532,14 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center">
-                          <span className="whitespace-nowrap">Bylaw Restric: </span>
+                          <span className="whitespace-nowrap">
+                            Bylaw Restric:{" "}
+                          </span>
                           <StyledInput
                             value={bylawRestrictions}
-                            onChange={(e) => setBylawRestrictions(e.target.value)}
+                            onChange={(e) =>
+                              setBylawRestrictions(e.target.value)
+                            }
                             rows={2}
                             className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder="Pets Allowed w/Rest., Rentals Allwd w/Restrctns"
@@ -4323,7 +4709,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         </div>
                       </div>
                       <div className="">
-                        <div className="underline whitespace-nowrap"># of Pieces</div>
+                        <div className="underline whitespace-nowrap">
+                          # of Pieces
+                        </div>
                         <div className="flex content-center h-[20px]">
                           <StyledInput
                             value={bathPieces1}
@@ -4398,7 +4786,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         </div>
                       </div>
                       <div className="">
-                        <div className="underline whitespace-nowrap">Ensuite?</div>
+                        <div className="underline whitespace-nowrap">
+                          Ensuite?
+                        </div>
                         <div className="flex content-center h-[20px]">
                           <StyledInput
                             value={bathEnsuite1}
@@ -4475,7 +4865,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                     </div>
                     <div className="flex w-[15%] border border-[#929D9B] text-[10px] p-1">
                       <div className="">
-                        <div className="underline whitespace-nowrap text-center">Outbuildings</div>
+                        <div className="underline whitespace-nowrap text-center">
+                          Outbuildings
+                        </div>
                         <div className="flex content-center h-[20px]">
                           <span className="whitespace-nowrap">Barn: </span>
                           <StyledInput
@@ -4487,7 +4879,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Workshop/Shed: </span>
+                          <span className="whitespace-nowrap">
+                            Workshop/Shed:{" "}
+                          </span>
                           <StyledInput
                             value={workshopShed}
                             onChange={(e) => setWorkshopShed(e.target.value)}
@@ -4517,7 +4911,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           />
                         </div>
                         <div className="flex content-center h-[20px]">
-                          <span className="whitespace-nowrap">Door Height: </span>
+                          <span className="whitespace-nowrap">
+                            Door Height:{" "}
+                          </span>
                           <StyledInput
                             value={doorHeight}
                             onChange={(e) => setDoorHeight(e.target.value)}
@@ -4534,7 +4930,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                   <div className="">
                     <div className="flex border border-[#929D9B] text-[10px] p-1">
                       <div className="flex content-center h-[20px]">
-                        <span className="whitespace-nowrap">Listing Broker(s): </span>
+                        <span className="whitespace-nowrap">
+                          Listing Broker(s):{" "}
+                        </span>
                         <StyledInput
                           value={listingBroker}
                           onChange={(e) => setListingBroker(e.target.value)}
@@ -4565,17 +4963,14 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       </div>
                     </div>
                   </div>
-
                 </div>
               </div>
-
             </div>
           </div>
-
         </div>
       </>
     );
-  }
+  },
 );
 
 BcfpStandard24.displayName = "BcfpStandard24";
