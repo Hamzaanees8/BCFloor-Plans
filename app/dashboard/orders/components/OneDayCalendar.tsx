@@ -486,7 +486,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         // Create comparable dayjs objects for slot start and allowed start time
         // We use the same date and local time string approach as the slot generation to ensure consistency
         const twilightTime = dayjs(`${date}T${sunsetLocalTimeStr}`);
-        const allowedStartTime = twilightTime.subtract(45, 'minute');
+        const allowedStartTime = twilightTime.subtract(30, 'minute');
         const slotStartTime = dayjs(slot.start);
 
         if (slotStartTime.isBefore(allowedStartTime)) {
@@ -498,8 +498,20 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         let isRecommended = false;
         const isTwilightService = currentServiceData?.category?.name === "Twilight Photos";
 
-        // Recommend first 2 slots for Twilight, or first slot for standard recommendation
-        const maxRecommended = isTwilightService ? 2 : 1;
+        // Recommend slots based on service duration for Twilight, or first slot for standard recommendation
+        let maxRecommended = 1;
+
+        if (isTwilightService) {
+          const productOption = currentServiceData?.product_options?.find(
+            (option) => option.uuid === service.option_id
+          );
+          const squareFootage = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
+          const requiredDuration = getEffectiveServiceDuration(
+            productOption?.service_duration,
+            squareFootage
+          );
+          maxRecommended = Math.ceil(requiredDuration / 15);
+        }
 
         if (availableSlotsCount < maxRecommended && (recommendTimeMap[calendarIdx] === 1 || isTwilightService)) {
           isRecommended = true;
@@ -553,7 +565,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     });
 
     setEvents(finalSlots);
-  }, [vendorsData, ordersData, currentDate, selectedVendors, selectedSlots, service.title, service.uuid, service.id, AllBookedSlots, propertyTimezone, recommendTimeMap, calendarIdx, scheduleOverrideMap, twilightData, servicesData]);
+  }, [vendorsData, ordersData, currentDate, selectedVendors, selectedSlots, service.title, service.uuid, service.id, service.option_id, AllBookedSlots, propertyTimezone, recommendTimeMap, calendarIdx, scheduleOverrideMap, twilightData, servicesData, tempPropertyData, selectedCurrentListing]);
 
   useEffect(() => {
     async function loadTwilight() {
@@ -1238,7 +1250,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
                     {eventInfo.event.title}
                   </div>
                 )}
-                {isRecommended && (
+                {isRecommended && !isTwilightRecommended && (
                   <div className="recommended-corner-indicator">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12"></polyline>
