@@ -186,7 +186,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                       <div className="relative w-full h-[240px]">
                         {/* eslint-disable @next/next/no-img-element */}
                         <img
-                          src={`${API_URL}/${file.file_path}`}
+                          src={file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
                           alt="preview"
                           className="w-full h-full object-cover"
                         />

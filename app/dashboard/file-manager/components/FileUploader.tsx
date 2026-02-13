@@ -17,6 +17,7 @@ interface FileDropZoneProps {
 }
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+const VIDEO_MAX_FILE_SIZE = 50 * 1024 * 1024 * 1024; // 50GB
 const LARGE_FILE_WARNING = 30 * 1024 * 1024; // 30MB
 
 const FileUploader: React.FC<FileDropZoneProps> = ({
@@ -47,8 +48,11 @@ const FileUploader: React.FC<FileDropZoneProps> = ({
 
         // Check file sizes
         files = files.filter(file => {
-            if (file.size > MAX_FILE_SIZE) {
-                newWarnings.push(`${file.name} exceeds 100MB limit`);
+            const isVideo = file.type.startsWith('video/');
+            const limit = isVideo ? VIDEO_MAX_FILE_SIZE : MAX_FILE_SIZE;
+
+            if (file.size > limit) {
+                newWarnings.push(`${file.name} exceeds ${isVideo ? '50GB' : '100MB'} limit`);
                 return false;
             }
             if (file.size > LARGE_FILE_WARNING) {
@@ -139,7 +143,9 @@ const FileUploader: React.FC<FileDropZoneProps> = ({
                 <p className="text-[#8E8E8E] text-sm">
                     {type === 'video' ? 'Video MP4' : 'RAW, JPG, PNG, PDF'}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">Max 100MB per file</p>
+                <p className="text-xs text-gray-400 mt-1">
+                    {type === 'video' ? 'Max 50GB per file' : 'Max 100MB per file'}
+                </p>
                 <input
                     type="file"
                     multiple

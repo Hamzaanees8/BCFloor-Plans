@@ -647,12 +647,12 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
                                                                 {file.file_path.toLowerCase().endsWith('.pdf') ? (
                                                                     <PdfPlaceholder
                                                                         className="w-full h-full object-contain cursor-pointer"
-                                                                        onClick={() => handleImageClick(`${API_URL}/${file.file_path}`, file)}
+                                                                        onClick={() => handleImageClick(file.url || `${API_URL}/${file.file_path}`, file)}
                                                                     />
                                                                 ) : (
                                                                     <NextImage
-                                                                        src={`${API_URL}/${file.file_path}`}
-                                                                        onClick={() => handleImageClick(`${API_URL}/${file.file_path}`, file)}
+                                                                        src={file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
+                                                                        onClick={() => handleImageClick(file.url || `${API_URL}/${file.file_path}`, file)}
                                                                         alt="Preview"
                                                                         fill
                                                                         className={`object-contain h-auto w-full cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
@@ -786,13 +786,13 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
                                                                         {file.file_path.toLowerCase().endsWith('.pdf') ? (
                                                                             <PdfPlaceholder
                                                                                 className="w-full h-full object-contain cursor-pointer"
-                                                                                onClick={() => handleImageClick(`${API_URL}/${file.file_path}`, file)}
+                                                                                onClick={() => handleImageClick(file.url || `${API_URL}/${file.file_path}`, file)}
                                                                             />
                                                                         ) : (
                                                                             <NextImage
-                                                                                src={`${API_URL}/${file.file_path}`}
+                                                                                src={file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
                                                                                 alt="Preview"
-                                                                                onClick={() => handleImageClick(`${API_URL}/${file.file_path}`, file)}
+                                                                                onClick={() => handleImageClick(file.url || `${API_URL}/${file.file_path}`, file)}
                                                                                 fill
                                                                                 className={`object-contain h-auto w-full cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
                                                                             />

@@ -452,7 +452,7 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                           <div key={`api-${index}`} className="w-full aspect-square overflow-hidden">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={`${API_URL}/${image.file_path}`}
+                              src={image.url || `${API_URL}/${image.file_path}`}
                               alt={`Uploaded ${index + 1}`}
                               className="w-full h-full object-cover"
                             />
@@ -503,7 +503,7 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                           );
                         })}
                         {currentVideoFiles?.map((file, idx) => {
-                          const apiSrc = `${API_URL}/${file.file_path}`;
+                          const apiSrc = file.url || `${API_URL}/${file.file_path}`;
                           return (
                             <div
                               key={idx}

@@ -421,6 +421,18 @@ const FileManager = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderData]);
 
+  // Update overall progress whenever individual file statuses change
+  useEffect(() => {
+    if (uploadStates.length === 0) {
+      setOverallProgress(0);
+      return;
+    }
+
+    const totalProgress = uploadStates.reduce((sum, state) => sum + state.progress, 0);
+    const average = Math.round(totalProgress / uploadStates.length);
+    setOverallProgress(average);
+  }, [uploadStates]);
+
   async function handleUpload() {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -510,12 +522,7 @@ const FileManager = () => {
               }
               return newStates;
             });
-
-            // Calculate overall progress
-            setOverallProgress(() => {
-              const totalProgress = uploadStates.reduce((sum, state) => sum + state.progress, 0);
-              return uploadStates.length > 0 ? Math.round(totalProgress / uploadStates.length) : 0;
-            });
+            // Overall progress is handled by useEffect
           }
         );
       }
@@ -549,11 +556,28 @@ const FileManager = () => {
       })));
 
       setIsUploading(false);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "An error occurred while saving changes."
-      );
+      setIsUploading(false);
+      let errorMessage = "An error occurred while saving changes.";
+      if (error instanceof Error) {
+        try {
+          // Check if the error message is a JSON string
+          const errorObj = JSON.parse(error.message);
+          if (errorObj.message && typeof errorObj.message === 'object') {
+            // Handle validation errors (e.g. { "files.0.size": ["..."] })
+            const validationErrors = Object.values(errorObj.message).flat();
+            errorMessage = validationErrors.join(', ');
+          } else if (errorObj.message) {
+            errorMessage = errorObj.message;
+          } else {
+            errorMessage = error.message;
+          }
+        } catch {
+          // If not JSON, use the message directly
+          errorMessage = error.message;
+        }
+      }
+
+      toast.error(errorMessage);
     }
   }
 

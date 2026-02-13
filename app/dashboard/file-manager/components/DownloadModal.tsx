@@ -22,6 +22,7 @@ type ApiFile = {
   uuid: string;
   name: string; // Changed from file_name to name
   file_path: string;
+  url?: string;
   type: string;
   group: string | null;
 };
@@ -59,7 +60,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
     const api = apiFiles.map((f) => ({
       id: `api-${f.uuid}`, // Use UUID for API files
       name: f.name,
-      url: '', // API files use DownloadFile function
+      url: f.url || '', // API files use DownloadFile function, but we might need url for preview
       isLocal: false,
       type: f.type,
       uuid: f.uuid,
@@ -217,7 +218,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
                 <div className="relative w-[180px] h-[110px] shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={file.isLocal ? file.url : `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`}
+                    src={file.isLocal ? file.url : (file.url || `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`)}
                     alt={file.name}
                     className="w-full h-full object-cover rounded-md"
                   />
@@ -225,7 +226,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
               ) : file.type === 'video' ? (
                 <div className="relative w-[180px] h-[110px] shrink-0">
                   <video
-                    src={file.isLocal ? file.url : `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`}
+                    src={file.isLocal ? file.url : (file.url || `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`)}
                     className="w-full h-full object-cover rounded-md"
                   />
                 </div>

@@ -49,11 +49,30 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
 
   const isSelected = !!selectedServiceItem;
   const isPaid = selectedServiceItem?.payment_status?.toUpperCase() === 'PAID';
+
+  const isPhotoService = useMemo(() => {
+    const name = service.name?.toLowerCase() || '';
+    const cat = service.category?.name?.toLowerCase() || '';
+    const keywords = ['photo', 'twilight', 'hdr', 'still', 'drone', 'video', 'pano', 'matterport'];
+    return keywords.some(k => name.includes(k) || cat.includes(k));
+  }, [service.name, service.category?.name]);
+
+  const calculatedPriceForPhoto = useMemo(() => {
+    if (!isPhotoService) return null;
+    const firstOpt = pricingOptions && pricingOptions.length > 0 ? pricingOptions[0] : null;
+    const baseAmount = firstOpt?.amount ?? 0;
+    const baseQty = firstOpt?.quantity || 1;
+    const qtyValue = parseInt(customServiceNames[service.uuid]) || 0;
+    return (baseAmount / baseQty) * qtyValue;
+  }, [isPhotoService, pricingOptions, customServiceNames, service.uuid]);
   const selectedPrice = useMemo(() => {
     const option = selectedOptions[service.uuid];
     if (!option) return null;
 
     if (option === "custom") {
+      if (isPhotoService) {
+        return calculatedPriceForPhoto;
+      }
       return customPrices[service.uuid] ? Number(customPrices[service.uuid]) : null;
     }
 
@@ -62,8 +81,20 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
       const calculated = parseFloat(found.sq_ft_rate) * squareFootage;
       return found.min_price ? Math.max(calculated, found.min_price) : calculated;
     }
-    return found?.amount ?? null;
-  }, [selectedOptions, customPrices, pricingOptions, service.uuid, squareFootage]);
+
+    const baseAmount = found?.amount ?? null;
+    return baseAmount;
+  }, [selectedOptions, customPrices, pricingOptions, service.uuid, squareFootage, isPhotoService, calculatedPriceForPhoto]);
+
+  const displayPrice = useMemo(() => {
+    if (isPhotoService) {
+      return calculatedPriceForPhoto !== null ? Number(calculatedPriceForPhoto).toFixed(2) : '';
+    }
+    if (selectedOption === "custom") {
+      return customPrice !== '' ? Number(customPrice).toFixed(2) : '';
+    }
+    return selectedPrice !== null ? Number(selectedPrice).toFixed(2) : '';
+  }, [isPhotoService, calculatedPriceForPhoto, selectedOption, customPrice, selectedPrice]);
 
 
   useEffect(() => {
@@ -75,10 +106,10 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     if (showAll) {
       FilteredOptions = pricingOptions;
     } else {
-      const isPhotoService = service.name?.toLowerCase().includes('photo') ||
-        service.category?.name?.toLowerCase().includes('photo') ||
-        service.name?.toLowerCase().includes('twilight') ||
-        service.category?.name?.toLowerCase().includes('twilight');
+      const name = service.name?.toLowerCase() || '';
+      const cat = service.category?.name?.toLowerCase() || '';
+      const keywords = ['photo', 'twilight', 'hdr', 'still', 'drone', 'video', 'pano', 'matterport'];
+      const isPhotoService = keywords.some(k => name.includes(k) || cat.includes(k));
 
       if (isPhotoService || !squareFootage) {
         FilteredOptions = pricingOptions;
@@ -108,32 +139,54 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     }
   }, [pricingOptions, selectedOption, service.uuid, setSelectedOptions, selectedListingId, squareFootage, showAll, service.name, service.category?.name]);
 
-  const handleSelectService = (optionValue?: string, customVal?: string) => {
-    const currentOption = optionValue ?? selectedOption;
-    const currentCustom = customVal ?? customPrice;
+  const getEffectivePriceAndQty = (optionTitle?: string, customAmt?: string, forcedQty?: string) => {
+    const currentOption = optionTitle ?? selectedOption;
+    const currentCustom = customAmt ?? customPrice;
+    const currentCustomName = forcedQty ?? customServiceName;
 
-    if (!currentOption) return;
+    if (!currentOption) return { price: undefined, quantity: 1, option_id: undefined, custom: undefined, optionName: "" };
+
     const selectedOptionData = pricingOptions?.find(opt => opt.title === currentOption);
     let price: number | undefined = undefined;
-    let quantity: number | undefined = selectedOptionData?.quantity ?? 1;
-    let option_id: string | undefined = selectedOptionData?.uuid ?? undefined;
+    let quantity = selectedOptionData?.quantity ?? 1;
+    let option_id = selectedOptionData?.uuid;
     let custom: string | undefined = undefined;
-    let optionName: string;
+    let optionName = currentOption;
+
     if (currentOption === "custom") {
-      price = currentCustom ? Number(currentCustom) : undefined;
-      quantity = 1;
-      option_id = undefined;
-      custom = customServiceName;
-      optionName = customServiceName;
-    } else {
-      const opt = pricingOptions?.find(opt => opt.title === currentOption);
-      if (opt?.sq_ft_rate && parseFloat(opt.sq_ft_rate) > 0) {
-        const calculated = parseFloat(opt.sq_ft_rate) * squareFootage;
-        price = opt.min_price ? Math.max(calculated, opt.min_price) : calculated;
+      if (isPhotoService) {
+        const firstOpt = pricingOptions && pricingOptions.length > 0 ? pricingOptions[0] : null;
+        const baseAmount = firstOpt?.amount ?? 0;
+        const baseQty = firstOpt?.quantity || 1;
+        const qtyValue = parseInt(currentCustomName) || 0;
+
+        quantity = qtyValue;
+        price = (baseAmount / baseQty) * quantity;
+        option_id = undefined;
+        custom = `${quantity} Units`;
+        optionName = custom;
       } else {
-        price = opt?.amount ?? undefined;
+        price = currentCustom ? Number(currentCustom) : undefined;
+        quantity = 1;
+        option_id = undefined;
+        custom = customServiceName;
+        optionName = customServiceName;
+      }
+    } else {
+      if (selectedOptionData?.sq_ft_rate && parseFloat(selectedOptionData.sq_ft_rate) > 0) {
+        const calculated = parseFloat(selectedOptionData.sq_ft_rate) * squareFootage;
+        price = selectedOptionData.min_price ? Math.max(calculated, selectedOptionData.min_price) : calculated;
+      } else {
+        price = selectedOptionData?.amount ?? 0;
+        quantity = selectedOptionData?.quantity || 1;
       }
     }
+
+    return { price, quantity, option_id, custom, optionName };
+  };
+
+  const handleSelectService = (optionValue?: string, customVal?: string, forcedQty?: string) => {
+    const { price, quantity, option_id, custom, optionName } = getEffectivePriceAndQty(optionValue, customVal, forcedQty);
 
     if (setSelectedServices) {
       setSelectedServices(prev => {
@@ -164,36 +217,13 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                 if (isPaid) return;
                 if (!selectedOption) return;
 
-                let price: number | undefined = undefined;
-                let quantity: number | undefined = 1;
-                let option_id: string | undefined = undefined;
-                let custom: string | undefined = undefined;
-                let optionName: string;
-                if (selectedOption === "custom") {
-                  price = customPrice ? Number(customPrice) : undefined;
-                  quantity = 1;
-                  option_id = undefined;
-                  optionName = customServiceName;
-                  custom = customServiceName;
-                } else {
-                  const selectedOptionData = pricingOptions?.find(opt => opt.title === selectedOption);
-                  if (selectedOptionData?.sq_ft_rate && parseFloat(selectedOptionData.sq_ft_rate) > 0) {
-                    const calculated = parseFloat(selectedOptionData.sq_ft_rate) * squareFootage;
-                    price = selectedOptionData.min_price ? Math.max(calculated, selectedOptionData.min_price) : calculated;
-                  } else {
-                    price = selectedOptionData?.amount ?? undefined;
-                  }
-                  quantity = selectedOptionData?.quantity ?? 1;
-                  option_id = selectedOptionData?.uuid;
-                  optionName = selectedOptionData?.title || "";
-                }
-
                 if (setSelectedServices) {
                   setSelectedServices(prev => {
                     const alreadySelected = prev.some(item => item.uuid === service.uuid);
                     if (alreadySelected) {
                       return prev.filter(item => item.uuid !== service.uuid);
                     } else {
+                      const { price, quantity, option_id, custom, optionName } = getEffectivePriceAndQty();
                       return [...prev, { title, uuid: service.uuid, price, quantity, option_id, custom, optionName, payment_status: 'UNPAID' }];
                     }
                   });
@@ -220,36 +250,13 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                 if (isPaid) return;
                 if (!selectedOption) return;
 
-                let price: number | undefined = undefined;
-                let quantity: number | undefined = 1;
-                let option_id: string | undefined = undefined;
-                let custom: string | undefined = undefined;
-                let optionName: string;
-                if (selectedOption === "custom") {
-                  price = customPrice ? Number(customPrice) : undefined;
-                  quantity = 1;
-                  option_id = undefined;
-                  optionName = customServiceName;
-                  custom = customServiceName;
-                } else {
-                  const selectedOptionData = pricingOptions?.find(opt => opt.title === selectedOption);
-                  if (selectedOptionData?.sq_ft_rate && parseFloat(selectedOptionData.sq_ft_rate) > 0) {
-                    const calculated = parseFloat(selectedOptionData.sq_ft_rate) * squareFootage;
-                    price = selectedOptionData.min_price ? Math.max(calculated, selectedOptionData.min_price) : calculated;
-                  } else {
-                    price = selectedOptionData?.amount ?? undefined;
-                  }
-                  quantity = selectedOptionData?.quantity ?? 1;
-                  option_id = selectedOptionData?.uuid;
-                  optionName = selectedOptionData?.title || "";
-                }
-
                 if (setSelectedServices) {
                   setSelectedServices(prev => {
                     const alreadySelected = prev.some(item => item.uuid === service.uuid);
                     if (alreadySelected) {
                       return prev.filter(item => item.uuid !== service.uuid);
                     } else {
+                      const { price, quantity, option_id, custom, optionName } = getEffectivePriceAndQty();
                       return [...prev, { title, uuid: service.uuid, price, quantity, option_id, custom, optionName, payment_status: 'UNPAID' }];
                     }
                   });
@@ -259,11 +266,12 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
               <p>{title}</p>
             </div>
             <div className={`text-[20px] font-[500]`} style={{ color: isSelected ? "#6BAE41" : roleSettings.pageText }}>
-              ${selectedPrice ? Number(selectedPrice).toFixed(2) : ''}
+              ${selectedPrice !== null ? Number(selectedPrice).toFixed(2) : ''}
             </div>
 
           </div>
         </div>
+
 
         {Array.isArray(pricingOptions) && pricingOptions.length > 0 &&
           <Accordion type="single" collapsible defaultValue="pricing">
@@ -290,11 +298,6 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                   className="flex flex-col ">
                   <div className="flex flex-col items-center justify-between gap-[10px]">
                     {pricingOptions?.filter((option) => {
-                      const isPhotoService = service.name?.toLowerCase().includes('photo') ||
-                        service.category?.name?.toLowerCase().includes('photo') ||
-                        service.name?.toLowerCase().includes('twilight') ||
-                        service.category?.name?.toLowerCase().includes('twilight');
-
                       if (showAll || isPhotoService || !squareFootage) return true;
 
                       // Check for sq_ft_rate
@@ -372,7 +375,8 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                         }}
                       />
                       <Input
-                        placeholder="Service Name"
+                        placeholder={isPhotoService ? "Qty" : "Service Name"}
+                        type={isPhotoService ? "number" : "text"}
                         disabled={isPaid}
                         className="h-[26px] px-[5px] bg-white text-[10px] col-span-5"
                         value={customServiceName}
@@ -382,26 +386,31 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                             ...prev,
                             [service.uuid]: e.target.value,
                           }));
+                          if (isPhotoService) {
+                            // Automatically select custom and update when typing quantity
+                            setSelectedOptions(prev => ({ ...prev, [service.uuid]: "custom" }));
+                            handleSelectService("custom", undefined, e.target.value);
+                          }
                         }}
                       />
                       <Input
                         type="number"
                         min={0}
                         placeholder="$__"
-                        disabled={isPaid}
+                        disabled={isPaid || (isPhotoService && selectedOption === "custom")}
                         className="h-[26px] px-[3px] bg-white text-[10px] col-span-2"
-                        value={customPrice}
+                        value={displayPrice}
                         onChange={e => {
                           if (isPaid) return;
+                          if (isPhotoService && selectedOption === "custom") return; // Read-only for photo custom qty
+
                           setCustomPrices(prev => ({
                             ...prev,
                             [service.uuid]: e.target.value,
                           }));
                           if (selectedOption === "custom") {
-                            //setSelectedPrice(e.target.value ? Number(e.target.value) : null);
                             handleSelectService("custom", e.target.value);
                           }
-
                         }}
                       />
                     </div>
@@ -414,6 +423,6 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
 
         }
       </CardContent>
-    </Card>
+    </Card >
   );
 }

@@ -454,7 +454,8 @@ export async function UpdateFilesData(
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
     throw new Error(
-      error.message || `Update failed with status ${response.status}`,
+      // Keep the error object structure if possible, or stringify it so it can be parsed later
+      error.message ? JSON.stringify(error) : `Update failed with status ${response.status}`,
     );
   }
 

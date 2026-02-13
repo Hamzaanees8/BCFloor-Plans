@@ -616,6 +616,26 @@ export async function fetchTwilightTime(address: string, date: string): Promise<
   }
 }
 
+export function formatTwilightTime(utcTime: string, timeZone: string): string {
+  if (!utcTime) return "—";
+  try {
+    // Ensure the time string is treated as UTC if it doesn't specify an offset
+    // The API returns "YYYY-MM-DDTHH:mm:ss+00:00" which is already ISO specific
+    const date = new Date(utcTime);
+
+    // Use Intl.DateTimeFormat for robust timezone handling
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: timeZone,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(date);
+  } catch (error) {
+    console.error("Error formatting twilight time:", error);
+    return "Invalid time";
+  }
+}
+
 
 export interface Coordinate {
   lat: number;

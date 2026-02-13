@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 import FilePreviewModal from './FilePreviewModal';
-import { Check, CheckCircle2, X } from 'lucide-react';
+import { Check, CheckCircle2, X, PlayCircle } from 'lucide-react';
 import { DownloadIcon } from '@/components/Icons';
 import { Button } from '@/components/ui/button';
 import FileUploader from './FileUploader';
@@ -501,11 +501,21 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled }: { c
                                                 style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
                                             >
                                                 <div className="relative w-full h-[240px]">
-                                                    <video
-                                                        src={`${API_URL}/${file.file_path}`}
-                                                        className={`w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
-                                                        onClick={() => handleVideoClick(`${API_URL}/${file.file_path}`, file)}
-                                                    />
+                                                    <div
+                                                        className="relative w-full h-full cursor-pointer group"
+                                                        onClick={() => handleVideoClick(file.url || `${API_URL}/${file.file_path}`, file)}
+                                                    >
+                                                        <video
+                                                            src={`${file.url || `${API_URL}/${file.file_path}`}#t=0.1`}
+                                                            preload="metadata"
+                                                            muted
+                                                            playsInline
+                                                            className={`w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                                        />
+                                                        <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
+                                                            <PlayCircle className="w-12 h-12 text-white/90 drop-shadow-md group-hover:scale-110 transition-transform duration-300 fill-black/40" />
+                                                        </div>
+                                                    </div>
                                                     {userType === 'admin' && reviewFilesEnabled && (
                                                         <div
                                                             className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"

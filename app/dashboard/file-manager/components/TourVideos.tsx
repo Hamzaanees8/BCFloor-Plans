@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useFileManagerContext } from "../FileManagerContext";
-import { Check, X } from 'lucide-react';
+import { Check, X, PlayCircle } from 'lucide-react';
 
 import { useAppContext } from "@/app/context/AppContext";
 import { OptimizedImagePreview } from './OptimizedPreview';
@@ -23,7 +23,7 @@ function TourVideos() {
         (selectedVideoFiles[0]?.file
             ? URL.createObjectURL(selectedVideoFiles[0].file)
             : currentServiceFiles?.[0]
-                ? `${API_URL}/${currentServiceFiles[0].file_path}`
+                ? currentServiceFiles[0].url || `${API_URL}/${currentServiceFiles[0].file_path}`
                 : undefined);
 
     if ((!currentServiceFiles || currentServiceFiles?.length === 0) && selectedVideoFiles.length === 0) {
@@ -53,6 +53,9 @@ function TourVideos() {
                                     alt="Video thumbnail"
                                     className="w-full h-full object-cover"
                                 />
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <PlayCircle className="w-12 h-12 text-white/80 drop-shadow-lg" />
+                                </div>
                                 <span
                                     className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
                                     style={{
@@ -78,13 +81,18 @@ function TourVideos() {
                     ))}
 
                     {currentServiceFiles?.map((file, idx) => (
-                        <div key={idx} onClick={() => setMainVideo(`${API_URL}/${file.file_path}`)} className=" h-auto relative">
+                        <div key={idx} onClick={() => setMainVideo(file.url || `${API_URL}/${file.file_path}`)} className=" h-auto relative">
                             <div className="relative w-full h-[240px] cursor-pointer">
                                 <video
-                                    src={`${API_URL}/${file.file_path}`}
+                                    src={`${file.url || `${API_URL}/${file.file_path}`}#t=0.1`}
+                                    preload="metadata"
+                                    muted
+                                    playsInline
                                     className="w-full h-full object-cover"
-
                                 />
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <PlayCircle className="w-12 h-12 text-white/80 drop-shadow-lg" />
+                                </div>
                                 <span
                                     className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
                                     style={{

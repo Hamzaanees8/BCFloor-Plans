@@ -365,6 +365,7 @@ export interface Listings {
     status?: boolean;
     orders?: ListingOrder[];
     tour_activated?: boolean;
+    suite?: string;
 }
 
 export interface TourFile {

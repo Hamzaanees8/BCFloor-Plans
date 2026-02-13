@@ -1,6 +1,6 @@
 "use client";
 import React, { useRef, useState } from "react";
-import { useFileManagerContext } from "../FileManagerContext";
+import { useFileManagerContext, DroppedMarker } from "../FileManagerContext";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -9,16 +9,7 @@ import { CameraIcon } from "@/components/Icons";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 
-type DroppedMarker = {
-  x: number;
-  y: number;
-  file?: File;
-  file_path?: string;
-  floorImageUrl: string;
-  name?: string;
-  description?: string;
-  isApi?: boolean;
-};
+
 
 import { useAppContext } from "@/app/context/AppContext";
 
@@ -32,7 +23,7 @@ function TourFloorPlans({ type = "" }) {
     currentTourFloorFiles = currentTourFloorFiles?.filter(file => file.is_admin_approved);
     currentTourPhotos = currentTourPhotos?.filter(file => file.is_admin_approved);
   }
-  const [draggedFile, setDraggedFile] = useState<{ file?: File; file_path?: string } | null>(null);
+  const [draggedFile, setDraggedFile] = useState<{ file?: File; file_path?: string; url?: string } | null>(null);
 
   const [selectedImageId, setSelectedImageId] = useState<string | null>(() => {
     if (floorFiles?.length > 0) {
@@ -112,6 +103,7 @@ function TourFloorPlans({ type = "" }) {
       newMarker.file = draggedFile.file;
     } else if (draggedFile.file_path) {
       newMarker.file_path = draggedFile.file_path;
+      newMarker.url = draggedFile.url;
       newMarker.isApi = true;
     }
 
@@ -228,7 +220,7 @@ function TourFloorPlans({ type = "" }) {
               selectedFile
                 ? URL.createObjectURL(selectedFile.file)
                 : selectedApiFile
-                  ? `${API_URL}/${selectedApiFile.file_path}`
+                  ? selectedApiFile.url || `${API_URL}/${selectedApiFile.file_path}`
                   : ""
             }
             alt="Selected Floor"
@@ -254,6 +246,7 @@ function TourFloorPlans({ type = "" }) {
                       x: Number(marker.x_axis),
                       y: Number(marker.y_axis),
                       file_path: marker.file_path,
+                      url: marker.url,
                       floorImageUrl: marker.file_name,
                       name: marker.name ?? "",
                       description: marker.description ?? "",
@@ -299,9 +292,9 @@ function TourFloorPlans({ type = "" }) {
                   src={
                     previewMarker.file
                       ? URL.createObjectURL(previewMarker.file)
-                      : previewMarker.file_path
+                      : previewMarker.url || (previewMarker.file_path
                         ? `${API_URL}/${previewMarker.file_path}`
-                        : ""
+                        : "")
                   }
                   alt={previewMarker.name || "Snapshot"}
                   className="w-[95%] h-[70%] object-cover mx-auto mt-[10px]"
@@ -331,7 +324,7 @@ function TourFloorPlans({ type = "" }) {
                   <img src={URL.createObjectURL(snapshotFile)} alt="Snapshot Preview" />
                 ) : (previewMarker?.isApi || previewMarker?.isApi) ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={`${API_URL}/${previewMarker.file_path}`} alt="Snapshot Preview" />
+                  <img src={previewMarker.url || `${API_URL}/${previewMarker.file_path}`} alt="Snapshot Preview" />
                 ) : null}
 
 
@@ -392,7 +385,7 @@ function TourFloorPlans({ type = "" }) {
               <div className="relative border border-gray-200 rounded-[6px] w-full h-full flex items-center justify-center">
 
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`${API_URL}/${file.file_path}`} alt="preview" className="max-w-full max-h-full" />
+                <img src={file.url || `${API_URL}/${file.file_path}`} alt="preview" className="max-w-full max-h-full" />
               </div>
             </div>
           ))}
@@ -449,8 +442,8 @@ function TourFloorPlans({ type = "" }) {
                     {/* eslint-disable @next/next/no-img-element */}
                     <img
                       draggable
-                      onDragStart={() => setDraggedFile({ file_path: file.file_path })}
-                      src={`${API_URL}/${file.file_path}`}
+                      onDragStart={() => setDraggedFile({ file_path: file.file_path, url: file.url })}
+                      src={file.url || `${API_URL}/${file.file_path}`}
                       alt="preview"
                       className="w-full h-full object-cover"
                     />

@@ -11,7 +11,7 @@ import { EventClickArg, DatesSetArg } from '@fullcalendar/core';
 import { useOrderContext, Slot } from '../context/OrderContext';
 import { VendorData } from '../[id]/page';
 import { Order } from '../page';
-import { convertVendorWorkHoursToPropertyTimezone, fetchTwilightTime, TwilightResponse } from '../orders';
+import { convertVendorWorkHoursToPropertyTimezone, fetchTwilightTime, TwilightResponse, formatTwilightTime, convertUTCToTimezone } from '../orders';
 import { toast } from 'sonner';
 import {
   Tooltip,
@@ -469,16 +469,41 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         });
       }
     });
-    let firstAvailableFound = false;
+    let availableSlotsCount = 0;
     const finalSlots = fullDaySlots.map((slot) => {
       const key = `${slot.start}_${slot.end}`;
       const availableVendorIds = slotVendorsMap.get(key) || [];
 
-      if (availableVendorIds.length > 0) {
-        let isFirstAvailable = false;
-        if (recommendTimeMap[calendarIdx] === 1 && !firstAvailableFound) {
-          firstAvailableFound = true;
-          isFirstAvailable = true;
+      // Check if this is a Twilight service and filter slots based on twilight time
+      let isTwilightRestricted = false;
+      const currentServiceData = servicesData.find(s => s.uuid === service.uuid || s.id.toString() === service.id);
+
+      if (currentServiceData?.category?.name === "Twilight Photos" && twilightData?.sunset) {
+        const targetTimezone = propertyTimezone || 'America/Vancouver';
+        // Convert sunset UTC to property local time string (HH:mm:ss)
+        const sunsetLocalTimeStr = convertUTCToTimezone(twilightData.sunset, targetTimezone);
+
+        // Create comparable dayjs objects for slot start and allowed start time
+        // We use the same date and local time string approach as the slot generation to ensure consistency
+        const twilightTime = dayjs(`${date}T${sunsetLocalTimeStr}`);
+        const allowedStartTime = twilightTime.subtract(45, 'minute');
+        const slotStartTime = dayjs(slot.start);
+
+        if (slotStartTime.isBefore(allowedStartTime)) {
+          isTwilightRestricted = true;
+        }
+      }
+
+      if (availableVendorIds.length > 0 && !isTwilightRestricted) {
+        let isRecommended = false;
+        const isTwilightService = currentServiceData?.category?.name === "Twilight Photos";
+
+        // Recommend first 2 slots for Twilight, or first slot for standard recommendation
+        const maxRecommended = isTwilightService ? 2 : 1;
+
+        if (availableSlotsCount < maxRecommended && (recommendTimeMap[calendarIdx] === 1 || isTwilightService)) {
+          isRecommended = true;
+          availableSlotsCount++;
         }
 
         const matchingSelected = selectedSlots.find(
@@ -494,20 +519,22 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
             title: vendorsData.find(v => v.uuid === matchingSelected.vendor_id)?.first_name + ' ' +
               vendorsData.find(v => v.uuid === matchingSelected.vendor_id)?.last_name + '\n' +
               service.title,
-            className: `slot-selected vendor-${matchingSelected.vendor_id}${isFirstAvailable ? ' slot-recommended' : ''}`,
+            className: `slot-selected vendor-${matchingSelected.vendor_id}${isRecommended ? ' slot-recommended' : ''}`,
             extendedProps: {
-              availableVendorIds: []
+              availableVendorIds: [],
+              twilightRecommended: isTwilightService && isRecommended
             }
           };
         }
 
-        if (isFirstAvailable) {
+        if (isRecommended) {
           return {
             ...slot,
             title: 'Recommended',
             className: 'slot-available slot-recommended',
             extendedProps: {
-              availableVendorIds
+              availableVendorIds,
+              twilightRecommended: isTwilightService
             }
           };
         }
@@ -526,7 +553,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     });
 
     setEvents(finalSlots);
-  }, [vendorsData, ordersData, currentDate, selectedVendors, selectedSlots, service.title, service.uuid, AllBookedSlots, propertyTimezone, recommendTimeMap, calendarIdx, scheduleOverrideMap]);
+  }, [vendorsData, ordersData, currentDate, selectedVendors, selectedSlots, service.title, service.uuid, service.id, AllBookedSlots, propertyTimezone, recommendTimeMap, calendarIdx, scheduleOverrideMap, twilightData, servicesData]);
 
   useEffect(() => {
     async function loadTwilight() {
@@ -540,75 +567,60 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     loadTwilight();
   }, [selectedCurrentListing, tempPropertyData, currentDate]);
 
-  const formatLocalTime = (utcTime: string) => {
-    if (!utcTime) return "—";
-    const timeZone = propertyTimezone || "America/Vancouver";
-    try {
-      const date = new Date(utcTime);
-      return date.toLocaleTimeString("en-CA", {
-        timeZone,
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      });
-    } catch (error) {
-      console.error("Error formatting time:", error);
-      return "Invalid time";
-    }
-  };
+
 
   useEffect(() => {
     if (!containerRef.current || events.length === 0) return;
 
     if (!hasScrolledToFirstSlot.current) {
-      let targetSlot = null;
+      setTimeout(() => {
+        if (!containerRef.current) return;
 
-      const selectedSlot = events.find(event => event.className?.includes('slot-selected'));
+        // Try to find the element in the DOM
+        // Priority: Selected > Recommended > Available
+        let targetEl = containerRef.current.querySelector('.slot-selected');
 
-      if (selectedSlot) {
-        targetSlot = selectedSlot;
-      } else {
-        targetSlot = events.find(event => event.className === 'slot-available');
-      }
+        if (!targetEl) {
+          targetEl = containerRef.current.querySelector('.slot-recommended');
+        }
 
-      if (targetSlot) {
-        const slotStartTime = dayjs(targetSlot.start);
-        const startOfDay = slotStartTime.startOf('day');
-        const minutesFromMidnight = slotStartTime.diff(startOfDay, 'minute');
+        if (!targetEl) {
+          targetEl = containerRef.current.querySelector('.slot-available');
+        }
 
-        const pixelsPerMinute = 42 / 15;
-        const scrollPosition = minutesFromMidnight * pixelsPerMinute;
+        if (targetEl instanceof HTMLElement) {
 
-        setTimeout(() => {
-          if (containerRef.current) {
-            containerRef.current.scrollTo({
-              top: Math.max(0, scrollPosition - 134),
-              behavior: 'smooth'
-            });
-            hasScrolledToFirstSlot.current = true;
-          }
-        }, 200);
-      }
+          const containerRect = containerRef.current.getBoundingClientRect();
+          const targetRect = targetEl.getBoundingClientRect();
+
+          const relativeTop = targetRect.top - containerRect.top + containerRef.current.scrollTop;
+
+          const oneThirdHeight = containerRect.height / 3;
+          const scrollTo = Math.max(0, relativeTop - oneThirdHeight);
+
+          containerRef.current.scrollTo({
+            top: scrollTo,
+            behavior: 'smooth'
+          });
+
+          hasScrolledToFirstSlot.current = true;
+        }
+      }, 500);
     }
   }, [events]);
 
-  // Auto-navigate to next available day if current day has no slots
   const hasCheckedForNextAvailableDay = React.useRef(false);
   useEffect(() => {
     if (!calendarRef.current || events.length === 0) return;
 
-    // Check if all events are unavailable
     const hasAvailableSlots = events.some(event =>
       event.className === 'slot-available' ||
       event.className?.includes('slot-available')
     );
 
-    // Only auto-navigate if there are no available slots and we haven't checked yet
     if (!hasAvailableSlots && !hasCheckedForNextAvailableDay.current) {
       hasCheckedForNextAvailableDay.current = true;
 
-      // Search for next available day (up to 30 days)
       const searchForNextAvailableDay = async () => {
         const filteredVendors = vendorsData.filter(
           (vendor) => vendor.uuid && selectedVendors?.includes(vendor.uuid)
@@ -1093,6 +1105,9 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     .slot-recommended:not(.slot-selected) {
       background-color: #B2FFB2 !important;
     }
+    .twilight-recommended-slot {
+      border: 2px solid orange !important;
+    }
     .recommended-corner-indicator {
       position: absolute;
       top: 0;
@@ -1144,6 +1159,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           eventContent={(eventInfo) => {
             const isRecommended = eventInfo.event.classNames.includes('slot-recommended');
             const isAvailable = eventInfo.event.classNames.includes('slot-available');
+            const isTwilightRecommended = eventInfo.event.extendedProps?.twilightRecommended;
             const availableVendorIds = eventInfo.event.extendedProps?.availableVendorIds || [];
 
             // Get vendor data sorted by distance
@@ -1159,8 +1175,8 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
             const visibleVendors = availableVendors.slice(0, 3);
             const overflowVendors = availableVendors.slice(3);
 
-            return (
-              <div className="fc-event-main-frame w-full h-full relative flex flex-col items-center justify-center p-1 gap-0.5">
+            const content = (
+              <div className={`fc-event-main-frame w-full h-full relative flex flex-col items-center justify-center p-1 gap-0.5 ${isTwilightRecommended ? 'twilight-recommended-slot' : ''}`}>
                 {isAvailable && availableVendors.length > 0 ? (
                   <TooltipProvider delayDuration={200}>
                     <div className="flex flex-wrap gap-0.5 items-center justify-center w-full">
@@ -1231,6 +1247,23 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
                 )}
               </div>
             );
+
+            if (isTwilightRecommended) {
+              return (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      {content}
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="bg-orange-500 text-white border-none text-xs p-2">
+                      Recommended for Twilight
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            }
+
+            return content;
           }}
           height="auto"
           dayHeaders={false}
@@ -1321,23 +1354,9 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
       {twilightData && (
         <div className="mt-4 p-3 bg-gray-50 rounded-md border border-[#EEEEEE]">
-          <h4 className="text-sm font-[600] text-[#666666] mb-2">Twilight Times ({dayjs(currentDate).format('MMM D')})</h4>
-          <div className="grid grid-cols-2 gap-2 text-[10px]">
-            <div className="col-span-2 mt-2 font-[500] text-gray-500">Morning </div>
-            <div className="col-span-1">
-              <span className="text-gray-500">Civil:</span> {formatLocalTime(twilightData.civil_twilight_begin)}
-            </div>
-            <div className="col-span-1">
-              <span className="text-gray-500">Nautical:</span> {formatLocalTime(twilightData.nautical_twilight_begin)}
-            </div>
-
-            <div className="col-span-2 mt-2 font-[500] text-gray-500">Evening </div>
-            <div className="col-span-1">
-              <span className="text-gray-500">Civil:</span> {formatLocalTime(twilightData.civil_twilight_end)}
-            </div>
-            <div className="col-span-1">
-              <span className="text-gray-500">Nautical:</span> {formatLocalTime(twilightData.nautical_twilight_end)}
-            </div>
+          <h4 className="text-sm font-[600] text-[#666666] mb-2">Twilight Time ({dayjs(currentDate).format('MMM D')})</h4>
+          <div className="text-xs text-gray-500">
+            Time: {formatTwilightTime(twilightData.sunset, propertyTimezone || "America/Vancouver")} – {formatTwilightTime(twilightData.civil_twilight_end, propertyTimezone || "America/Vancouver")}
           </div>
         </div>
       )}

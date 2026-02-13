@@ -113,10 +113,10 @@ const Services = ({ showAll }: { showAll: boolean }) => {
         const filteredServices = fetched.filter((service: Services) => {
             if (service.status === false) return false;
 
-            const isPhotoService = service.name?.toLowerCase().includes('photo') ||
-                service.category?.name?.toLowerCase().includes('photo') ||
-                service.name?.toLowerCase().includes('twilight') ||
-                service.category?.name?.toLowerCase().includes('twilight');
+            const name = service.name?.toLowerCase() || '';
+            const cat = service.category?.name?.toLowerCase() || '';
+            const keywords = ['photo', 'twilight', 'hdr', 'still', 'drone', 'video', 'pano', 'matterport'];
+            const isPhotoService = keywords.some(k => name.includes(k) || cat.includes(k));
 
             // Prioritize tempPropertyData from the form over existing listing data
             const sqft = tempPropertyData?.square_footage || listingData?.square_footage;
@@ -371,7 +371,14 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                             {selectedServices.map((service, idx) => (
                                 <div key={idx} className="flex justify-between">
                                     <div className="flex items-center gap-x-3">
-                                        <span title={service.title + ' - ' + service.optionName} className='max-w-[200px] truncate cursor-pointer'>{service.title} - <span className='text-xs'>{service.optionName}</span></span>
+                                        <div className="flex flex-col">
+                                            <span title={service.title + ' - ' + service.optionName} className='max-w-[200px] truncate cursor-pointer'>
+                                                {service.title} - <span className='text-xs'>{service.optionName}</span>
+                                            </span>
+                                            {service.quantity && service.quantity > 0 && (
+                                                <span className='text-[10px] text-[#888] font-[500]'>Qty: {service.quantity}</span>
+                                            )}
+                                        </div>
                                         {service.payment_status && (
                                             <span className={`text-[10px] uppercase font-bold ${service.payment_status === 'PAID' ? 'text-green-600' : 'text-red-500'}`}>
                                                 {service.payment_status}

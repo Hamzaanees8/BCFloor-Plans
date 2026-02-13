@@ -161,6 +161,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     const [heading, setHeading] = useState("");
     const [description, setDescription] = useState("");
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+    const [duplicateListing, setDuplicateListing] = useState<Listings | null>(null);
 
     const resetForm = useCallback(() => {
         setConnectedAgent(selectedAgentId || '');
@@ -188,17 +189,21 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     const proceedWithListingChange = useCallback((id: string | null | 'NEW') => {
         clearSelections();
         if (id === 'NEW') {
-            setOpenAddListingDialog(true);
+            setConnectedAgent(selectedAgentId || '');
+            resetForm();
             setSelectedListingId(null);
             setCurrentListing(null);
-            resetForm();
+            setTempPropertyData(null); // Explicitly clear temp data in this tick
+            setOpenAddListingDialog(true);
+            setOpenListing(false);
+            setListingSearchValue("");
         } else {
             setSelectedListingId(id);
             setOpenListing(false);
             setOpenAddListingDialog(false);
             setListingSearchValue("");
         }
-    }, [clearSelections, setSelectedListingId, resetForm]);
+    }, [clearSelections, setSelectedListingId, resetForm, selectedAgentId, setTempPropertyData]);
 
     const proceedWithAgentChange = useCallback((id: string | null) => {
         clearSelections();
@@ -459,6 +464,25 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         }
 
     }, [selectedListingId, openAddListingDialog]);
+
+    useEffect(() => {
+        if (openAddListingDialog && !currentListing?.uuid && address?.trim() && listingData.length > 0) {
+            const match = listingData.find(l =>
+                l.address?.toLowerCase().trim() === address.toLowerCase().trim() &&
+                l.city?.toLowerCase().trim() === city.toLowerCase().trim() &&
+                (l.suite?.toString().toLowerCase().trim() || "") === (suite?.toString().toLowerCase().trim() || "")
+            );
+
+            if (match && match.uuid !== duplicateListing?.uuid) {
+                setDuplicateListing(match);
+                toast.warning("The address you entered already exists.");
+            } else if (!match) {
+                setDuplicateListing(null);
+            }
+        } else {
+            setDuplicateListing(null);
+        }
+    }, [address, city, listingData, openAddListingDialog, currentListing?.uuid, suite, duplicateListing?.uuid]);
     useEffect(() => {
         if (currentListing) {
             if (currentListing.agent?.uuid) {
@@ -468,7 +492,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             setMls(currentListing.mls_number || "");
             setBedrooms(currentListing.bedrooms ?? "");
             setBathrooms(currentListing.bathrooms ?? "");
-            setSquareFootage(currentListing.square_footage?.toString() || "");
+            setSquareFootage(currentListing.square_footage ? currentListing.square_footage.toString() : "");
             setLotSize(currentListing.lot_size?.toString() || "");
             setYearConstructed(currentListing.year_constructed?.toString() || "");
             setParkingSpots(currentListing.parking_spots?.toString() || "");
@@ -489,7 +513,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             setMls(tempPropertyData.mls_number || "");
             setBedrooms(tempPropertyData.bedrooms ?? "");
             setBathrooms(tempPropertyData.bathrooms ?? "");
-            setSquareFootage(tempPropertyData.square_footage?.toString() || "");
+            setSquareFootage(tempPropertyData.square_footage !== undefined && tempPropertyData.square_footage !== null ? tempPropertyData.square_footage.toString() : "");
             setLotSize(tempPropertyData.lot_size?.toString() || "");
             setYearConstructed(tempPropertyData.year_constructed?.toString() || "");
             setParkingSpots(tempPropertyData.parking_spots?.toString() || "");
@@ -506,14 +530,14 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         }
     }, [currentListing, tempPropertyData, selectedListingId]);
     useEffect(() => {
-        if (!selectedListingId && (address || squareFootage)) {
+        if (!selectedListingId && (address || squareFootage) && !isLoading && !currentListing) {
             const payload = {
                 listing_price: Number(listingPrice),
                 mls_number: mls,
                 bedrooms: Number(bedrooms),
                 bathrooms: Number(bathrooms),
                 agent_id: connectedAgent,
-                square_footage: Number(squareFootage),
+                square_footage: squareFootage === "" ? undefined : Number(squareFootage),
                 lot_size: lotSize,
                 year_constructed: Number(yearConstructed || 1801),
                 parking_spots: Number(parkingSpots),
@@ -534,7 +558,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         selectedListingId, listingPrice, mls, bedrooms, bathrooms, connectedAgent,
         squareFootage, lotSize, yearConstructed, parkingSpots, propertyType,
         propertyStatus, heading, description, suite, address, city, province,
-        postalCode, country, setTempPropertyData
+        postalCode, country, setTempPropertyData, isLoading, currentListing
     ]);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -575,7 +599,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                 bedrooms: Number(bedrooms),
                 bathrooms: Number(bathrooms),
                 agent_id: connectedAgent,
-                square_footage: Number(squareFootage),
+                square_footage: squareFootage === "" ? undefined : Number(squareFootage),
                 lot_size: lotSize,
                 year_constructed: Number(yearConstructed || 1801),
                 parking_spots: Number(parkingSpots),
@@ -901,6 +925,449 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                         </div>
                     )}
                 </div>
+                <div className='w-full h-[1px] bg-[#EEEEEE]' />
+                {duplicateListing && (
+                    <div className='w-full p-4 mb-4 rounded-lg bg-red-50 border border-red-200 flex flex-col gap-3'>
+                        <p className='text-red-600 text-[14px] font-[500]'>
+                            This listing already exists. Do you want to continue with that listing?
+                        </p>
+                        <div className='flex items-center gap-3'>
+                            <button
+                                onClick={() => {
+                                    handleListingSelect(duplicateListing.uuid);
+                                    setDuplicateListing(null); // Clear duplicate after selection
+                                }}
+                                className='px-4 py-1.5 bg-red-600 text-white rounded-md text-[13px] font-[500] hover:bg-red-700 transition-colors'
+                            >
+                                Continue with Existing Listing
+                            </button>
+                        </div>
+                    </div>
+                )}
+                <Accordion
+                    type="single"
+                    collapsible
+                    value={openAddListingDialog ? "create-new-booking" : ""}
+                    onValueChange={(val) => {
+                        if (val === "create-new-booking") {
+                            handleListingSelect('NEW');
+                        } else {
+                            setOpenAddListingDialog(false);
+                            if (!selectedListingId) {
+                                resetForm();
+                            }
+                        }
+                    }}
+                    className='w-full'
+                >
+                    <AccordionItem
+                        value="create-new-booking"
+                        className='border-[1px] rounded-[8px] mb-4 overflow-hidden'
+                        style={{
+                            borderColor: `color-mix(in srgb, ${roleSettings.pageBg} 88%, black)`
+                        }}
+                    >
+                        <AccordionTrigger
+                            className='hover:no-underline py-3 px-4 rounded-t-[8px]'
+                            style={{
+                                backgroundColor: `color-mix(in srgb, ${roleSettings.pageBg} 94%, black)`,
+                            }}
+                        >
+                            <p className='text-[18px] font-[600]' style={{ color: roleSettings.pageTabColor }}>Create New Booking</p>
+                        </AccordionTrigger>
+                        <AccordionContent className='px-4 pb-4'>
+                            <div className='w-full flex flex-col items-center'>
+                                <div className='w-full pt-4 flex justify-center flex-col gap-[16px] text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>
+
+                                    <div className='grid grid-cols-4 gap-[16px] mt-[20px]'>
+                                        <div className="col-span-1">
+                                            <label htmlFor="">Square Footage <span className="text-red-500">*</span></label>
+                                            <Input
+                                                value={squareFootage}
+                                                onChange={(e) => setSquareFootage(e.target.value)}
+                                                placeholder="e.g 2230 sq. ft."
+                                                className={`h-[42px] border-[1px] ${squareFootage === "0" ? "border-red-500" : "border-[#BBBBBB]"} mt-[12px]`}
+                                                style={{ backgroundColor: fieldBg }}
+                                                type="text"
+                                            />
+                                            {fieldErrors.square_footage && (
+                                                <p className="text-red-500 text-[10px]">
+                                                    {fieldErrors.square_footage[0]}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="col-span-3">
+                                            <label htmlFor="">Address <span className="text-red-500">*</span></label>
+                                            <GooglePlacesAutocomplete
+                                                mode="single"
+                                                addressComponents={{
+                                                    address_line_1: address,
+                                                    city: city,
+                                                    province: province,
+                                                    country: country,
+                                                    postal_code: postalCode,
+                                                    full_address: address
+                                                }}
+                                                onAddressComponentsChange={(comp) => {
+                                                    setAddress(comp.address_line_1);
+                                                    setCity(comp.city);
+                                                    setProvince(comp.province);
+                                                    setCountry(comp.country);
+                                                    setPostalCode(comp.postal_code);
+
+                                                    if (fieldErrors.address) {
+                                                        const newErrors = { ...fieldErrors };
+                                                        delete newErrors.address;
+                                                        setFieldErrors(newErrors);
+                                                    }
+                                                }}
+                                                fieldErrors={fieldErrors}
+                                                className="mt-[12px]"
+                                                inputClassName="h-[42px] border-[1px] border-[#BBBBBB]"
+                                                inputStyle={{ backgroundColor: fieldBg }}
+                                                autoFocus={true}
+                                            />
+                                        </div>
+                                        <div className="col-span-1">
+                                            <label htmlFor="">Suite</label>
+                                            <Input
+                                                value={suite}
+                                                onChange={(e) => setSuite(e.target.value)}
+                                                placeholder=""
+                                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px] text-center px-1"
+                                                style={{ backgroundColor: fieldBg }}
+                                                type="text"
+                                            />
+                                        </div>
+
+                                        <div className="col-span-1">
+                                            <label htmlFor="">City <span className="text-red-500">*</span></label>
+                                            <Input
+                                                value={city}
+                                                onChange={(e) => setCity(e.target.value)}
+                                                placeholder=""
+                                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                style={{ backgroundColor: fieldBg }}
+                                                type="text"
+                                            />
+                                            {fieldErrors.city && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.city[0]}</p>}
+                                        </div>
+
+                                        <div className="col-span-1">
+                                            <label htmlFor="">{country === 'US' ? 'State' : 'Province'}</label>
+                                            <div className="mt-[12px]">
+                                                <SearchableSelect
+                                                    options={provinceOptions}
+                                                    value={province}
+                                                    onChange={(val) => setProvince(val)}
+                                                    placeholder="Select Province"
+                                                    searchPlaceholder="Search province..."
+                                                    className="h-[42px]"
+                                                />
+                                            </div>
+                                            {fieldErrors.province && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.province[0]}</p>}
+                                        </div>
+
+                                        <div className="col-span-1">
+                                            <label htmlFor="">Postal Code <span className="text-red-500">*</span></label>
+                                            <Input
+                                                value={postalCode}
+                                                onChange={(e) => setPostalCode(e.target.value)}
+                                                placeholder=""
+                                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                style={{ backgroundColor: fieldBg }}
+                                                type="text"
+                                            />
+                                            {fieldErrors.postal_code && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.postal_code[0]}</p>}
+                                        </div>
+
+                                        <div className="col-span-1">
+                                            <label htmlFor="">Country <span className="text-red-500">*</span></label>
+                                            <div className="mt-[12px]">
+                                                <SearchableSelect
+                                                    options={sortedCountries}
+                                                    value={country}
+                                                    onChange={(val) => {
+                                                        setCountry(val);
+                                                        setProvince("");
+                                                    }}
+                                                    placeholder="Select Country"
+                                                    searchPlaceholder="Search country..."
+                                                    className="h-[42px]"
+                                                />
+                                            </div>
+                                        </div>
+
+
+
+                                        <div className='col-span-1'>
+                                            <label htmlFor="">Connected Agents</label>
+                                            <div className="mt-[12px]">
+                                                <SearchableSelect
+                                                    options={agentOptions}
+                                                    value={connectedAgent}
+                                                    onChange={(val) => {
+                                                        setConnectedAgent(val);
+                                                        setSelectedAgentId(val);
+                                                    }}
+                                                    placeholder="Select Agent"
+                                                    searchPlaceholder="Search agent..."
+                                                    className="h-[42px]"
+                                                    disabled={userType !== 'admin'}
+                                                />
+                                            </div>
+                                            {fieldErrors.agent_id && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.agent_id[0]}</p>}
+                                        </div>
+
+                                        <div className="col-span-1">
+                                            <label htmlFor="">MLS#</label>
+                                            <Input
+                                                value={mls}
+                                                onChange={(e) => setMls(e.target.value)}
+                                                placeholder="e.g A2206608"
+                                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                style={{ backgroundColor: fieldBg }}
+                                                type="text"
+                                            />
+                                            {fieldErrors.mls_number && (
+                                                <p className="text-red-500 text-[10px]">
+                                                    {fieldErrors.mls_number[0]}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="col-span-1 flex items-end h-full">
+                                            <button
+                                                onClick={handleMlsFetch}
+                                                className="w-full h-[42px] text-white rounded-[4px] transition-colors disabled:opacity-50"
+                                                style={{ backgroundColor: roleSettings.pageTabColor }}
+                                            >
+                                                {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Sync with MLS"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <Accordion type="single" collapsible className="w-full">
+                                        <AccordionItem value="extra-details" className='border-0'>
+                                            <AccordionTrigger className='font-[500] text-[16px] hover:no-underline' style={{ color: roleSettings.pageTabColor }}>Extra Details</AccordionTrigger>
+                                            <AccordionContent>
+                                                <div className='grid grid-cols-4 gap-[16px]'>
+                                                    <div>
+                                                        <label htmlFor="">Listing Price (CAD)</label>
+                                                        <Input
+                                                            value={listingPrice}
+                                                            onChange={(e) => setListingPrice(e.target.value)}
+                                                            placeholder="e.g 844,500"
+                                                            className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                            style={{ backgroundColor: fieldBg }}
+                                                            type="text"
+                                                        />
+                                                    </div>
+
+                                                    <div className="relative w-full">
+                                                        <label htmlFor="bedroom" className="block text-sm font-normal">
+                                                            Bedrooms
+                                                        </label>
+                                                        <Input
+                                                            id="bedroom"
+                                                            type="number"
+                                                            placeholder="e.g 3"
+                                                            min={0}
+                                                            value={bedrooms === '' ? '' : bedrooms}
+                                                            onChange={(e) => {
+                                                                const value = e.target.value;
+
+                                                                if (value === '') {
+                                                                    setBedrooms(''); // Allow clearing the input
+                                                                    return;
+                                                                }
+
+                                                                const numeric = Number(value);
+                                                                if (!isNaN(numeric) && numeric >= 0) {
+                                                                    setBedrooms(numeric); // Only valid numbers >= 0
+                                                                }
+                                                            }}
+                                                            className="h-[42px] w-full border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                            style={{ backgroundColor: fieldBg }}
+                                                        />
+
+                                                        <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
+                                                            <button type="button" onClick={() => setBedrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) + 1))}><ArrowUp /></button>
+                                                            <button type="button" onClick={() => setBedrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) - 1))}><ArrowDown /></button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="relative w-full">
+                                                        <label htmlFor="bathroom" className="block text-sm font-normal">
+                                                            Bathrooms
+                                                        </label>
+                                                        <Input
+                                                            id="bathroom"
+                                                            type="number"
+                                                            placeholder="e.g 2"
+                                                            min={0}
+                                                            value={bathrooms === '' ? '' : bathrooms}
+                                                            onChange={(e) => {
+                                                                const value = e.target.value;
+
+                                                                if (value === '') {
+                                                                    setBathrooms(''); // Allow clearing the input
+                                                                    return;
+                                                                }
+
+                                                                const numeric = Number(value);
+                                                                if (!isNaN(numeric) && numeric >= 0) {
+                                                                    setBathrooms(numeric); // Only valid numbers >= 0
+                                                                }
+                                                            }}
+                                                            className="h-[42px] w-full border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                            style={{ backgroundColor: fieldBg }}
+                                                        />
+
+                                                        <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
+                                                            <button type="button" onClick={() => setBathrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) + 1))}><ArrowUp /></button>
+                                                            <button type="button" onClick={() => setBathrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) - 1))}><ArrowDown /></button>
+                                                        </div>
+                                                    </div>
+
+                                                    <div>
+                                                        <label htmlFor="">Lot Size (Acres)</label>
+                                                        <Input
+                                                            value={lotSize}
+                                                            onChange={(e) => setLotSize(e.target.value)}
+                                                            placeholder="e.g 0-4,050 sq. ft."
+                                                            className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                            style={{ backgroundColor: fieldBg }}
+                                                            type="text"
+                                                        />
+                                                        {fieldErrors.lot_size && (
+                                                            <p className="text-red-500 text-[10px]">
+                                                                {fieldErrors.lot_size[0]}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <label htmlFor="">Year Contstructed</label>
+                                                        <Input
+                                                            value={yearConstructed}
+                                                            onChange={(e) => setYearConstructed(e.target.value)}
+                                                            placeholder="e.g 2020"
+                                                            className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                            style={{ backgroundColor: fieldBg }}
+                                                            type="text"
+                                                        />
+                                                        {fieldErrors.year_constructed && (
+                                                            <p className="text-red-500 text-[10px]">
+                                                                {fieldErrors.year_constructed[0]}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <label htmlFor="">Parking Spots</label>
+                                                        <Input
+                                                            value={parkingSpots}
+                                                            onChange={(e) => setParkingSpots(e.target.value)}
+                                                            placeholder="e.g 3"
+                                                            className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                            style={{ backgroundColor: fieldBg }}
+                                                            type="text"
+                                                        />
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <label htmlFor="">Property Type</label>
+                                                        <div className="mt-[12px]">
+                                                            <SearchableSelect
+                                                                options={propertyTypeOptions}
+                                                                value={propertyType}
+                                                                onChange={(value) => setPropertyType(value)}
+                                                                placeholder="Select Property Type"
+                                                                searchPlaceholder="Search property type..."
+                                                                className="h-[42px]"
+                                                            />
+                                                        </div>
+                                                        {fieldErrors.property_type && (
+                                                            <p className="text-red-500 text-[10px]">
+                                                                {fieldErrors.property_type[0]}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <label htmlFor="">Property Status</label>
+                                                        <div className="mt-[12px]">
+                                                            <SearchableSelect
+                                                                options={propertyStatusOptions}
+                                                                value={propertyStatus}
+                                                                onChange={(value) => setPropertyStatus(value)}
+                                                                placeholder="Select Property Status"
+                                                                searchPlaceholder="Search property status..."
+                                                                className="h-[42px]"
+                                                            />
+                                                        </div>
+                                                        {fieldErrors.property_status && (
+                                                            <p className="text-red-500 text-[10px]">
+                                                                {fieldErrors.property_status[0]}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="col-span-4">
+                                                        <label htmlFor="">Heading</label>
+                                                        <Input
+                                                            value={heading}
+                                                            onChange={(e) => setHeading(e.target.value)}
+                                                            placeholder="e.g Single Family Detached Starter Home"
+                                                            className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                            style={{ backgroundColor: fieldBg }}
+                                                            type="text"
+                                                        />
+                                                        {fieldErrors.heading && (
+                                                            <p className="text-red-500 text-[10px]">
+                                                                {fieldErrors.heading[0]}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="col-span-4">
+                                                        <label htmlFor="">Description</label>
+                                                        <Textarea
+                                                            value={description}
+                                                            onChange={(e) => setDescription(e.target.value)}
+                                                            placeholder="write some description of your listing"
+                                                            className="w-full resize-none h-[100px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                            style={{ backgroundColor: fieldBg }}
+                                                        />
+                                                        {fieldErrors.description && (
+                                                            <p className="text-red-500 text-[10px]">
+                                                                {fieldErrors.description[0]}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    </Accordion >
+
+                                    <div className="col-span-4 border-b border-[#BBBBBB]">
+                                    </div>
+                                    <div className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
+                                        <button onClick={() => { setOpenAddListingDialog(false) }}
+                                            className="bg-white w-full md:w-[176px] h-[40px] text-[20px] rounded-sm font-[400] border transition-all"
+                                            style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}>
+                                            Cancel
+                                        </button>
+                                        <button
+                                            disabled={isLoading || !address?.trim() || !selectedAgentId || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim()}
+                                            onClick={(e) => { handleSubmit(e) }}
+                                            className={`w-full rounded-sm md:w-[176px] h-[40px] font-[400] text-[20px] flex items-center justify-center gap-2 text-white transition-all
+                                                ${(isLoading || !address?.trim() || !selectedAgentId || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim())
+                                                    ? 'bg-gray-400 cursor-not-allowed'
+                                                    : ''}`}
+                                            style={{ backgroundColor: (isLoading || !address?.trim() || !selectedAgentId || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim()) ? undefined : roleSettings.pageTabColor }}
+                                        >
+                                            {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Next"}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
+
                 <div className='flex flex-col gap-[14px]'>
                     <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Listing <span className="text-red-500">*</span></p>
                     <div className='flex items-start justify-between'>
@@ -971,7 +1438,6 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                 className={`cursor-pointer ${!selectedListingId ? 'pointer-events-none opacity-50' : ''}`}
                                 onClick={() => {
                                     if (!selectedListingId) return;
-                                    //setIsEditingListing(true);
                                     setOpenAddListingDialog(true);
                                 }}
                             >
@@ -979,17 +1445,23 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                             </div>
 
                         </div>
-                        <button
-                            className="flex items-center gap-2 px-4 py-2 rounded-md border transition-colors"
-                            style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}
-                            onClick={() => {
-                                handleListingSelect('NEW');
-                            }}
-                        >
-                            <Plus className='w-4 h-4' />
-                            <span className='text-sm font-medium'>Create New Listing</span>
-                        </button>
-
+                        {!openAddListingDialog && (
+                            <>
+                                <div className="flex items-center gap-2 self-center">
+                                    <div className="w-[30px] h-[1px] bg-[#BBBBBB]"></div>
+                                    <span className="text-[#BBBBBB] text-sm">or</span>
+                                    <div className="w-[30px] h-[1px] bg-[#BBBBBB]"></div>
+                                </div>
+                                <button
+                                    className='flex items-center gap-2 px-3 py-2 rounded-md border transition-colors'
+                                    style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}
+                                    onClick={() => handleListingSelect('NEW')}
+                                >
+                                    <Plus className='w-4 h-4' />
+                                    <span className='text-sm font-medium'>Create New Listing</span>
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
                 {selectedListing && !openAddListingDialog && (
@@ -1011,398 +1483,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                         </p>
                     </div>
                 )}
-                {openAddListingDialog && (
-                    <div className='w-full flex flex-col items-center'>
-                        <h1 className='font-[500] text-[25px] py-4' style={{ color: roleSettings.pageTabColor }}>{currentListing?.uuid ? "Edit Listing" : "Create New Listing"}</h1>
-                        <div className='w-full  py-[16px] px-0 md:px-0 flex justify-center flex-col gap-[16px] text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>
 
-                            <div className='grid grid-cols-4 gap-[16px]'>
-                                <div className="col-span-1">
-                                    <label htmlFor="">Square Footage <span className="text-red-500">*</span></label>
-                                    <Input
-                                        value={squareFootage}
-                                        onChange={(e) => setSquareFootage(e.target.value)}
-                                        placeholder="e.g 2230 sq. ft."
-                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                        style={{ backgroundColor: fieldBg }}
-                                        type="text"
-                                    />
-                                    {fieldErrors.square_footage && (
-                                        <p className="text-red-500 text-[10px]">
-                                            {fieldErrors.square_footage[0]}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="col-span-3">
-                                    <label htmlFor="">Address <span className="text-red-500">*</span></label>
-                                    <GooglePlacesAutocomplete
-                                        mode="single"
-                                        addressComponents={{
-                                            address_line_1: address,
-                                            city: city,
-                                            province: province,
-                                            country: country,
-                                            postal_code: postalCode,
-                                            full_address: address
-                                        }}
-                                        onAddressComponentsChange={(comp) => {
-                                            setAddress(comp.address_line_1);
-                                            setCity(comp.city);
-                                            setProvince(comp.province);
-                                            setCountry(comp.country);
-                                            setPostalCode(comp.postal_code);
-
-                                            if (fieldErrors.address) {
-                                                const newErrors = { ...fieldErrors };
-                                                delete newErrors.address;
-                                                setFieldErrors(newErrors);
-                                            }
-                                        }}
-                                        fieldErrors={fieldErrors}
-                                        className="mt-[12px]"
-                                        inputClassName="h-[42px] border-[1px] border-[#BBBBBB]"
-                                        inputStyle={{ backgroundColor: fieldBg }}
-                                        autoFocus={true}
-                                    />
-                                </div>
-                                <div className="col-span-1">
-                                    <label htmlFor="">Suite</label>
-                                    <Input
-                                        value={suite}
-                                        onChange={(e) => setSuite(e.target.value)}
-                                        placeholder=""
-                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px] text-center px-1"
-                                        style={{ backgroundColor: fieldBg }}
-                                        type="text"
-                                    />
-                                </div>
-
-                                <div className="col-span-1">
-                                    <label htmlFor="">City <span className="text-red-500">*</span></label>
-                                    <Input
-                                        value={city}
-                                        onChange={(e) => setCity(e.target.value)}
-                                        placeholder=""
-                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                        style={{ backgroundColor: fieldBg }}
-                                        type="text"
-                                    />
-                                    {fieldErrors.city && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.city[0]}</p>}
-                                </div>
-
-                                <div className="col-span-1">
-                                    <label htmlFor="">{country === 'US' ? 'State' : 'Province'}</label>
-                                    <div className="mt-[12px]">
-                                        <SearchableSelect
-                                            options={provinceOptions}
-                                            value={province}
-                                            onChange={(val) => setProvince(val)}
-                                            placeholder="Select Province"
-                                            searchPlaceholder="Search province..."
-                                            className="h-[42px]"
-                                        />
-                                    </div>
-                                    {fieldErrors.province && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.province[0]}</p>}
-                                </div>
-
-                                <div className="col-span-1">
-                                    <label htmlFor="">Postal Code <span className="text-red-500">*</span></label>
-                                    <Input
-                                        value={postalCode}
-                                        onChange={(e) => setPostalCode(e.target.value)}
-                                        placeholder=""
-                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                        style={{ backgroundColor: fieldBg }}
-                                        type="text"
-                                    />
-                                    {fieldErrors.postal_code && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.postal_code[0]}</p>}
-                                </div>
-
-                                <div className="col-span-1">
-                                    <label htmlFor="">Country <span className="text-red-500">*</span></label>
-                                    <div className="mt-[12px]">
-                                        <SearchableSelect
-                                            options={sortedCountries}
-                                            value={country}
-                                            onChange={(val) => {
-                                                setCountry(val);
-                                                setProvince("");
-                                            }}
-                                            placeholder="Select Country"
-                                            searchPlaceholder="Search country..."
-                                            className="h-[42px]"
-                                        />
-                                    </div>
-                                </div>
-
-
-
-                                <div className='col-span-1'>
-                                    <label htmlFor="">Connected Agents</label>
-                                    <div className="mt-[12px]">
-                                        <SearchableSelect
-                                            options={agentOptions}
-                                            value={connectedAgent}
-                                            onChange={(val) => {
-                                                setConnectedAgent(val);
-                                                setSelectedAgentId(val);
-                                            }}
-                                            placeholder="Select Agent"
-                                            searchPlaceholder="Search agent..."
-                                            className="h-[42px]"
-                                            disabled={userType !== 'admin'}
-                                        />
-                                    </div>
-                                    {fieldErrors.agent_id && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.agent_id[0]}</p>}
-                                </div>
-
-                                <div className="col-span-1">
-                                    <label htmlFor="">MLS#</label>
-                                    <Input
-                                        value={mls}
-                                        onChange={(e) => setMls(e.target.value)}
-                                        placeholder="e.g A2206608"
-                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                        style={{ backgroundColor: fieldBg }}
-                                        type="text"
-                                    />
-                                    {fieldErrors.mls_number && (
-                                        <p className="text-red-500 text-[10px]">
-                                            {fieldErrors.mls_number[0]}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="col-span-1 flex items-end h-full">
-                                    <button
-                                        onClick={handleMlsFetch}
-                                        className="w-full h-[42px] text-white rounded-[4px] transition-colors disabled:opacity-50"
-                                        style={{ backgroundColor: roleSettings.pageTabColor }}
-                                    >
-                                        {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Sync with MLS"}
-                                    </button>
-                                </div>
-                            </div>
-                            <Accordion type="single" collapsible className="w-full">
-                                <AccordionItem value="extra-details" className='border-0'>
-                                    <AccordionTrigger className='font-[500] text-[16px] hover:no-underline' style={{ color: roleSettings.pageTabColor }}>Extra Details</AccordionTrigger>
-                                    <AccordionContent>
-                                        <div className='grid grid-cols-4 gap-[16px]'>
-                                            <div>
-                                                <label htmlFor="">Listing Price (CAD)</label>
-                                                <Input
-                                                    value={listingPrice}
-                                                    onChange={(e) => setListingPrice(e.target.value)}
-                                                    placeholder="e.g 844,500"
-                                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                    style={{ backgroundColor: fieldBg }}
-                                                    type="text"
-                                                />
-                                            </div>
-
-                                            <div className="relative w-full">
-                                                <label htmlFor="bedroom" className="block text-sm font-normal">
-                                                    Bedrooms
-                                                </label>
-                                                <Input
-                                                    id="bedroom"
-                                                    type="number"
-                                                    placeholder="e.g 3"
-                                                    min={0}
-                                                    value={bedrooms === '' ? '' : bedrooms}
-                                                    onChange={(e) => {
-                                                        const value = e.target.value;
-
-                                                        if (value === '') {
-                                                            setBedrooms(''); // Allow clearing the input
-                                                            return;
-                                                        }
-
-                                                        const numeric = Number(value);
-                                                        if (!isNaN(numeric) && numeric >= 0) {
-                                                            setBedrooms(numeric); // Only valid numbers >= 0
-                                                        }
-                                                    }}
-                                                    className="h-[42px] w-full border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                                    style={{ backgroundColor: fieldBg }}
-                                                />
-
-                                                <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                                                    <button type="button" onClick={() => setBedrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) + 1))}><ArrowUp /></button>
-                                                    <button type="button" onClick={() => setBedrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) - 1))}><ArrowDown /></button>
-                                                </div>
-                                            </div>
-                                            <div className="relative w-full">
-                                                <label htmlFor="bathroom" className="block text-sm font-normal">
-                                                    Bathrooms
-                                                </label>
-                                                <Input
-                                                    id="bathroom"
-                                                    type="number"
-                                                    placeholder="e.g 2"
-                                                    min={0}
-                                                    value={bathrooms === '' ? '' : bathrooms}
-                                                    onChange={(e) => {
-                                                        const value = e.target.value;
-
-                                                        if (value === '') {
-                                                            setBathrooms(''); // Allow clearing the input
-                                                            return;
-                                                        }
-
-                                                        const numeric = Number(value);
-                                                        if (!isNaN(numeric) && numeric >= 0) {
-                                                            setBathrooms(numeric); // Only valid numbers >= 0
-                                                        }
-                                                    }}
-                                                    className="h-[42px] w-full border text-[16px] border-[#BBBBBB] mt-[12px] appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                                    style={{ backgroundColor: fieldBg }}
-                                                />
-
-                                                <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
-                                                    <button type="button" onClick={() => setBathrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) + 1))}><ArrowUp /></button>
-                                                    <button type="button" onClick={() => setBathrooms(prev => Math.max(0, parseFloat((prev || 0).toString()) - 1))}><ArrowDown /></button>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <label htmlFor="">Lot Size (Acres)</label>
-                                                <Input
-                                                    value={lotSize}
-                                                    onChange={(e) => setLotSize(e.target.value)}
-                                                    placeholder="e.g 0-4,050 sq. ft."
-                                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                    style={{ backgroundColor: fieldBg }}
-                                                    type="text"
-                                                />
-                                                {fieldErrors.lot_size && (
-                                                    <p className="text-red-500 text-[10px]">
-                                                        {fieldErrors.lot_size[0]}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <div>
-                                                <label htmlFor="">Year Contstructed</label>
-                                                <Input
-                                                    value={yearConstructed}
-                                                    onChange={(e) => setYearConstructed(e.target.value)}
-                                                    placeholder="e.g 2020"
-                                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                    style={{ backgroundColor: fieldBg }}
-                                                    type="text"
-                                                />
-                                                {fieldErrors.year_constructed && (
-                                                    <p className="text-red-500 text-[10px]">
-                                                        {fieldErrors.year_constructed[0]}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <div>
-                                                <label htmlFor="">Parking Spots</label>
-                                                <Input
-                                                    value={parkingSpots}
-                                                    onChange={(e) => setParkingSpots(e.target.value)}
-                                                    placeholder="e.g 3"
-                                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                    style={{ backgroundColor: fieldBg }}
-                                                    type="text"
-                                                />
-                                            </div>
-                                            <div className="col-span-2">
-                                                <label htmlFor="">Property Type</label>
-                                                <div className="mt-[12px]">
-                                                    <SearchableSelect
-                                                        options={propertyTypeOptions}
-                                                        value={propertyType}
-                                                        onChange={(value) => setPropertyType(value)}
-                                                        placeholder="Select Property Type"
-                                                        searchPlaceholder="Search property type..."
-                                                        className="h-[42px]"
-                                                    />
-                                                </div>
-                                                {fieldErrors.property_type && (
-                                                    <p className="text-red-500 text-[10px]">
-                                                        {fieldErrors.property_type[0]}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <div className="col-span-2">
-                                                <label htmlFor="">Property Status</label>
-                                                <div className="mt-[12px]">
-                                                    <SearchableSelect
-                                                        options={propertyStatusOptions}
-                                                        value={propertyStatus}
-                                                        onChange={(value) => setPropertyStatus(value)}
-                                                        placeholder="Select Property Status"
-                                                        searchPlaceholder="Search property status..."
-                                                        className="h-[42px]"
-                                                    />
-                                                </div>
-                                                {fieldErrors.property_status && (
-                                                    <p className="text-red-500 text-[10px]">
-                                                        {fieldErrors.property_status[0]}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <div className="col-span-4">
-                                                <label htmlFor="">Heading</label>
-                                                <Input
-                                                    value={heading}
-                                                    onChange={(e) => setHeading(e.target.value)}
-                                                    placeholder="e.g Single Family Detached Starter Home"
-                                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                    style={{ backgroundColor: fieldBg }}
-                                                    type="text"
-                                                />
-                                                {fieldErrors.heading && (
-                                                    <p className="text-red-500 text-[10px]">
-                                                        {fieldErrors.heading[0]}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <div className="col-span-4">
-                                                <label htmlFor="">Description</label>
-                                                {/* <Input placeholder='Single Family Detached Starter Home' className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" /> */}
-                                                <Textarea
-                                                    value={description}
-                                                    onChange={(e) => setDescription(e.target.value)}
-                                                    placeholder="write some description of your listing"
-                                                    className="w-full resize-none h-[100px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                    style={{ backgroundColor: fieldBg }}
-                                                />
-                                                {fieldErrors.description && (
-                                                    <p className="text-red-500 text-[10px]">
-                                                        {fieldErrors.description[0]}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            </Accordion >
-
-                            <div className="col-span-4 border-b border-[#BBBBBB]">
-                            </div>
-                            <div className="flex flex-col md:flex-row md:justify-center gap-[5px]  mt-2 font-alexandria">
-                                <button onClick={() => { setOpenAddListingDialog(false) }}
-                                    className="bg-white w-full md:w-[176px] h-[40px] text-[20px] rounded-sm font-[400] border transition-all"
-                                    style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}>
-                                    Cancel
-                                </button>
-                                <button
-                                    disabled={isLoading || !address?.trim() || !selectedAgentId || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim()}
-                                    onClick={(e) => { handleSubmit(e) }}
-                                    className={`w-full rounded-sm md:w-[176px] h-[40px] font-[400] text-[20px] flex items-center justify-center gap-2 text-white transition-all
-                                        ${(isLoading || !address?.trim() || !selectedAgentId || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim())
-                                            ? 'bg-gray-400 cursor-not-allowed'
-                                            : ''}`}
-                                    style={{ backgroundColor: (isLoading || !address?.trim() || !selectedAgentId || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim()) ? undefined : roleSettings.pageTabColor }}
-                                >
-                                    {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Next"}
-                                </button>
-                            </div>
-                        </div >
-                    </div >
-                )}
                 {
                     (selectedListing?.orders?.length ?? 0) > 0 && (
                         <>

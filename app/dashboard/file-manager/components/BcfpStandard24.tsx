@@ -936,19 +936,19 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
         if (state.images) {
           setImages((prev) => ({
             ...prev,
-            ...(state.images as Partial<ImageState>),
+            ...state.images,
           }));
         }
         if (state.imageScales) {
           setScale((prev) => ({
             ...prev,
-            ...(state.imageScales as Partial<ScaleState>),
+            ...state.imageScales,
           }));
         }
         if (state.imagePositions) {
           setPosition((prev) => ({
             ...prev,
-            ...(state.imagePositions as Partial<PositionState>),
+            ...state.imagePositions,
           }));
         }
       },

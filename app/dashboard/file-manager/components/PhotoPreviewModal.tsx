@@ -131,6 +131,8 @@ const PhotoPreviewModal: React.FC<Props> = ({
                         <video
                             src={mediaUrl}
                             controls
+                            preload="auto"
+                            playsInline
                             className="max-w-full max-h-full rounded-md"
                         />
                     ) : isPdf ? (

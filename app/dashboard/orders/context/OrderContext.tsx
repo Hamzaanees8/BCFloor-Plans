@@ -55,7 +55,7 @@ export type TempPropertyData = {
     bedrooms: number;
     bathrooms: number;
     agent_id: string;
-    square_footage: number;
+    square_footage: number | undefined;
     lot_size: string;
     year_constructed: number;
     parking_spots: number;

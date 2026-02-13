@@ -24,6 +24,7 @@ export type DroppedMarker = {
     y: number;
     file?: File;
     file_path?: string;
+    url?: string;
     floorImageUrl: string;
     name?: string;
     description?: string;
@@ -38,6 +39,8 @@ export type Files = {
     type: string;
     name: string;
     file_path: string;
+    url?: string;
+    thumbnail_url?: string;
     group: string | null;
     service_id: number | null;
     service?: { id: number; uuid: string, name: string };
@@ -57,6 +60,7 @@ export type SnapShots = {
     type: string;
     file_name: string;
     file_path: string;
+    url?: string;
     name: string | null;
     description: string | null;
     x_axis: number;

@@ -626,13 +626,13 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
                                                 {file.file_path.toLowerCase().endsWith('.pdf') ? (
                                                     <PdfPlaceholder
                                                         className="w-full h-full object-contain cursor-pointer"
-                                                        onClick={() => handleImageClick(`${API_URL}/${file.file_path}`, file)}
+                                                        onClick={() => handleImageClick(file.url || `${API_URL}/${file.file_path}`, file)}
                                                     />
                                                 ) : (
                                                     // eslint-disable-next-line @next/next/no-img-element
                                                     <img
-                                                        src={`${API_URL}/${file.file_path}`}
-                                                        onClick={() => handleImageClick(`${API_URL}/${file.file_path}`, file)}
+                                                        src={file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
+                                                        onClick={() => handleImageClick(file.url || `${API_URL}/${file.file_path}`, file)}
                                                         alt="preview"
                                                         className={`w-full h-full object-cover cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
                                                     />
