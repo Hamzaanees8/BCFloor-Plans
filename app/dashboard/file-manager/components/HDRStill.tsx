@@ -32,7 +32,7 @@ export interface PaymentData {
 }
 
 
-function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean }) {
+function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, onSave }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void }) {
     const [files, setFiles] = useState<File[]>([]);
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [open, setOpen] = useState(false);
@@ -184,58 +184,9 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
     };
 
     const handleSubmitToClient = async () => {
-        if (!currentService?.uuid) return;
-
-        const token = localStorage.getItem("token");
-        if (!token) return;
-
-        try {
-            // Filter out soft-deleted files before sending to API
-            const filesToUpload = filesForService.filter(f => !f.is_deleted);
-
-            if (filesToUpload.length === 0) {
-                toast.info("No files to upload.");
-                return;
-            }
-
-            // Always use S3 upload
-            if (!filesData?.uuid) {
-                toast.error("Tour data not available. Please try again.");
-                return;
-            }
-
-            console.log('Attempting S3 upload for', filesToUpload.length, 'files');
-            const result = await s3Upload.uploadFiles(filesToUpload.map(f => ({
-                file: f.file,
-                is_featured: f.is_featured,
-                is_admin_approved: f.is_admin_approved,
-                is_agent_approved: f.is_agent_approved,
-                is_show: f.is_show
-            })));
-
-            if (result.success) {
-                // Refresh files data after successful upload
-                setMediaUploaded(true);
-                toast.success("Files uploaded successfully to S3!");
-
-                // Clear selected files after successful upload
-                setSelectedFiles(prev => prev.filter(f => f.service_id !== currentService?.uuid));
-
-                // Reset upload states after a delay
-                setTimeout(() => {
-                    s3Upload.reset();
-                }, 2000);
-            } else {
-                throw new Error(result.errors?.[0] || 'Upload failed');
-            }
-
-        } catch (err) {
-            console.error('Upload error:', err);
-            toast.error(
-                err instanceof Error
-                    ? err.message
-                    : "An error occurred while submitting files."
-            );
+        setMediaUploaded(true);
+        if (onSave) {
+            onSave();
         }
     };
 
@@ -623,16 +574,20 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled }: 
                                             style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
                                         >
                                             <div className="relative w-full h-[240px]">
-                                                {file.file_path.toLowerCase().endsWith('.pdf') ? (
+                                                {file.is_processing ? (
+                                                    <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                                                        <p className="text-gray-500 font-medium text-sm">Processing...</p>
+                                                    </div>
+                                                ) : file.file_path.toLowerCase().endsWith('.pdf') ? (
                                                     <PdfPlaceholder
                                                         className="w-full h-full object-contain cursor-pointer"
-                                                        onClick={() => handleImageClick(file.url || `${API_URL}/${file.file_path}`, file)}
+                                                        onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
                                                     />
                                                 ) : (
                                                     // eslint-disable-next-line @next/next/no-img-element
                                                     <img
-                                                        src={file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
-                                                        onClick={() => handleImageClick(file.url || `${API_URL}/${file.file_path}`, file)}
+                                                        src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
+                                                        onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
                                                         alt="preview"
                                                         className={`w-full h-full object-cover cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
                                                     />

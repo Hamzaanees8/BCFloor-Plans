@@ -450,12 +450,18 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                         ))}
                         {currentTourPhotos?.map((image, index) => (
                           <div key={`api-${index}`} className="w-full aspect-square overflow-hidden">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={image.url || `${API_URL}/${image.file_path}`}
-                              alt={`Uploaded ${index + 1}`}
-                              className="w-full h-full object-cover"
-                            />
+                            {image.is_processing ? (
+                              <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                                <p className="text-gray-500 font-medium text-10px">Processing...</p>
+                              </div>
+                            ) : (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img
+                                src={image.variant_urls?.thumb || image.url || `${API_URL}/${image.file_path}`}
+                                alt={`Uploaded ${index + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
                           </div>
                         ))}
                       </div>
@@ -507,14 +513,32 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                           return (
                             <div
                               key={idx}
-                              onClick={() => setMainVideo(apiSrc)}
                               className="h-auto relative"
                             >
                               <div className="relative w-full h-[240px] cursor-pointer">
-                                <video
-                                  src={apiSrc}
-                                  className="w-full h-full object-cover"
-                                />
+                                {file.is_processing ? (
+                                  <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                                    <p className="text-gray-500 font-medium text-sm">Processing...</p>
+                                  </div>
+                                ) : (
+                                  <>
+                                    {file.variant_urls?.thumb ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={file.variant_urls.thumb}
+                                        alt="Video thumbnail"
+                                        className="w-full h-full object-cover"
+                                        onClick={() => setMainVideo(apiSrc)}
+                                      />
+                                    ) : (
+                                      <video
+                                        src={apiSrc}
+                                        className="w-full h-full object-cover"
+                                        onClick={() => setMainVideo(apiSrc)}
+                                      />
+                                    )}
+                                  </>
+                                )}
                               </div>
                             </div>
                           );

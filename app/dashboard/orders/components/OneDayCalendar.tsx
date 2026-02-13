@@ -476,15 +476,12 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
       // Check if this is a Twilight service and filter slots based on twilight time
       let isTwilightRestricted = false;
-      const currentServiceData = servicesData.find(s => s.uuid === service.uuid || s.id.toString() === service.id);
+      const currentServiceData = servicesData.find(s => s.uuid === service.uuid || String(s.id) === String(service.id));
 
       if (currentServiceData?.category?.name === "Twilight Photos" && twilightData?.sunset) {
         const targetTimezone = propertyTimezone || 'America/Vancouver';
-        // Convert sunset UTC to property local time string (HH:mm:ss)
         const sunsetLocalTimeStr = convertUTCToTimezone(twilightData.sunset, targetTimezone);
 
-        // Create comparable dayjs objects for slot start and allowed start time
-        // We use the same date and local time string approach as the slot generation to ensure consistency
         const twilightTime = dayjs(`${date}T${sunsetLocalTimeStr}`);
         const allowedStartTime = twilightTime.subtract(30, 'minute');
         const slotStartTime = dayjs(slot.start);
@@ -496,9 +493,8 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
       if (availableVendorIds.length > 0 && !isTwilightRestricted) {
         let isRecommended = false;
-        const isTwilightService = currentServiceData?.category?.name === "Twilight Photos";
+        const isTwilightService = currentServiceData?.category?.name === "Twilight Photos" || service?.title?.includes("Twilight");
 
-        // Recommend slots based on service duration for Twilight, or first slot for standard recommendation
         let maxRecommended = 1;
 
         if (isTwilightService) {

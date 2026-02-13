@@ -6,12 +6,26 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CameraIcon } from "@/components/Icons";
-import { X } from "lucide-react";
+import { X, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 
 
 import { useAppContext } from "@/app/context/AppContext";
+
+// PDF Placeholder component
+function PdfPlaceholder({ className = '', onClick }: { className?: string; onClick?: () => void }) {
+  return (
+    <div className={`flex items-center justify-center bg-gray-100 ${className}`} onClick={onClick}>
+      <div className="flex flex-col items-center gap-2">
+        <div className="bg-red-50 rounded-full p-4">
+          <FileText className="w-8 h-8 text-red-500" />
+        </div>
+        <span className="text-gray-500 text-xs font-bold font-alexandria">PDF Document</span>
+      </div>
+    </div>
+  );
+}
 
 function TourFloorPlans({ type = "" }) {
   const { userType } = useAppContext();
@@ -52,6 +66,12 @@ function TourFloorPlans({ type = "" }) {
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
+
+  // Utility function to check if a file is a PDF
+  const isPDF = (filePath: string): boolean => {
+    if (!filePath) return false;
+    return filePath.toLowerCase().endsWith('.pdf');
+  };
 
   const checkedImages = selectedFiles.filter((files) => {
     return files.upload === true;
@@ -196,6 +216,8 @@ function TourFloorPlans({ type = "" }) {
     (f) => f.name === selectedImageId
   );
 
+  const isSelectedFilePDF = selectedApiFile ? isPDF(selectedApiFile.file_path) : false;
+
   if ((!floorFiles || floorFiles?.length === 0) && (!currentTourFloorFiles || currentTourFloorFiles?.length === 0)) {
     return (
       <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
@@ -213,19 +235,32 @@ function TourFloorPlans({ type = "" }) {
           onDragOver={(e) => e.preventDefault()}
           className={`relative w-[70%]  h-full bg-white overflow-hidden ${type === "confirm" ? "m-auto" : ""}`}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            ref={imgRef}
-            src={
-              selectedFile
-                ? URL.createObjectURL(selectedFile.file)
-                : selectedApiFile
-                  ? selectedApiFile.url || `${API_URL}/${selectedApiFile.file_path}`
-                  : ""
-            }
-            alt="Selected Floor"
-            className="object-contain max-h-full max-w-full w-full h-full"
-          />
+          {selectedApiFile?.is_processing ? (
+            <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+              <p className="text-gray-500 font-medium text-sm">Processing...</p>
+            </div>
+          ) : isSelectedFilePDF && selectedApiFile ? (
+            // Render PDF in iframe
+            <iframe
+              src={selectedApiFile.variant_urls?.popup || selectedApiFile.url || `${API_URL}/${selectedApiFile.file_path}`}
+              className="w-full h-full border-0"
+              title="Floor Plan PDF"
+            />
+          ) : (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              ref={imgRef}
+              src={
+                selectedFile
+                  ? URL.createObjectURL(selectedFile.file)
+                  : selectedApiFile
+                    ? selectedApiFile.variant_urls?.popup || selectedApiFile.url || `${API_URL}/${selectedApiFile.file_path}`
+                    : ""
+              }
+              alt="Selected Floor"
+              className="object-contain max-h-full max-w-full w-full h-full"
+            />
+          )}
           {[...localSnapshots, ...apiSnapshots].map((marker, idx) => {
             const isApiSnapshot = 'x_axis' in marker;
             const posX = isApiSnapshot ? marker.x_axis : marker.x;
@@ -376,19 +411,29 @@ function TourFloorPlans({ type = "" }) {
       <div className="w-full h-[200px]">
         <div className="w-[70%] h-full flex items-center gap-[20px] overflow-x-auto overflow-y-hidden">
 
-          {currentTourFloorFiles?.map((file, idx) => (
-            <div
-              key={idx}
-              onClick={() => setSelectedImageId(file.name)}
-              className={`w-[200px] h-[100px] flex items-center rounded-[6px] justify-center cursor-pointer ${selectedImageId === file.name ? "border-2 border-[#4290E9]" : ""}`}
-            >
-              <div className="relative border border-gray-200 rounded-[6px] w-full h-full flex items-center justify-center">
-
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={file.url || `${API_URL}/${file.file_path}`} alt="preview" className="max-w-full max-h-full" />
+          {currentTourFloorFiles?.map((file, idx) => {
+            const isFilePDF = isPDF(file.file_path);
+            return (
+              <div
+                key={idx}
+                onClick={() => setSelectedImageId(file.name)}
+                className={`w-[200px] h-[100px] flex items-center rounded-[6px] justify-center cursor-pointer ${selectedImageId === file.name ? "border-2 border-[#4290E9]" : ""}`}
+              >
+                <div className="relative border border-gray-200 rounded-[6px] w-full h-full flex items-center justify-center">
+                  {file.is_processing ? (
+                    <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                      <p className="text-gray-500 font-medium text-xs">Processing...</p>
+                    </div>
+                  ) : isFilePDF ? (
+                    <PdfPlaceholder className="w-full h-full" />
+                  ) : (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`} alt="preview" className="max-w-full max-h-full" />
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {floorFiles?.map((file, idx) => {
             return (
@@ -443,7 +488,7 @@ function TourFloorPlans({ type = "" }) {
                     <img
                       draggable
                       onDragStart={() => setDraggedFile({ file_path: file.file_path, url: file.url })}
-                      src={file.url || `${API_URL}/${file.file_path}`}
+                      src={file.variant_urls?.thumb || file.url || `${API_URL}/${file.file_path}`}
                       alt="preview"
                       className="w-full h-full object-cover"
                     />

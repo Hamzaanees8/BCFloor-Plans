@@ -7,6 +7,8 @@ import { AppProvider } from "./context/AppContext";
 import { OrderProvider } from "./dashboard/orders/context/OrderContext";
 import { UploadQueueProvider } from '@/context/UploadQueueContext';
 import { UploadProgressToast } from '@/components/upload/UploadProgressToast';
+import { GlobalFileUploadProvider } from '@/context/GlobalFileUploadContext';
+import { GlobalUploadProgressOverlay } from '@/components/upload/GlobalUploadProgressOverlay';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -49,15 +51,18 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${alexandria.variable} ${raleway.variable} antialiased`}
         suppressHydrationWarning
       >
-        <UploadQueueProvider>
-          <OrderProvider>
-            <AppProvider>
-              {children}
-            </AppProvider>
-          </OrderProvider>
-          <UploadProgressToast />
-          <Toaster position="bottom-right" />
-        </UploadQueueProvider>
+        <GlobalFileUploadProvider>
+          <UploadQueueProvider>
+            <OrderProvider>
+              <AppProvider>
+                {children}
+              </AppProvider>
+            </OrderProvider>
+            <UploadProgressToast />
+            <GlobalUploadProgressOverlay />
+            <Toaster position="bottom-right" />
+          </UploadQueueProvider>
+        </GlobalFileUploadProvider>
       </body>
     </html>
   );

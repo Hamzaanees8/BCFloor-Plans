@@ -37,7 +37,7 @@ export default function FileManagerGallery({
   const handleConfirmSelection = () => {
     if (selected !== null && files?.[selected]) {
       const selectedFile = files[selected];
-      const imageUrl = `${API_URL}/${selectedFile.file_path}`;
+      const imageUrl = selectedFile.url || `${API_URL}/${selectedFile.file_path}`;
       onImageSelect(imageUrl);
       setIsOpen(false);
       setSelected(null);
@@ -62,7 +62,13 @@ export default function FileManagerGallery({
     }
   };
 
-  const files = filesData?.files || [];
+  const files = (filesData?.files || []).filter(file => {
+    // Date check
+    const createdDate = new Date(file.created_at);
+    const cutoffDate = new Date('2026-02-11');
+    if (createdDate < cutoffDate) return false;
+    return true;
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -109,7 +115,7 @@ export default function FileManagerGallery({
                       }`}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={`${API_URL}/${file.file_path}`}
+                        src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
                         alt={file.name}
                         className="object-cover w-full h-full"
                       />

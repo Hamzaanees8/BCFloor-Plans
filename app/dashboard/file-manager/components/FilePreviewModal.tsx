@@ -218,10 +218,18 @@ export default function FilePreviewModal({
 
   useEffect(() => {
     setLocalFiles(files);
-    setMediaTypes({});
+    if (type === 'floor_plans') {
+      const defaults: { [key: number]: string } = {};
+      files.forEach((_, idx) => {
+        defaults[idx] = "UnBranded Floor Plan";
+      });
+      setMediaTypes(defaults);
+    } else {
+      setMediaTypes({});
+    }
     setSelectedIndexes([]);
     setGroupLabel("");
-  }, [files]);
+  }, [files, type]);
 
   const removeFile = useCallback((index: number) => {
     setLocalFiles(prev => prev.filter((_, i) => i !== index));

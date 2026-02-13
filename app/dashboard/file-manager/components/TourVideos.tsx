@@ -81,37 +81,56 @@ function TourVideos() {
                     ))}
 
                     {currentServiceFiles?.map((file, idx) => (
-                        <div key={idx} onClick={() => setMainVideo(file.url || `${API_URL}/${file.file_path}`)} className=" h-auto relative">
+                        <div key={idx} className=" h-auto relative">
                             <div className="relative w-full h-[240px] cursor-pointer">
-                                <video
-                                    src={`${file.url || `${API_URL}/${file.file_path}`}#t=0.1`}
-                                    preload="metadata"
-                                    muted
-                                    playsInline
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <PlayCircle className="w-12 h-12 text-white/80 drop-shadow-lg" />
-                                </div>
-                                <span
-                                    className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
-                                    style={{
-                                        clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                        backgroundColor: "#6BAE41"
-                                    }}
-                                // onClick={() => {
-                                //     setSelectedVideoFiles(prev =>
-                                //         prev.flatMap(f => {
-                                //             if (f.file === file.file && f.service_id === file.service_id) {
-                                //                 return f.upload ? [{ ...f, upload: false }] : [];
-                                //             }
-                                //             return [f];
-                                //         })
-                                //     );
-                                // }}
-                                >
-                                    <Check color="#fff" size={14} />
-                                </span>
+                                {file.is_processing ? (
+                                    <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                                        <p className="text-gray-500 font-medium text-sm">Processing...</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div onClick={() => setMainVideo(file.url || `${API_URL}/${file.file_path}`)} className="w-full h-full">
+                                            {file.variant_urls?.thumb ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img
+                                                    src={file.variant_urls.thumb}
+                                                    alt="Video thumbnail"
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <video
+                                                    src={`${file.url || `${API_URL}/${file.file_path}`}#t=0.1`}
+                                                    preload="metadata"
+                                                    muted
+                                                    playsInline
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            )}
+                                        </div>
+                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                            <PlayCircle className="w-12 h-12 text-white/80 drop-shadow-lg" />
+                                        </div>
+                                        <span
+                                            className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
+                                            style={{
+                                                clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
+                                                backgroundColor: "#6BAE41"
+                                            }}
+                                        // onClick={() => {
+                                        //     setSelectedVideoFiles(prev =>
+                                        //         prev.flatMap(f => {
+                                        //             if (f.file === file.file && f.service_id === file.service_id) {
+                                        //                 return f.upload ? [{ ...f, upload: false }] : [];
+                                        //             }
+                                        //             return [f];
+                                        //         })
+                                        //     );
+                                        // }}
+                                        >
+                                            <Check color="#fff" size={14} />
+                                        </span>
+                                    </>
+                                )}
                             </div>
 
                         </div>

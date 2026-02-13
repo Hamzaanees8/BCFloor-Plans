@@ -184,22 +184,30 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                   {currentTourPhotos?.map((file, idx) => (
                     <div key={idx} className="bg-[#BBBBBB] h-auto relative">
                       <div className="relative w-full h-[240px]">
-                        {/* eslint-disable @next/next/no-img-element */}
-                        <img
-                          src={file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
-                          alt="preview"
-                          className="w-full h-full object-cover"
-                        />
-                        <span
-                          className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
-                          style={{
-                            clipPath: "polygon(100% 0, 0 0, 100% 100%)",
-                            backgroundColor: "#6BAE41",
-                          }}
+                        {file.is_processing ? (
+                          <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                            <p className="text-gray-500 font-medium text-sm">Processing...</p>
+                          </div>
+                        ) : (
+                          <>
+                            {/* eslint-disable @next/next/no-img-element */}
+                            <img
+                              src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
+                              alt="preview"
+                              className="w-full h-full object-cover"
+                            />
+                            <span
+                              className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
+                              style={{
+                                clipPath: "polygon(100% 0, 0 0, 100% 100%)",
+                                backgroundColor: "#6BAE41",
+                              }}
 
-                        >
-                          <Check color="#fff" size={14} />
-                        </span>
+                            >
+                              <Check color="#fff" size={14} />
+                            </span>
+                          </>
+                        )}
                       </div>
                       <div className="grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 bg-[#BBBBBB] text-[9px]">
                         <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">

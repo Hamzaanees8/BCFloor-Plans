@@ -20,19 +20,17 @@ import Video from "./Video";
 import CreateFeatureSheet from "./CreateFeatureSheet";
 import { useAppContext } from "@/app/context/AppContext";
 import { Button } from "@/components/ui/button";
-import { useFileManagerContext } from "../FileManagerContext";
+import { useFileManagerContext, Files } from "../FileManagerContext";
+import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
 import { toast } from "sonner";
 import InvoicePaymentDialog from "./invoicePaymentDialog";
 import {
   GetFilesData,
-  UpdateFilesData,
-  UploadFilesData,
 } from "../file-manager";
 import { GetOneListing } from "../../listings/listing";
 import { Listings } from "@/lib/types";
 import Link from "next/link";
-import { FileUploadState } from "@/lib/upload/types";
-import { UploadProgressOverlay } from "./UploadProgressOverlay";
+
 type Service = {
   uuid: string;
   name: string;
@@ -50,9 +48,12 @@ const FileManager = () => {
   const { userType } = useAppContext();
   const {
     selectedFiles,
+    setSelectedFiles,
     selectedVideoFiles,
+    setSelectedVideoFiles,
     links,
     floorFiles,
+    setFloorFiles,
     droppedMarkers,
     delay,
     transition,
@@ -66,7 +67,7 @@ const FileManager = () => {
     setChangedFileUuids,
   } = useFileManagerContext();
   const headerRef = useRef<HTMLDivElement>(null);
-  const progressIntervalsRef = useRef<NodeJS.Timeout[]>([]);
+  const { startUpload } = useGlobalFileUpload();
 
   useEffect(() => {
     const header = headerRef.current;
@@ -100,10 +101,6 @@ const FileManager = () => {
   const pathname = usePathname();
   const serviceIdFromURL = searchParams.get("serviceId");
 
-  // Upload progress state
-  const [uploadStates, setUploadStates] = useState<FileUploadState[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const [overallProgress, setOverallProgress] = useState(0);
   const fullUrl = `/dashboard${pathname.replace("/dashboard", "")}${searchParams.toString() ? `?${searchParams.toString()}` : ""
     }`;
 
@@ -271,6 +268,7 @@ const FileManager = () => {
               orderData={orderData}
               isListing={false}
               reviewFilesEnabled={reviewFilesEnabled}
+              onSave={handleUpload}
             />
           </div>
         );
@@ -281,6 +279,7 @@ const FileManager = () => {
             currentService={activeService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
+            onSave={handleUpload}
           />
         );
       case "HDR Photos":
@@ -290,6 +289,7 @@ const FileManager = () => {
             orderData={orderData}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
+            onSave={handleUpload}
           />
         );
       case "3d rendering":
@@ -308,6 +308,7 @@ const FileManager = () => {
             orderData={orderData}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
+            onSave={handleUpload}
           />
         );
       case "Staging":
@@ -326,6 +327,7 @@ const FileManager = () => {
             orderData={orderData}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
+            onSave={handleUpload}
           />
         );
       case "Twilight Photos":
@@ -335,6 +337,7 @@ const FileManager = () => {
             orderData={orderData}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
+            onSave={handleUpload}
           />
         );
       case "3D Tour":
@@ -421,17 +424,7 @@ const FileManager = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderData]);
 
-  // Update overall progress whenever individual file statuses change
-  useEffect(() => {
-    if (uploadStates.length === 0) {
-      setOverallProgress(0);
-      return;
-    }
 
-    const totalProgress = uploadStates.reduce((sum, state) => sum + state.progress, 0);
-    const average = Math.round(totalProgress / uploadStates.length);
-    setOverallProgress(average);
-  }, [uploadStates]);
 
   async function handleUpload() {
     const token = localStorage.getItem("token");
@@ -440,164 +433,70 @@ const FileManager = () => {
     // Get all files to upload
     const allFiles = [...selectedFiles, ...floorFiles, ...selectedVideoFiles].filter(f => !f.is_deleted);
 
-    // Initialize upload states
-    if (allFiles.length > 0) {
-      setIsUploading(true);
-      const initialStates: FileUploadState[] = allFiles.map(f => ({
-        file: f.file,
-        progress: 0,
-        status: 'pending' as const,
-      }));
-      setUploadStates(initialStates);
-
-      // Start simulated progress for all files
-      progressIntervalsRef.current = [];
-      allFiles.forEach((_, index) => {
-        const interval = setInterval(() => {
-          setUploadStates(prev => {
-            const newStates = [...prev];
-            if (newStates[index] && newStates[index].status === 'uploading' && newStates[index].progress < 95) {
-              // Gradually increase progress (slower as it gets higher)
-              const currentProgress = newStates[index].progress;
-              const increment = currentProgress < 50 ? 3 : currentProgress < 80 ? 2 : 1;
-              newStates[index] = {
-                ...newStates[index],
-                progress: Math.min(95, currentProgress + increment),
-              };
-            }
-            return newStates;
-          });
-        }, 500); // Update every 500ms
-        progressIntervalsRef.current.push(interval);
-      });
-
-      // Start uploading files (mark as uploading)
-      setUploadStates(prev => prev.map(state => ({
-        ...state,
-        status: 'uploading' as const,
-      })));
+    let changedFiles: Files[] = [];
+    if (filesData) {
+      // Filter only the files that have changed (featured status changed)
+      changedFiles = filesData.files.filter((file) =>
+        changedFileUuids.has(file.uuid)
+      );
     }
 
-    try {
-      if (filesData) {
-        // Filter only the files that have changed (featured status changed)
-        const changedFiles = filesData.files.filter((file) =>
-          changedFileUuids.has(file.uuid)
-        );
+    const response = await startUpload({
+      token,
+      orderUuid: orderData?.uuid,
+      filesDataUuid: filesData?.uuid,
+      files: allFiles,
+      links,
+      droppedMarkers,
+      delay,
+      transition,
+      selectedAudioTrack: selectedAudioTrack || "none",
+      changedFiles,
+      isUpdate: !!filesData
+    });
 
-        await UpdateFilesData(
-          token,
-          filesData?.uuid || "",
-          allFiles,
-          links,
-          droppedMarkers,
-          delay,
-          transition,
-          selectedAudioTrack || "none",
-          changedFiles // Pass only changed files
-        );
+    // If we're here, the upload was successful
+    if (response) {
+      console.log("Upload successful. Fetching fresh data...");
 
-        // Clear the changed files set after successful save
-        setChangedFileUuids(new Set());
-      } else {
-        await UploadFilesData(
-          token,
-          orderData?.uuid || "",
-          allFiles,
-          links,
-          droppedMarkers,
-          delay,
-          transition,
-          selectedAudioTrack || "none",
-          (index, progress, status) => {
-            // Update individual file progress
-            setUploadStates(prev => {
-              const newStates = [...prev];
-              if (newStates[index]) {
-                newStates[index] = {
-                  ...newStates[index],
-                  progress,
-                  status,
-                };
-              }
-              return newStates;
-            });
-            // Overall progress is handled by useEffect
+      try {
+        const freshFilesData = await GetFilesData(token, orderData?.uuid || "");
+
+        if (freshFilesData.data && freshFilesData.data[0]) {
+          const updatedTour = freshFilesData.data[0];
+
+          // Map status='processing' to is_processing=true
+          if (updatedTour.files) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            updatedTour.files = updatedTour.files.map((f: any) => ({
+              ...f,
+              is_processing: f.status === 'processing' || f.is_processing
+            }));
           }
-        );
-      }
 
-      // Clear all progress intervals
-      progressIntervalsRef.current.forEach(interval => clearInterval(interval));
-      progressIntervalsRef.current = [];
-
-      // Mark all files as complete with 100% progress
-      setUploadStates(prev => prev.map(state => ({
-        ...state,
-        progress: 100,
-        status: 'complete' as const,
-      })));
-
-      // Calculate final overall progress
-      setOverallProgress(100);
-      setIsUploading(false);
-
-      toast.success("All changes saved successfully!");
-    } catch (error) {
-      // Clear all progress intervals
-      progressIntervalsRef.current.forEach(interval => clearInterval(interval));
-      progressIntervalsRef.current = [];
-
-      // Mark all files as error
-      setUploadStates(prev => prev.map(state => ({
-        ...state,
-        status: 'error' as const,
-        error: error instanceof Error ? error.message : 'Upload failed',
-      })));
-
-      setIsUploading(false);
-      setIsUploading(false);
-      let errorMessage = "An error occurred while saving changes.";
-      if (error instanceof Error) {
-        try {
-          // Check if the error message is a JSON string
-          const errorObj = JSON.parse(error.message);
-          if (errorObj.message && typeof errorObj.message === 'object') {
-            // Handle validation errors (e.g. { "files.0.size": ["..."] })
-            const validationErrors = Object.values(errorObj.message).flat();
-            errorMessage = validationErrors.join(', ');
-          } else if (errorObj.message) {
-            errorMessage = errorObj.message;
-          } else {
-            errorMessage = error.message;
-          }
-        } catch {
-          // If not JSON, use the message directly
-          errorMessage = error.message;
+          setFilesData(updatedTour);
         }
-      }
 
-      toast.error(errorMessage);
+        // Clear local pending files
+        setSelectedFiles([]);
+        setFloorFiles([]);
+        setSelectedVideoFiles([]);
+        setChangedFileUuids(new Set());
+
+      } catch (err) {
+        console.error("Error fetching fresh data:", err);
+        // Fallback or toast error? For now just log it, as the upload itself succeeded.
+      }
+    } else {
+      console.log("Upload finished but response is falsy:", response);
     }
   }
-
-  // Handler to close the upload progress overlay
-  const handleCloseUploadProgress = () => {
-    setUploadStates([]);
-    setOverallProgress(0);
-    setIsUploading(false);
-  };
 
   return (
     <div>
       {/* Upload Progress Overlay */}
-      <UploadProgressOverlay
-        uploadStates={uploadStates}
-        overallProgress={overallProgress}
-        isUploading={isUploading}
-        onClose={handleCloseUploadProgress}
-      />
       <div
+
         ref={headerRef}
         className="w-full h-[80px] font-alexandria pr-5 sticky top-0 z-50 flex justify-between items-center"
         style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}

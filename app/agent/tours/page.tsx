@@ -99,8 +99,11 @@ const Page = () => {
                 const address = tour.orders?.property_address || tour.orders?.property?.address || "N/A";
                 const city = tour.orders?.property?.city || "";
                 const province = tour.orders?.property?.province || "";
-                const file_path = tour.files?.find((file) => file.is_featured)?.file_path || tour.files?.[0]?.file_path;
-                const imgUrl = file_path ? `${process.env.NEXT_PUBLIC_FILES_API_URL}/${file_path}` : null;
+                const featuredFile = tour.files?.find((file) => file.is_featured) || tour.files?.[0];
+                const file_path = featuredFile?.thumbnail_url || featuredFile?.file_path;
+                const imgUrl = file_path
+                    ? (file_path.startsWith('http') ? file_path : `${process.env.NEXT_PUBLIC_FILES_API_URL}/${file_path}`)
+                    : null;
 
                 return (
                     <div className="flex items-center gap-4">

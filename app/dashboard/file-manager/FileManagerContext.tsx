@@ -51,6 +51,13 @@ export type Files = {
     is_admin_approved?: boolean;
     is_agent_approved?: boolean;
     is_show?: boolean;
+    is_processing?: boolean;
+    variant_urls?: {
+        thumb: string;
+        slider: string;
+        landing: string;
+        popup: string;
+    };
 
 }
 export type SnapShots = {

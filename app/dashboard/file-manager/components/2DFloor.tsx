@@ -28,7 +28,7 @@ type Props = {
     isListing: boolean;
     reviewFilesEnabled?: boolean;
 };
-const Service: React.FC<Props> = ({ orderData, currentService, isListing, reviewFilesEnabled }) => {
+const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, currentService, isListing, reviewFilesEnabled, onSave }) => {
     const { floorFiles, setFloorFiles, filesData, setFilesData, setChangedFileUuids, area, setArea } = useFileManagerContext();
     const [replacingFile, setReplacingFile] = useState<File | null>(null);
     const [openPreview, setOpenPreview] = useState(false);
@@ -293,10 +293,8 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
                                 <Button
                                     onClick={() => {
                                         setMediaUploaded(true);
-                                        setShowEmailConfirmation(true)
-                                        // setSelectedFiles(prev =>
-                                        //  prev.map(file => ({ ...file, upload: true }))
-                                        // );
+                                        setShowEmailConfirmation(true);
+                                        if (onSave) onSave();
                                     }}
                                     className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Submit to Client'} </Button>
                             }
@@ -406,7 +404,10 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
                         <AccordionItem value="unsaved">
                             <AccordionTrigger className={`text-lg font-semibold uppercase ${userType}-text`}>Unsaved Images</AccordionTrigger>
                             <AccordionContent>
-                                <div className='grid grid-cols-3 gap-y-7 pt-4'>
+                                <div
+                                    className='grid grid-cols-3 gap-y-7 p-4'
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                >
                                     {(() => {
                                         let otherFiles = floorFiles.filter(file => file.type !== "Additional Files" && file.service_id === currentService?.uuid);
                                         let additionalFiles = floorFiles.filter(file => file.type === "Additional Files" && file.service_id === currentService?.uuid);
@@ -421,7 +422,9 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
                                                 {otherFiles.map((file, idx) => (
                                                     <div key={idx} className='justify-self-center group'>
                                                         <div>
-                                                            <p className='uppercase text-lg font-semibold text-[#4290E9] pl-3 pb-2'>{file.type}</p>
+                                                            <p className='uppercase text-lg font-semibold text-[#4290E9] pl-3 pb-2'>
+                                                                {file.type === 'photo' ? 'UnBranded Floor Plan' : (file.type || 'UnBranded Floor Plan')}
+                                                            </p>
                                                             <div
                                                                 className="relative w-[280px] h-[175px] border border-[#A8A8A8] rounded-[6px]"
                                                                 style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
@@ -629,7 +632,10 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
                         <AccordionItem value="saved">
                             <AccordionTrigger className={`text-lg font-semibold uppercase ${userType}-text`}>Saved Images</AccordionTrigger>
                             <AccordionContent>
-                                <div className='grid grid-cols-3 gap-y-7 pt-4'>
+                                <div
+                                    className='grid grid-cols-3 gap-y-7 p-4'
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                >
                                     {(() => {
                                         const otherApiFiles = currentServiceFiles?.filter(file => file.group !== "Additional Files");
                                         const additionalApiFiles = currentServiceFiles?.filter(file => file.group === "Additional Files");
@@ -639,20 +645,26 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
                                                 {otherApiFiles?.map((file, idx) => (
                                                     <div key={idx} className='justify-self-center group'>
                                                         <div>
-                                                            <p className={`uppercase text-lg font-semibold ${userType}-text pl-3 pb-2`}>{file.type}</p>
+                                                            <p className={`uppercase text-lg font-semibold ${userType}-text pl-3 pb-2`}>
+                                                                {file.group || (file.type === 'photo' ? 'UnBranded Floor Plan' : (file.type || 'UnBranded Floor Plan'))}
+                                                            </p>
                                                             <div
                                                                 className="relative w-[280px] h-[175px] border border-[#A8A8A8] rounded-[6px] overflow-hidden"
                                                                 style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                             >
-                                                                {file.file_path.toLowerCase().endsWith('.pdf') ? (
+                                                                {file.is_processing ? (
+                                                                    <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                                                                        <p className="text-gray-500 font-medium text-sm">Processing...</p>
+                                                                    </div>
+                                                                ) : file.file_path.toLowerCase().endsWith('.pdf') ? (
                                                                     <PdfPlaceholder
                                                                         className="w-full h-full object-contain cursor-pointer"
-                                                                        onClick={() => handleImageClick(file.url || `${API_URL}/${file.file_path}`, file)}
+                                                                        onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
                                                                     />
                                                                 ) : (
                                                                     <NextImage
-                                                                        src={file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
-                                                                        onClick={() => handleImageClick(file.url || `${API_URL}/${file.file_path}`, file)}
+                                                                        src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
+                                                                        onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
                                                                         alt="Preview"
                                                                         fill
                                                                         className={`object-contain h-auto w-full cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
@@ -783,10 +795,14 @@ const Service: React.FC<Props> = ({ orderData, currentService, isListing, review
                                                                         className="relative w-[280px] h-[175px] border border-[#A8A8A8] rounded-[6px] overflow-hidden"
                                                                         style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                                     >
-                                                                        {file.file_path.toLowerCase().endsWith('.pdf') ? (
+                                                                        {(file.is_processing) ? (
+                                                                            <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                                                                                <p className="text-gray-500 font-medium text-sm">Processing...</p>
+                                                                            </div>
+                                                                        ) : file.file_path.toLowerCase().endsWith('.pdf') ? (
                                                                             <PdfPlaceholder
                                                                                 className="w-full h-full object-contain cursor-pointer"
-                                                                                onClick={() => handleImageClick(file.url || `${API_URL}/${file.file_path}`, file)}
+                                                                                onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
                                                                             />
                                                                         ) : (
                                                                             <NextImage

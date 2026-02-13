@@ -78,6 +78,15 @@ export interface OrderData {
             updated_at: string;
             is_featured: boolean;
             is_show: boolean;
+            thumbnail_url: string;
+            url: string;
+            variant_urls?: {
+                thumb: string;
+                preview: string;
+                slider: string;
+                popup: string;
+                landing: string;
+            };
             service: { id: number; uuid: string; name: string; category: { id: number; name: string } };
         }>;
         links: Array<{

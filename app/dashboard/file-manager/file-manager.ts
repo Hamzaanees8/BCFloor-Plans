@@ -248,7 +248,7 @@ export async function UploadFilesData(
   // Step 3: NOW confirm uploads with the new tourUuid
   if (files.length > 0 && uploads.length > 0) {
     try {
-      await S3UploadService.confirmUpload({
+      const confirmResult = await S3UploadService.confirmUpload({
         entity_type: "tour",
         entity_id: tourUuid,
         tour_id: tourUuid,
@@ -268,6 +268,7 @@ export async function UploadFilesData(
           };
         }),
       });
+      return confirmResult;
     } catch (confirmError) {
       console.error(
         "Confirmation of S3 uploads failed after tour creation:",
@@ -335,6 +336,7 @@ export async function UpdateFilesData(
         }),
       );
 
+      // Confirm uploads to create DB records
       // Confirm uploads to create DB records
       await S3UploadService.confirmUpload({
         entity_type: "tour",
@@ -435,6 +437,9 @@ export async function UpdateFilesData(
   }
 
   if (!hasMetadataChanges) {
+    // If we only uploaded files and didn't change metadata, return success with confirm result if available?
+    // Actually the confirmResult isn't easily accessible here due to scope block above.
+    // But returning simple success is enough for logic to proceed.
     return { success: true, message: "Only new files uploaded and confirmed." };
   }
 

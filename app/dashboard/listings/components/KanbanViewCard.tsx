@@ -29,16 +29,19 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
 
   if (type === 'tour') {
     const tourData = data as Tour;
-    file_path = tourData.files?.find((file: TourFile) => file.is_featured)?.file_path || tourData.files?.[0]?.file_path || "";
+    const featuredFile = tourData.files?.find((file: TourFile) => file.is_featured) || tourData.files?.[0];
+    file_path = featuredFile?.thumbnail_url || featuredFile?.file_path || "";
+    // If it's a full URL (thumbnail_url), we don't need to prepend API_URL later, but the current logic prepends it. 
+    // We need to adjust the background image logic too.
     const address = tourData.orders?.property_address || tourData.orders?.property?.address || "N/A";
     const city = tourData.orders?.property?.city || "";
     addressLine = address + (city ? ", " + city : "");
     href = `/tour/${slugify(address)}/${tourData.orders?.uuid}`;
   } else {
     const listingData = data as Listings;
-    file_path = listingData.orders?.[0]?.tours?.[0]?.files?.find(
-      (file: { is_featured?: boolean; file_path?: string }) => file.is_featured === true
-    )?.file_path || listingData.orders?.[0]?.tours?.[0]?.files?.[0]?.file_path || "";
+    const files = listingData.orders?.[0]?.tours?.[0]?.files;
+    const featuredFile = files?.find((file: { is_featured?: boolean }) => file.is_featured) || files?.[0];
+    file_path = featuredFile?.thumbnail_url || featuredFile?.file_path || "";
     addressLine = listingData.address + ", " + listingData.city;
     href = listingData.orders?.[0]?.uuid
       ? `/dashboard/file-manager/${listingData.orders?.[0]?.uuid}?listingId=${listingData.uuid}`
@@ -57,7 +60,9 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
       <div
         className="flex items-center justify-center gap-2 bg-[#D9D8D8] w-full h-[173px] cursor-pointer"
         style={{
-          backgroundImage: file_path ? `url('${process.env.NEXT_PUBLIC_FILES_API_URL}/${file_path}')` : 'none',
+          backgroundImage: file_path
+            ? `url('${file_path.startsWith('http') ? file_path : process.env.NEXT_PUBLIC_FILES_API_URL + '/' + file_path}')`
+            : 'none',
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",

@@ -100,12 +100,42 @@ const PublicTour = () => {
     }, [orderuuid]);
 
     // Extract files from orderData.tours[0].files
-    const tourPhotos = useMemo(() => orderData?.tours?.[0]?.files?.filter(file =>
-        (file.service.category.name === "photo" || file.service.category.name === "HDR Photos" || file.service.category.name === "Standard Photos" || file.service.category.name === "Twilight Photos") && file.is_show !== false
-    ) || [], [orderData]);
+    const tourPhotos = useMemo(() => orderData?.tours?.[0]?.files?.filter(file => {
+        const isPhoto = (file.service.category.name === "photo" || file.service.category.name === "HDR Photos" || file.service.category.name === "Standard Photos" || file.service.category.name === "Twilight Photos") && file.is_show !== false;
 
-    const videoFiles = useMemo(() => orderData?.tours?.[0]?.files?.filter(file => file.service.category.name === "video" && file.is_show !== false) || [], [orderData]);
-    const floorPlanFiles = useMemo(() => orderData?.tours?.[0]?.files?.filter(file => file.service.category.name === "Floor Plan" && file.is_show !== false) || [], [orderData]);
+        if (!isPhoto) return false;
+
+        // Date check: Hide files created before Feb 11, 2026
+        const createdDate = new Date(file.created_at);
+        const cutoffDate = new Date('2026-02-11');
+        if (createdDate < cutoffDate) return false;
+
+        return true;
+    }) || [], [orderData]);
+
+    const videoFiles = useMemo(() => orderData?.tours?.[0]?.files?.filter(file => {
+        const isVideo = file.service.category.name === "video" && file.is_show !== false;
+        if (!isVideo) return false;
+
+        // Date check
+        const createdDate = new Date(file.created_at);
+        const cutoffDate = new Date('2026-02-11');
+        if (createdDate < cutoffDate) return false;
+
+        return true;
+    }) || [], [orderData]);
+
+    const floorPlanFiles = useMemo(() => orderData?.tours?.[0]?.files?.filter(file => {
+        const isFloorPlan = file.service.category.name === "Floor Plan" && file.is_show !== false;
+        if (!isFloorPlan) return false;
+
+        // Date check
+        const createdDate = new Date(file.created_at);
+        const cutoffDate = new Date('2026-02-11');
+        if (createdDate < cutoffDate) return false;
+
+        return true;
+    }) || [], [orderData]);
     const matterportLinks = useMemo(() => orderData?.tours?.[0]?.links || [], [orderData]);
 
     const visibleTabs = useMemo(() => {
@@ -125,7 +155,9 @@ const PublicTour = () => {
 
     useEffect(() => {
         if (!mainVideo && videoFiles.length > 0) {
-            setMainVideo(`${API_URL}/${videoFiles[0].file_path}`);
+            // Use file.url if available (post-cutoff), else fallback to API_URL construction
+            const videoUrl = videoFiles[0].url || `${API_URL}/${videoFiles[0].file_path}`;
+            setMainVideo(videoUrl);
         }
     }, [videoFiles, mainVideo, API_URL]);
 
@@ -154,9 +186,12 @@ const PublicTour = () => {
     // Track audio
     const audioFileName = orderData?.tours?.[0]?.slide_show?.background_audio;
     useEffect(() => {
+        let active = true;
+        let createdUrl: string | undefined;
+
         const fetchAudio = async () => {
             if (!audioFileName || audioFileName === "none") {
-                setAudioUrl(undefined);
+                if (active) setAudioUrl(undefined);
                 return;
             }
 
@@ -166,22 +201,25 @@ const PublicTour = () => {
                     throw new Error(`Failed to fetch audio: ${response.status}`);
                 }
                 const blob = await response.blob();
-                const blobUrl = URL.createObjectURL(blob);
-                setAudioUrl(blobUrl);
+                if (!active) return;
+
+                createdUrl = URL.createObjectURL(blob);
+                setAudioUrl(createdUrl);
             } catch (error) {
                 console.error("Error loading audio track:", error);
-                setAudioUrl(undefined);
+                if (active) setAudioUrl(undefined);
             }
         };
 
         fetchAudio();
 
         return () => {
-            if (audioUrl) {
-                URL.revokeObjectURL(audioUrl);
+            active = false;
+            if (createdUrl) {
+                URL.revokeObjectURL(createdUrl);
             }
         };
-    }, [audioFileName, audioUrl]);
+    }, [audioFileName]);
 
     const trackMediaView = (mediaUuid?: string) => {
         if (!mediaUuid || !orderData?.tours?.[0]?.uuid || !visitorId) return;
@@ -286,7 +324,7 @@ const PublicTour = () => {
                                             <CarouselItem key={index} className="pl-0 h-[100vh]">
                                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                                 <img
-                                                    src={`${API_URL}/${photo.file_path}`}
+                                                    src={photo.variant_urls?.slider || photo.variant_urls?.popup || photo.variant_urls?.landing || photo.url || `${API_URL}/${photo.file_path}`}
                                                     alt={`Slide ${index + 1}`}
                                                     className="w-full h-full object-cover"
                                                 />
@@ -470,7 +508,7 @@ const PublicTour = () => {
                                         <div key={`photo-${index}`} className="w-full aspect-square overflow-hidden cursor-pointer">
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
                                             <img
-                                                src={`${API_URL}/${image.file_path}`}
+                                                src={image.variant_urls?.thumb || image.thumbnail_url || image.url || `${API_URL}/${image.file_path}`}
                                                 alt={`Photo ${index + 1}`}
                                                 className="w-full h-full object-cover"
                                                 onClick={() => setCurrentImageIndex(index)}
@@ -505,7 +543,7 @@ const PublicTour = () => {
                             {videoFiles.length > 0 ? (
                                 <div className="mt-4 w-full grid grid-cols-3 gap-5 p-3">
                                     {videoFiles.map((file, idx) => {
-                                        const apiSrc = `${API_URL}/${file.file_path}`;
+                                        const apiSrc = file.url || `${API_URL}/${file.file_path}`;
                                         return (
                                             <div
                                                 key={idx}

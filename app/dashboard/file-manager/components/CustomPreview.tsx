@@ -61,7 +61,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
       isLocal: true,
     })) || []),
     ...(api_images?.map((img) => ({
-      src: img.url || `${API_URL}/${img.file_path}`,
+      src: img.variant_urls?.slider || img.url || `${API_URL}/${img.file_path}`,
       isLocal: false,
     })) || []),
   ];

@@ -22,7 +22,7 @@ import { DownloadFile, ServiceCompletion } from '../file-manager';
 import { OptimizedImagePreview } from './OptimizedPreview';
 
 
-function Video({ currentService, orderData, isListing, reviewFilesEnabled }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean }) {
+function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSave }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void }) {
     const [files, setFiles] = useState<File[]>([]);
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [open, setOpen] = useState(false);
@@ -287,6 +287,7 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled }: { c
                             onClick={() => {
                                 setMediaUploaded(true);
                                 setShowConfirmation(true)
+                                if (onSave) onSave();
                             }}
                             className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[#4290E9] hover:bg-[#4999f5]'}  h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Submit to Client'} </Button>
                     }
@@ -501,21 +502,36 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled }: { c
                                                 style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
                                             >
                                                 <div className="relative w-full h-[240px]">
-                                                    <div
-                                                        className="relative w-full h-full cursor-pointer group"
-                                                        onClick={() => handleVideoClick(file.url || `${API_URL}/${file.file_path}`, file)}
-                                                    >
-                                                        <video
-                                                            src={`${file.url || `${API_URL}/${file.file_path}`}#t=0.1`}
-                                                            preload="metadata"
-                                                            muted
-                                                            playsInline
-                                                            className={`w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
-                                                        />
-                                                        <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
-                                                            <PlayCircle className="w-12 h-12 text-white/90 drop-shadow-md group-hover:scale-110 transition-transform duration-300 fill-black/40" />
+                                                    {file.is_processing ? (
+                                                        <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                                                            <p className="text-gray-500 font-medium text-sm">Processing...</p>
                                                         </div>
-                                                    </div>
+                                                    ) : (
+                                                        <div
+                                                            className="relative w-full h-full cursor-pointer group"
+                                                            onClick={() => handleVideoClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
+                                                        >
+                                                            {file.variant_urls?.thumb ? (
+                                                                // eslint-disable-next-line @next/next/no-img-element
+                                                                <img
+                                                                    src={file.variant_urls.thumb}
+                                                                    alt={file.name}
+                                                                    className={`w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                                                />
+                                                            ) : (
+                                                                <video
+                                                                    src={`${file.url || `${API_URL}/${file.file_path}`}#t=0.1`}
+                                                                    preload="metadata"
+                                                                    muted
+                                                                    playsInline
+                                                                    className={`w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                                                />
+                                                            )}
+                                                            <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
+                                                                <PlayCircle className="w-12 h-12 text-white/90 drop-shadow-md group-hover:scale-110 transition-transform duration-300 fill-black/40" />
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                     {userType === 'admin' && reviewFilesEnabled && (
                                                         <div
                                                             className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"

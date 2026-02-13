@@ -329,6 +329,7 @@ export interface ListingOrder {
         files?: {
             is_featured?: boolean;
             file_path?: string;
+            thumbnail_url?: string;
         }[];
     }[];
 }
@@ -379,6 +380,7 @@ export interface TourFile {
     is_admin_approved: boolean;
     is_agent_approved: boolean;
     is_show: boolean;
+    thumbnail_url?: string;
 }
 
 export interface Tour {
