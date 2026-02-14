@@ -119,7 +119,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     }, [listingData, selectedListingId]);
     const [openAddAgentDialog, setOpenAddAgentDialog] = useState(false);
     const [isEditingAgent, setIsEditingAgent] = useState(false);
-    const [openAddListingDialog, setOpenAddListingDialog] = useState(true);
+    const [openAddListingDialog, setOpenAddListingDialog] = useState(!selectedListingId);
     const [openListing, setOpenListing] = useState(false);
     const [openAgent, setOpenAgent] = useState(false);
 
@@ -442,13 +442,6 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             setStates(State.getStatesOfCountry(country));
         }
     }, [country]);
-    useEffect(() => {
-        if (openAddListingDialog && !currentListing?.uuid) {
-            resetForm();
-            setCurrentListing(null);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [openAddListingDialog, currentListing?.uuid]);
     useEffect(() => {
         const token = localStorage.getItem("token");
 
@@ -950,12 +943,13 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                     value={openAddListingDialog ? "create-new-booking" : ""}
                     onValueChange={(val) => {
                         if (val === "create-new-booking") {
-                            handleListingSelect('NEW');
+                            if (selectedListingId !== null) {
+                                handleListingSelect('NEW');
+                            } else {
+                                setOpenAddListingDialog(true);
+                            }
                         } else {
                             setOpenAddListingDialog(false);
-                            if (!selectedListingId) {
-                                resetForm();
-                            }
                         }
                     }}
                     className='w-full'
@@ -1385,7 +1379,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                 {selectedListing.address}, {selectedListing.city}
                                             </span>
                                         ) : (
-                                            "Search and Select listings"
+                                            "Search and Select previous listings"
                                         )}
                                         <DropDownArrow stroke={roleSettings.pageText} />
                                     </button>
