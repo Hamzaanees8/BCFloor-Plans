@@ -36,6 +36,9 @@ import { useUnsaved } from "@/app/context/UnsavedContext";
 import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
 import Link from "next/link";
 import GooglePlacesAutocomplete from "../../calendar/components/AutoCompleteInput";
+import AddAgentDialog from "../../orders/components/AddAgentDialog";
+import { cn } from "@/lib/utils";
+import { Info, Plus } from "lucide-react";
 
 const ListingsFrom = () => {
   const { userType } = useAppContext();
@@ -90,6 +93,12 @@ const ListingsFrom = () => {
   const [showAgain1, setShowAgain1] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [initialAgentId, setInitialAgentId] = useState("");
+  const [isAgentChanged, setIsAgentChanged] = useState(false);
+  const [showAgentChangeConfirmation, setShowAgentChangeConfirmation] = useState(false);
+  const [pendingAgentSelection, setPendingAgentSelection] = useState("");
+  const [openAddAgentDialog, setOpenAddAgentDialog] = useState(false);
+  const [showAgainAgent, setShowAgainAgent] = useState(true);
   // const [origin, setOrigin] = useState("");
 
   // useEffect(() => {
@@ -150,6 +159,22 @@ const ListingsFrom = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const showAgain = localStorage.getItem('confirmation_dialog_agent_change_show_again');
+    if (showAgain !== null) {
+      setShowAgainAgent(JSON.parse(showAgain));
+    }
+  }, []);
+
+  const fetchAgents = async () => {
+    try {
+      const data = await Get();
+      setAgent(data.data);
+    } catch (err) {
+      console.log("Error fetching agents:", err);
+    }
+  };
+
   // For create mode, mark as initially rendered after a short delay
   // This prevents browser autofill from triggering dirty state
   useEffect(() => {
@@ -176,6 +201,7 @@ const ListingsFrom = () => {
             isPopulatingData.current = true;
             setCurrentListing(data);
             setConnectedAgent(data.agent.uuid);
+            setInitialAgentId(data.agent.uuid);
             setListingPrice(data.listing_price?.toString() || "");
             setMls(data.mls_number || "");
             setBedrooms(data.bedrooms ?? "");
@@ -676,6 +702,34 @@ const ListingsFrom = () => {
     }
   }
 
+  const handleAgentChange = (val: string) => {
+    if (!showAgainAgent) {
+      setConnectedAgent(val);
+      setIsAgentChanged(val !== initialAgentId);
+      return;
+    }
+    setPendingAgentSelection(val);
+    setShowAgentChangeConfirmation(true);
+  };
+
+  const confirmAgentChange = () => {
+    const val = pendingAgentSelection;
+    setConnectedAgent(val);
+    setIsAgentChanged(val !== initialAgentId);
+    setShowAgentChangeConfirmation(false);
+    if (fieldErrors.agent_id) {
+      const newErrors = { ...fieldErrors };
+      delete newErrors.agent_id;
+      setFieldErrors(newErrors);
+    }
+  };
+
+  const handleNewAgentAdded = async () => {
+    await fetchAgents();
+    setOpenAddAgentDialog(false);
+    toast.success("New agent added and can now be selected");
+  };
+
   // const inputRef = useRef<HTMLInputElement>(null);
 
   // const openCalendar = () => {
@@ -814,37 +868,55 @@ const ListingsFrom = () => {
                     <div className="grid grid-cols-2 gap-[16px]">
                       {userType != "agent" && (
                         <div className="col-span-2">
-                          <label htmlFor="">
-                            Connected Agents{" "}
-                            <span className="text-red-500">*</span>
-                          </label>
-                          <Select
-                            value={connectedAgent}
-                            onValueChange={(val) => {
-                              setConnectedAgent(val);
-                              if (fieldErrors.agent_id) {
-                                const newErrors = { ...fieldErrors };
-                                delete newErrors.agent_id;
-                                setFieldErrors(newErrors);
-                              }
-                            }}
-                          >
-                            <SelectTrigger
-                              className={`w-full h-[42px] bg-[#EEEEEE] mt-[12px] border ${fieldErrors.agent_id
-                                ? "border-red-500"
-                                : "border-[#BBBBBB]"
-                                }`}
+                          <div className="flex justify-between items-center mb-[12px]">
+                            <label htmlFor="" className="m-0">
+                              Agent{" "}
+                              <span className="text-red-500">*</span>
+                            </label>
+                            <div
+                              className="flex items-center gap-x-[10px] cursor-pointer"
+                              onClick={() => setOpenAddAgentDialog(true)}
                             >
-                              <SelectValue placeholder="Select Agent" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {agent?.map((ag) => (
-                                <SelectItem key={ag.uuid} value={ag.uuid}>
-                                  {ag.first_name} {ag.last_name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                              <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add New Agent</p>
+                              <div className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm flex items-center justify-center'>
+                                <Plus className="w-4 h-4" />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className={cn(
+                            "rounded-md p-1 transition-all duration-300",
+                            isAgentChanged && "bg-yellow-50 border border-yellow-200"
+                          )}>
+                            <Select
+                              value={connectedAgent}
+                              onValueChange={handleAgentChange}
+                            >
+                              <SelectTrigger
+                                className={cn(
+                                  "w-full h-[42px] bg-[#EEEEEE] border transition-all duration-300",
+                                  fieldErrors.agent_id ? "border-red-500" : "border-[#BBBBBB]",
+                                  isAgentChanged && "border-yellow-500 shadow-[0_0_5px_rgba(234,179,8,0.5)]"
+                                )}
+                              >
+                                <SelectValue placeholder="Select Agent" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {agent?.map((ag) => (
+                                  <SelectItem key={ag.uuid} value={ag.uuid}>
+                                    {ag.first_name} {ag.last_name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+
+                            {isAgentChanged && (
+                              <p className="text-yellow-700 text-[12px] mt-2 font-medium flex items-center gap-1">
+                                <Info className="w-3 h-3" />
+                                The agent for this property has been changed. Review before saving.
+                              </p>
+                            )}
+                          </div>
 
                           {fieldErrors.agent_id && (
                             <p className="text-red-500 text-[10px] mt-1">
@@ -1784,6 +1856,21 @@ const ListingsFrom = () => {
         isSuccess={true}
         backLink="/dashboard/listings"
         title="Listing"
+      />
+      <ConfirmationDialog
+        open={showAgentChangeConfirmation}
+        setOpen={setShowAgentChangeConfirmation}
+        onConfirm={confirmAgentChange}
+        showAgain={showAgainAgent}
+        toggleShowAgain={() => setShowAgainAgent(!showAgainAgent)}
+        dialogType="agent_change"
+        title="Change Agent?"
+        description="Are you sure you want to change the agent associated with this property? This is usually rarely changed."
+      />
+      <AddAgentDialog
+        open={openAddAgentDialog}
+        setOpen={setOpenAddAgentDialog}
+        onSuccess={handleNewAgentAdded}
       />
     </div >
   );

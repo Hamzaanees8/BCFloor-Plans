@@ -23,17 +23,19 @@ type Props = {
   onConfirm: () => void
   showAgain: boolean
   toggleShowAgain: () => void
-  dialogType?: 'delete' | 'merge' | 'payment' // ADD THIS PROP
+  dialogType?: 'delete' | 'merge' | 'payment' | 'agent_change' // ADD THIS PROP
   title?: string
   description?: string
 }
 
-const getStorageKey = (type: 'delete' | 'merge' | 'payment' = 'delete') => {
+const getStorageKey = (type: 'delete' | 'merge' | 'payment' | 'agent_change' = 'delete') => {
   switch (type) {
     case 'merge':
       return 'confirmation_dialog_merge_show_again';
     case 'payment':
       return 'confirmation_dialog_payment_show_again';
+    case 'agent_change':
+      return 'confirmation_dialog_agent_change_show_again';
     default:
       return 'confirmation_dialog_delete_show_again';
   }

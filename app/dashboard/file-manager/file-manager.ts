@@ -76,16 +76,6 @@ import { toast } from "sonner";
 import { DroppedMarker, Files, SelectedFiles } from "./FileManagerContext";
 import { Order } from "../orders/page";
 
-/**
- * Helper function to determine file type from content_type (MIME type)
- */
-function getFileTypeFromContentType(contentType: string): string {
-  if (contentType.startsWith("video/")) return "video";
-  if (contentType === "application/pdf") return "pdf";
-  return "photo";
-}
-
-
 export async function GetFilesData(token: string, orderUuid: string) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -226,7 +216,7 @@ export async function UploadFilesData(
     formData.append(`snapshots[${index}][description]`, snap.description || "");
     formData.append(
       `snapshots[${index}][file]`,
-      snap.thumbnail_url || snap.file_path || snap.file || "",
+      snap.file_path || snap.file || "",
     );
     formData.append(`snapshots[${index}][x_axis]`, String(snap.x));
     formData.append(`snapshots[${index}][y_axis]`, String(snap.y));
@@ -269,7 +259,6 @@ export async function UploadFilesData(
             s3_key: upload.s3_key,
             original_filename: upload.original_filename,
             content_type: upload.content_type,
-            type: getFileTypeFromContentType(upload.content_type),
             group: fileObj.type,
             service_id: fileObj.service_id,
             is_featured: fileObj.is_featured || false,
@@ -363,7 +352,6 @@ export async function UpdateFilesData(
             s3_key: uploadInfo?.s3_key || "",
             original_filename: uploadInfo?.original_filename || "",
             content_type: uploadInfo?.content_type || "",
-            type: getFileTypeFromContentType(uploadInfo?.content_type || ""),
             group: fileObj.type,
             service_id: fileObj.service_id,
             is_featured: fileObj.is_featured || false,
@@ -388,28 +376,28 @@ export async function UpdateFilesData(
     const fileIndex = newFiles.length + index;
     hasMetadataChanges = true;
     formData.append(`files[${fileIndex}][uuid]`, fileObj.uuid);
-    formData.append(`files[${fileIndex}][file_path]`, fileObj.file_path);
-    formData.append(`files[${fileIndex}][name]`, fileObj.name || "");
-    formData.append(`files[${fileIndex}][type]`, fileObj.type || "photo");
-    formData.append(`files[${fileIndex}][group]`, fileObj.group || "");
+    formData.append(`files[${index}][file_path]`, fileObj.file_path);
+    formData.append(`files[${index}][name]`, fileObj.name || "");
+    formData.append(`files[${index}][type]`, fileObj.type || "photo");
+    formData.append(`files[${index}][group]`, fileObj.group || "");
     formData.append(
-      `files[${fileIndex}][service_id]`,
+      `files[${index}][service_id]`,
       String(fileObj.service?.uuid || fileObj.service_id || ""),
     );
     formData.append(
-      `files[${fileIndex}][is_featured]`,
+      `files[${index}][is_featured]`,
       String(fileObj.is_featured ? 1 : 0),
     );
     formData.append(
-      `files[${fileIndex}][is_admin_approved]`,
+      `files[${index}][is_admin_approved]`,
       String(fileObj.is_admin_approved === false ? 0 : 1),
     );
     formData.append(
-      `files[${fileIndex}][is_agent_approved]`,
+      `files[${index}][is_agent_approved]`,
       String(fileObj.is_agent_approved === true ? 1 : 0),
     );
     formData.append(
-      `files[${fileIndex}][is_show]`,
+      `files[${index}][is_show]`,
       String(fileObj.is_show === false ? 0 : 1),
     );
   });
@@ -434,7 +422,7 @@ export async function UpdateFilesData(
     formData.append(`snapshots[${index}][file_name]`, snap.floorImageUrl || "");
     formData.append(
       `snapshots[${index}][file]`,
-      snap.thumbnail_url || snap.file_path || snap.file || "",
+      snap.file_path || snap.file || "",
     );
     formData.append(`snapshots[${index}][x_axis]`, String(snap.x.toFixed(6)));
     formData.append(`snapshots[${index}][y_axis]`, String(snap.y.toFixed(6)));
@@ -556,7 +544,6 @@ export async function UpdatePhotosData(
             s3_key: upload.s3_key,
             original_filename: upload.original_filename,
             content_type: upload.content_type,
-            type: getFileTypeFromContentType(upload.content_type),
             group: fileObj.type,
             service_id: fileObj.service_id,
             is_featured: fileObj.is_featured || false,
@@ -592,7 +579,6 @@ export async function UpdateFloorPhotosData(
 
     let type = "photo";
     if (fileType.startsWith("video/")) type = "video";
-    else if (fileType === "application/pdf") type = "pdf";
 
     formData.append(`files[${index}][type]`, type);
     formData.append(`files[${index}][name]`, file.name || "");
@@ -860,7 +846,6 @@ export async function UploadPhotosToS3(
       entity_id: tourUuid,
       uploads: uploadedFiles.map((file, index) => ({
         ...file,
-        type: getFileTypeFromContentType(file.content_type),
         group: files[index].type,
         service_id: files[index].service_id,
         is_featured: files[index].is_featured || false,
@@ -970,7 +955,6 @@ export async function UploadTourToS3(
       entity_id: orderUuid,
       uploads: uploadedFiles.map((file, index) => ({
         ...file,
-        type: getFileTypeFromContentType(file.content_type),
         group: files[index].type,
         service_id: files[index].service_id,
         is_featured: files[index].is_featured || false,

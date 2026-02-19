@@ -29,7 +29,6 @@ export type DroppedMarker = {
     name?: string;
     description?: string;
     isApi?: boolean;
-    thumbnail_url?: string;
 };
 
 export type Files = {
@@ -53,7 +52,6 @@ export type Files = {
     is_agent_approved?: boolean;
     is_show?: boolean;
     is_processing?: boolean;
-    is_deleted?: boolean;
     variant_urls?: {
         thumb: string;
         slider: string;
@@ -74,7 +72,6 @@ export type SnapShots = {
     description: string | null;
     x_axis: number;
     y_axis: string;
-    thumbnail_url?: string;
 
 }
 export type FilesData = {

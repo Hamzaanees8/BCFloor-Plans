@@ -138,6 +138,7 @@ export type CalendarEvent = {
     address?: string
     vendor_name?: string
     service_name?: string
+    resourceId?: string
 };
 
 const customViews = {
@@ -181,7 +182,8 @@ const generateWeeklyBreakEvents = (vendors: CalanderVendor[], referenceDate: Dat
                     end: endDate,
                     vendor_id: vendor.uuid,
                     vendor_name: "Break",
-                    color_id: Number(vendor?.company?.vendor_id ?? 0)
+                    color_id: Number(vendor?.company?.vendor_id ?? 0),
+                    resourceId: vendor.uuid
                 });
             }
         });
@@ -197,6 +199,11 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
     const [showBreaks, setShowBreaks] = useState(true);
     const [open, setOpen] = useState(false);
     const [openDetails, setOpenDetails] = useState(false);
+
+    // Resource Pagination State
+    const [resourcePage, setResourcePage] = useState(0);
+    const RESOURCES_PER_PAGE = 5;
+
     const [contextMenu, setContextMenu] = useState<{
         mouseX: number;
         mouseY: number;
@@ -256,7 +263,8 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                             allDay: false, // Force false to show in time grid
                             vendor_id: vendor.uuid,
                             vendor_name: `${vendor.first_name} ${vendor.last_name}`,
-                            color_id: Number(vendor?.company?.vendor_id ?? 0)
+                            color_id: Number(vendor?.company?.vendor_id ?? 0),
+                            resourceId: vendor.uuid
                         };
                     });
                 allMappedEvents.push(...mappedEvents);
@@ -341,7 +349,8 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                             address: firstSlot.address || order.property_address,
                             service_name: serviceName,
                             // @ts-expect-error skip
-                            color_id: Number(firstSlot.vendor?.company?.vendor_id ?? 0)
+                            color_id: Number(firstSlot.vendor?.company?.vendor_id ?? 0),
+                            resourceId: firstSlot.vendor.uuid
                         });
                         currentGroup = [slot];
                     }
@@ -363,7 +372,8 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     address: firstSlot.address || order.property_address,
                     service_name: serviceName,
                     // @ts-expect-error skip
-                    color_id: firstSlot.vendor.company?.vendor_id
+                    color_id: firstSlot.vendor.company?.vendor_id,
+                    resourceId: firstSlot.vendor.uuid
                 });
             }
         });
@@ -401,7 +411,8 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                             vendor_name: `${vendor.first_name} ${vendor.last_name}`,
                             color_id: Number(vendor?.company?.vendor_id ?? 0),
                             uuid: brk.uuid,
-                            address: brk.address
+                            address: brk.address,
+                            resourceId: vendor.uuid
                         });
                     }
                 });
@@ -775,6 +786,131 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
             </div>
         );
     };
+
+    // Calculate resources and pagination
+    const resources = React.useMemo(() => {
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        const vendorsToProcess = userType === 'vendor' && userInfo?.uuid
+            ? vendorData.filter(v => v.uuid === userInfo.uuid)
+            : vendorData.filter(v => selectedVendors.includes('ALL') || selectedVendors.includes(v.uuid || ''));
+
+        return vendorsToProcess.map(vendor => ({
+            id: vendor.uuid,
+            title: `${vendor.first_name} ${vendor.last_name}`
+        }));
+    }, [vendorData, selectedVendors, userType]);
+
+    const paginatedResources = React.useMemo(() => {
+        if (visibleDays[0] !== '1') return [];
+        const start = resourcePage * RESOURCES_PER_PAGE;
+        return resources.slice(start, start + RESOURCES_PER_PAGE);
+    }, [resources, resourcePage, visibleDays]);
+
+    const handlePrevResources = () => {
+        setResourcePage(prev => Math.max(0, prev - 1));
+    };
+
+    const handleNextResources = () => {
+        setResourcePage(prev => {
+            if ((prev + 1) * RESOURCES_PER_PAGE >= resources.length) return prev;
+            return prev + 1;
+        });
+    };
+
+    const CustomDayToolbar = ({ onNavigate }: CustomToolbarProps) => {
+        const Days = [
+            { label: "Day", value: "1" },
+            { label: "Weekly", value: "7" },
+            { label: "Monthly", value: "30" },
+        ];
+
+        return (
+            <div className='flex justify-between mb-4'>
+                <div className='flex gap-[10px]'>
+                    <button onClick={() => onNavigate('TODAY')} className='ml-1 h-[30px] px-3 flex justify-center items-center hover:bg-gray-300 rounded-md text-sm font-medium text-gray-600 bg-white border border-gray-200 shadow-sm'>
+                        Today
+                    </button>
+                    <button onClick={() => onNavigate('PREV')} className='w-[30px] h-[30px] flex justify-center items-center hover:bg-gray-300 rounded-full'>
+                        <ChevronLeft color='#7D7D7D' />
+                    </button>
+
+                    <button onClick={() => onNavigate('NEXT')} className='w-[30px] h-[30px] flex justify-center items-center hover:bg-gray-300 rounded-full'>
+                        <ChevronRight color='#7D7D7D' />
+                    </button>
+                </div>
+
+                {/* Resource Pagination Controls */}
+                <div className='flex items-center gap-2'>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePrevResources}
+                        disabled={resourcePage === 0}
+                    >
+                        <ChevronLeft className="h-4 w-4" /> Vendors
+                    </Button>
+                    <span className="text-xs text-gray-500">
+                        {resourcePage + 1} / {Math.max(1, Math.ceil(resources.length / RESOURCES_PER_PAGE))}
+                    </span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleNextResources}
+                        disabled={(resourcePage + 1) * RESOURCES_PER_PAGE >= resources.length}
+                    >
+                        Vendors <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+
+                <div className='flex items-center gap-2'>
+                    <Switch
+                        checked={showBreaks}
+                        onCheckedChange={setShowBreaks}
+                        className='data-[state=checked]:bg-blue-600'
+                    />
+                    <span className='text-sm font-medium text-gray-700'>Show Breaks</span>
+                </div>
+
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                    {Days.map((button) => (
+                        <button
+                            onClick={() => setVisibleDays([button.value])}
+                            key={button.value}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${visibleDays[0] === button.value
+                                ? `${userType}-bg hover-${userType}-bg text-[#fff] shadow-sm`
+                                : 'text-gray-600 hover:text-gray-900 bg-white shadow-sm border border-gray-200'
+                                }`}
+                        >
+                            {button.label}
+                        </button>
+                    ))}
+                </div>
+
+                <div className='flex gap-[16px] items-center'>
+
+
+                    {(userType === 'admin' || userType === 'vendor') &&
+                        <Button
+                            onClick={() => {
+                                setOpen(true)
+                                setPopupType('break')
+                            }}
+                            className={`font-raleway text-[14px] font-[600] bg-[#4290E9] hover-${userType}-bg flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>
+                            Add Time Off
+                        </Button>
+                    }
+
+                    {(userType !== 'vendor') &&
+                        <Link href={'/dashboard/orders/create?from=calendar'} className={`font-raleway text-[14px] font-[600] bg-[#4290E9] hover-${userType}-bg rounded-[6px] text-[#fff] flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>
+                            Create New Booking
+                        </Link>
+                    }
+                </div>
+            </div>
+        )
+    }
+
+
     useEffect(() => {
         const handleClick = () => setContextMenu(null);
         const handleEscape = (e: KeyboardEvent) => {
@@ -1371,12 +1507,15 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                     toolbar={true}
                                     style={{ height: '100%' }}
                                     components={{
-                                        toolbar: CustomToolbar,
+                                        toolbar: CustomDayToolbar,
                                         event: CustomEvent,
                                         day: {
                                             header: CustomDateHeader,
                                         },
                                     }}
+                                    resources={paginatedResources}
+                                    resourceIdAccessor="id"
+                                    resourceTitleAccessor="title"
                                     className={`my-${userType}-calendar`}
                                     eventPropGetter={(event) => {
                                         const colors = getHSLColorFromID(event.color_id ?? 0);

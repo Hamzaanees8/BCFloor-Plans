@@ -7,6 +7,7 @@ import { Order } from '../../orders/page';
 import AddExtraDialog from './AddExtraDialog'; // We will reuse this for all sections now
 import { Area } from './OrderDetailView';
 import { SquareFootageTitles, defaultTitles } from './SquareFootageSettings';
+import { useAppContext } from '@/app/context/AppContext';
 
 interface Field {
   id: number;
@@ -28,6 +29,7 @@ interface SquareFootageProps {
 let uniqueId = 0;
 
 export default function EditSquareFootage({ currentOrder, setArea }: SquareFootageProps) {
+  const { userType } = useAppContext();
   const [titles, setTitles] = useState<SquareFootageTitles>(defaultTitles);
   const [finishedAreas, setFinishedAreas] = useState<Field[]>([]);
   const [subtotalAreas, setSubtotalAreas] = useState<Field[]>([]);
@@ -180,10 +182,11 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
               value={titles[titleKey]}
               onChange={(e) => handleTitleChange(titleKey, e.target.value)}
               onBlur={handleTitleSave}
+              readOnly={userType === 'agent'}
               onClick={(e) => e.stopPropagation()} // Prevent toggling when editing title
               className="text-[14px] font-semibold border-transparent hover:border-gray-300 focus:border-[#4290E9] bg-transparent w-auto min-w-[150px] px-2 h-8"
             />
-            <Pencil className="w-4 h-4 text-gray-400" />
+            {userType !== 'agent' && <Pencil className="w-4 h-4 text-gray-400" />}
           </div>
           <ChevronDown
             className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
@@ -206,31 +209,36 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
                     const value = Number(e.target.value);
                     handleChange(field.id, list, setList, { value: isNaN(value) ? 0 : value });
                   }}
+                  readOnly={userType === 'agent'}
                   className="w-[130px] h-[42px] border-[#7D7D7D] bg-[#EEEEEE] text-[16px] border appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 />
                 <span>FT²</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-[#666666] hover:text-red-500"
-                  onClick={() => handleRemove(field.id, list, setList)}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
+                {userType !== 'agent' && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-[#666666] hover:text-red-500"
+                    onClick={() => handleRemove(field.id, list, setList)}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
             ))}
 
             <div className="flex justify-between items-center pr-[50px] w-full max-w-[400px]">
-              <Button
-                className='text-[#4290E9] hover:bg-blue-50 p-0 h-auto'
-                variant="ghost"
-                onClick={() => {
-                  setDialogDefaultCategory(getCategoryFromKey(titleKey));
-                  setOpenAddDialog(true);
-                }}
-              >
-                +Add area
-              </Button>
+              {userType !== 'agent' && (
+                <Button
+                  className='text-[#4290E9] hover:bg-blue-50 p-0 h-auto'
+                  variant="ghost"
+                  onClick={() => {
+                    setDialogDefaultCategory(getCategoryFromKey(titleKey));
+                    setOpenAddDialog(true);
+                  }}
+                >
+                  +Add area
+                </Button>
+              )}
               {showTotal && <div className="font-semibold">TOTAL <span className="ml-[80px]">{total(list)} Sq.ft</span></div>}
             </div>
           </div>
@@ -245,13 +253,13 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
 
       {renderSection('finished', finishedAreas, setFinishedAreas)}
       {renderSection('subtotal', subtotalAreas, setSubtotalAreas)}
-      {renderSection('other', otherAreas, setOtherAreas)}
-
       {/* Grand Total Row */}
       <div className="flex justify-between items-center pr-[50px] w-full max-w-[400px] py-2 bg-gray-100 rounded">
         <span className="font-bold pl-2">Grand Total</span>
         <span className="font-bold">{grandTotal} Sq.ft</span>
       </div>
+
+      {renderSection('other', otherAreas, setOtherAreas)}
 
       <AddExtraDialog
         open={openAddDialog}

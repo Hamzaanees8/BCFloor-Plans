@@ -216,7 +216,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         if (item.url === "/dashboard/matterport" && userType !== "admin") {
           return false;
         }
-        if (item.url === "/dashboard/billing" && userType !== "admin") {
+        if (item.url === "/dashboard/billing" && userType !== "admin" && userType !== "agent") {
           return false;
         }
         if (item.url === "/dashboard/vendor-billing" && userType !== "admin") {

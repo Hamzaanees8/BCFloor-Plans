@@ -25,6 +25,7 @@ interface Props {
     onSave?: (newName: string) => void;
     type?: 'photo' | 'video';
     suggestions?: string[];
+    isPaid?: boolean;
 }
 
 const defaultMediaOptions = [
@@ -44,7 +45,8 @@ const PhotoPreviewModal: React.FC<Props> = ({
     initialName = '',
     onSave,
     type = 'photo',
-    suggestions
+    suggestions,
+    isPaid = true
 }) => {
     const { userType } = useAppContext();
     const { filesData } = useFileManagerContext();
@@ -108,6 +110,8 @@ const PhotoPreviewModal: React.FC<Props> = ({
         }
     };
 
+    const isRestrictedPdf = isPdf && userType === 'agent' && !isPaid;
+
     return (
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="w-[320px] md:w-[730px] md:max-w-[730px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
@@ -131,14 +135,25 @@ const PhotoPreviewModal: React.FC<Props> = ({
                         <video
                             src={mediaUrl}
                             controls
-                            controlsList="nodownload"
                             preload="auto"
                             playsInline
                             className="max-w-full max-h-full rounded-md"
                         />
+                    ) : isRestrictedPdf ? (
+                        <div className="flex flex-col items-center justify-center p-8 text-center bg-gray-100 w-full h-full rounded-md gap-4">
+                            <div className="bg-red-50 rounded-full p-6">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                    <path d="M14 2V8H20" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </div>
+                            <span className="text-gray-500 font-bold max-w-[300px]">
+                                PDF preview is disabled until the service is paid.
+                            </span>
+                        </div>
                     ) : isPdf ? (
                         <iframe
-                            src={`${mediaUrl}#toolbar=0`}
+                            src={mediaUrl}
                             className="w-full h-full rounded-md border-none"
                             title="PDF Preview"
                         />

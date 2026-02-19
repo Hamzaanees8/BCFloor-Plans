@@ -30,14 +30,14 @@ function PdfPlaceholder({ className = '', onClick }: { className?: string; onCli
 function TourFloorPlans({ type = "" }) {
   const { userType } = useAppContext();
   const { floorFiles, selectedFiles, droppedMarkers, setDroppedMarkers, filesData } = useFileManagerContext();
-  let currentTourFloorFiles = filesData?.files?.filter(file => (file?.service?.name === '2D Floor Plans' || file?.service?.name === '3D Floor Plans') && file.type !== 'pdf' && !file.file_path.toLowerCase().endsWith('.pdf'));
+  let currentTourFloorFiles = filesData?.files?.filter(file => file?.service?.name === '2D Floor Plans' || file?.service?.name === '3D Floor Plans');
   let currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans');
 
   if (userType === 'agent') {
     currentTourFloorFiles = currentTourFloorFiles?.filter(file => file.is_admin_approved);
     currentTourPhotos = currentTourPhotos?.filter(file => file.is_admin_approved);
   }
-  const [draggedFile, setDraggedFile] = useState<{ file?: File; file_path?: string; url?: string; thumbnail_url?: string } | null>(null);
+  const [draggedFile, setDraggedFile] = useState<{ file?: File; file_path?: string; url?: string } | null>(null);
 
   const [selectedImageId, setSelectedImageId] = useState<string | null>(() => {
     if (floorFiles?.length > 0) {
@@ -124,7 +124,6 @@ function TourFloorPlans({ type = "" }) {
     } else if (draggedFile.file_path) {
       newMarker.file_path = draggedFile.file_path;
       newMarker.url = draggedFile.url;
-      newMarker.thumbnail_url = draggedFile.thumbnail_url;
       newMarker.isApi = true;
     }
 
@@ -164,7 +163,6 @@ function TourFloorPlans({ type = "" }) {
     } else if (previewMarker?.file_path) {
       newMarker.file_path = previewMarker.file_path;
       newMarker.isApi = true;
-      newMarker.thumbnail_url = previewMarker.thumbnail_url;
     } else if (previewMarker?.file) {
       newMarker.file = previewMarker.file;
     }
@@ -244,14 +242,13 @@ function TourFloorPlans({ type = "" }) {
           ) : isSelectedFilePDF && selectedApiFile ? (
             // Render PDF in iframe
             <iframe
-              src={`${selectedApiFile.variant_urls?.popup || selectedApiFile.url || `${API_URL}/${selectedApiFile.file_path}`}#toolbar=0`}
+              src={selectedApiFile.variant_urls?.popup || selectedApiFile.url || `${API_URL}/${selectedApiFile.file_path}`}
               className="w-full h-full border-0"
               title="Floor Plan PDF"
             />
           ) : (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
-              draggable={false}
               ref={imgRef}
               src={
                 selectedFile
@@ -289,7 +286,6 @@ function TourFloorPlans({ type = "" }) {
                       name: marker.name ?? "",
                       description: marker.description ?? "",
                       isApi: true,
-                      thumbnail_url: marker.thumbnail_url,
                     });
 
                     setSnapshotFile(null);
@@ -331,7 +327,9 @@ function TourFloorPlans({ type = "" }) {
                   src={
                     previewMarker.file
                       ? URL.createObjectURL(previewMarker.file)
-                      : previewMarker.file_path || previewMarker.thumbnail_url || ""
+                      : previewMarker.url || (previewMarker.file_path
+                        ? `${API_URL}/${previewMarker.file_path}`
+                        : "")
                   }
                   alt={previewMarker.name || "Snapshot"}
                   className="w-[95%] h-[70%] object-cover mx-auto mt-[10px]"
@@ -361,7 +359,7 @@ function TourFloorPlans({ type = "" }) {
                   <img src={URL.createObjectURL(snapshotFile)} alt="Snapshot Preview" />
                 ) : (previewMarker?.isApi || previewMarker?.isApi) ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={previewMarker.thumbnail_url || previewMarker.file_path || previewMarker.url || `${API_URL}/${previewMarker.file_path}`} alt="Snapshot Preview" />
+                  <img src={previewMarker.url || `${API_URL}/${previewMarker.file_path}`} alt="Snapshot Preview" />
                 ) : null}
 
 
@@ -410,8 +408,8 @@ function TourFloorPlans({ type = "" }) {
           </div>
         )}
       </div>
-      <div className="w-full h-auto my-[20px]">
-        <div className="w-[70%] h-full flex-wrap flex items-center gap-[20px] !overflow-x-auto overflow-y-hidden">
+      <div className="w-full h-[200px]">
+        <div className="w-[70%] h-full flex items-center gap-[20px] overflow-x-auto overflow-y-hidden">
 
           {currentTourFloorFiles?.map((file, idx) => {
             const isFilePDF = isPDF(file.file_path);
@@ -469,10 +467,7 @@ function TourFloorPlans({ type = "" }) {
                     {/* eslint-disable @next/next/no-img-element */}
                     <img
                       draggable
-                      onDragStart={() => {
-                        setDraggedFile({ file: file.file });
-                        imageContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }}
+                      onDragStart={() => setDraggedFile({ file: file.file })}
                       src={URL.createObjectURL(file.file)}
                       alt="preview"
                       className="w-full h-full object-cover"
@@ -492,10 +487,7 @@ function TourFloorPlans({ type = "" }) {
                     {/* eslint-disable @next/next/no-img-element */}
                     <img
                       draggable
-                      onDragStart={() => {
-                        setDraggedFile({ file_path: file.file_path, url: file.url, thumbnail_url: file.variant_urls?.thumb || file.thumbnail_url || file.url });
-                        imageContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }}
+                      onDragStart={() => setDraggedFile({ file_path: file.file_path, url: file.url })}
                       src={file.variant_urls?.thumb || file.url || `${API_URL}/${file.file_path}`}
                       alt="preview"
                       className="w-full h-full object-cover"

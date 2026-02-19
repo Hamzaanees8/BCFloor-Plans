@@ -291,11 +291,20 @@ const AgentForm = () => {
             GetRole()
                 .then(data => {
                     const allRoles = Array.isArray(data.data) ? data.data : [];
-                    const filteredRoles = allRoles.filter((role: Role) => role.name.toLowerCase() === 'agents');
-                    if (filteredRoles.length > 0) {
-                        setRole(String(filteredRoles[0].id));
+                    // Broaden search to match 'agent' or 'agents' case-insensitively
+                    const agentRoles = allRoles.filter((role: Role) =>
+                        role.name.toLowerCase() === 'agents' ||
+                        role.name.toLowerCase() === 'agent'
+                    );
+
+                    if (agentRoles.length > 0) {
+                        setRole(String(agentRoles[0].id));
+                    } else if (allRoles.length > 0) {
+                        // Fallback to first available role if no 'agent' role found
+                        console.warn('No specific "Agent" role found, defaulting to first available.');
+                        setRole(String(allRoles[0].id));
                     }
-                    setRoles(filteredRoles);
+                    setRoles(allRoles);
                 })
                 .catch(err => console.log(err.message));
 

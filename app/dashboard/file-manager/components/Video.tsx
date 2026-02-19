@@ -119,6 +119,10 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
         setDragging(false);
         dragCounter.current = 0;
 
+        if (userType === 'agent') {
+            return;
+        }
+
         const droppedFiles = Array.from(e.dataTransfer?.files || []);
         const videoFiles = droppedFiles.filter(file => file.type.startsWith('video/'));
         const invalidFiles = droppedFiles.filter(file => !file.type.startsWith('video/'));
@@ -231,7 +235,7 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
 
             <div
                 className='h-[66px] w-full flex justify-between items-center px-4 font-alexandria'
-                style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
+                style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
             >
                 <div>
                     {userType !== 'agent' && (
@@ -258,15 +262,11 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
                             {currentService ? currentService.name : ''}
                         </span>
 
-                        <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title}
-                            <span className='ml-1'>
-                                ({currentServiceFiles?.filter(f => !f.is_deleted).length || 0} / {currentBookedService?.option?.quantity || 1})
-                            </span>
-                        </span>
+                        <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title}</span>
                     </p>
                 </div>
                 <div className='flex justify-center items-center gap-x-[14px]'>
-                    {(userType === 'agent') && currentBookedService?.payment_status === "PAID" && (
+                    {(userType === 'agent') && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
                         <Button
                             onClick={() => {
                                 setShowDownloadModal(true);
@@ -361,18 +361,13 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
                 />
             </div>
 
-            <div>
+            <div className="p-4">
                 <FilePreviewModal type='HDR_photos' open={open} onOpenChange={() => { setOpen(false) }} files={files} setSelectedFiles={setSelectedVideoFiles} serviceUuid={currentService?.uuid ?? ''} reviewFilesEnabled={reviewFilesEnabled} />
 
                 <Accordion type="multiple" defaultValue={['unsaved', 'saved']} className="w-full">
                     {filesForService.length > 0 && (
                         <AccordionItem value="unsaved">
-                            <AccordionTrigger
-                                className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EFEFEF), black 10%)` }}
-                            >
-                                Unsaved Videos
-                            </AccordionTrigger>
+                            <AccordionTrigger className={`text-lg font-semibold uppercase ${userType}-text px-4`}>Unsaved Videos</AccordionTrigger>
                             <AccordionContent>
                                 <div
                                     className="w-full grid grid-cols-4 gap-2 p-3"
@@ -388,6 +383,7 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
                                                 <OptimizedImagePreview
                                                     file={file.file}
                                                     alt="Video thumbnail"
+                                                    isRestricted={userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
                                                     className={`w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''}`}
                                                     onClick={() => !file.is_deleted && handleVideoClick(URL.createObjectURL(file.file), file)}
                                                 />
@@ -497,12 +493,7 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
 
                     {(currentServiceFiles?.length ?? 0) > 0 && (
                         <AccordionItem value="saved">
-                            <AccordionTrigger
-                                className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EFEFEF), black 10%)` }}
-                            >
-                                Saved Videos
-                            </AccordionTrigger>
+                            <AccordionTrigger className={`text-lg font-semibold uppercase ${userType}-text px-4`}>Saved Videos</AccordionTrigger>
                             <AccordionContent>
                                 {(currentServiceFiles?.length ?? 0) > 0 ? (
                                     <div
@@ -646,7 +637,7 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
                                                     <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{file.name}</p>
                                                     <div className='col-span-2 flex items-center justify-between'>
                                                         <p className='text-[#8E8E8E] mt-1'>{file.group || "Exterior"} ({idx + 1} of {currentServiceFiles?.length || 0})</p>
-                                                        {userType === 'agent' && currentBookedService?.payment_status === "PAID" &&
+                                                        {userType === 'agent' && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") &&
                                                             <span
                                                                 onClick={() => handledownloadFile(file.uuid, file.name)}
                                                                 className="flex w-[24px] h-[24px] cursor-pointer hover:bg-gray-300"
@@ -681,6 +672,7 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
                     file={selectedVideoUrl}
                     title={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'Video') : 'Video'}
                     initialName={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'Video') : ''}
+                    isPaid={currentBookedService?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}
                     onSave={(newName) => {
                         if (!editingFile) return;
 

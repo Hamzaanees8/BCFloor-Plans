@@ -131,6 +131,10 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         setDragging(false);
         dragCounter.current = 0;
 
+        if (userType === 'agent') {
+            return;
+        }
+
         const droppedFiles = Array.from(e.dataTransfer?.files || []);
         const validFiles = droppedFiles.filter(file => !file.type.startsWith('video/'));
         const hasVideo = droppedFiles.some(file => file.type.startsWith('video/'));
@@ -282,7 +286,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
             {!isListing && (
                 <div
                     className='h-[66px] w-full flex justify-between items-center px-4 font-alexandria overflow-visible'
-                    style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
                 >
                     <div>
                         {userType !== 'agent' && (
@@ -307,15 +311,11 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     <div>
                         <p className='flex flex-col items-center'>
                             <span className={`${userType}-text font-bold`}>{currentService ? currentService.name : ''}</span>
-                            <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title}
-                                <span className='ml-1'>
-                                    ({currentServiceFiles?.filter(f => !f.is_deleted).length || 0} / {currentBookedService?.option?.quantity || 1})
-                                </span>
-                            </span>
+                            <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title}</span>
                         </p>
                     </div>
                     <div className='flex justify-center items-center gap-x-[14px]'>
-                        {(userType === 'agent') && currentBookedService?.payment_status === "PAID" && (
+                        {(userType === 'agent') && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
                             <Button
                                 onClick={() => setShowDownloadModal(true)}
                                 className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}
@@ -394,9 +394,9 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 <div className='p-4 flex justify-end'>
                     <Button
                         onClick={() => setOpenUpgrade(true)}
-                        className={`${userType}-bg h-[32px] w-auto px-[10px] flex justify-center items-center hover-${userType}-bg`}
+                        className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}
                     >
-                        Upgrade photo package
+                        Upgrade Plan
                     </Button>
                     <UpgradeServicePopup
                         open={openUpgrade}
@@ -410,7 +410,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 </div>
             )}
 
-            <div>
+            <div className="p-4">
                 <FilePreviewModal
                     type='HDR_photos'
                     open={open}
@@ -424,10 +424,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 <Accordion type="multiple" defaultValue={['unsaved', 'saved']} className="w-full">
                     {filesForService.length > 0 && (
                         <AccordionItem value="unsaved">
-                            <AccordionTrigger
-                                className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EFEFEF), black 10%)` }}
-                            >
+                            <AccordionTrigger className={`text-lg font-semibold uppercase ${userType}-text px-4`}>
                                 Unsaved Images
                             </AccordionTrigger>
                             <AccordionContent>
@@ -446,8 +443,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                                     file={file.file}
                                                     onClick={() => !file.is_deleted && handleImageClick(file.file, file)}
                                                     alt="preview"
+                                                    isRestricted={userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
                                                     className={`w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''}`}
-                                                    draggable={false}
                                                 />
                                                 {file.is_deleted && (
                                                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 z-[30] gap-2">
@@ -566,10 +563,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     )}
 
                     <AccordionItem value="saved">
-                        <AccordionTrigger
-                            className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                            style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EFEFEF), black 20%)` }}
-                        >
+                        <AccordionTrigger className={`text-lg font-semibold uppercase ${userType}-text px-4`}>
                             Saved Images
                         </AccordionTrigger>
                         <AccordionContent>
@@ -592,6 +586,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                                 ) : file.file_path.toLowerCase().endsWith('.pdf') ? (
                                                     <PdfPlaceholder
                                                         className="w-full h-full object-contain cursor-pointer"
+                                                        isRestricted={userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
                                                         onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
                                                     />
                                                 ) : (
@@ -601,7 +596,6 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                                         onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
                                                         alt="preview"
                                                         className={`w-full h-full object-cover cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
-                                                        draggable={false}
                                                     />
                                                 )}
                                                 <span
@@ -742,7 +736,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                                 <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{file.name}</p>
                                                 <div className='col-span-2 flex items-center justify-between'>
                                                     <p className='text-[#8E8E8E] mt-1'>{file.group || "Exterior"} ({idx + 1} of {currentServiceFiles.length})</p>
-                                                    {userType === 'agent' && currentBookedService?.payment_status === "PAID" && (
+                                                    {userType === 'agent' && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
                                                         <span
                                                             onClick={() => handledownloadFile(file.uuid, file.name)}
                                                             className="flex w-[24px] h-[24px] cursor-pointer hover:bg-gray-300"
@@ -777,6 +771,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     file={editingFile && 'file' in editingFile ? editingFile.file : selectedImageUrl}
                     title={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'HDR Photo') : 'HDR Photo'}
                     initialName={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'Exterior') : ''}
+                    isPaid={currentBookedService?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}
                     onSave={(newName) => {
                         if (!editingFile) return;
 

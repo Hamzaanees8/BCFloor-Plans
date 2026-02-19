@@ -166,7 +166,7 @@ export default function OrderQuickViewCard({ data, onClose, vendorData, serviceD
             <CardFooter className="p-0 mt-10">
                 <div className="w-full flex justify-end gap-[10px]">
                     <Link
-                        href={`/dashboard/file-manager/${CurrentOrder?.uuid}`}
+                        href={`/dashboard/file-manager/${CurrentOrder?.uuid}?listingId=${CurrentOrder?.property?.uuid}`}
                         className="bg-[#4290E9] border-[1px] text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff] rounded-none w-[132px] h-[32px] hover:text-white hover:bg-[#4e9af1]"
                     >
                         Manage Media

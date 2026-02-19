@@ -145,6 +145,10 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
         setDragging(false);
         dragCounter.current = 0;
 
+        if (userType === 'agent') {
+            return;
+        }
+
         const droppedFiles = Array.from(e.dataTransfer?.files || []);
 
         handleFilesChange(droppedFiles);
@@ -242,7 +246,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
             {!isListing &&
                 <div
                     className='w-full justify-between h-[65px] font-alexandria pr-5 z-10 flex items-center border-b border-[#BBBBBB] px-6 overflow-visible'
-                    style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
                 >
                     {dragging && userType !== 'agent' && (
                         <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center backdrop-blur-sm">
@@ -262,24 +266,19 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                     </div>
                     <div>
                         <p className='flex flex-col items-center'><span className={`${userType}-text font-bold`}>{currentService ? currentService.name : ''}</span>
-                            <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title}
-                                <span className='ml-1'>
-                                    ({currentServiceFiles?.filter(f => !f.is_deleted).length || 0} / {currentBookedService?.option?.quantity || 1})
-                                </span>
-                            </span>
+                            <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title}</span>
 
                         </p>
                     </div>
                     <div className='flex items-center gap-x-[14px]'>
                         {/* <Button className='w-[150px] md:w-[143px] h-[32px] md:h-[32px]  justify-center rounded-[6px] font-raleway border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]'>Download All File</Button> */}
                         <div className='flex justify-center items-center gap-x-[14px]'>
-                            {(userType === 'agent') && currentBookedService?.payment_status === "PAID" && (
+                            {(userType === 'agent') && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
                                 <Button
                                     onClick={() => {
                                         setShowDownloadModal(true);
                                     }}
-                                    className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}
-                                >
+                                    className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}>
                                     Download Files
                                 </Button>
                             )}
@@ -398,20 +397,17 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                         </div>
                     </div>
                     <div className='flex items-center justify-end pt-6'>
-                        <Button onClick={() => setOpen(true)} className={`w-[150px] md:w-[143px] h-[32px] md:h-[32px]  justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>Edit</Button>
+                        {userType !== 'agent' && (
+                            <Button onClick={() => setOpen(true)} className={`w-[150px] md:w-[143px] h-[32px] md:h-[32px]  justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>Edit</Button>
+                        )}
                     </div>
                 </div>
             </div>
-            <div className='w-full py-[54px]'>
-                <Accordion type="multiple" defaultValue={['unsaved', 'saved']} className="w-full">
+            <div className='w-full py-[54px] flex flex-col items-center'>
+                <Accordion type="multiple" defaultValue={['unsaved', 'saved']} className="w-[80%]">
                     {hasUnsavedFiles && (
                         <AccordionItem value="unsaved">
-                            <AccordionTrigger
-                                className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EFEFEF), black 10%)` }}
-                            >
-                                Unsaved Images
-                            </AccordionTrigger>
+                            <AccordionTrigger className={`text-lg font-semibold uppercase ${userType}-text`}>Unsaved Images</AccordionTrigger>
                             <AccordionContent>
                                 <div
                                     className='grid grid-cols-3 gap-y-7 p-4'
@@ -443,7 +439,6 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                                                         file={file.file}
                                                                         alt="Preview"
                                                                         className={`object-contain h-auto w-full cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : (!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : '')}`}
-                                                                        draggable={false}
                                                                         onClick={() => {
                                                                             if (file.is_deleted) return;
                                                                             handleImageClick(file.file, file);
@@ -561,7 +556,6 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                                                             file={file.file}
                                                                             alt="Preview"
                                                                             className={`object-contain h-auto w-full cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : (!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : '')}`}
-                                                                            draggable={false}
                                                                             onClick={() => {
                                                                                 if (file.is_deleted) return;
                                                                                 handleImageClick(file.file, file);
@@ -641,12 +635,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
 
                     {(currentServiceFiles?.length ?? 0) > 0 && (
                         <AccordionItem value="saved">
-                            <AccordionTrigger
-                                className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EFEFEF), black 10%)` }}
-                            >
-                                Saved Images
-                            </AccordionTrigger>
+                            <AccordionTrigger className={`text-lg font-semibold uppercase ${userType}-text`}>Saved Images</AccordionTrigger>
                             <AccordionContent>
                                 <div
                                     className='grid grid-cols-3 gap-y-7 p-4'
@@ -675,6 +664,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                                                 ) : file.file_path.toLowerCase().endsWith('.pdf') ? (
                                                                     <PdfPlaceholder
                                                                         className="w-full h-full object-contain cursor-pointer"
+                                                                        isRestricted={userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
                                                                         onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
                                                                     />
                                                                 ) : (
@@ -684,7 +674,6 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                                                         alt="Preview"
                                                                         fill
                                                                         className={`object-contain h-auto w-full cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
-                                                                        draggable={false}
                                                                     />
                                                                 )}
                                                                 {userType !== 'agent' && (
@@ -819,6 +808,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                                                         ) : file.file_path.toLowerCase().endsWith('.pdf') ? (
                                                                             <PdfPlaceholder
                                                                                 className="w-full h-full object-contain cursor-pointer"
+                                                                                isRestricted={userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
                                                                                 onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
                                                                             />
                                                                         ) : (
@@ -942,6 +932,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                 file={editingFile && 'file' in editingFile ? editingFile.file : selectedImageUrl}
                 title={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || '2D Floor Plan') : '2D Floor Plan'}
                 initialName={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || '2D Floor Plan') : ''}
+                isPaid={currentBookedService?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}
                 onSave={(newName) => {
                     if (!editingFile) return;
 

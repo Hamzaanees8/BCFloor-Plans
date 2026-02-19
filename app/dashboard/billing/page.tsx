@@ -130,8 +130,22 @@ const Page = () => {
       try {
         setLoading(true);
         const data = await getBillings();
-        setBillings(data);
-        console.log("Fetched billings:", data);
+
+        // If user is an agent, filter data immediately to their own
+        if (userType === 'agent') {
+          const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+          const agentUuid = userInfo?.uuid;
+          if (agentUuid) {
+            const agentFilteredData = data.filter(b => b.agent_uuid === agentUuid);
+            setBillings(agentFilteredData);
+            console.log("Fetched and filtered billings for agent:", agentFilteredData);
+          } else {
+            setBillings(data);
+          }
+        } else {
+          setBillings(data);
+          console.log("Fetched billings:", data);
+        }
       } catch (err) {
         console.error("Failed to load billings:", err);
       } finally {
@@ -139,7 +153,7 @@ const Page = () => {
       }
     };
     loadBillings();
-  }, []);
+  }, [userType]);
 
 
 
@@ -285,25 +299,27 @@ const Page = () => {
             </Select>
           </div>
 
-          {/* Agent Filter */}
-          <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 block">
-              Agent
-            </label>
-            <Select value={agentFilter} onValueChange={setAgentFilter}>
-              <SelectTrigger className="w-full" style={{ backgroundColor: roleSettings.pageBg }}>
-                <SelectValue placeholder="Filter by agent" />
-              </SelectTrigger>
-              <SelectContent style={{ backgroundColor: roleSettings.pageBg }}>
-                <SelectItem value="all">All Agents</SelectItem>
-                {uniqueAgents.map((agent) => (
-                  <SelectItem key={agent} value={agent ? agent : ""}>
-                    {agent}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Agent Filter - Hide for agents */}
+          {userType !== 'agent' && (
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">
+                Agent
+              </label>
+              <Select value={agentFilter} onValueChange={setAgentFilter}>
+                <SelectTrigger className="w-full" style={{ backgroundColor: roleSettings.pageBg }}>
+                  <SelectValue placeholder="Filter by agent" />
+                </SelectTrigger>
+                <SelectContent style={{ backgroundColor: roleSettings.pageBg }}>
+                  <SelectItem value="all">All Agents</SelectItem>
+                  {uniqueAgents.map((agent) => (
+                    <SelectItem key={agent} value={agent ? agent : ""}>
+                      {agent}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Address/Order ID Filter */}
           <div>

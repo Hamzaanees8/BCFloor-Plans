@@ -26,6 +26,14 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
     }
 
     if (
+      userType === "agent" &&
+      pathname.startsWith("/dashboard/billing")
+    ) {
+      setIsAllowed(true);
+      return;
+    }
+
+    if (
       userType === "vendor" &&
       (
         pathname.startsWith("/dashboard/vendors") ||

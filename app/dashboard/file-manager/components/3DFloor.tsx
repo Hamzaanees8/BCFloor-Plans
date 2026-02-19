@@ -183,6 +183,10 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
 
         dragCounter.current = 0;
 
+        if (userType === 'agent') {
+            return;
+        }
+
         const droppedFiles = Array.from(e.dataTransfer?.files || []);
 
         handleFilesChange(droppedFiles);
