@@ -7,6 +7,7 @@ interface OptimizedImagePreviewProps {
     alt?: string;
     className?: string;
     onClick?: () => void;
+    draggable?: boolean;
     isRestricted?: boolean;
 }
 
@@ -14,7 +15,7 @@ interface OptimizedImagePreviewProps {
  * Renders an optimized image preview with loading state
  * Prevents UI freezing with large files
  */
-export function OptimizedImagePreview({ file, alt = 'preview', className = '', onClick, isRestricted }: OptimizedImagePreviewProps) {
+export function OptimizedImagePreview({ file, alt = 'preview', className = '', onClick, draggable, isRestricted }: OptimizedImagePreviewProps) {
     const { previewUrl, isLoading, error } = useOptimizedPreview(file);
 
     // Show loading placeholder
@@ -47,6 +48,7 @@ export function OptimizedImagePreview({ file, alt = 'preview', className = '', o
             src={previewUrl}
             alt={alt}
             className={className}
+            draggable={draggable}
             onClick={onClick}
         />
     );

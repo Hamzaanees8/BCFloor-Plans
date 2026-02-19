@@ -499,7 +499,7 @@ const FileManager = () => {
 
         ref={headerRef}
         className="w-full h-[80px] font-alexandria pr-5 sticky top-0 z-50 flex justify-between items-center"
-        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+        style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
       >
         {/* Invoice Payment Dialog - Move this outside the header div */}
         <InvoicePaymentDialog
@@ -604,7 +604,7 @@ const FileManager = () => {
       {isListing && (
         <div
           className="w-full h-[60px] font-alexandria pr-5 sticky top-[80px] z-40 flex items-center border-b border-[#BBBBBB]"
-          style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+          style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
         >
           <div className="flex items-center justify-center w-full">
             <div className="flex items-center justify-center gap-x-6 w-full">
@@ -657,7 +657,7 @@ const FileManager = () => {
       )}
       <div
         className="w-full h-[90px] font-alexandria pr-5 z-10 flex items-center border-b border-[#BBBBBB]"
-        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+        style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
       >
         <div className="px-[26px]">
           {!isListing && (

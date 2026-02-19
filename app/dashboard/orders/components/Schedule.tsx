@@ -644,7 +644,6 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                             <span>Travel Time More Than 60 Minutes</span>
                                         </div>
                                     </div>
-
                                 </div>
                             )}
                         </React.Fragment>

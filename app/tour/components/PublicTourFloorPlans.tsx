@@ -63,9 +63,12 @@ function PublicTourFloorPlans({
     snapshots = [],
 
 }: PublicTourFloorPlansProps) {
+    // Filter out PDF files
+    const filteredFloorPlanFiles = floorPlanFiles.filter(file => file.type !== 'pdf' && !file.file_path.toLowerCase().endsWith('.pdf'));
+
     const [selectedImageId, setSelectedImageId] = useState<string | null>(() => {
-        if (floorPlanFiles?.length > 0) {
-            return floorPlanFiles[0].name;
+        if (filteredFloorPlanFiles?.length > 0) {
+            return filteredFloorPlanFiles[0].name;
         }
         return null;
     });
@@ -96,10 +99,10 @@ function PublicTourFloorPlans({
     };
 
     const filteredSnapshots = getFilteredSnapshots();
-    const selectedFile = floorPlanFiles?.find((f) => f.name === selectedImageId);
+    const selectedFile = filteredFloorPlanFiles?.find((f) => f.name === selectedImageId);
     const isSelectedFilePDF = selectedFile ? isPDF(selectedFile.file_path) : false;
 
-    if (floorPlanFiles?.length === 0) {
+    if (filteredFloorPlanFiles?.length === 0) {
         return (
             <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
                 <p>No floor plans available.</p>
@@ -123,7 +126,7 @@ function PublicTourFloorPlans({
                             ) : isSelectedFilePDF ? (
                                 // Render PDF in iframe
                                 <iframe
-                                    src={selectedFile.variant_urls?.popup || selectedFile.url || `${API_URL}/${selectedFile.file_path}`}
+                                    src={`${selectedFile.variant_urls?.popup || selectedFile.url || `${API_URL}/${selectedFile.file_path}`}#toolbar=0`}
                                     className="w-full h-full border-0"
                                     title="Floor Plan PDF"
                                 />
@@ -175,7 +178,7 @@ function PublicTourFloorPlans({
                                             {previewMarker.file_path && (
                                                 // eslint-disable-next-line @next/next/no-img-element
                                                 <img
-                                                    src={`${API_URL}/${previewMarker.file_path}`}
+                                                    src={previewMarker.file_path}
                                                     alt={previewMarker.name || "Snapshot"}
                                                     className="w-[95%] h-[65%] object-cover mx-auto mt-3 rounded"
                                                 />
@@ -201,7 +204,7 @@ function PublicTourFloorPlans({
 
             <div className="w-full h-[200px] mt-6 px-10">
                 <div className="w-full h-full flex items-center gap-4 overflow-x-auto overflow-y-hidden pb-2">
-                    {floorPlanFiles?.map((file, idx) => {
+                    {filteredFloorPlanFiles?.map((file, idx) => {
                         const isFilePDF = isPDF(file.file_path);
                         return (
                             <div

@@ -253,6 +253,8 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
 
       {renderSection('finished', finishedAreas, setFinishedAreas)}
       {renderSection('subtotal', subtotalAreas, setSubtotalAreas)}
+      {renderSection('other', otherAreas, setOtherAreas)}
+
       {/* Grand Total Row */}
       <div className="flex justify-between items-center pr-[50px] w-full max-w-[400px] py-2 bg-gray-100 rounded">
         <span className="font-bold pl-2">Grand Total</span>

@@ -379,11 +379,11 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                                                 <span className='text-[10px] text-[#888] font-[500]'>Qty: {service.quantity}</span>
                                             )}
                                         </div>
-                                        {service.payment_status && (
+                                        {/* {service.payment_status && (
                                             <span className={`text-[10px] uppercase font-bold ${service.payment_status === 'PAID' ? 'text-green-600' : 'text-red-500'}`}>
                                                 {service.payment_status}
                                             </span>
-                                        )}
+                                        )} */}
                                     </div>
                                     <span>$ {service.price}</span>
                                 </div>

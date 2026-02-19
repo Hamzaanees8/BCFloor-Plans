@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { EditOrder, Area } from '../file-manager';
 import { GetOneOrder } from '../../orders/orders';
 import { useAppContext } from '@/app/context/AppContext';
+import EditSquareFootage from '../../calendar/components/EditSquareFootage';
 type Props = {
     open: boolean
     setOpen: (value: boolean) => void
@@ -105,7 +106,13 @@ const HouseSheetModal: React.FC<Props> = ({
         const isLevel = (label: string) => /\d+(st|nd|rd|th) Level/.test(label);
         const levelsFromAPI: Field[] = [];
         const extrasFromAPI: Field[] = [];
-
+        <div className="overflow-y-auto pr-2">
+            <EditSquareFootage
+                currentOrder={orderData || undefined}
+                area={tempArea}
+                setArea={setTempArea}
+            />
+        </div>
         orderData.areas?.forEach((area: Area) => {
             const field: Field = {
                 id: uniqueId++,
@@ -131,6 +138,7 @@ const HouseSheetModal: React.FC<Props> = ({
 
         setLevels(allLevels);
         setExtras(extrasFromAPI);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [orderData]);
     useEffect(() => {
         const levelAreas: Area[] = levels

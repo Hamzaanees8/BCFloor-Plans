@@ -146,7 +146,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         if (validFiles.length > 0) {
             handleFilesChange(validFiles);
         }
-    }, []);
+    }, [userType]);
 
     const handleDragEnter = useCallback((e: DragEvent) => {
         e.preventDefault();
@@ -286,7 +286,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
             {!isListing && (
                 <div
                     className='h-[66px] w-full flex justify-between items-center px-4 font-alexandria overflow-visible'
-                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                    style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                 >
                     <div>
                         {userType !== 'agent' && (
@@ -311,7 +311,11 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     <div>
                         <p className='flex flex-col items-center'>
                             <span className={`${userType}-text font-bold`}>{currentService ? currentService.name : ''}</span>
-                            <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title}</span>
+                            <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title}
+                                <span className='ml-1'>
+                                    ({currentServiceFiles?.filter(f => !f.is_deleted).length || 0} / {currentBookedService?.option?.quantity || 1})
+                                </span>
+                            </span>
                         </p>
                     </div>
                     <div className='flex justify-center items-center gap-x-[14px]'>
@@ -394,9 +398,9 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 <div className='p-4 flex justify-end'>
                     <Button
                         onClick={() => setOpenUpgrade(true)}
-                        className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}
+                        className={`${userType}-bg h-[32px] w-auto px-[10px] flex justify-center items-center hover-${userType}-bg`}
                     >
-                        Upgrade Plan
+                        Upgrade photo package
                     </Button>
                     <UpgradeServicePopup
                         open={openUpgrade}
@@ -424,7 +428,10 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 <Accordion type="multiple" defaultValue={['unsaved', 'saved']} className="w-full">
                     {filesForService.length > 0 && (
                         <AccordionItem value="unsaved">
-                            <AccordionTrigger className={`text-lg font-semibold uppercase ${userType}-text px-4`}>
+                            <AccordionTrigger
+                                className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EFEFEF), black 10%)` }}
+                            >
                                 Unsaved Images
                             </AccordionTrigger>
                             <AccordionContent>
@@ -445,6 +452,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                                     alt="preview"
                                                     isRestricted={userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
                                                     className={`w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''}`}
+                                                    draggable={false}
                                                 />
                                                 {file.is_deleted && (
                                                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 z-[30] gap-2">
@@ -563,7 +571,10 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     )}
 
                     <AccordionItem value="saved">
-                        <AccordionTrigger className={`text-lg font-semibold uppercase ${userType}-text px-4`}>
+                        <AccordionTrigger
+                            className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                            style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EFEFEF), black 20%)` }}
+                        >
                             Saved Images
                         </AccordionTrigger>
                         <AccordionContent>
@@ -596,6 +607,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                                         onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
                                                         alt="preview"
                                                         className={`w-full h-full object-cover cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                                        draggable={false}
                                                     />
                                                 )}
                                                 <span

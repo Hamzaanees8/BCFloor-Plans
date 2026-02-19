@@ -671,13 +671,48 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                         });
 
                                         // Build slotInfo array
-                                        const slotInfo = Object.entries(groupedByVendor).map(([vendorId, slots]) => {
+                                        const slotInfo = Object.entries(groupedByVendor).map(([vendorId, vendorSlots]) => {
                                             const vendor = vendorsData.find(v => v.uuid === vendorId);
                                             const vendorName = vendor ? `${vendor.first_name ?? ''} ${vendor.last_name ?? ''}`.trim() : 'Unknown Vendor';
 
-                                            const timeRanges = slots.map(slot => {
-                                                const date = slot.date
-                                                    ? new Date(slot.date).toLocaleDateString("en-US", {
+                                            // Further group by date
+                                            const slotsByDate: Record<string, typeof vendorSlots> = {};
+                                            vendorSlots.forEach(slot => {
+                                                if (!slotsByDate[slot.date]) {
+                                                    slotsByDate[slot.date] = [];
+                                                }
+                                                slotsByDate[slot.date].push(slot);
+                                            });
+
+                                            const timeRanges: string[] = [];
+
+                                            Object.entries(slotsByDate).forEach(([dateStr, slots]) => {
+                                                // Sort by start_time
+                                                slots.sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+                                                // Merge contiguous slots
+                                                const mergedRanges: { start: string; end: string }[] = [];
+                                                if (slots.length > 0) {
+                                                    let currentRange = { start: slots[0].start_time, end: slots[0].end_time };
+
+                                                    for (let i = 1; i < slots.length; i++) {
+                                                        const slot = slots[i];
+                                                        if (slot.start_time === currentRange.end) {
+                                                            // Extend current range
+                                                            currentRange.end = slot.end_time;
+                                                        } else {
+                                                            // Push current range and start new one
+                                                            mergedRanges.push(currentRange);
+                                                            currentRange = { start: slot.start_time, end: slot.end_time };
+                                                        }
+                                                    }
+                                                    mergedRanges.push(currentRange);
+                                                }
+
+                                                // Format ranges
+                                                // Use dateStr + "T00:00:00" to avoid UTC timezone issues if dateStr is YYYY-MM-DD
+                                                const formattedDate = dateStr
+                                                    ? new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-US", {
                                                         year: "numeric",
                                                         month: "long",
                                                         day: "numeric",
@@ -691,11 +726,11 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                     const formattedHour = hour % 12 || 12;
                                                     return `${formattedHour}:${m} ${meridian}`;
                                                 };
-
-                                                const startTime = slot.start_time ? formatTime(slot.start_time) : "";
-                                                const endTime = slot.end_time ? formatTime(slot.end_time) : "";
-
-                                                return `${date} | ${startTime} - ${endTime}`;
+                                                mergedRanges.forEach(range => {
+                                                    const startTime = range.start ? formatTime(range.start) : "";
+                                                    const endTime = range.end ? formatTime(range.end) : "";
+                                                    timeRanges.push(`${formattedDate} | ${startTime} - ${endTime}`);
+                                                });
                                             });
 
                                             return {
