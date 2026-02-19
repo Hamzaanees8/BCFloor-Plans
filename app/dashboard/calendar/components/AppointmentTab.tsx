@@ -212,16 +212,18 @@ function AppointmentTab({ currentOrder, serviceId, disabled }: AppointmentTab) {
                     No co-agents added.
                 </div>
             )}
-            <div className="col-span-2">
-                <Label className="text-[14px] text-[#424242] " htmlFor="">Agent Notes (Not Viewable by Agent)</Label>
-                <Textarea
-                    // value={address}
-                    className=" border-[1px] border-[#BBBBBB] mt-[10px] resize-none h-[100px] "
-                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+            {userType !== 'agent' && (
+                <div className="col-span-2">
+                    <Label className="text-[14px] text-[#424242] " htmlFor="">Agent Notes (Not Viewable by Agent)</Label>
+                    <Textarea
+                        // value={address}
+                        className=" border-[1px] border-[#BBBBBB] mt-[10px] resize-none h-[100px] "
+                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
 
-                />
+                    />
 
-            </div>
+                </div>
+            )}
             <div className="col-span-2">
                 <Label className="text-[14px] text-[#424242] " htmlFor="">Vendor</Label>
                 <Input
@@ -310,7 +312,7 @@ function AppointmentTab({ currentOrder, serviceId, disabled }: AppointmentTab) {
             </div>
             <div className="col-span-2">
                 <Label className="text-[14px] text-[#424242] " htmlFor="">Notes</Label>
-                {notes?.map((note, index) => (
+                {notes?.filter(note => userType !== 'agent' || note.internal !== 'true').map((note, index) => (
                     <div
                         key={index}
                         className="w-full p-3 rounded-[6px] border border-[#BBBBBB] relative whitespace-pre-wrap break-words mt-[15px]"
@@ -347,7 +349,7 @@ function AppointmentTab({ currentOrder, serviceId, disabled }: AppointmentTab) {
                 <div
                     className='mt-[40px]'>
                     <Link
-                        href={`/dashboard/file-manager/${currentOrder?.uuid}`}
+                        href={`/dashboard/file-manager/${currentOrder?.uuid}?listingId=${currentOrder?.property?.uuid}`}
                         className="bg-[#4290E9] rounded-[6px] border-[1px] text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff] w-[110px] h-[37px] hover:text-white hover:bg-[#4e9af1]"
                     >Media</Link>
 

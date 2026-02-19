@@ -331,7 +331,9 @@ function TourFloorPlans({ type = "" }) {
                   src={
                     previewMarker.file
                       ? URL.createObjectURL(previewMarker.file)
-                      : previewMarker.file_path || previewMarker.thumbnail_url || ""
+                      : previewMarker.url || (previewMarker.file_path
+                        ? `${API_URL}/${previewMarker.file_path}`
+                        : "")
                   }
                   alt={previewMarker.name || "Snapshot"}
                   className="w-[95%] h-[70%] object-cover mx-auto mt-[10px]"

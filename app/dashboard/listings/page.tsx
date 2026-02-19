@@ -36,6 +36,7 @@ const Page = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterTour, setFilterTour] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
 
   const searchParams = useSearchParams();
   const agentFilter = searchParams.get("agent") || "";
@@ -152,6 +153,23 @@ const Page = () => {
       agentFilter === "" || listing.agent?.uuid === agentFilter;
 
     return matchesSearch && matchesStatus && matchesTour && matchesAgent;
+  }).sort((a, b) => {
+    switch (sortBy) {
+      case "newest":
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      case "oldest":
+        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+      case "price_high":
+        return (b.listing_price || 0) - (a.listing_price || 0);
+      case "price_low":
+        return (a.listing_price || 0) - (b.listing_price || 0);
+      case "address_asc":
+        return (a.address || "").localeCompare(b.address || "");
+      case "address_desc":
+        return (b.address || "").localeCompare(a.address || "");
+      default:
+        return 0;
+    }
   });
 
   const columns: ColumnDef<Listings>[] = [
@@ -372,7 +390,7 @@ const Page = () => {
       </div>
 
       <div
-        className="w-full px-4 py-3 border-b border-gray-200 border border-b-gray-300 grid grid-cols-3 gap-4 h-[60px] font-alexandria"
+        className="w-full px-4 py-3 border-b border-gray-200 border border-b-gray-300 grid grid-cols-4 gap-4 h-[60px] font-alexandria"
         style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
 
         <Input
@@ -405,6 +423,20 @@ const Page = () => {
             <SelectItem value="all">All</SelectItem>
             <SelectItem value="true">Tour Active</SelectItem>
             <SelectItem value="false">Tour InActive</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select onValueChange={(value) => setSortBy(value)}>
+          <SelectTrigger className="h-[38px] w-full bg-white">
+            <SelectValue placeholder="Sort By" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">Newest First</SelectItem>
+            <SelectItem value="oldest">Oldest First</SelectItem>
+            <SelectItem value="price_high">Price: High to Low</SelectItem>
+            <SelectItem value="price_low">Price: Low to High</SelectItem>
+            <SelectItem value="address_asc">Address: A-Z</SelectItem>
+            <SelectItem value="address_desc">Address: Z-A</SelectItem>
           </SelectContent>
         </Select>
 

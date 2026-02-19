@@ -655,18 +655,22 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                 >
                                     Appointment Notes
                                 </button>
-                                <button
-                                    onClick={() => setActiveTab("Notes on Agent")}
-                                    className={`px-5 py-1 text-[13px] rounded-[6px] font-bold rounded-l-md transition-colors duration-200 h-[30px]
-                                    ${activeTab === "Notes on Agent" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
-                                >
-                                    Notes on Agent
-                                </button>
+                                {userType !== 'agent' && (
+                                    <button
+                                        onClick={() => setActiveTab("Notes on Agent")}
+                                        className={`px-5 py-1 text-[13px] rounded-[6px] font-bold rounded-l-md transition-colors duration-200 h-[30px]
+                                        ${activeTab === "Notes on Agent" ? `${userType}-bg text-white` : "bg-[#E4E4E4] text-[#666666]"}`}
+                                    >
+                                        Notes on Agent
+                                    </button>
+                                )}
                             </div>
                             {activeTab === "Appointment Notes" ? (
-                                <p className="text-[#E06D5E] text-[13px]">
-                                    These notes will be viewable by AGENT.
-                                </p>
+                                userType !== 'agent' && (
+                                    <p className="text-[#E06D5E] text-[13px]">
+                                        These notes will be viewable by AGENT.
+                                    </p>
+                                )
                             ) : (
                                 <p className="text-[#7D7D7D] text-[13px]">
                                     This note is for Internal Use only. Agent will not be able to see or access Note.
@@ -735,7 +739,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                         />
                         <div className='mt-[40px]'>
                             <Link
-                                href={`/dashboard/file-manager/${currentOrder?.uuid}`}
+                                href={`/dashboard/file-manager/${currentOrder?.uuid}?listingId=${currentOrder?.property?.uuid}`}
                                 className="bg-[#4290E9] w-[140px]  rounded-[6px] border-[1px] text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff] h-[37px] hover:text-white hover:bg-[#4e9af1]"
                             >Media</Link>
                         </div>

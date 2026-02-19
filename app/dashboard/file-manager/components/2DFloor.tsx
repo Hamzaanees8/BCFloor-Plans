@@ -145,6 +145,10 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
         setDragging(false);
         dragCounter.current = 0;
 
+        if (userType === 'agent') {
+            return;
+        }
+
         const droppedFiles = Array.from(e.dataTransfer?.files || []);
 
         handleFilesChange(droppedFiles);
@@ -267,19 +271,17 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                     ({currentServiceFiles?.filter(f => !f.is_deleted).length || 0} / {currentBookedService?.option?.quantity || 1})
                                 </span>
                             </span>
-
                         </p>
                     </div>
                     <div className='flex items-center gap-x-[14px]'>
                         {/* <Button className='w-[150px] md:w-[143px] h-[32px] md:h-[32px]  justify-center rounded-[6px] font-raleway border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]'>Download All File</Button> */}
                         <div className='flex justify-center items-center gap-x-[14px]'>
-                            {(userType === 'agent') && currentBookedService?.payment_status === "PAID" && (
+                            {(userType === 'agent') && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
                                 <Button
                                     onClick={() => {
                                         setShowDownloadModal(true);
                                     }}
-                                    className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}
-                                >
+                                    className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}>
                                     Download Files
                                 </Button>
                             )}
@@ -398,7 +400,9 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                         </div>
                     </div>
                     <div className='flex items-center justify-end pt-6'>
-                        <Button onClick={() => setOpen(true)} className={`w-[150px] md:w-[143px] h-[32px] md:h-[32px]  justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>Edit</Button>
+                        {userType !== 'agent' && (
+                            <Button onClick={() => setOpen(true)} className={`w-[150px] md:w-[143px] h-[32px] md:h-[32px]  justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>Edit</Button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -675,6 +679,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                                                 ) : file.file_path.toLowerCase().endsWith('.pdf') ? (
                                                                     <PdfPlaceholder
                                                                         className="w-full h-full object-contain cursor-pointer"
+                                                                        isRestricted={userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
                                                                         onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
                                                                     />
                                                                 ) : (
@@ -683,8 +688,8 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                                                         onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
                                                                         alt="Preview"
                                                                         fill
-                                                                        className={`object-contain h-auto w-full cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
                                                                         draggable={false}
+                                                                        className={`object-contain h-auto w-full cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
                                                                     />
                                                                 )}
                                                                 {userType !== 'agent' && (
@@ -819,6 +824,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                                                         ) : file.file_path.toLowerCase().endsWith('.pdf') ? (
                                                                             <PdfPlaceholder
                                                                                 className="w-full h-full object-contain cursor-pointer"
+                                                                                isRestricted={userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
                                                                                 onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
                                                                             />
                                                                         ) : (
@@ -942,6 +948,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                 file={editingFile && 'file' in editingFile ? editingFile.file : selectedImageUrl}
                 title={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || '2D Floor Plan') : '2D Floor Plan'}
                 initialName={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || '2D Floor Plan') : ''}
+                isPaid={currentBookedService?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}
                 onSave={(newName) => {
                     if (!editingFile) return;
 
@@ -992,11 +999,13 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                 apiFiles={currentServiceFiles || []}
             />
 
-            {userType !== 'agent' && (
-                <div className='w-full flex justify-center items-center mt-8'>
-                    <FileUploader onFilesChange={handleFilesChange} />
-                </div>
-            )}
+            {
+                userType !== 'agent' && (
+                    <div className='w-full flex justify-center items-center mt-8'>
+                        <FileUploader onFilesChange={handleFilesChange} />
+                    </div>
+                )
+            }
         </div >
     )
 }

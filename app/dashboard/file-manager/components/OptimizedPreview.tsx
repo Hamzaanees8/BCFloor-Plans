@@ -8,13 +8,14 @@ interface OptimizedImagePreviewProps {
     className?: string;
     onClick?: () => void;
     draggable?: boolean;
+    isRestricted?: boolean;
 }
 
 /**
  * Renders an optimized image preview with loading state
  * Prevents UI freezing with large files
  */
-export function OptimizedImagePreview({ file, alt = 'preview', className = '', onClick, draggable }: OptimizedImagePreviewProps) {
+export function OptimizedImagePreview({ file, alt = 'preview', className = '', onClick, draggable, isRestricted }: OptimizedImagePreviewProps) {
     const { previewUrl, isLoading, error } = useOptimizedPreview(file);
 
     // Show loading placeholder
@@ -37,7 +38,7 @@ export function OptimizedImagePreview({ file, alt = 'preview', className = '', o
 
     // If it's a PDF, show the PDF placeholder
     if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-        return <PdfPlaceholder className={className} onClick={onClick} />;
+        return <PdfPlaceholder className={className} onClick={onClick} isRestricted={isRestricted} />;
     }
 
     // Render optimized preview
@@ -47,8 +48,8 @@ export function OptimizedImagePreview({ file, alt = 'preview', className = '', o
             src={previewUrl}
             alt={alt}
             className={className}
-            onClick={onClick}
             draggable={draggable}
+            onClick={onClick}
         />
     );
 }
@@ -56,19 +57,22 @@ export function OptimizedImagePreview({ file, alt = 'preview', className = '', o
 interface PdfPlaceholderProps {
     className?: string;
     onClick?: () => void;
+    isRestricted?: boolean;
 }
 
 /**
  * Renders a consistent placeholder for PDF files
  */
-export function PdfPlaceholder({ className = '', onClick }: PdfPlaceholderProps) {
+export function PdfPlaceholder({ className = '', onClick, isRestricted }: PdfPlaceholderProps) {
     return (
         <div className={`flex items-center justify-center bg-gray-100 ${className}`} onClick={onClick}>
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-2 p-4 text-center">
                 <div className="bg-red-50 rounded-full p-4">
                     <FileText className="w-8 h-8 text-red-500" />
                 </div>
-                <span className="text-gray-500 text-xs font-bold font-alexandria">PDF Document</span>
+                <span className="text-gray-500 text-xs font-bold font-alexandria">
+                    {isRestricted ? "PDF preview is disabled until the service is paid." : "PDF Document"}
+                </span>
             </div>
         </div>
     );

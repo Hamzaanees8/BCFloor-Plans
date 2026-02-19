@@ -593,7 +593,6 @@ export async function UpdateFloorPhotosData(
     let type = "photo";
     if (fileType.startsWith("video/")) type = "video";
     else if (fileType === "application/pdf") type = "pdf";
-
     formData.append(`files[${index}][type]`, type);
     formData.append(`files[${index}][name]`, file.name || "");
     formData.append(`files[${index}][file]`, file);
@@ -860,8 +859,8 @@ export async function UploadPhotosToS3(
       entity_id: tourUuid,
       uploads: uploadedFiles.map((file, index) => ({
         ...file,
-        type: getFileTypeFromContentType(file.content_type),
         group: files[index].type,
+        type: getFileTypeFromContentType(file.content_type),
         service_id: files[index].service_id,
         is_featured: files[index].is_featured || false,
         is_show: files[index].is_show !== false,
@@ -970,8 +969,8 @@ export async function UploadTourToS3(
       entity_id: orderUuid,
       uploads: uploadedFiles.map((file, index) => ({
         ...file,
-        type: getFileTypeFromContentType(file.content_type),
         group: files[index].type,
+        type: getFileTypeFromContentType(file.content_type),
         service_id: files[index].service_id,
         is_featured: files[index].is_featured || false,
         is_show: files[index].is_show !== false,

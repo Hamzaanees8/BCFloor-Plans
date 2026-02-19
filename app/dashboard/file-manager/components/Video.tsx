@@ -119,6 +119,10 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
         setDragging(false);
         dragCounter.current = 0;
 
+        if (userType === 'agent') {
+            return;
+        }
+
         const droppedFiles = Array.from(e.dataTransfer?.files || []);
         const videoFiles = droppedFiles.filter(file => file.type.startsWith('video/'));
         const invalidFiles = droppedFiles.filter(file => !file.type.startsWith('video/'));
@@ -130,7 +134,7 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
         if (videoFiles.length > 0) {
             handleFilesChange(videoFiles);
         }
-    }, []);
+    }, [userType]);
 
 
     const handleDragEnter = useCallback((e: DragEvent) => {
@@ -266,7 +270,7 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
                     </p>
                 </div>
                 <div className='flex justify-center items-center gap-x-[14px]'>
-                    {(userType === 'agent') && currentBookedService?.payment_status === "PAID" && (
+                    {(userType === 'agent') && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
                         <Button
                             onClick={() => {
                                 setShowDownloadModal(true);
@@ -361,7 +365,7 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
                 />
             </div>
 
-            <div>
+            <div className="p-4">
                 <FilePreviewModal type='HDR_photos' open={open} onOpenChange={() => { setOpen(false) }} files={files} setSelectedFiles={setSelectedVideoFiles} serviceUuid={currentService?.uuid ?? ''} reviewFilesEnabled={reviewFilesEnabled} />
 
                 <Accordion type="multiple" defaultValue={['unsaved', 'saved']} className="w-full">
@@ -388,6 +392,7 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
                                                 <OptimizedImagePreview
                                                     file={file.file}
                                                     alt="Video thumbnail"
+                                                    isRestricted={userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
                                                     className={`w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''}`}
                                                     onClick={() => !file.is_deleted && handleVideoClick(URL.createObjectURL(file.file), file)}
                                                 />
@@ -646,7 +651,7 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
                                                     <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{file.name}</p>
                                                     <div className='col-span-2 flex items-center justify-between'>
                                                         <p className='text-[#8E8E8E] mt-1'>{file.group || "Exterior"} ({idx + 1} of {currentServiceFiles?.length || 0})</p>
-                                                        {userType === 'agent' && currentBookedService?.payment_status === "PAID" &&
+                                                        {userType === 'agent' && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") &&
                                                             <span
                                                                 onClick={() => handledownloadFile(file.uuid, file.name)}
                                                                 className="flex w-[24px] h-[24px] cursor-pointer hover:bg-gray-300"
@@ -681,6 +686,7 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
                     file={selectedVideoUrl}
                     title={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'Video') : 'Video'}
                     initialName={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'Video') : ''}
+                    isPaid={currentBookedService?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}
                     onSave={(newName) => {
                         if (!editingFile) return;
 

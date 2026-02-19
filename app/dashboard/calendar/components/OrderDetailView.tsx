@@ -462,14 +462,16 @@ export default function OrderDetailView({
                             >
                                 View Order
                             </Button> */}
-              <Button
-                onClick={() => {
-                  setIsEdit(true);
-                }}
-                className={`${userType}-bg ${userType}-border border-[1px] text-[14px] flex justify-center items-center hover-${userType}-bg hover:opacity-95 text-[#fff]  w-[132px] h-[42px] hover:text-white`}
-              >
-                Edit
-              </Button>
+              {!(userType === "agent" && activeTab === "square_footage") && (
+                <Button
+                  onClick={() => {
+                    setIsEdit(true);
+                  }}
+                  className={`${userType}-bg ${userType}-border border-[1px] text-[14px] flex justify-center items-center hover-${userType}-bg hover:opacity-95 text-[#fff]  w-[132px] h-[42px] hover:text-white`}
+                >
+                  Edit
+                </Button>
+              )}
             </div>
           )}
         </div>

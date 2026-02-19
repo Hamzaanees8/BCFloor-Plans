@@ -726,7 +726,6 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                     const formattedHour = hour % 12 || 12;
                                                     return `${formattedHour}:${m} ${meridian}`;
                                                 };
-
                                                 mergedRanges.forEach(range => {
                                                     const startTime = range.start ? formatTime(range.start) : "";
                                                     const endTime = range.end ? formatTime(range.end) : "";
