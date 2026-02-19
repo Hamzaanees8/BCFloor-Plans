@@ -216,7 +216,7 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
         const dataArray = Array.isArray(response)
           ? response
           : (response as unknown as { data: FeatureSheetResponse[] }).data ||
-            [];
+          [];
 
         if (dataArray.length > 0) {
           setFeatureSheets(dataArray);
@@ -383,21 +383,19 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
           <div className="flex gap-[20px] justify-center items-center bg-[#E4E4E4] w-full h-[60px] border-t-[1px] border-[#BBBBBB]">
             <button
               onClick={() => setActiveTab("listing")}
-              className={`flex items-center w-[200px] justify-center font-medium text-sm transition-colors h-[40px] rounded-[6px] ${
-                activeTab === "listing"
+              className={`flex items-center w-[200px] justify-center font-medium text-sm transition-colors h-[40px] rounded-[6px] ${activeTab === "listing"
                   ? `text-white border-b-2 ${userType}-bg`
                   : "bg-[#EEEEEE] hover:text-gray-700"
-              }`}
+                }`}
             >
               Listing Flyers
             </button>
             <button
               onClick={() => setActiveTab("tabloid")}
-              className={`flex items-center w-[200px] justify-center font-medium text-sm transition-colors h-[40px] rounded-[6px] ${
-                activeTab === "tabloid"
+              className={`flex items-center w-[200px] justify-center font-medium text-sm transition-colors h-[40px] rounded-[6px] ${activeTab === "tabloid"
                   ? `text-white border-b-2  ${userType}-bg`
                   : "bg-[#EEEEEE] hover:text-gray-700"
-              }`}
+                }`}
             >
               Tabloid Feature Sheet
             </button>
@@ -506,11 +504,10 @@ const CreateFeatureSheet = ({ orderData }: TourSettingProps) => {
                 </div>
                 <div
                   onClick={() => setSelectedTemplate(template.id)}
-                  className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform ${
-                    selectedTemplate === template.id
+                  className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform ${selectedTemplate === template.id
                       ? "border-blue-500 shadow-md"
                       : "border-gray-300"
-                  }`}
+                    }`}
                 >
                   <div
                     className="w-full h-[400px] bg-center bg-no-repeat"

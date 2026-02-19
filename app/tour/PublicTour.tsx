@@ -535,6 +535,7 @@ const PublicTour = () => {
                                         src={mainVideo || undefined}
                                         className="w-full h-full object-contain"
                                         controls
+                                        controlsList="nodownload"
                                     />
                                 </div>
                             }
@@ -554,6 +555,7 @@ const PublicTour = () => {
                                                     <video
                                                         src={apiSrc}
                                                         className="w-full h-full object-cover"
+                                                        controlsList="nodownload"
                                                     />
                                                 </div>
                                             </div>

@@ -46,6 +46,7 @@ export async function UploadFilesData(
 
     let type = "photo";
     if (fileType.startsWith("video/")) type = "video";
+    else if (fileType === "application/pdf") type = "pdf";
 
     formData.append(`files[${index}][type]`, type);
     formData.append(`files[${index}][name]`, file.name || "");
@@ -126,6 +127,7 @@ export async function UpdateFilesData(
 
     let type = "photo";
     if (fileType.startsWith("video/")) type = "video";
+    else if (fileType === "application/pdf") type = "pdf";
 
     formData.append(`files[${index}][type]`, type);
     formData.append(`files[${index}][name]`, file.name || "");
@@ -202,6 +204,7 @@ export async function UpdatePhotosData(
 
     let type = "photo";
     if (fileType.startsWith("video/")) type = "video";
+    else if (fileType === "application/pdf") type = "pdf";
 
     formData.append(`files[${index}][type]`, type);
     formData.append(`files[${index}][name]`, file.name || "");
@@ -248,6 +251,7 @@ export async function UpdateFloorPhotosData(
 
     let type = "photo";
     if (fileType.startsWith("video/")) type = "video";
+    else if (fileType === "application/pdf") type = "pdf";
 
     formData.append(`files[${index}][type]`, type);
     formData.append(`files[${index}][name]`, file.name || "");

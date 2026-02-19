@@ -131,13 +131,14 @@ const PhotoPreviewModal: React.FC<Props> = ({
                         <video
                             src={mediaUrl}
                             controls
+                            controlsList="nodownload"
                             preload="auto"
                             playsInline
                             className="max-w-full max-h-full rounded-md"
                         />
                     ) : isPdf ? (
                         <iframe
-                            src={mediaUrl}
+                            src={`${mediaUrl}#toolbar=0`}
                             className="w-full h-full rounded-md border-none"
                             title="PDF Preview"
                         />
