@@ -185,7 +185,6 @@ const PhotoPreviewModal: React.FC<Props> = ({
                             {openDropdown && (
                                 <div className="absolute z-[100] w-full bottom-full mb-1 bg-white border border-[#7d7d7d] rounded-md shadow-lg max-h-[150px] overflow-y-auto custom-scroll">
                                     {allSuggestions
-                                        .filter(item => !name || item.toLowerCase().includes(name.toLowerCase()))
                                         .map((item, i) => (
                                             <div
                                                 key={i}

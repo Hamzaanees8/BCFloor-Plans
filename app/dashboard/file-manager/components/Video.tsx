@@ -1,5 +1,6 @@
 'use client';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import CopyableFileName from './CopyableFileName';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 import FilePreviewModal from './FilePreviewModal';
@@ -375,7 +376,10 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
                                 className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                 style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EFEFEF), black 10%)` }}
                             >
-                                Unsaved Videos
+                                <span className="flex items-center gap-2">
+                                    <span>Unsaved Videos</span>
+                                    <span className="text-[11px] font-normal normal-case text-[#7D7D7D]">(Click save changes to upload media)</span>
+                                </span>
                             </AccordionTrigger>
                             <AccordionContent>
                                 <div
@@ -486,7 +490,7 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
                                             >
                                                 <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{file.file.name}</p>
                                                 <div className='col-span-2 flex items-center justify-between'>
-                                                    <p className='text-[#8E8E8E] mt-1'>{file.type || "Exterior"} ({idx + 1} of {filesForService.length})</p>
+                                                    <p className='text-[#8E8E8E] mt-1 flex items-center gap-1'><CopyableFileName name={file.type || "Exterior"} /> ({idx + 1} of {filesForService.length})</p>
                                                     <span
                                                         className='flex w-[24px] h-[24px] cursor-not-allowed opacity-50'>
                                                         <DownloadIcon width='24px' height='24px' fill='#6BAE41' />
@@ -650,7 +654,7 @@ function Video({ currentService, orderData, isListing, reviewFilesEnabled, onSav
                                                 >
                                                     <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{file.name}</p>
                                                     <div className='col-span-2 flex items-center justify-between'>
-                                                        <p className='text-[#8E8E8E] mt-1'>{file.group || "Exterior"} ({idx + 1} of {currentServiceFiles?.length || 0})</p>
+                                                        <p className='text-[#8E8E8E] mt-1 flex items-center gap-1'><CopyableFileName name={file.group || "Exterior"} /> ({idx + 1} of {currentServiceFiles?.length || 0})</p>
                                                         {userType === 'agent' && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") &&
                                                             <span
                                                                 onClick={() => handledownloadFile(file.uuid, file.name)}

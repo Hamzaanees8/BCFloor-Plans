@@ -1,9 +1,11 @@
+
 import ConfirmationDialog from '@/components/ConfirmationDialog'
 import NextImage from "next/image";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import HouseSheetModal from './HouseSheetModal';
+import SquareFootage from '../../calendar/components/SquareFootage';
 import { Order } from '../../orders/page';
 import { Check, CheckCircle2, X } from 'lucide-react';
 import { DownloadFile, ServiceCompletion } from '../file-manager';
@@ -384,19 +386,8 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                 <div className='px-[80px] pb-[60px] gap-y-6'>
                     <p className={`font-semibold text-lg ${userType}-text uppercase`}>Square Footage</p>
                     <div className="flex justify-center">
-                        <div className="grid grid-cols-2 w-[700px] gap-y-4 text-[15px] font-normal text-[#666666] px-[66px] pt-6">
-                            <div className='flex justify-between pr-10'>
-                                <span>Total Square Footage</span>
-                                <span>
-                                    {area?.reduce((acc, area) => acc + Number(area.footage || 0), 0)} FT²
-                                </span>
-                            </div>
-                            {area?.map((area) => (
-                                <div key={area.uuid} className='flex justify-between pr-10'>
-                                    <span>{area.type}</span>
-                                    <span>{area.footage} FT²</span>
-                                </div>
-                            ))}
+                        <div className="w-[700px] pt-6">
+                            <SquareFootage currentOrder={orderData || undefined} />
                         </div>
                     </div>
                     <div className='flex items-center justify-end pt-6'>
@@ -414,7 +405,10 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                 className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                 style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EFEFEF), black 10%)` }}
                             >
-                                Unsaved Images
+                                <span className="flex items-center gap-2">
+                                    <span>Unsaved Images</span>
+                                    <span className="text-[11px] font-normal normal-case text-[#7D7D7D]">(Click save changes to upload media)</span>
+                                </span>
                             </AccordionTrigger>
                             <AccordionContent>
                                 <div
@@ -517,7 +511,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                                                 )}
                                                                 {userType === 'admin' && reviewFilesEnabled && (
                                                                     <div
-                                                                        className="absolute top-2 left-2 z-10 cursor-pointer bg-white/80 p-1 rounded"
+                                                                        className="absolute flex justify-between items-center bottom-2 left-2 z-10 cursor-pointer bg-white/80 p-1 rounded"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             setFloorFiles(prev =>
@@ -665,7 +659,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                                 {otherApiFiles?.map((file, idx) => (
                                                     <div key={idx} className='justify-self-center group'>
                                                         <div>
-                                                            <p className={`uppercase text-lg font-semibold ${userType}-text pl-3 pb-2`}>
+                                                            <p className={`uppercase text-lg font-semibold ${userType}-text pl-3 pb-2 flex items-center gap-2`}>
                                                                 {file.group || (file.type === 'photo' ? 'UnBranded Floor Plan' : (file.type || 'UnBranded Floor Plan'))}
                                                             </p>
                                                             <div
@@ -677,11 +671,28 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                                                         <p className="text-gray-500 font-medium text-sm">Processing...</p>
                                                                     </div>
                                                                 ) : file.file_path.toLowerCase().endsWith('.pdf') ? (
-                                                                    <PdfPlaceholder
-                                                                        className="w-full h-full object-contain cursor-pointer"
-                                                                        isRestricted={userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
-                                                                        onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
-                                                                    />
+                                                                    (userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
+                                                                        <PdfPlaceholder
+                                                                            className="w-full h-full object-contain cursor-pointer"
+                                                                            isRestricted={true}
+                                                                            onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="absolute inset-0 overflow-hidden rounded-[6px]">
+                                                                            <div
+                                                                                className={`relative overflow-hidden cursor-pointer w-full h-full transition-all duration-300 ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                                                                onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
+                                                                            >
+                                                                                <iframe
+                                                                                    src={`${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                                                                                    className="w-full h-full pointer-events-none border-none object-cover scale-[1.14] origin-top"
+                                                                                    tabIndex={-1}
+                                                                                    scrolling="no"
+                                                                                />
+                                                                                <div className="absolute inset-0 bg-transparent" />
+                                                                            </div>
+                                                                        </div>
+                                                                    )
                                                                 ) : (
                                                                     <NextImage
                                                                         src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
@@ -822,11 +833,28 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                                                                 <p className="text-gray-500 font-medium text-sm">Processing...</p>
                                                                             </div>
                                                                         ) : file.file_path.toLowerCase().endsWith('.pdf') ? (
-                                                                            <PdfPlaceholder
-                                                                                className="w-full h-full object-contain cursor-pointer"
-                                                                                isRestricted={userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
-                                                                                onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
-                                                                            />
+                                                                            (userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
+                                                                                <PdfPlaceholder
+                                                                                    className="w-full h-full object-contain cursor-pointer"
+                                                                                    isRestricted={true}
+                                                                                    onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
+                                                                                />
+                                                                            ) : (
+                                                                                <div className="absolute inset-0 overflow-hidden rounded-[6px]">
+                                                                                    <div
+                                                                                        className={`relative overflow-hidden cursor-pointer w-full h-full transition-all duration-300 ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                                                                        onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
+                                                                                    >
+                                                                                        <iframe
+                                                                                            src={`${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                                                                                            className="w-full h-full pointer-events-none border-none object-cover scale-[1.14] origin-top"
+                                                                                            tabIndex={-1}
+                                                                                            scrolling="no"
+                                                                                        />
+                                                                                        <div className="absolute inset-0 bg-transparent" />
+                                                                                    </div>
+                                                                                </div>
+                                                                            )
                                                                         ) : (
                                                                             <NextImage
                                                                                 src={file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}

@@ -610,9 +610,9 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                     </p>
                                                 )}
 
-                                                {/* Grand Total */}
+                                                {/* Order/Quote approx. */}
                                                 <p className='grid grid-cols-4 gap-[15px]'>
-                                                    <span className='col-span-3'>Grand Total</span>
+                                                    <span className='col-span-3'>Order/Quote approx.</span>
                                                     <span className='col-span-1'>${grandTotal.toFixed(2)}</span>
                                                 </p>
 
@@ -919,7 +919,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                             return (
                                                 <>
                                                     <div className='flex items-center justify-between'>
-                                                        <p className='font-normal text-[14px] text-[#424242]'>Grand Total</p>
+                                                        <p className='font-normal text-[14px] text-[#424242]'>Order/Quote approx.</p>
                                                         <p className='font-normal text-[14px] text-[#424242]'>
                                                             ${grandTotal.toFixed(2)}
                                                         </p>
