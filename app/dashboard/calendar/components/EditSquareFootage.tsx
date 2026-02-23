@@ -261,8 +261,6 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
         <span className="font-bold">{grandTotal} Sq.ft</span>
       </div>
 
-      {renderSection('other', otherAreas, setOtherAreas)}
-
       <AddExtraDialog
         open={openAddDialog}
         onOpenChange={setOpenAddDialog}

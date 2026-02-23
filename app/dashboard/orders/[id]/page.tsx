@@ -540,15 +540,15 @@ function Page() {
               style={
                 false
                   ? {
-                      backgroundColor: roleSettings.pageTabColor,
-                      borderColor: roleSettings.pageTabColor,
-                      color: "#FFFFFF",
-                    }
+                    backgroundColor: roleSettings.pageTabColor,
+                    borderColor: roleSettings.pageTabColor,
+                    color: "#FFFFFF",
+                  }
                   : {
-                      backgroundColor: "#FFFFFF",
-                      borderColor: roleSettings.pageTabColor,
-                      color: roleSettings.pageTabColor,
-                    }
+                    backgroundColor: "#FFFFFF",
+                    borderColor: roleSettings.pageTabColor,
+                    color: roleSettings.pageTabColor,
+                  }
               }
             >
               Media
@@ -560,15 +560,15 @@ function Page() {
                 style={
                   false
                     ? {
-                        backgroundColor: roleSettings.pageTabColor,
-                        borderColor: roleSettings.pageTabColor,
-                        color: "#FFFFFF",
-                      }
+                      backgroundColor: roleSettings.pageTabColor,
+                      borderColor: roleSettings.pageTabColor,
+                      color: "#FFFFFF",
+                    }
                     : {
-                        backgroundColor: "#FFFFFF",
-                        borderColor: roleSettings.pageTabColor,
-                        color: roleSettings.pageTabColor,
-                      }
+                      backgroundColor: "#FFFFFF",
+                      borderColor: roleSettings.pageTabColor,
+                      color: roleSettings.pageTabColor,
+                    }
                 }
               >
                 Property details
@@ -580,15 +580,15 @@ function Page() {
               style={
                 true
                   ? {
-                      backgroundColor: roleSettings.pageTabColor,
-                      borderColor: roleSettings.pageTabColor,
-                      color: "#FFFFFF",
-                    }
+                    backgroundColor: roleSettings.pageTabColor,
+                    borderColor: roleSettings.pageTabColor,
+                    color: "#FFFFFF",
+                  }
                   : {
-                      backgroundColor: "#FFFFFF",
-                      borderColor: roleSettings.pageTabColor,
-                      color: roleSettings.pageTabColor,
-                    }
+                    backgroundColor: "#FFFFFF",
+                    borderColor: roleSettings.pageTabColor,
+                    color: roleSettings.pageTabColor,
+                  }
               }
             >
               Order details
@@ -700,13 +700,12 @@ function Page() {
                                     Payment:
                                   </span>
                                   <span
-                                    className={`font-[500] px-2 py-0.5 rounded-full w-fit text-[11px] ${
-                                      orderData?.payment_status === "PAID"
-                                        ? "bg-green-500 text-white"
-                                        : orderData?.payment_status === "UNPAID"
-                                          ? "bg-red-500 text-white text-nowrap"
-                                          : "bg-orange-100 text-orange-700"
-                                    }`}
+                                    className={`font-[500] px-2 py-0.5 rounded-full w-fit text-[11px] ${orderData?.payment_status === "PAID"
+                                      ? "bg-green-500 text-white"
+                                      : orderData?.payment_status === "UNPAID"
+                                        ? "bg-red-500 text-white text-nowrap"
+                                        : "bg-orange-100 text-orange-700"
+                                      }`}
                                   >
                                     {orderData?.payment_status || "N/A"}
                                   </span>
@@ -749,12 +748,11 @@ function Page() {
                                               Payment:
                                             </span>
                                             <span
-                                              className={`px-2 py-0.5 rounded-full text-[11px] font-[500] ${
-                                                service.payment_status ===
+                                              className={`px-2 py-0.5 rounded-full text-[11px] font-[500] ${service.payment_status ===
                                                 "PAID"
-                                                  ? "bg-green-500 text-white"
-                                                  : "bg-red-500 text-white"
-                                              }`}
+                                                ? "bg-green-500 text-white"
+                                                : "bg-red-500 text-white"
+                                                }`}
                                             >
                                               {service.payment_status ||
                                                 "Pending"}
@@ -769,11 +767,10 @@ function Page() {
                                               Completion:
                                             </span>
                                             <span
-                                              className={`px-2 py-0.5 rounded-full text-[11px] font-[500] ${
-                                                service.is_completed
-                                                  ? "bg-green-500 text-white"
-                                                  : "bg-gray-200 text-gray-700"
-                                              }`}
+                                              className={`px-2 py-0.5 rounded-full text-[11px] font-[500] ${service.is_completed
+                                                ? "bg-green-500 text-white"
+                                                : "bg-gray-200 text-gray-700"
+                                                }`}
                                             >
                                               {service.is_completed
                                                 ? "Completed"
@@ -785,15 +782,15 @@ function Page() {
                                     )}
                                     {(!orderData?.services ||
                                       orderData.services.length === 0) && (
-                                      <p
-                                        style={{
-                                          color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 40%)`,
-                                        }}
-                                        className="text-[12px] italic"
-                                      >
-                                        No services found
-                                      </p>
-                                    )}
+                                        <p
+                                          style={{
+                                            color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 40%)`,
+                                          }}
+                                          className="text-[12px] italic"
+                                        >
+                                          No services found
+                                        </p>
+                                      )}
                                   </div>
                                 </div>
                               </div>
@@ -996,7 +993,7 @@ function Page() {
                         Order {orderData?.id}
                       </p>
                     </div>
-                    <div className="flex items-center gap-[12px] hidden">
+                    <div className="items-center gap-[12px] hidden">
                       <Switch className=" data-[state=checked]:bg-[#6BAE41] " />
                       <p className="text-[#666666] text-[16px]">Open</p>
                     </div>
@@ -1142,9 +1139,9 @@ function Page() {
                           </p>
                         )}
 
-                        {/* Grand Total */}
+                        {/* Order/Quote approx. */}
                         <p className="grid grid-cols-4 gap-[15px]">
-                          <span className="col-span-3">Grand Total</span>
+                          <span className="col-span-3">Order/Quote approx.</span>
                           <span className="col-span-1">
                             ${grandTotal.toFixed(2)}
                           </span>

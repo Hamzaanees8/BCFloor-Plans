@@ -6,26 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CameraIcon } from "@/components/Icons";
-import { X, FileText } from "lucide-react";
+import { X } from "lucide-react";
 import { toast } from "sonner";
 
 
 
 import { useAppContext } from "@/app/context/AppContext";
 
-// PDF Placeholder component
-function PdfPlaceholder({ className = '', onClick }: { className?: string; onClick?: () => void }) {
-  return (
-    <div className={`flex items-center justify-center bg-gray-100 ${className}`} onClick={onClick}>
-      <div className="flex flex-col items-center gap-2">
-        <div className="bg-red-50 rounded-full p-4">
-          <FileText className="w-8 h-8 text-red-500" />
-        </div>
-        <span className="text-gray-500 text-xs font-bold font-alexandria">PDF Document</span>
-      </div>
-    </div>
-  );
-}
+
 
 function TourFloorPlans({ type = "" }) {
   const { userType } = useAppContext();
@@ -429,7 +417,15 @@ function TourFloorPlans({ type = "" }) {
                       <p className="text-gray-500 font-medium text-xs">Processing...</p>
                     </div>
                   ) : isFilePDF ? (
-                    <PdfPlaceholder className="w-full h-full" />
+                    <div className="relative w-full h-full overflow-hidden">
+                      <iframe
+                        src={`${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                        className="w-full h-full pointer-events-none border-none"
+                        tabIndex={-1}
+                        scrolling="no"
+                      />
+                      <div className="absolute inset-0 bg-transparent" />
+                    </div>
                   ) : (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`} alt="preview" className="max-w-full max-h-full" />

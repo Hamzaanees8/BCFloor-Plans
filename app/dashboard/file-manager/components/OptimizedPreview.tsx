@@ -36,9 +36,22 @@ export function OptimizedImagePreview({ file, alt = 'preview', className = '', o
         );
     }
 
-    // If it's a PDF, show the PDF placeholder
+    // If it's a PDF, show the PDF itself using an iframe, unless restricted
     if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-        return <PdfPlaceholder className={className} onClick={onClick} isRestricted={isRestricted} />;
+        if (isRestricted) {
+            return <PdfPlaceholder className={className} onClick={onClick} isRestricted={isRestricted} />;
+        }
+        return (
+            <div className={`relative overflow-hidden cursor-pointer w-full h-full ${className}`} onClick={onClick}>
+                <iframe
+                    src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                    className="w-full h-full pointer-events-none border-none object-cover scale-[1.14] origin-top"
+                    tabIndex={-1}
+                    scrolling="no"
+                />
+                <div className="absolute inset-0 bg-transparent" />
+            </div>
+        );
     }
 
     // Render optimized preview

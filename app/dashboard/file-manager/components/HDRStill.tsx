@@ -1,5 +1,6 @@
 'use client';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import CopyableFileName from './CopyableFileName';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import FilePreviewModal from './FilePreviewModal';
 import { Check, CheckCircle2, X, Star } from 'lucide-react';
@@ -432,7 +433,10 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                 style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EFEFEF), black 10%)` }}
                             >
-                                Unsaved Images
+                                <span className="flex items-center gap-2">
+                                    <span>Unsaved Images</span>
+                                    <span className="text-[11px] font-normal normal-case text-[#7D7D7D]">(Click save changes to upload media)</span>
+                                </span>
                             </AccordionTrigger>
                             <AccordionContent>
                                 <div
@@ -557,7 +561,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                             >
                                                 <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{file.file.name}</p>
                                                 <div className='col-span-2 flex items-center justify-between'>
-                                                    <p className='text-[#8E8E8E] mt-1'>{file.type || "Exterior"} ({idx + 1})</p>
+                                                    <p className='text-[#8E8E8E] mt-1 flex items-center gap-1'><CopyableFileName name={file.type || "Exterior"} /> ({idx + 1})</p>
                                                     <span className='flex w-[24px] h-[24px] cursor-not-allowed opacity-50'>
                                                         <DownloadIcon width='24px' height='24px' fill='#6BAE41' />
                                                     </span>
@@ -595,11 +599,26 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                                         <p className="text-gray-500 font-medium text-sm">Processing...</p>
                                                     </div>
                                                 ) : file.file_path.toLowerCase().endsWith('.pdf') ? (
-                                                    <PdfPlaceholder
-                                                        className="w-full h-full object-contain cursor-pointer"
-                                                        isRestricted={userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
-                                                        onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
-                                                    />
+                                                    (userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
+                                                        <PdfPlaceholder
+                                                            className="w-full h-full object-contain cursor-pointer"
+                                                            isRestricted={true}
+                                                            onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
+                                                        />
+                                                    ) : (
+                                                        <div
+                                                            className="relative w-full h-full cursor-pointer overflow-hidden"
+                                                            onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
+                                                        >
+                                                            <iframe
+                                                                src={`${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                                                                className="w-full h-full pointer-events-none border-none"
+                                                                tabIndex={-1}
+                                                                scrolling="no"
+                                                            />
+                                                            <div className="absolute inset-0 bg-transparent" />
+                                                        </div>
+                                                    )
                                                 ) : (
                                                     // eslint-disable-next-line @next/next/no-img-element
                                                     <img
@@ -747,7 +766,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                             >
                                                 <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{file.name}</p>
                                                 <div className='col-span-2 flex items-center justify-between'>
-                                                    <p className='text-[#8E8E8E] mt-1'>{file.group || "Exterior"} ({idx + 1} of {currentServiceFiles.length})</p>
+                                                    <p className='text-[#8E8E8E] mt-1 flex items-center gap-1'><CopyableFileName name={file.group || "Exterior"} /> ({idx + 1} of {currentServiceFiles.length})</p>
                                                     {userType === 'agent' && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
                                                         <span
                                                             onClick={() => handledownloadFile(file.uuid, file.name)}

@@ -1,4 +1,5 @@
 "use client";
+import CopyableFileName from './CopyableFileName';
 import {
   Accordion,
   AccordionContent,
@@ -166,8 +167,8 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                           {file.file.name}
                         </p>
                         <div className="col-span-2 flex items-center justify-between">
-                          <p className="text-[#8E8E8E] mt-1">
-                            {file.type || "Exterior"} ({idx + 1} of {selectedFiles.length})
+                          <p className="text-[#8E8E8E] mt-1 flex items-center gap-1">
+                            <CopyableFileName name={file.type || "Exterior"} /> ({idx + 1} of {selectedFiles.length})
                           </p>
                           <span className="flex w-[24px] h-[24px] cursor-pointer">
                             <DownloadIcon
@@ -214,8 +215,8 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                           {file.name}
                         </p>
                         <div className="col-span-2 flex items-center justify-between">
-                          <p className="text-[#8E8E8E] mt-1">
-                            {file.group || "Exterior"} ({idx + 1} of {currentTourPhotos?.length || 0})
+                          <p className="text-[#8E8E8E] mt-1 flex items-center gap-1">
+                            <CopyableFileName name={file.group || "Exterior"} /> ({idx + 1} of {currentTourPhotos?.length || 0})
                           </p>
                           <span
                             onClick={() => handledownloadFile(file.uuid, file.name)}

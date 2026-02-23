@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import CopyableFileName from './CopyableFileName';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
@@ -133,8 +134,8 @@ export default function FileManagerGallery({
                     </div>
                   </div>
                   <div className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 bg-[#ffffff] text-[9px]'>
-                    <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">
-                      {file.group}
+                    <p className="col-span-2 text-[#8E8E8E] mt-1">
+                      <CopyableFileName name={file.group || ''} />
                     </p>
                     <div className='col-span-2 flex items-center justify-between'>
                       <p className='text-[#8E8E8E] mt-1'>
