@@ -9,6 +9,7 @@ import { useWhiteLabel } from '@/app/context/Whitelabel';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
 import { DataTable } from '@/components/DataTable';
+import { DraggableServiceTable } from '@/components/DraggableServiceTable';
 import { ColumnDef, Row } from "@tanstack/react-table";
 import { Switch } from "@/components/ui/switch";
 import DropdownActions from "@/components/DropdownActions";
@@ -429,7 +430,7 @@ const Page = () => {
         </div>
 
         <div className="w-full">
-          <DataTable
+          <DraggableServiceTable
             data={servicesData}
             columns={serviceColumns}
             loading={loading}

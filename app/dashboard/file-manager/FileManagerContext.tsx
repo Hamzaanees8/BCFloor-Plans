@@ -11,6 +11,7 @@ export type SelectedFiles = {
     is_agent_approved?: boolean;
     is_show?: boolean;
     is_deleted?: boolean;
+    sort_order?: number;
 };
 import { FeatureSheetResponse } from './types/featureSheetTypes';
 import { Area } from './file-manager';
@@ -235,6 +236,12 @@ type FileManagerContextType = {
 
     area: Area[];
     setArea: Dispatch<SetStateAction<Area[]>>;
+
+    fileManagerMode: 'upload' | 'reorder';
+    setFileManagerMode: Dispatch<SetStateAction<'upload' | 'reorder'>>;
+
+    imagesPerRow: number;
+    setImagesPerRow: Dispatch<SetStateAction<number>>;
 };
 
 const FileManagerContext = createContext<FileManagerContextType | undefined>(undefined);
@@ -257,6 +264,8 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
     const [featureSheets, setFeatureSheets] = useState<FeatureSheetResponse[]>([]);
     const [changedFileUuids, setChangedFileUuids] = useState<Set<string>>(new Set());
     const [area, setArea] = useState<Area[]>([]);
+    const [fileManagerMode, setFileManagerMode] = useState<'upload' | 'reorder'>('upload');
+    const [imagesPerRow, setImagesPerRow] = useState<number>(4);
 
 
     const [formData, setFormData] = useState<FormData>({
@@ -391,12 +400,16 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
         changedFileUuids,
         setChangedFileUuids,
         area,
-        setArea
+        setArea,
+        fileManagerMode,
+        setFileManagerMode,
+        imagesPerRow,
+        setImagesPerRow
     }), [
         files, floorFiles, selectedFiles, links, brandedSelected, unBrandedSelected,
         previewFiles, selectedVideoFiles, droppedMarkers, delay, transition,
         audioUrl, selectedAudioTrack, formData, updateFormData, filesData,
-        featureSheets, changedFileUuids, area
+        featureSheets, changedFileUuids, area, fileManagerMode, imagesPerRow
     ]);
 
     return (

@@ -76,6 +76,7 @@ export interface CategoriesData {
   uuid: string;
   duration: boolean;
   add_ons: boolean;
+  description?: string;
 }
 
 const ServicesFrom = () => {

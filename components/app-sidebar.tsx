@@ -134,11 +134,6 @@ const data = {
           url: "/dashboard/global-settings",
           icon: Sliders,
         },
-        {
-          title: "White Label",
-          url: "/dashboard/white-label",
-          icon: Settings,
-        },
       ],
     },
   ],
@@ -220,9 +215,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           return false;
         }
         if (item.url === "/dashboard/vendor-billing" && userType !== "admin") {
-          return false;
-        }
-        if (item.url === "/dashboard/white-label" && userType !== "admin") {
           return false;
         }
 

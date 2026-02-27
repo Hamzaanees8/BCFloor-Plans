@@ -221,6 +221,36 @@ export async function CreateCategory(payload: CategoryPayload, token: string) {
         },
     });
 
+    if (response.status < 200 || response.status >= 300) {
+        throw new Error(response.data.message || `Request failed with status ${response.status}`);
+    }
+
+    return response.data;
+}
+
+export async function UpdateCategory(payload: CategoryPayload, token: string, uuid: string) {
+    const formData = categoryPayloadToFormData(payload);
+    formData.append('_method', 'PUT');
+    const response = await api.post(`/service-categories/${uuid}`, formData, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+
+    if (response.status < 200 || response.status >= 300) {
+        throw new Error(response.data.message || `Request failed with status ${response.status}`);
+    }
+
+    return response.data;
+}
+
+export async function DeleteCategory(uuid: string, token: string) {
+    const response = await api.delete(`/service-categories/${uuid}`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+
     if (response.status !== 200) {
         throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
@@ -421,6 +451,24 @@ export async function DeleteVendorService(vendorServiceId: string, token: string
     });
 
     if (response.status !== 200) {
+        throw new Error(response.data.message || `Request failed with status ${response.status}`);
+    }
+
+    return response.data;
+}
+
+export async function UpdateServiceSortOrder(serviceId: string, sortNumber: number, token: string) {
+    const formData = new FormData();
+    formData.append("sort_number", String(sortNumber));
+    formData.append("_method", "PUT");
+
+    const response = await api.post(`/services/${serviceId}/sort`, formData, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+
+    if (response.status < 200 || response.status >= 300) {
         throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 

@@ -3,7 +3,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Check, CheckCircle2 } from 'lucide-react';
+import { Check } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Services } from '../../services/page';
 import { useFileManagerContext } from '../FileManagerContext';
@@ -28,7 +28,7 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
     const { links, setLinks, setPreviewFiles, filesData } = useFileManagerContext();
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [openPayment, setOpenPayment] = useState(false);
-    const [success, setSuccess] = useState(false);
+    const [, setSuccess] = useState(false);
     const [openPaymentModal, setOpenPaymentModal] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     const [openUpgrade, setOpenUpgrade] = useState(false);
@@ -247,97 +247,96 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
             {!isListing &&
                 <div
                     className='h-[66px] w-full flex justify-between items-center px-4 font-alexandria'
-                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                    style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                 >
-                    <div
-                        className='h-[66px] w-full flex justify-between items-center  font-alexandria'
-                        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-                    >
-                        <div>
+                    <div>
 
-                        </div>
-                        <div>
-                            <p className='flex flex-col items-center'>
-                                <span className={`${userType}-text font-bold`}>
-                                    {currentService ? currentService.name : '3D Tour'}
-                                </span>
-                                <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title ?? ''}</span>
-
-                            </p>
-                        </div>
-                        <div className='flex justify-center items-center'>
-                            {userType !== 'agent' &&
-                                <Button
-                                    onClick={() => {
-                                        setMediaUploaded(true)
-                                        setShowConfirmation(true)
-                                    }}
-                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Send for Approval'} </Button>
-                            }
-                            <AgentNotificationModal
-                                open={showConfirmation}
-                                onClose={() => setShowConfirmation(false)}
-                                serviceDate={currentService ? currentService : null}
-                                orderData={orderData ? orderData : null}
-                            />
-                            {userType === 'agent' &&
-                                <div className='flex flex-col justify-center items-center mr-4'>
-                                    <p className='text-[18px] text-[#6BAE41]'>${currentBookedService?.option?.amount}</p>
-                                    <p className='text-[#7D7D7D] text-[12px]'>{currentBookedService?.option?.title ?? ''}</p>
-                                </div>
-                            }
-                            {userType === 'agent' &&
-                                <Button
-                                    className={`h-[32px] w-[150px] flex justify-center items-center 
-                                                                                                ${paymentSuccess
-                                            ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
-                                            : "bg-[#DC9600] hover:bg-[#eda304]"}`
-                                    }>{currentBookedService?.payment_status == 'PAID' ? 'Paid' : 'UnPaid'}</Button>
-                            }
-                            <PayInvoiceModal open={openPaymentModal} setOpen={setOpenPaymentModal} success={paymentSuccess} setSuccess={setPaymentSuccess} />
-
-                            {userType === 'admin' &&
-                                <div className="pl-4">
-                                    {!success ? (
-                                        <Button
-                                            onClick={() => setOpenPayment(true)}
-                                            className={`${userType}-bg text-white hover-${userType}-bg cursor-pointer h-[32px]`}
-                                        >
-                                            Add Manual Payment
-                                        </Button>
-                                    ) : (
-                                        <Button
-                                            // disabled
-                                            className="bg-[#6BAE41] hover:bg-[#7dc94f]  text-white flex items-center gap-2 cursor-default  h-[32px]"
-                                        >
-                                            <CheckCircle2 className="w-5 h-5" />
-                                            Payment Added
-                                        </Button>
-                                    )}
-
-                                    <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
-                                </div>}
-                        </div>
                     </div>
+                    <div>
+                        <p className='flex flex-col items-center'>
+                            <span className={`${userType}-text font-bold`}>
+                                {currentService ? currentService.name : '3D Tour'}
+                            </span>
+                            <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title ?? ''}</span>
 
-                </div>}
-            {!isListing &&
-                <div className='p-4 flex justify-end'>
-                    <Button
-                        onClick={() => setOpenUpgrade(true)}
-                        className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}>Upgrade Plan</Button>
-                    <UpgradeServicePopup
-                        open={openUpgrade}
-                        setOpen={setOpenUpgrade}
-                        currentService={currentService}
-                        currentOption={currentBookedService?.option}
-                        orderData={orderData}
-                        currentBookedService={currentBookedService}
-                        onSuccess={() => {
-                            window.location.reload()
-                        }}
-                    />
-                </div>}
+                        </p>
+                    </div>
+                    <div className='flex justify-center items-center gap-x-[14px]'>
+                        {userType !== 'agent' &&
+                            <Button
+                                onClick={() => {
+                                    setMediaUploaded(true)
+                                    setShowConfirmation(true)
+                                }}
+                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Send for Approval'} </Button>
+                        }
+                        <AgentNotificationModal
+                            open={showConfirmation}
+                            onClose={() => setShowConfirmation(false)}
+                            serviceDate={currentService ? currentService : null}
+                            orderData={orderData ? orderData : null}
+                        />
+                        {userType === 'agent' &&
+                            <div className='flex flex-col justify-center items-center mr-4'>
+                                <p className='text-[18px] text-[#6BAE41]'>${currentBookedService?.option?.amount}</p>
+                                <p className='text-[#7D7D7D] text-[12px]'>{currentBookedService?.option?.title ?? ''}</p>
+                            </div>
+                        }
+                        {userType === 'agent' &&
+                            <Button
+                                className={`h-[32px] w-[150px] flex justify-center items-center 
+                                                                                                ${paymentSuccess
+                                        ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
+                                        : "bg-[#DC9600] hover:bg-[#eda304]"}`
+                                }>{currentBookedService?.payment_status == 'PAID' ? 'Paid' : 'UnPaid'}</Button>
+                        }
+                        <PayInvoiceModal open={openPaymentModal} setOpen={setOpenPaymentModal} success={paymentSuccess} setSuccess={setPaymentSuccess} />
+
+                        {userType === 'admin' && (
+                            <div className="">
+                                {/* {!success ? (
+                                    <Button
+                                        onClick={() => setOpenPayment(true)}
+                                        className={`${userType}-bg text-white hover-${userType}-bg cursor-pointer h-[32px]`}
+                                    >
+                                        Add Manual Payment
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        // disabled
+                                        className="bg-[#6BAE41] hover:bg-[#7dc94f]  text-white flex items-center gap-2 cursor-default  h-[32px]"
+                                    >
+                                        <CheckCircle2 className="w-5 h-5" />
+                                        Payment Added
+                                    </Button>
+                                )} */}
+                                <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
+                            </div>
+                        )}
+                        <Button
+                            onClick={() => setOpenUpgrade(true)}
+                            className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}>Upgrade Plan</Button>
+                        <UpgradeServicePopup
+                            open={openUpgrade}
+                            setOpen={setOpenUpgrade}
+                            currentService={currentService}
+                            currentOption={currentBookedService?.option}
+                            orderData={orderData}
+                            currentBookedService={currentBookedService}
+                            onSuccess={() => {
+                                window.location.reload()
+                            }}
+                        />
+                    </div>
+                </div>
+            }
+
+            {!isListing && (
+                <div className='p-4 flex justify-end items-center gap-4'>
+                    <div className="flex items-center gap-4">
+                    </div>
+                </div>
+            )}
             <div className='flex flex-col items-center justify-center my-4'>
                 <div className='w-[650px]'>
                     <Label className='text-[14px] text-[#424242]'>3D Tour Link - Branded</Label>

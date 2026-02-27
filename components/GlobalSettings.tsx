@@ -54,6 +54,9 @@ import { useUnsaved } from "@/app/context/UnsavedContext";
 import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
 import GlobalTourSetting from "./GlobalTourSetting";
 import AgentDiscount from "./AgentDiscount";
+import WhiteLabelSettings from "./WhiteLabelSettings";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
+import EmailTemplatesSettings from "./EmailTemplatesSettings";
 
 interface CompanyData {
     id: number;
@@ -310,6 +313,8 @@ const GlobalSettings = () => {
     const [quickBookStatus, setQuickBookStatus] = useState(false);
 
     const [openDiscount, setOpenDiscount] = useState(false);
+
+    const { saveSettings } = useWhiteLabel();
 
     const { isDirty, setIsDirty } = useUnsaved();
     useUnsavedChangesWarning(isDirty);
@@ -867,7 +872,7 @@ const GlobalSettings = () => {
 
     const tabs =
         userType === "admin"
-            ? ["Profile Settings", "Discounts", "Tour Settings"]
+            ? ["Profile Settings", "Discounts", "Tour Settings", "Appearances", "Templates"]
             : [];
     const [activeTab, setActiveTab] = useState("Profile Settings");
 
@@ -1068,7 +1073,7 @@ const GlobalSettings = () => {
                 ref={headerRef}
                 className="w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
                 style={{
-                    backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+                    backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%)`,
                     boxShadow: "0px 4px 4px #0000001F",
                 }}
             >
@@ -1077,14 +1082,29 @@ const GlobalSettings = () => {
                 >
                     Global Settings
                 </p>
-                <Button
-                    onClick={(e) => {
-                        handleSubmit(e);
-                    }}
-                    className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg `}
-                >
-                    Save Changes
-                </Button>
+                {activeTab === "Appearances" ? (
+                    <Button
+                        type="button"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            saveSettings();
+                            toast.success("Appearance settings saved successfully");
+                        }}
+                        className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg `}
+                    >
+                        Save Settings
+                    </Button>
+                ) : (
+                    <Button
+                        type="button"
+                        onClick={(e) => {
+                            handleSubmit(e);
+                        }}
+                        className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg `}
+                    >
+                        Save Changes
+                    </Button>
+                )}
             </div>
             <SaveModal
                 isOpen={openSaveDialog}
@@ -1100,8 +1120,10 @@ const GlobalSettings = () => {
             /> */}
             {userType === "admin" && (
                 <div
-                    className="flex justify-center h-[60px] items-center sticky top-[80px] z-40"
-                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                    className="flex justify-center h-[60px] items-center sticky top-[80px] z-40 border-b-[1px] border-[#BBBBBB]"
+                    style={{
+                        backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%)`,
+                    }}
                 >
                     <div className=" w-fit flex border-gray-300 gap-[10px]">
                         {tabs.map((tab) => (
@@ -1129,6 +1151,9 @@ const GlobalSettings = () => {
                     }
                 }}
             >
+                {activeTab === "Templates" && userType === "admin" && (
+                    <EmailTemplatesSettings />
+                )}
                 <Accordion
                     type="multiple"
                     defaultValue={[
@@ -2679,6 +2704,9 @@ const GlobalSettings = () => {
 
                     {activeTab === "Tour Settings" && userType === "admin" && (
                         <GlobalTourSetting />
+                    )}
+                    {activeTab === "Appearances" && userType === "admin" && (
+                        <WhiteLabelSettings />
                     )}
                 </Accordion>
             </form>

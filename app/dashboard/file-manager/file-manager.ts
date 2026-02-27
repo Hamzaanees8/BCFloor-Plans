@@ -276,6 +276,7 @@ export async function UploadFilesData(
             is_show: fileObj.is_show !== false,
             is_admin_approved: fileObj.is_admin_approved !== false,
             is_agent_approved: fileObj.is_agent_approved || false,
+            sort_order: fileObj.sort_order !== undefined ? fileObj.sort_order : index + 1,
           };
         }),
       });
@@ -370,6 +371,7 @@ export async function UpdateFilesData(
             is_show: fileObj.is_show !== false,
             is_admin_approved: fileObj.is_admin_approved !== false,
             is_agent_approved: fileObj.is_agent_approved || false,
+            sort_order: fileObj.sort_order !== undefined ? fileObj.sort_order : newFiles.length + files.indexOf(fileObj) + 1,
           };
         }),
       });
@@ -411,6 +413,10 @@ export async function UpdateFilesData(
     formData.append(
       `files[${fileIndex}][is_show]`,
       String(fileObj.is_show === false ? 0 : 1),
+    );
+    formData.append(
+      `files[${fileIndex}][sort_order]`,
+      String(fileObj.sort_order !== undefined ? fileObj.sort_order : index + 1),
     );
   });
 
@@ -563,6 +569,7 @@ export async function UpdatePhotosData(
             is_show: fileObj.is_show !== false,
             is_admin_approved: fileObj.is_admin_approved !== false,
             is_agent_approved: fileObj.is_agent_approved || false,
+            sort_order: fileObj.sort_order !== undefined ? fileObj.sort_order : index + 1,
           };
         }),
       });
@@ -616,6 +623,10 @@ export async function UpdateFloorPhotosData(
     formData.append(
       `files[${index}][is_show]`,
       String(fileObj.is_show === false ? 0 : 1),
+    );
+    formData.append(
+      `files[${index}][sort_order]`,
+      String(fileObj.sort_order !== undefined ? fileObj.sort_order : index + 1),
     );
   });
 
@@ -866,6 +877,7 @@ export async function UploadPhotosToS3(
         is_show: files[index].is_show !== false,
         is_admin_approved: files[index].is_admin_approved !== false,
         is_agent_approved: files[index].is_agent_approved || false,
+        sort_order: files[index].sort_order !== undefined ? files[index].sort_order : index,
       })),
     });
 
@@ -976,6 +988,7 @@ export async function UploadTourToS3(
         is_show: files[index].is_show !== false,
         is_admin_approved: files[index].is_admin_approved !== false,
         is_agent_approved: files[index].is_agent_approved || false,
+        sort_order: files[index].sort_order !== undefined ? files[index].sort_order : index,
       })),
     });
 

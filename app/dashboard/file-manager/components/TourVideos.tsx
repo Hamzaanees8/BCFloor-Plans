@@ -83,7 +83,7 @@ function TourVideos() {
                     {currentServiceFiles?.map((file, idx) => (
                         <div key={idx} className=" h-auto relative">
                             <div className="relative w-full h-[240px] cursor-pointer">
-                                {file.is_processing ? (
+                                {(file.is_processing || !file.variant_urls?.thumb) ? (
                                     <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                                         <p className="text-gray-500 font-medium text-sm">Processing...</p>
                                     </div>

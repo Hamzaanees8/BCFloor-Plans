@@ -1,12 +1,9 @@
-'use client';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import CopyableFileName from './CopyableFileName';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import FilePreviewModal from './FilePreviewModal';
-import { Check, CheckCircle2, X, Star } from 'lucide-react';
+import { Check, X, Star } from 'lucide-react';
 import { DownloadIcon } from '@/components/Icons';
 import { Button } from '@/components/ui/button';
-import FileUploader from './FileUploader';
 import { Services } from '../../services/page';
 import { Files, SelectedFiles, useFileManagerContext } from '../FileManagerContext';
 import { toast } from 'sonner';
@@ -22,7 +19,10 @@ import DownloadModal from './DownloadModal';
 import { useS3Upload } from '@/hooks/useS3Upload';
 import { UploadProgressOverlay } from './UploadProgressOverlay';
 import { OptimizedImagePreview, PdfPlaceholder } from './OptimizedPreview';
-
+import { DualModeFileManager } from './dual-mode/DualModeFileManager';
+import { ModeToggle } from './dual-mode/ModeToggle';
+import { FileItem, DualMode } from './dual-mode/types';
+import { GridSizeToggle } from './dual-mode/GridSizeToggle';
 
 export interface PaymentData {
     payment_type: "cheque" | "bank_transfer" | "cash"; // restrict to valid types
@@ -38,11 +38,10 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [open, setOpen] = useState(false);
     const [openUpgrade, setOpenUpgrade] = useState(false);
-    const { selectedFiles, setSelectedFiles, filesData, setFilesData, setChangedFileUuids } = useFileManagerContext();
+    const { selectedFiles, setSelectedFiles, filesData, setFilesData, setChangedFileUuids, fileManagerMode, setFileManagerMode, imagesPerRow } = useFileManagerContext();
     const [openPayment, setOpenPayment] = useState(false);
-    const [success, setSuccess] = useState(false);
+    const [, setSuccess] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
-    const [dragging, setDragging] = useState(false);
     const [openPaymentModal, setOpenPaymentModal] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
@@ -51,9 +50,15 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     const [showDownloadModal, setShowDownloadModal] = useState(false);
     const [editingFile, setEditingFile] = useState<SelectedFiles | Files | null>(null);
     const [replacingFile, setReplacingFile] = useState<File | null>(null);
-    const dragCounter = useRef(0);
     const { userType } = useAppContext()
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
+
+    const handleModeChange = (newMode: DualMode) => {
+        setFileManagerMode(newMode);
+        if (newMode === 'upload' && onSave) {
+            onSave(); // Trigger API request
+        }
+    };
 
     // Initialize S3 upload hook
     const s3Upload = useS3Upload({
@@ -109,34 +114,114 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
 
     const currentBookedService = orderData?.services.find((service) => service.service.uuid === currentService?.uuid)
 
-    // Filter existing files
-    let currentServiceFiles = filesData?.files
-        ?.filter((file: Files) => file?.service?.uuid === currentService?.uuid)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    // Filter existing files safely with useMemo
+    const currentServiceFiles = useMemo(() => {
+        let files = filesData?.files
+            ?.filter((file: Files) => file?.service?.uuid === currentService?.uuid)
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-    // If Agent and review is enabled, only show approved files and those marked to show
-    if (userType === 'agent') {
-        if (reviewFilesEnabled) {
-            currentServiceFiles = currentServiceFiles?.filter(file => file.is_admin_approved && file.is_show !== false);
-        } else {
-            currentServiceFiles = currentServiceFiles?.filter(file => file.is_show !== false);
+        // If Agent and review is enabled, only show approved files and those marked to show
+        if (userType === 'agent') {
+            if (reviewFilesEnabled) {
+                files = files?.filter(file => file.is_admin_approved && file.is_show !== false);
+            } else {
+                files = files?.filter(file => file.is_show !== false);
+            }
         }
-    }
+        return files || [];
+    }, [filesData?.files, currentService?.uuid, userType, reviewFilesEnabled]);
 
-    const filesForService = selectedFiles.filter(f => f.service_id === currentService?.uuid);
+    const filesForService = useMemo(() => selectedFiles.filter(f => f.service_id === currentService?.uuid), [selectedFiles, currentService?.uuid]);
 
-    const handleDrop = useCallback((e: DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
+    // Map files to DualMode format
+    const [fileItems, setFileItems] = useState<FileItem[]>([]);
 
-        setDragging(false);
-        dragCounter.current = 0;
+    useEffect(() => {
+        const sortedServerFiles = (currentServiceFiles || []).map((f, index) => ({
+            clientId: f.uuid, // Use existing UUID as client ID for stability
+            serverId: f.uuid,
+            url: f.variant_urls?.thumb || f.thumbnail_url || f.url || `${API_URL}/${f.file_path}`,
+            status: 'uploaded' as const,
+            order: f.sort_order !== undefined ? f.sort_order : index + 1,
+            originalData: f
+        }));
 
+        const localItems = filesForService.map((f, index) => {
+            // Find existing local item to preserve clientId, or generate new one
+            const existing = fileItems.find(item => item.file === f.file);
+            return {
+                clientId: existing ? existing.clientId : crypto.randomUUID(),
+                file: f.file,
+                url: URL.createObjectURL(f.file),
+                status: 'local' as const,
+                order: f.sort_order !== undefined ? f.sort_order : (sortedServerFiles.length + index + 1),
+                originalData: f
+            };
+        });
+
+        // Combine them and sort by order
+        setFileItems([...localItems, ...sortedServerFiles].sort((a, b) => a.order - b.order));
+
+        // Cleanup blob URLs on unmount
+        return () => {
+            localItems.forEach(item => URL.revokeObjectURL(item.url));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentServiceFiles, filesForService]);
+
+
+    const handleFileItemsChange = (newItems: FileItem[]) => {
+        setFileItems(newItems);
+        // Here we would typically trigger an API call to update the order on the backend
+        // Since the backend API for pure order saving isn't defined yet, we just update local state
+        // and let handleUpload send the full files list which should retain order if backend supports it.
+        // For now, we update the sort_order in filesData context to reflect the drag
+
+        // Update local state and context to reflect new sort order
+        newItems.forEach((item, index) => {
+            const newSortOrder = index + 1;
+            if (item.status === 'local') {
+                // For files not yet uploaded, update SelectedFiles
+                setSelectedFiles(prev => prev.map(f => {
+                    if (f.file === item.file) {
+                        return { ...f, sort_order: newSortOrder };
+                    }
+                    return f;
+                }));
+            } else if (item.status === 'uploaded' && filesData) {
+                // For existing files, update FilesData and mark as changed
+                setFilesData(prev => {
+                    if (!prev) return prev;
+                    const hasModifications = prev.files.some(f => f.uuid === item.serverId && f.sort_order !== newSortOrder);
+
+                    if (hasModifications) {
+                        setChangedFileUuids(prevSet => {
+                            const newSet = new Set(prevSet);
+                            newSet.add(item.serverId!);
+                            return newSet;
+                        });
+
+                        return {
+                            ...prev,
+                            files: prev.files.map(f => {
+                                if (f.uuid === item.serverId) {
+                                    return { ...f, sort_order: newSortOrder };
+                                }
+                                return f;
+                            })
+                        };
+                    }
+                    return prev;
+                });
+            }
+        });
+    };
+
+    const handleDropFiles = (droppedFiles: File[]) => {
         if (userType === 'agent') {
             return;
         }
 
-        const droppedFiles = Array.from(e.dataTransfer?.files || []);
         const validFiles = droppedFiles.filter(file => !file.type.startsWith('video/'));
         const hasVideo = droppedFiles.some(file => file.type.startsWith('video/'));
 
@@ -147,40 +232,353 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         if (validFiles.length > 0) {
             handleFilesChange(validFiles);
         }
-    }, [userType]);
-
-    const handleDragEnter = useCallback((e: DragEvent) => {
-        e.preventDefault();
-        dragCounter.current += 1;
-        setDragging(true);
-    }, []);
-
-    const handleDragLeave = useCallback((e: DragEvent) => {
-        e.preventDefault();
-        dragCounter.current -= 1;
-        if (dragCounter.current === 0) {
-            setDragging(false);
-        }
-    }, []);
-
-    const handleDragOver = useCallback((e: DragEvent) => {
-        e.preventDefault();
-    }, []);
+    };
 
 
-    useEffect(() => {
-        window.addEventListener('dragenter', handleDragEnter);
-        window.addEventListener('dragleave', handleDragLeave);
-        window.addEventListener('dragover', handleDragOver);
-        window.addEventListener('drop', handleDrop);
+    // Handler to toggle featured status - only one file can be featured at a time
+    const handleToggleFeatured = useCallback((fileUuid: string, currentFeaturedStatus: boolean) => {
+        // Update selectedFiles to mark/unmark featured
+        setSelectedFiles(prev =>
+            prev.map(f => {
+                // If this is the clicked file, toggle its featured status
+                if (f.service_id === currentService?.uuid) {
+                    const fileKey = `${f.file.name}-${f.file.size}`;
+                    const clickedFileKey = fileUuid;
 
-        return () => {
-            window.removeEventListener('dragenter', handleDragEnter);
-            window.removeEventListener('dragleave', handleDragLeave);
-            window.removeEventListener('dragover', handleDragOver);
-            window.removeEventListener('drop', handleDrop);
-        };
-    }, [handleDragEnter, handleDragLeave, handleDragOver, handleDrop]);
+                    if (fileKey === clickedFileKey) {
+                        return { ...f, is_featured: !currentFeaturedStatus };
+                    } else {
+                        // Unmark all other files in this service
+                        return { ...f, is_featured: false };
+                    }
+                }
+                return f;
+            })
+        );
+    }, [currentService?.uuid, setSelectedFiles]);
+
+    const renderFileItem = useCallback((item: FileItem, isDragging?: boolean) => {
+        const isLocal = item.status === 'local';
+        // originalData might be SelectedFiles (local) or Files (uploaded)
+        const file = item.originalData;
+
+        if (!file) return null;
+
+        // Calculate index loosely based on the unified array for display purposes
+        const idx = fileItems.findIndex(f => f.clientId === item.clientId);
+        const totalUploaded = currentServiceFiles?.length || 0;
+
+        return (
+            <div
+                className="h-[auto] relative group flex flex-col"
+                style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
+            >
+                <div className="relative w-full aspect-[4/3]">
+                    {isLocal ? (
+                        <>
+                            <OptimizedImagePreview
+                                file={file.file}
+                                onClick={() => !file.is_deleted && handleImageClick(file.file, file)}
+                                alt="preview"
+                                isRestricted={userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
+                                className={`w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''}`}
+                                draggable={false}
+                            />
+                            {file.is_deleted && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 z-[30] gap-2">
+                                    <p className="text-white font-medium text-lg drop-shadow-lg uppercase mb-4">Deleted</p>
+                                    <Button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedFiles(prev =>
+                                                prev.map(f => {
+                                                    if (f.file === file.file && f.service_id === file.service_id) {
+                                                        return { ...f, is_deleted: false };
+                                                    }
+                                                    return f;
+                                                })
+                                            );
+                                        }}
+                                        className="bg-white text-black hover:bg-gray-100 h-7 px-3 text-[10px] font-bold rounded-full shadow-lg"
+                                    >
+                                        Restore
+                                    </Button>
+                                </div>
+                            )}
+                            <span
+                                className="cursor-pointer absolute top-2 left-2 z-10"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const fileKey = `${file.file.name}-${file.file.size}`;
+                                    handleToggleFeatured(fileKey, file.is_featured || false);
+                                }}
+                            >
+                                {file.is_featured ? (
+                                    <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
+                                ) : (
+                                    <Star className="w-6 h-6 text-gray-400 hover:text-yellow-400" />
+                                )}
+                            </span>
+                            {userType === 'admin' && reviewFilesEnabled && (
+                                <div
+                                    className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedFiles(prev =>
+                                            prev.map(f => {
+                                                if (f.file === file.file && f.service_id === file.service_id) {
+                                                    return { ...f, is_admin_approved: !f.is_admin_approved };
+                                                }
+                                                return f;
+                                            })
+                                        );
+                                    }}
+                                >
+                                    <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? 'bg-green-500 border-green-500' : 'bg-white border-gray-400'}`}>
+                                        {file.is_admin_approved && <Check color="white" size={12} />}
+                                    </div>
+                                    <span className="text-[10px] font-bold">Approved</span>
+                                </div>
+                            )}
+                            {userType !== 'agent' && (
+                                <span
+                                    className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
+                                    style={{
+                                        clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
+                                        backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
+                                    }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedFiles(prev =>
+                                            prev.map(f => {
+                                                if (f.file === file.file && f.service_id === file.service_id) {
+                                                    return { ...f, is_show: f.is_show === false ? true : false };
+                                                }
+                                                return f;
+                                            })
+                                        );
+                                    }}
+                                >
+                                    {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
+                                </span>
+                            )}
+                            {!file.is_deleted && (
+                                <div
+                                    className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-500 rounded-full p-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-300 z-[20] shadow-md hover:scale-110"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedFiles(prev =>
+                                            prev.map(f => {
+                                                if (f.file === file.file && f.service_id === file.service_id) {
+                                                    return { ...f, is_deleted: true };
+                                                }
+                                                return f;
+                                            })
+                                        );
+                                    }}
+                                >
+                                    <X color="white" size={14} strokeWidth={3} />
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            {(file.is_processing || !file.variant_urls?.thumb) ? (
+                                <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                                    <p className="text-gray-500 font-medium text-sm">Processing...</p>
+                                </div>
+                            ) : file.file_path.toLowerCase().endsWith('.pdf') ? (
+                                (userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
+                                    <PdfPlaceholder
+                                        className="w-full h-full object-contain cursor-pointer"
+                                        isRestricted={true}
+                                        onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
+                                    />
+                                ) : (
+                                    <div
+                                        className="relative w-full h-full cursor-pointer overflow-hidden"
+                                        onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
+                                    >
+                                        <iframe
+                                            src={`${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                                            className={`w-full h-full pointer-events-none border-none ${isDragging ? 'opacity-0' : 'opacity-100'}`}
+                                            tabIndex={-1}
+                                            scrolling="no"
+                                        />
+                                        <div className="absolute inset-0 bg-transparent" />
+                                    </div>
+                                )
+                            ) : (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                    src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
+                                    onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
+                                    alt="preview"
+                                    className={`w-full h-full object-cover cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                    draggable={false}
+                                />
+                            )}
+                            <span
+                                className="cursor-pointer absolute top-2 left-2 z-10"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFilesData(prev => {
+                                        if (!prev) return prev;
+                                        return {
+                                            ...prev,
+                                            files: prev.files.map(f => {
+                                                if (f.uuid === file.uuid) {
+                                                    setChangedFileUuids(prevSet => {
+                                                        const newSet = new Set(prevSet);
+                                                        newSet.add(f.uuid);
+                                                        return newSet;
+                                                    });
+                                                    return { ...f, is_featured: !f.is_featured };
+                                                }
+                                                if (f.service?.uuid === currentService?.uuid) {
+                                                    if (f.is_featured) {
+                                                        setChangedFileUuids(prevSet => {
+                                                            const newSet = new Set(prevSet);
+                                                            newSet.add(f.uuid);
+                                                            return newSet;
+                                                        });
+                                                    }
+                                                    return { ...f, is_featured: false };
+                                                }
+                                                return f;
+                                            })
+                                        };
+                                    });
+                                }}
+                            >
+                                {file.is_featured ? (
+                                    <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
+                                ) : (
+                                    <Star className="w-6 h-6 text-gray-400 hover:text-yellow-400" />
+                                )}
+                            </span>
+                            {userType === 'admin' && reviewFilesEnabled && (
+                                <div
+                                    className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFilesData(prev => {
+                                            if (!prev) return prev;
+                                            return {
+                                                ...prev,
+                                                files: prev.files.map(f => {
+                                                    if (f.uuid === file.uuid) {
+                                                        setChangedFileUuids(prevSet => {
+                                                            const newSet = new Set(prevSet);
+                                                            newSet.add(f.uuid);
+                                                            return newSet;
+                                                        });
+                                                        return { ...f, is_admin_approved: !f.is_admin_approved };
+                                                    }
+                                                    return f;
+                                                })
+                                            };
+                                        });
+                                    }}
+                                >
+                                    <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                        {file.is_admin_approved && <Check color="white" size={12} />}
+                                    </div>
+                                    <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
+                                </div>
+                            )}
+                            {userType === 'agent' && (
+                                <div
+                                    className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFilesData(prev => {
+                                            if (!prev) return prev;
+                                            return {
+                                                ...prev,
+                                                files: prev.files.map(f => {
+                                                    if (f.uuid === file.uuid) {
+                                                        setChangedFileUuids(prevSet => {
+                                                            const newSet = new Set(prevSet);
+                                                            newSet.add(f.uuid);
+                                                            return newSet;
+                                                        });
+                                                        return { ...f, is_agent_approved: !f.is_agent_approved };
+                                                    }
+                                                    return f;
+                                                })
+                                            };
+                                        });
+                                    }}
+                                >
+                                    <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
+                                        {file.is_agent_approved && <Check color="white" size={12} />}
+                                    </div>
+                                    <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
+                                </div>
+                            )}
+                            {userType !== 'agent' && (
+                                <span
+                                    className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
+                                    style={{
+                                        clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
+                                        backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
+                                    }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFilesData(prev => {
+                                            if (!prev) return prev;
+                                            return {
+                                                ...prev,
+                                                files: prev.files.map(f => {
+                                                    if (f.uuid === file.uuid) {
+                                                        setChangedFileUuids(prevSet => {
+                                                            const newSet = new Set(prevSet);
+                                                            newSet.add(f.uuid);
+                                                            return newSet;
+                                                        });
+                                                        return { ...f, is_show: f.is_show === false ? true : false };
+                                                    }
+                                                    return f;
+                                                })
+                                            };
+                                        });
+                                    }}
+                                >
+                                    {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
+                                </span>
+                            )}
+                        </>
+                    )}
+                </div>
+                <div
+                    className='grid grid-cols-2 gap-1 justify-between items-center px-1 py-1'
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)`, fontSize: imagesPerRow >= 6 ? '7px' : '9px' }}
+                >
+                    {/* <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{isLocal ? file.file.name : file.name}</p> */}
+                    <div className='col-span-2 flex items-center justify-between overflow-hidden'>
+                        <p className='text-[#8E8E8E] mt-1 flex items-center gap-1 truncate pr-1'><CopyableFileName name={isLocal ? (file.type || "Exterior") : (file.group || "Exterior")} /> ({idx + 1}{!isLocal ? ` of ${totalUploaded}` : ''})</p>
+                        {isLocal ? (
+                            <span className='flex shrink-0 cursor-not-allowed opacity-50' style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}>
+                                <DownloadIcon width='100%' height='100%' fill='#6BAE41' />
+                            </span>
+                        ) : (
+                            userType === 'agent' && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
+                                <span
+                                    onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
+                                    className="flex shrink-0 cursor-pointer hover:bg-gray-300 rounded" style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}
+                                >
+                                    <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
+                                </span>
+                            )
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }, [API_URL, currentBookedService?.payment_status, currentService?.uuid, currentServiceFiles?.length, fileItems, handleToggleFeatured, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setFilesData, setSelectedFiles, userType]);
+
+
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleAddPayment = (paymentData: any) => {
@@ -189,6 +587,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     };
 
     const handleSubmitToClient = async () => {
+        setFileManagerMode('upload');
         setMediaUploaded(true);
         if (onSave) {
             onSave();
@@ -232,27 +631,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         setImagePopupOpen(true);
     };
 
-    // Handler to toggle featured status - only one file can be featured at a time
-    const handleToggleFeatured = (fileUuid: string, currentFeaturedStatus: boolean) => {
-        // Update selectedFiles to mark/unmark featured
-        setSelectedFiles(prev =>
-            prev.map(f => {
-                // If this is the clicked file, toggle its featured status
-                if (f.service_id === currentService?.uuid) {
-                    const fileKey = `${f.file.name}-${f.file.size}`;
-                    const clickedFileKey = fileUuid;
 
-                    if (fileKey === clickedFileKey) {
-                        return { ...f, is_featured: !currentFeaturedStatus };
-                    } else {
-                        // Unmark all other files in this service
-                        return { ...f, is_featured: false };
-                    }
-                }
-                return f;
-            })
-        );
-    };
 
 
     useEffect(() => {
@@ -272,17 +651,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
 
     return (
         <div className="w-full">
-            {dragging && !isListing && userType !== 'agent' && (
-                <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center backdrop-blur-sm">
-                    <div className="bg-white/20 border-2 border-dashed border-white rounded-3xl p-20 flex flex-col items-center gap-6 animate-in zoom-in duration-300">
-                        <div className={`${userType}-bg p-6 rounded-full shadow-2xl`}>
-                            <DownloadIcon width="48px" height="48px" fill="#fff" />
-                        </div>
-                        <p className="text-3xl font-bold text-white tracking-wide">Drop files here to upload</p>
-                        <p className="text-white/80 text-lg">Support for images and high-quality photos</p>
-                    </div>
-                </div>
-            )}
+
 
             {!isListing && (
                 <div
@@ -291,7 +660,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 >
                     <div>
                         {userType !== 'agent' && (
-                            <div>
+                            <div className="flex gap-2 items-center">
                                 <Button
                                     onClick={handleFileInputClick}
                                     className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}
@@ -371,9 +740,28 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         )}
                         <PayInvoiceModal open={openPaymentModal} setOpen={setOpenPaymentModal} success={paymentSuccess} setSuccess={setPaymentSuccess} />
 
-                        {userType === 'admin' && (
-                            <div className="pl-4">
-                                {!success ? (
+                        <Button
+                            onClick={() => setOpenUpgrade(true)}
+                            className={`${userType}-bg h-[32px] w-auto px-[10px] flex justify-center items-center hover-${userType}-bg`}
+                        >
+                            Upgrade photo package
+                        </Button>
+                        <UpgradeServicePopup
+                            open={openUpgrade}
+                            setOpen={setOpenUpgrade}
+                            currentService={currentService}
+                            currentOption={currentBookedService?.option}
+                            orderData={orderData}
+                            currentBookedService={currentBookedService}
+                            onSuccess={() => window.location.reload()}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {userType === 'admin' && (
+                <div className="">
+                    {/* {!success ? (
                                     <Button
                                         onClick={() => setOpenPayment(true)}
                                         className={`${userType}-bg text-white hover-${userType}-bg cursor-pointer h-[32px]`}
@@ -387,35 +775,21 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         <CheckCircle2 className="w-5 h-5" />
                                         Payment Added
                                     </Button>
-                                )}
-                                <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
-                            </div>
-                        )}
-                    </div>
+                                )} */}
+                    <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
                 </div>
             )}
 
             {!isListing && (
-                <div className='p-4 flex justify-end'>
-                    <Button
-                        onClick={() => setOpenUpgrade(true)}
-                        className={`${userType}-bg h-[32px] w-auto px-[10px] flex justify-center items-center hover-${userType}-bg`}
-                    >
-                        Upgrade photo package
-                    </Button>
-                    <UpgradeServicePopup
-                        open={openUpgrade}
-                        setOpen={setOpenUpgrade}
-                        currentService={currentService}
-                        currentOption={currentBookedService?.option}
-                        orderData={orderData}
-                        currentBookedService={currentBookedService}
-                        onSuccess={() => window.location.reload()}
-                    />
+                <div className='p-4 flex justify-end items-center gap-4'>
+                    <div className="flex items-center gap-4">
+                        <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />
+                        <GridSizeToggle />
+                    </div>
                 </div>
             )}
 
-            <div className="p-4">
+            <div className="py-4">
                 <FilePreviewModal
                     type='HDR_photos'
                     open={open}
@@ -426,372 +800,17 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     reviewFilesEnabled={reviewFilesEnabled}
                 />
 
-                <Accordion type="multiple" defaultValue={['unsaved', 'saved']} className="w-full">
-                    {filesForService.length > 0 && (
-                        <AccordionItem value="unsaved">
-                            <AccordionTrigger
-                                className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EFEFEF), black 10%)` }}
-                            >
-                                <span className="flex items-center gap-2">
-                                    <span>Unsaved Images</span>
-                                    <span className="text-[11px] font-normal normal-case text-[#7D7D7D]">(Click save changes to upload media)</span>
-                                </span>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                <div
-                                    className="w-full grid grid-cols-4 gap-2 p-3"
-                                    style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
-                                >
-                                    {filesForService.map((file, idx) => (
-                                        <div
-                                            key={idx}
-                                            className="h-auto relative group"
-                                            style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
-                                        >
-                                            <div className="relative w-full h-[240px]">
-                                                <OptimizedImagePreview
-                                                    file={file.file}
-                                                    onClick={() => !file.is_deleted && handleImageClick(file.file, file)}
-                                                    alt="preview"
-                                                    isRestricted={userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
-                                                    className={`w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''}`}
-                                                    draggable={false}
-                                                />
-                                                {file.is_deleted && (
-                                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 z-[30] gap-2">
-                                                        <p className="text-white font-medium text-lg drop-shadow-lg uppercase mb-4">Deleted</p>
-                                                        <Button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setSelectedFiles(prev =>
-                                                                    prev.map(f => {
-                                                                        if (f.file === file.file && f.service_id === file.service_id) {
-                                                                            return { ...f, is_deleted: false };
-                                                                        }
-                                                                        return f;
-                                                                    })
-                                                                );
-                                                            }}
-                                                            className="bg-white text-black hover:bg-gray-100 h-7 px-3 text-[10px] font-bold rounded-full shadow-lg"
-                                                        >
-                                                            Restore
-                                                        </Button>
-                                                    </div>
-                                                )}
-                                                <span
-                                                    className="cursor-pointer absolute top-2 left-2 z-10"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        const fileKey = `${file.file.name}-${file.file.size}`;
-                                                        handleToggleFeatured(fileKey, file.is_featured || false);
-                                                    }}
-                                                >
-                                                    {file.is_featured ? (
-                                                        <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
-                                                    ) : (
-                                                        <Star className="w-6 h-6 text-gray-400 hover:text-yellow-400" />
-                                                    )}
-                                                </span>
-                                                {userType === 'admin' && reviewFilesEnabled && (
-                                                    <div
-                                                        className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setSelectedFiles(prev =>
-                                                                prev.map(f => {
-                                                                    if (f.file === file.file && f.service_id === file.service_id) {
-                                                                        return { ...f, is_admin_approved: !f.is_admin_approved };
-                                                                    }
-                                                                    return f;
-                                                                })
-                                                            );
-                                                        }}
-                                                    >
-                                                        <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? 'bg-green-500 border-green-500' : 'bg-white border-gray-400'}`}>
-                                                            {file.is_admin_approved && <Check color="white" size={12} />}
-                                                        </div>
-                                                        <span className="text-[10px] font-bold">Approved</span>
-                                                    </div>
-                                                )}
-                                                {userType !== 'agent' && (
-                                                    <span
-                                                        className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
-                                                        style={{
-                                                            clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                                            backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
-                                                        }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setSelectedFiles(prev =>
-                                                                prev.map(f => {
-                                                                    if (f.file === file.file && f.service_id === file.service_id) {
-                                                                        return { ...f, is_show: f.is_show === false ? true : false };
-                                                                    }
-                                                                    return f;
-                                                                })
-                                                            );
-                                                        }}
-                                                    >
-                                                        {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
-                                                    </span>
-                                                )}
-                                                {!file.is_deleted && (
-                                                    <div
-                                                        className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-500 rounded-full p-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-300 z-[20] shadow-md hover:scale-110"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setSelectedFiles(prev =>
-                                                                prev.map(f => {
-                                                                    if (f.file === file.file && f.service_id === file.service_id) {
-                                                                        return { ...f, is_deleted: true };
-                                                                    }
-                                                                    return f;
-                                                                })
-                                                            );
-                                                        }}
-                                                    >
-                                                        <X color="white" size={14} strokeWidth={3} />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div
-                                                className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 text-[9px]'
-                                                style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
-                                            >
-                                                <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{file.file.name}</p>
-                                                <div className='col-span-2 flex items-center justify-between'>
-                                                    <p className='text-[#8E8E8E] mt-1 flex items-center gap-1'><CopyableFileName name={file.type || "Exterior"} /> ({idx + 1})</p>
-                                                    <span className='flex w-[24px] h-[24px] cursor-not-allowed opacity-50'>
-                                                        <DownloadIcon width='24px' height='24px' fill='#6BAE41' />
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    )}
-
-                    <AccordionItem value="saved">
-                        <AccordionTrigger
-                            className={`px-[14px] pb-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                            style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EFEFEF), black 20%)` }}
-                        >
-                            Saved Images
-                        </AccordionTrigger>
-                        <AccordionContent>
-                            {(currentServiceFiles?.length ?? 0) > 0 ? (
-                                <div
-                                    className="w-full grid grid-cols-4 gap-2 p-3"
-                                    style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
-                                >
-                                    {currentServiceFiles?.map((file, idx) => (
-                                        <div
-                                            key={idx}
-                                            className="h-auto relative group"
-                                            style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
-                                        >
-                                            <div className="relative w-full h-[240px]">
-                                                {file.is_processing ? (
-                                                    <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
-                                                        <p className="text-gray-500 font-medium text-sm">Processing...</p>
-                                                    </div>
-                                                ) : file.file_path.toLowerCase().endsWith('.pdf') ? (
-                                                    (userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
-                                                        <PdfPlaceholder
-                                                            className="w-full h-full object-contain cursor-pointer"
-                                                            isRestricted={true}
-                                                            onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
-                                                        />
-                                                    ) : (
-                                                        <div
-                                                            className="relative w-full h-full cursor-pointer overflow-hidden"
-                                                            onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
-                                                        >
-                                                            <iframe
-                                                                src={`${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                                                                className="w-full h-full pointer-events-none border-none"
-                                                                tabIndex={-1}
-                                                                scrolling="no"
-                                                            />
-                                                            <div className="absolute inset-0 bg-transparent" />
-                                                        </div>
-                                                    )
-                                                ) : (
-                                                    // eslint-disable-next-line @next/next/no-img-element
-                                                    <img
-                                                        src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
-                                                        onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
-                                                        alt="preview"
-                                                        className={`w-full h-full object-cover cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
-                                                        draggable={false}
-                                                    />
-                                                )}
-                                                <span
-                                                    className="cursor-pointer absolute top-2 left-2 z-10"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setFilesData(prev => {
-                                                            if (!prev) return prev;
-                                                            return {
-                                                                ...prev,
-                                                                files: prev.files.map(f => {
-                                                                    if (f.uuid === file.uuid) {
-                                                                        setChangedFileUuids(prevSet => {
-                                                                            const newSet = new Set(prevSet);
-                                                                            newSet.add(f.uuid);
-                                                                            return newSet;
-                                                                        });
-                                                                        return { ...f, is_featured: !f.is_featured };
-                                                                    }
-                                                                    if (f.service?.uuid === currentService?.uuid) {
-                                                                        if (f.is_featured) {
-                                                                            setChangedFileUuids(prevSet => {
-                                                                                const newSet = new Set(prevSet);
-                                                                                newSet.add(f.uuid);
-                                                                                return newSet;
-                                                                            });
-                                                                        }
-                                                                        return { ...f, is_featured: false };
-                                                                    }
-                                                                    return f;
-                                                                })
-                                                            };
-                                                        });
-                                                    }}
-                                                >
-                                                    {file.is_featured ? (
-                                                        <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
-                                                    ) : (
-                                                        <Star className="w-6 h-6 text-gray-400 hover:text-yellow-400" />
-                                                    )}
-                                                </span>
-                                                {userType === 'admin' && reviewFilesEnabled && (
-                                                    <div
-                                                        className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setFilesData(prev => {
-                                                                if (!prev) return prev;
-                                                                return {
-                                                                    ...prev,
-                                                                    files: prev.files.map(f => {
-                                                                        if (f.uuid === file.uuid) {
-                                                                            setChangedFileUuids(prevSet => {
-                                                                                const newSet = new Set(prevSet);
-                                                                                newSet.add(f.uuid);
-                                                                                return newSet;
-                                                                            });
-                                                                            return { ...f, is_admin_approved: !f.is_admin_approved };
-                                                                        }
-                                                                        return f;
-                                                                    })
-                                                                };
-                                                            });
-                                                        }}
-                                                    >
-                                                        <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_admin_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                                            {file.is_admin_approved && <Check color="white" size={12} />}
-                                                        </div>
-                                                        <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
-                                                    </div>
-                                                )}
-                                                {userType === 'agent' && (
-                                                    <div
-                                                        className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setFilesData(prev => {
-                                                                if (!prev) return prev;
-                                                                return {
-                                                                    ...prev,
-                                                                    files: prev.files.map(f => {
-                                                                        if (f.uuid === file.uuid) {
-                                                                            setChangedFileUuids(prevSet => {
-                                                                                const newSet = new Set(prevSet);
-                                                                                newSet.add(f.uuid);
-                                                                                return newSet;
-                                                                            });
-                                                                            return { ...f, is_agent_approved: !f.is_agent_approved };
-                                                                        }
-                                                                        return f;
-                                                                    })
-                                                                };
-                                                            });
-                                                        }}
-                                                    >
-                                                        <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
-                                                            {file.is_agent_approved && <Check color="white" size={12} />}
-                                                        </div>
-                                                        <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
-                                                    </div>
-                                                )}
-                                                {userType !== 'agent' && (
-                                                    <span
-                                                        className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
-                                                        style={{
-                                                            clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                                            backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
-                                                        }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setFilesData(prev => {
-                                                                if (!prev) return prev;
-                                                                return {
-                                                                    ...prev,
-                                                                    files: prev.files.map(f => {
-                                                                        if (f.uuid === file.uuid) {
-                                                                            setChangedFileUuids(prevSet => {
-                                                                                const newSet = new Set(prevSet);
-                                                                                newSet.add(f.uuid);
-                                                                                return newSet;
-                                                                            });
-                                                                            return { ...f, is_show: f.is_show === false ? true : false };
-                                                                        }
-                                                                        return f;
-                                                                    })
-                                                                };
-                                                            });
-                                                        }}
-                                                    >
-                                                        {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div
-                                                className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 text-[9px]'
-                                                style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
-                                            >
-                                                <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{file.name}</p>
-                                                <div className='col-span-2 flex items-center justify-between'>
-                                                    <p className='text-[#8E8E8E] mt-1 flex items-center gap-1'><CopyableFileName name={file.group || "Exterior"} /> ({idx + 1} of {currentServiceFiles.length})</p>
-                                                    {userType === 'agent' && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
-                                                        <span
-                                                            onClick={() => handledownloadFile(file.uuid, file.name)}
-                                                            className="flex w-[24px] h-[24px] cursor-pointer hover:bg-gray-300"
-                                                        >
-                                                            <DownloadIcon width="24px" height="24px" fill="#6BAE41" />
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="p-4 text-center text-gray-500">No saved images found.</div>
-                            )}
-                        </AccordionContent>
-                    </AccordionItem>
-                </Accordion>
-
-                {userType !== 'agent' && (
-                    <div className='w-full flex justify-center items-center mt-8'>
-                        <FileUploader onFilesChange={handleFilesChange} />
-                    </div>
-                )}
+                <div className="mt-4">
+                    <DualModeFileManager
+                        mode={fileManagerMode}
+                        items={fileItems}
+                        onItemsChange={handleFileItemsChange}
+                        onDropFiles={handleDropFiles}
+                        onClickUpload={handleFileInputClick}
+                        renderItem={renderFileItem}
+                        disabled={userType === 'agent'}
+                    />
+                </div>
 
                 <PhotoPreviewModal
                     open={imagePopupOpen}

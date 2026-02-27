@@ -65,6 +65,7 @@ const FileManager = () => {
     setDelay,
     changedFileUuids,
     setChangedFileUuids,
+    setFileManagerMode
   } = useFileManagerContext();
   const headerRef = useRef<HTMLDivElement>(null);
   const { startUpload } = useGlobalFileUpload();
@@ -427,6 +428,7 @@ const FileManager = () => {
 
 
   async function handleUpload() {
+    setFileManagerMode('upload');
     const token = localStorage.getItem("token");
     if (!token) return;
 

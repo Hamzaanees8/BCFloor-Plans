@@ -27,8 +27,10 @@ import { SaveModal } from "@/components/SaveModal";
 import RichTextEditor from "./RichTextEditor";
 import { useAppContext } from "@/app/context/AppContext";
 import { sendEmailNotification } from "../calendar";
-const templateOptions = [
-  { id: "schedule_change", name: "Your upcoming appointment has changed" },
+import { EmailTemplate } from "@/app/dashboard/global-settings/templates";
+
+const fallbackTemplateOptions = [
+  { id: "schedule_change", name: "Your upcoming appointment has changed", uuid: "schedule_change" },
 ];
 export const templateHTMLs: Record<string, string> = {
   schedule_change: `
@@ -213,6 +215,34 @@ const NotificationModal: React.FC<Props> = ({
     typeof coAgentsVendor
   >([]);
   const [isSendingEmails, setIsSendingEmails] = useState(false);
+  const [dbTemplates, setDbTemplates] = useState<EmailTemplate[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      try {
+        const localData = localStorage.getItem("emailTemplates");
+        const fetchedTemplates: EmailTemplate[] = localData ? JSON.parse(localData) : [];
+        setDbTemplates(fetchedTemplates);
+
+        if (fetchedTemplates.length > 0) {
+          const defaultTemplate = fetchedTemplates[0];
+          setSelectedAgentTemplate(defaultTemplate.uuid);
+          handleAgentTemplateChange(defaultTemplate.uuid, fetchedTemplates);
+          setSelectedVendorTemplate(defaultTemplate.uuid);
+          handleVendorTemplateChange(defaultTemplate.uuid, fetchedTemplates);
+        } else {
+          setSelectedAgentTemplate("schedule_change");
+          handleAgentTemplateChange("schedule_change", []);
+          setSelectedVendorTemplate("schedule_change");
+          handleVendorTemplateChange("schedule_change", []);
+        }
+      } catch (err) {
+        console.error("Failed to parse local templates:", err);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   useEffect(() => {
     if (openAddCoAgentDialog) {
       const token = localStorage.getItem("token");
@@ -230,20 +260,12 @@ const NotificationModal: React.FC<Props> = ({
         .catch((err) => console.log("Error fetching data:", err.message));
     }
   }, [openAddCoAgentDialog]);
-  useEffect(() => {
-    if (open) {
-      setSelectedAgentTemplate("schedule_change");
-      handleAgentTemplateChange("schedule_change");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-  useEffect(() => {
-    if (open) {
-      setSelectedVendorTemplate("schedule_change");
-      handleVendorTemplateChange("schedule_change");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  // Handled fetching templates in the single useEffect above.
+  const allTemplateOptions = [
+    ...dbTemplates.map((t) => ({ id: t.uuid, name: t.name, uuid: t.uuid })),
+    ...fallbackTemplateOptions,
+  ];
+
   const handleNext = () => {
     setShowAgentModal?.(false);
     setShowVendorModal?.(true);
@@ -290,9 +312,9 @@ const NotificationModal: React.FC<Props> = ({
             sendEmailNotification(
               {
                 to: email,
-                subject: selectedAgentTemplate
-                  .replace(/_/g, " ")
-                  .replace(/\b\w/g, (l) => l.toUpperCase()),
+                subject: selectedAgentTemplate === "schedule_change"
+                  ? "Schedule Change"
+                  : dbTemplates.find(t => t.uuid === selectedAgentTemplate)?.type || "Notification",
                 html: descriptionAgent,
               },
               token,
@@ -338,9 +360,9 @@ const NotificationModal: React.FC<Props> = ({
             sendEmailNotification(
               {
                 to: email,
-                subject: selectedVendorTemplate
-                  .replace(/_/g, " ")
-                  .replace(/\b\w/g, (l) => l.toUpperCase()),
+                subject: selectedVendorTemplate === "schedule_change"
+                  ? "Schedule Change"
+                  : dbTemplates.find(t => t.uuid === selectedVendorTemplate)?.type || "Notification",
                 html: descriptionVendor,
               },
               token,
@@ -530,18 +552,28 @@ const NotificationModal: React.FC<Props> = ({
     return `${hour}:${min} ${ampm}`;
   }
 
-  const handleAgentTemplateChange = (val: string) => {
+  const handleAgentTemplateChange = (val: string, templatesList: EmailTemplate[] = dbTemplates) => {
     setSelectedAgentTemplate(val);
-    const html = templateHTMLs[val];
-    if (html) {
-      setDescriptionAgent(fillTemplate(html));
+    const dbMatch = templatesList.find(t => t.uuid === val);
+    if (dbMatch) {
+      setDescriptionAgent(fillTemplate(dbMatch.html_content));
+    } else {
+      const html = templateHTMLs[val];
+      if (html) {
+        setDescriptionAgent(fillTemplate(html));
+      }
     }
   };
-  const handleVendorTemplateChange = (val: string) => {
+  const handleVendorTemplateChange = (val: string, templatesList: EmailTemplate[] = dbTemplates) => {
     setSelectedVendorTemplate(val);
-    const html = templateHTMLs2[val];
-    if (html) {
-      setDescriptionVendor(fillTemplate(html));
+    const dbMatch = templatesList.find(t => t.uuid === val);
+    if (dbMatch) {
+      setDescriptionVendor(fillTemplate(dbMatch.html_content));
+    } else {
+      const html = templateHTMLs2[val];
+      if (html) {
+        setDescriptionVendor(fillTemplate(html));
+      }
     }
   };
   const removeAdmin = () => setAdminEmail("");
@@ -641,8 +673,8 @@ const NotificationModal: React.FC<Props> = ({
               </span>
             </SelectTrigger>
             <SelectContent>
-              {templateOptions.map((option) => (
-                <SelectItem key={option.id} value={option.id}>
+              {allTemplateOptions.map((option) => (
+                <SelectItem key={option.id} value={option.uuid}>
                   {option.name}
                 </SelectItem>
               ))}
@@ -661,8 +693,8 @@ const NotificationModal: React.FC<Props> = ({
               </span>
             </SelectTrigger>
             <SelectContent>
-              {templateOptions.map((option) => (
-                <SelectItem key={option.id} value={option.id}>
+              {allTemplateOptions.map((option) => (
+                <SelectItem key={option.id} value={option.uuid}>
                   {option.name}
                 </SelectItem>
               ))}
@@ -1247,8 +1279,8 @@ const NotificationModal: React.FC<Props> = ({
           onClose={() => setOpenSave(false)}
           // isLoading={true}
           isSuccess={true}
-          // backLink="/dashboard/agents"
-          // title={'Agents'}
+        // backLink="/dashboard/agents"
+        // title={'Agents'}
         />
       </AlertDialog>
     </AlertDialog>

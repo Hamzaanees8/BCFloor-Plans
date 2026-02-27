@@ -225,7 +225,7 @@ function TourFloorPlans({ type = "" }) {
           onDragOver={(e) => e.preventDefault()}
           className={`relative w-[70%]  h-full bg-white overflow-hidden ${type === "confirm" ? "m-auto" : ""}`}
         >
-          {selectedApiFile?.is_processing ? (
+          {(selectedApiFile?.is_processing || (selectedApiFile && !selectedApiFile.variant_urls?.thumb)) ? (
             <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
               <p className="text-gray-500 font-medium text-sm">Processing...</p>
             </div>
@@ -412,7 +412,7 @@ function TourFloorPlans({ type = "" }) {
                 className={`w-[200px] h-[100px] flex items-center rounded-[6px] justify-center cursor-pointer ${selectedImageId === file.name ? "border-2 border-[#4290E9]" : ""}`}
               >
                 <div className="relative border border-gray-200 rounded-[6px] w-full h-full flex items-center justify-center">
-                  {file.is_processing ? (
+                  {(file.is_processing || !file.variant_urls?.thumb) ? (
                     <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                       <p className="text-gray-500 font-medium text-xs">Processing...</p>
                     </div>

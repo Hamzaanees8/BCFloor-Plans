@@ -14,7 +14,6 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     return (
         <div className="[&_.sun-editor]:min-h-[600px]">
             <SunEditor
-                key={value}
                 defaultValue={value}
                 onChange={onChange}
                 setOptions={{

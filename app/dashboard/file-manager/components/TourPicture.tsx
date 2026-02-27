@@ -185,7 +185,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                   {currentTourPhotos?.map((file, idx) => (
                     <div key={idx} className="bg-[#BBBBBB] h-auto relative">
                       <div className="relative w-full h-[240px]">
-                        {file.is_processing ? (
+                        {(file.is_processing || !file.variant_urls?.thumb) ? (
                           <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                             <p className="text-gray-500 font-medium text-sm">Processing...</p>
                           </div>

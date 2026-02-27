@@ -237,18 +237,27 @@ export default function FilePreviewModal({
   }, []);
 
   const handleAdd = useCallback(() => {
-    const filesToAdd = localFiles.map((file, index) => ({
-      file,
-      type: mediaTypes[index] || "",
-      group: selectedIndexes.includes(index) ? groupLabel : "",
-      upload: true,
-      service_id: serviceUuid,
-      is_admin_approved:
-        userType === 'admin' ? true : !reviewFilesEnabled,
-      is_show: true,
-    }));
+    const existingServiceFilesCount = filesData?.files?.filter(f => f.service?.uuid === serviceUuid).length || 0;
 
-    setSelectedFiles(prev => [...prev, ...filesToAdd]);
+    setSelectedFiles(prev => {
+      const unuploadedServiceFilesCount = prev.filter(f => f.service_id === serviceUuid).length;
+      const totalExistingForService = existingServiceFilesCount + unuploadedServiceFilesCount;
+
+      const filesToAdd = localFiles.map((file, index) => ({
+        file,
+        type: mediaTypes[index] || "",
+        group: selectedIndexes.includes(index) ? groupLabel : "",
+        upload: true,
+        service_id: serviceUuid,
+        is_admin_approved:
+          userType === 'admin' ? true : !reviewFilesEnabled,
+        is_show: true,
+        sort_order: totalExistingForService + index,
+      }));
+
+      return [...prev, ...filesToAdd];
+    });
+
     onOpenChange(false);
   }, [
     localFiles,
@@ -260,6 +269,7 @@ export default function FilePreviewModal({
     reviewFilesEnabled,
     setSelectedFiles,
     onOpenChange,
+    filesData,
   ]);
 
   return (

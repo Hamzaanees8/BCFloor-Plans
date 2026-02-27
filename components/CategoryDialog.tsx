@@ -1,7 +1,7 @@
-// components/ConfirmationDialog.tsx
+// components/CategoryDialog.tsx
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import {
     Dialog,
     DialogContent,
@@ -13,7 +13,7 @@ import { X } from "lucide-react"
 import { Input } from "./ui/input"
 import { Textarea } from "./ui/textarea"
 import { toast } from "sonner"
-import { CreateCategory } from "@/app/dashboard/services/services"
+import { CreateCategory, UpdateCategory } from "@/app/dashboard/services/services"
 import { CategoriesData } from "@/app/dashboard/services/create/page"
 import { Button } from "./ui/button"
 import { Switch } from "./ui/switch"
@@ -25,13 +25,20 @@ type Props = {
     setOpen: (value: boolean) => void
     onSuccess?: () => void;
     setCategoriesData?: React.Dispatch<React.SetStateAction<CategoriesData[] | null>>;
+    editData?: CategoriesData | null;
+    onEditSuccess?: (updated: CategoriesData) => void;
 }
+
 const CategoryDialog: React.FC<Props> = ({
     open,
     setOpen,
-    setCategoriesData
+    setCategoriesData,
+    editData,
+    onEditSuccess,
 }) => {
     const { userType } = useAppContext();
+    const isEdit = !!editData;
+
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
@@ -41,14 +48,39 @@ const CategoryDialog: React.FC<Props> = ({
         fixed: false,
         area: false,
     });
+    const [duration, setDuration] = useState(false);
+    const [addOns, setAddOns] = useState(false);
+
+    // Pre-populate fields when editing
+    useEffect(() => {
+        if (editData) {
+            setName(editData.name || "");
+            setDescription(editData.description || "");
+            const typeArr: string[] = Array.isArray(editData.type) ? editData.type : [];
+            setTypes({
+                quantity: typeArr.includes("quantity"),
+                fixed: typeArr.includes("fixed"),
+                area: typeArr.includes("area"),
+            });
+            setDuration(!!editData.duration);
+            setAddOns(!!editData.add_ons);
+        } else {
+            setName("");
+            setDescription("");
+            setTypes({ quantity: false, fixed: false, area: false });
+            setDuration(false);
+            setAddOns(false);
+        }
+        setFieldErrors({});
+    }, [editData, open]);
+
     function toggleType(type: string) {
         setTypes(prev => ({
             ...prev,
             [type]: !prev[type],
         }));
     }
-    const [duration, setDuration] = useState(false);
-    const [addOns, setAddOns] = useState(false);
+
     const handleSubmit = async () => {
         try {
             setIsLoading(true);
@@ -58,30 +90,30 @@ const CategoryDialog: React.FC<Props> = ({
                 name,
                 type: Object.keys(types).filter((key) => types[key]),
                 duration: duration ? 1 : 0,
-                add_ons: addOns ? 1 : 0
+                add_ons: addOns ? 1 : 0,
             };
-            const result = await CreateCategory(payload, token);
-            if (result.status) {
+
+            if (isEdit && editData?.uuid) {
+                const result = await UpdateCategory(payload, token, editData.uuid);
+                toast.success("Category updated successfully");
+                setOpen(false);
+                if (onEditSuccess) onEditSuccess(result.data);
+            } else {
+                const result = await CreateCategory(payload, token);
                 toast.success("Category created successfully");
-                console.log("Category created successfully:", result);
-                setOpen(false)
+                setOpen(false);
                 if (setCategoriesData) {
                     setCategoriesData((prev) => [...(prev || []), result.data]);
                 }
                 setName("");
                 setDescription("");
-                setTypes({
-                    quantity: false,
-                    fixed: false,
-                    area: false,
-                });
+                setTypes({ quantity: false, fixed: false, area: false });
                 setDuration(false);
-                setIsLoading(false)
+                setAddOns(false);
             }
-
+            setIsLoading(false);
         } catch (error) {
-            setIsLoading(false)
-            console.log("Raw error:", error);
+            setIsLoading(false);
             setFieldErrors({});
             const apiError = error as {
                 message?: string;
@@ -90,7 +122,6 @@ const CategoryDialog: React.FC<Props> = ({
 
             if (apiError.errors && typeof apiError.errors === "object") {
                 const normalizedErrors: Record<string, string[]> = {};
-
                 Object.entries(apiError.errors).forEach(([key, messages]) => {
                     const normalizedKey = key.split(".")[0];
                     if (!normalizedErrors[normalizedKey]) {
@@ -98,19 +129,16 @@ const CategoryDialog: React.FC<Props> = ({
                     }
                     normalizedErrors[normalizedKey].push(...messages);
                 });
-
                 setFieldErrors(normalizedErrors);
-
                 const firstError = Object.values(normalizedErrors).flat()[0];
                 toast.error(firstError || "Validation error");
             } else if (error instanceof Error) {
                 toast.error(error.message);
             } else {
-                toast.error("Failed to submit user data");
+                toast.error("Failed to submit category data");
             }
         }
     };
-    console.log('addOns', addOns);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -120,7 +148,7 @@ const CategoryDialog: React.FC<Props> = ({
             >
                 <DialogHeader>
                     <DialogTitle className="flex items-center justify-between text-[#4290E9] text-[18px] font-[600]">
-                        Add New Service Category
+                        {isEdit ? "Edit Service Category" : "Add New Service Category"}
                         <Button variant="ghost" className="p-0 h-auto hover:bg-transparent" onClick={() => setOpen(false)}>
                             <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
                         </Button>
@@ -145,7 +173,6 @@ const CategoryDialog: React.FC<Props> = ({
                             <Textarea placeholder="Enter category description" value={description} onChange={(e) => { setDescription(e.target.value) }} className="h-[150px] border-[1px] border-[#BBBBBB] bg-[#EEEEEE] resize-none" />
                             {fieldErrors.description && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.description[0]}</p>}
                         </div>
-                        {/* <div className='col-span-3 flex flex-col'> */}
                         <label className="">Type <span className="text-red-500">*</span></label>
                         <div className="">
                             <div className="flex flex-col gap-3">
@@ -162,20 +189,6 @@ const CategoryDialog: React.FC<Props> = ({
                                     <Label>Area Base</Label>
                                 </div>
                             </div>
-
-                            {/* <Select
-                                value={type}
-                                onValueChange={(value) => setType(value)}
-                            >
-                                <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border border-[#BBBBBB]">
-                                    <SelectValue placeholder="Select Category Type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={`quantity`}>Quantity Base</SelectItem>
-                                    <SelectItem value={`fixed`}>Fixed Price</SelectItem>
-                                    <SelectItem value={`area`}>Area Base</SelectItem>
-                                </SelectContent>
-                            </Select> */}
                             {fieldErrors.category_type && (
                                 <p className="text-red-500 text-[10px] mt-1">
                                     {fieldErrors.category_type[0]}
@@ -197,10 +210,9 @@ const CategoryDialog: React.FC<Props> = ({
                                 onCheckedChange={setAddOns}
                                 className=' data-[state=checked]:bg-[#6BAE41]' />
                         </div>
-                        {/* </div> */}
                     </div>
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
-                    <DialogFooter className="flex flex-col md:flex-row md:justify-between gap-[5px]  mt-2 font-alexandria">
+                    <DialogFooter className="flex flex-col md:flex-row md:justify-between gap-[5px] mt-2 font-alexandria">
                         <Button
                             onClick={() => setOpen(false)}
                             className="bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]">
@@ -231,14 +243,13 @@ const CategoryDialog: React.FC<Props> = ({
                                     <span className="sr-only">Loading...</span>
                                 </div>
                             ) : (
-                                "Save"
+                                isEdit ? "Update" : "Save"
                             )}
                         </Button>
-
                     </DialogFooter>
                 </div>
             </DialogContent>
-        </Dialog >
+        </Dialog>
     )
 }
 

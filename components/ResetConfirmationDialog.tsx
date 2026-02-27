@@ -65,6 +65,7 @@ const ResetConfirmationDialog: React.FC<Props> = ({
 
                 <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[10px] mt-4 font-alexandria">
                     <Button
+                        type="button"
                         onClick={() => setOpen(false)}
                         className="bg-white w-full md:w-[170px] h-[44px] text-[18px] md:text-[20px] font-[400] border hover:bg-gray-50 flex items-center justify-center transition-all shadow-none outline-none"
                         style={{
@@ -75,6 +76,7 @@ const ResetConfirmationDialog: React.FC<Props> = ({
                         Cancel
                     </Button>
                     <Button
+                        type="button"
                         disabled={isLoading}
                         className="text-white w-full md:w-[170px] h-[44px] font-[400] text-[18px] md:text-[20px] hover:opacity-90 transition-all border-none flex items-center justify-center shadow-none outline-none"
                         style={{ backgroundColor: currentSettings.pageTabColor }}

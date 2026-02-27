@@ -40,6 +40,7 @@ export interface ConfirmUploadRequest {
         is_admin_approved?: boolean;
         is_agent_approved?: boolean;
         is_show?: boolean;
+        sort_order?: number;
     }[];
 }
 

@@ -244,9 +244,10 @@ const Settings = () => {
                         <div className="flex flex-col gap-2">
                             <div className="flex gap-2 items-center">
                                 <Button
+                                    type="button"
                                     variant="outline"
                                     onClick={() => logoRef.current?.click()}
-                                    className="w-full h-[42px] border-[#BBBBBB] flex gap-2 items-center"
+                                    className="w-full h-[42px] border-[#BBBBBB] flex gap-[5px] items-center"
                                 >
                                     <Upload className="h-4 w-4" />
                                     {currentSettings.logo ? 'Change Logo' : 'Upload Logo'}
@@ -260,6 +261,7 @@ const Settings = () => {
                                 />
                                 {currentSettings.logo && (
                                     <Button
+                                        type="button"
                                         variant="outline"
                                         onClick={() => updateSetting('logo', '')}
                                         className="h-[42px] border-red-200 text-red-600 hover:bg-red-50 px-3"
@@ -287,9 +289,10 @@ const Settings = () => {
                     </div>
                     <div className="pt-4  border-t border-gray-200">
                         <Button
+                            type="button"
                             variant="outline"
                             className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                            onClick={() => setIsResetDialogOpen(true)}
+                            onClick={(e) => { e.preventDefault(); setIsResetDialogOpen(true); }}
                         >
                             Reset to Default
                         </Button>
