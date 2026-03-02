@@ -8,8 +8,9 @@ import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import DropdownActions from "./DropdownActions";
-import { EmailTemplate } from "@/app/dashboard/global-settings/templates";
+import { EmailTemplate, GetTemplates, DeleteTemplate, UpdateTemplate } from "@/app/dashboard/global-settings/templates";
 import AddTemplateDialog from "./AddTemplateDialog";
+import { DateTime } from "luxon";
 
 const EmailTemplatesSettings = () => {
     const { userType } = useAppContext();
@@ -20,17 +21,22 @@ const EmailTemplatesSettings = () => {
     const [templates, setTemplates] = useState<EmailTemplate[]>([]);
     const [openAddDialog, setOpenAddDialog] = useState(false);
     const [templateToEdit, setTemplateToEdit] = useState<EmailTemplate | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    const fetchTemplates = useCallback(() => {
+    const fetchTemplates = useCallback(async () => {
+        setLoading(true);
         try {
-            const localData = localStorage.getItem("emailTemplates");
-            if (localData) {
-                setTemplates(JSON.parse(localData));
+            const res = await GetTemplates();
+            if (res.success && res.data) {
+                setTemplates(res.data);
             } else {
                 setTemplates([]);
             }
         } catch (err) {
             console.error(err);
+            toast.error("Failed to load templates");
+        } finally {
+            setLoading(false);
         }
     }, []);
 
@@ -40,57 +46,69 @@ const EmailTemplatesSettings = () => {
 
     const handleDelete = async (uuid: string) => {
         try {
-            const localData = localStorage.getItem("emailTemplates");
-            if (localData) {
-                let currentTemplates: EmailTemplate[] = JSON.parse(localData);
-                currentTemplates = currentTemplates.filter(t => t.uuid !== uuid);
-                localStorage.setItem("emailTemplates", JSON.stringify(currentTemplates));
-                setTemplates(currentTemplates);
+            const res = await DeleteTemplate(uuid);
+            if (res.success !== false) {
+                setTemplates((prev) => prev.filter(t => t.uuid !== uuid));
+                toast.success("Template deleted successfully");
+            } else {
+                toast.error(res.message || "Failed to delete template");
             }
-            toast.success("Template deleted successfully");
         } catch {
             toast.error("Failed to delete template");
         }
     };
 
-    const handleToggleStatus = (uuid: string, currentStatus: boolean) => {
+    const handleToggleStatus = async (uuid: string, currentStatus: boolean) => {
+        const newStatus = !currentStatus;
         try {
-            const localData = localStorage.getItem("emailTemplates");
-            if (localData) {
-                let currentTemplates: EmailTemplate[] = JSON.parse(localData);
-                currentTemplates = currentTemplates.map(t =>
-                    t.uuid === uuid ? { ...t, status: !currentStatus } : t
-                );
-                localStorage.setItem("emailTemplates", JSON.stringify(currentTemplates));
-                setTemplates(currentTemplates);
+            // Optimistic update
+            setTemplates((prev) => prev.map(t => t.uuid === uuid ? { ...t, is_active: newStatus } : t));
+
+            const res = await UpdateTemplate(uuid, { is_active: newStatus });
+            if (res.success !== false) {
                 toast.success("Template status updated");
+            } else {
+                // Revert on failure
+                setTemplates((prev) => prev.map(t => t.uuid === uuid ? { ...t, is_active: currentStatus } : t));
+                toast.error(res.message || "Failed to update status");
             }
         } catch {
+            // Revert on failure
+            setTemplates((prev) => prev.map(t => t.uuid === uuid ? { ...t, is_active: currentStatus } : t));
             toast.error("Failed to update status");
         }
     };
 
     const columns: ColumnDef<EmailTemplate>[] = [
         {
-            accessorKey: "name",
-            header: "NAME",
-            cell: ({ row }) => <div className="text-[#666666]">{row.getValue("name")}</div>,
+            accessorKey: "sort_order",
+            header: "ORDER",
+            cell: ({ row }) => <div className="text-[#666666]">{row.getValue("sort_order") ?? "-"}</div>,
+        },
+        {
+            accessorKey: "title",
+            header: "TITLE",
+            cell: ({ row }) => <div className="text-[#666666]">{row.getValue("title")}</div>,
         },
         {
             accessorKey: "type",
             header: "TYPE",
-            cell: ({ row }) => <div className="text-[#666666]">{row.getValue("type")}</div>,
+            cell: ({ row }) => <div className="text-[#666666]">{row.getValue("type") || "-"}</div>,
         },
         {
-            accessorKey: "date",
-            header: "DATE",
-            cell: ({ row }) => <div className="text-[#666666]">{row.original.date || "-"}</div>,
+            accessorKey: "updated_at",
+            header: "LAST UPDATED",
+            cell: ({ row }) => {
+                const dateStr = row.getValue("updated_at") as string;
+                if (!dateStr) return <div className="text-[#666666]">-</div>;
+                return <div className="text-[#666666]">{DateTime.fromISO(dateStr).toFormat("LLL dd, yyyy")}</div>;
+            },
         },
         {
-            accessorKey: "status",
+            accessorKey: "is_active",
             header: "STATUS",
             cell: ({ row }) => {
-                const isTemplateActive = row.original.status !== undefined ? row.original.status : true;
+                const isTemplateActive = row.original.is_active !== undefined ? row.original.is_active : true;
                 return (
                     <div className="flex items-center gap-[10px]">
                         <div className="flex items-center space-x-2">
@@ -138,7 +156,7 @@ const EmailTemplatesSettings = () => {
                 <DataTable
                     data={templates}
                     columns={columns}
-                    loading={false}
+                    loading={loading}
                     error={false}
                     dataName="Templates"
                     userType={userType}

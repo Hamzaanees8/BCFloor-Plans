@@ -23,6 +23,7 @@ interface DraggableServiceTableProps<TData extends { uuid: string }> {
     emptyMessage?: string;
     errorMessage?: string;
     headerBgOverride?: string;
+    onReorder?: (reorderedData: TData[]) => void;
 }
 
 export function DraggableServiceTable<TData extends { uuid: string }>({
@@ -35,6 +36,7 @@ export function DraggableServiceTable<TData extends { uuid: string }>({
     emptyMessage = "No Data Available",
     errorMessage = "Failed to load data.",
     headerBgOverride,
+    onReorder,
 }: DraggableServiceTableProps<TData>) {
     const [rows, setRows] = useState<TData[]>(data);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -108,6 +110,10 @@ export function DraggableServiceTable<TData extends { uuid: string }>({
         setRows(newRows);
         setDragOverIndex(null);
         dragRowIndex.current = null;
+
+        if (onReorder) {
+            onReorder(newRows);
+        }
     };
 
     const handleDragEnd = () => {

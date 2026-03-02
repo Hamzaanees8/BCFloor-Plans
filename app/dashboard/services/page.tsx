@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { CleanedProductOption, GetPackages, GetServices, UpdateServiceStatus, DeleteService, UpdatePackageStatus } from './services';
+import { CleanedProductOption, GetPackages, GetServices, UpdateServiceStatus, DeleteService, UpdatePackageStatus, BulkUpdateServiceSort } from './services';
 import ProtectedAdminRoute from '@/components/ProtectedAdminRoute';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
@@ -168,6 +168,28 @@ const Page = () => {
       } else {
         console.error("Delete failed:", error);
         toast.error("Failed to delete");
+      }
+    }
+  };
+
+  const handleReorderServices = async (reorderedData: Services[]) => {
+    setServicesData(reorderedData);
+
+    try {
+      const token = localStorage.getItem("token") || "";
+      const payload = {
+        services: reorderedData.map((service, index) => ({
+          uuid: service.uuid,
+          sort_order: index + 1,
+        })),
+      };
+
+      await BulkUpdateServiceSort(payload, token);
+      toast.success("Services sorted successfully.");
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error(error.message);
+        toast.error(error.message || "Failed to save new sort order.");
       }
     }
   };
@@ -438,6 +460,7 @@ const Page = () => {
             dataName="Services"
             userType={userType}
             headerBgOverride={headerBg}
+            onReorder={handleReorderServices}
           />
 
           <Accordion

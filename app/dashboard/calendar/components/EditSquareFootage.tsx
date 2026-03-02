@@ -8,6 +8,14 @@ import AddExtraDialog from './AddExtraDialog'; // We will reuse this for all sec
 import { Area } from './OrderDetailView';
 import { SquareFootageTitles, defaultTitles } from './SquareFootageSettings';
 import { useAppContext } from '@/app/context/AppContext';
+import { GetTourSettings } from '../../global-settings/global-settings';
+
+interface TourSetting {
+  uuid: string;
+  area: string;
+  type: string;
+  status: boolean;
+}
 
 interface Field {
   id: number;
@@ -34,12 +42,22 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
   const [finishedAreas, setFinishedAreas] = useState<Field[]>([]);
   const [subtotalAreas, setSubtotalAreas] = useState<Field[]>([]);
   const [otherAreas, setOtherAreas] = useState<Field[]>([]);
-
+  const [tourSettings, setTourSettings] = useState<TourSetting[]>([]);
 
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [dialogDefaultCategory, setDialogDefaultCategory] = useState<"Finished" | "Subtotal" | "Other">("Finished");
 
-
+  // Fetch tour settings from global settings API
+  useEffect(() => {
+    GetTourSettings()
+      .then((res) => {
+        const settings: TourSetting[] = (res?.data?.tour_settings ?? []).filter(
+          (s: TourSetting) => s.status
+        );
+        setTourSettings(settings);
+      })
+      .catch((err) => console.error("Failed to fetch tour settings:", err));
+  }, []);
 
   const handleTitleChange = (key: keyof SquareFootageTitles, value: string) => {
     setTitles(prev => ({ ...prev, [key]: value }));
@@ -51,23 +69,37 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
 
 
   useEffect(() => {
-    if (!currentOrder) return;
+    if (tourSettings.length === 0) return;
+
+    // Build a map of existing area footage from the current order
+    const orderAreaMap = new Map<string, { footage: number; custom_title?: string }>();
+    currentOrder?.areas?.forEach((area: Area) => {
+      const key = (area.custom_title || area.type).trim().toLowerCase();
+      orderAreaMap.set(key, { footage: area.footage, custom_title: area.custom_title });
+    });
 
     const finished: Field[] = [];
     const subtotal: Field[] = [];
     const other: Field[] = [];
 
-    currentOrder.areas?.forEach((area: Area) => {
-      // API returns: type = category (Finished/Subtotal/Other), custom_title = label
-      const category = area.type as "Finished" | "Subtotal" | "Other";
-      const label = area.custom_title || area.type; // Use custom_title as label
+    tourSettings.forEach((setting) => {
+      const label = setting.area;
+      const key = label.trim().toLowerCase();
+      const existing = orderAreaMap.get(key);
+
+      const category: "Finished" | "Subtotal" | "Other" =
+        setting.type === "Finished Area"
+          ? "Finished"
+          : setting.type === "Sub Area"
+            ? "Subtotal"
+            : "Other";
 
       const field: Field = {
         id: uniqueId++,
-        label: label,
-        value: area.footage,
-        custom_title: area.custom_title,
-        category: category
+        label,
+        value: existing?.footage ?? 0,
+        custom_title: label,
+        category,
       };
 
       if (category === "Finished") finished.push(field);
@@ -75,31 +107,28 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
       else other.push(field);
     });
 
-    // Always ensure default floor levels exist in Finished areas
-    const defaultFloors = ['1st Floor', '2nd Floor', '3rd Floor'];
-    const mergedFinished: Field[] = [];
-
-    defaultFloors.forEach(floorLabel => {
-      const existing = finished.find(f => f.label === floorLabel);
-      if (existing) {
-        mergedFinished.push(existing);
-      } else {
-        mergedFinished.push({ id: uniqueId++, label: floorLabel, value: 0, category: 'Finished' });
+    // Also include any order subtotal areas not covered by tour settings
+    currentOrder?.areas?.forEach((area: Area) => {
+      if ((area.type as string) === "Subtotal") {
+        const alreadyAdded = subtotal.some(
+          (s) => s.label.trim().toLowerCase() === (area.custom_title || area.type).trim().toLowerCase()
+        );
+        if (!alreadyAdded) {
+          subtotal.push({
+            id: uniqueId++,
+            label: area.custom_title || area.type,
+            value: area.footage,
+            custom_title: area.custom_title,
+            category: "Subtotal",
+          });
+        }
       }
     });
 
-    // Add any other finished areas that aren't default floors
-    finished.forEach(f => {
-      if (!defaultFloors.includes(f.label)) {
-        mergedFinished.push(f);
-      }
-    });
-
-    setFinishedAreas(mergedFinished);
+    setFinishedAreas(finished);
     setSubtotalAreas(subtotal);
     setOtherAreas(other);
-
-  }, [currentOrder]);
+  }, [tourSettings, currentOrder]);
 
 
   // Sync state back to parent
@@ -266,6 +295,7 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
         onOpenChange={setOpenAddDialog}
         onAddExtra={handleAddExtra}
         defaultCategory={dialogDefaultCategory}
+        tourSettings={tourSettings}
       />
     </div>
   );

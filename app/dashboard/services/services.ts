@@ -459,10 +459,24 @@ export async function DeleteVendorService(vendorServiceId: string, token: string
 
 export async function UpdateServiceSortOrder(serviceId: string, sortNumber: number, token: string) {
     const formData = new FormData();
-    formData.append("sort_number", String(sortNumber));
+    formData.append("sort_order", String(sortNumber));
     formData.append("_method", "PUT");
 
     const response = await api.post(`/services/${serviceId}/sort`, formData, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+
+    if (response.status < 200 || response.status >= 300) {
+        throw new Error(response.data.message || `Request failed with status ${response.status}`);
+    }
+
+    return response.data;
+}
+
+export async function BulkUpdateServiceSort(payload: { services: { uuid: string; sort_order: number }[] }, token: string) {
+    const response = await api.put(`/services/sort`, payload, {
         headers: {
             Authorization: `Bearer ${token}`,
         },

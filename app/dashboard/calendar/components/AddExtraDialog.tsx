@@ -5,29 +5,45 @@ import { Select, SelectTrigger, SelectContent, SelectValue, SelectItem } from "@
 import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 
-const CATEGORY_OPTIONS = ["Finished", "Subtotal", "Other"];
+// const CATEGORY_OPTIONS = ["Finished", "Subtotal", "Other"];
+
+interface TourSetting {
+    uuid: string;
+    area: string;
+    type: string;
+    status: boolean;
+}
 
 interface AddExtraDialogProps {
     open: boolean;
     onOpenChange: (val: boolean) => void;
     onAddExtra: (label: string, squareFootage: number, category: "Finished" | "Subtotal" | "Other", customLabel?: string) => void;
     defaultCategory?: "Finished" | "Subtotal" | "Other";
+    tourSettings?: TourSetting[];
 }
 
-
-const OPTIONS = [
-    "Custom", "Mechanical", "Storage", "Deck", "Patio", "Print Media",
-    "Porch", "Staging", "Upper Deck", "Packages", "Balcony",
-    "Other...", "Crawl Space"
-];
-
-export default function AddExtraDialog({ open, onOpenChange, onAddExtra, defaultCategory = "Finished" }: AddExtraDialogProps) {
+export default function AddExtraDialog({ open, onOpenChange, onAddExtra, defaultCategory = "Finished", tourSettings = [] }: AddExtraDialogProps) {
     const [selected, setSelected] = useState("");
     const [category, setCategory] = useState<"Finished" | "Subtotal" | "Other">(defaultCategory);
     const [customTitle, setCustomTitle] = useState("");
     const [squareFootage, setSquareFootage] = useState("");
 
-    const isCustom = selected === "Custom";
+    // Map internal category (Finished/Other/Subtotal) to the API type string
+    const categoryToApiType: Record<string, string> = {
+        Finished: "Finished Area",
+        Subtotal: "Sub Area",
+        Other: "Other Area",
+    };
+
+    // Filter tour settings to only include areas matching the current category
+    const filteredOptions = tourSettings.filter(
+        (s) => s.status && s.type === categoryToApiType[category]
+    ).map((s) => s.area);
+
+    // Always offer a Custom entry
+    const dropdownOptions = [...filteredOptions, "Custom..."];
+
+    const isCustom = selected === "Custom...";
     const isValid = selected && (!isCustom || customTitle.trim() !== "");
 
     const handleSubmit = () => {
@@ -35,7 +51,6 @@ export default function AddExtraDialog({ open, onOpenChange, onAddExtra, default
         const finalLabel = isCustom ? customTitle : selected;
         const customKey = isCustom ? customTitle : undefined;
         onAddExtra(finalLabel, Number(squareFootage), category, customKey);
-
 
         setSelected("");
         setCustomTitle("");
@@ -61,7 +76,7 @@ export default function AddExtraDialog({ open, onOpenChange, onAddExtra, default
                 </DialogHeader>
 
                 <div className="space-y-4">
-                    <div>
+                    {/* <div>
                         <label className="text-[16px] font-[400] text-[#666]">Category</label>
                         <Select value={category} onValueChange={(val) => setCategory(val as "Finished" | "Subtotal" | "Other")}>
                             <SelectTrigger className="mt-1 w-full h-[42px] border border-[#7d7d7d]">
@@ -73,15 +88,15 @@ export default function AddExtraDialog({ open, onOpenChange, onAddExtra, default
                                 ))}
                             </SelectContent>
                         </Select>
-                    </div>
+                    </div> */}
                     <div>
                         <label className="text-[16px] font-[400] text-[#666]">Choose a Field</label>
-                        <Select onValueChange={setSelected}>
+                        <Select value={selected} onValueChange={(val) => { setSelected(val); if (val !== 'Custom...') setCustomTitle(''); }}>
                             <SelectTrigger className="mt-1 w-full h-[42px] border border-[#7d7d7d]">
                                 <SelectValue placeholder="Select Field" />
                             </SelectTrigger>
                             <SelectContent>
-                                {OPTIONS.map((opt, idx) => (
+                                {dropdownOptions.map((opt, idx) => (
                                     <SelectItem key={idx} value={opt}>{opt}</SelectItem>
                                 ))}
                             </SelectContent>
