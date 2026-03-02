@@ -262,7 +262,7 @@ const NotificationModal: React.FC<Props> = ({
   }, [openAddCoAgentDialog]);
   // Handled fetching templates in the single useEffect above.
   const allTemplateOptions = [
-    ...dbTemplates.map((t) => ({ id: t.uuid, name: t.name, uuid: t.uuid })),
+    ...dbTemplates.map((t) => ({ id: t.uuid, name: t.title, uuid: t.uuid })),
     ...fallbackTemplateOptions,
   ];
 
@@ -556,7 +556,7 @@ const NotificationModal: React.FC<Props> = ({
     setSelectedAgentTemplate(val);
     const dbMatch = templatesList.find(t => t.uuid === val);
     if (dbMatch) {
-      setDescriptionAgent(fillTemplate(dbMatch.html_content));
+      setDescriptionAgent(fillTemplate(dbMatch.content));
     } else {
       const html = templateHTMLs[val];
       if (html) {
@@ -568,7 +568,7 @@ const NotificationModal: React.FC<Props> = ({
     setSelectedVendorTemplate(val);
     const dbMatch = templatesList.find(t => t.uuid === val);
     if (dbMatch) {
-      setDescriptionVendor(fillTemplate(dbMatch.html_content));
+      setDescriptionVendor(fillTemplate(dbMatch.content));
     } else {
       const html = templateHTMLs2[val];
       if (html) {
