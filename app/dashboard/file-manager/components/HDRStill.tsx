@@ -576,7 +576,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 </div>
             </div>
         );
-    }, [API_URL, currentBookedService?.payment_status, currentService?.uuid, currentServiceFiles?.length, fileItems, handleToggleFeatured, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setFilesData, setSelectedFiles, userType]);
+    }, [API_URL, currentBookedService?.payment_status, currentService?.uuid, currentServiceFiles?.length, fileItems, handleToggleFeatured, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setFilesData, setSelectedFiles, userType, imagesPerRow]);
 
 
 

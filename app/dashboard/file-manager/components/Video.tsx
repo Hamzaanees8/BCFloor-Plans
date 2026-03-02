@@ -468,7 +468,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                 </div>
             </div>
         );
-    }, [currentBookedService?.payment_status, orderData?.payment_status, reviewFilesEnabled, setSelectedVideoFiles, userType]);
+    }, [API_URL, currentBookedService?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setFilesData, setSelectedVideoFiles, userType]);
 
     const handleVideoClick = (url: string, file: SelectedFiles | Files) => {
         setSelectedVideoUrl(url);

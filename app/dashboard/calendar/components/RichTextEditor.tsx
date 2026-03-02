@@ -1,6 +1,7 @@
 // components/RichTextEditor.tsx
 import dynamic from "next/dynamic";
 import "suneditor/dist/css/suneditor.min.css"; // Import CSS globally
+import type SunEditorCore from "suneditor/src/lib/core";
 
 import { useRef, useEffect } from "react";
 
@@ -15,7 +16,7 @@ interface RichTextEditorProps {
 }
 
 export default function RichTextEditor({ value, onChange, insertText, onTextInserted }: RichTextEditorProps) {
-    const editorRef = useRef<any>(null);
+    const editorRef = useRef<SunEditorCore | null>(null);
 
     useEffect(() => {
         if (insertText && editorRef.current) {
@@ -27,7 +28,7 @@ export default function RichTextEditor({ value, onChange, insertText, onTextInse
     return (
         <div className="[&_.sun-editor]:min-h-[600px]">
             <SunEditor
-                getSunEditorInstance={(sunEditor: any) => {
+                getSunEditorInstance={(sunEditor: SunEditorCore) => {
                     editorRef.current = sunEditor;
                 }}
                 defaultValue={value}

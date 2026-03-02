@@ -65,7 +65,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                 }
             });
         };
-    }, []);
+    }, [fileItems]);
     const floorPlans = [
         "Dimensions PDF", "Branded Floor Plan", "UnBranded Floor Plan",
         "Branded Image", "Unbranded Image", "Additional Files"
@@ -509,7 +509,8 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                 </div>
             </div>
         );
-    }, [API_URL, currentBookedService?.payment_status, orderData?.payment_status, setChangedFileUuids, setFilesData, setFloorFiles, vendorName, currentBookedService?.option?.title, currentBookedService?.uuid, currentService?.uuid, handleImageClick, orderData?.uuid, reviewFilesEnabled, userType]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [API_URL, currentBookedService?.payment_status, orderData?.payment_status, setChangedFileUuids, setFilesData, setFloorFiles, vendorName, currentBookedService?.option?.title, currentBookedService?.uuid, currentService?.uuid, handleImageClick, orderData?.uuid, reviewFilesEnabled, userType, imagesPerRow]);
 
     return (
         <div>
