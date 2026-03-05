@@ -37,7 +37,8 @@ import { GetAgents } from "../../calendar/calendar";
 import { toast } from "sonner";
 import { VendorPortfolioImage } from "../../vendors/create/page";
 import { useEffect, useState } from "react";
-import { createPayment } from "../../file-manager/file-manager";
+import { createPayment, GetFilesData } from "../../file-manager/file-manager";
+import { FilesData } from "../../file-manager/FileManagerContext";
 import Link from "next/link";
 import OrderDetailView from "../../calendar/components/OrderDetailView";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
@@ -155,6 +156,7 @@ function Page() {
   const [origin, setOrigin] = useState("");
 
   const [services, setServices] = useState<Services[]>([]);
+  const [filesData, setFilesData] = useState<FilesData | null>(null);
 
   const refreshOrders = async () => {
     const token = localStorage.getItem("token");
@@ -268,6 +270,14 @@ function Page() {
     GetServices(token)
       .then((res) => setServices(Array.isArray(res.data) ? res.data : []))
       .catch(console.log);
+
+    GetFilesData(token, orderId)
+      .then((data) => {
+        if (data && data.data && data.data[0]) {
+          setFilesData(data.data[0]);
+        }
+      })
+      .catch((err) => console.log("Error fetching files data:", err));
   }, [orderId]);
   // Use backend amount as the source of truth for the Grand Total (Net Price)
   const calculatedGrandTotal = parseFloat(orderData?.amount || "0");
@@ -511,7 +521,7 @@ function Page() {
         <div
           className="absolute inset-0 bg-center bg-cover"
           style={{
-            backgroundImage: "url('/ordersBgImg.png')",
+            backgroundImage: `url('${filesData?.files?.find(f => f.is_featured)?.url || filesData?.files?.[0]?.url || "/ordersBgImg.png"}')`,
           }}
         ></div>
 

@@ -528,3 +528,85 @@ export async function UpdateMediaSettings(payload: MediaSettingsPayload) {
 
   return data;
 }
+
+// ─── Organizations ────────────────────────────────────────────────────────────
+
+export interface Organization {
+  id: number;
+  uuid: string;
+  name: string;
+  slug: string;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  province: string | null;
+  country: string | null;
+  postal_code: string | null;
+  is_active: boolean;
+  trial_ends_at: string | null;
+  owner_user_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrganizationPayload {
+  name: string;
+  slug?: string;
+  contact_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  address_line_1?: string;
+  address_line_2?: string;
+  city?: string;
+  province?: string;
+  country?: string;
+  postal_code?: string;
+  is_active?: boolean;
+  trial_ends_at?: string | null;
+  owner_user_id?: number | null;
+}
+
+export async function GetOrganizations(): Promise<{ status: boolean; data: Organization[] }> {
+  try {
+    const response = await api.get('/organizations');
+    const data = response.data;
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch organizations:', error);
+    throw error;
+  }
+}
+
+export async function CreateOrganization(payload: OrganizationPayload): Promise<{ status: boolean; message: string; data: Organization }> {
+  const response = await api.post('/organizations', payload);
+  const data = response.data;
+  if (data.status !== true) {
+    const error = new Error(data.message || 'Request failed');
+    (error as FetchErrors).errors = data.errors;
+    throw error;
+  }
+  return data;
+}
+
+export async function UpdateOrganization(uuid: string, payload: Partial<OrganizationPayload>): Promise<{ status: boolean; message: string; data: Organization }> {
+  const response = await api.post(`/organizations/${uuid}`, { ...payload, _method: 'PUT' });
+  const data = response.data;
+  if (data.status !== true) {
+    const error = new Error(data.message || 'Request failed');
+    (error as FetchErrors).errors = data.errors;
+    throw error;
+  }
+  return data;
+}
+
+export async function DeleteOrganization(uuid: string): Promise<{ status: boolean; message: string }> {
+  const response = await api.delete(`/organizations/${uuid}`);
+  const data = response.data;
+  if (data.status !== true) {
+    throw new Error(data.message || 'Failed to delete organization');
+  }
+  return data;
+}

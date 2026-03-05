@@ -126,11 +126,11 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                 <div className="mt-4 w-full grid grid-cols-4 gap-2 bg-[#BBBBBB] p-3">
                   {selectedFiles?.map((file, idx) => (
                     <div key={idx} className="bg-[#BBBBBB] h-auto relative">
-                      <div className="relative w-full h-[240px]">
+                      <div className="relative w-full h-[240px] overflow-hidden">
                         <OptimizedImagePreview
                           file={file.file}
                           alt="preview"
-                          className="w-full h-full object-cover"
+                          className="absolute inset-0 w-full h-full object-cover"
                         />
                         <span
                           className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
@@ -184,8 +184,8 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
 
                   {currentTourPhotos?.map((file, idx) => (
                     <div key={idx} className="bg-[#BBBBBB] h-auto relative">
-                      <div className="relative w-full h-[240px]">
-                        {(file.is_processing || !file.variant_urls?.thumb) ? (
+                      <div className="relative w-full h-[240px] overflow-hidden">
+                        {file.is_processing ? (
                           <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                             <p className="text-gray-500 font-medium text-sm">Processing...</p>
                           </div>
@@ -195,7 +195,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                             <img
                               src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
                               alt="preview"
-                              className="w-full h-full object-cover"
+                              className="absolute inset-0 w-full h-full object-cover"
                             />
                             <span
                               className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}

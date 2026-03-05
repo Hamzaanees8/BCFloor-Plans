@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import CopyableFileName from './CopyableFileName';
 import FilePreviewModal from './FilePreviewModal';
-import { Check, X, PlayCircle } from 'lucide-react';
+import { Check, X, PlayCircle, Loader2 } from 'lucide-react';
 import { DownloadIcon } from '@/components/Icons';
 import { Button } from '@/components/ui/button';
 import { Services } from '../../services/page';
@@ -16,6 +16,7 @@ import AgentNotificationModal from './AgentNotificationModal';
 import DownloadModal from './DownloadModal';
 import PhotoPreviewModal from './PhotoPreviewModal';
 import { DownloadFile, ServiceCompletion } from '../file-manager';
+import { S3UploadService } from '@/lib/upload/s3-service';
 import { OptimizedImagePreview } from './OptimizedPreview';
 import { DualModeFileManager } from './dual-mode/DualModeFileManager';
 import { ModeToggle } from './dual-mode/ModeToggle';
@@ -33,7 +34,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
     const [openUpgrade, setOpenUpgrade] = useState(false);
     const [openPaymentModal, setOpenPaymentModal] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
-    const { selectedVideoFiles, setSelectedVideoFiles, filesData, setChangedFileUuids, setFilesData, fileManagerMode, setFileManagerMode, imagesPerRow } = useFileManagerContext();
+    const { selectedVideoFiles, setSelectedVideoFiles, filesData, setChangedFileUuids, setSelectionChangedUuids, setFilesData, fileManagerMode, setFileManagerMode, imagesPerRow, isSaving } = useFileManagerContext();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -60,7 +61,12 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
     const currentServiceFiles = useMemo(() => {
         let files = filesData?.files
             ?.filter(file => file?.service?.uuid === currentService?.uuid && file.type === "video")
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            .sort((a, b) => {
+                if (a.sort_order !== undefined && b.sort_order !== undefined) {
+                    return a.sort_order - b.sort_order;
+                }
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            });
 
         // If Agent, only show files marked to show
         if (userType === 'agent') {
@@ -219,17 +225,17 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
 
         return (
             <div
-                className="h-auto relative group flex flex-col"
+                className="h-auto relative group flex flex-col overflow-hidden"
                 style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
             >
-                <div className="relative w-full aspect-video">
+                <div className="relative w-full aspect-video overflow-hidden">
                     {isLocal ? (
                         <>
                             <OptimizedImagePreview
                                 file={file.file}
                                 alt="Video thumbnail"
                                 isRestricted={userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
-                                className={`w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''}`}
+                                className={`absolute inset-0 w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''}`}
                                 onClick={() => !file.is_deleted && handleVideoClick(URL.createObjectURL(file.file), file)}
                             />
                             {file.is_deleted && (
@@ -318,7 +324,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                         </>
                     ) : (
                         <>
-                            {(file.is_processing || !file.variant_urls?.thumb) ? (
+                            {file.is_processing ? (
                                 <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                                     <p className="text-gray-500 font-medium text-sm">Processing...</p>
                                 </div>
@@ -332,7 +338,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                                         <img
                                             src={file.variant_urls.thumb}
                                             alt={file.name}
-                                            className={`w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                            className={`absolute inset-0 w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
                                         />
                                     ) : (
                                         <video
@@ -340,7 +346,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                                             preload="metadata"
                                             muted
                                             playsInline
-                                            className={`w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${isDragging ? 'opacity-0' : 'opacity-100'}`}
+                                            className={`absolute inset-0 w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${isDragging ? 'opacity-0' : 'opacity-100'}`}
                                         />
                                     )}
                                     <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
@@ -395,6 +401,11 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                                                             newSet.add(f.uuid);
                                                             return newSet;
                                                         });
+                                                        setSelectionChangedUuids(prevSet => {
+                                                            const newSet = new Set(prevSet);
+                                                            newSet.add(f.uuid);
+                                                            return newSet;
+                                                        });
                                                         return { ...f, is_agent_approved: !f.is_agent_approved };
                                                     }
                                                     return f;
@@ -406,7 +417,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                                     <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
                                         {file.is_agent_approved && <Check color="white" size={12} />}
                                     </div>
-                                    <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
+                                    <span className="text-[10px] font-bold text-[#7D7D7D]">Selected</span>
                                 </div>
                             )}
                             {userType !== 'agent' && (
@@ -468,7 +479,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                 </div>
             </div>
         );
-    }, [API_URL, currentBookedService?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setFilesData, setSelectedVideoFiles, userType]);
+    }, [API_URL, currentBookedService?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setSelectedVideoFiles, userType]);
 
     const handleVideoClick = (url: string, file: SelectedFiles | Files) => {
         setSelectedVideoUrl(url);
@@ -524,14 +535,38 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
             toast.error('Download failed. Please try again.');
         }
     };
+
+    const handleDeleteUploadedFile = async (fileUuid: string) => {
+        try {
+            await S3UploadService.deleteUploads({
+                uuids: [fileUuid],
+                type: "tour-file"
+            });
+
+            // Update local state by removing the file
+            if (filesData) {
+                setFilesData(prev => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        files: prev.files.filter(f => f.uuid !== fileUuid)
+                    };
+                });
+            }
+            toast.success("File deleted successfully");
+        } catch (err) {
+            console.error('Delete error:', err);
+            toast.error('Failed to delete file. Please try again.');
+        }
+    };
     return (
         <div>
             <div
-                className='h-[66px] w-full flex justify-between items-center px-4 font-alexandria'
+                className='relative h-[66px] w-full flex justify-between items-center px-4 font-alexandria'
                 style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
             >
                 <div>
-                    {userType !== 'agent' && (
+                    {(userType !== 'agent') ? (
                         <div className="flex gap-2 items-center">
                             <Button
 
@@ -546,33 +581,38 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                                 onChange={handleFileSelect}
                             />
                         </div>
-
+                    ) : (
+                        <div className="flex gap-2 items-center">
+                            {(currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
+                                <Button
+                                    onClick={() => {
+                                        setShowDownloadModal(true);
+                                    }}
+                                    className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}>
+                                    Download Files
+                                </Button>
+                            )}
+                        </div>
                     )}
                 </div>
-                <div>
-                    <p className='flex flex-col items-center'>
-                        <span className={`${userType}-text font-bold`}>
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                    <p className='flex flex-col items-center pointer-events-auto'>
+                        <span className={`${userType}-text font-bold text-[16px]`}>
                             {currentService ? currentService.name : ''}
                         </span>
 
-                        <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title}
-                            <span className='ml-1'>
-                                ({currentServiceFiles?.filter(f => !f.is_deleted).length || 0} / {currentBookedService?.option?.quantity || 1})
-                            </span>
+                        <span className='text-[12px] text-[#7D7D7D]'>
+                            {currentBookedService?.option?.title || `${currentBookedService?.option?.quantity || 0} Files`}
+                            {userType !== 'agent' && (
+                                <span className='ml-1'>
+                                    ({currentServiceFiles?.filter(f => !f.is_deleted).length || 0} / {currentBookedService?.option?.quantity || 1})
+                                </span>
+                            )}
                         </span>
                     </p>
                 </div>
                 <div className='flex justify-center items-center gap-x-[14px]'>
-                    {(userType === 'agent') && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
-                        <Button
-                            onClick={() => {
-                                setShowDownloadModal(true);
-                            }}
-                            className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}
-                        >
-                            Download Files
-                        </Button>
-                    )}
+                    {/* Download Files button moved to the left */}
                     {userType === 'admin' && (
                         <Button
                             onClick={() => {
@@ -591,7 +631,19 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                                 setShowConfirmation(true)
                                 if (onSave) onSave();
                             }}
-                            className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[#4290E9] hover:bg-[#4999f5]'}  h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Submit to Client'} </Button>
+                            disabled={isSaving}
+                            className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[#4290E9] hover:bg-[#4999f5]'}  h-[32px] w-[150px] flex justify-center items-center `}>
+                            {isSaving ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Submitting...
+                                </>
+                            ) : mediaUploaded ? (
+                                <Check color="#fff" size={14} />
+                            ) : (
+                                'Submit to Client'
+                            )}
+                        </Button>
                     }
                     <AgentNotificationModal
                         open={showConfirmation}
@@ -599,29 +651,32 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                         serviceDate={currentService ? currentService : null}
                         orderData={orderData ? orderData : null}
                     />
-                    {userType === 'agent' &&
-                        <div className='flex flex-col justify-center items-center mr-4'>
-                            <p className='text-[18px] text-[#6BAE41]'>${currentBookedService?.option?.amount}</p>
-                            <p className='text-[#7D7D7D] text-[12px]'>{currentBookedService?.option?.title}</p>
+                    {userType === 'agent' && (
+                        <div className='flex items-center gap-[10px] mr-2'>
+                            <div className='flex flex-col justify-center items-center mr-2'>
+                                <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>${currentBookedService?.option?.amount}</p>
+                                <p className='text-[#7D7D7D] text-[10px] leading-none'>{currentBookedService?.option?.quantity || 0} Files</p>
+                            </div>
+                            <Button
+                                className={`h-[32px] w-[100px] flex justify-center items-center 
+                                    ${paymentSuccess || currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
+                                        ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
+                                        : "bg-[#DC9600] hover:bg-[#eda304]"}`}
+                            >
+                                {currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'Paid' : 'UnPaid'}
+                            </Button>
                         </div>
-                    }
-                    {userType === 'agent' &&
-                        <Button
-                            className={`h-[32px] w-[150px] flex justify-center items-center 
-                                                                                              ${paymentSuccess
-                                    ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
-                                    : "bg-[#DC9600] hover:bg-[#eda304]"}`
-                            }>{currentBookedService?.payment_status == 'PAID' ? 'Paid' : 'UnPaid'}</Button>
-                    }
+                    )}
                     <PayInvoiceModal open={openPaymentModal} setOpen={setOpenPaymentModal} success={paymentSuccess} setSuccess={setPaymentSuccess} />
 
-
-                    <Button
-                        onClick={() => setOpenUpgrade(true)}
-                        className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}
-                    >
-                        Upgrade Plan
-                    </Button>
+                    {userType !== 'agent' && (
+                        <Button
+                            onClick={() => setOpenUpgrade(true)}
+                            className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}
+                        >
+                            Upgrade Plan
+                        </Button>
+                    )}
                     <UpgradeServicePopup
                         open={openUpgrade}
                         setOpen={setOpenUpgrade}
@@ -656,11 +711,35 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                     <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
                 </div>
             }
-            <div className='p-4 flex justify-end items-center gap-4'>
+            <div className={`p-4 flex ${userType === 'agent' ? 'justify-between' : 'justify-end'} items-center gap-4 border-b border-gray-200`}>
                 <div className="flex items-center gap-4">
                     <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />
                     <GridSizeToggle />
                 </div>
+
+                {userType === 'agent' && (
+                    <div className="flex items-center gap-8">
+                        <div className="flex flex-col items-center">
+                            <span className="text-[22px] font-medium text-[#7D7D7D] leading-none">
+                                {currentServiceFiles?.filter(f => f.is_agent_approved).length || 0} <span className="text-[#7D7D7D]">/ {currentBookedService?.option?.quantity || 0}</span>
+                            </span>
+                            <span className="text-[12px] text-[#7D7D7D] mt-1">Selected</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                            <span className="text-[22px] font-medium text-[#666666] leading-none">
+                                {currentServiceFiles?.filter(f => !f.is_deleted).length || 0}
+                            </span>
+                            <span className="text-[12px] text-[#666666] mt-1">Available</span>
+                        </div>
+                        <Button
+                            variant="outline"
+                            onClick={() => setOpenUpgrade(true)}
+                            className="border border-[#6BAE41] text-[#6BAE41] hover:bg-[#6BAE41] hover:text-white h-[36px] px-6 rounded transition-colors font-medium ml-2"
+                        >
+                            Upgrade Plan
+                        </Button>
+                    </div>
+                )}
             </div>
 
             <div className="py-4">
@@ -675,6 +754,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                         onClickUpload={handleFileInputClick}
                         renderItem={renderFileItem}
                         disabled={userType === 'agent'}
+                        onSave={onSave}
                     />
                 </div>
                 <PhotoPreviewModal
@@ -719,13 +799,19 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                             });
                         }
                     }}
-                    onDelete={editingFile && 'file' in editingFile ? () => {
-                        setSelectedVideoFiles(prev => prev.map(f => {
-                            if (f.file === editingFile.file && f.service_id === editingFile.service_id) {
-                                return { ...f, is_deleted: true };
-                            }
-                            return f;
-                        }));
+                    onDelete={editingFile ? () => {
+                        if ('file' in editingFile) {
+                            // Unsaved
+                            setSelectedVideoFiles(prev => prev.map(f => {
+                                if (f.file === editingFile.file && f.service_id === editingFile.service_id) {
+                                    return { ...f, is_deleted: true };
+                                }
+                                return f;
+                            }));
+                        } else {
+                            // Saved
+                            handleDeleteUploadedFile((editingFile as Files).uuid);
+                        }
                     } : undefined}
                     onReplace={editingFile && 'file' in editingFile ? () => {
                         setReplacingFile(editingFile.file);

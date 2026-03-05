@@ -7,7 +7,7 @@ import { useAppContext } from '@/app/context/AppContext';
 export function GridSizeToggle() {
     const { imagesPerRow, setImagesPerRow } = useFileManagerContext();
     const { userType } = useAppContext();
-    const options = [3, 4, 5, 6, 7];
+    const options = [2, 4, 6, 8];
 
     return (
         <div className="relative flex items-center gap-2 mr-4 group">

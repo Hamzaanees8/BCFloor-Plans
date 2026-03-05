@@ -1,4 +1,3 @@
-// lib/upload/s3-service.ts
 import axios from 'axios';
 import { api } from '@/lib/api';
 import {
@@ -6,6 +5,8 @@ import {
     PresignedUrlResponse,
     ConfirmUploadRequest,
     ConfirmUploadResponse,
+    DeleteUploadsRequest,
+    DeleteUploadsResponse,
 } from './types';
 
 /**
@@ -141,6 +142,27 @@ export class S3UploadService {
                 axios.isAxiosError(error)
                     ? error.response?.data?.message || 'Failed to confirm upload'
                     : 'Failed to confirm upload'
+            );
+        }
+    }
+
+    /**
+     * Delete uploads from the backend
+     */
+    static async deleteUploads(
+        request: DeleteUploadsRequest
+    ): Promise<DeleteUploadsResponse> {
+        try {
+            const response = await api.delete<DeleteUploadsResponse>('/uploads', {
+                data: request,
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to delete uploads:', error);
+            throw new Error(
+                axios.isAxiosError(error)
+                    ? error.response?.data?.message || 'Failed to delete uploads'
+                    : 'Failed to delete uploads'
             );
         }
     }

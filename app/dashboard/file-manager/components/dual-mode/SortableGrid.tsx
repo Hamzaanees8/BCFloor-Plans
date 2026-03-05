@@ -27,6 +27,7 @@ interface SortableGridProps {
     onOrderChange: (items: FileItem[]) => void;
     mode: DualMode;
     renderItem: (item: FileItem, isDragging?: boolean) => React.ReactNode;
+    columns?: number;
 }
 
 export function SortableItem({ id, item, disabled, renderItem }: { id: string; item: FileItem; disabled: boolean; renderItem: (item: FileItem, isDragging?: boolean) => React.ReactNode; }) {
@@ -59,8 +60,9 @@ export function SortableItem({ id, item, disabled, renderItem }: { id: string; i
     );
 }
 
-export function SortableGrid({ items, onOrderChange, mode, renderItem }: SortableGridProps) {
-    const { imagesPerRow } = useFileManagerContext();
+export function SortableGrid({ items, onOrderChange, mode, renderItem, columns }: SortableGridProps) {
+    const { imagesPerRow: contextImagesPerRow } = useFileManagerContext();
+    const imagesPerRow = columns ?? contextImagesPerRow;
     const [activeId, setActiveId] = React.useState<string | null>(null);
 
     const sensors = useSensors(

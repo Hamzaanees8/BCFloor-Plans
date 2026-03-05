@@ -515,3 +515,76 @@ textarea::placeholder {
   color: #a0a0a0 !important;
   opacity: 1 !important;
 }
+
+/* File selection: in-grid card shrinks away smoothly */
+@keyframes cardSelectShrink {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  20% {
+    opacity: 0.9;
+    transform: scale(0.97);
+  }
+
+  60% {
+    opacity: 0.5;
+    transform: scale(0.88);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(0.78);
+  }
+}
+
+.animate-card-select-shrink {
+  animation: cardSelectShrink 0.62s ease-out forwards;
+  pointer-events: none;
+}
+
+/* Flying clone arcs smoothly to the right */
+@keyframes flyCloneToRight {
+  0% {
+    opacity: 1;
+    transform: translate(0vw, 0px) scale(1) rotate(0deg);
+  }
+
+  10% {
+    opacity: 1;
+    transform: translate(2vw, -12px) scale(0.95) rotate(-1deg);
+  }
+
+  25% {
+    opacity: 1;
+    transform: translate(8vw, -35px) scale(0.82) rotate(-2.5deg);
+  }
+
+  45% {
+    opacity: 0.95;
+    transform: translate(20vw, -28px) scale(0.65) rotate(-2deg);
+  }
+
+  65% {
+    opacity: 0.8;
+    transform: translate(34vw, -12px) scale(0.46) rotate(-1deg);
+  }
+
+  82% {
+    opacity: 0.5;
+    transform: translate(46vw, 4px) scale(0.3) rotate(0deg);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(58vw, 14px) scale(0.16) rotate(0deg);
+  }
+}
+
+.animate-fly-clone {
+  animation: flyCloneToRight 0.75s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  pointer-events: none;
+  z-index: 9999;
+  will-change: transform, opacity;
+}

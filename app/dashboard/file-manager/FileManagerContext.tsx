@@ -1,5 +1,6 @@
 'use client';
-import { createContext, useContext, useState, ReactNode, Dispatch, SetStateAction, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, ReactNode, Dispatch, SetStateAction, useCallback, useMemo, useEffect } from 'react';
+import { useSidebar } from '@/components/ui/sidebar';
 export type SelectedFiles = {
     file: File;
     type: string;
@@ -234,6 +235,9 @@ type FileManagerContextType = {
     changedFileUuids: Set<string>;
     setChangedFileUuids: Dispatch<SetStateAction<Set<string>>>;
 
+    selectionChangedUuids: Set<string>;
+    setSelectionChangedUuids: Dispatch<SetStateAction<Set<string>>>;
+
     area: Area[];
     setArea: Dispatch<SetStateAction<Area[]>>;
 
@@ -242,11 +246,109 @@ type FileManagerContextType = {
 
     imagesPerRow: number;
     setImagesPerRow: Dispatch<SetStateAction<number>>;
+
+    isSaving: boolean;
+    setIsSaving: Dispatch<SetStateAction<boolean>>;
 };
 
 const FileManagerContext = createContext<FileManagerContextType | undefined>(undefined);
 
+export const initialFormData: FormData = {
+    // Theme & Info
+    background: "",
+    border: "",
+    avatar_url: "",
+    AvatarfileName: "",
+
+    // Content Fields
+    title: "",
+    subtitle: "",
+    fullName: "",
+    email: "",
+    phone: "",
+    linkedin: "",
+    propertyName: "",
+    description: "",
+    amount: "",
+    mlsNumber: "",
+    siteInfluences: "",
+    grossTaxes: "",
+    featuresIncluded: "",
+    byLawRestrictions: "",
+    maintenanceFees: "",
+    maintenanceFeesInclude: "",
+    amenities: "",
+    view: "",
+    number: "",
+    address: "",
+    addressCode: "",
+    roadName: "",
+    cityLine: "",
+    bedroom: "",
+    bathroom: "",
+    sqft: "",
+    builtYear: "",
+
+    // Legacy/Internal mappings
+    offeredAtPrice: "",
+    realtorTitle: "",
+    realtorName: "",
+    companyName: "",
+    propertyNotesTitle: "",
+    propertyNotesDescription: "",
+    expandedDetail1: "",
+    expandedDetail1Description: "",
+    expandedDetail2: "",
+    expandedDetail2Description: "",
+
+    Keyhighlights: Array(6).fill(""),
+    highlights: [
+        { title: "", icon: "eye", value: "" },
+        { title: "", icon: "eye", value: "" },
+        { title: "", icon: "eye", value: "" },
+        { title: "", icon: "eye", value: "" },
+    ],
+
+    // Images & Transformations
+    imageUpload: null,
+    imageUploadFileName: "",
+    images: {
+        image1: null, image2: null, image3: null, image4: null, image5: null,
+        image6: null, image7: null, image8: null, image9: null, image10: null,
+        image11: null, image12: null, image13: null, image14: null, image15: null,
+        image16: null, image17: null, image18: null
+    },
+    imageScales: {
+        image1: 1, image2: 1, image3: 1, image4: 1, image5: 1,
+        image6: 1, image7: 1, image8: 1, image9: 1, image10: 1,
+        image11: 1, image12: 1, image13: 1, image14: 1, image15: 1,
+        image16: 1, image17: 1, image18: 1
+    },
+    imagePositions: {
+        image1: { x: 0, y: 0 }, image2: { x: 0, y: 0 }, image3: { x: 0, y: 0 },
+        image4: { x: 0, y: 0 }, image5: { x: 0, y: 0 }, image6: { x: 0, y: 0 },
+        image7: { x: 0, y: 0 }, image8: { x: 0, y: 0 }, image9: { x: 0, y: 0 },
+        image10: { x: 0, y: 0 }, image11: { x: 0, y: 0 }, image12: { x: 0, y: 0 },
+        image13: { x: 0, y: 0 }, image14: { x: 0, y: 0 }, image15: { x: 0, y: 0 },
+        image16: { x: 0, y: 0 }, image17: { x: 0, y: 0 }, image18: { x: 0, y: 0 }
+    },
+
+    // Featured Images (Legacy)
+    featuredImage1Preview: null,
+    featuredImage1FileName: "",
+    featuredImage2Preview: null,
+    featuredImage2FileName: "",
+    featuredImage3Preview: null,
+    featuredImage3FileName: "",
+};
+
 export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
+    const { setOpen } = useSidebar();
+
+    useEffect(() => {
+        setOpen(false);
+    }, [setOpen]);
+
     const [files, setFiles] = useState<File[]>([]);
     const [selectedFiles, setSelectedFiles] = useState<SelectedFiles[]>([]);
     const [selectedVideoFiles, setSelectedVideoFiles] = useState<SelectedFiles[]>([]);
@@ -263,99 +365,15 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
     const [filesData, setFilesData] = useState<FilesData | null>(null);
     const [featureSheets, setFeatureSheets] = useState<FeatureSheetResponse[]>([]);
     const [changedFileUuids, setChangedFileUuids] = useState<Set<string>>(new Set());
+    const [selectionChangedUuids, setSelectionChangedUuids] = useState<Set<string>>(new Set());
     const [area, setArea] = useState<Area[]>([]);
     const [fileManagerMode, setFileManagerMode] = useState<'upload' | 'reorder'>('upload');
     const [imagesPerRow, setImagesPerRow] = useState<number>(4);
+    const [isSaving, setIsSaving] = useState<boolean>(false);
 
 
-    const [formData, setFormData] = useState<FormData>({
-        // Theme & Info
-        background: "",
-        border: "",
-        avatar_url: "",
-        AvatarfileName: "",
+    const [formData, setFormData] = useState<FormData>(initialFormData);
 
-        // Content Fields
-        title: "",
-        subtitle: "",
-        fullName: "",
-        email: "",
-        phone: "",
-        linkedin: "",
-        propertyName: "",
-        description: "",
-        amount: "",
-        mlsNumber: "",
-        siteInfluences: "",
-        grossTaxes: "",
-        featuresIncluded: "",
-        byLawRestrictions: "",
-        maintenanceFees: "",
-        maintenanceFeesInclude: "",
-        amenities: "",
-        view: "",
-        number: "",
-        address: "",
-        addressCode: "",
-        roadName: "",
-        cityLine: "",
-        bedroom: "",
-        bathroom: "",
-        sqft: "",
-        builtYear: "",
-
-        // Legacy/Internal mappings
-        offeredAtPrice: "",
-        realtorTitle: "",
-        realtorName: "",
-        companyName: "",
-        propertyNotesTitle: "",
-        propertyNotesDescription: "",
-        expandedDetail1: "",
-        expandedDetail1Description: "",
-        expandedDetail2: "",
-        expandedDetail2Description: "",
-
-        Keyhighlights: Array(6).fill(""),
-        highlights: [
-            { title: "", icon: "eye", value: "" },
-            { title: "", icon: "eye", value: "" },
-            { title: "", icon: "eye", value: "" },
-            { title: "", icon: "eye", value: "" },
-        ],
-
-        // Images & Transformations
-        imageUpload: null,
-        imageUploadFileName: "",
-        images: {
-            image1: null, image2: null, image3: null, image4: null, image5: null,
-            image6: null, image7: null, image8: null, image9: null, image10: null,
-            image11: null, image12: null, image13: null, image14: null, image15: null,
-            image16: null, image17: null, image18: null
-        },
-        imageScales: {
-            image1: 1, image2: 1, image3: 1, image4: 1, image5: 1,
-            image6: 1, image7: 1, image8: 1, image9: 1, image10: 1,
-            image11: 1, image12: 1, image13: 1, image14: 1, image15: 1,
-            image16: 1, image17: 1, image18: 1
-        },
-        imagePositions: {
-            image1: { x: 0, y: 0 }, image2: { x: 0, y: 0 }, image3: { x: 0, y: 0 },
-            image4: { x: 0, y: 0 }, image5: { x: 0, y: 0 }, image6: { x: 0, y: 0 },
-            image7: { x: 0, y: 0 }, image8: { x: 0, y: 0 }, image9: { x: 0, y: 0 },
-            image10: { x: 0, y: 0 }, image11: { x: 0, y: 0 }, image12: { x: 0, y: 0 },
-            image13: { x: 0, y: 0 }, image14: { x: 0, y: 0 }, image15: { x: 0, y: 0 },
-            image16: { x: 0, y: 0 }, image17: { x: 0, y: 0 }, image18: { x: 0, y: 0 }
-        },
-
-        // Featured Images (Legacy)
-        featuredImage1Preview: null,
-        featuredImage1FileName: "",
-        featuredImage2Preview: null,
-        featuredImage2FileName: "",
-        featuredImage3Preview: null,
-        featuredImage3FileName: "",
-    });
 
     // Helper function for partial updates
     const updateFormData = useCallback((updates: Partial<FormData>) => {
@@ -399,17 +417,22 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
         setFeatureSheets,
         changedFileUuids,
         setChangedFileUuids,
+        selectionChangedUuids,
+        setSelectionChangedUuids,
         area,
         setArea,
         fileManagerMode,
         setFileManagerMode,
         imagesPerRow,
-        setImagesPerRow
+        setImagesPerRow,
+        isSaving,
+        setIsSaving
     }), [
         files, floorFiles, selectedFiles, links, brandedSelected, unBrandedSelected,
         previewFiles, selectedVideoFiles, droppedMarkers, delay, transition,
         audioUrl, selectedAudioTrack, formData, updateFormData, filesData,
-        featureSheets, changedFileUuids, area, fileManagerMode, imagesPerRow
+        featureSheets, changedFileUuids, selectionChangedUuids, area, fileManagerMode, imagesPerRow,
+        isSaving
     ]);
 
     return (

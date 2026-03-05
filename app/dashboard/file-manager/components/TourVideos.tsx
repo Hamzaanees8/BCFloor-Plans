@@ -47,11 +47,11 @@ function TourVideos() {
                 <div className="mt-4 w-full grid grid-cols-3 gap-5 p-3">
                     {selectedVideoFiles.map((file, idx) => (
                         <div key={idx} onClick={() => setMainVideo(URL.createObjectURL(file.file))} className=" h-auto relative">
-                            <div className="relative w-full h-[240px] cursor-pointer">
+                            <div className="relative w-full h-[240px] cursor-pointer overflow-hidden">
                                 <OptimizedImagePreview
                                     file={file.file}
                                     alt="Video thumbnail"
-                                    className="w-full h-full object-cover"
+                                    className="absolute inset-0 w-full h-full object-cover"
                                 />
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                     <PlayCircle className="w-12 h-12 text-white/80 drop-shadow-lg" />
@@ -83,7 +83,7 @@ function TourVideos() {
                     {currentServiceFiles?.map((file, idx) => (
                         <div key={idx} className=" h-auto relative">
                             <div className="relative w-full h-[240px] cursor-pointer">
-                                {(file.is_processing || !file.variant_urls?.thumb) ? (
+                                {file.is_processing ? (
                                     <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                                         <p className="text-gray-500 font-medium text-sm">Processing...</p>
                                     </div>
@@ -95,7 +95,7 @@ function TourVideos() {
                                                 <img
                                                     src={file.variant_urls.thumb}
                                                     alt="Video thumbnail"
-                                                    className="w-full h-full object-cover"
+                                                    className="absolute inset-0 w-full h-full object-cover"
                                                 />
                                             ) : (
                                                 <video
@@ -103,7 +103,7 @@ function TourVideos() {
                                                     preload="metadata"
                                                     muted
                                                     playsInline
-                                                    className="w-full h-full object-cover"
+                                                    className="absolute inset-0 w-full h-full object-cover"
                                                 />
                                             )}
                                         </div>

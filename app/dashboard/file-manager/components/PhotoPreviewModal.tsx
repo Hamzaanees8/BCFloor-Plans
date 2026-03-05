@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAppContext } from '@/app/context/AppContext';
 import { useFileManagerContext } from '../FileManagerContext';
+import ConfirmationDialog from '@/components/ConfirmationDialog';
 
 interface Props {
     file: File | string | null;
@@ -52,6 +53,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
     const { filesData } = useFileManagerContext();
     const [name, setName] = useState(initialName);
     const [openDropdown, setOpenDropdown] = useState(false);
+    const [showConfirmDelete, setShowConfirmDelete] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const existingGroups = Array.from(new Set(filesData?.files?.map(f => f.group).filter(Boolean) || [])) as string[];
@@ -168,7 +170,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
                     )}
                 </div>
 
-                {onSave && (
+                {onSave && userType !== 'agent' && (
                     <div className="mt-2 space-y-2 relative" ref={dropdownRef}>
                         <Label className="text-[#7d7d7d] text-[14px]">Media Name</Label>
                         <div className="relative">
@@ -204,7 +206,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
                 )}
 
                 <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[10px] mt-4 font-raleway">
-                    {onReplace && (
+                    {onReplace && userType !== 'agent' && (
                         <button
                             onClick={onReplace}
                             className={`bg-white rounded-[6px] w-full md:w-[150px] h-[40px] text-[16px] font-[600] border ${userType}-border ${userType}-text hover:bg-[#f1f8ff]`}
@@ -212,15 +214,15 @@ const PhotoPreviewModal: React.FC<Props> = ({
                             Replace
                         </button>
                     )}
-                    {onDelete && (
+                    {onDelete && userType !== 'agent' && (
                         <button
-                            onClick={onDelete}
+                            onClick={() => setShowConfirmDelete(true)}
                             className={`bg-white rounded-[6px] w-full md:w-[150px] h-[40px] text-[16px] font-[600] border border-[#E06D5E] text-[#E06D5E] hover:bg-red-50`}
                         >
                             Delete
                         </button>
                     )}
-                    {onSave && (
+                    {onSave && userType !== 'agent' && (
                         <button
                             onClick={handleSave}
                             className={`${userType}-bg rounded-[6px] text-white hover-${userType}-bg w-full md:w-[150px] h-[40px] font-[600] text-[16px]`}
@@ -228,7 +230,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
                             Save
                         </button>
                     )}
-                    {!onSave && (
+                    {(!onSave || userType === 'agent') && (
                         <button
                             onClick={onClose}
                             className={`${userType}-bg rounded-[6px] text-white hover-${userType}-bg w-full md:w-[150px] h-[40px] font-[600] text-[16px]`}
@@ -237,6 +239,21 @@ const PhotoPreviewModal: React.FC<Props> = ({
                         </button>
                     )}
                 </DialogFooter>
+                {showConfirmDelete && (
+                    <ConfirmationDialog
+                        open={showConfirmDelete}
+                        setOpen={setShowConfirmDelete}
+                        onConfirm={() => {
+                            if (onDelete) onDelete();
+                            onClose();
+                        }}
+                        showAgain={false}
+                        toggleShowAgain={() => { }}
+                        title="Delete File"
+                        dialogType="delete"
+                        description="Are you sure you want to delete this file? This action cannot be undone."
+                    />
+                )}
             </DialogContent>
         </Dialog>
     );

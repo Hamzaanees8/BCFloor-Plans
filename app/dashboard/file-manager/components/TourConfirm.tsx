@@ -450,7 +450,7 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                         ))}
                         {currentTourPhotos?.map((image, index) => (
                           <div key={`api-${index}`} className="w-full aspect-square overflow-hidden">
-                            {(image.is_processing || !image.variant_urls?.thumb) ? (
+                            {image.is_processing ? (
                               <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                                 <p className="text-gray-500 font-medium text-10px">Processing...</p>
                               </div>
@@ -516,7 +516,7 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                               className="h-auto relative"
                             >
                               <div className="relative w-full h-[240px] cursor-pointer">
-                                {(file.is_processing || !file.variant_urls?.thumb) ? (
+                                {file.is_processing ? (
                                   <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                                     <p className="text-gray-500 font-medium text-sm">Processing...</p>
                                   </div>

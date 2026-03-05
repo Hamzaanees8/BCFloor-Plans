@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import CopyableFileName from './CopyableFileName';
 import FilePreviewModal from './FilePreviewModal';
-import { Check, X, Star } from 'lucide-react';
+import { Check, X, Star, Loader2 } from 'lucide-react';
 import { DownloadIcon } from '@/components/Icons';
 import { Button } from '@/components/ui/button';
 import { Services } from '../../services/page';
@@ -9,6 +10,7 @@ import { Files, SelectedFiles, useFileManagerContext } from '../FileManagerConte
 import { toast } from 'sonner';
 import { Order } from '../../orders/page';
 import { DownloadFile, ServiceCompletion } from '../file-manager';
+import { S3UploadService } from '@/lib/upload/s3-service';
 import ManualPayment from './ManualPayment';
 import { useAppContext } from '@/app/context/AppContext';
 import UpgradeServicePopup from './UpgradeServicePopup';
@@ -38,7 +40,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [open, setOpen] = useState(false);
     const [openUpgrade, setOpenUpgrade] = useState(false);
-    const { selectedFiles, setSelectedFiles, filesData, setFilesData, setChangedFileUuids, fileManagerMode, setFileManagerMode, imagesPerRow } = useFileManagerContext();
+    const { selectedFiles, setSelectedFiles, filesData, setFilesData, setChangedFileUuids, setSelectionChangedUuids, fileManagerMode, setFileManagerMode, imagesPerRow, isSaving } = useFileManagerContext();
     const [openPayment, setOpenPayment] = useState(false);
     const [, setSuccess] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -50,6 +52,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     const [showDownloadModal, setShowDownloadModal] = useState(false);
     const [editingFile, setEditingFile] = useState<SelectedFiles | Files | null>(null);
     const [replacingFile, setReplacingFile] = useState<File | null>(null);
+    const [shrinkingIds, setShrinkingIds] = useState<Set<string>>(new Set());
+    const [flyingClones, setFlyingClones] = useState<{ id: string; src: string; rect: DOMRect }[]>([]);
     const { userType } = useAppContext()
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
@@ -118,7 +122,12 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     const currentServiceFiles = useMemo(() => {
         let files = filesData?.files
             ?.filter((file: Files) => file?.service?.uuid === currentService?.uuid)
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            .sort((a, b) => {
+                if (a.sort_order !== undefined && b.sort_order !== undefined) {
+                    return a.sort_order - b.sort_order;
+                }
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            });
 
         // If Agent and review is enabled, only show approved files and those marked to show
         if (userType === 'agent') {
@@ -267,13 +276,15 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         // Calculate index loosely based on the unified array for display purposes
         const idx = fileItems.findIndex(f => f.clientId === item.clientId);
         const totalUploaded = currentServiceFiles?.length || 0;
+        const isShrinking = item.serverId && shrinkingIds.has(item.serverId);
 
         return (
             <div
-                className="h-[auto] relative group flex flex-col"
+                data-fileid={item.serverId}
+                className={`h-[auto] relative group flex flex-col overflow-hidden ${isShrinking ? 'animate-card-select-shrink' : ''}`}
                 style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
             >
-                <div className="relative w-full aspect-[4/3]">
+                <div className="relative w-full aspect-[4/3] overflow-hidden">
                     {isLocal ? (
                         <>
                             <OptimizedImagePreview
@@ -281,7 +292,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 onClick={() => !file.is_deleted && handleImageClick(file.file, file)}
                                 alt="preview"
                                 isRestricted={userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
-                                className={`w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''}`}
+                                className={`absolute inset-0 w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''}`}
                                 draggable={false}
                             />
                             {file.is_deleted && (
@@ -383,7 +394,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         </>
                     ) : (
                         <>
-                            {(file.is_processing || !file.variant_urls?.thumb) ? (
+                            {file.is_processing ? (
                                 <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                                     <p className="text-gray-500 font-medium text-sm">Processing...</p>
                                 </div>
@@ -414,7 +425,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
                                     onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
                                     alt="preview"
-                                    className={`w-full h-full object-cover cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                    className={`absolute inset-0 w-full h-full object-cover cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
                                     draggable={false}
                                 />
                             )}
@@ -492,29 +503,82 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        setFilesData(prev => {
-                                            if (!prev) return prev;
-                                            return {
-                                                ...prev,
-                                                files: prev.files.map(f => {
-                                                    if (f.uuid === file.uuid) {
-                                                        setChangedFileUuids(prevSet => {
-                                                            const newSet = new Set(prevSet);
-                                                            newSet.add(f.uuid);
-                                                            return newSet;
-                                                        });
-                                                        return { ...f, is_agent_approved: !f.is_agent_approved };
-                                                    }
-                                                    return f;
-                                                })
-                                            };
-                                        });
+                                        if (!file.is_agent_approved) {
+                                            // Find the card element to get its screen position
+                                            const cardEl = (e.currentTarget as HTMLElement).closest('[data-fileid]') as HTMLElement | null;
+                                            const imgEl = cardEl?.querySelector('img') as HTMLImageElement | null;
+                                            const thumbSrc = imgEl?.src ||
+                                                file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`;
+
+                                            if (cardEl) {
+                                                const rect = cardEl.getBoundingClientRect();
+                                                const cloneId = `${file.uuid}-${Date.now()}`;
+
+                                                // Add shrink class to the card
+                                                setShrinkingIds(prev => { const s = new Set(prev); s.add(file.uuid); return s; });
+
+                                                // Spawn the flying clone
+                                                setFlyingClones(prev => [...prev, { id: cloneId, src: thumbSrc, rect }]);
+
+                                                // After animation, commit state change and clean up
+                                                setTimeout(() => {
+                                                    setFilesData(prev => {
+                                                        if (!prev) return prev;
+                                                        return {
+                                                            ...prev,
+                                                            files: prev.files.map(f => {
+                                                                if (f.uuid === file.uuid) {
+                                                                    setChangedFileUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
+                                                                    setSelectionChangedUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
+                                                                    return { ...f, is_agent_approved: true };
+                                                                }
+                                                                return f;
+                                                            })
+                                                        };
+                                                    });
+                                                    setShrinkingIds(prev => { const s = new Set(prev); s.delete(file.uuid); return s; });
+                                                    setFlyingClones(prev => prev.filter(c => c.id !== cloneId));
+                                                }, 580);
+                                            } else {
+                                                // Fallback: no card element found, commit immediately
+                                                setFilesData(prev => {
+                                                    if (!prev) return prev;
+                                                    return {
+                                                        ...prev,
+                                                        files: prev.files.map(f => {
+                                                            if (f.uuid === file.uuid) {
+                                                                setChangedFileUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
+                                                                setSelectionChangedUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
+                                                                return { ...f, is_agent_approved: true };
+                                                            }
+                                                            return f;
+                                                        })
+                                                    };
+                                                });
+                                            }
+                                        } else {
+                                            // Deselect instantly — no animation needed
+                                            setFilesData(prev => {
+                                                if (!prev) return prev;
+                                                return {
+                                                    ...prev,
+                                                    files: prev.files.map(f => {
+                                                        if (f.uuid === file.uuid) {
+                                                            setChangedFileUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
+                                                            setSelectionChangedUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
+                                                            return { ...f, is_agent_approved: false };
+                                                        }
+                                                        return f;
+                                                    })
+                                                };
+                                            });
+                                        }
                                     }}
                                 >
                                     <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
                                         {file.is_agent_approved && <Check color="white" size={12} />}
                                     </div>
-                                    <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
+                                    <span className="text-[10px] font-bold text-[#7D7D7D]">Selected</span>
                                 </div>
                             )}
                             {userType !== 'agent' && (
@@ -576,7 +640,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 </div>
             </div>
         );
-    }, [API_URL, currentBookedService?.payment_status, currentService?.uuid, currentServiceFiles?.length, fileItems, handleToggleFeatured, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setFilesData, setSelectedFiles, userType, imagesPerRow]);
+    }, [API_URL, currentBookedService?.payment_status, currentService?.uuid, currentServiceFiles?.length, fileItems, handleToggleFeatured, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setSelectedFiles, userType, imagesPerRow, shrinkingIds]);
 
 
 
@@ -623,6 +687,30 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         }
     };
 
+    const handleDeleteUploadedFile = async (fileUuid: string) => {
+        try {
+            await S3UploadService.deleteUploads({
+                uuids: [fileUuid],
+                type: "tour-file"
+            });
+
+            // Update local state by removing the file
+            if (filesData) {
+                setFilesData(prev => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        files: prev.files.filter(f => f.uuid !== fileUuid)
+                    };
+                });
+            }
+            toast.success("File deleted successfully");
+        } catch (err) {
+            console.error('Delete error:', err);
+            toast.error('Failed to delete file. Please try again.');
+        }
+    };
+
 
 
     const handleImageClick = (imageUrl: string | File, file: SelectedFiles | Files) => {
@@ -651,15 +739,41 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
 
     return (
         <div className="w-full">
+            {/* Flying clone portal — renders above everything, not clipped by overflow:hidden parents */}
+            {typeof document !== 'undefined' && flyingClones.length > 0 && createPortal(
+                <>
+                    {flyingClones.map(clone => (
+                        <div
+                            key={clone.id}
+                            className="animate-fly-clone fixed overflow-hidden shadow-2xl rounded"
+                            style={{
+                                left: clone.rect.left,
+                                top: clone.rect.top,
+                                width: clone.rect.width,
+                                height: clone.rect.height,
+                            }}
+                        >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={clone.src}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                draggable={false}
+                            />
+                        </div>
+                    ))}
+                </>,
+                document.body
+            )}
 
 
             {!isListing && (
                 <div
-                    className='h-[66px] w-full flex justify-between items-center px-4 font-alexandria overflow-visible'
+                    className='relative h-[66px] w-full flex justify-between items-center px-4 font-alexandria overflow-visible'
                     style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                 >
                     <div>
-                        {userType !== 'agent' && (
+                        {userType !== 'agent' ? (
                             <div className="flex gap-2 items-center">
                                 <Button
                                     onClick={handleFileInputClick}
@@ -676,27 +790,33 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     onChange={handleFileSelect}
                                 />
                             </div>
+                        ) : (
+                            <div className="flex gap-2 items-center">
+                                {(currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
+                                    <Button
+                                        onClick={() => setShowDownloadModal(true)}
+                                        className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}
+                                    >
+                                        Download Files
+                                    </Button>
+                                )}
+                            </div>
                         )}
                     </div>
-                    <div>
-                        <p className='flex flex-col items-center'>
-                            <span className={`${userType}-text font-bold`}>{currentService ? currentService.name : ''}</span>
-                            <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title}
-                                <span className='ml-1'>
-                                    ({currentServiceFiles?.filter(f => !f.is_deleted).length || 0} / {currentBookedService?.option?.quantity || 1})
-                                </span>
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                        <p className='flex flex-col items-center pointer-events-auto'>
+                            <span className={`${userType}-text font-bold text-[16px]`}>{currentService ? currentService.name : ''}</span>
+                            <span className='text-[12px] text-[#7D7D7D]'>
+                                {currentBookedService?.option?.title || `${currentBookedService?.option?.quantity || 0} Photos`}
+                                {userType !== 'agent' && (
+                                    <span className='ml-1'>
+                                        ({currentServiceFiles?.filter(f => !f.is_deleted).length || 0} / {currentBookedService?.option?.quantity || 1})
+                                    </span>
+                                )}
                             </span>
                         </p>
                     </div>
                     <div className='flex justify-center items-center gap-x-[14px]'>
-                        {(userType === 'agent') && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
-                            <Button
-                                onClick={() => setShowDownloadModal(true)}
-                                className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}
-                            >
-                                Download Files
-                            </Button>
-                        )}
                         {userType === 'admin' && (
                             <Button
                                 onClick={() => setShowDownloadModal(true)}
@@ -711,9 +831,19 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     setShowConfirmation(true);
                                     handleSubmitToClient();
                                 }}
+                                disabled={isSaving}
                                 className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center`}
                             >
-                                {mediaUploaded ? <Check color="#fff" size={14} /> : 'Submit to Client'}
+                                {isSaving ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Submitting...
+                                    </>
+                                ) : mediaUploaded ? (
+                                    <Check color="#fff" size={14} />
+                                ) : (
+                                    'Submit to Client'
+                                )}
                             </Button>
                         )}
                         <AgentNotificationModal
@@ -723,29 +853,31 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             orderData={orderData ? orderData : null}
                         />
                         {userType === 'agent' && (
-                            <div className='flex flex-col justify-center items-center mr-4'>
-                                <p className='text-[18px] text-[#6BAE41]'>${currentBookedService?.option?.amount}</p>
-                                <p className='text-[#7D7D7D] text-[12px]'>{currentBookedService?.option?.title}</p>
+                            <div className='flex items-center gap-[10px] mr-2'>
+                                <div className='flex flex-col justify-center items-center mr-2'>
+                                    <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>${currentBookedService?.option?.amount}</p>
+                                    <p className='text-[#7D7D7D] text-[10px] leading-none'>{currentBookedService?.option?.quantity || 0} Photos</p>
+                                </div>
+                                <Button
+                                    className={`h-[32px] w-[100px] flex justify-center items-center 
+                                        ${paymentSuccess || currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
+                                            ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
+                                            : "bg-[#DC9600] hover:bg-[#eda304]"}`}
+                                >
+                                    {currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'Paid' : 'UnPaid'}
+                                </Button>
                             </div>
-                        )}
-                        {userType === 'agent' && (
-                            <Button
-                                className={`h-[32px] w-[150px] flex justify-center items-center 
-                                    ${paymentSuccess
-                                        ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
-                                        : "bg-[#DC9600] hover:bg-[#eda304]"}`}
-                            >
-                                {currentBookedService?.payment_status == 'PAID' ? 'Paid' : 'UnPaid'}
-                            </Button>
                         )}
                         <PayInvoiceModal open={openPaymentModal} setOpen={setOpenPaymentModal} success={paymentSuccess} setSuccess={setPaymentSuccess} />
 
-                        <Button
-                            onClick={() => setOpenUpgrade(true)}
-                            className={`${userType}-bg h-[32px] w-auto px-[10px] flex justify-center items-center hover-${userType}-bg`}
-                        >
-                            Upgrade photo package
-                        </Button>
+                        {userType !== 'agent' && (
+                            <Button
+                                onClick={() => setOpenUpgrade(true)}
+                                className={`${userType}-bg h-[32px] w-auto px-[10px] flex justify-center items-center hover-${userType}-bg`}
+                            >
+                                Upgrade photo package
+                            </Button>
+                        )}
                         <UpgradeServicePopup
                             open={openUpgrade}
                             setOpen={setOpenUpgrade}
@@ -781,15 +913,38 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
             )}
 
             {!isListing && (
-                <div className='p-4 flex justify-end items-center gap-4'>
+                <div className={`p-4 flex ${userType === 'agent' ? 'justify-between' : 'justify-end'} items-center gap-4 border-b border-gray-200`}>
                     <div className="flex items-center gap-4">
-                        <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />
                         <GridSizeToggle />
                     </div>
+
+                    {userType === 'agent' && (
+                        <div className="flex items-center gap-8">
+                            <div className="flex flex-col items-center">
+                                <span className="text-[22px] font-medium text-[#7D7D7D] leading-none">
+                                    {currentServiceFiles?.filter(f => f.is_agent_approved).length || 0} <span className="text-[#7D7D7D]">/ {currentBookedService?.option?.quantity || 0}</span>
+                                </span>
+                                <span className="text-[12px] text-[#7D7D7D] mt-1">Selected</span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                                <span className="text-[22px] font-medium text-[#666666] leading-none">
+                                    {currentServiceFiles?.filter(f => !f.is_deleted).length || 0}
+                                </span>
+                                <span className="text-[12px] text-[#666666] mt-1">Available</span>
+                            </div>
+                            <Button
+                                variant="outline"
+                                onClick={() => setOpenUpgrade(true)}
+                                className="border border-[#6BAE41] text-[#6BAE41] hover:bg-[#6BAE41] hover:text-white h-[36px] px-6 rounded transition-colors font-medium ml-2"
+                            >
+                                Upgrade Plan
+                            </Button>
+                        </div>
+                    )}
                 </div>
             )}
 
-            <div className="py-4">
+            <div className="pb-4">
                 <FilePreviewModal
                     type='HDR_photos'
                     open={open}
@@ -800,7 +955,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     reviewFilesEnabled={reviewFilesEnabled}
                 />
 
-                <div className="mt-4">
+                <div className="">
                     <DualModeFileManager
                         mode={fileManagerMode}
                         items={fileItems}
@@ -809,6 +964,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         onClickUpload={handleFileInputClick}
                         renderItem={renderFileItem}
                         disabled={userType === 'agent'}
+                        onSave={onSave}
+                        modeToggleButton={<ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />}
                     />
                 </div>
 
@@ -854,13 +1011,19 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             });
                         }
                     }}
-                    onDelete={editingFile && 'file' in editingFile ? () => {
-                        setSelectedFiles(prev => prev.map(f => {
-                            if (f.file === editingFile.file && f.service_id === editingFile.service_id) {
-                                return { ...f, is_deleted: true };
-                            }
-                            return f;
-                        }));
+                    onDelete={editingFile ? () => {
+                        if ('file' in editingFile) {
+                            // Unsaved file (SelectedFiles)
+                            setSelectedFiles(prev => prev.map(f => {
+                                if (f.file === editingFile.file && f.service_id === editingFile.service_id) {
+                                    return { ...f, is_deleted: true };
+                                }
+                                return f;
+                            }));
+                        } else {
+                            // Saved file (Files)
+                            handleDeleteUploadedFile((editingFile as Files).uuid);
+                        }
                     } : undefined}
                     onReplace={editingFile && 'file' in editingFile ? () => {
                         setReplacingFile(editingFile.file);

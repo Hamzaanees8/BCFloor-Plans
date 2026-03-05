@@ -23,6 +23,8 @@ import {
   fetchMlsData,
   GetOneListing,
 } from "../listing";
+import { GetFilesData } from "../../file-manager/file-manager";
+import { FilesData } from "../../file-manager/FileManagerContext";
 import { useParams, useRouter } from "next/navigation";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { Listings } from "@/lib/types";
@@ -43,6 +45,7 @@ import { Info, Plus } from "lucide-react";
 const ListingsFrom = () => {
   const { userType } = useAppContext();
   const [currentListing, setCurrentListing] = useState<Listings | null>(null);
+  const [filesData, setFilesData] = useState<FilesData | null>(null);
   const [listingPrice, setListingPrice] = useState("");
   const [mls, setMls] = useState("");
   const [bedrooms, setBedrooms] = useState<number | "">("");
@@ -251,6 +254,20 @@ const ListingsFrom = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listingId]);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const orderUuid = (currentListing as Listings)?.orders?.[0]?.uuid;
+    if (!token || !orderUuid) return;
+
+    GetFilesData(token, orderUuid)
+      .then((data) => {
+        if (data && data.data && data.data[0]) {
+          setFilesData(data.data[0]);
+        }
+      })
+      .catch((err) => console.log("Error fetching files data:", err));
+  }, [currentListing]);
 
   useEffect(() => {
     if (states.length && currentListing && currentListing?.province) {
@@ -776,16 +793,25 @@ const ListingsFrom = () => {
       </div>
 
       <div
-        className={`w-full h-[160px] ${userType}-bg flex flex-col md:flex-row justify-between items-start py-[32px] px-[25px]`}
+        className={`w-full h-[160px] ${userType}-bg flex flex-col md:flex-row justify-between items-start py-[32px] px-[25px] relative overflow-hidden`}
+        style={{
+          backgroundImage: `url('${filesData?.files?.find(f => f.is_featured)?.url || filesData?.files?.[0]?.url || ""}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
       >
-        <p className="text-[14px] md:text-[20px] font-[500] text-[#F2F2F2]">
-          {address && province && postalCode && country
-            ? `${address}, ${province}, ${postalCode}, ${country}`
-            : `Create Your Property Listing`}
-        </p>
-        <p className="text-[12px] md:text-[16px] font-[500] text-[#F2F2F2ff]">
-          BC Floor Plans
-        </p>
+        <div className="absolute inset-0 bg-black/40 z-0"></div>
+        <div className="relative z-10 w-full flex flex-col md:flex-row justify-between items-start md:items-center">
+          <p className="text-[14px] md:text-[20px] font-[500] text-[#F2F2F2]">
+            {address && province && postalCode && country
+              ? `${address}, ${province}, ${postalCode}, ${country}`
+              : `Create Your Property Listing`}
+          </p>
+          <p className="text-[12px] md:text-[16px] font-[500] text-[#F2F2F2ff]">
+            BC Floor Plans
+          </p>
+        </div>
       </div>
       {listingId && (
         <div className="w-full h-[60px] bg-[#E4E4E4] font-alexandria pr-5 sticky top-[80px] z-40 flex items-center border-b border-[#BBBBBB]">

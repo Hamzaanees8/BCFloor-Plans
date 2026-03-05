@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { DownloadFile } from '../file-manager';
 
 type LocalFile = {
@@ -17,7 +17,7 @@ type LocalFile = {
   upload?: boolean;
 };
 
-type ApiFile = {
+export type ApiFile = {
   id: number;
   uuid: string;
   name: string; // Changed from file_name to name
@@ -84,6 +84,22 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
     } else {
       setSelectedFiles([]);
     }
+  };
+
+  // ✅ Pre-select all files when modal opens
+  useEffect(() => {
+    if (open && files.length > 0) {
+      handleSelectAll(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, files]);
+
+  const handleGlobalSizeSelect = (size: 'small' | 'large' | 'mls' | 'original') => {
+    const newSizes: Record<string, 'small' | 'large' | 'mls' | 'original'> = {};
+    files.forEach(f => {
+      newSizes[f.id] = size;
+    });
+    setSelectedSizes(newSizes);
   };
 
   // ✅ Toggle a single file
@@ -158,17 +174,17 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
   const sizeButtonClasses = (fileId: string, size: string) => {
     const isSelected = selectedSizes[fileId] === size;
     return `h-[32px] justify-center rounded-[6px] font-raleway border-[1px] text-[14px] font-[600] transition-colors ${isSelected
-      ? `${userType}-bg ${userType}-border text-white`
-      : `bg-transparent border-[#BBBBBB] text-[#666666] hover:border-${userType}-border hover:bg-[#4290e9] hover:text-white`
+      ? `${userType}-bg ${userType}-border text-white hover:${userType}-bg hover:opacity-80`
+      : `bg-transparent border-[#BBBBBB] text-[#666666] hover:border-${userType}-border hover-${userType}-bg hover:text-white`
       }`;
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-[#E4E4E4] rounded-xl shadow-lg border p-6 w-full max-w-[700px] font-Alexandria [&>button]:hidden">
+      <DialogContent className="bg-[#FAFAFA] rounded-[8px] shadow-lg border p-6 w-full max-w-[750px] max-h-[calc(100vh-40px)] flex flex-col font-alexandria [&>button]:hidden overflow-hidden">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className={`uppercase ${userType}-text text-[18px] font-[600]`}>
+          <div className="flex items-center justify-between border-b border-[#E4E4E4] pb-2">
+            <DialogTitle className={`uppercase ${userType}-text text-[18px] font-semibold`}>
               Download Files
             </DialogTitle>
             <Button
@@ -178,7 +194,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
                 setSelectedFiles([]);
                 setSelectedSizes({});
               }}
-              className="p-1 hover:bg-gray-100 rounded-full transition-colors h-auto"
+              className="p-0 hover:bg-transparent shadow-none h-auto transition-colors"
               aria-label="Close"
             >
               <X className="w-5 h-5 text-[#7D7D7D]" />
@@ -186,119 +202,154 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
           </div>
         </DialogHeader>
 
-        <hr className="w-full h-[1px] bg-[#BBBBBB]" />
-        <div className="flex items-center gap-x-2.5 mb-3">
-          <div
-            onClick={() => handleSelectAll(!(selectedFiles.length === files.length && files.length > 0))}
-            className="w-4 h-4 flex items-center justify-center rounded-[2px] cursor-pointer bg-white border border-[#666666]"
-          >
-            {selectedFiles.length === files.length && files.length > 0 && (
-              <div className="w-2.5 h-2.5 bg-[#4290E9] rounded-[2px]" />
-            )}
-          </div>
-          <label htmlFor="selectAll" className="text-[#666666] cursor-pointer">
-            Select All
-          </label>
-        </div>
-
-        <div className="flex flex-col gap-y-3 max-h-[400px] overflow-y-auto pr-2 sidebar-scroll">
-          {files.map((file) => (
-            <div key={file.id} className="flex items-center gap-x-4 p-2 bg-white rounded-lg shadow-sm">
-              <div
-                onClick={() => handleToggleFile(file.id)}
-                className="w-4 h-4 flex items-center justify-center rounded-[2px] cursor-pointer bg-white border border-[#666666]"
+        <div className="flex-1 overflow-y-auto pr-2 sidebar-scroll mt-4">
+          {/* Global Size Selector */}
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-[#E4E4E4] mb-4">
+            <p className={`text-[14px] font-semibold ${userType}-text mb-3 uppercase tracking-wider`}>Select size for all</p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => handleGlobalSizeSelect('original')}
+                className={`flex-1 min-w-[140px] h-[38px] items-center justify-center rounded-[6px] font-alexandria border-[1px] text-[13px] font-semibold transition-all
+                  ${Object.values(selectedSizes).every(s => s === 'original') && Object.keys(selectedSizes).length === files.length
+                    ? `${userType}-bg ${userType}-border text-white hover:${userType}-bg hover:opacity-80`
+                    : `bg-[#F8F8F8] border-[#BBBBBB] text-[#666666] hover:border-${userType}-border hover-${userType}-bg hover:text-white`}`}
               >
-                {selectedFiles.includes(file.id) && (
-                  <div className="w-2.5 h-2.5 bg-[#4290E9] rounded-[2px]" />
-                )}
-              </div>
+                Original Quality
+              </Button>
+              <Button
+                onClick={() => handleGlobalSizeSelect('small')}
+                className={`flex-1 min-w-[80px] h-[38px] items-center justify-center rounded-[6px] font-alexandria border-[1px] text-[13px] font-semibold transition-all
+                  ${Object.values(selectedSizes).every(s => s === 'small') && Object.keys(selectedSizes).length === files.length
+                    ? `${userType}-bg ${userType}-border text-white hover:${userType}-bg hover:opacity-80`
+                    : `bg-[#F8F8F8] border-[#BBBBBB] text-[#666666] hover:border-${userType}-border hover-${userType}-bg hover:text-white`}`}
+              >
+                Small
+              </Button>
+              <Button
+                onClick={() => handleGlobalSizeSelect('large')}
+                className={`flex-1 min-w-[80px] h-[38px] items-center justify-center rounded-[6px] font-alexandria border-[1px] text-[13px] font-semibold transition-all
+                  ${Object.values(selectedSizes).every(s => s === 'large') && Object.keys(selectedSizes).length === files.length
+                    ? `${userType}-bg ${userType}-border text-white hover:${userType}-bg hover:opacity-80`
+                    : `bg-[#F8F8F8] border-[#BBBBBB] text-[#666666] hover:border-${userType}-border hover-${userType}-bg hover:text-white`}`}
+              >
+                Large
+              </Button>
+              <Button
+                onClick={() => handleGlobalSizeSelect('mls')}
+                className={`flex-1 min-w-[80px] h-[38px] items-center justify-center rounded-[6px] font-alexandria border-[1px] text-[13px] font-semibold transition-all
+                  ${Object.values(selectedSizes).every(s => s === 'mls') && Object.keys(selectedSizes).length === files.length
+                    ? `${userType}-bg ${userType}-border text-white hover:${userType}-bg hover:opacity-80`
+                    : `bg-[#F8F8F8] border-[#BBBBBB] text-[#666666] hover:border-${userType}-border hover-${userType}-bg hover:text-white`}`}
+              >
+                MLS
+              </Button>
+            </div>
+          </div>
 
-
-              {file.type === 'photo' ? (
-                <div className="relative w-[180px] h-[110px] shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={file.isLocal ? file.url : (file.url || `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`)}
-                    alt={file.name}
-                    className="w-full h-full object-cover rounded-md"
-                  />
-                </div>
-              ) : file.type === 'video' ? (
-                <div className="relative w-[180px] h-[110px] shrink-0">
-                  <video
-                    src={file.isLocal ? file.url : (file.url || `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`)}
-                    className="w-full h-full object-cover rounded-md"
-                  />
-                </div>
-              ) : (
-                <div className="w-[180px] h-[110px] shrink-0 flex items-center justify-center bg-gray-200 text-gray-600 rounded-md">
-                  {file.name.split('.').pop()?.toUpperCase() || 'FILE'}
-                </div>
+          <div className="flex items-center gap-x-2.5 mb-4 px-2">
+            <div
+              onClick={() => handleSelectAll(!(selectedFiles.length === files.length && files.length > 0))}
+              className={`w-4 h-4 flex items-center justify-center rounded-[2px] cursor-pointer bg-white border border-[#666666] transition-all`}
+            >
+              {selectedFiles.length === files.length && files.length > 0 && (
+                <div className={`${userType}-bg w-2.5 h-2.5 rounded-[1px]`} />
               )}
+            </div>
+            <label htmlFor="selectAll" className="text-[#666666] text-sm font-medium cursor-pointer uppercase tracking-tight">
+              Select All ({selectedFiles.length}/{files.length})
+            </label>
+          </div>
 
-              <div className="flex flex-col gap-y-2 flex-grow min-w-0">
-                <p className="text-[#666666] text-[15px] font-medium truncate">{file.name}</p>
+          <div className="flex flex-col gap-y-3 pr-1">
+            {files.map((file) => (
+              <div key={file.id} className="flex items-center gap-x-4 p-3 bg-white rounded-lg shadow-sm border border-[#E4E4E4] hover:border-[#BBBBBB] transition-colors">
+                <div
+                  onClick={() => handleToggleFile(file.id)}
+                  className="w-5 h-5 flex items-center justify-center rounded-[4px] cursor-pointer bg-white border border-[#BBBBBB] shrink-0"
+                >
+                  {selectedFiles.includes(file.id) && (
+                    <div className={`${userType}-bg w-3 h-3 rounded-[2px]`} />
+                  )}
+                </div>
 
-                {!file.isLocal && (
-                  <>
-                    <div className="flex items-center gap-x-2">
+                <div className="relative w-[140px] h-[85px] shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                  {file.type === 'photo' ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={file.isLocal ? file.url : (file.url || `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`)}
+                      alt={file.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : file.type === 'video' ? (
+                    <video
+                      src={file.isLocal ? file.url : (file.url || `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`)}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold uppercase text-xs">
+                      {file.name.split('.').pop() || 'FILE'}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-y-2 flex-grow min-w-0">
+                  <p className="text-[#424242] text-[15px] font-semibold truncate leading-tight">{file.name}</p>
+
+                  {!file.isLocal ? (
+                    <div className="flex flex-wrap gap-1.5">
                       <Button
                         onClick={() => handleSizeSelect(file.id, 'original')}
-                        className={`w-[160px] ${sizeButtonClasses(file.id, 'original')}`}
+                        className={`px-3 ${sizeButtonClasses(file.id, 'original')}`}
                       >
                         Original Quality
                       </Button>
                       <Button
                         onClick={() => handleSizeSelect(file.id, 'small')}
-                        className={`w-[80px] ${sizeButtonClasses(file.id, 'small')}`}
+                        className={`px-3 ${sizeButtonClasses(file.id, 'small')}`}
                       >
                         Small
                       </Button>
-                    </div>
-
-                    <div className="flex items-center gap-x-2">
                       <Button
                         onClick={() => handleSizeSelect(file.id, 'large')}
-                        className={`w-[80px] ${sizeButtonClasses(file.id, 'large')}`}
+                        className={`px-3 ${sizeButtonClasses(file.id, 'large')}`}
                       >
                         Large
                       </Button>
                       <Button
                         onClick={() => handleSizeSelect(file.id, 'mls')}
-                        className={`w-[80px] ${sizeButtonClasses(file.id, 'mls')}`}
+                        className={`px-3 ${sizeButtonClasses(file.id, 'mls')}`}
                       >
                         MLS
                       </Button>
                     </div>
-                  </>
-                )}
-                {file.isLocal && (
-                  <p className="text-[#999999] text-[13px]">Ready to download (Local)</p>
-                )}
+                  ) : (
+                    <p className="text-[#999999] text-[13px] font-medium italic">Ready to download (Local)</p>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-
+            ))}
+          </div>
         </div>
-        <hr className="w-full h-[1px] bg-[#BBBBBB] my-2" />
-        <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-3 font-raleway">
-          <button
+
+        <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-3 font-alexandria border-t border-[#E4E4E4] pt-4 mt-2">
+          <Button
+            variant="outline"
             onClick={() => {
               onClose();
               setSelectedFiles([]);
               setSelectedSizes({});
             }}
-            className={`bg-white rounded-[6px] w-full md:w-[176px] h-[44px] text-[16px] font-[600] border ${userType}-border ${userType}-text hover:bg-[#f1f8ff]`}
+            className={`bg-white rounded-[6px] w-full md:w-[170px] h-[44px] text-[16px] font-semibold border ${userType}-border ${userType}-text hover:!text-white hover-${userType}-bg transition-colors`}
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleDownloadSelected}
             disabled={selectedFiles.length === 0}
-            className={`${userType}-bg rounded-[6px] text-white hover:opacity-90 w-full md:w-[176px] h-[44px] font-[600] text-[16px] disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`${userType}-bg rounded-[6px] text-white hover:opacity-80 hover:${userType}-bg w-full md:w-[200px] h-[44px] font-semibold text-[16px] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md`}
           >
-            Download Selected
-          </button>
+            Download {selectedFiles.length > 0 ? `(${selectedFiles.length})` : ''} Selected
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

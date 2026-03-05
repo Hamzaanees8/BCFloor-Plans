@@ -3,7 +3,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Check } from 'lucide-react';
+import { Check, Copy, ClipboardCheck } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Services } from '../../services/page';
 import { useFileManagerContext } from '../FileManagerContext';
@@ -33,9 +33,18 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     const [openUpgrade, setOpenUpgrade] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
+    const [copiedField, setCopiedField] = useState<'branded' | 'unbranded' | null>(null);
     const dragCounter = useRef(0);
 
     const { userType } = useAppContext()
+
+    const handleCopy = (type: 'branded' | 'unbranded', value: string) => {
+        if (!value) return;
+        navigator.clipboard.writeText(value).then(() => {
+            setCopiedField(type);
+            setTimeout(() => setCopiedField(null), 2000);
+        });
+    };
 
     const isValidUrl = (url: string) => {
         try {
@@ -246,19 +255,19 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
 
             {!isListing &&
                 <div
-                    className='h-[66px] w-full flex justify-between items-center px-4 font-alexandria'
+                    className='relative h-[66px] w-full flex justify-between items-center px-4 font-alexandria'
                     style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                 >
                     <div>
-
                     </div>
-                    <div>
-                        <p className='flex flex-col items-center'>
-                            <span className={`${userType}-text font-bold`}>
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                        <p className='flex flex-col items-center pointer-events-auto'>
+                            <span className={`${userType}-text font-bold text-[16px]`}>
                                 {currentService ? currentService.name : '3D Tour'}
                             </span>
-                            <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title ?? ''}</span>
-
+                            <span className='text-[12px] text-[#7D7D7D]'>
+                                {currentBookedService?.option?.title ?? '1 Link'}
+                            </span>
                         </p>
                     </div>
                     <div className='flex justify-center items-center gap-x-[14px]'>
@@ -276,46 +285,37 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
                             serviceDate={currentService ? currentService : null}
                             orderData={orderData ? orderData : null}
                         />
-                        {userType === 'agent' &&
-                            <div className='flex flex-col justify-center items-center mr-4'>
-                                <p className='text-[18px] text-[#6BAE41]'>${currentBookedService?.option?.amount}</p>
-                                <p className='text-[#7D7D7D] text-[12px]'>{currentBookedService?.option?.title ?? ''}</p>
+                        {userType === 'agent' && (
+                            <div className='flex items-center gap-[10px] mr-2'>
+                                <div className='flex flex-col justify-center items-center mr-2'>
+                                    <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>${currentBookedService?.option?.amount}</p>
+                                    <p className='text-[#7D7D7D] text-[10px] leading-none'>1 Link</p>
+                                </div>
+                                <Button
+                                    className={`h-[32px] w-[100px] flex justify-center items-center 
+                                        ${paymentSuccess || currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
+                                            ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
+                                            : "bg-[#DC9600] hover:bg-[#eda304]"}`}
+                                >
+                                    {currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'Paid' : 'UnPaid'}
+                                </Button>
                             </div>
-                        }
-                        {userType === 'agent' &&
-                            <Button
-                                className={`h-[32px] w-[150px] flex justify-center items-center 
-                                                                                                ${paymentSuccess
-                                        ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
-                                        : "bg-[#DC9600] hover:bg-[#eda304]"}`
-                                }>{currentBookedService?.payment_status == 'PAID' ? 'Paid' : 'UnPaid'}</Button>
-                        }
+                        )}
                         <PayInvoiceModal open={openPaymentModal} setOpen={setOpenPaymentModal} success={paymentSuccess} setSuccess={setPaymentSuccess} />
 
                         {userType === 'admin' && (
                             <div className="">
-                                {/* {!success ? (
-                                    <Button
-                                        onClick={() => setOpenPayment(true)}
-                                        className={`${userType}-bg text-white hover-${userType}-bg cursor-pointer h-[32px]`}
-                                    >
-                                        Add Manual Payment
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        // disabled
-                                        className="bg-[#6BAE41] hover:bg-[#7dc94f]  text-white flex items-center gap-2 cursor-default  h-[32px]"
-                                    >
-                                        <CheckCircle2 className="w-5 h-5" />
-                                        Payment Added
-                                    </Button>
-                                )} */}
                                 <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
                             </div>
                         )}
-                        <Button
-                            onClick={() => setOpenUpgrade(true)}
-                            className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}>Upgrade Plan</Button>
+                        {userType !== 'agent' && (
+                            <Button
+                                onClick={() => setOpenUpgrade(true)}
+                                className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}
+                            >
+                                Upgrade Plan
+                            </Button>
+                        )}
                         <UpgradeServicePopup
                             open={openUpgrade}
                             setOpen={setOpenUpgrade}
@@ -332,9 +332,33 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
             }
 
             {!isListing && (
-                <div className='p-4 flex justify-end items-center gap-4'>
+                <div className={`p-4 flex ${userType === 'agent' ? 'justify-between' : 'justify-end'} items-center gap-4 border-b border-gray-200`}>
                     <div className="flex items-center gap-4">
                     </div>
+
+                    {/* {userType === 'agent' && (
+                        <div className="flex items-center gap-8">
+                            <div className="flex flex-col items-center">
+                                <span className="text-[22px] font-medium text-[#7D7D7D] leading-none">
+                                    {(isValidUrl(brandedLink) && isValidUrl(unbrandedLink)) ? 1 : 0} <span className="text-[#7D7D7D]">/ {currentBookedService?.option?.quantity || 1}</span>
+                                </span>
+                                <span className="text-[12px] text-[#7D7D7D] mt-1">Selected</span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                                <span className="text-[22px] font-medium text-[#666666] leading-none">
+                                    {(isValidUrl(brandedLink) && isValidUrl(unbrandedLink)) ? 1 : 0}
+                                </span>
+                                <span className="text-[12px] text-[#666666] mt-1">Available</span>
+                            </div>
+                            <Button
+                                variant="outline"
+                                onClick={() => setOpenUpgrade(true)}
+                                className="border border-[#6BAE41] text-[#6BAE41] hover:bg-[#6BAE41] hover:text-white h-[36px] px-6 rounded transition-colors font-medium ml-2"
+                            >
+                                Upgrade Plan
+                            </Button>
+                        </div>
+                    )} */}
                 </div>
             )}
             <div className='flex flex-col items-center justify-center my-4'>
@@ -342,13 +366,40 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
                     <Label className='text-[14px] text-[#424242]'>3D Tour Link - Branded</Label>
                     <div className="flex gap-2">
 
-                        <Input
-                            className='w-full h-[42px] text-[#666666]'
-                            value={brandedLink}
-                            readOnly={userType === 'agent'}
-                            onChange={(e) => handleLinkChange("branded", e.target.value)}
-                            placeholder="Enter branded link"
-                        />
+                        {userType === 'agent' ? (
+                            <div className="relative w-full">
+                                <Input
+                                    className='w-full h-[42px] text-[#666666] pr-9 cursor-default select-text'
+                                    value={brandedLink}
+                                    readOnly
+                                    placeholder="No link available"
+                                />
+                                {brandedLink && (
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 group">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopy('branded', brandedLink)}
+                                            className={`${userType}-text opacity-70 hover:opacity-100 transition-opacity p-1 rounded`}
+                                            aria-label="Copy branded link"
+                                        >
+                                            {copiedField === 'branded'
+                                                ? <ClipboardCheck size={16} className="text-green-500" />
+                                                : <Copy size={16} />}
+                                        </button>
+                                        <span className="pointer-events-none absolute bottom-full right-0 mb-2 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                                            {copiedField === 'branded' ? 'Copied!' : 'Click to copy to clipboard'}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <Input
+                                className='w-full h-[42px] text-[#666666]'
+                                value={brandedLink}
+                                onChange={(e) => handleLinkChange("branded", e.target.value)}
+                                placeholder="Enter branded link"
+                            />
+                        )}
                         <Popover>
                             <PopoverTrigger asChild>
                                 <Button
@@ -379,13 +430,40 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
                     <Label className='text-[14px] text-[#424242]'>3D Tour Link - Unbranded</Label>
                     <div className="flex gap-2">
 
-                        <Input
-                            className='w-full h-[42px] text-[#666]'
-                            value={unbrandedLink}
-                            readOnly={userType === 'agent'}
-                            onChange={(e) => handleLinkChange("unbranded", e.target.value)}
-                            placeholder="Enter unbranded link"
-                        />
+                        {userType === 'agent' ? (
+                            <div className="relative w-full">
+                                <Input
+                                    className='w-full h-[42px] text-[#666] pr-9 cursor-default select-text'
+                                    value={unbrandedLink}
+                                    readOnly
+                                    placeholder="No link available"
+                                />
+                                {unbrandedLink && (
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 group">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopy('unbranded', unbrandedLink)}
+                                            className={`${userType}-text opacity-70 hover:opacity-100 transition-opacity p-1 rounded`}
+                                            aria-label="Copy unbranded link"
+                                        >
+                                            {copiedField === 'unbranded'
+                                                ? <ClipboardCheck size={16} className="text-green-500" />
+                                                : <Copy size={16} />}
+                                        </button>
+                                        <span className="pointer-events-none absolute bottom-full right-0 mb-2 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                                            {copiedField === 'unbranded' ? 'Copied!' : 'Click to copy to clipboard'}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <Input
+                                className='w-full h-[42px] text-[#666]'
+                                value={unbrandedLink}
+                                onChange={(e) => handleLinkChange("unbranded", e.target.value)}
+                                placeholder="Enter unbranded link"
+                            />
+                        )}
                         <Popover>
                             <PopoverTrigger asChild>
                                 <Button

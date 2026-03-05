@@ -290,6 +290,14 @@ export interface SelectedService {
   service?: Services;
 }
 
+interface DisplayImage {
+  id: string;
+  url: string;
+  type: "existing" | "new" | "gallery";
+  api: boolean;
+  is_processing?: boolean;
+}
+
 interface TimeZoneOption {
   label: string;
   value: string;
@@ -750,24 +758,27 @@ const VendorWorkHours = ({
     }
   };
 
-  const allImagesForDisplay = [
+  const allImagesForDisplay: DisplayImage[] = [
     ...portfolioImagesUrls.map((img) => ({
       id: `existing-${img.uuid}`,
-      url: img.image_url,
+      url: img.variant_urls?.thumb || img.image_url,
       type: "existing" as const,
       api: true,
+      is_processing: img.is_processing,
     })),
     ...portfolioImages.map((file, index) => ({
       id: `new-${index}-${file.name}`,
       url: URL.createObjectURL(file),
       type: "new" as const,
       api: false,
+      is_processing: false,
     })),
     ...galleryImages.map((path, index) => ({
       id: `gallery-${index}`,
       url: `${API_URL}/${path}`,
       type: "gallery" as const,
       api: true,
+      is_processing: false,
     })),
   ];
 
@@ -1748,13 +1759,19 @@ const VendorWorkHours = ({
                               className="basis-1/6 flex justify-center items-center relative group"
                             >
                               <div className="relative w-[160px] h-[160px] rounded-lg overflow-hidden border border-gray-300">
-                                <Image
-                                  unoptimized
-                                  src={file.url}
-                                  alt={`preview-${index}`}
-                                  fill
-                                  className="object-cover"
-                                />
+                                {file.is_processing ? (
+                                  <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                                    <p className="text-gray-500 font-medium text-[10px]">Processing...</p>
+                                  </div>
+                                ) : (
+                                  <Image
+                                    unoptimized
+                                    src={file.url}
+                                    alt={`preview-${index}`}
+                                    fill
+                                    className="object-cover"
+                                  />
+                                )}
                                 {/* Only show remove button for local and gallery images */}
                                 {(file.type === "new" ||
                                   file.type === "gallery") && (

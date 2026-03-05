@@ -111,7 +111,8 @@ function payloadToFormData(payload: VendorPayload): FormData {
       if (key === "portfolio_images") {
         value.forEach((item, index) => {
           if (item instanceof File) {
-            formData.append(`${key}[${index}]`, item);
+            // Skip File objects - they will be handled by S3 presigned URL workflow
+            return;
           } else if (typeof item === "string") {
             formData.append(`${key}[${index}]`, item);
           }

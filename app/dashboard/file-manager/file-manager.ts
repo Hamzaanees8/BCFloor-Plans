@@ -1051,11 +1051,13 @@ import {
   FeatureSheetResponse,
   FeatureSheetState,
   FeatureSheetImage,
+  FeatureSheetContent,
   ImagePosition,
   StyledTextField,
   HighlightItem,
   StyledKeyHighlights,
   StyledHighlights,
+  UploadedBy,
 } from "./types/featureSheetTypes";
 
 export class FeatureSheetService {
@@ -1196,6 +1198,8 @@ export class FeatureSheetService {
     logoFile?: File | string | null;
     realtorImageFile?: File | string | null;
   }): Promise<FeatureSheetPayload> {
+    // Use a local guaranteed-typed content object to avoid TS errors on payload.content?
+    const content: FeatureSheetContent = {};
     const payload: FeatureSheetPayload = {
       order_uuid: params.orderUuid,
       type: params.type || "template",
@@ -1206,13 +1210,13 @@ export class FeatureSheetService {
         backgroundColor: params.backgroundColor,
         borderColor: params.borderColor,
       },
-      content: {},
+      content,
       images: [],
     };
 
     // Build content section
     if (params.offeredAtPrice) {
-      payload.content.offeredAtPrice = this.buildStyledTextField(
+      content.offeredAtPrice = this.buildStyledTextField(
         params.offeredAtPrice,
         "80px",
         "300",
@@ -1222,7 +1226,7 @@ export class FeatureSheetService {
     }
 
     if (params.realtorTitle) {
-      payload.content.realtorTitle = this.buildStyledTextField(
+      content.realtorTitle = this.buildStyledTextField(
         params.realtorTitle,
         "16px",
         "400",
@@ -1231,7 +1235,7 @@ export class FeatureSheetService {
     }
 
     if (params.realtorName) {
-      payload.content.realtorName = this.buildStyledTextField(
+      content.realtorName = this.buildStyledTextField(
         params.realtorName,
         "16px",
         "400",
@@ -1240,7 +1244,7 @@ export class FeatureSheetService {
     }
 
     if (params.companyName) {
-      payload.content.companyName = this.buildStyledTextField(
+      content.companyName = this.buildStyledTextField(
         params.companyName,
         "16px",
         "400",
@@ -1249,7 +1253,7 @@ export class FeatureSheetService {
     }
 
     if (params.propertyNotesTitle) {
-      payload.content.propertyNotesTitle = this.buildStyledTextField(
+      content.propertyNotesTitle = this.buildStyledTextField(
         params.propertyNotesTitle,
         "36px",
         "600",
@@ -1258,7 +1262,7 @@ export class FeatureSheetService {
     }
 
     if (params.propertyNotesDescription) {
-      payload.content.propertyNotesDescription = this.buildStyledTextField(
+      content.propertyNotesDescription = this.buildStyledTextField(
         params.propertyNotesDescription,
         "20px",
         "400",
@@ -1267,7 +1271,7 @@ export class FeatureSheetService {
     }
 
     if (params.expandedDetail1Title) {
-      payload.content.expandedDetail1Title = this.buildStyledTextField(
+      content.expandedDetail1Title = this.buildStyledTextField(
         params.expandedDetail1Title,
         "36px",
         "600",
@@ -1276,7 +1280,7 @@ export class FeatureSheetService {
     }
 
     if (params.expandedDetail1Description) {
-      payload.content.expandedDetail1Description = this.buildStyledTextField(
+      content.expandedDetail1Description = this.buildStyledTextField(
         params.expandedDetail1Description,
         "20px",
         "400",
@@ -1285,7 +1289,7 @@ export class FeatureSheetService {
     }
 
     if (params.expandedDetail2Title) {
-      payload.content.expandedDetail2Title = this.buildStyledTextField(
+      content.expandedDetail2Title = this.buildStyledTextField(
         params.expandedDetail2Title,
         "36px",
         "600",
@@ -1294,7 +1298,7 @@ export class FeatureSheetService {
     }
 
     if (params.expandedDetail2Description) {
-      payload.content.expandedDetail2Description = this.buildStyledTextField(
+      content.expandedDetail2Description = this.buildStyledTextField(
         params.expandedDetail2Description,
         "20px",
         "400",
@@ -1303,7 +1307,7 @@ export class FeatureSheetService {
     }
 
     if (params.keyHighlightLabel) {
-      payload.content.keyHighlightLabel = this.buildStyledTextField(
+      content.keyHighlightLabel = this.buildStyledTextField(
         params.keyHighlightLabel,
         "36px",
         "600",
@@ -1312,7 +1316,7 @@ export class FeatureSheetService {
     }
 
     if (params.keyHighlights && params.keyHighlights.length > 0) {
-      payload.content.keyHighlights = {
+      content.keyHighlights = {
         value: params.keyHighlights,
         style: {
           fontSize: "20px",
@@ -1324,7 +1328,7 @@ export class FeatureSheetService {
     }
 
     if (params.highlights && params.highlights.length > 0) {
-      payload.content.highlights = {
+      content.highlights = {
         value: params.highlights,
         style: {
           fontSize: "16px",
@@ -1335,7 +1339,7 @@ export class FeatureSheetService {
     }
 
     if (params.emailLink) {
-      payload.content.emailLink = this.buildStyledTextField(
+      content.emailLink = this.buildStyledTextField(
         params.emailLink,
         "14px",
         "400",
@@ -1343,7 +1347,7 @@ export class FeatureSheetService {
     }
 
     if (params.linkedinLink) {
-      payload.content.linkedinLink = this.buildStyledTextField(
+      content.linkedinLink = this.buildStyledTextField(
         params.linkedinLink,
         "14px",
         "400",
@@ -1351,7 +1355,7 @@ export class FeatureSheetService {
     }
 
     if (params.phoneNumber) {
-      payload.content.phoneNumber = this.buildStyledTextField(
+      content.phoneNumber = this.buildStyledTextField(
         params.phoneNumber,
         "14px",
         "400",
@@ -1359,7 +1363,7 @@ export class FeatureSheetService {
     }
 
     if (params.contactLabel) {
-      payload.content.contactLabel = this.buildStyledTextField(
+      content.contactLabel = this.buildStyledTextField(
         params.contactLabel,
         "16px",
         "400",
@@ -1367,7 +1371,7 @@ export class FeatureSheetService {
       );
     }
     if (params.contactInfo) {
-      payload.content.contactInfo = this.buildStyledTextField(
+      content.contactInfo = this.buildStyledTextField(
         params.contactInfo,
         "16px",
         "400",
@@ -1375,7 +1379,7 @@ export class FeatureSheetService {
       );
     }
     if (params.ctaText) {
-      payload.content.ctaText = this.buildStyledTextField(
+      content.ctaText = this.buildStyledTextField(
         params.ctaText,
         "16px",
         "400",
@@ -1383,7 +1387,7 @@ export class FeatureSheetService {
       );
     }
     if (params.expandedDetail3Title) {
-      payload.content.expandedDetail3Title = this.buildStyledTextField(
+      content.expandedDetail3Title = this.buildStyledTextField(
         params.expandedDetail3Title,
         "36px",
         "600",
@@ -1391,7 +1395,7 @@ export class FeatureSheetService {
       );
     }
     if (params.expandedDetail3Description) {
-      payload.content.expandedDetail3Description = this.buildStyledTextField(
+      content.expandedDetail3Description = this.buildStyledTextField(
         params.expandedDetail3Description,
         "20px",
         "400",
@@ -1399,7 +1403,7 @@ export class FeatureSheetService {
       );
     }
     if (params.expandedDetail4Title) {
-      payload.content.expandedDetail4Title = this.buildStyledTextField(
+      content.expandedDetail4Title = this.buildStyledTextField(
         params.expandedDetail4Title,
         "36px",
         "600",
@@ -1407,7 +1411,7 @@ export class FeatureSheetService {
       );
     }
     if (params.expandedDetail4Description) {
-      payload.content.expandedDetail4Description = this.buildStyledTextField(
+      content.expandedDetail4Description = this.buildStyledTextField(
         params.expandedDetail4Description,
         "20px",
         "400",
@@ -1415,31 +1419,26 @@ export class FeatureSheetService {
       );
     }
     if (params.otherDetails) {
-      payload.content.otherDetails = params.otherDetails as unknown as
+      content.otherDetails = params.otherDetails as unknown as
         | StyledTextField
         | StyledKeyHighlights
         | StyledHighlights;
     }
 
     // Build images section
-    // Handle logo
+    // For logo (if provided) — store blob URL directly; S3 upload happens in uploadFeatureSheet
     if (params.logoFile) {
-      let logoBase64: string;
-      if (typeof params.logoFile === "string") {
-        if (params.logoFile.startsWith("blob:")) {
-          logoBase64 = await this.blobUrlToBase64(params.logoFile);
-        } else {
-          logoBase64 = params.logoFile;
-        }
-      } else {
-        logoBase64 = await this.fileToBase64(params.logoFile);
-      }
+      const logoUrl =
+        typeof params.logoFile === "string"
+          ? params.logoFile
+          : URL.createObjectURL(params.logoFile);
 
+      payload.images = payload.images || [];
       payload.images.push({
         slot: "logo",
         type: "logo",
         source: "upload",
-        file: logoBase64,
+        file: logoUrl, // blob URL or http URL — resolved in upload step
         meta: {
           width: "193px",
           height: "128px",
@@ -1449,24 +1448,19 @@ export class FeatureSheetService {
       });
     }
 
-    // Handle realtor image
+    // For realtor image — same approach
     if (params.realtorImageFile) {
-      let realtorBase64: string;
-      if (typeof params.realtorImageFile === "string") {
-        if (params.realtorImageFile.startsWith("blob:")) {
-          realtorBase64 = await this.blobUrlToBase64(params.realtorImageFile);
-        } else {
-          realtorBase64 = params.realtorImageFile;
-        }
-      } else {
-        realtorBase64 = await this.fileToBase64(params.realtorImageFile);
-      }
+      const realtorUrl =
+        typeof params.realtorImageFile === "string"
+          ? params.realtorImageFile
+          : URL.createObjectURL(params.realtorImageFile);
 
+      payload.images = payload.images || [];
       payload.images.push({
         slot: "realtorImage",
         type: "realtor",
         source: "upload",
-        file: realtorBase64,
+        file: realtorUrl,
         meta: {
           width: "80px",
           height: "80px",
@@ -1477,31 +1471,19 @@ export class FeatureSheetService {
       });
     }
 
-    // Handle property images (image1 - image20)
+    // Handle property images (image1 - image20) — store URLs as-is
     for (let i = 1; i <= 20; i++) {
       const imageKey = `image${i}`;
       const imageUrl = params.images[imageKey];
 
       if (imageUrl) {
-        let imageData: string;
-        let source: "upload" | "gallery" = "upload";
-
-        // Determine if it's from gallery or upload
-        if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
-          imageData = imageUrl;
-          source = "gallery";
-        } else if (imageUrl.startsWith("blob:")) {
-          imageData = await this.blobUrlToBase64(imageUrl);
-          source = "upload";
-        } else {
-          imageData = imageUrl;
-          source = "upload";
-        }
+        const isGallery =
+          imageUrl.startsWith("http://") || imageUrl.startsWith("https://");
 
         const image: FeatureSheetImage = {
           slot: imageKey,
           type: "property",
-          source,
+          source: isGallery ? "gallery" : "upload",
           meta: {
             position: params.imagePositions[imageKey] || { x: 0, y: 0 },
             scale: params.imageScales[imageKey] || 1,
@@ -1509,12 +1491,13 @@ export class FeatureSheetService {
           },
         };
 
-        if (source === "gallery") {
-          image.file_path = imageData;
+        if (isGallery) {
+          image.file_path = imageUrl;
         } else {
-          image.file = imageData;
+          image.file = imageUrl; // blob URL — resolved in upload step
         }
 
+        payload.images = payload.images || [];
         payload.images.push(image);
       }
     }
@@ -1522,35 +1505,261 @@ export class FeatureSheetService {
     return payload;
   }
 
+  /**
+   * Upload feature sheet images to S3 and return image UUIDs.
+   * Only uploads images that are local blob URLs (new uploads).
+   * Gallery images (http/https) are passed separately as file_path.
+   *
+   * @param orderUuid - The order UUID (entity_id for presigned URL request)
+   * @param images - The images array from buildPayload()
+   * @param featureSheetUuid - Optional: existing feature sheet UUID (for update)
+   */
+  private async uploadImagesToS3(
+    orderUuid: string,
+    images: FeatureSheetImage[],
+    featureSheetUuid?: string,
+  ): Promise<{ imageUuids: string[]; galleryFilePaths: { slot: string; file_path: string; meta: FeatureSheetImage['meta'] }[] }> {
+    // Separate local blob images from gallery images
+    const localImages = images.filter(
+      (img) =>
+        img.file &&
+        (img.file.startsWith("blob:") || img.file.startsWith("data:"))
+    );
+    const galleryImages = images
+      .filter((img) => img.source === "gallery" && img.file_path)
+      .map((img) => ({ slot: img.slot, file_path: img.file_path!, meta: img.meta }));
+
+    console.log('[FeatureSheet] uploadImagesToS3 - total images:', images.length);
+    console.log('[FeatureSheet] local blob images to upload:', localImages.length);
+    console.log('[FeatureSheet] gallery images:', galleryImages.length);
+
+    if (localImages.length === 0) {
+      console.log('[FeatureSheet] No local images to upload, returning early');
+      return { imageUuids: [], galleryFilePaths: galleryImages };
+    }
+
+    // Convert blob URLs to File objects
+    const fileObjects: File[] = await Promise.all(
+      localImages.map(async (img) => {
+        const response = await fetch(img.file!);
+        const blob = await response.blob();
+        const extension = blob.type.split("/")[1] || "jpg";
+        const filename = `${img.slot}.${extension}`;
+        return new File([blob], filename, { type: blob.type });
+      })
+    );
+
+    console.log('[FeatureSheet] converted to File objects:', fileObjects.map(f => ({ name: f.name, size: f.size, type: f.type })));
+
+    // Step 1: Get presigned URLs
+    console.log('[FeatureSheet] Requesting presigned URLs...');
+    const presignedResponse = await S3UploadService.getPresignedUrls({
+      entity_type: "feature-sheet",
+      entity_id: orderUuid,
+      files: fileObjects.map((f) => ({
+        filename: f.name,
+        content_type: f.type,
+        size: f.size,
+      })),
+    });
+
+    if (!presignedResponse.success || !presignedResponse.data.uploads) {
+      throw new Error("Failed to get presigned URLs for feature sheet images");
+    }
+
+    const uploads = presignedResponse.data.uploads;
+    console.log('[FeatureSheet] Got presigned URLs:', uploads.length);
+
+    // Step 2: Upload each file to S3
+    console.log('[FeatureSheet] Uploading files to S3...');
+    await Promise.all(
+      fileObjects.map(async (file, index) => {
+        await S3UploadService.uploadToS3(
+          uploads[index].presigned_url,
+          file,
+          uploads[index].content_type,
+        );
+      })
+    );
+    console.log('[FeatureSheet] All files uploaded to S3');
+
+    // Step 3: Confirm uploads — creates FeatureSheetImage records in DB
+    console.log('[FeatureSheet] Confirming uploads...');
+    const confirmResponse = await S3UploadService.confirmUpload({
+      entity_type: "feature-sheet",
+      entity_id: orderUuid,
+      feature_sheet_id: featureSheetUuid,
+      uploads: localImages.map((img, index) => ({
+        upload_id: uploads[index].upload_id,
+        s3_key: uploads[index].s3_key,
+        original_filename: uploads[index].original_filename,
+        content_type: uploads[index].content_type,
+        slot: img.slot, // e.g. "logo", "realtorImage", "image1"
+      })),
+    });
+
+    if (!confirmResponse.success) {
+      throw new Error("Failed to confirm feature sheet image uploads");
+    }
+
+    const imageUuids = confirmResponse.data.files.map(
+      (f: { uuid: string }) => f.uuid
+    );
+    console.log('[FeatureSheet] Confirmed uploads, imageUuids:', imageUuids);
+
+    return { imageUuids, galleryFilePaths: galleryImages };
+  }
+
+  /**
+   * Upload a new template feature sheet.
+   * Handles: Create record -> S3 image uploads -> confirm -> Update record with final content
+   */
   async uploadFeatureSheet(
     payload: FeatureSheetPayload,
   ): Promise<FeatureSheetResponse> {
-    const response = await api.post(
+    const images = payload.images || [];
+    const orderUuid = payload.order_uuid;
+
+    console.log("[FeatureSheet] uploadFeatureSheet called");
+
+    // Step 1: Create the feature sheet record FIRST to get a UUID
+    const createPayload = {
+      order_uuid: orderUuid,
+      type: payload.type,
+      uploaded_by: payload.uploaded_by,
+      template_key: payload.template_key,
+    };
+
+    const createResponse = await api.post(
       `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets`,
-      payload,
+      createPayload,
     );
 
-    if (response.status !== 200 && response.status !== 201) {
-      throw new Error("Failed to upload feature sheet");
+    if (createResponse.status !== 200 && createResponse.status !== 201) {
+      throw new Error("Failed to create initial feature sheet record");
     }
 
-    return response.data;
+    const featureSheet = createResponse.data.data || createResponse.data;
+    const uuid = featureSheet.uuid;
+
+    // Step 2: Upload blob images to S3 and get their UUIDs, passing the new featureSheet UUID
+    const { imageUuids } = await this.uploadImagesToS3(orderUuid, images, uuid);
+
+    // Step 3: Update the feature sheet with final content, theme, and image_uuids
+    const updatePayload = {
+      order_uuid: orderUuid,
+      type: payload.type,
+      uploaded_by: payload.uploaded_by,
+      template_key: payload.template_key,
+      theme: payload.theme,
+      content: payload.content,
+      image_uuids: imageUuids,
+    };
+
+    const response = await api.put(
+      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/${uuid}`,
+      updatePayload,
+    );
+
+    if (response.status !== 200 && response.status !== 204) {
+      throw new Error("Failed to finalize feature sheet");
+    }
+
+    return response.data.data || response.data || featureSheet;
   }
 
+  /**
+   * Update an existing template feature sheet.
+   * Handles: S3 image uploads for new images → confirm → PUT /feature-sheets/:uuid
+   */
   async updateFeatureSheet(
     uuid: string,
     payload: FeatureSheetPayload,
   ): Promise<FeatureSheetResponse> {
+    const images = payload.images || [];
+    const orderUuid = payload.order_uuid;
+
+    // Upload any new blob images to S3 and get their UUIDs
+    const { imageUuids } = await this.uploadImagesToS3(orderUuid, images, uuid);
+
+    // Build the clean API payload
+    const apiPayload: Record<string, unknown> = {
+      order_uuid: orderUuid,
+      type: payload.type,
+      uploaded_by: payload.uploaded_by,
+      template_key: payload.template_key,
+      theme: payload.theme,
+      content: payload.content,
+    };
+
+    // Only include image_uuids if we actually uploaded new ones
+    if (imageUuids.length > 0) {
+      apiPayload.image_uuids = imageUuids;
+    }
+
     const response = await api.put(
       `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/${uuid}`,
-      payload,
+      apiPayload,
     );
 
     if (response.status !== 200 && response.status !== 204) {
       throw new Error("Failed to update feature sheet");
     }
 
-    return response.data;
+    return response.data.data || response.data;
+  }
+
+  /**
+   * Upload a PDF feature sheet via S3 presigned URL workflow.
+   * 1. Get presigned URL for the PDF file
+   * 2. Upload PDF directly to S3
+   * 3. POST /feature-sheets with type: 'pdf' and pdf_s3_key
+   */
+  async uploadPdfFeatureSheet(
+    orderUuid: string,
+    pdfFile: File,
+    uploadedBy: UploadedBy = "admin",
+  ): Promise<FeatureSheetResponse> {
+    // Step 1: Get presigned URL
+    const presignedResponse = await S3UploadService.getPresignedUrls({
+      entity_type: "feature-sheet",
+      entity_id: orderUuid,
+      files: [{
+        filename: pdfFile.name,
+        content_type: "application/pdf",
+        size: pdfFile.size,
+      }],
+    });
+
+    if (!presignedResponse.success || !presignedResponse.data.uploads[0]) {
+      throw new Error("Failed to get presigned URL for PDF");
+    }
+
+    const upload = presignedResponse.data.uploads[0];
+
+    // Step 2: Upload PDF to S3
+    await S3UploadService.uploadToS3(
+      upload.presigned_url,
+      pdfFile,
+      upload.content_type,
+    );
+
+    // Step 3: Create feature sheet record using the S3 key
+    const response = await api.post(
+      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets`,
+      {
+        order_uuid: orderUuid,
+        type: "pdf",
+        uploaded_by: uploadedBy,
+        pdf_s3_key: upload.s3_key,
+      },
+    );
+
+    if (response.status !== 200 && response.status !== 201) {
+      throw new Error("Failed to create PDF feature sheet record");
+    }
+
+    return response.data.data || response.data;
   }
 
   async getFeatureSheet(uuid: string): Promise<FeatureSheetResponse> {

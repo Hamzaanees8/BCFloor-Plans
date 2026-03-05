@@ -17,7 +17,8 @@ import FileTab1 from "./HDRStill";
 import FileTab2 from "./3DFloor";
 import TourTabs from "./TourTabs";
 import Video from "./Video";
-import CreateFeatureSheet from "./CreateFeatureSheet";
+import CreateFeatureSheet, { CreateFeatureSheetRef } from "./CreateFeatureSheet";
+import DownloadTab from "./DownloadTab";
 import { useAppContext } from "@/app/context/AppContext";
 import { Button } from "@/components/ui/button";
 import { useFileManagerContext, Files } from "../FileManagerContext";
@@ -30,6 +31,7 @@ import {
 import { GetOneListing } from "../../listings/listing";
 import { Listings } from "@/lib/types";
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
 
 type Service = {
   uuid: string;
@@ -43,7 +45,7 @@ const FileManager = () => {
   const router = useRouter();
   const [services, setServices] = React.useState([]);
   const [servicesData, setServicesData] = React.useState<Services[]>([]);
-  const [activeTab, setActiveTab] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<string>("download");
   const [orderData, setOrderData] = React.useState<Order | null>(null);
   const { userType } = useAppContext();
   const {
@@ -65,9 +67,13 @@ const FileManager = () => {
     setDelay,
     changedFileUuids,
     setChangedFileUuids,
-    setFileManagerMode
+    setSelectionChangedUuids,
+    setFileManagerMode,
+    isSaving,
+    setIsSaving
   } = useFileManagerContext();
   const headerRef = useRef<HTMLDivElement>(null);
+  const featureSheetRef = useRef<CreateFeatureSheetRef>(null);
   const { startUpload } = useGlobalFileUpload();
 
   useEffect(() => {
@@ -212,9 +218,9 @@ const FileManager = () => {
         setServices(filteredServices);
 
         if (!serviceIdFromURL) {
-          if (activeTab === "tour" || activeTab === "CreateFeatureSheet")
+          if (activeTab === "tour" || activeTab === "CreateFeatureSheet" || activeTab === "download")
             return;
-          setActiveTab(filteredServices?.[0]?.service?.uuid || "");
+          setActiveTab("download");
         }
       })
       .catch((err) => console.log(err.message));
@@ -255,8 +261,12 @@ const FileManager = () => {
       return <TourTabs orderData={orderData} />;
     }
 
+    if (activeTab === "download") {
+      return <DownloadTab />;
+    }
+
     if (activeTab === "CreateFeatureSheet") {
-      return <CreateFeatureSheet orderData={orderData} />;
+      return <CreateFeatureSheet ref={featureSheetRef} orderData={orderData} />;
     }
     const category = activeService?.category?.name;
 
@@ -269,7 +279,7 @@ const FileManager = () => {
               orderData={orderData}
               isListing={false}
               reviewFilesEnabled={reviewFilesEnabled}
-              onSave={handleUpload}
+              onSave={handleSave}
             />
           </div>
         );
@@ -280,7 +290,7 @@ const FileManager = () => {
             currentService={activeService}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
-            onSave={handleUpload}
+            onSave={handleSave}
           />
         );
       case "HDR Photos":
@@ -290,7 +300,7 @@ const FileManager = () => {
             orderData={orderData}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
-            onSave={handleUpload}
+            onSave={handleSave}
           />
         );
       case "3d rendering":
@@ -309,7 +319,7 @@ const FileManager = () => {
             orderData={orderData}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
-            onSave={handleUpload}
+            onSave={handleSave}
           />
         );
       case "Staging":
@@ -328,7 +338,7 @@ const FileManager = () => {
             orderData={orderData}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
-            onSave={handleUpload}
+            onSave={handleSave}
           />
         );
       case "Twilight Photos":
@@ -338,7 +348,7 @@ const FileManager = () => {
             orderData={orderData}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
-            onSave={handleUpload}
+            onSave={handleSave}
           />
         );
       case "3D Tour":
@@ -484,6 +494,7 @@ const FileManager = () => {
         setFloorFiles([]);
         setSelectedVideoFiles([]);
         setChangedFileUuids(new Set());
+        setSelectionChangedUuids(new Set());
 
       } catch (err) {
         console.error("Error fetching fresh data:", err);
@@ -493,6 +504,23 @@ const FileManager = () => {
       console.log("Upload finished but response is falsy:", response);
     }
   }
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      if (activeTab === "CreateFeatureSheet") {
+        if (featureSheetRef.current) {
+          await featureSheetRef.current.handleSave();
+        }
+      } else {
+        await handleUpload();
+      }
+    } catch (error) {
+      console.error("Error during save:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div>
@@ -548,11 +576,19 @@ const FileManager = () => {
         </div>
         <div className="flex items-center gap-x-2.5">
           <Button
-            onClick={handleUpload}
-            className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[400] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button`}
+            onClick={handleSave}
+            disabled={isSaving}
+            className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button`}
             style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
           >
-            Save Changes
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save Changes"
+            )}
           </Button>
           <Button
             onClick={() => setShowInvoiceDialog(true)} // Add this onClick handler
@@ -571,38 +607,43 @@ const FileManager = () => {
         </div>
         {/* Invoice Payment Dialog */}
       </div>
-      {isListing && (
-        <div
-          className={`w-full h-[160px] ${userType}-bg flex flex-col md:flex-row justify-between items-start py-[32px] px-[25px] relative overflow-hidden`}
-          style={{
-            backgroundImage: `url('${process.env.NEXT_PUBLIC_FILES_API_URL}/${filesData?.files[0]?.file_path}')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          {/* Dark overlay to ensure text is readable */}
-          <div className="absolute inset-0 bg-black/40 z-0"></div>
+      <div
+        className={`w-full h-[160px] ${userType}-bg flex flex-col md:flex-row justify-between items-start py-[32px] px-[25px] relative overflow-hidden`}
+        style={{
+          backgroundImage: `url('${filesData?.files.find(f => f.is_featured)?.url || filesData?.files[0]?.url || ""}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
+        {/* Dark overlay to ensure text is readable */}
+        <div className="absolute inset-0 bg-black/40 z-0"></div>
 
-          <div className="relative z-10 w-full flex flex-col md:flex-row justify-between items-start md:items-center">
-            <div>
-              <p className="text-[14px] md:text-[20px] font-[500] text-white">
-                {currentListing?.address &&
+        <div className="relative z-10 w-full flex flex-col md:flex-row justify-between items-start md:items-center">
+          <div>
+            <p className="text-[14px] md:text-[20px] font-[500] text-white">
+              {isListing
+                ? currentListing?.address &&
                   currentListing?.province &&
                   currentListing?.postal_code &&
                   currentListing?.country
                   ? `${currentListing?.address}, ${currentListing?.province}, ${currentListing?.postal_code}, ${currentListing?.country}`
-                  : `Create Your Property Listing`}
-              </p>
-            </div>
-            <div className="mt-4 md:mt-0">
-              <p className="text-[12px] md:text-[16px] font-[500] text-white">
-                BC Floor Plans
-              </p>
-            </div>
+                  : `Create Your Property Listing`
+                : orderData?.property?.address &&
+                  orderData?.property?.province &&
+                  orderData?.property?.postal_code &&
+                  orderData?.property?.country
+                  ? `${orderData?.property?.address}, ${orderData?.property?.province}, ${orderData?.property?.postal_code}, ${orderData?.property?.country}`
+                  : orderData?.property?.address || "Property Details"}
+            </p>
+          </div>
+          <div className="mt-4 md:mt-0">
+            <p className="text-[12px] md:text-[16px] font-[500] text-white">
+              BC Floor Plans
+            </p>
           </div>
         </div>
-      )}
+      </div>
       {isListing && (
         <div
           className="w-full h-[60px] font-alexandria pr-5 sticky top-[80px] z-40 flex items-center border-b border-[#BBBBBB]"
@@ -684,6 +725,27 @@ const FileManager = () => {
         </div>
         <div className="flex items-center justify-center w-full">
           <div className="flex items-center gap-x-6">
+            <div
+              key="download"
+              onClick={() => {
+                setActiveTab("download");
+                const params = new URLSearchParams(searchParams.toString());
+                params.delete("serviceId"); // remove serviceId param
+                router.replace(`?${params.toString()}`);
+              }}
+              className={`h-[60px] cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-200 ${activeTab === "download"
+                ? `bg-[#DC9600] text-white border-[#DC9600]`
+                : `text-[#DC9600] border-[#DC9600]`
+                }`}
+              style={{
+                backgroundColor:
+                  activeTab === "download"
+                    ? undefined
+                    : `var(--${userType}-page-bg, #F2F2F2)`,
+              }}
+            >
+              Download
+            </div>
             {services?.map((service: OrerServices) => {
               const isActive = service.service.uuid === activeTab;
               return (
@@ -756,7 +818,7 @@ const FileManager = () => {
         </div>
       </div>
       <div>{renderContent()}</div>
-    </div>
+    </div >
   );
 };
 

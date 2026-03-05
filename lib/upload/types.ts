@@ -1,6 +1,6 @@
 
 export interface PresignedUrlRequest {
-    entity_type: 'tour' | 'order' | 'listing';
+    entity_type: 'tour' | 'order' | 'listing' | 'feature-sheet' | 'vendor-portfolio';
     entity_id: string;
     files: {
         filename: string;
@@ -26,14 +26,16 @@ export interface PresignedUrlResponse {
 }
 
 export interface ConfirmUploadRequest {
-    entity_type: 'tour' | 'order' | 'listing';
+    entity_type: 'tour' | 'order' | 'listing' | 'feature-sheet' | 'vendor-portfolio';
     entity_id: string;
     tour_id?: string;
+    feature_sheet_id?: string;
     uploads: {
         upload_id: string;
         s3_key: string;
         original_filename: string;
         content_type: string;
+        slot?: string;
         group?: string;
         service_id?: string;
         is_featured?: boolean;
@@ -81,4 +83,14 @@ export interface S3UploadResult {
         status: 'complete' | 'processing';
     }[];
     errors?: string[];
+}
+
+export interface DeleteUploadsRequest {
+    uuids: string[];
+    type: string;
+}
+
+export interface DeleteUploadsResponse {
+    success: boolean;
+    message?: string;
 }

@@ -57,6 +57,7 @@ import AgentDiscount from "./AgentDiscount";
 import WhiteLabelSettings from "./WhiteLabelSettings";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import EmailTemplatesSettings from "./EmailTemplatesSettings";
+import OrganizationsSettings from "./OrganizationsSettings";
 
 interface CompanyData {
     id: number;
@@ -872,7 +873,7 @@ const GlobalSettings = () => {
 
     const tabs =
         userType === "admin"
-            ? ["Profile Settings", "Discounts", "Tour Settings", "Appearances", "Templates"]
+            ? ["Profile Settings", "Discounts", "Tour Settings", "Appearances", "Templates", "Organizations"]
             : [];
     const [activeTab, setActiveTab] = useState("Profile Settings");
 
@@ -1094,7 +1095,7 @@ const GlobalSettings = () => {
                     >
                         Save Settings
                     </Button>
-                ) : (
+                ) : activeTab === "Organizations" || activeTab === "Templates" || activeTab === "Tour Settings" ? null : (
                     <Button
                         type="button"
                         onClick={(e) => {
@@ -2707,6 +2708,9 @@ const GlobalSettings = () => {
                     )}
                     {activeTab === "Appearances" && userType === "admin" && (
                         <WhiteLabelSettings />
+                    )}
+                    {activeTab === "Organizations" && userType === "admin" && (
+                        <OrganizationsSettings />
                     )}
                 </Accordion>
             </form>

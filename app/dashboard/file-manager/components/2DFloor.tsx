@@ -7,8 +7,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import HouseSheetModal from './HouseSheetModal';
 import SquareFootage from '../../calendar/components/SquareFootage';
 import { Order } from '../../orders/page';
-import { Check, X } from 'lucide-react';
+import { Check, X, Loader2 } from 'lucide-react';
 import { DownloadFile, ServiceCompletion } from '../file-manager';
+import { S3UploadService } from '@/lib/upload/s3-service';
 import FilePreviewModal from './FilePreviewModal';
 import { Services } from '../../services/page';
 import { Files, SelectedFiles, useFileManagerContext } from "../FileManagerContext";
@@ -33,7 +34,7 @@ type Props = {
     reviewFilesEnabled?: boolean;
 };
 const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, currentService, isListing, reviewFilesEnabled, onSave }) => {
-    const { floorFiles, setFloorFiles, filesData, setFilesData, setChangedFileUuids, area, setArea, fileManagerMode, setFileManagerMode, imagesPerRow } = useFileManagerContext();
+    const { floorFiles, setFloorFiles, filesData, setFilesData, setChangedFileUuids, setSelectionChangedUuids, area, setArea, fileManagerMode, setFileManagerMode, imagesPerRow, isSaving } = useFileManagerContext();
     const [replacingFile, setReplacingFile] = useState<File | null>(null);
     const [openPreview, setOpenPreview] = useState(false);
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
@@ -94,7 +95,12 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
     const currentServiceFiles = useMemo(() => {
         let files = filesData?.files
             ?.filter(file => file?.service?.uuid === currentService?.uuid)
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            .sort((a, b) => {
+                if (a.sort_order !== undefined && b.sort_order !== undefined) {
+                    return a.sort_order - b.sort_order;
+                }
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            });
 
         if (userType === 'agent') {
             files = files?.filter(file => file.is_show !== false);
@@ -254,6 +260,30 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
         }
     };
 
+    const handleDeleteUploadedFile = async (fileUuid: string) => {
+        try {
+            await S3UploadService.deleteUploads({
+                uuids: [fileUuid],
+                type: "tour-file"
+            });
+
+            // Update local state by removing the file
+            if (filesData) {
+                setFilesData(prev => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        files: prev.files.filter((f: Files) => f.uuid !== fileUuid)
+                    };
+                });
+            }
+            toast.success("File deleted successfully");
+        } catch (err) {
+            console.error('Delete error:', err);
+            toast.error('Failed to delete file. Please try again.');
+        }
+    };
+
     useEffect(() => {
         const checkServiceCompletion = async () => {
             const token = localStorage.getItem("token");
@@ -273,7 +303,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
         const isLocal = item.status === 'local';
         const file = item.originalData;
 
-        const isProcessing = !isLocal && (file.is_processing || !file.variant_urls?.thumb);
+        const isProcessing = !isLocal && file.is_processing;
         const isPdf = !isLocal && file.file_path?.toLowerCase().endsWith('.pdf');
 
         let displayType = '2D Floor Plan';
@@ -287,7 +317,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
             <div className={`justify-self-center group w-full ${isDragging ? 'opacity-80 scale-105' : ''}`}>
                 <div>
                     <p
-                        className={`uppercase font-semibold ${userType === 'agent' ? 'text-gray-800' : 'text-[#4290E9]'} pl-2 pb-2 block truncate w-full pr-2`}
+                        className={`uppercase font-semibold ${userType}-text pl-2 pb-2 block truncate w-full pr-2`}
                         style={{ fontSize: imagesPerRow >= 6 ? '10px' : imagesPerRow >= 5 ? '13px' : '18px' }}
                         title={displayType}
                     >
@@ -302,7 +332,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                 <OptimizedImagePreview
                                     file={file.file}
                                     alt="Preview"
-                                    className={`object-contain h-auto w-full cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : (!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : '')}`}
+                                    className={`absolute inset-0 w-full h-full object-contain cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : (!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : '')}`}
                                     draggable={false}
                                     onClick={() => {
                                         if (file.is_deleted) return;
@@ -360,7 +390,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                 alt="Preview"
                                 fill
                                 draggable={false}
-                                className={`object-contain h-auto w-full cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                className={`object-contain cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
                             />
                         )}
 
@@ -453,7 +483,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                             </div>
                         )}
 
-                        {!isLocal && userType === 'agent' && (
+                        {userType === 'agent' && (
                             <div
                                 className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
                                 onClick={(e) => {
@@ -469,6 +499,11 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                                         newSet.add(f.uuid);
                                                         return newSet;
                                                     });
+                                                    setSelectionChangedUuids(prevSet => {
+                                                        const newSet = new Set(prevSet);
+                                                        newSet.add(f.uuid);
+                                                        return newSet;
+                                                    });
                                                     return { ...f, is_agent_approved: !f.is_agent_approved };
                                                 }
                                                 return f;
@@ -480,9 +515,11 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                 <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
                                     {file.is_agent_approved && <Check color="white" size={12} />}
                                 </div>
-                                <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
+                                <span className="text-[10px] font-bold text-[#7D7D7D]">Selected</span>
                             </div>
                         )}
+
+
                     </div>
                 </div>
                 <div
@@ -510,44 +547,50 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
             </div>
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [API_URL, currentBookedService?.payment_status, orderData?.payment_status, setChangedFileUuids, setFilesData, setFloorFiles, vendorName, currentBookedService?.option?.title, currentBookedService?.uuid, currentService?.uuid, handleImageClick, orderData?.uuid, reviewFilesEnabled, userType, imagesPerRow]);
+    }, [API_URL, currentBookedService?.payment_status, orderData?.payment_status, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setFloorFiles, vendorName, currentBookedService?.option?.title, currentBookedService?.uuid, currentService?.uuid, handleImageClick, orderData?.uuid, reviewFilesEnabled, userType, imagesPerRow]);
 
     return (
         <div>
             {!isListing &&
                 <div
-                    className='w-full justify-between h-[65px] font-alexandria pr-5 z-10 flex items-center border-b border-[#BBBBBB] px-6 overflow-visible'
+                    className='relative w-full justify-between h-[65px] font-alexandria pr-5 z-10 flex items-center border-b border-[#BBBBBB] px-6 overflow-visible'
                     style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                 >
 
                     <div>
-                        {(userType !== 'agent') &&
+                        {(userType !== 'agent') ? (
                             <div className="flex gap-2 items-center">
                                 <Button onClick={() => fileInputRef.current?.click()} className={`w-[150px] md:w-[143px] h-[32px] md:h-[32px]  justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>Add File</Button>
                             </div>
-                        }
+                        ) : (
+                            <div className="flex gap-2 items-center">
+                                {(currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
+                                    <Button
+                                        onClick={() => {
+                                            setShowDownloadModal(true);
+                                        }}
+                                        className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}>
+                                        Download Files
+                                    </Button>
+                                )}
+                            </div>
+                        )}
                     </div>
-                    <div>
-                        <p className='flex flex-col items-center'><span className={`${userType}-text font-bold`}>{currentService ? currentService.name : ''}</span>
-                            <span className='text-[12px] text-[#7D7D7D]'>{currentBookedService?.option?.title}
-                                <span className='ml-1'>
-                                    ({currentServiceFiles?.filter(f => !f.is_deleted).length || 0} / {currentBookedService?.option?.quantity || 1})
-                                </span>
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                        <p className='flex flex-col items-center pointer-events-auto'><span className={`${userType}-text font-bold text-[16px]`}>{currentService ? currentService.name : ''}</span>
+                            <span className='text-[12px] text-[#7D7D7D]'>
+                                {currentBookedService?.option?.title || `${currentBookedService?.option?.quantity || 0} Files`}
+                                {userType !== 'agent' && (
+                                    <span className='ml-1'>
+                                        ({currentServiceFiles?.filter(f => !f.is_deleted).length || 0} / {currentBookedService?.option?.quantity || 1})
+                                    </span>
+                                )}
                             </span>
                         </p>
                     </div>
                     <div className='flex items-center gap-x-[14px]'>
                         {/* <Button className='w-[150px] md:w-[143px] h-[32px] md:h-[32px]  justify-center rounded-[6px] font-raleway border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]'>Download All File</Button> */}
                         <div className='flex justify-center items-center gap-x-[14px]'>
-                            {(userType === 'agent') && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
-                                <Button
-                                    onClick={() => {
-                                        setShowDownloadModal(true);
-                                    }}
-                                    className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}>
-                                    Download Files
-                                </Button>
-                            )}
                             {userType === 'admin' && (
                                 <Button
                                     onClick={() => {
@@ -566,7 +609,19 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                         setShowEmailConfirmation(true);
                                         if (onSave) onSave();
                                     }}
-                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Submit to Client'} </Button>
+                                    disabled={isSaving}
+                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center `}>
+                                    {isSaving ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Submitting...
+                                        </>
+                                    ) : mediaUploaded ? (
+                                        <Check color="#fff" size={14} />
+                                    ) : (
+                                        'Submit to Client'
+                                    )}
+                                </Button>
                             }
                             <AgentNotificationModal
                                 open={showEmailConfirmation}
@@ -574,26 +629,32 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                 serviceDate={currentService ? currentService : null}
                                 orderData={orderData ? orderData : null}
                             />
-                            {userType === 'agent' &&
-                                <div className='flex flex-col justify-center items-center mr-4'>
-                                    <p className='text-[18px] text-[#6BAE41]'>${currentBookedService?.option?.amount}</p>
-                                    <p className='text-[#7D7D7D] text-[12px]'>{currentBookedService?.option?.title}</p>
+                            {userType === 'agent' && (
+                                <div className='flex items-center gap-[10px] mr-2'>
+                                    <div className='flex flex-col justify-center items-center mr-2'>
+                                        <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>${currentBookedService?.option?.amount}</p>
+                                        <p className='text-[#7D7D7D] text-[10px] leading-none'>{currentBookedService?.option?.quantity || 1} Files</p>
+                                    </div>
+                                    <Button
+                                        className={`h-[32px] w-[100px] flex justify-center items-center 
+                                            ${paymentSuccess || currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
+                                                ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
+                                                : "bg-[#DC9600] hover:bg-[#eda304]"}`}
+                                    >
+                                        {currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'Paid' : 'UnPaid'}
+                                    </Button>
                                 </div>
-                            }
-                            {userType === 'agent' &&
-                                <Button
-                                    // onClick={() => setOpenPaymentModal(true)}
-                                    className={`h-[32px] w-[150px] flex justify-center items-center 
-                                                                         ${paymentSuccess
-                                            ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
-                                            : "bg-[#DC9600] hover:bg-[#eda304]"}`
-                                    }>{currentBookedService?.payment_status == 'PAID' ? 'Paid' : 'UnPaid'}</Button>
-                            }
+                            )}
                             <PayInvoiceModal open={openPaymentModal} setOpen={setOpenPaymentModal} success={paymentSuccess} setSuccess={setPaymentSuccess} />
 
-                            <Button
-                                onClick={() => setOpenUpgrade(true)}
-                                className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}>Upgrade Plan</Button>
+                            {userType !== 'agent' && (
+                                <Button
+                                    onClick={() => setOpenUpgrade(true)}
+                                    className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}
+                                >
+                                    Upgrade Plan
+                                </Button>
+                            )}
                             <UpgradeServicePopup
                                 open={openUpgrade}
                                 setOpen={setOpenUpgrade}
@@ -644,28 +705,52 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                 <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
             </div>}
             {!isListing &&
-                <div className='p-4 flex justify-end items-center gap-4'>
+                <div className={`p-4 flex ${userType === 'agent' ? 'justify-between' : 'justify-end'} items-center gap-4 border-b border-gray-200`}>
                     <div className="flex items-center gap-4">
                         <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />
                         <GridSizeToggle />
                     </div>
+
+                    {userType === 'agent' && (
+                        <div className="flex items-center gap-8">
+                            {/* <div className="flex flex-col items-center">
+                                <span className="text-[22px] font-medium text-[#7D7D7D] leading-none">
+                                    {currentServiceFiles?.filter(f => f.is_agent_approved).length || 0} <span className="text-[#7D7D7D]">/ {currentBookedService?.option?.quantity || 0}</span>
+                                </span>
+                                <span className="text-[12px] text-[#7D7D7D] mt-1">Selected</span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                                <span className="text-[22px] font-medium text-[#666666] leading-none">
+                                    {currentServiceFiles?.filter(f => !f.is_deleted).length || 0}
+                                </span>
+                                <span className="text-[12px] text-[#666666] mt-1">Available</span>
+                            </div> */}
+                            <Button
+                                variant="outline"
+                                onClick={() => setOpenUpgrade(true)}
+                                className="border border-[#6BAE41] text-[#6BAE41] hover:bg-[#6BAE41] hover:text-white h-[36px] px-6 rounded transition-colors font-medium ml-2"
+                            >
+                                Upgrade Plan
+                            </Button>
+                        </div>
+                    )}
                 </div>}
-            <div className='px-[200px] pt-[54px]'>
-                <div className='px-[80px] pb-[60px] gap-y-6'>
-                    <p className={`font-semibold text-lg ${userType}-text uppercase`}>Square Footage</p>
-                    <div className="flex justify-center">
-                        <div className="w-[700px] pt-6">
-                            <SquareFootage currentOrder={orderData || undefined} />
+            {userType !== 'agent' && (
+                <div className='px-[200px] pt-[54px]'>
+                    <div className='px-[80px] pb-[60px] gap-y-6'>
+                        <p className={`font-semibold text-lg ${userType}-text uppercase`}>Square Footage</p>
+                        <div className="flex justify-center">
+                            <div className="w-[700px] pt-6">
+                                <SquareFootage currentOrder={orderData || undefined} />
+                            </div>
+                        </div>
+                        <div className='flex items-center justify-end pt-6'>
+                            <Button onClick={() => setOpen(true)} className={`w-[150px] md:w-[143px] h-[32px] md:h-[32px]  justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>Edit</Button>
                         </div>
                     </div>
-                    <div className='flex items-center justify-end pt-6'>
-                        {userType !== 'agent' && (
-                            <Button onClick={() => setOpen(true)} className={`w-[150px] md:w-[143px] h-[32px] md:h-[32px]  justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>Edit</Button>
-                        )}
-                    </div>
                 </div>
-            </div>
-            <div className='w-full py-[54px]'>
+            )}
+            <div className='w-full pb-[54px]'>
                 <DualModeFileManager
                     mode={fileManagerMode}
                     items={fileItems}
@@ -715,6 +800,9 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                     onClickUpload={() => fileInputRef.current?.click()}
                     renderItem={renderFileItem}
                     disabled={userType === 'agent'}
+                    onSave={onSave}
+                    singleAccordionTitle="all floor plans"
+                    hideDashedBorder={true}
                 />
             </div>
             <ConfirmationDialog
@@ -772,10 +860,16 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                         });
                     }
                 }}
-                onDelete={editingFile && 'file' in editingFile ? () => {
-                    setFloorFiles(prev => prev.map(f =>
-                        f.file === editingFile.file ? { ...f, is_deleted: true } : f
-                    ));
+                onDelete={editingFile ? () => {
+                    if ('file' in editingFile) {
+                        // Unsaved
+                        setFloorFiles(prev => prev.map(f =>
+                            f.file === editingFile.file ? { ...f, is_deleted: true } : f
+                        ));
+                    } else if ((editingFile as Files).uuid) {
+                        // Saved
+                        handleDeleteUploadedFile((editingFile as Files).uuid);
+                    }
                 } : undefined}
                 onReplace={editingFile && 'file' in editingFile ? () => {
                     setReplacingFile(editingFile.file);

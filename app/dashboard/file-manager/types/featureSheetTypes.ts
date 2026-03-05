@@ -120,7 +120,7 @@ export interface FeatureSheetTheme {
 
 export type TemplateType = "listing" | "tabloid";
 export type UploadedBy = "admin" | "agent" | "vendor";
-export type FeatureSheetType = "template" | "custom";
+export type FeatureSheetType = "template" | "custom" | "pdf";
 
 export interface FeatureSheetMetadata {
     template_id: string;
@@ -130,15 +130,29 @@ export interface FeatureSheetMetadata {
     custom_pdf_url?: string;
 }
 
-
+/**
+ * Payload sent to POST /feature-sheets and PUT /feature-sheets/:uuid
+ *
+ * For template feature sheets:
+ *   - image_uuids: UUIDs returned from the /uploads/confirm step (new uploads)
+ *   - images:      Used internally only; NOT sent to the backend
+ *
+ * For PDF feature sheets:
+ *   - type: "pdf", pdf_s3_key: S3 key returned from /uploads/presigned-urls step
+ */
 export interface FeatureSheetPayload {
     order_uuid: string;
     type: FeatureSheetType;
     uploaded_by: UploadedBy;
-    template_key: string;
-    theme: FeatureSheetTheme;
-    content: FeatureSheetContent;
-    images: FeatureSheetImage[];
+    // For template sheets:
+    template_key?: string;
+    theme?: FeatureSheetTheme;
+    content?: FeatureSheetContent;
+    image_uuids?: string[];   // UUIDs from the confirm step — sent to backend
+    // For PDF sheets:
+    pdf_s3_key?: string;
+    // Internal only — used by buildPayload, never sent to backend directly
+    images?: FeatureSheetImage[];
 }
 
 export interface FeatureSheetResponse {

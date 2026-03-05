@@ -57,6 +57,8 @@ import VendorWorkHours, {
   WorkHoursData,
 } from "@/components/WorkHours";
 import { VendorsTourMedia } from "@/components/vendorWorkGallery";
+import { S3UploadService } from "@/lib/upload/s3-service";
+import { PresignedUrlRequest, ConfirmUploadRequest } from "@/lib/upload/types";
 // import { tree } from "next/dist/build/templates/app-page";
 interface VendorCompany {
   company_name: string;
@@ -136,6 +138,13 @@ export interface VendorPortfolioImage {
   image_url: string;
   full_storage_path: string;
   file_exists: boolean;
+  is_processing?: boolean;
+  variant_urls?: {
+    thumb?: string;
+    small?: string;
+    large?: string;
+    mls?: string;
+  };
 }
 
 const daysOfWeek = [
@@ -846,28 +855,83 @@ const VendorForm = () => {
         console.log("Token not found.");
         return;
       }
+      let result;
+      let finalVendorUuid = idToUse;
       if (idToUse) {
         const updatedPayload = { ...payload, _method: "PUT" };
         setIsLoading(true);
-        await Edit(idToUse, updatedPayload);
+        result = await Edit(idToUse, updatedPayload);
         setIsDirty(false);
+      } else {
+        setIsLoading(true);
+        result = await Create(payload);
+        finalVendorUuid = result?.data?.uuid;
+        setIsDirty(false);
+      }
+
+      // Handle Portfolio Image Uploads using S3 Presigned URLs
+      const newPortfolioFiles = portfolioImages.filter(f => f instanceof File);
+      if (newPortfolioFiles.length > 0 && finalVendorUuid) {
+        const uploadToastId = toast.loading(`Uploading ${newPortfolioFiles.length} portfolio images...`);
+        try {
+          const presignedRequest: PresignedUrlRequest = {
+            entity_type: "vendor-portfolio" as const,
+            entity_id: finalVendorUuid,
+            files: newPortfolioFiles.map(f => ({
+              filename: f.name,
+              content_type: f.type,
+              size: f.size
+            }))
+          };
+
+          const presignedResponse = await S3UploadService.getPresignedUrls(presignedRequest);
+          if (presignedResponse && presignedResponse.data?.uploads) {
+            const uploads = presignedResponse.data.uploads;
+
+            // Upload to S3 concurrently
+            await Promise.all(newPortfolioFiles.map(async (file, index) => {
+              const upload = uploads[index];
+              if (upload) {
+                await S3UploadService.uploadToS3(upload.presigned_url, file, upload.content_type);
+              }
+            }));
+
+            // Confirm Uploads
+            const confirmRequest: ConfirmUploadRequest = {
+              entity_type: "vendor-portfolio" as const,
+              entity_id: finalVendorUuid,
+              uploads: uploads.map(u => ({
+                upload_id: u.upload_id,
+                s3_key: u.s3_key,
+                original_filename: u.original_filename,
+                content_type: u.content_type
+              }))
+            };
+            await S3UploadService.confirmUpload(confirmRequest);
+
+            setPortfolioImages([]); // Clear local files after successful upload
+            toast.success("Portfolio images uploaded successfully", { id: uploadToastId });
+          } else {
+            toast.dismiss(uploadToastId);
+          }
+        } catch (uploadError) {
+          console.error("Portfolio upload failed:", uploadError);
+          toast.error("Failed to upload some portfolio images, please try again.", { id: uploadToastId });
+        }
+      }
+
+      if (idToUse) {
         if (userType !== "vendor") {
-          // setOpenSaveDialog(true);
           router.push("/dashboard/vendors");
           toast.success("Vendors updated successfully");
         } else {
           toast.success("Settings updated successfully");
         }
-        setIsLoading(false);
       } else {
-        setIsLoading(true);
-        await Create(payload);
         toast.success("Vendors created successfully");
-        // setOpenSaveDialog(true);
         router.push("/dashboard/vendors");
-        setIsLoading(false);
-        setIsDirty(false);
       }
+      setIsLoading(false);
     } catch (error) {
       setIsLoading(false);
       // setOpenSaveDialog(false);
