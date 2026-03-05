@@ -413,9 +413,9 @@ const BcfpStandard = forwardRef<BcfpStandardRef, BcfpStandardProps>(({ orderData
       if (state.ctaText) setCtaText(state.ctaText as string);
       if (state.highlights) setHighlights(state.highlights as HighlightItem[]);
 
-      setImages(state.images as typeof images);
-      setScale(state.imageScales as typeof scale);
-      setPosition(state.imagePositions as typeof position);
+      if (state.images) setImages((prev) => ({ ...prev, ...(state.images as typeof images) }));
+      if (state.imageScales) setScale((prev) => ({ ...prev, ...(state.imageScales as typeof scale) }));
+      if (state.imagePositions) setPosition((prev) => ({ ...prev, ...(state.imagePositions as typeof position) }));
     },
   }));
 

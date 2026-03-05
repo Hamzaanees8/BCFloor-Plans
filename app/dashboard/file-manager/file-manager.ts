@@ -1502,6 +1502,26 @@ export class FeatureSheetService {
       }
     }
 
+    // Persist gallery image URLs in content so they survive a DB round-trip.
+    // Blob/uploaded images are handled via S3 + FeatureSheetImage records.
+    const galleryImages: Record<string, string> = {};
+    const galleryImagesMeta: Record<string, { scale: number; position: { x: number; y: number } }> = {};
+    for (let i = 1; i <= 20; i++) {
+      const key = `image${i}`;
+      const url = params.images[key];
+      if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+        galleryImages[key] = url;
+        galleryImagesMeta[key] = {
+          scale: params.imageScales[key] ?? 1,
+          position: params.imagePositions[key] ?? { x: 0, y: 0 },
+        };
+      }
+    }
+    if (Object.keys(galleryImages).length > 0) {
+      (payload.content as Record<string, unknown>).galleryImages = galleryImages;
+      (payload.content as Record<string, unknown>).galleryImagesMeta = galleryImagesMeta;
+    }
+
     return payload;
   }
 
@@ -1888,64 +1908,87 @@ export class FeatureSheetService {
       featuresIncluded: (payload.content.keyHighlights?.value?.join("\n") ||
         "") as string,
 
-      // Images
-      images: payload.images.reduce(
-        (acc, img) => {
+      // Images — start with DB-backed feature sheet images (blob uploads)
+      images: (() => {
+        const acc: { [key: string]: string | null } = {};
+
+        // 1. Populate from FeatureSheetImage DB records (blob / new uploads)
+        for (const img of payload.images) {
           let slot = img.slot;
-          // Map generic "property" to "imageX" based on its position in propertyImages
-          if (slot === "property") {
+          if (slot === 'property') {
             const propIndex = propertyImages.findIndex(
               (p) => p.id === img.id || p.uuid === img.uuid,
             );
             if (propIndex !== -1) slot = `image${propIndex + 1}`;
           }
-
           if (slot) {
-            // Get the raw path and build full storage URL
             const rawPath =
               img.url || img.storage_path || img.file || img.file_path || null;
             acc[slot] = this.buildStorageUrl(rawPath);
           }
-          return acc;
-        },
-        {} as { [key: string]: string | null },
-      ),
+        }
 
-      imageScales: payload.images.reduce(
-        (acc, img) => {
+        // 2. Overlay with gallery image URLs stored in content.galleryImages.
+        //    These take precedence because they are the exact original URLs
+        //    the user selected from the gallery (no re-encoding needed).
+        const galleryImages = (payload.content as Record<string, unknown>)
+          ?.galleryImages as Record<string, string> | undefined;
+        if (galleryImages) {
+          for (const [slot, url] of Object.entries(galleryImages)) {
+            acc[slot] = url;
+          }
+        }
+
+        return acc;
+      })(),
+
+      imageScales: (() => {
+        const acc: { [key: string]: number } = {};
+        // From DB image records
+        for (const img of payload.images) {
           let slot = img.slot;
-          if (slot === "property") {
+          if (slot === 'property') {
             const propIndex = propertyImages.findIndex(
               (p) => p.id === img.id || p.uuid === img.uuid,
             );
             if (propIndex !== -1) slot = `image${propIndex + 1}`;
           }
-
-          if (slot) {
-            acc[slot] = img.meta?.scale || 1;
+          if (slot) acc[slot] = img.meta?.scale || 1;
+        }
+        // Overlay from gallery meta stored in content
+        const galleryMeta = (payload.content as Record<string, unknown>)
+          ?.galleryImagesMeta as Record<string, { scale: number }> | undefined;
+        if (galleryMeta) {
+          for (const [slot, meta] of Object.entries(galleryMeta)) {
+            acc[slot] = meta.scale ?? 1;
           }
-          return acc;
-        },
-        {} as { [key: string]: number },
-      ),
+        }
+        return acc;
+      })(),
 
-      imagePositions: payload.images.reduce(
-        (acc, img) => {
+      imagePositions: (() => {
+        const acc: { [key: string]: ImagePosition } = {};
+        // From DB image records
+        for (const img of payload.images) {
           let slot = img.slot;
-          if (slot === "property") {
+          if (slot === 'property') {
             const propIndex = propertyImages.findIndex(
               (p) => p.id === img.id || p.uuid === img.uuid,
             );
             if (propIndex !== -1) slot = `image${propIndex + 1}`;
           }
-
-          if (slot) {
-            acc[slot] = img.meta?.position || { x: 0, y: 0 };
+          if (slot) acc[slot] = img.meta?.position || { x: 0, y: 0 };
+        }
+        // Overlay from gallery meta stored in content
+        const galleryMeta = (payload.content as Record<string, unknown>)
+          ?.galleryImagesMeta as Record<string, { position: ImagePosition }> | undefined;
+        if (galleryMeta) {
+          for (const [slot, meta] of Object.entries(galleryMeta)) {
+            acc[slot] = meta.position ?? { x: 0, y: 0 };
           }
-          return acc;
-        },
-        {} as { [key: string]: ImagePosition },
-      ),
+        }
+        return acc;
+      })(),
     };
   }
 }

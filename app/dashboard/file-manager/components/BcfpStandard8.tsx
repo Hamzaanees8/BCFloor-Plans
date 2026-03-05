@@ -293,9 +293,9 @@ const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(({ orderD
         if (details.mlsNumber) setMlsNumber(details.mlsNumber as string);
       }
 
-      setImages(state.images as unknown as typeof images);
-      setScale(state.imageScales as unknown as typeof scale);
-      setPosition(state.imagePositions as unknown as typeof position);
+      if (state.images) setImages((prev) => ({ ...prev, ...(state.images as unknown as typeof images) }));
+      if (state.imageScales) setScale((prev) => ({ ...prev, ...(state.imageScales as unknown as typeof scale) }));
+      if (state.imagePositions) setPosition((prev) => ({ ...prev, ...(state.imagePositions as unknown as typeof position) }));
     },
   }));
 

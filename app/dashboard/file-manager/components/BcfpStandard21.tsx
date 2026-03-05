@@ -217,9 +217,9 @@ const BcfpStandard21 = forwardRef<BcfpStandard21Ref, BcfpStandard21Props>(
           if (details.mlsNumber) setMlsNumber(details.mlsNumber as string);
         }
 
-        if (state.images) setImages(state.images as unknown as typeof images);
-        if (state.imageScales) setScale(state.imageScales as unknown as typeof scale);
-        if (state.imagePositions) setPosition(state.imagePositions as unknown as typeof position);
+        if (state.images) setImages((prev) => ({ ...prev, ...(state.images as unknown as typeof images) }));
+        if (state.imageScales) setScale((prev) => ({ ...prev, ...(state.imageScales as unknown as typeof scale) }));
+        if (state.imagePositions) setPosition((prev) => ({ ...prev, ...(state.imagePositions as unknown as typeof position) }));
       },
     }));
 

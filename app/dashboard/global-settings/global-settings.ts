@@ -610,3 +610,36 @@ export async function DeleteOrganization(uuid: string): Promise<{ status: boolea
   }
   return data;
 }
+
+// ─── Media Processing Jobs ──────────────────────────────────────────────────
+
+export interface MediaJob {
+  uuid: string;
+  type: 'tour-file' | 'vendor-portfolio' | 'feature-sheet';
+  status: 'processing' | 'failed' | string;
+  context: string;
+  created_at: string;
+  filename: string;
+  thumbnail: string | null;
+  variants_count: number;
+}
+
+export async function GetMediaJobs(): Promise<{ status: boolean; data: MediaJob[] }> {
+  try {
+    const response = await api.get('/admin/media-jobs');
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch media jobs:', error);
+    throw error;
+  }
+}
+
+export async function RetryMediaJob(payload: { uuid: string; type: string }): Promise<{ status: boolean; message: string }> {
+  try {
+    const response = await api.post('/admin/media-jobs/retry', payload);
+    return response.data;
+  } catch (error) {
+    console.error('Failed to retry media job:', error);
+    throw error;
+  }
+}

@@ -518,9 +518,9 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(({ orderD
         if (others.cityLine) setCityLine(others.cityLine as string);
       }
 
-      setImages(state.images as unknown as typeof images);
-      setScale(state.imageScales as unknown as typeof scale);
-      setPosition(state.imagePositions as unknown as typeof position);
+      if (state.images) setImages((prev) => ({ ...prev, ...(state.images as unknown as typeof images) }));
+      if (state.imageScales) setScale((prev) => ({ ...prev, ...(state.imageScales as unknown as typeof scale) }));
+      if (state.imagePositions) setPosition((prev) => ({ ...prev, ...(state.imagePositions as unknown as typeof position) }));
     },
   }));
 
@@ -2253,9 +2253,9 @@ const BcfpStandard4 = forwardRef<BcfpStandard4Ref, BcfpStandard4Props>(({ orderD
               width="952"
               height="402.344"
               filterUnits="userSpaceOnUse"
-              color-interpolation-filters="sRGB"
+              colorInterpolationFilters="sRGB"
             >
-              <feFlood flood-opacity="0" result="BackgroundImageFix"></feFlood>
+              <feFlood floodOpacity="0" result="BackgroundImageFix"></feFlood>
               <feColorMatrix
                 in="SourceAlpha"
                 type="matrix"

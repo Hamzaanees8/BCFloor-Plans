@@ -58,6 +58,7 @@ import WhiteLabelSettings from "./WhiteLabelSettings";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import EmailTemplatesSettings from "./EmailTemplatesSettings";
 import OrganizationsSettings from "./OrganizationsSettings";
+import MediaJobsTable from "./MediaJobsTable";
 
 interface CompanyData {
     id: number;
@@ -873,7 +874,7 @@ const GlobalSettings = () => {
 
     const tabs =
         userType === "admin"
-            ? ["Profile Settings", "Discounts", "Tour Settings", "Appearances", "Templates", "Organizations"]
+            ? ["Profile Settings", "Discounts", "Tour Settings", "Appearances", "Templates", "Organizations", "Media Processing"]
             : [];
     const [activeTab, setActiveTab] = useState("Profile Settings");
 
@@ -1121,24 +1122,26 @@ const GlobalSettings = () => {
             /> */}
             {userType === "admin" && (
                 <div
-                    className="flex justify-center h-[60px] items-center sticky top-[80px] z-40 border-b-[1px] border-[#BBBBBB]"
+                    className="flex justify-center h-[60px] items-center sticky top-[80px] z-40 border-b-[1px] border-[#BBBBBB] px-4"
                     style={{
                         backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%)`,
                     }}
                 >
-                    <div className=" w-fit flex border-gray-300 gap-[10px]">
-                        {tabs.map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab)}
-                                className={`text-center px-4 py-2 text-[13px] w-[180px] h-[32px] transition-colors ${activeTab === tab
-                                    ? `${userType}-bg text-white  rounded-[6px]  font-[500] `
-                                    : "text-[#666666] hover:text-[#666666] font-[700] "
-                                    }`}
-                            >
-                                {tab.toUpperCase()}
-                            </button>
-                        ))}
+                    <div className="w-full max-w-7xl overflow-x-auto scrollbar-hide flex border-gray-300 gap-[10px] items-center py-2 h-full">
+                        <div className="flex gap-[10px] min-w-max mx-auto">
+                            {tabs.map((tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`text-center px-6 py-2 text-[13px] whitespace-nowrap h-[32px] transition-all duration-200 cursor-pointer ${activeTab === tab
+                                        ? `${userType}-bg text-white rounded-[6px] font-[500] shadow-sm`
+                                        : "text-[#666666] hover:text-[#666666] hover:bg-black/5 rounded-[6px] font-[700]"
+                                        }`}
+                                >
+                                    {tab.toUpperCase()}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
             )}
@@ -1154,6 +1157,9 @@ const GlobalSettings = () => {
             >
                 {activeTab === "Templates" && userType === "admin" && (
                     <EmailTemplatesSettings />
+                )}
+                {activeTab === "Media Processing" && userType === "admin" && (
+                    <MediaJobsTable userType={userType} />
                 )}
                 <Accordion
                     type="multiple"

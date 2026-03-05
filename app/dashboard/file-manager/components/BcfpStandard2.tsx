@@ -469,9 +469,9 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
       if (state.expandedDetail2Description) setGrossTaxes(state.expandedDetail2Description as string);
       if (state.keyHighlights) setFeaturesIncluded(state.keyHighlights.join("\n"));
 
-      setImages(state.images as typeof images);
-      setScale(state.imageScales as typeof scale);
-      setPosition(state.imagePositions as typeof position);
+      if (state.images) setImages((prev) => ({ ...prev, ...(state.images as typeof images) }));
+      if (state.imageScales) setScale((prev) => ({ ...prev, ...(state.imageScales as typeof scale) }));
+      if (state.imagePositions) setPosition((prev) => ({ ...prev, ...(state.imagePositions as typeof position) }));
     },
   }));
 

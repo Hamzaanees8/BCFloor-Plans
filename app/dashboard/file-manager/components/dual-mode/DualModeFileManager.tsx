@@ -106,10 +106,12 @@ export function DualModeFileManager({
                                 style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                             >
                                 <div className="flex items-center flex-1 justify-between pr-4">
-                                    <span>{singleAccordionTitle} ({items.length})</span>
+                                    <div className="flex items-center gap-4">
+                                        <span>{singleAccordionTitle} ({items.length})</span>
+                                        {saveButton}
+                                    </div>
                                     <div className="flex items-center gap-4">
                                         {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
-                                        {saveButton}
                                     </div>
                                 </div>
                             </AccordionTrigger>
@@ -154,9 +156,10 @@ export function DualModeFileManager({
                             </AccordionContent>
                         </AccordionItem>
                     </Accordion>
-                ) : (
+                ) : userType === 'agent' ? (
+                    // Agent: Left-right (selected | unselected) side-by-side layout
                     <div className="flex flex-row gap-5 w-full">
-                        {/* Left Column */}
+                        {/* Left Column - Unselected */}
                         <div className="flex-1 flex flex-col gap-4">
                             <Accordion type="multiple" defaultValue={["unsaved", "saved"]} className="w-full">
                                 {unsavedItems.length > 0 && (
@@ -181,31 +184,29 @@ export function DualModeFileManager({
                                     </AccordionItem>
                                 )}
 
-                                {userType === 'agent' && (
-                                    <AccordionItem value="saved" className="overflow-hidden shadow-sm">
-                                        <AccordionTrigger
-                                            className={`px-[24px] py-[19px] h-[60px] ${userType}-text text-[18px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                            style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
-                                        >
-                                            Unselected Files ({agentUnselectedItems.length})
-                                        </AccordionTrigger>
-                                        <AccordionContent className="p-4 border-t border-[#BBBBBB]">
-                                            {agentUnselectedItems.length === 0 ? (
-                                                <div className="flex items-center justify-center p-8 text-gray-500">
-                                                    No files available
-                                                </div>
-                                            ) : (
-                                                <SortableGrid
-                                                    items={agentUnselectedItems}
-                                                    onOrderChange={() => { }}
-                                                    mode={mode}
-                                                    renderItem={renderItem}
-                                                    columns={Math.floor(imagesPerRow / 2)}
-                                                />
-                                            )}
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                )}
+                                <AccordionItem value="saved" className="overflow-hidden shadow-sm">
+                                    <AccordionTrigger
+                                        className={`px-[24px] py-[19px] h-[60px] ${userType}-text text-[18px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
+                                    >
+                                        Unselected Files ({agentUnselectedItems.length})
+                                    </AccordionTrigger>
+                                    <AccordionContent className="p-4 border-t border-[#BBBBBB]">
+                                        {agentUnselectedItems.length === 0 ? (
+                                            <div className="flex items-center justify-center p-8 text-gray-500">
+                                                No files available
+                                            </div>
+                                        ) : (
+                                            <SortableGrid
+                                                items={agentUnselectedItems}
+                                                onOrderChange={() => { }}
+                                                mode={mode}
+                                                renderItem={renderItem}
+                                                columns={Math.floor(imagesPerRow / 2)}
+                                            />
+                                        )}
+                                    </AccordionContent>
+                                </AccordionItem>
                             </Accordion>
                         </div>
 
@@ -217,93 +218,120 @@ export function DualModeFileManager({
                             </div>
                         </div>
 
-                        {/* Right Column */}
+                        {/* Right Column - Selected */}
                         <div className="flex-1 flex flex-col gap-4">
-                            <Accordion type="multiple" defaultValue={["selected", "saved"]} className="w-full">
-                                {userType === 'agent' ? (
-                                    <AccordionItem value="selected" className="overflow-hidden shadow-sm">
-                                        <AccordionTrigger
-                                            className={`px-[24px] py-[19px] h-[60px] ${userType}-text text-[18px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                            style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
-                                        >
-                                            <div className="flex items-center flex-1 justify-between pr-4">
+                            <Accordion type="multiple" defaultValue={["selected"]} className="w-full">
+                                <AccordionItem value="selected" className="overflow-hidden shadow-sm">
+                                    <AccordionTrigger
+                                        className={`px-[24px] py-[19px] h-[60px] ${userType}-text text-[18px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
+                                    >
+                                        <div className="flex items-center flex-1 justify-between pr-4">
+                                            <div className="flex items-center gap-4">
                                                 <span>Selected files ({selectedItems.length})</span>
-                                                <div className="flex items-center gap-4">
-                                                    {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
-                                                    {saveButton}
-                                                </div>
+                                                {saveButton}
                                             </div>
-                                        </AccordionTrigger>
-                                        <AccordionContent className="p-4 border-t border-[#BBBBBB]">
-                                            {selectedItems.length === 0 ? (
-                                                <div className="flex items-center justify-center p-8 text-gray-500">
-                                                    No selected files
-                                                </div>
-                                            ) : (
-                                                <SortableGrid
-                                                    items={selectedItems}
-                                                    onOrderChange={handleSelectedOrderChange}
-                                                    mode={mode}
-                                                    renderItem={renderItem}
-                                                    columns={Math.floor(imagesPerRow / 2)}
-                                                />
-                                            )}
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                ) : (
-                                    <AccordionItem value="saved" className="overflow-hidden shadow-sm">
-                                        <AccordionTrigger
-                                            className={`px-[24px] py-[19px] h-[60px] ${userType}-text text-[18px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                            style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
-                                        >
-                                            <div className="flex items-center flex-1 justify-between pr-4">
-                                                <span>Saved Files ({savedItems.length})</span>
-                                                <div className="flex items-center gap-4">
-                                                    {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
-                                                </div>
+                                            <div className="flex items-center gap-4">
+                                                {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
                                             </div>
-                                        </AccordionTrigger>
-                                        <AccordionContent className="p-4 border-t border-[#BBBBBB]">
-                                            {savedItems.length === 0 ? (
-                                                <div className="flex items-center justify-center p-8 text-gray-500">
-                                                    No saved files
-                                                </div>
-                                            ) : (
-                                                <SortableGrid
-                                                    items={savedItems}
-                                                    onOrderChange={handleSavedOrderChange}
-                                                    mode={mode}
-                                                    renderItem={renderItem}
-                                                    columns={Math.floor(imagesPerRow / 2)}
-                                                />
-                                            )}
-
-                                            {onClickUpload && mode === 'upload' && !disabled && (
-                                                <div className="w-full flex justify-center mt-6 mb-4">
-                                                    <div
-                                                        onClick={onClickUpload}
-                                                        className="w-[370px] h-[220px] border-2 border-dashed rounded-[6px] flex flex-col items-center justify-center cursor-pointer transition-all duration-200 border-[#8E8E8E] bg-[#EEEEEE] hover:bg-gray-100"
-                                                    >
-                                                        <div className="text-4xl border-2 flex justify-center items-center w-[72px] h-[72px] rounded-[6px] transition-colors border-[#8E8E8E]">
-                                                            <Plus color="#8E8E8E" size={42} strokeWidth={1} />
-                                                        </div>
-                                                        <p className="mt-2 text-[#8E8E8E]">
-                                                            Drag & Drop Files
-                                                        </p>
-                                                        <p className="text-[#8E8E8E] text-sm">
-                                                            RAW, JPG, PNG, PDF
-                                                        </p>
-                                                        <p className="text-xs text-gray-400 mt-1">
-                                                            Max 100MB per file
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                )}
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="p-4 border-t border-[#BBBBBB]">
+                                        {selectedItems.length === 0 ? (
+                                            <div className="flex items-center justify-center p-8 text-gray-500">
+                                                No selected files
+                                            </div>
+                                        ) : (
+                                            <SortableGrid
+                                                items={selectedItems}
+                                                onOrderChange={handleSelectedOrderChange}
+                                                mode={mode}
+                                                renderItem={renderItem}
+                                                columns={Math.floor(imagesPerRow / 2)}
+                                            />
+                                        )}
+                                    </AccordionContent>
+                                </AccordionItem>
                             </Accordion>
                         </div>
+                    </div>
+                ) : (
+                    // Admin/Vendor: Top-bottom (unsaved on top, saved below) stacked layout
+                    <div className="flex flex-col gap-4 w-full">
+                        <Accordion type="multiple" defaultValue={["unsaved", "saved"]} className="w-full">
+                            {unsavedItems.length > 0 && (
+                                <AccordionItem value="unsaved" className="overflow-hidden shadow-sm">
+                                    <AccordionTrigger
+                                        className={`px-[24px] py-[19px] h-[60px] ${userType}-text text-[18px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
+                                    >
+                                        Unsaved Files ({unsavedItems.length})
+                                    </AccordionTrigger>
+                                    <AccordionContent className="p-0 border-t border-[#BBBBBB]">
+                                        <div className={`p-4 min-h-[200px] transition-all duration-300 ${mode === 'upload' && !hideDashedBorder ? 'bg-[#F9F9F9] border-2 border-dashed border-[#BBBBBB] m-4 rounded-xl' : 'bg-transparent border-2 border-transparent m-4'}`}>
+                                            <SortableGrid
+                                                items={unsavedItems}
+                                                onOrderChange={handleUnsavedOrderChange}
+                                                mode={mode}
+                                                renderItem={renderItem}
+                                                columns={imagesPerRow}
+                                            />
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            )}
+
+                            <AccordionItem value="saved" className="overflow-hidden shadow-sm">
+                                <AccordionTrigger
+                                    className={`px-[24px] py-[19px] h-[60px] ${userType}-text text-[18px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                    style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
+                                >
+                                    <div className="flex items-center flex-1 justify-between pr-4">
+                                        <span>Saved Files ({savedItems.length})</span>
+                                        <div className="flex items-center gap-4">
+                                            {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
+                                        </div>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="p-4 border-t border-[#BBBBBB]">
+                                    {savedItems.length === 0 ? (
+                                        <div className="flex items-center justify-center p-8 text-gray-500">
+                                            No saved files
+                                        </div>
+                                    ) : (
+                                        <SortableGrid
+                                            items={savedItems}
+                                            onOrderChange={handleSavedOrderChange}
+                                            mode={mode}
+                                            renderItem={renderItem}
+                                            columns={imagesPerRow}
+                                        />
+                                    )}
+
+                                    {onClickUpload && mode === 'upload' && !disabled && (
+                                        <div className="w-full flex justify-center mt-6 mb-4">
+                                            <div
+                                                onClick={onClickUpload}
+                                                className="w-[370px] h-[220px] border-2 border-dashed rounded-[6px] flex flex-col items-center justify-center cursor-pointer transition-all duration-200 border-[#8E8E8E] bg-[#EEEEEE] hover:bg-gray-100"
+                                            >
+                                                <div className="text-4xl border-2 flex justify-center items-center w-[72px] h-[72px] rounded-[6px] transition-colors border-[#8E8E8E]">
+                                                    <Plus color="#8E8E8E" size={42} strokeWidth={1} />
+                                                </div>
+                                                <p className="mt-2 text-[#8E8E8E]">
+                                                    Drag & Drop Files
+                                                </p>
+                                                <p className="text-[#8E8E8E] text-sm">
+                                                    RAW, JPG, PNG, PDF
+                                                </p>
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    Max 100MB per file
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </AccordionContent>
+                            </AccordionItem>
+                        </Accordion>
                     </div>
                 )}
             </div>

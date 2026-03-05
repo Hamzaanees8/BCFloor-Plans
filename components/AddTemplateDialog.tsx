@@ -11,6 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
@@ -175,13 +182,20 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                             </div>
                             <div className="flex flex-col gap-2">
                                 <Label htmlFor="type">Type <span className="text-red-500">*</span></Label>
-                                <Input
-                                    id="type"
-                                    value={type}
-                                    onChange={(e) => setType(e.target.value)}
-                                    placeholder="e.g. notification, reminder"
-                                    className="h-[42px] bg-[#EEEEEE] border-[#BBBBBB]"
-                                />
+                                <Select value={type} onValueChange={setType}>
+                                    <SelectTrigger id="type" className="h-[42px] bg-[#EEEEEE] border-[#BBBBBB]">
+                                        <SelectValue placeholder="Select a type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="service_completed">service_completed</SelectItem>
+                                        <SelectItem value="order_completed">order_completed</SelectItem>
+                                        <SelectItem value="service_changed">service_changed</SelectItem>
+                                        <SelectItem value="order_updated">order_updated</SelectItem>
+                                        <SelectItem value="vendor_changed">vendor_changed</SelectItem>
+                                        <SelectItem value="schedule_changed">schedule_changed</SelectItem>
+                                        <SelectItem value="service_updated">service_updated</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
 

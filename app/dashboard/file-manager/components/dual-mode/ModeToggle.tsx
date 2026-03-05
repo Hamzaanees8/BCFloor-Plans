@@ -15,17 +15,17 @@ export function ModeToggle({ mode, onModeChange }: ModeToggleProps) {
         <Button
             variant={isUpload ? "default" : "secondary"}
             onClick={() => onModeChange(isUpload ? 'reorder' : 'upload')}
-            className={`transition-all duration-300 ${isUpload ? 'bg-[#DC9600] hover:bg-[#eda304] text-white' : 'bg-[#6BAE41] hover:bg-[#5fa43a] text-white'}`}
+            className={`transition-all duration-300 h-8 px-3 text-xs ${isUpload ? 'bg-[#DC9600] hover:bg-[#eda304] text-white' : 'bg-[#6BAE41] hover:bg-[#5fa43a] text-white'}`}
         >
             {isUpload ? (
                 <>
-                    <ArrowLeftRight className="w-4 h-4 mr-2" />
-                    Switch to Reorder
+                    <ArrowLeftRight className="w-3.5 h-3.5 mr-1" />
+                    Reorder
                 </>
             ) : (
                 <>
-                    <UploadCloud className="w-4 h-4 mr-2" />
-                    Done Reordering
+                    <UploadCloud className="w-3.5 h-3.5 mr-1" />
+                    Done
                 </>
             )}
         </Button>
