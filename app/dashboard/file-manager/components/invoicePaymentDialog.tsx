@@ -143,8 +143,15 @@ const InvoicePaymentDialog: React.FC<InvoicePaymentDialogProps> = ({
     }
   };
 
-  const isServicePaymentAvailable = currentService && serviceAmount > 0;
-  const isFullPaymentAvailable = fullAmount > 0;
+  const currentBookedService = React.useMemo(() => {
+    return orderData?.services?.find(s => s.uuid === currentService?.uuid);
+  }, [orderData, currentService]);
+
+  const isServicePaymentAvailable = currentService && serviceAmount > 0 &&
+    currentBookedService?.payment_status !== 'PAID' &&
+    orderData?.payment_status !== 'PAID';
+
+  const isFullPaymentAvailable = fullAmount > 0 && orderData?.payment_status !== 'PAID';
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleAddPayment = (paymentData: any) => {
@@ -183,7 +190,7 @@ const InvoicePaymentDialog: React.FC<InvoicePaymentDialogProps> = ({
               className="space-y-4"
             >
               <div
-                className={`flex items-center space-x-2 px-4 border rounded-md bg-gray-50 cursor-pointer ${serviceAmount <= 0 ? "opacity-50" : ""
+                className={`flex items-center space-x-2 px-4 border rounded-md bg-gray-50 cursor-pointer ${(serviceAmount <= 0 || !isServicePaymentAvailable) ? "opacity-50" : ""
                   }`}
               >
                 <RadioGroupItem
@@ -196,21 +203,25 @@ const InvoicePaymentDialog: React.FC<InvoicePaymentDialogProps> = ({
                     <span>
                       {serviceAmount <= 0
                         ? "Chosen service is inactive"
-                        : `Pay Service Invoice - ${serviceName}`}
+                        : currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID"
+                          ? `Service Invoice Paid - ${serviceName}`
+                          : `Pay Service Invoice - ${serviceName}`}
                     </span>
                     <span className="font-semibold">
                       ${serviceAmount.toFixed(2)}
                     </span>
                   </div>
-                  {!isServicePaymentAvailable && (
+                  {!isServicePaymentAvailable && serviceAmount > 0 && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Service payment not available
+                      {currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID"
+                        ? "This service has already been paid"
+                        : "Service payment not available"}
                     </p>
                   )}
                 </Label>
               </div>
 
-              <div className="flex items-center space-x-2 px-4 border rounded-md bg-gray-50">
+              <div className={`flex items-center space-x-2 px-4 border rounded-md bg-gray-50 ${!isFullPaymentAvailable ? "opacity-50" : ""}`}>
                 <RadioGroupItem
                   value="full"
                   id="full"
@@ -218,15 +229,16 @@ const InvoicePaymentDialog: React.FC<InvoicePaymentDialogProps> = ({
                 />
                 <Label htmlFor="full" className="flex-1">
                   <div className="flex justify-between items-center py-4 cursor-pointer">
-                    <span>Pay Full Invoice</span>
+                    <span>{orderData?.payment_status === "PAID" ? "Full Invoice Paid" : "Pay Full Invoice"}</span>
                     <span className="font-semibold">
                       ${fullAmount.toFixed(2)}
                     </span>
                   </div>
                   {!isFullPaymentAvailable && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Full invoice will be available once all services have been
-                      completed
+                      {orderData?.payment_status === "PAID"
+                        ? "This order has already been paid in full"
+                        : "Full invoice will be available once all services have been completed"}
                     </p>
                   )}
                 </Label>

@@ -1,17 +1,17 @@
 import React, { useMemo, useState } from 'react';
 import { useFileManagerContext, Files } from '../FileManagerContext';
 import { Button } from '@/components/ui/button';
-import { DownloadFile } from '../file-manager';
-import { Loader2, Download, CheckCircle2 } from 'lucide-react';
+import { Download, CheckCircle2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppContext } from '@/app/context/AppContext';
 import BulkDownloadSizeModal, { DownloadSize } from './BulkDownloadSizeModal';
 import DownloadModal, { ApiFile } from './DownloadModal';
+import { useGlobalDownload } from '@/context/GlobalDownloadContext';
 
 const DownloadTab: React.FC = () => {
     const { filesData } = useFileManagerContext();
     const { userType } = useAppContext();
-    const [isDownloading, setIsDownloading] = useState<string | null>(null);
+    const { startDownload } = useGlobalDownload();
     const [sizeModal, setSizeModal] = useState<{ isOpen: boolean; files: Files[]; label: string }>({
         isOpen: false,
         files: [],
@@ -32,7 +32,9 @@ const DownloadTab: React.FC = () => {
                 serviceName.toLowerCase().includes("video") ||
                 serviceName.toLowerCase().includes("3d tour");
 
-            if (file.is_agent_approved && file.type === 'photo' && file.service && !isForbiddenService) {
+            const isApproved = userType === 'agent' ? file.is_agent_approved : true;
+
+            if (isApproved && file.type === 'photo' && file.service && !isForbiddenService && !file.is_deleted) {
                 const serviceId = file.service.id;
                 if (!servicesMap.has(serviceId)) {
                     servicesMap.set(serviceId, {
@@ -47,7 +49,7 @@ const DownloadTab: React.FC = () => {
         });
 
         return Array.from(servicesMap.values());
-    }, [filesData]);
+    }, [filesData, userType]);
 
     // All photos from all photo services
     const allPhotos = useMemo(() => {
@@ -72,39 +74,19 @@ const DownloadTab: React.FC = () => {
     };
 
     const handleDownload = async (files: Files[], label: string, size: DownloadSize = 'original') => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            toast.error("Token not found.");
-            return;
-        }
-
-        setIsDownloading(label);
-        toast.info(`Preparing download for ${files.length} files (${size})...`);
+        setSizeModal(prev => ({ ...prev, isOpen: false })); // close modal immediately
 
         try {
-            for (const file of files) {
-                try {
-                    const response = await DownloadFile(token, file.uuid, size);
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = file.name || `photo-${file.uuid}.jpg`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    window.URL.revokeObjectURL(url);
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                } catch (err) {
-                    console.error(`Failed to download file ${file.uuid}:`, err);
-                }
-            }
-            toast.success(`Download started for ${label}`);
-        } catch (error) {
-            console.error("Download error:", error);
-            toast.error("Failed to trigger some downloads.");
-        } finally {
-            setIsDownloading(null);
+            const payload: { uuid: string; size?: DownloadSize }[] = files.map(f => ({
+                uuid: f.uuid,
+                size
+            }));
+
+            // start download via global context
+            startDownload(payload, label);
+        } catch (err) {
+            console.error("Download error:", err);
+            toast.error("An unexpected error occurred.");
         }
     };
 
@@ -126,10 +108,10 @@ const DownloadTab: React.FC = () => {
             <div className="flex flex-wrap gap-4 mb-8">
                 <Button
                     onClick={() => openSizeModal(allPhotos, "All Photos")}
-                    disabled={!!isDownloading || allPhotos.length === 0}
+                    disabled={allPhotos.length === 0}
                     className={`px-6 h-[35px] md:h-[44px] border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[500] text-white flex gap-[5px] justify-center items-center ${userType}-bg hover:brightness-110 rounded-[6px] transition-all`}
                 >
-                    {isDownloading === "All Photos" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    <Download className="h-4 w-4" />
                     Download all
                 </Button>
 
@@ -137,11 +119,11 @@ const DownloadTab: React.FC = () => {
                     <Button
                         key={service.uuid}
                         onClick={() => openSizeModal(service.files, service.name)}
-                        disabled={!!isDownloading || service.files.length === 0}
+                        disabled={service.files.length === 0}
                         className={`px-6 h-[35px] md:h-[44px] border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
                         style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     >
-                        {isDownloading === service.name ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                        <Download className="h-4 w-4" />
                         Download {service.name}
                     </Button>
                 ))}
@@ -154,11 +136,11 @@ const DownloadTab: React.FC = () => {
                         }
                         setIsManualModalOpen(true);
                     }}
-                    disabled={!!isDownloading || allPhotos.length === 0}
+                    disabled={allPhotos.length === 0}
                     className={`px-6 h-[35px] md:h-[44px] border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
                     style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                 >
-                    {isDownloading === "Manually" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    <Download className="h-4 w-4" />
                     Download manually {selectedImageUuids.size > 0 && `(${selectedImageUuids.size})`}
                 </Button>
 

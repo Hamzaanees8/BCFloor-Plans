@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { PauseCircle, Play, Volume2, VolumeX } from 'lucide-react'; // Lucide icons
+import { Maximize, Minimize, PauseCircle, Play, Volume2, VolumeX } from 'lucide-react'; // Lucide icons
 import './SlideshowAnimations.css';
 import { Files, SelectedFiles } from '../FileManagerContext';
 
@@ -47,27 +47,44 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   currentIndex: propCurrentIndex
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [lastIndex, setLastIndex] = useState<number | null>(null);
   const [transitionIndex, setTransitionIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
+  const [showControls, setShowControls] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
-  const allImages = [
-    ...(images?.map((img) => ({
+  const allImages = React.useMemo(() => {
+    const localImages = (images || []).map((img) => ({
       src: URL.createObjectURL(img.file),
       isLocal: true,
-    })) || []),
-    ...(api_images?.map((img) => ({
-      src: img.variant_urls?.slider || img.url || `${API_URL}/${img.file_path}`,
+      id: img.file.name + img.file.size
+    }));
+
+    const remoteImages = (api_images || []).map((img) => ({
+      src: img.url || img.variant_urls?.popup || img.variant_urls?.slider || `${API_URL}/${img.file_path}`,
       isLocal: false,
-    })) || []),
-  ];
+      id: img.uuid || img.file_path
+    }));
 
+    return [...localImages, ...remoteImages];
+  }, [images, api_images, API_URL]);
 
-
+  useEffect(() => {
+    return () => {
+      allImages.forEach(img => {
+        if (img.isLocal) {
+          URL.revokeObjectURL(img.src);
+        }
+      });
+    };
+  }, [allImages]);
 
   const getTransitionClass = () =>
     transition ? transition : transitionClasses[transitionIndex];
@@ -82,6 +99,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     if (isPlaying) {
       intervalRef.current = setInterval(() => {
         setCurrentIndex((prev) => {
+          setLastIndex(prev);
           const nextIndex = (prev + 1) % allImages.length;
           if (onSlideChange) onSlideChange(nextIndex);
           return nextIndex;
@@ -96,6 +114,27 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [isPlaying, allImages.length, delay, transition, onSlideChange]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return;
+
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
   const togglePlayback = () => {
     const audioEl = audioRef.current;
@@ -113,11 +152,33 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     setIsMuted((prev) => !prev);
   }
 
+  const handleMouseMove = () => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    controlsTimeoutRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 4000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, []);
+
 
 
 
   return (
-    <div className="relative w-full h-[100vh] overflow-hidden bg-black group">
+    <div
+      ref={containerRef}
+      onMouseMove={handleMouseMove}
+      className="relative w-full h-[100vh] overflow-hidden bg-black group"
+    >
       {/* Audio */}
       {audioUrl && (
         <audio ref={audioRef} key={audioUrl} autoPlay loop muted={isMuted}>
@@ -129,11 +190,13 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
       {/* eslint-disable @next/next/no-img-element */}
       {allImages.map((item, idx) => (
         <img
-          key={idx}
+          key={item.id}
           src={item.src}
-          className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-1000 ${idx === currentIndex
-            ? `opacity-100 z-10 animate-${getTransitionClass()}`
-            : 'opacity-0 z-0'
+          className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-[2500ms] ${idx === currentIndex
+            ? `opacity-100 z-20 animate-${getTransitionClass()}`
+            : idx === lastIndex
+              ? `opacity-100 z-10 animate-${getTransitionClass()}`
+              : 'opacity-0 z-0'
             }`}
           alt={`Slide ${idx}`}
         />
@@ -149,7 +212,8 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
       {/* Play/Pause Button */}
       <div
         onClick={togglePlayback}
-        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20 hover:bg-black/40 rounded-full p-4"
+        className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-50 transition-opacity duration-500 bg-black/20 hover:bg-black/40 rounded-full p-4 ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
       >
         {isPlaying ? (
           <PauseCircle size={64} color="#ffffff" />
@@ -158,19 +222,33 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
         )}
       </div>
 
-      {/* Mute/Unmute Button */}
-      {/* {audioUrl && ( */}
-      <div
-        onClick={toggleMute}
-        className="absolute bottom-10 right-10 cursor-pointer z-[1000] opacity-70 group-hover:opacity-100 transition-opacity duration-300 bg-black/40 hover:bg-black/60 p-4 rounded-full flex items-center justify-center border border-white/30 shadow-[0_0_15px_rgba(0,0,0,0.5)]"
-      >
-        {isMuted ? (
-          <VolumeX size={24} color="#ffffff" />
-        ) : (
-          <Volume2 size={24} color="#ffffff" />
-        )}
+      {/* Bottom Controls Group */}
+      <div className={`absolute bottom-10 right-10 flex items-center gap-4 z-[1000] transition-opacity duration-500 ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+        {/* Mute/Unmute Button */}
+        <div
+          onClick={toggleMute}
+          className="cursor-pointer bg-black/40 hover:bg-black/60 p-4 rounded-full flex items-center justify-center border border-white/30 shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+        >
+          {isMuted ? (
+            <VolumeX size={24} color="#ffffff" />
+          ) : (
+            <Volume2 size={24} color="#ffffff" />
+          )}
+        </div>
+
+        {/* Fullscreen Toggle */}
+        <div
+          onClick={toggleFullscreen}
+          className="cursor-pointer bg-black/40 hover:bg-black/60 p-4 rounded-full flex items-center justify-center border border-white/30 shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+          title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+        >
+          {isFullscreen ? (
+            <Minimize size={24} color="#ffffff" />
+          ) : (
+            <Maximize size={24} color="#ffffff" />
+          )}
+        </div>
       </div>
-      {/* )} */}
     </div>
   );
 };

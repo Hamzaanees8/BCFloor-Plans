@@ -4,8 +4,6 @@ import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
-    CircleArrowLeft,
-    CircleArrowRight,
     Mail,
     Phone,
 } from "lucide-react";
@@ -22,14 +20,7 @@ import DynamicMap from "@/components/DYnamicMap";
 import { fetchPublicTourData, OrderData, recordTourStat } from "./tour";
 import CustomSlideshow from "../dashboard/file-manager/components/CustomPreview";
 import PublicTourFloorPlans from "./components/PublicTourFloorPlans";
-import {
-    Carousel,
-    CarouselContent,
-    CarouselItem,
-    CarouselNext,
-    CarouselPrevious,
-    type CarouselApi,
-} from "@/components/ui/carousel";
+
 
 export interface Snapshoots {
     x_axis: number;
@@ -63,7 +54,6 @@ const PublicTour = () => {
     const [mainVideo, setMainVideo] = useState<string | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | undefined>();
     const [visitorId, setVisitorId] = useState<string>('');
-    const [api, setApi] = useState<CarouselApi>();
     const viewedMediaRef = useRef<Set<string>>(new Set());
 
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
@@ -101,16 +91,13 @@ const PublicTour = () => {
 
     // Extract files from orderData.tours[0].files
     const tourPhotos = useMemo(() => orderData?.tours?.[0]?.files?.filter(file => {
-        const isPhoto = (file.service.category.name === "photo" || file.service.category.name === "HDR Photos" || file.service.category.name === "Standard Photos" || file.service.category.name === "Twilight Photos") && file.is_show !== false;
-
-        if (!isPhoto) return false;
-
-        // Date check: Hide files created before Feb 11, 2026
-        const createdDate = new Date(file.created_at);
-        const cutoffDate = new Date('2026-02-11');
-        if (createdDate < cutoffDate) return false;
-
-        return true;
+        const isPhoto = file.type === "photo" &&
+            file.service.name !== '2D Floor Plans' &&
+            file.service.name !== '3D Floor Plans' &&
+            file.service.category.name !== '2D Floor Plans' &&
+            file.service.category.name !== '3D Floor Plans' &&
+            file.is_show !== false;
+        return isPhoto;
     }) || [], [orderData]);
 
     const videoFiles = useMemo(() => orderData?.tours?.[0]?.files?.filter(file => {
@@ -162,26 +149,7 @@ const PublicTour = () => {
     }, [videoFiles, mainVideo, API_URL]);
 
 
-    useEffect(() => {
-        if (!api) return;
 
-        const onSelect = () => {
-            setCurrentImageIndex(api.selectedScrollSnap());
-        };
-
-        api.on("select", onSelect);
-        return () => {
-            api.off("select", onSelect);
-        };
-    }, [api]);
-
-    const handlePrev = () => {
-        api?.scrollPrev();
-    };
-
-    const handleNext = () => {
-        api?.scrollNext();
-    };
 
     // Track audio
     const audioFileName = orderData?.tours?.[0]?.slide_show?.background_audio;
@@ -312,38 +280,19 @@ const PublicTour = () => {
                     <div >
                         {tourPhotos.length > 0 && (
                             <div className="relative w-full h-[100vh] overflow-hidden group">
-                                <Carousel
-                                    setApi={setApi}
-                                    className="w-full h-full"
-                                    opts={{
-                                        loop: true,
+                                <CustomSlideshow
+                                    delay={Number(orderData?.tours?.[0]?.slide_show?.slide_delay) || 3000}
+                                    transition={orderData?.tours?.[0]?.slide_show?.transitions || 'kenburns'}
+                                    audioUrl={audioUrl || ''}
+                                    api_images={tourPhotos}
+                                    currentIndex={currentImageIndex}
+                                    onSlideChange={(index) => {
+                                        setCurrentImageIndex(index);
+                                        if (tourPhotos[index]) {
+                                            trackMediaView(tourPhotos[index].uuid);
+                                        }
                                     }}
-                                >
-                                    <CarouselContent className="h-full ml-0">
-                                        {tourPhotos.map((photo, index) => (
-                                            <CarouselItem key={index} className="pl-0 h-[100vh]">
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img
-                                                    src={photo.variant_urls?.slider || photo.variant_urls?.popup || photo.variant_urls?.landing || photo.url || `${API_URL}/${photo.file_path}`}
-                                                    alt={`Slide ${index + 1}`}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            </CarouselItem>
-                                        ))}
-                                    </CarouselContent>
-                                    <CarouselPrevious
-                                        className="absolute left-6 top-1/2 -translate-y-1/2 z-40 w-12 h-12 bg-gray-500 hover:bg-gray-600 hover:text-white border-0 rounded-full text-white transition-all flex items-center justify-center"
-                                        onClick={handlePrev}
-                                    >
-                                        <CircleArrowLeft className="w-10 h-4" />
-                                    </CarouselPrevious>
-                                    <CarouselNext
-                                        className="absolute right-6 top-1/2 -translate-y-1/2 z-40 w-12 h-12 bg-gray-500 hover:bg-gray-600 hover:text-white border-0 rounded-full text-white transition-all flex items-center justify-center"
-                                        onClick={handleNext}
-                                    >
-                                        <CircleArrowRight className="w-10 h-4" />
-                                    </CarouselNext>
-                                </Carousel>
+                                />
                             </div>
                         )}
 

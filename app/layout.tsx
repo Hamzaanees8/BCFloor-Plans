@@ -9,6 +9,8 @@ import { UploadQueueProvider } from '@/context/UploadQueueContext';
 import { UploadProgressToast } from '@/components/upload/UploadProgressToast';
 import { GlobalFileUploadProvider } from '@/context/GlobalFileUploadContext';
 import { GlobalUploadProgressOverlay } from '@/components/upload/GlobalUploadProgressOverlay';
+import { GlobalDownloadProvider } from '@/context/GlobalDownloadContext';
+import { GlobalDownloadProgressOverlay } from '@/components/download/GlobalDownloadProgressOverlay';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -52,16 +54,19 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <GlobalFileUploadProvider>
-          <UploadQueueProvider>
-            <OrderProvider>
-              <AppProvider>
-                {children}
-              </AppProvider>
-            </OrderProvider>
-            <UploadProgressToast />
-            <GlobalUploadProgressOverlay />
-            <Toaster position="bottom-right" />
-          </UploadQueueProvider>
+          <GlobalDownloadProvider>
+            <UploadQueueProvider>
+              <OrderProvider>
+                <AppProvider>
+                  {children}
+                  <UploadProgressToast />
+                  <GlobalUploadProgressOverlay />
+                  <GlobalDownloadProgressOverlay />
+                  <Toaster position="bottom-right" />
+                </AppProvider>
+              </OrderProvider>
+            </UploadQueueProvider>
+          </GlobalDownloadProvider>
         </GlobalFileUploadProvider>
       </body>
     </html>

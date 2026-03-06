@@ -23,13 +23,12 @@ const MediaJobsTable = ({ userType }: { userType: string }) => {
         if (!isAutoPoll) setLoading(true);
         try {
             const response = await GetMediaJobs();
-            if (response.status) {
-                setData(response.data);
-                setError(false);
-            } else {
-                setError(true);
-            }
+            // Always treat a successful API response as non-error.
+            // Empty arrays will show the "no data" empty state via DataTable.
+            setData(Array.isArray(response.data) ? response.data : []);
+            setError(false);
         } catch (err) {
+            // Only show "failed to fetch" on real network/server errors.
             console.error("Error fetching media jobs:", err);
             setError(true);
         } finally {

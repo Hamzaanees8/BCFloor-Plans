@@ -741,6 +741,90 @@ export async function DownloadFile(
   return response;
 }
 
+// ─── Bulk Download (job-based) ────────────────────────────────────────────────
+
+export interface BulkDownloadFileEntry {
+  uuid: string;
+  size?: "small" | "large" | "mls" | "original";
+}
+
+/**
+ * Initiates an asynchronous bulk-download job on the server.
+ * Returns the job UUID that can be polled via PollDownloadJob.
+ *
+ * POST /tours/files/bulk-download
+ */
+export async function BulkDownloadFiles(
+  token: string,
+  files: BulkDownloadFileEntry[],
+): Promise<{ success: boolean; job_uuid: string; message: string }> {
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/tours/files/bulk-download`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({ files }),
+    },
+  );
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(
+      err.message || `Bulk download request failed: ${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
+export type DownloadJobStatus = "pending" | "processing" | "completed" | "failed";
+
+export interface DownloadJobResult {
+  success: boolean;
+  data: {
+    uuid?: string;
+    status: DownloadJobStatus;
+    percent?: number;       // 0–100 if provided by the backend
+    processed_count?: number;
+    file_count?: number;
+    download_url?: string;   // present when status === 'completed'
+    message?: string;
+  };
+}
+
+/**
+ * Polls the status of a bulk-download job.
+ * Call repeatedly (e.g. every 2 s) until job_status is 'complete' or 'failed'.
+ *
+ * GET /media/download-job/{uuid}
+ */
+export async function PollDownloadJob(
+  token: string,
+  jobUuid: string,
+): Promise<DownloadJobResult> {
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/media/download-job/${jobUuid}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Accept": "application/json"
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || `Poll failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export async function PublishTour(
   token: string,
   tourUuid: string,

@@ -156,6 +156,14 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
     setIsPublishing(true);
     try {
       const nextStatus = !isPublished;
+
+      // Prevent publishing if order is not paid (only for non-admin users)
+      if (nextStatus && userType !== 'admin' && orderData?.payment_status !== 'PAID') {
+        toast.error("This order must be paid in full before the tour can be published.");
+        setIsPublishing(false);
+        return;
+      }
+
       await PublishTour(token, tourUuid, nextStatus);
       setIsPublished(nextStatus);
       toast.success(nextStatus ? "Tour published successfully!" : "Tour unpublished successfully!");

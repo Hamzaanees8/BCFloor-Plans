@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import React, { useMemo, useState, useEffect } from 'react';
-import { DownloadFile } from '../file-manager';
+import { useGlobalDownload } from '@/context/GlobalDownloadContext';
 
 type LocalFile = {
   file: File;
@@ -46,6 +46,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
   const { userType } = useAppContext();
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [selectedSizes, setSelectedSizes] = useState<Record<string, 'small' | 'large' | 'mls' | 'original'>>({});
+  const { startDownload } = useGlobalDownload();
 
   const files: CombinedFile[] = useMemo(() => {
     const local = localFiles?.map((f, idx) => ({
@@ -120,55 +121,42 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
     }
   };
 
-  const handledownloadFile = async (fileUuid: string, fileName: string, size?: 'small' | 'large' | 'mls' | 'original') => {
-    try {
-      const token = localStorage.getItem('token') ?? "";
 
-      const response = await DownloadFile(token, fileUuid, size);
-
-      if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
-
-      // Convert the response directly to blob
-      const blob = await response.blob();
-
-      // Create a temporary URL and trigger download
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-    } catch (err) {
-      console.error('Download error:', err);
-      alert('Download failed. Please try again.');
-    }
-  };
 
   const handleDownloadSelected = async () => {
     const selected = files.filter((f) => selectedFiles.includes(f.id));
 
-    for (const file of selected) {
-      if (file.isLocal) {
-        // Download local files
-        const link = document.createElement('a');
-        link.href = file.url;
-        link.download = file.name;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        // Download API files
-        const size = selectedSizes[file.id] || 'original';
-        await handledownloadFile(file.uuid, file.name, size);
-      }
+    const localSelected = selected.filter((f) => f.isLocal);
+    const apiSelected = selected.filter((f) => !f.isLocal);
+
+    // Download local files sequentially (as before)
+    for (const file of localSelected) {
+      const link = document.createElement('a');
+      link.href = file.url;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
 
-    onClose();
-    setSelectedFiles([]);
-    setSelectedSizes({});
+    if (apiSelected.length > 0) {
+      const payload: { uuid: string; size?: 'small' | 'large' | 'mls' | 'original' }[] = apiSelected.map(f => ({
+        uuid: f.uuid,
+        size: selectedSizes[f.id] || 'original'
+      }));
+
+      // Start the download via the global context, but don't wait for completion here
+      startDownload(payload, 'Selected Files');
+
+      onClose();
+      setSelectedFiles([]);
+      setSelectedSizes({});
+    } else {
+      // Only local files were selected, so we can just close
+      onClose();
+      setSelectedFiles([]);
+      setSelectedSizes({});
+    }
   };
 
   const sizeButtonClasses = (fileId: string, size: string) => {
@@ -332,24 +320,26 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
         </div>
 
         <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-3 font-alexandria border-t border-[#E4E4E4] pt-4 mt-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              onClose();
-              setSelectedFiles([]);
-              setSelectedSizes({});
-            }}
-            className={`bg-white rounded-[6px] w-full md:w-[170px] h-[44px] text-[16px] font-semibold border ${userType}-border ${userType}-text hover:!text-white hover-${userType}-bg transition-colors`}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDownloadSelected}
-            disabled={selectedFiles.length === 0}
-            className={`${userType}-bg rounded-[6px] text-white hover:opacity-80 hover:${userType}-bg w-full md:w-[200px] h-[44px] font-semibold text-[16px] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md`}
-          >
-            Download {selectedFiles.length > 0 ? `(${selectedFiles.length})` : ''} Selected
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                onClose();
+                setSelectedFiles([]);
+                setSelectedSizes({});
+              }}
+              className={`bg-white rounded-[6px] w-full md:w-[170px] h-[44px] text-[16px] font-semibold border ${userType}-border ${userType}-text hover:!text-white hover-${userType}-bg transition-colors`}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDownloadSelected}
+              disabled={selectedFiles.length === 0}
+              className={`${userType}-bg rounded-[6px] text-white hover:opacity-80 hover:${userType}-bg w-full md:w-[200px] h-[44px] font-semibold text-[16px] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md`}
+            >
+              Download {selectedFiles.length > 0 ? `(${selectedFiles.length})` : ''} Selected
+            </Button>
+          </>
         </DialogFooter>
       </DialogContent>
     </Dialog>

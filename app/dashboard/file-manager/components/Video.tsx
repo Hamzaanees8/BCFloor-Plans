@@ -583,15 +583,14 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                         </div>
                     ) : (
                         <div className="flex gap-2 items-center">
-                            {(currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
-                                <Button
-                                    onClick={() => {
-                                        setShowDownloadModal(true);
-                                    }}
-                                    className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}>
-                                    Download Files
-                                </Button>
-                            )}
+                            <Button
+                                onClick={() => {
+                                    setShowDownloadModal(true);
+                                }}
+                                disabled={!(currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID")}
+                                className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center ${!(currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                                Download Files
+                            </Button>
                         </div>
                     )}
                 </div>
@@ -651,7 +650,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                         serviceDate={currentService ? currentService : null}
                         orderData={orderData ? orderData : null}
                     />
-                    {userType === 'agent' && (
+                    {userType === 'agent' ? (
                         <div className='flex items-center gap-[10px] mr-2'>
                             <div className='flex flex-col justify-center items-center mr-2'>
                                 <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>${currentBookedService?.option?.amount}</p>
@@ -666,17 +665,19 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                                 {currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'Paid' : 'UnPaid'}
                             </Button>
                         </div>
+                    ) : (
+                        <div className='flex items-center gap-[10px] mr-2'>
+                            <Button
+                                className={`h-[32px] w-[100px] flex justify-center items-center pointer-events-none font-bold text-white
+                                    ${paymentSuccess || currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
+                                        ? "bg-[#6BAE41]"
+                                        : "bg-[#DC9600]"}`}
+                            >
+                                {currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'PAID' : 'UNPAID'}
+                            </Button>
+                        </div>
                     )}
                     <PayInvoiceModal open={openPaymentModal} setOpen={setOpenPaymentModal} success={paymentSuccess} setSuccess={setPaymentSuccess} />
-
-                    {userType !== 'agent' && (
-                        <Button
-                            onClick={() => setOpenUpgrade(true)}
-                            className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}
-                        >
-                            Upgrade Plan
-                        </Button>
-                    )}
                     <UpgradeServicePopup
                         open={openUpgrade}
                         setOpen={setOpenUpgrade}
@@ -711,13 +712,13 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                     <ManualPayment open={openPayment} setOpen={setOpenPayment} addPayment={handleAddPayment} />
                 </div>
             }
-            <div className={`p-4 flex ${userType === 'agent' ? 'justify-between' : 'justify-end'} items-center gap-4 border-b border-gray-200`}>
+            <div className={`p-4 flex justify-between items-center gap-4 border-b border-gray-200`}>
                 <div className="flex items-center gap-4">
                     <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />
                     <GridSizeToggle />
                 </div>
 
-                {userType === 'agent' && (
+                {userType === 'agent' ? (
                     <div className="flex items-center gap-8">
                         <div className="flex flex-col items-center">
                             <span className="text-[22px] font-medium text-[#7D7D7D] leading-none">
@@ -739,6 +740,13 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                             Upgrade Plan
                         </Button>
                     </div>
+                ) : (
+                    <Button
+                        onClick={() => setOpenUpgrade(true)}
+                        className={`${userType}-bg h-[32px] w-auto px-[10px] flex justify-center items-center hover-${userType}-bg`}
+                    >
+                        Upgrade Plan
+                    </Button>
                 )}
             </div>
 
@@ -755,6 +763,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                         renderItem={renderFileItem}
                         disabled={userType === 'agent'}
                         onSave={onSave}
+                        modeToggleButton={userType === 'agent' ? <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} /> : undefined}
                     />
                 </div>
                 <PhotoPreviewModal
