@@ -10,7 +10,7 @@ interface GlobalDownloadContextType {
     progress: number;
     error: string | null;
     statusText: string;
-    startDownload: (files: BulkDownloadFileEntry[]) => Promise<boolean>;
+    startDownload: (files: BulkDownloadFileEntry[], label?: string) => Promise<boolean>;
     closeProgress: () => void;
 }
 
@@ -56,7 +56,7 @@ export function GlobalDownloadProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const startDownload = useCallback(
-        async (files: BulkDownloadFileEntry[]): Promise<boolean> => {
+        async (files: BulkDownloadFileEntry[], label?: string): Promise<boolean> => {
             if (files.length === 0) return true;
 
             const token = localStorage.getItem('token') ?? '';
@@ -64,7 +64,7 @@ export function GlobalDownloadProvider({ children }: { children: ReactNode }) {
             setIsDownloading(true);
             setProgress(0);
             setError(null);
-            setStatusText(`Preparing ZIP...`);
+            setStatusText(label ? `${label}: Preparing ZIP...` : `Preparing ZIP...`);
 
             let jobUuid: string;
 
@@ -95,7 +95,7 @@ export function GlobalDownloadProvider({ children }: { children: ReactNode }) {
                         if (typeof serverProgress === 'number') {
                             clearInterval(pseudoTick);
                             setProgress(serverProgress);
-                            setStatusText(`Zipping files...`);
+                            setStatusText(label ? `${label}: Zipping files...` : `Zipping files...`);
                         }
 
                         const terminal: DownloadJobStatus[] = ['completed', 'failed'];
