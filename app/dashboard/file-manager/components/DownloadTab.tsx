@@ -1,14 +1,22 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { useFileManagerContext, Files } from '../FileManagerContext';
 import { Button } from '@/components/ui/button';
-import { Download, CheckCircle2, Loader2 } from 'lucide-react';
+import { Download, CheckCircle2, Loader2, PlayCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppContext } from '@/app/context/AppContext';
 import BulkDownloadSizeModal, { DownloadSize } from './BulkDownloadSizeModal';
 import DownloadModal, { ApiFile } from './DownloadModal';
 import { useGlobalDownload } from '@/context/GlobalDownloadContext';
 
-const DownloadTab: React.FC = () => {
+import { Order } from '../../orders/page';
+
+interface DownloadTabProps {
+    orderData: Order | null;
+}
+
+const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
+
+const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
     const { filesData } = useFileManagerContext();
     const { userType } = useAppContext();
     const { startDownload } = useGlobalDownload();
@@ -20,21 +28,57 @@ const DownloadTab: React.FC = () => {
     const [isManualModalOpen, setIsManualModalOpen] = useState(false);
     const [selectedImageUuids, setSelectedImageUuids] = useState<Set<string>>(new Set());
 
-    // Identify photo services and their files
-    const photoServices = useMemo(() => {
+    // Helper to check if a service or the entire order is paid
+    const isServicePaid = useCallback((serviceUuid: string) => {
+        if (userType !== 'agent') return true;
+        if (orderData?.payment_status === 'PAID') return true;
+        const service = orderData?.services.find(s => s.service.uuid === serviceUuid);
+        return service?.payment_status === 'PAID';
+    }, [userType, orderData]);
+
+    // For "Download all", check if at least one photo service is paid
+    const isAnyPhotoServicePaid = useMemo(() => {
+        if (userType !== 'agent') return true;
+        if (orderData?.payment_status === 'PAID') return true;
+
+        const photoServiceUuids = new Set(filesData?.files
+            ?.filter(f => f.type === 'photo' && f.service)
+            .map(f => f.service!.uuid));
+
+        return Array.from(photoServiceUuids).some(uuid => isServicePaid(uuid));
+    }, [userType, orderData, filesData, isServicePaid]);
+
+    // For "Download all videos", check if at least one video service is paid
+    const isAnyVideoServicePaid = useMemo(() => {
+        if (userType !== 'agent') return true;
+        if (orderData?.payment_status === 'PAID') return true;
+
+        const videoServiceUuids = new Set(filesData?.files
+            ?.filter(f => f.type === 'video' && f.service)
+            .map(f => f.service!.uuid));
+
+        return Array.from(videoServiceUuids).some(uuid => isServicePaid(uuid));
+    }, [userType, orderData, filesData, isServicePaid]);
+
+    // Group files by service (photos and videos)
+    const groupedServices = useMemo(() => {
         if (!filesData?.files) return [];
 
         const servicesMap = new Map<number, { id: number; uuid: string; name: string; files: Files[] }>();
 
         filesData.files.forEach(file => {
+            if (file.is_deleted) return;
+
             const serviceName = file.service?.name || "";
             const isForbiddenService = serviceName.toLowerCase().includes("floor plan") ||
-                serviceName.toLowerCase().includes("video") ||
                 serviceName.toLowerCase().includes("3d tour");
 
-            const isApproved = userType === 'agent' ? file.is_agent_approved : true;
+            // Note: We no longer exclude "video" from the name check as we want to include them
 
-            if (isApproved && file.type === 'photo' && file.service && !isForbiddenService && !file.is_deleted) {
+            const isApproved = userType === 'agent' ? file.is_agent_approved : true;
+            const isValidType = file.type === 'photo' || file.type === 'video';
+
+            if (isApproved && isValidType && file.service && !isForbiddenService) {
                 const serviceId = file.service.id;
                 if (!servicesMap.has(serviceId)) {
                     servicesMap.set(serviceId, {
@@ -51,17 +95,52 @@ const DownloadTab: React.FC = () => {
         return Array.from(servicesMap.values());
     }, [filesData, userType]);
 
-    // All photos from all photo services
-    const allPhotos = useMemo(() => {
-        return photoServices.flatMap(service => service.files);
-    }, [photoServices]);
+    // All approved files
+    const allApprovedPhotos = useMemo(() => {
+        return groupedServices.flatMap(service => service.files.filter(f => f.type === 'photo'));
+    }, [groupedServices]);
 
-    // Selected photos filter
-    const selectedPhotos = useMemo(() => {
-        return allPhotos.filter(photo => selectedImageUuids.has(photo.uuid));
-    }, [allPhotos, selectedImageUuids]);
+    const allApprovedVideos = useMemo(() => {
+        return groupedServices.flatMap(service => service.files.filter(f => f.type === 'video'));
+    }, [groupedServices]);
+
+    // Filter paid files for agents (for download actions)
+    const paidPhotos = useMemo(() => {
+        if (userType !== 'agent' || orderData?.payment_status === 'PAID') {
+            return allApprovedPhotos;
+        }
+        return allApprovedPhotos.filter(p => isServicePaid(p.service?.uuid || ""));
+    }, [allApprovedPhotos, userType, orderData, isServicePaid]);
+
+    const paidVideos = useMemo(() => {
+        if (userType !== 'agent' || orderData?.payment_status === 'PAID') {
+            return allApprovedVideos;
+        }
+        return allApprovedVideos.filter(p => isServicePaid(p.service?.uuid || ""));
+    }, [allApprovedVideos, userType, orderData, isServicePaid]);
+
+    // Selected files filter
+    const selectedFiles = useMemo(() => {
+        const allApproved = [...allApprovedPhotos, ...allApprovedVideos];
+        return allApproved.filter(file => selectedImageUuids.has(file.uuid));
+    }, [allApprovedPhotos, allApprovedVideos, selectedImageUuids]);
+
+    // Filtered selected files (for manual download)
+    const selectedPaidFiles = useMemo(() => {
+        if (userType !== 'agent' || orderData?.payment_status === 'PAID') {
+            return selectedFiles;
+        }
+        return selectedFiles.filter(file => isServicePaid(file.service?.uuid || ""));
+    }, [selectedFiles, userType, orderData, isServicePaid]);
 
     const toggleImageSelection = (uuid: string) => {
+        const allApproved = [...allApprovedPhotos, ...allApprovedVideos];
+        const file = allApproved.find(f => f.uuid === uuid);
+        if (userType === 'agent' && file && !isServicePaid(file.service?.uuid || "")) {
+            toast.error("This service is not paid yet.");
+            return;
+        }
+
         setSelectedImageUuids(prev => {
             const next = new Set(prev);
             if (next.has(uuid)) {
@@ -104,43 +183,42 @@ const DownloadTab: React.FC = () => {
 
     return (
         <div className="p-6 font-alexandria">
-            {/* Buttons Row */}
-            <div className="flex flex-wrap gap-4 mb-8">
+            {/* Buttons Row 1: Global Actions */}
+            <div className="flex flex-wrap gap-3 mb-4">
                 <Button
-                    onClick={() => openSizeModal(allPhotos, "All Photos")}
-                    disabled={allPhotos.length === 0}
-                    className={`px-6 h-[35px] md:h-[44px] border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[500] text-white flex gap-[5px] justify-center items-center ${userType}-bg hover:brightness-110 rounded-[6px] transition-all`}
+                    onClick={() => openSizeModal(paidPhotos, "All Photos")}
+                    disabled={paidPhotos.length === 0 || !isAnyPhotoServicePaid}
+                    title={!isAnyPhotoServicePaid ? "service not paid yet" : ""}
+                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] text-white flex gap-[5px] justify-center items-center ${userType}-bg hover:brightness-110 rounded-[6px] transition-all ${(!isAnyPhotoServicePaid) ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
-                    <Download className="h-4 w-4" />
-                    Download all
+                    <Download className="h-3.5 w-3.5" />
+                    Download all photos
                 </Button>
 
-                {photoServices.map(service => (
-                    <Button
-                        key={service.uuid}
-                        onClick={() => openSizeModal(service.files, service.name)}
-                        disabled={service.files.length === 0}
-                        className={`px-6 h-[35px] md:h-[44px] border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
-                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                    >
-                        <Download className="h-4 w-4" />
-                        Download {service.name}
-                    </Button>
-                ))}
+                <Button
+                    onClick={() => handleDownload(paidVideos, "All Videos", "original")}
+                    disabled={paidVideos.length === 0 || !isAnyVideoServicePaid}
+                    title={!isAnyVideoServicePaid ? "service not paid yet" : ""}
+                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] text-white flex gap-[5px] justify-center items-center ${userType}-bg hover:brightness-110 rounded-[6px] transition-all ${(!isAnyVideoServicePaid) ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                    <Download className="h-3.5 w-3.5" />
+                    Download all videos
+                </Button>
 
                 <Button
                     onClick={() => {
                         if (selectedImageUuids.size === 0) {
-                            toast.warning("Please select at least one photo first.");
+                            toast.warning("Please select at least one file first.");
                             return;
                         }
                         setIsManualModalOpen(true);
                     }}
-                    disabled={allPhotos.length === 0}
-                    className={`px-6 h-[35px] md:h-[44px] border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
+                    disabled={(allApprovedPhotos.length === 0 && allApprovedVideos.length === 0) || (!isAnyPhotoServicePaid && !isAnyVideoServicePaid)}
+                    title={(!isAnyPhotoServicePaid && !isAnyVideoServicePaid) ? "service not paid yet" : ""}
+                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors ${(!isAnyPhotoServicePaid && !isAnyVideoServicePaid) ? "opacity-50 cursor-not-allowed" : ""}`}
                     style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                 >
-                    <Download className="h-4 w-4" />
+                    <Download className="h-3.5 w-3.5" />
                     Download manually {selectedImageUuids.size > 0 && `(${selectedImageUuids.size})`}
                 </Button>
 
@@ -148,47 +226,129 @@ const DownloadTab: React.FC = () => {
                     <Button
                         variant="ghost"
                         onClick={() => setSelectedImageUuids(new Set())}
-                        className="text-gray-500 hover:text-red-500 font-medium text-sm transition-colors"
+                        className="text-gray-500 hover:text-red-500 font-medium text-[12px] transition-colors"
                     >
                         Clear Selection
                     </Button>
                 )}
             </div>
 
-            {/* Photos Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {allPhotos.length > 0 ? (
-                    allPhotos.map((file) => {
-                        const isSelected = selectedImageUuids.has(file.uuid);
-                        return (
-                            <div
-                                key={file.uuid}
-                                onClick={() => toggleImageSelection(file.uuid)}
-                                className={`relative group aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 transition-all cursor-pointer select-none
-                                    ${isSelected ? `${userType}-border shadow-md` : 'border-gray-200 hover:border-gray-300'}`}
-                            >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                    src={file.variant_urls?.thumb || file.thumbnail_url || file.url}
-                                    alt={file.name}
-                                    title={file.name}
-                                    className={`w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
-                                />
-                                {isSelected && (
-                                    <div className={`absolute top-2 right-2 z-10 ${userType}-text bg-white rounded-full shadow-sm`}>
-                                        <CheckCircle2 className="w-6 h-6 shadow-sm" />
-                                    </div>
-                                )}
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 pointer-events-none">
-                                    <p className="text-white text-xs truncate font-medium">{file.name}</p>
-                                    <p className="text-gray-300 text-[10px] truncate">{file.service?.name}</p>
-                                </div>
+            {/* Buttons Row 2: Per-Service Actions */}
+            <div className="flex flex-wrap gap-3 mb-8">
+                {groupedServices.map(service => {
+                    const servicePhotos = service.files.filter(f => f.type === 'photo');
+                    const serviceVideos = service.files.filter(f => f.type.toLowerCase() === 'video');
+                    const isPaid = isServicePaid(service.uuid);
+
+                    return (
+                        <React.Fragment key={service.uuid}>
+                            {servicePhotos.length > 0 && (
+                                <Button
+                                    onClick={() => openSizeModal(servicePhotos, service.name)}
+                                    disabled={!isPaid}
+                                    title={!isPaid ? "service not paid yet" : ""}
+                                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors ${(!isPaid) ? "opacity-50 cursor-not-allowed" : ""}`}
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                >
+                                    <Download className="h-3.5 w-3.5" />
+                                    Download {service.name} photos
+                                </Button>
+                            )}
+                            {serviceVideos.length > 0 && (
+                                <Button
+                                    onClick={() => handleDownload(serviceVideos, service.name, "original")}
+                                    disabled={!isPaid}
+                                    title={!isPaid ? "service not paid yet" : ""}
+                                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors ${(!isPaid) ? "opacity-50 cursor-not-allowed" : ""}`}
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                >
+                                    <Download className="h-3.5 w-3.5" />
+                                    Download {service.name} videos
+                                </Button>
+                            )}
+                        </React.Fragment>
+                    );
+                })}
+            </div>
+
+            {/* Grouped Services Grid */}
+            <div className="space-y-12">
+                {groupedServices.length > 0 ? (
+                    groupedServices.map((service) => (
+                        <div key={service.uuid} className="space-y-4">
+                            <h3 className={`text-xl font-semibold ${userType}-text border-l-4 border-current pl-3`}>
+                                {service.name}
+                            </h3>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                                {service.files.map((file) => {
+                                    const isSelected = selectedImageUuids.has(file.uuid);
+                                    const isPaid = isServicePaid(file.service?.uuid || "");
+                                    const isVideo = file.type.toLowerCase() === 'video';
+                                    return (
+                                        <div
+                                            key={file.uuid}
+                                            onClick={() => toggleImageSelection(file.uuid)}
+                                            className={`relative group aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden border-2 transition-all cursor-pointer select-none
+                                                ${isSelected ? `${userType}-border shadow-md` : 'border-gray-200 hover:border-gray-300'}`}
+                                        >
+                                            <div className="relative w-full h-full">
+                                                {isVideo ? (
+                                                    file.variant_urls?.thumb ? (
+                                                        /* eslint-disable-next-line @next/next/no-img-element */
+                                                        <img
+                                                            src={file.variant_urls.thumb}
+                                                            alt={file.name}
+                                                            title={file.name}
+                                                            className={`w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
+                                                        />
+                                                    ) : (
+                                                        <video
+                                                            src={`${file.url || `${API_URL}/${file.file_path}`}#t=0.1`}
+                                                            preload="metadata"
+                                                            muted
+                                                            playsInline
+                                                            className={`absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
+                                                        />
+                                                    )
+                                                ) : (
+                                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                                    <img
+                                                        src={file.variant_urls?.thumb || file.thumbnail_url || file.url}
+                                                        alt={file.name}
+                                                        title={file.name}
+                                                        className={`w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
+                                                    />
+                                                )}
+                                            </div>
+                                            {isSelected && (
+                                                <div className={`absolute top-2 right-2 z-10 ${userType}-text bg-white rounded-full shadow-sm`}>
+                                                    <CheckCircle2 className="w-6 h-6 shadow-sm" />
+                                                </div>
+                                            )}
+                                            {!isPaid && userType === 'agent' && (
+                                                <div className="absolute top-2 right-2 z-10 bg-black/50 text-white text-[10px] px-2 py-1 rounded flex items-center gap-1">
+                                                    <Loader2 className="w-3 h-3 animate-pulse" />
+                                                    Unpaid
+                                                </div>
+                                            )}
+                                            {isVideo && (
+                                                <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
+                                                    <PlayCircle className="w-12 h-12 text-white/90 drop-shadow-md group-hover:scale-110 transition-transform duration-300 fill-black/40" />
+                                                </div>
+                                            )}
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 pointer-events-none">
+                                                <p className="text-white text-xs truncate font-medium">{file.name}</p>
+                                                <p className="text-gray-300 text-[10px] truncate">{file.service?.name}</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
-                        );
-                    })
+                        </div>
+                    ))
                 ) : (
-                    <div className="col-span-full py-20 text-center text-gray-500">
-                        No approved photos found to download.
+                    <div className="py-20 text-center text-gray-500">
+                        No approved photos or videos found to download.
                     </div>
                 )}
             </div>
@@ -203,7 +363,7 @@ const DownloadTab: React.FC = () => {
             <DownloadModal
                 open={isManualModalOpen}
                 onClose={() => setIsManualModalOpen(false)}
-                apiFiles={selectedPhotos as unknown as ApiFile[]}
+                apiFiles={selectedPaidFiles as unknown as ApiFile[]}
             />
         </div>
     );

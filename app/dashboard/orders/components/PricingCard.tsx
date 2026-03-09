@@ -347,74 +347,79 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                       </div>
                     ))}
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <label htmlFor="custom" className="text-[11px] text-[#666666]">Custom</label>
-                    </div>
-                    <div className="grid grid-cols-8 gap-2 mt-2 items-center">
-                      <RadioGroupItem
-                        value="custom"
-                        id="custom"
-                        disabled={isPaid}
-                        title={isPaid ? "Cannot modify - service has been paid" : ""}
-                        className="w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
-                          appearance-none
-                          after:hidden
-                          data-[state=checked]:bg-transparent
-                          data-[state=checked]:before:content-['']
-                          data-[state=checked]:before:absolute
-                          data-[state=checked]:before:inset-0
-                          data-[state=checked]:before:m-auto
-                          data-[state=checked]:before:w-[14px]
-                          data-[state=checked]:before:h-[14px]
-                          data-[state=checked]:before:bg-[var(--checked-bg)]
-                          data-[state=checked]:before:rounded-[2px]"
-                        style={{
-                          // @ts-expect-error: Custom CSS property for dynamic checked background
-                          '--checked-bg': roleSettings.pageTabColor
-                        }}
-                      />
-                      <Input
-                        placeholder={isPhotoService ? "Qty" : "Service Name"}
-                        type={isPhotoService ? "number" : "text"}
-                        disabled={isPaid}
-                        className="h-[26px] px-[5px] bg-white text-[10px] col-span-5"
-                        value={customServiceName}
-                        onChange={(e) => {
-                          if (isPaid) return;
-                          setCustomServiceNames(prev => ({
-                            ...prev,
-                            [service.uuid]: e.target.value,
-                          }));
-                          if (isPhotoService) {
-                            // Automatically select custom and update when typing quantity
-                            setSelectedOptions(prev => ({ ...prev, [service.uuid]: "custom" }));
-                            handleSelectService("custom", undefined, e.target.value);
-                          }
-                        }}
-                      />
-                      <Input
-                        type="number"
-                        min={0}
-                        placeholder="$__"
-                        disabled={isPaid || (isPhotoService && selectedOption === "custom")}
-                        className="h-[26px] px-[3px] bg-white text-[10px] col-span-2"
-                        value={displayPrice}
-                        onChange={e => {
-                          if (isPaid) return;
-                          if (isPhotoService && selectedOption === "custom") return; // Read-only for photo custom qty
+                  {isPhotoService && (
+                    <div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <label htmlFor="custom" className="text-[11px] text-[#666666]">Custom</label>
+                      </div>
+                      <div className="grid grid-cols-8 gap-2 mt-2 items-center">
+                        <RadioGroupItem
+                          value="custom"
+                          id="custom"
+                          disabled={isPaid}
+                          title={isPaid ? "Cannot modify - service has been paid" : ""}
+                          className="w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
+                            appearance-none
+                            after:hidden
+                            data-[state=checked]:bg-transparent
+                            data-[state=checked]:before:content-['']
+                            data-[state=checked]:before:absolute
+                            data-[state=checked]:before:inset-0
+                            data-[state=checked]:before:m-auto
+                            data-[state=checked]:before:w-[14px]
+                            data-[state=checked]:before:h-[14px]
+                            data-[state=checked]:before:bg-[var(--checked-bg)]
+                            data-[state=checked]:before:rounded-[2px]"
+                          style={{
+                            // @ts-expect-error: Custom CSS property for dynamic checked background
+                            '--checked-bg': roleSettings.pageTabColor
+                          }}
+                        />
+                        <Input
+                          placeholder={isPhotoService ? "Qty" : "Service Name"}
+                          type={isPhotoService ? "number" : "text"}
+                          disabled={isPaid}
+                          className="h-[26px] px-[5px] bg-white text-[12px] font-medium text-gray-800 col-span-4 disabled:opacity-100 disabled:text-gray-800"
+                          value={customServiceName}
+                          onChange={(e) => {
+                            if (isPaid) return;
+                            setCustomServiceNames(prev => ({
+                              ...prev,
+                              [service.uuid]: e.target.value,
+                            }));
+                            if (isPhotoService) {
+                              // Automatically select custom and update when typing quantity
+                              setSelectedOptions(prev => ({ ...prev, [service.uuid]: "custom" }));
+                              handleSelectService("custom", undefined, e.target.value);
+                            }
+                          }}
+                        />
+                        <div className="relative col-span-3 flex items-center h-[26px]">
+                          <span className="absolute left-[6px] text-[12px] font-medium text-gray-800 pointer-events-none">$</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            placeholder="__"
+                            disabled={isPaid || (isPhotoService && selectedOption === "custom")}
+                            className="h-full pl-[16px] pr-[3px] bg-white text-[12px] font-medium text-gray-800 w-full disabled:opacity-100 disabled:text-gray-800"
+                            value={displayPrice}
+                            onChange={e => {
+                              if (isPaid) return;
+                              if (isPhotoService && selectedOption === "custom") return; // Read-only for photo custom qty
 
-                          setCustomPrices(prev => ({
-                            ...prev,
-                            [service.uuid]: e.target.value,
-                          }));
-                          if (selectedOption === "custom") {
-                            handleSelectService("custom", e.target.value);
-                          }
-                        }}
-                      />
+                              setCustomPrices(prev => ({
+                                ...prev,
+                                [service.uuid]: e.target.value,
+                              }));
+                              if (selectedOption === "custom") {
+                                handleSelectService("custom", e.target.value);
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </RadioGroup>
 
               </AccordionContent>

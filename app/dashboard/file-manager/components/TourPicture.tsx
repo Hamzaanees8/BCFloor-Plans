@@ -218,15 +218,26 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                           <p className="text-[#8E8E8E] mt-1 flex items-center gap-1">
                             <CopyableFileName name={file.group || "Exterior"} /> ({idx + 1} of {currentTourPhotos?.length || 0})
                           </p>
-                          <span
-                            onClick={() => handledownloadFile(file.uuid, file.name)}
-                            className="flex w-[24px] h-[24px] cursor-pointer">
-                            <DownloadIcon
-                              width="24px"
-                              height="24px"
-                              fill="#6BAE41"
-                            />
-                          </span>
+                          {(userType === 'admin' || (userType === 'agent' && orderData?.payment_status === 'PAID')) ? (
+                            <span
+                              onClick={() => handledownloadFile(file.uuid, file.name)}
+                              className="flex w-[24px] h-[24px] cursor-pointer">
+                              <DownloadIcon
+                                width="24px"
+                                height="24px"
+                                fill="#6BAE41"
+                              />
+                            </span>
+                          ) : (
+                            <span
+                              className="flex w-[24px] h-[24px] cursor-not-allowed opacity-50">
+                              <DownloadIcon
+                                width="24px"
+                                height="24px"
+                                fill="#6BAE41"
+                              />
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

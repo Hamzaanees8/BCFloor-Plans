@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@radix-ui/react-dropdown-menu";
-import { X } from "lucide-react";
+import { X, Copy, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/app/context/AppContext";
 import { SelectedFiles, useFileManagerContext } from "../FileManagerContext";
@@ -84,6 +84,15 @@ const FileRow = React.memo(({
   allSuggestions,
   totalFiles,
 }: FileRowProps) => {
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (!mediaType) return;
+    navigator.clipboard.writeText(mediaType);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
   return (
     <div className="flex gap-[10px] pr-[10px]">
       <div className="w-auto">
@@ -121,8 +130,26 @@ const FileRow = React.memo(({
               }}
               onFocus={() => setOpenDropdown(idx)}
               placeholder="Select or Type Media Name"
-              className="w-full h-[42px] border text-[#696868] border-[#7d7d7d]"
+              className="w-full h-[42px] border text-[#696868] border-[#7d7d7d] pr-10"
             />
+            {mediaType && (
+              <div className="absolute right-3 top-[21px] -translate-y-1/2 group">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleCopy();
+                  }}
+                  type="button"
+                  className="text-gray-400 hover:text-gray-600 cursor-pointer p-1 rounded"
+                  aria-label="Copy name"
+                >
+                  {isCopied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                </button>
+                <span className="pointer-events-none absolute bottom-full right-0 mb-2 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50">
+                  {isCopied ? 'Copied!' : 'Click to copy to clipboard'}
+                </span>
+              </div>
+            )}
 
             {openDropdown === idx && (
               <div className="absolute z-[100] w-full mt-1 bg-white border border-[#7d7d7d] rounded-md shadow-lg max-h-[200px] overflow-y-auto custom-scroll">

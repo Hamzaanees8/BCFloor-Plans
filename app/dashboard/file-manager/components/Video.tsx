@@ -455,7 +455,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                     )}
                 </div>
                 <div
-                    className='grid grid-cols-4 gap-1 justify-between items-center px-1 py-1'
+                    className='grid grid-cols-2 gap-1 justify-between items-center px-1 py-1'
                     style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)`, fontSize: imagesPerRow >= 6 ? '7px' : '9px' }}
                 >
                     {/* <p className="col-span-2 text-[#8E8E8E] mt-1 truncate" title={isLocal ? file.file.name : file.name}>{isLocal ? file.file.name : file.name}</p> */}
@@ -466,10 +466,17 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                                 <DownloadIcon width='100%' height='100%' fill='#6BAE41' />
                             </span>
                         ) : (
-                            userType === 'agent' && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
+                            (userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID"))) ? (
                                 <span
                                     onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
                                     className="flex shrink-0 cursor-pointer hover:bg-gray-300 rounded" style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}
+                                >
+                                    <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
+                                </span>
+                            ) : (
+                                <span
+                                    title="service not paid yet"
+                                    className="flex shrink-0 cursor-not-allowed opacity-50" style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}
                                 >
                                     <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
                                 </span>

@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
-import { X } from 'lucide-react';
+import { X, Copy, Check } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -54,7 +54,15 @@ const PhotoPreviewModal: React.FC<Props> = ({
     const [name, setName] = useState(initialName);
     const [openDropdown, setOpenDropdown] = useState(false);
     const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+    const [isCopied, setIsCopied] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const handleCopy = () => {
+        if (!name) return;
+        navigator.clipboard.writeText(name);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+    };
 
     const existingGroups = Array.from(new Set(filesData?.files?.map(f => f.group).filter(Boolean) || [])) as string[];
     const allSuggestions = Array.from(new Set([...(suggestions || defaultMediaOptions), ...existingGroups]));
@@ -116,7 +124,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="w-[320px] md:w-[730px] md:max-w-[730px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
+            <DialogContent className="w-[95vw] md:w-[850px] md:max-w-[900px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
                 <DialogHeader>
                     <DialogTitle className={`flex items-center uppercase justify-between ${userType}-text text-[18px] font-[600]`}>
                         {title}
@@ -132,7 +140,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
                 </DialogHeader>
 
-                <div className="w-full h-[400px] flex justify-center items-center py-[20px] bg-gray-50 rounded-lg overflow-hidden">
+                <div className="w-full h-[50vh] md:h-[65vh] min-h-[400px] max-h-[700px] flex justify-center items-center bg-gray-50 rounded-lg overflow-hidden">
                     {type === 'video' ? (
                         <video
                             src={mediaUrl}
@@ -182,8 +190,26 @@ const PhotoPreviewModal: React.FC<Props> = ({
                                 }}
                                 onFocus={() => setOpenDropdown(true)}
                                 placeholder="Select or Type Media Name"
-                                className="w-full h-[42px] border text-[#696868] border-[#7d7d7d]"
+                                className="w-full h-[42px] border text-[#696868] border-[#7d7d7d] pr-10"
                             />
+                            {name && (
+                                <div className="absolute right-3 top-[21px] -translate-y-1/2 group">
+                                    <button
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            handleCopy();
+                                        }}
+                                        type="button"
+                                        className="text-gray-400 hover:text-gray-600 cursor-pointer p-1 rounded"
+                                        aria-label="Copy name"
+                                    >
+                                        {isCopied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                                    </button>
+                                    <span className="pointer-events-none absolute bottom-full right-0 mb-2 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50">
+                                        {isCopied ? 'Copied!' : 'Click to copy to clipboard'}
+                                    </span>
+                                </div>
+                            )}
                             {openDropdown && (
                                 <div className="absolute z-[100] w-full bottom-full mb-1 bg-white border border-[#7d7d7d] rounded-md shadow-lg max-h-[150px] overflow-y-auto custom-scroll">
                                     {allSuggestions

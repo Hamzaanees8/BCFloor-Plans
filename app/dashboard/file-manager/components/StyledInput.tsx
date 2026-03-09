@@ -204,7 +204,7 @@ export default function StyledInput({
         }
       }}
     >
-      <div className="relative">
+      <div className="relative grid">
         <p
           ref={editableRef}
           contentEditable
@@ -225,6 +225,7 @@ export default function StyledInput({
             alignContent: "center",
           }}
           className={cn(
+            "col-start-1 row-start-1",
             "placeholder-gray-400 border rounded w-full resize-none focus:outline-none border-none  px-2",
             "whitespace-pre-wrap break-words",
             className,
@@ -238,7 +239,7 @@ export default function StyledInput({
 
         {showPlaceholder && placeholder && (
           <div
-            className="absolute top-0 left-0 right-0 px-2 pointer-events-none"
+            className="col-start-1 row-start-1 px-2 pointer-events-none break-words whitespace-pre-wrap"
             style={{
               fontSize,
               textAlign,

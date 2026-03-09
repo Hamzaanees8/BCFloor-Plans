@@ -17,20 +17,21 @@ import { useAppContext } from "@/app/context/AppContext";
 
 function TourFloorPlans({ type = "" }) {
   const { userType } = useAppContext();
-  const { floorFiles, selectedFiles, droppedMarkers, setDroppedMarkers, filesData } = useFileManagerContext();
+  const { droppedMarkers, setDroppedMarkers, filesData } = useFileManagerContext();
   let currentTourFloorFiles = filesData?.files?.filter(file => (file?.service?.name === '2D Floor Plans' || file?.service?.name === '3D Floor Plans') && file.type === 'photo' && !file.file_path.toLowerCase().endsWith('.pdf'));
   let currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === 'photo');
 
   if (userType === 'agent') {
     currentTourFloorFiles = currentTourFloorFiles?.filter(file => file.is_admin_approved);
-    currentTourPhotos = currentTourPhotos?.filter(file => file.is_admin_approved);
   }
+
+  // Filter only agent approved photos and sort by sort_order
+  currentTourPhotos = currentTourPhotos?.filter(file => file.is_agent_approved)
+    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   const [draggedFile, setDraggedFile] = useState<{ file?: File; file_path?: string; url?: string; thumbnail_url?: string } | null>(null);
 
   const [selectedImageId, setSelectedImageId] = useState<string | null>(() => {
-    if (floorFiles?.length > 0) {
-      return floorFiles[0].file.name;
-    } else if ((currentTourFloorFiles?.length ?? 0) > 0) {
+    if ((currentTourFloorFiles?.length ?? 0) > 0) {
       return currentTourFloorFiles?.[0]?.name || null;
     }
     return null;
@@ -60,11 +61,6 @@ function TourFloorPlans({ type = "" }) {
     if (!filePath) return false;
     return filePath.toLowerCase().endsWith('.pdf');
   };
-
-  const checkedImages = selectedFiles.filter((files) => {
-    return files.upload === true;
-  });
-
 
 
   const normalizeName = (filename: string) => {
@@ -200,7 +196,6 @@ function TourFloorPlans({ type = "" }) {
   };
 
 
-  const selectedFile = floorFiles?.find((f) => f.file.name === selectedImageId);
 
   const selectedApiFile = currentTourFloorFiles?.find(
     (f) => f.name === selectedImageId
@@ -208,7 +203,7 @@ function TourFloorPlans({ type = "" }) {
 
   const isSelectedFilePDF = selectedApiFile ? isPDF(selectedApiFile.file_path) : false;
 
-  if ((!floorFiles || floorFiles?.length === 0) && (!currentTourFloorFiles || currentTourFloorFiles?.length === 0)) {
+  if (!currentTourFloorFiles || currentTourFloorFiles?.length === 0) {
     return (
       <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
         <p>No Floor Photo found — please add Floor Photos or select a Floor Plan service.</p>
@@ -242,11 +237,9 @@ function TourFloorPlans({ type = "" }) {
               draggable={false}
               ref={imgRef}
               src={
-                selectedFile
-                  ? URL.createObjectURL(selectedFile.file)
-                  : selectedApiFile
-                    ? selectedApiFile.variant_urls?.popup || selectedApiFile.url || `${API_URL}/${selectedApiFile.file_path}`
-                    : ""
+                selectedApiFile
+                  ? selectedApiFile.variant_urls?.popup || selectedApiFile.url || `${API_URL}/${selectedApiFile.file_path}`
+                  : ""
               }
               alt="Selected Floor"
               className="object-contain max-h-full max-w-full w-full h-full"
@@ -435,52 +428,13 @@ function TourFloorPlans({ type = "" }) {
             );
           })}
 
-          {floorFiles?.map((file, idx) => {
-            return (
-              <div
-                key={idx}
-                onClick={() => setSelectedImageId(file.file.name)}
-                className={`w-[200px] h-[100px] flex items-center rounded-[6px] justify-center cursor-pointer ${selectedImageId === file.file.name ? "border-2 border-[#4290E9]" : ""}`}
-              >
-                <div className="relative border border-gray-200 rounded-[6px] w-full h-full flex items-center justify-center">
-                  {/* eslint-disable @next/next/no-img-element */}
-                  <img
-                    src={URL.createObjectURL(file.file)}
-                    alt="preview"
-                    className="max-w-full max-h-full"
-                  />
-                </div>
-              </div>
-            );
-          })}
+          {/* floorFiles mapping removed */}
         </div>
       </div>
 
       {type !== "confirm" && (
         <div>
           <p className="text-[#666666] text-[24px] px-3">Photos</p>
-          {checkedImages?.length > 0 && (
-            <div className="mt-4 w-full grid grid-cols-6 gap-2 p-3">
-              {checkedImages?.map((file, idx) => (
-                <div key={idx} className="bg-[#BBBBBB] h-auto relative">
-                  <div className="relative w-full h-[160px]">
-                    {/* eslint-disable @next/next/no-img-element */}
-                    <img
-                      draggable
-                      onDragStart={() => {
-                        setDraggedFile({ file: file.file });
-                        imageContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }}
-                      src={URL.createObjectURL(file.file)}
-                      alt="preview"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </div>
-              ))}
-
-            </div>
-          )}
 
           {(currentTourPhotos || [])?.length > 0 && (
             <div className="mt-4 w-full grid grid-cols-6 gap-2 p-3">

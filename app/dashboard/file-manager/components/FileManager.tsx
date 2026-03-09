@@ -262,7 +262,7 @@ const FileManager = () => {
     }
 
     if (activeTab === "download") {
-      return <DownloadTab />;
+      return <DownloadTab orderData={orderData} />;
     }
 
     if (activeTab === "CreateFeatureSheet") {

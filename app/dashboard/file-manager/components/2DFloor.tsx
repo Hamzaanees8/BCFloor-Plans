@@ -534,10 +534,16 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                 <DownloadIcon width='100%' height='100%' fill='#6BAE41' />
                             </span>
                         ) : (
-                            userType === 'agent' && currentBookedService?.payment_status === "PAID" && (
+                            (userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID"))) ? (
                                 <span
                                     onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
                                     className='flex shrink-0 cursor-pointer' style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}>
+                                    <DownloadIcon width='100%' height='100%' fill='#6BAE41' />
+                                </span>
+                            ) : (
+                                <span
+                                    title="service not paid yet"
+                                    className='flex shrink-0 cursor-not-allowed opacity-50' style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}>
                                     <DownloadIcon width='100%' height='100%' fill='#6BAE41' />
                                 </span>
                             )
@@ -568,6 +574,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                     onClick={() => {
                                         setShowDownloadModal(true);
                                     }}
+                                    title={!(currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "service not paid yet" : ""}
                                     disabled={!(currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID")}
                                     className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center ${!(currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
                                     Download Files

@@ -2,9 +2,15 @@ import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import CopyableFileName from './CopyableFileName';
 import FilePreviewModal from './FilePreviewModal';
-import { Check, X, Star, Loader2 } from 'lucide-react';
+import { Check, X, Star, Loader2, ListFilter, ArrowDownAZ, Calendar, ListOrdered } from 'lucide-react';
 import { DownloadIcon } from '@/components/Icons';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Services } from '../../services/page';
 import { Files, SelectedFiles, useFileManagerContext } from '../FileManagerContext';
 import { toast } from 'sonner';
@@ -37,6 +43,7 @@ export interface PaymentData {
 
 function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, onSave }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void }) {
     const [files, setFiles] = useState<File[]>([]);
+    const [sortBy, setSortBy] = useState<'order' | 'name' | 'date'>('order');
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [open, setOpen] = useState(false);
     const [openUpgrade, setOpenUpgrade] = useState(false);
@@ -123,10 +130,17 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         let files = filesData?.files
             ?.filter((file: Files) => file?.service?.uuid === currentService?.uuid)
             .sort((a, b) => {
-                if (a.sort_order !== undefined && b.sort_order !== undefined) {
-                    return a.sort_order - b.sort_order;
+                if (sortBy === 'name') {
+                    return a.name.localeCompare(b.name);
+                } else if (sortBy === 'date') {
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                } else {
+                    // Default to order
+                    if (a.sort_order !== undefined && b.sort_order !== undefined) {
+                        return a.sort_order - b.sort_order;
+                    }
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
                 }
-                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
             });
 
         // If Agent and review is enabled, only show approved files and those marked to show
@@ -138,7 +152,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
             }
         }
         return files || [];
-    }, [filesData?.files, currentService?.uuid, userType, reviewFilesEnabled]);
+    }, [filesData?.files, currentService?.uuid, userType, reviewFilesEnabled, sortBy]);
 
     const filesForService = useMemo(() => selectedFiles.filter(f => f.service_id === currentService?.uuid), [selectedFiles, currentService?.uuid]);
 
@@ -627,10 +641,17 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 <DownloadIcon width='100%' height='100%' fill='#6BAE41' />
                             </span>
                         ) : (
-                            userType === 'agent' && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") && (
+                            (userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID"))) ? (
                                 <span
                                     onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
                                     className="flex shrink-0 cursor-pointer hover:bg-gray-300 rounded" style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}
+                                >
+                                    <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
+                                </span>
+                            ) : (
+                                <span
+                                    title="service not paid yet"
+                                    className="flex shrink-0 cursor-not-allowed opacity-50" style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}
                                 >
                                     <DownloadIcon width="100%" height="100%" fill="#6BAE41" />
                                 </span>
@@ -640,7 +661,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 </div>
             </div>
         );
-    }, [API_URL, currentBookedService?.payment_status, currentService?.uuid, currentServiceFiles?.length, fileItems, handleToggleFeatured, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setSelectedFiles, userType, imagesPerRow, shrinkingIds]);
+    }, [API_URL, currentBookedService?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setFilesData, setSelectedFiles, userType, currentService?.uuid, handleToggleFeatured, setSelectionChangedUuids, shrinkingIds]);
 
 
 
@@ -713,8 +734,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
 
 
 
-    const handleImageClick = (imageUrl: string | File, file: SelectedFiles | Files) => {
-        setSelectedImageUrl(imageUrl);
+    const handleImageClick = (url: string, file: SelectedFiles | Files) => {
+        setSelectedImageUrl(url);
         setEditingFile(file);
         setImagePopupOpen(true);
     };
@@ -793,10 +814,12 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         ) : (
                             <div className="flex gap-2 items-center">
                                 <Button
-                                    onClick={() => setShowDownloadModal(true)}
+                                    onClick={() => {
+                                        setShowDownloadModal(true);
+                                    }}
+                                    title={!(currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "service not paid yet" : ""}
                                     disabled={!(currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID")}
-                                    className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center ${!(currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                                >
+                                    className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center ${!(currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
                                     Download Files
                                 </Button>
                             </div>
@@ -914,6 +937,36 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 <div className="p-4 flex justify-between items-center gap-4 border-b border-gray-200 font-alexandria">
                     <div className="flex items-center gap-4">
                         <GridSizeToggle />
+                        <span className="text-[12px] text-[#7D7D7D] font-medium mr-2">Images per row</span>
+
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className="h-[32px] px-3 flex gap-2 items-center bg-white border-gray-300 hover:bg-gray-50 text-gray-700 hover:text-gray-900 shadow-sm"
+                                >
+                                    <ListFilter className="w-4 h-4 text-[#7D7D7D]" />
+                                    <span className="text-sm font-medium">Sort: {sortBy === 'order' ? 'Order' : sortBy === 'name' ? 'Name' : 'Date'}</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48">
+                                <DropdownMenuItem onClick={() => setSortBy('order')} className="flex items-center gap-2 cursor-pointer">
+                                    <ListOrdered className="w-4 h-4" />
+                                    <span>Order Number</span>
+                                    {sortBy === 'order' && <Check className="w-4 h-4 ml-auto text-green-600" />}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSortBy('name')} className="flex items-center gap-2 cursor-pointer">
+                                    <ArrowDownAZ className="w-4 h-4" />
+                                    <span>File Name</span>
+                                    {sortBy === 'name' && <Check className="w-4 h-4 ml-auto text-green-600" />}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSortBy('date')} className="flex items-center gap-2 cursor-pointer">
+                                    <Calendar className="w-4 h-4" />
+                                    <span>Creation Date</span>
+                                    {sortBy === 'date' && <Check className="w-4 h-4 ml-auto text-green-600" />}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
 
                     <div className="flex items-center gap-8">
@@ -972,6 +1025,36 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     <div className="flex items-center gap-4">
                         <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />
                         <GridSizeToggle />
+                        <span className="text-[12px] text-[#7D7D7D] font-medium mr-2">Images per row</span>
+
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className="h-[32px] px-3 flex gap-2 items-center bg-white border-gray-300 hover:bg-gray-50 text-gray-700 hover:text-gray-900 shadow-sm"
+                                >
+                                    <ListFilter className="w-4 h-4 text-[#7D7D7D]" />
+                                    <span className="text-sm font-medium">Sort: {sortBy === 'order' ? 'Order' : sortBy === 'name' ? 'Name' : 'Date'}</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48">
+                                <DropdownMenuItem onClick={() => setSortBy('order')} className="flex items-center gap-2 cursor-pointer">
+                                    <ListOrdered className="w-4 h-4" />
+                                    <span>Order Number</span>
+                                    {sortBy === 'order' && <Check className="w-4 h-4 ml-auto text-green-600" />}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSortBy('name')} className="flex items-center gap-2 cursor-pointer">
+                                    <ArrowDownAZ className="w-4 h-4" />
+                                    <span>File Name</span>
+                                    {sortBy === 'name' && <Check className="w-4 h-4 ml-auto text-green-600" />}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSortBy('date')} className="flex items-center gap-2 cursor-pointer">
+                                    <Calendar className="w-4 h-4" />
+                                    <span>Creation Date</span>
+                                    {sortBy === 'date' && <Check className="w-4 h-4 ml-auto text-green-600" />}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                     <div className="flex items-center gap-8">
                         <div className="flex flex-col items-center">
