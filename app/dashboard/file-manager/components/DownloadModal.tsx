@@ -25,6 +25,12 @@ export type ApiFile = {
   url?: string;
   type: string;
   group: string | null;
+  is_processing?: boolean;
+  thumbnail_url?: string;
+  variant_urls?: {
+    thumb?: string;
+    popup?: string;
+  };
 };
 type CombinedFile = {
   id: string;
@@ -33,6 +39,12 @@ type CombinedFile = {
   isLocal: boolean;
   type: string;
   uuid: string;
+  is_processing?: boolean;
+  thumbnail_url?: string;
+  variant_urls?: {
+    thumb?: string;
+    popup?: string;
+  };
 }
 
 type Props = {
@@ -60,11 +72,14 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
 
     const api = apiFiles.map((f) => ({
       id: `api-${f.uuid}`, // Use UUID for API files
-      name: f.name,
+      name: f.group || f.name,
       url: f.url || '', // API files use DownloadFile function, but we might need url for preview
       isLocal: false,
       type: f.type,
       uuid: f.uuid,
+      is_processing: f.is_processing,
+      thumbnail_url: f.thumbnail_url,
+      variant_urls: f.variant_urls,
     }));
 
     return [...local ?? [], ...api] as CombinedFile[];
@@ -129,14 +144,18 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
     const localSelected = selected.filter((f) => f.isLocal);
     const apiSelected = selected.filter((f) => !f.isLocal);
 
-    // Download local files sequentially (as before)
+    // Download local files sequentially with a delay to prevent browser blocking
     for (const file of localSelected) {
+      console.log(`Downloading: ${file.name}`);
       const link = document.createElement('a');
       link.href = file.url;
       link.download = file.name;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      // Wait 1.5 seconds between downloads
+      await new Promise(res => setTimeout(res, 1500));
     }
 
     if (apiSelected.length > 0) {
@@ -261,10 +280,14 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
                 </div>
 
                 <div className="relative w-[140px] h-[85px] shrink-0 bg-gray-100 rounded-md overflow-hidden">
-                  {file.type === 'photo' ? (
+                  {file.is_processing ? (
+                      <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                          <p className="text-gray-500 font-medium text-xs">Processing...</p>
+                      </div>
+                  ) : file.type === 'photo' ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
-                      src={file.isLocal ? file.url : (file.url || `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`)}
+                      src={file.isLocal ? file.url : (file.thumbnail_url || file.variant_urls?.thumb || file.url || `${process.env.NEXT_PUBLIC_FILES_API_URL}/${apiFiles.find(af => af.uuid === file.uuid)?.file_path}`)}
                       alt={file.name}
                       className="w-full h-full object-cover"
                     />

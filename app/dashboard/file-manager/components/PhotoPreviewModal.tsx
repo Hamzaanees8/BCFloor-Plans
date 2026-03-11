@@ -27,6 +27,7 @@ interface Props {
     type?: 'photo' | 'video';
     suggestions?: string[];
     isPaid?: boolean;
+    isAgentApproved?: boolean;
 }
 
 const defaultMediaOptions = [
@@ -47,13 +48,15 @@ const PhotoPreviewModal: React.FC<Props> = ({
     onSave,
     type = 'photo',
     suggestions,
-    isPaid = true
+    isPaid = true,
+    isAgentApproved = false
 }) => {
     const { userType } = useAppContext();
     const { filesData } = useFileManagerContext();
     const [name, setName] = useState(initialName);
     const [openDropdown, setOpenDropdown] = useState(false);
     const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+    const [showAgentWarning, setShowAgentWarning] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -270,14 +273,34 @@ const PhotoPreviewModal: React.FC<Props> = ({
                         open={showConfirmDelete}
                         setOpen={setShowConfirmDelete}
                         onConfirm={() => {
-                            if (onDelete) onDelete();
-                            onClose();
+                            if (isAgentApproved && userType !== 'agent') {
+                                setShowConfirmDelete(false);
+                                setShowAgentWarning(true);
+                            } else {
+                                if (onDelete) onDelete();
+                                onClose();
+                            }
                         }}
                         showAgain={false}
                         toggleShowAgain={() => { }}
                         title="Delete File"
                         dialogType="delete"
                         description="Are you sure you want to delete this file? This action cannot be undone."
+                    />
+                )}
+                {showAgentWarning && (
+                    <ConfirmationDialog
+                        open={showAgentWarning}
+                        setOpen={setShowAgentWarning}
+                        onConfirm={() => {
+                            if (onDelete) onDelete();
+                            onClose();
+                        }}
+                        showAgain={false}
+                        toggleShowAgain={() => { }}
+                        title="Delete Approved File"
+                        dialogType="delete"
+                        description="The agent approved this file. Do you still want to delete it?"
                     />
                 )}
             </DialogContent>

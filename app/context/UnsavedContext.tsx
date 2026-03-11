@@ -6,6 +6,9 @@ import React, { createContext, useContext, useEffect, useRef, useState } from "r
 type ConfirmOptions = {
   title?: string;
   description?: string;
+  onSave?: () => Promise<void>;
+  confirmLabel?: string;
+  cancelLabel?: string;
 };
 
 type UnsavedContextType = {
@@ -41,22 +44,24 @@ export const UnsavedProvider = ({ children }: { children: React.ReactNode }) => 
   // Called by components who want navigation confirmation
   const confirmNavigation = (action: () => void, opts?: ConfirmOptions) => {
     if (!isDirty) {
-      // nothing unsaved → just run
       action();
       return;
     }
 
-    // store the action and show dialog
     nextActionRef.current = action;
 
-    // Prioritize options set via setIsDirty (stored in optionsRef.current) 
-    // over generic options passed to confirmNavigation
     const finalTitle = optionsRef.current.title || opts?.title || "Unsaved Changes";
     const finalDescription = optionsRef.current.description || opts?.description || "You have unsaved changes. Do you want to leave without saving?";
+    const finalOnSave = optionsRef.current.onSave || opts?.onSave;
+    const finalConfirmLabel = optionsRef.current.confirmLabel || opts?.confirmLabel;
+    const finalCancelLabel = optionsRef.current.cancelLabel !== undefined ? optionsRef.current.cancelLabel : opts?.cancelLabel;
 
     optionsRef.current = {
       title: finalTitle,
       description: finalDescription,
+      onSave: finalOnSave,
+      confirmLabel: finalConfirmLabel,
+      cancelLabel: finalCancelLabel,
     };
     setOpen(true);
   };
@@ -69,13 +74,6 @@ export const UnsavedProvider = ({ children }: { children: React.ReactNode }) => 
     const action = nextActionRef.current;
     nextActionRef.current = null;
     if (action) action();
-  };
-
-  const handleCancel = () => {
-    // just close and keep dirty state
-    setOpen(false);
-    nextActionRef.current = null;
-    // Don't clear optionsRef.current here because we are still dirty
   };
 
   useEffect(() => {
@@ -96,9 +94,11 @@ export const UnsavedProvider = ({ children }: { children: React.ReactNode }) => 
         open={open}
         setOpen={setOpen}
         onConfirm={handleConfirm}
-        onCancel={handleCancel}
+        onSave={optionsRef.current?.onSave}
         title={optionsRef.current?.title}
         description={optionsRef.current?.description}
+        confirmLabel={optionsRef.current?.confirmLabel}
+        cancelLabel={optionsRef.current?.cancelLabel}
       />
     </UnsavedContext.Provider>
   );

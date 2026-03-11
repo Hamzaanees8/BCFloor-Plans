@@ -11,62 +11,38 @@ import {
 const POLL_INTERVAL_MS = 2000;
 
 export interface UseDownloadJobReturn {
-    /** True while a job is inflight (pending, processing). */
     isLoading: boolean;
-    /** 0–100. Driven by backend `progress` field when available, else animates pseudo-progress. */
     progress: number;
-    /** Error message string if the job failed, otherwise null. */
     error: string | null;
-    /** Call this to start a bulk-download job for the given files. Returns true on success. */
+    jobFiles: { name: string; url: string }[]; // files ready for manual download
     triggerDownload: (files: BulkDownloadFileEntry[]) => Promise<boolean>;
 }
 
-/**
- * Shared hook for job-based bulk downloads.
- *
- * Usage:
- *   const { isLoading, progress, error, triggerDownload } = useDownloadJob();
- *   const success = await triggerDownload([{ uuid: 'abc', size: 'large' }, ...]);
- */
 export function useDownloadJob(): UseDownloadJobReturn {
     const [isLoading, setIsLoading] = useState(false);
     const [progress, setProgress] = useState(0);
     const [error, setError] = useState<string | null>(null);
+    const [jobFiles, setJobFiles] = useState<{ name: string; url: string }[]>([]);
 
-    // Keep a ref to the interval so we can clear it from anywhere.
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const stopPolling = useCallback(() => {
-        if (pollingRef.current !== null) {
+        if (pollingRef.current) {
             clearInterval(pollingRef.current);
             pollingRef.current = null;
         }
-        if (timeoutRef.current !== null) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-        }
-    }, []);
-
-    const triggerBrowserDownload = useCallback((url: string) => {
-        const a = document.createElement('a');
-        a.href = url;
-        // The server sets Content-Disposition so the browser picks the filename.
-        a.download = '';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
     }, []);
 
     const triggerDownload = useCallback(
         async (files: BulkDownloadFileEntry[]): Promise<boolean> => {
-            if (files.length === 0) return true;
+            if (!files.length) return true;
 
             const token = localStorage.getItem('token') ?? '';
 
             setIsLoading(true);
             setProgress(0);
             setError(null);
+            setJobFiles([]);
 
             let jobUuid: string;
 
@@ -80,8 +56,6 @@ export function useDownloadJob(): UseDownloadJobReturn {
                 return false;
             }
 
-            // Pseudo-progress animation while we wait (increments up to 89 %).
-            // Reset once backend confirms progress or job completes.
             let pseudoProgress = 0;
             const pseudoTick = setInterval(() => {
                 pseudoProgress = Math.min(pseudoProgress + 2, 89);
@@ -92,33 +66,69 @@ export function useDownloadJob(): UseDownloadJobReturn {
                 pollingRef.current = setInterval(async () => {
                     try {
                         const poll = await PollDownloadJob(token, jobUuid);
-                        const { status: job_status, percent: serverProgress, download_url } = poll.data;
+                        const job = poll.data;
 
-                        // Use server progress when available.
-                        if (typeof serverProgress === 'number') {
+                        const { status, percent, download_url, direct_download_links } = job;
+
+                        if (typeof percent === 'number') {
                             clearInterval(pseudoTick);
-                            setProgress(serverProgress);
+                            setProgress(percent);
                         }
 
                         const terminal: DownloadJobStatus[] = ['completed', 'failed'];
 
-                        if (terminal.includes(job_status)) {
+                        if (terminal.includes(status)) {
                             stopPolling();
                             clearInterval(pseudoTick);
                             setProgress(100);
                             setIsLoading(false);
 
-                            if (job_status === 'completed' && download_url) {
-                                triggerBrowserDownload(download_url);
+                            if (status === 'completed') {
+                                const filesToDownload: { name: string; url: string }[] = [];
+
+                                if (Array.isArray(direct_download_links)) {
+                                    direct_download_links.forEach((f: { name?: string; download_url?: string }) => {
+                                        if (f?.download_url) {
+                                            filesToDownload.push({ name: f.name || 'Unnamed File', url: f.download_url });
+                                        }
+                                    });
+                                }
+
+                                if (download_url) {
+                                    filesToDownload.push({ name: 'All Files ZIP', url: download_url });
+                                }
+
+                                setJobFiles(filesToDownload);
+
+                                if (filesToDownload.length === 0) {
+                                    setError('Download completed but no files found.');
+                                    resolve(false);
+                                    return;
+                                }
+
+                                // Download files sequentially with a delay to avoid browser blocking
+                                for (const file of filesToDownload) {
+                                    console.log(`Downloading: ${file.name}`);
+                                    const link = document.createElement('a');
+                                    link.href = file.url;
+                                    link.download = file.name;
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                    
+                                    // Wait 1.5 seconds between downloads
+                                    await new Promise(res => setTimeout(res, 1500));
+                                }
                                 resolve(true);
                             } else {
-                                setError(poll.data.message || 'Download job failed. Please try again.');
+                                setError('Download job failed.');
                                 resolve(false);
                             }
                         }
                     } catch (err) {
                         stopPolling();
                         clearInterval(pseudoTick);
+
                         const msg = err instanceof Error ? err.message : 'Polling error';
                         setError(msg);
                         setIsLoading(false);
@@ -127,8 +137,8 @@ export function useDownloadJob(): UseDownloadJobReturn {
                 }, POLL_INTERVAL_MS);
             });
         },
-        [stopPolling, triggerBrowserDownload],
+        [stopPolling],
     );
 
-    return { isLoading, progress, error, triggerDownload };
+    return { isLoading, progress, error, jobFiles, triggerDownload };
 }

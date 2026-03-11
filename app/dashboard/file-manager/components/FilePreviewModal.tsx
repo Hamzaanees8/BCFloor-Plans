@@ -68,6 +68,8 @@ interface FileRowProps {
   allSuggestions: string[];
   totalFiles: number;
   userType: string;
+  isComplimentary: boolean;
+  onToggleComplimentary: (idx: number) => void;
 }
 
 const FileRow = React.memo(({
@@ -83,6 +85,8 @@ const FileRow = React.memo(({
   setOpenDropdown,
   allSuggestions,
   totalFiles,
+  isComplimentary,
+  onToggleComplimentary,
 }: FileRowProps) => {
   const [isCopied, setIsCopied] = useState(false);
 
@@ -118,7 +122,19 @@ const FileRow = React.memo(({
       </div>
 
       <div className="w-full flex flex-col gap-[10px]">
-        <Label className="text-[#7d7d7d] text-[14px]">Media Name</Label>
+        <div className="flex justify-between items-center">
+          <Label className="text-[#7d7d7d] text-[14px]">Media Name</Label>
+          <div
+            onClick={() => onToggleComplimentary(idx)}
+            className={`flex items-center gap-1 cursor-pointer transition-colors ${isComplimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
+            title="Mark as Complimentary"
+          >
+            <div className={`border rounded flex items-center justify-center ${isComplimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`} style={{ width: '12px', height: '12px' }}>
+              {isComplimentary && <Check color="white" size={8} />}
+            </div>
+            <span className="font-bold text-[12px] whitespace-nowrap">Complimentary</span>
+          </div>
+        </div>
 
         {type !== 'floor_plans' ? (
           <div className="relative">
@@ -189,12 +205,14 @@ const FileRow = React.memo(({
         <div className="text-[13px] text-[#7d7d7d] grid grid-cols-3">
           <p className="truncate">{file.name}</p>
           <p className="text-center">(1 of {totalFiles})</p>
-          <p
-            onClick={() => onRemove(idx)}
-            className="text-[#E06D5E] cursor-pointer text-right"
-          >
-            Delete
-          </p>
+          <div className="text-right flex justify-end">
+            <p
+              onClick={() => onRemove(idx)}
+              className="text-[#E06D5E] cursor-pointer inline-block"
+            >
+              Delete
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -231,6 +249,7 @@ export default function FilePreviewModal({
   const [mediaTypes, setMediaTypes] = useState<{ [key: number]: string }>({});
   const [groupLabel, setGroupLabel] = useState("");
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
+  const [complimentaryIndexes, setComplimentaryIndexes] = useState<number[]>([]);
 
   const { userType } = useAppContext();
   const { filesData } = useFileManagerContext();
@@ -255,12 +274,14 @@ export default function FilePreviewModal({
       setMediaTypes({});
     }
     setSelectedIndexes([]);
+    setComplimentaryIndexes([]);
     setGroupLabel("");
   }, [files, type]);
 
   const removeFile = useCallback((index: number) => {
     setLocalFiles(prev => prev.filter((_, i) => i !== index));
     setSelectedIndexes(prev => prev.filter(i => i !== index));
+    setComplimentaryIndexes(prev => prev.filter(i => i !== index));
   }, []);
 
   const handleAdd = useCallback(() => {
@@ -280,6 +301,7 @@ export default function FilePreviewModal({
           userType === 'admin' ? true : !reviewFilesEnabled,
         is_show: true,
         sort_order: totalExistingForService + index,
+        is_complimentary: complimentaryIndexes.includes(index),
       }));
 
       return [...prev, ...filesToAdd];
@@ -297,6 +319,7 @@ export default function FilePreviewModal({
     setSelectedFiles,
     onOpenChange,
     filesData,
+    complimentaryIndexes,
   ]);
 
   return (
@@ -345,6 +368,12 @@ export default function FilePreviewModal({
               allSuggestions={allSuggestions}
               totalFiles={localFiles.length}
               userType={userType}
+              isComplimentary={complimentaryIndexes.includes(idx)}
+              onToggleComplimentary={(i) =>
+                setComplimentaryIndexes(p =>
+                  p.includes(i) ? p.filter(x => x !== i) : [...p, i]
+                )
+              }
             />
           ))}
 

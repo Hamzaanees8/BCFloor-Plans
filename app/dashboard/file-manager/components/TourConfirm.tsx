@@ -242,7 +242,7 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
           <AccordionContent>
             <div className="w-full flex flex-col gap-6 px-6 pb-6 relative ">
               {/* Tabs */}
-              <div className="flex justify-center space-x-4 py-2 absolute top-3 z-50 place-self-center">
+              <div className="flex justify-center space-x-4 py-2 absolute top-3 z-30 place-self-center">
                 {previewTabs.map((tab) => (
                   <button
                     key={tab}

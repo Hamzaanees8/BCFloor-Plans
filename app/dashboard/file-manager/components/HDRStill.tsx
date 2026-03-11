@@ -130,12 +130,15 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         let files = filesData?.files
             ?.filter((file: Files) => file?.service?.uuid === currentService?.uuid)
             .sort((a, b) => {
+                const nameA = a.group || a.name || "";
+                const nameB = b.group || b.name || "";
+
                 if (sortBy === 'name') {
-                    return a.name.localeCompare(b.name);
+                    return nameA.localeCompare(nameB);
                 } else if (sortBy === 'date') {
                     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
                 } else {
-                    // Default to order
+                    // Default to order (sort_order)
                     if (a.sort_order !== undefined && b.sort_order !== undefined) {
                         return a.sort_order - b.sort_order;
                     }
@@ -165,7 +168,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
             serverId: f.uuid,
             url: f.variant_urls?.thumb || f.thumbnail_url || f.url || `${API_URL}/${f.file_path}`,
             status: 'uploaded' as const,
-            order: f.sort_order !== undefined ? f.sort_order : index + 1,
+            order: index + 1,
             originalData: f
         }));
 
@@ -177,20 +180,33 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 file: f.file,
                 url: URL.createObjectURL(f.file),
                 status: 'local' as const,
-                order: f.sort_order !== undefined ? f.sort_order : (sortedServerFiles.length + index + 1),
+                order: sortedServerFiles.length + index + 1,
                 originalData: f
             };
         });
 
-        // Combine them and sort by order
-        setFileItems([...localItems, ...sortedServerFiles].sort((a, b) => a.order - b.order));
+        // Combine them and sort based on active sort criteria
+        const combined = [...localItems, ...sortedServerFiles].sort((a, b) => {
+            if (sortBy === 'name') {
+                const nameA = a.status === 'local' ? (a.originalData?.type || a.file?.name || "") : (a.originalData?.group || a.originalData?.name || "");
+                const nameB = b.status === 'local' ? (b.originalData?.type || b.file?.name || "") : (b.originalData?.group || b.originalData?.name || "");
+                return nameA.localeCompare(nameB);
+            } else if (sortBy === 'date') {
+                const dateA = a.status === 'local' ? (a.file?.lastModified || 0) : new Date(a.originalData?.created_at || 0).getTime();
+                const dateB = b.status === 'local' ? (b.file?.lastModified || 0) : new Date(b.originalData?.created_at || 0).getTime();
+                return dateB - dateA;
+            } else {
+                return a.order - b.order;
+            }
+        });
 
-        // Cleanup blob URLs on unmount
+        setFileItems(combined);
+
         return () => {
             localItems.forEach(item => URL.revokeObjectURL(item.url));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentServiceFiles, filesForService]);
+    }, [currentServiceFiles, filesForService, sortBy]);
 
 
     const handleFileItemsChange = (newItems: FileItem[]) => {
@@ -299,6 +315,11 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
             >
                 <div className="relative w-full aspect-[4/3] overflow-hidden">
+                    {file.is_complimentary && (
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-[#DC9600] text-white text-[8px] sm:text-[10px] px-3 sm:px-4 py-0.5 rounded-b-xl font-medium z-[100] flex items-center justify-center shadow-md">
+                            Complimentary
+                        </div>
+                    )}
                     {isLocal ? (
                         <>
                             <OptimizedImagePreview
@@ -637,9 +658,26 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     <div className='col-span-2 flex items-center justify-between overflow-hidden'>
                         <p className='text-[#8E8E8E] mt-1 flex items-center gap-1 truncate pr-1'><CopyableFileName name={isLocal ? (file.type || "Exterior") : (file.group || "Exterior")} /> ({idx + 1}{!isLocal ? ` of ${totalUploaded}` : ''})</p>
                         {isLocal ? (
-                            <span className='flex shrink-0 cursor-not-allowed opacity-50' style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}>
-                                <DownloadIcon width='100%' height='100%' fill='#6BAE41' />
-                            </span>
+                            <div
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedFiles(prev => prev.map(f => {
+                                        if (f.file === file.file && f.service_id === file.service_id) {
+                                            return { ...f, is_complimentary: !f.is_complimentary };
+                                        }
+                                        return f;
+                                    }));
+                                }}
+                                className={`flex items-center gap-1 cursor-pointer transition-colors ${file.is_complimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
+                                title="Mark as Complimentary"
+                            >
+                                <div className={`border rounded flex items-center justify-center ${file.is_complimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`}
+                                    style={{ width: imagesPerRow >= 6 ? '12px' : '16px', height: imagesPerRow >= 6 ? '12px' : '16px' }}
+                                >
+                                    {file.is_complimentary && <Check color="white" size={imagesPerRow >= 6 ? 8 : 10} />}
+                                </div>
+                                {imagesPerRow < 8 && <span style={{ fontSize: imagesPerRow >= 6 ? '7px' : '9px' }} className="font-bold whitespace-nowrap">Complimentary</span>}
+                            </div>
                         ) : (
                             (userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID"))) ? (
                                 <span
@@ -746,8 +784,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     useEffect(() => {
         const checkServiceCompletion = async () => {
             const token = localStorage.getItem("token");
-            // Count only agent approved files
-            const numberOfApprovedFiles = currentServiceFiles?.filter(f => f.is_agent_approved).length ?? 0
+            // Count only agent approved files that are NOT complimentary
+            const numberOfApprovedFiles = currentServiceFiles?.filter(f => f.is_agent_approved && !f.is_complimentary).length ?? 0
 
             if (numberOfApprovedFiles >= (currentBookedService?.option?.quantity ?? 0)) {
                 if (token && currentBookedService?.uuid && orderData?.uuid && !currentBookedService?.is_completed) {
@@ -946,23 +984,23 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     className="h-[32px] px-3 flex gap-2 items-center bg-white border-gray-300 hover:bg-gray-50 text-gray-700 hover:text-gray-900 shadow-sm"
                                 >
                                     <ListFilter className="w-4 h-4 text-[#7D7D7D]" />
-                                    <span className="text-sm font-medium">Sort: {sortBy === 'order' ? 'Order' : sortBy === 'name' ? 'Name' : 'Date'}</span>
+                                    <span className="text-sm font-medium">Sort By: {sortBy === 'order' ? 'Order' : sortBy === 'name' ? 'Name' : 'Date'}</span>
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="w-48">
                                 <DropdownMenuItem onClick={() => setSortBy('order')} className="flex items-center gap-2 cursor-pointer">
                                     <ListOrdered className="w-4 h-4" />
-                                    <span>Order Number</span>
+                                    <span>Order</span>
                                     {sortBy === 'order' && <Check className="w-4 h-4 ml-auto text-green-600" />}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => setSortBy('name')} className="flex items-center gap-2 cursor-pointer">
                                     <ArrowDownAZ className="w-4 h-4" />
-                                    <span>File Name</span>
+                                    <span>Name</span>
                                     {sortBy === 'name' && <Check className="w-4 h-4 ml-auto text-green-600" />}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => setSortBy('date')} className="flex items-center gap-2 cursor-pointer">
                                     <Calendar className="w-4 h-4" />
-                                    <span>Creation Date</span>
+                                    <span>Date</span>
                                     {sortBy === 'date' && <Check className="w-4 h-4 ml-auto text-green-600" />}
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -971,7 +1009,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
 
                     <div className="flex items-center gap-8">
                         {(() => {
-                            const selectedCount = currentServiceFiles?.filter(f => f.is_agent_approved).length || 0;
+                            const selectedCount = currentServiceFiles?.filter(f => f.is_agent_approved && !f.is_complimentary).length || 0;
                             const currentLimit = currentBookedService?.option?.quantity || 0;
                             const isOverLimit = selectedCount > currentLimit;
 
@@ -1025,8 +1063,6 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     <div className="flex items-center gap-4">
                         <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />
                         <GridSizeToggle />
-                        <span className="text-[12px] text-[#7D7D7D] font-medium mr-2">Images per row</span>
-
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button
@@ -1034,23 +1070,23 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     className="h-[32px] px-3 flex gap-2 items-center bg-white border-gray-300 hover:bg-gray-50 text-gray-700 hover:text-gray-900 shadow-sm"
                                 >
                                     <ListFilter className="w-4 h-4 text-[#7D7D7D]" />
-                                    <span className="text-sm font-medium">Sort: {sortBy === 'order' ? 'Order' : sortBy === 'name' ? 'Name' : 'Date'}</span>
+                                    <span className="text-sm font-medium">Sort By: {sortBy === 'order' ? 'Order' : sortBy === 'name' ? 'Name' : 'Date'}</span>
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="w-48">
                                 <DropdownMenuItem onClick={() => setSortBy('order')} className="flex items-center gap-2 cursor-pointer">
                                     <ListOrdered className="w-4 h-4" />
-                                    <span>Order Number</span>
+                                    <span>Order</span>
                                     {sortBy === 'order' && <Check className="w-4 h-4 ml-auto text-green-600" />}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => setSortBy('name')} className="flex items-center gap-2 cursor-pointer">
                                     <ArrowDownAZ className="w-4 h-4" />
-                                    <span>File Name</span>
+                                    <span>Name</span>
                                     {sortBy === 'name' && <Check className="w-4 h-4 ml-auto text-green-600" />}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => setSortBy('date')} className="flex items-center gap-2 cursor-pointer">
                                     <Calendar className="w-4 h-4" />
-                                    <span>Creation Date</span>
+                                    <span>Date</span>
                                     {sortBy === 'date' && <Check className="w-4 h-4 ml-auto text-green-600" />}
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -1108,6 +1144,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     title={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'HDR Photo') : 'HDR Photo'}
                     initialName={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'Exterior') : ''}
                     isPaid={currentBookedService?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}
+                    isAgentApproved={editingFile && !('file' in editingFile) ? (editingFile as Files).is_agent_approved : false}
                     onSave={(newName) => {
                         if (!editingFile) return;
 

@@ -783,6 +783,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
                     title={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'Video') : 'Video'}
                     initialName={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'Video') : ''}
                     isPaid={currentBookedService?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}
+                    isAgentApproved={editingFile && !('file' in editingFile) ? (editingFile as Files).is_agent_approved : false}
                     onSave={(newName) => {
                         if (!editingFile) return;
 

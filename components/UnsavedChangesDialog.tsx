@@ -9,7 +9,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,9 @@ type Props = {
   title?: string;
   description?: string;
   onConfirm: () => void;
-  onCancel?: () => void;
+  onSave?: () => Promise<void>;
+  confirmLabel?: string;
+  cancelLabel?: string;
 };
 
 export default function UnsavedChangesDialog({
@@ -29,19 +31,35 @@ export default function UnsavedChangesDialog({
   title = "Unsaved Changes",
   description = "You have unsaved changes. Are you sure you want to leave this page?",
   onConfirm,
-  onCancel,
+  onSave,
+  confirmLabel,
+  cancelLabel,
 }: Props) {
   const { userType } = useAppContext();
   const { appliedSettings } = useWhiteLabel();
   const role = (userType as string) || 'admin';
   const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  const handleSave = async () => {
+    if (!onSave) return;
+    setIsSaving(true);
+    try {
+      await onSave();
+      onConfirm(); // Proceed with navigation after successful save
+    } catch (err) {
+      console.error("Failed to save changes from dialog:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <Dialog
       open={open}
       onOpenChange={(v) => {
+        if (isSaving) return; // Prevent closing while saving
         setOpen(v);
-        if (!v && onCancel) onCancel();
       }}
     >
       <DialogContent
@@ -55,17 +73,6 @@ export default function UnsavedChangesDialog({
             style={{ color: roleSettings.pageTabColor }}
           >
             {title}
-            {/* Close button */}
-            <Button
-              variant="ghost"
-              className="border-none !shadow-none bg-transparent hover:bg-transparent p-0 h-auto"
-              onClick={() => {
-                setOpen(false)
-                if (onCancel) onCancel()
-              }}
-            >
-              <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-            </Button>
           </DialogTitle>
         </DialogHeader>
 
@@ -81,27 +88,48 @@ export default function UnsavedChangesDialog({
 
         {/* Footer */}
         <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[10px] mt-4">
-          <Button
-            onClick={() => {
-              setOpen(false);
-              if (onCancel) onCancel();
-            }}
-            className="bg-transparent w-full md:w-[170px] h-[44px] text-[16px] font-[400] border hover:brightness-95 transition-all"
-            style={{ color: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
-          >
-            Cancel
-          </Button>
+
+
+          {onSave && (
+            <Button
+              disabled={isSaving}
+              className="text-white w-full md:w-[170px] h-[44px] font-[400] text-[16px] hover:brightness-110 border-none transition-all"
+              style={{ backgroundColor: roleSettings.pageTabColor }}
+              onClick={handleSave}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          )}
 
           <Button
-            className="text-white w-full md:w-[170px] h-[44px] font-[400] text-[16px] hover:brightness-110 border-none transition-all"
-            style={{ backgroundColor: roleSettings.pageTabColor }}
+            disabled={isSaving}
+            className={`text-white w-full md:w-[170px] h-[44px] font-[400] text-[16px] hover:brightness-110 border-none transition-all ${onSave ? 'bg-red-500' : ''}`}
+            style={!onSave ? { backgroundColor: roleSettings.pageTabColor } : { backgroundColor: '#ef4444' }}
             onClick={() => {
               onConfirm();
               setOpen(false);
             }}
           >
-            Leave Page
+            {confirmLabel || "Leave Page"}
           </Button>
+
+          {cancelLabel && (
+            <Button
+              disabled={isSaving}
+              variant="outline"
+              className="w-full md:w-[170px] h-[44px] font-[400] text-[16px]"
+              onClick={() => setOpen(false)}
+            >
+              {cancelLabel}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

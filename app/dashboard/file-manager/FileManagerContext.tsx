@@ -13,6 +13,7 @@ export type SelectedFiles = {
     is_show?: boolean;
     is_deleted?: boolean;
     sort_order?: number;
+    is_complimentary?: boolean;
 };
 import { FeatureSheetResponse } from './types/featureSheetTypes';
 import { Area } from './file-manager';
@@ -56,6 +57,7 @@ export type Files = {
     is_show?: boolean;
     is_processing?: boolean;
     is_deleted?: boolean;
+    is_complimentary?: boolean;
     variant_urls?: {
         thumb: string;
         slider: string;

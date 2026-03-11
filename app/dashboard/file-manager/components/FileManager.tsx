@@ -23,6 +23,7 @@ import { useAppContext } from "@/app/context/AppContext";
 import { Button } from "@/components/ui/button";
 import { useFileManagerContext, Files } from "../FileManagerContext";
 import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
+import { useUnsaved } from "@/app/context/UnsavedContext";
 import { toast } from "sonner";
 import InvoicePaymentDialog from "./invoicePaymentDialog";
 import {
@@ -437,7 +438,7 @@ const FileManager = () => {
 
 
 
-  async function handleUpload() {
+  const handleUpload = React.useCallback(async () => {
     setFileManagerMode('upload');
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -503,9 +504,9 @@ const FileManager = () => {
     } else {
       console.log("Upload finished but response is falsy:", response);
     }
-  }
+  }, [selectedFiles, floorFiles, selectedVideoFiles, filesData, changedFileUuids, startUpload, orderData?.uuid, links, droppedMarkers, delay, transition, selectedAudioTrack, setSelectedFiles, setFloorFiles, setSelectedVideoFiles, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setFileManagerMode]);
 
-  const handleSave = async () => {
+  const handleSave = React.useCallback(async () => {
     setIsSaving(true);
     try {
       if (activeTab === "CreateFeatureSheet") {
@@ -520,6 +521,40 @@ const FileManager = () => {
     } finally {
       setIsSaving(false);
     }
+  }, [activeTab, handleUpload, setIsSaving]);
+
+  const { setIsDirty, confirmNavigation } = useUnsaved();
+
+  const unsavedCount = React.useMemo(() => {
+    return selectedFiles.length + floorFiles.length + selectedVideoFiles.length + changedFileUuids.size;
+  }, [selectedFiles, floorFiles, selectedVideoFiles, changedFileUuids]);
+
+  React.useEffect(() => {
+    if (unsavedCount > 0) {
+      setIsDirty(true, {
+        title: "Unsaved Changes",
+        description: `You have ${unsavedCount} file(s) unsaved. Are you sure you want to leave? Your changes will not be saved.`,
+        confirmLabel: "Leave Anyway",
+        cancelLabel: "Cancel",
+        onSave: handleSave
+      });
+    } else {
+      setIsDirty(false);
+    }
+
+    return () => {
+      setIsDirty(false);
+    };
+  }, [unsavedCount, setIsDirty, handleSave]);
+
+  const handleBackNavigation = () => {
+    confirmNavigation(() => {
+      if (isListing) {
+        router.back();
+      } else {
+        router.push(`/dashboard/orders/${orderData?.uuid}`);
+      }
+    });
   };
 
   return (
@@ -706,13 +741,7 @@ const FileManager = () => {
           {!isListing && (
             <div
               className={`min-h-[32px] w-[115px] flex items-center cursor-pointer rounded-[24px] ${userType}-bg`}
-              onClick={() => {
-                if (isListing) {
-                  router.back();
-                } else {
-                  router.push(`/dashboard/orders/${orderData?.uuid}`);
-                }
-              }}
+              onClick={handleBackNavigation}
             >
               <div className="flex items-center px-[14px] py-[4px] gap-x-[10px]">
                 <BackArrow />

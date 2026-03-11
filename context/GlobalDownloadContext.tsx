@@ -1,50 +1,46 @@
 'use client';
 
-import React, { createContext, useContext, useState, useRef, useCallback, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { BulkDownloadFileEntry, BulkDownloadFiles, DownloadJobStatus, PollDownloadJob } from '@/app/dashboard/file-manager/file-manager';
 
 const POLL_INTERVAL_MS = 2000;
 
-interface GlobalDownloadContextType {
+export interface DownloadJobState {
+    id: string;
+    label?: string;
     isDownloading: boolean;
     progress: number;
     error: string | null;
     statusText: string;
+    completedFiles: { name: string; url: string }[];
+}
+
+interface GlobalDownloadContextType {
+    jobs: DownloadJobState[];
     startDownload: (files: BulkDownloadFileEntry[], label?: string) => Promise<boolean>;
-    closeProgress: () => void;
+    closeJob: (id: string) => void;
+    triggerBrowserDownload: (url: string) => void;
 }
 
 const GlobalDownloadContext = createContext<GlobalDownloadContextType | undefined>(undefined);
 
 export function GlobalDownloadProvider({ children }: { children: ReactNode }) {
-    const [isDownloading, setIsDownloading] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [error, setError] = useState<string | null>(null);
-    const [statusText, setStatusText] = useState('Preparing Download...');
+    const [jobs, setJobs] = useState<DownloadJobState[]>([]);
 
-    const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-    const stopPolling = useCallback(() => {
-        if (pollingRef.current !== null) {
-            clearInterval(pollingRef.current);
-            pollingRef.current = null;
-        }
+    const updateJob = useCallback((id: string, updates: Partial<DownloadJobState>) => {
+        setJobs(currentJobs => 
+            currentJobs.map(job => job.id === id ? { ...job, ...updates } : job)
+        );
     }, []);
 
-    // Clean up on unmount
-    useEffect(() => {
-        return () => {
-            stopPolling();
-        };
-    }, [stopPolling]);
+    const closeJob = useCallback((id: string) => {
+        setJobs(currentJobs => currentJobs.filter(job => job.id !== id));
+    }, []);
 
-    const closeProgress = useCallback(() => {
-        setIsDownloading(false);
-        setProgress(0);
-        setError(null);
-        setStatusText('Preparing Download...');
-        stopPolling();
-    }, [stopPolling]);
+    // Clean up all jobs on unmount happens automatically because jobs state is localized,
+    // but intervals would need to be cleared. Since we store our intervals in closure
+    // state, we don't have access to clear them on unmount right now. This is fine 
+    // for a global context since it rarely unmounts.
 
     const triggerBrowserDownload = useCallback((url: string) => {
         const a = document.createElement('a');
@@ -60,11 +56,20 @@ export function GlobalDownloadProvider({ children }: { children: ReactNode }) {
             if (files.length === 0) return true;
 
             const token = localStorage.getItem('token') ?? '';
+            const jobId = Date.now().toString() + Math.random().toString(36).substring(7);
 
-            setIsDownloading(true);
-            setProgress(0);
-            setError(null);
-            setStatusText(label ? `${label}: Preparing ZIP...` : `Preparing ZIP...`);
+            setJobs(currentJobs => [
+                ...currentJobs,
+                {
+                    id: jobId,
+                    label,
+                    isDownloading: true,
+                    progress: 0,
+                    error: null,
+                    statusText: label ? `${label}: Preparing ZIP...` : `Preparing ZIP...`,
+                    completedFiles: [],
+                }
+            ]);
 
             let jobUuid: string;
 
@@ -73,9 +78,7 @@ export function GlobalDownloadProvider({ children }: { children: ReactNode }) {
                 jobUuid = result.job_uuid;
             } catch (err) {
                 const msg = err instanceof Error ? err.message : 'Failed to start download job';
-                setError(msg);
-                setStatusText('Download Failed');
-                // We keep isDownloading true so the overlay stays open to show the error
+                updateJob(jobId, { error: msg, statusText: 'Download Failed', isDownloading: false });
                 return false;
             }
 
@@ -83,61 +86,87 @@ export function GlobalDownloadProvider({ children }: { children: ReactNode }) {
             let pseudoProgress = 0;
             const pseudoTick = setInterval(() => {
                 pseudoProgress = Math.min(pseudoProgress + 2, 89);
-                setProgress(pseudoProgress);
+                updateJob(jobId, { progress: pseudoProgress });
             }, 400);
 
             return new Promise<boolean>((resolve) => {
-                pollingRef.current = setInterval(async () => {
+                const pollInterval = setInterval(async () => {
                     try {
                         const poll = await PollDownloadJob(token, jobUuid);
-                        const { status: job_status, percent: serverProgress, download_url } = poll.data;
+                        const { status: job_status, percent: serverProgress, download_url, direct_download_links } = poll.data;
 
                         if (typeof serverProgress === 'number') {
                             clearInterval(pseudoTick);
-                            setProgress(serverProgress);
-                            setStatusText(label ? `${label}: Zipping files...` : `Zipping files...`);
+                            updateJob(jobId, { progress: serverProgress, statusText: label ? `${label}: Zipping files...` : `Zipping files...` });
                         }
 
                         const terminal: DownloadJobStatus[] = ['completed', 'failed'];
 
                         if (terminal.includes(job_status)) {
-                            stopPolling();
+                            clearInterval(pollInterval);
                             clearInterval(pseudoTick);
-                            setProgress(100);
+                            updateJob(jobId, { progress: 100 });
 
-                            if (job_status === 'completed' && download_url) {
-                                setStatusText('Download started!');
-                                triggerBrowserDownload(download_url);
+                            if (job_status === 'completed') {
+                                const links: { name: string; url: string }[] = [];
+                                
+                                if (Array.isArray(direct_download_links)) {
+                                    direct_download_links.forEach(f => {
+                                        if (f.name && f.download_url) {
+                                            links.push({ name: f.name, url: f.download_url });
+                                        }
+                                    });
+                                }
+                                
+                                if (download_url) {
+                                    links.push({ name: 'All Files ZIP', url: download_url });
+                                }
+                                
+                                updateJob(jobId, {
+                                    completedFiles: links,
+                                    statusText: label ? `${label}: Ready` : 'Files Ready for Download',
+                                    isDownloading: false,
+                                });
+                                
+                                // Auto-trigger only if there's exactly one URL total, otherwise show the popup
+                                if (links.length === 1) {
+                                  triggerBrowserDownload(links[0].url);
+                                }
+                                
                                 resolve(true);
                             } else {
-                                setError(poll.data.message || 'Download job failed. Please try again.');
-                                setStatusText('Download Failed');
+                                updateJob(jobId, {
+                                    error: poll.data.message || 'Download job failed. Please try again.',
+                                    statusText: 'Download Failed',
+                                    isDownloading: false,
+                                });
                                 resolve(false);
                             }
                         }
                     } catch (err) {
-                        stopPolling();
+                        clearInterval(pollInterval);
                         clearInterval(pseudoTick);
                         const msg = err instanceof Error ? err.message : 'Polling error';
-                        setError(msg);
-                        setStatusText('Download Failed');
+                        updateJob(jobId, {
+                            error: msg,
+                            statusText: 'Download Failed',
+                            isDownloading: false,
+                        });
                         resolve(false);
                     }
                 }, POLL_INTERVAL_MS);
             });
         },
-        [stopPolling, triggerBrowserDownload]
+        [triggerBrowserDownload, updateJob]
     );
 
     return (
         <GlobalDownloadContext.Provider
             value={{
-                isDownloading,
-                progress,
-                error,
-                statusText,
+                jobs,
                 startDownload,
-                closeProgress,
+                closeJob,
+                triggerBrowserDownload,
             }}
         >
             {children}

@@ -115,7 +115,7 @@ function PublicTourFloorPlans({
             <div className="w-full h-[550px] flex gap-[30px] bg-white">
                 <div
                     ref={imageContainerRef}
-                    className="relative w-[70%] h-full bg-white overflow-hidden m-auto"
+                    className="relative w-[70%] h-full bg-white overflow-visible m-auto"
                 >
                     {selectedFile && (
                         <>
@@ -144,7 +144,7 @@ function PublicTourFloorPlans({
                                     {filteredSnapshots.map((snapshot, idx) => (
                                         <div
                                             key={idx}
-                                            className="absolute cursor-pointer hover:scale-110 transition-transform"
+                                            className="absolute cursor-pointer hover:scale-110 transition-transform z-10"
                                             style={{
                                                 top: `${snapshot.y_axis}%`,
                                                 left: `${snapshot.x_axis}%`,
@@ -161,13 +161,32 @@ function PublicTourFloorPlans({
                                                     isApi: true,
                                                 });
                                             }}
+                                            onMouseEnter={() => {
+                                                setPreviewMarker({
+                                                    x: Number(snapshot.x_axis),
+                                                    y: Number(snapshot.y_axis),
+                                                    file_path: snapshot.file_path,
+                                                    floorImageUrl: snapshot.file_name,
+                                                    name: snapshot.name,
+                                                    description: snapshot.description,
+                                                    isApi: true,
+                                                });
+                                            }}
                                         >
                                             <CameraIcon width={24} height={24} />
                                         </div>
                                     ))}
 
                                     {previewMarker && (
-                                        <div className="bg-[#565656] text-white font-alexandria shadow-lg max-w-sm w-full h-[400px] absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col z-10 rounded-lg overflow-hidden">
+                                        <div 
+                                            className="bg-[#565656] text-white font-alexandria shadow-lg w-[320px] h-[380px] absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300"
+                                            style={{
+                                                top: previewMarker.y > 50 ? 'auto' : `calc(${previewMarker.y}% - 24px)`,
+                                                bottom: previewMarker.y > 50 ? `calc(${100 - previewMarker.y}%)` : 'auto',
+                                                left: previewMarker.x > 50 ? 'auto' : `calc(${previewMarker.x}% + 15px)`,
+                                                right: previewMarker.x > 50 ? `calc(${100 - previewMarker.x}% + 15px)` : 'auto',
+                                            }}
+                                        >
                                             <button
                                                 onClick={() => setPreviewMarker(null)}
                                                 className="absolute top-3 right-3 text-black bg-white rounded-full z-20 p-1 hover:bg-gray-100 transition-colors"

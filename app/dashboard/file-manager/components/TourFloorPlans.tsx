@@ -218,7 +218,7 @@ function TourFloorPlans({ type = "" }) {
           ref={imageContainerRef}
           onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
-          className={`relative w-[70%]  h-full bg-white overflow-hidden ${type === "confirm" ? "m-auto" : ""}`}
+          className={`relative w-[70%]  h-full bg-white overflow-visible ${type === "confirm" ? "m-auto" : ""}`}
         >
           {selectedApiFile?.is_processing ? (
             <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
@@ -253,7 +253,7 @@ function TourFloorPlans({ type = "" }) {
             return (
               <div
                 key={idx}
-                className="absolute cursor-pointer"
+                className="absolute cursor-pointer z-10"
                 style={{
                   top: `${posY}%`,
                   left: `${posX}%`,
@@ -288,8 +288,35 @@ function TourFloorPlans({ type = "" }) {
                     setPreviewMarker(marker);
                   }
                 }}
+                onMouseEnter={() => {
+                  if (isApiSnapshot) {
+                    setPreviewMarker({
+                      x: Number(marker.x_axis),
+                      y: Number(marker.y_axis),
+                      file_path: marker.file_path,
+                      url: marker.url,
+                      floorImageUrl: marker.file_name,
+                      name: marker.name ?? "",
+                      description: marker.description ?? "",
+                      isApi: true,
+                      thumbnail_url: marker.thumbnail_url,
+                    });
 
-
+                    setSnapshotFile(null);
+                    setSnapshotName(marker.name ?? "");
+                    setSnapshotDescription(marker.description ?? "");
+                    setTempMarkerPos({ x: Number(marker.x_axis), y: Number(marker.y_axis) });
+                    setActiveMarkerIndex(null);
+                  } else {
+                    const originalIndex = droppedMarkers.findIndex((m) => m === marker);
+                    setActiveMarkerIndex(originalIndex);
+                    setSnapshotFile(marker.file ?? null);
+                    setSnapshotName(marker.name ?? "");
+                    setSnapshotDescription(marker.description ?? "");
+                    setTempMarkerPos({ x: marker.x, y: marker.y });
+                    setPreviewMarker(marker);
+                  }
+                }}
               >
                 <CameraIcon width={20} height={20} />
               </div>
@@ -297,7 +324,15 @@ function TourFloorPlans({ type = "" }) {
           })}
 
           {previewMarker && type === "confirm" && (
-            <div className="bg-[#565656] text-white font-alexandria shadow-lg max-w-sm w-full h-[400px] absolute top-0 bottom-0 flex flex-col">
+            <div 
+              className="bg-[#565656] text-white font-alexandria shadow-lg w-[320px] h-[380px] absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300"
+              style={{
+                top: previewMarker.y > 50 ? 'auto' : `calc(${previewMarker.y}% - 24px)`,
+                bottom: previewMarker.y > 50 ? `calc(${100 - previewMarker.y}%)` : 'auto',
+                left: previewMarker.x > 50 ? 'auto' : `calc(${previewMarker.x}% + 15px)`,
+                right: previewMarker.x > 50 ? `calc(${100 - previewMarker.x}% + 15px)` : 'auto',
+              }}
+            >
               <button
                 onClick={() => setPreviewMarker(null)}
                 className="absolute top-4 right-4 text-black text-[20px] bg-white rounded-full z-10 p-[2px]"

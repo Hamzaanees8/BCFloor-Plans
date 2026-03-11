@@ -276,6 +276,7 @@ export async function UploadFilesData(
             is_show: fileObj.is_show !== false,
             is_admin_approved: fileObj.is_admin_approved !== false,
             is_agent_approved: fileObj.is_agent_approved || false,
+            is_complimentary: fileObj.is_complimentary || false,
             sort_order: fileObj.sort_order !== undefined ? fileObj.sort_order : index + 1,
           };
         }),
@@ -371,6 +372,7 @@ export async function UpdateFilesData(
             is_show: fileObj.is_show !== false,
             is_admin_approved: fileObj.is_admin_approved !== false,
             is_agent_approved: fileObj.is_agent_approved || false,
+            is_complimentary: fileObj.is_complimentary || false,
             sort_order: fileObj.sort_order !== undefined ? fileObj.sort_order : newFiles.length + files.indexOf(fileObj) + 1,
           };
         }),
@@ -409,6 +411,10 @@ export async function UpdateFilesData(
     formData.append(
       `files[${fileIndex}][is_agent_approved]`,
       String(fileObj.is_agent_approved === true ? 1 : 0),
+    );
+    formData.append(
+      `files[${fileIndex}][is_complimentary]`,
+      String(fileObj.is_complimentary === true ? 1 : 0),
     );
     formData.append(
       `files[${fileIndex}][is_show]`,
@@ -792,6 +798,7 @@ export interface DownloadJobResult {
     processed_count?: number;
     file_count?: number;
     download_url?: string;   // present when status === 'completed'
+    direct_download_links?: { name?: string; download_url?: string }[];
     message?: string;
   };
 }

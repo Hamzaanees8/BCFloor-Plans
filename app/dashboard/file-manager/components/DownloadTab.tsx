@@ -173,6 +173,33 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
         setSizeModal({ isOpen: true, files, label });
     };
 
+    const [visibleCount, setVisibleCount] = useState(30);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+    // Filtered services for rendering (lazy loading)
+    const visibleServices = useMemo(() => {
+        let currentCount = 0;
+        return groupedServices.map(service => {
+            if (currentCount >= visibleCount) return { ...service, files: [] };
+            const remaining = visibleCount - currentCount;
+            const filesToShow = service.files.slice(0, remaining);
+            currentCount += filesToShow.length;
+            return { ...service, files: filesToShow };
+        }).filter(service => service.files.length > 0);
+    }, [groupedServices, visibleCount]);
+
+    const totalFilesCount = useMemo(() => {
+        return groupedServices.reduce((acc, s) => acc + s.files.length, 0);
+    }, [groupedServices]);
+
+    const handleShowMore = () => {
+        setIsLoadingMore(true);
+        setTimeout(() => {
+            setVisibleCount(prev => prev + 30);
+            setIsLoadingMore(false);
+        }, 500);
+    };
+
     if (!filesData) {
         return (
             <div className="flex justify-center items-center h-64">
@@ -205,22 +232,25 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
                     Download all videos
                 </Button>
 
-                <Button
-                    onClick={() => {
-                        if (selectedImageUuids.size === 0) {
-                            toast.warning("Please select at least one file first.");
-                            return;
-                        }
-                        setIsManualModalOpen(true);
-                    }}
-                    disabled={(allApprovedPhotos.length === 0 && allApprovedVideos.length === 0) || (!isAnyPhotoServicePaid && !isAnyVideoServicePaid)}
-                    title={(!isAnyPhotoServicePaid && !isAnyVideoServicePaid) ? "service not paid yet" : ""}
-                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors ${(!isAnyPhotoServicePaid && !isAnyVideoServicePaid) ? "opacity-50 cursor-not-allowed" : ""}`}
-                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                >
-                    <Download className="h-3.5 w-3.5" />
-                    Download manually {selectedImageUuids.size > 0 && `(${selectedImageUuids.size})`}
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        onClick={() => {
+                            if (selectedImageUuids.size === 0) {
+                                toast.warning("Please select at least one file first.");
+                                return;
+                            }
+                            setIsManualModalOpen(true);
+                        }}
+                        disabled={selectedImageUuids.size === 0 || (allApprovedPhotos.length === 0 && allApprovedVideos.length === 0) || (!isAnyPhotoServicePaid && !isAnyVideoServicePaid)}
+                        title={(!isAnyPhotoServicePaid && !isAnyVideoServicePaid) ? "service not paid yet" : ""}
+                        className={`px-4 h-[32px] md:h-[38px] border-[1px] ${selectedImageUuids.size === 0 ? "border-gray-300 text-gray-500 bg-gray-100" : `${userType}-border ${userType}-text hover:text-[#fff] hover-${userType}-bg ${userType}-button`} text-[12px] md:text-[13px] font-[500] flex gap-[5px] justify-center items-center rounded-[6px] transition-colors ${(!isAnyPhotoServicePaid && !isAnyVideoServicePaid) ? "opacity-50 cursor-not-allowed" : ""}`}
+                        style={selectedImageUuids.size === 0 ? {} : { backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                    >
+                        <Download className="h-3.5 w-3.5" />
+                        Download manually {selectedImageUuids.size > 0 && `(${selectedImageUuids.size})`}
+                    </Button>
+                    <span className="text-gray-500 text-sm hidden md:inline">Click a file to select it for downloading manually.</span>
+                </div>
 
                 {selectedImageUuids.size > 0 && (
                     <Button
@@ -251,7 +281,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
                                     style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                 >
                                     <Download className="h-3.5 w-3.5" />
-                                    Download {service.name} photos
+                                    Download {service.name} photos ({servicePhotos.length})
                                 </Button>
                             )}
                             {serviceVideos.length > 0 && (
@@ -263,7 +293,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
                                     style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                 >
                                     <Download className="h-3.5 w-3.5" />
-                                    Download {service.name} videos
+                                    Download {service.name} videos ({serviceVideos.length})
                                 </Button>
                             )}
                         </React.Fragment>
@@ -273,79 +303,102 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
 
             {/* Grouped Services Grid */}
             <div className="space-y-12">
-                {groupedServices.length > 0 ? (
-                    groupedServices.map((service) => (
-                        <div key={service.uuid} className="space-y-4">
-                            <h3 className={`text-xl font-semibold ${userType}-text border-l-4 border-current pl-3`}>
-                                {service.name}
-                            </h3>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                                {service.files.map((file) => {
-                                    const isSelected = selectedImageUuids.has(file.uuid);
-                                    const isPaid = isServicePaid(file.service?.uuid || "");
-                                    const isVideo = file.type.toLowerCase() === 'video';
-                                    return (
-                                        <div
-                                            key={file.uuid}
-                                            onClick={() => toggleImageSelection(file.uuid)}
-                                            className={`relative group aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden border-2 transition-all cursor-pointer select-none
+                {visibleServices.length > 0 ? (
+                    <div className="space-y-12">
+                        {visibleServices.map((service) => (
+                            <div key={service.uuid} className="space-y-4">
+                                <h3 className={`text-xl font-semibold ${userType}-text border-l-4 border-current pl-3`}>
+                                    {service.name}
+                                </h3>
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                                    {service.files.map((file) => {
+                                        const isSelected = selectedImageUuids.has(file.uuid);
+                                        const isPaid = isServicePaid(file.service?.uuid || "");
+                                        const isVideo = file.type.toLowerCase() === 'video';
+                                        return (
+                                            <div
+                                                key={file.uuid}
+                                                onClick={() => toggleImageSelection(file.uuid)}
+                                                className={`relative group aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden border-2 transition-all cursor-pointer select-none
                                                 ${isSelected ? `${userType}-border shadow-md` : 'border-gray-200 hover:border-gray-300'}`}
-                                        >
-                                            <div className="relative w-full h-full">
-                                                {isVideo ? (
-                                                    file.variant_urls?.thumb ? (
+                                            >
+                                                <div className="relative w-full h-full">
+                                                    {file.is_processing ? (
+                                                        <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                                                            <p className="text-gray-500 font-medium text-sm">Processing...</p>
+                                                        </div>
+                                                    ) : isVideo ? (
+                                                        file.variant_urls?.thumb ? (
+                                                            /* eslint-disable-next-line @next/next/no-img-element */
+                                                            <img
+                                                                src={file.variant_urls.thumb}
+                                                                alt={file.group || file.name}
+                                                                title={file.group || file.name}
+                                                                className={`w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
+                                                            />
+                                                        ) : (
+                                                            <video
+                                                                src={`${file.url || `${API_URL}/${file.file_path}`}#t=0.1`}
+                                                                preload="metadata"
+                                                                muted
+                                                                playsInline
+                                                                title={file.group || file.name}
+                                                                className={`absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
+                                                            />
+                                                        )
+                                                    ) : (
                                                         /* eslint-disable-next-line @next/next/no-img-element */
                                                         <img
-                                                            src={file.variant_urls.thumb}
-                                                            alt={file.name}
-                                                            title={file.name}
+                                                            src={file.thumbnail_url || file.variant_urls?.thumb || file.url}
+                                                            alt={file.group || file.name}
+                                                            title={file.group || file.name}
                                                             className={`w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
                                                         />
-                                                    ) : (
-                                                        <video
-                                                            src={`${file.url || `${API_URL}/${file.file_path}`}#t=0.1`}
-                                                            preload="metadata"
-                                                            muted
-                                                            playsInline
-                                                            className={`absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
-                                                        />
-                                                    )
-                                                ) : (
-                                                    /* eslint-disable-next-line @next/next/no-img-element */
-                                                    <img
-                                                        src={file.variant_urls?.thumb || file.thumbnail_url || file.url}
-                                                        alt={file.name}
-                                                        title={file.name}
-                                                        className={`w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
-                                                    />
+                                                    )}
+                                                </div>
+                                                {isSelected && (
+                                                    <div className={`absolute top-2 right-2 z-10 ${userType}-text bg-white rounded-full shadow-sm`}>
+                                                        <CheckCircle2 className="w-6 h-6 shadow-sm" />
+                                                    </div>
                                                 )}
+                                                {!isPaid && userType === 'agent' && (
+                                                    <div className="absolute top-2 right-2 z-10 bg-black/50 text-white text-[10px] px-2 py-1 rounded flex items-center gap-1">
+                                                        <Loader2 className="w-3 h-3 animate-pulse" />
+                                                        Unpaid
+                                                    </div>
+                                                )}
+                                                {isVideo && (
+                                                    <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
+                                                        <PlayCircle className="w-12 h-12 text-white/90 drop-shadow-md group-hover:scale-110 transition-transform duration-300 fill-black/40" />
+                                                    </div>
+                                                )}
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 pointer-events-none">
+                                                    <p className="text-white text-xs truncate font-medium">{file.group || file.name}</p>
+                                                    <p className="text-gray-300 text-[10px] truncate">{file.service?.name}</p>
+                                                </div>
                                             </div>
-                                            {isSelected && (
-                                                <div className={`absolute top-2 right-2 z-10 ${userType}-text bg-white rounded-full shadow-sm`}>
-                                                    <CheckCircle2 className="w-6 h-6 shadow-sm" />
-                                                </div>
-                                            )}
-                                            {!isPaid && userType === 'agent' && (
-                                                <div className="absolute top-2 right-2 z-10 bg-black/50 text-white text-[10px] px-2 py-1 rounded flex items-center gap-1">
-                                                    <Loader2 className="w-3 h-3 animate-pulse" />
-                                                    Unpaid
-                                                </div>
-                                            )}
-                                            {isVideo && (
-                                                <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
-                                                    <PlayCircle className="w-12 h-12 text-white/90 drop-shadow-md group-hover:scale-110 transition-transform duration-300 fill-black/40" />
-                                                </div>
-                                            )}
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 pointer-events-none">
-                                                <p className="text-white text-xs truncate font-medium">{file.name}</p>
-                                                <p className="text-gray-300 text-[10px] truncate">{file.service?.name}</p>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    ))
+                        ))}
+
+                        {visibleCount < totalFilesCount && (
+                            <div className="flex justify-center pt-8">
+                                <Button
+                                    onClick={handleShowMore}
+                                    disabled={isLoadingMore}
+                                    className={`px-8 h-[40px] border-[1px] ${userType}-border text-[14px] font-[500] ${userType}-text flex gap-[8px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[8px] transition-all shadow-sm ${isLoadingMore ? "opacity-70 cursor-wait" : ""}`}
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                >
+                                    {isLoadingMore ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : null}
+                                    {isLoadingMore ? "Loading..." : "Show More"}
+                                </Button>
+                            </div>
+                        )}
+                    </div>
                 ) : (
                     <div className="py-20 text-center text-gray-500">
                         No approved photos or videos found to download.
