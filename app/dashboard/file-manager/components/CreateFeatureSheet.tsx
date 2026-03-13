@@ -12,6 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
@@ -96,6 +103,29 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
     const [activeTab, setActiveTab] = useState<"listing" | "tabloid">("listing");
     const activeStandardRef = useRef<FeatureSheetComponentRef>(null);
     const [selectedSheetUuid, setSelectedSheetUuid] = useState<string | null>(null);
+
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleDownload = async (withBleed: boolean) => {
+      setIsDownloading(true);
+      try {
+        const propertyAddress = orderData?.property_address || "Property";
+        // Remove .pdf extension if it exists (e.g. for custom uploads)
+        const sheetName = selectedTemplate.replace(/\.pdf$/i, "");
+        const fileName = `${propertyAddress.replace(/[/\\?%*:|"<>]/g, "-")}_${sheetName}.pdf`;
+
+        await DownloadPdf(
+          "pdf-section",
+          fileName,
+          withBleed
+        );
+      } catch (error) {
+        console.error("Download failed:", error);
+        toast.error("Failed to generate PDF. Please try again.");
+      } finally {
+        setIsDownloading(false);
+      }
+    };
 
     const templateImages = [
       { id: "BCFPStandard2", type: "tabloid", url: "BcfpStandard2" },
@@ -392,18 +422,38 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
     return (
       <div className="w-full h-auto">
         <div className="flex justify-between h-[60px] items-center bg-[#E4E4E4] px-4">
-          <div className="">
-            <button
-              onClick={() =>
-                DownloadPdf(
-                  "pdf-section",
-                  formData.propertyNotesTitle || "my-file.pdf",
-                )
-              }
-              className={`text-center px-4 py-2 text-[13px] w-[164px] h-[32px] transition-colors ${userType}-bg text-white  rounded-[6px] font-[500]`}
-            >
-              Download PDF
-            </button>
+          <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  disabled={isDownloading}
+                  className={`flex items-center justify-center gap-2 px-4 py-2 text-[13px] w-[164px] h-[32px] transition-colors ${userType}-bg text-white rounded-[6px] font-[500] disabled:opacity-50`}
+                >
+                  {isDownloading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    "Download PDF"
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[164px]">
+                <DropdownMenuItem
+                  onClick={() => handleDownload(false)}
+                  className="cursor-pointer"
+                >
+                  Download (No Bleed)
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleDownload(true)}
+                  className="cursor-pointer"
+                >
+                  Download (3mm Bleed)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <div className="text-center">
             <div
@@ -459,7 +509,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                 onClick={() =>
                   document.getElementById("custom-pdf-upload")?.click()
                 }
-                className="px-6 py-2 bg-[#4290E9] text-white rounded-md text-sm font-medium hover:bg-[#3578c6]"
+                className={`px-6 py-2 ${userType}-bg text-white rounded-md text-sm font-medium hover:opacity-90`}
               >
                 + Upload Feature Sheet
               </button>
@@ -480,7 +530,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
             {featureSheets.length > 0 && (
               <>
                 <div className="col-span-full">
-                  <h2 className="text-[24px] font-semibold text-[#4290E9] mb-4">
+                  <h2 className={`text-[24px] font-semibold ${userType}-text mb-4`}>
                     Saved Feature Sheets
                   </h2>
                 </div>
@@ -506,7 +556,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                             {new Date(sheet.updated_at).toLocaleDateString()}
                           </p>
                           <p
-                            className="text-[15px] text-[#4290E9] hover:underline cursor-pointer"
+                            className={`text-[15px] ${userType}-text hover:underline cursor-pointer`}
                             onClick={() => {
                               setSelectedTemplate(sheet.template_key);
                               setSelectedSheetUuid(sheet.uuid);
@@ -520,7 +570,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                             setSelectedTemplate(sheet.template_key);
                             setSelectedSheetUuid(sheet.uuid);
                           }}
-                          className="cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform border-[#4290E9] shadow-md"
+                          className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform ${selectedTemplate === sheet.template_key && selectedSheetUuid === sheet.uuid ? `${userType}-border shadow-md` : "border-gray-300 shadow-md"} relative`}
                         >
                           <div
                             className="w-full h-[400px] bg-center bg-no-repeat relative"
@@ -529,7 +579,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                               backgroundSize: "contain",
                             }}
                           >
-                            <div className="absolute top-2 right-2 bg-[#4290E9] text-white text-xs px-2 py-1 rounded">
+                            <div className={`absolute top-2 right-2 ${userType}-bg text-white text-xs px-2 py-1 rounded`}>
                               Saved
                             </div>
                           </div>
@@ -553,7 +603,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                   <div className="text-start">
                     <p className="text-[24px] text-[#666666]">{template.id}</p>
                     <p
-                      className="text-[15px] text-[#4290E9] hover:underline cursor-pointer"
+                      className={`text-[15px] ${userType}-text hover:underline cursor-pointer`}
                       onClick={() => {
                         setSelectedTemplate(template.id);
                         setSelectedSheetUuid(null);
@@ -567,18 +617,22 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                       setSelectedTemplate(template.id);
                       setSelectedSheetUuid(null);
                     }}
-                    className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform ${selectedTemplate === template.id
-                      ? "border-blue-500 shadow-md"
+                    className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform ${selectedTemplate === template.id && !selectedSheetUuid
+                      ? `${userType}-border shadow-md`
                       : "border-gray-300"
                       }`}
                   >
                     <div
-                      className="w-full h-[400px] bg-center bg-no-repeat"
+                      className="w-full h-[400px] bg-center bg-no-repeat relative"
                       style={{
                         backgroundImage: `url(/${template.url}.png)`,
                         backgroundSize: "contain",
                       }}
-                    ></div>
+                    >
+                      <div className="absolute top-2 right-2 bg-gray-500 text-white text-xs px-2 py-1 rounded opacity-80">
+                        New
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -593,7 +647,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
             >
               <AccordionItem value="FeatureSheetSettings">
                 <AccordionTrigger
-                  className={` overflow-visible px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                  className={` overflow-visible px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:currentColor  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                 >
                   General Information
                 </AccordionTrigger>

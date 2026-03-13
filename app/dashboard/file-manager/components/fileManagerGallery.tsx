@@ -38,7 +38,7 @@ export default function FileManagerGallery({
   const handleConfirmSelection = () => {
     if (selected !== null && files?.[selected]) {
       const selectedFile = files[selected];
-      const imageUrl = selectedFile.url || `${API_URL}/${selectedFile.file_path}`;
+      const imageUrl = selectedFile.variant_urls?.landing || selectedFile.thumbnail_url || `${API_URL}/${selectedFile.file_path}`;
       onImageSelect(imageUrl);
       setIsOpen(false);
       setSelected(null);

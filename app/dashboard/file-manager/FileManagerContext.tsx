@@ -57,6 +57,7 @@ export type Files = {
     is_show?: boolean;
     is_processing?: boolean;
     is_deleted?: boolean;
+    is_paid?: boolean;
     is_complimentary?: boolean;
     variant_urls?: {
         thumb: string;

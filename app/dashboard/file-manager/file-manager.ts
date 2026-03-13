@@ -662,7 +662,7 @@ export async function createPayment(
   token: string,
   url: string,
   options?: {
-    serviceId?: string;
+    serviceId?: string | string[];
     paymentType?: "full" | "service";
     serviceName?: string;
     amount?: string | number;
@@ -671,23 +671,50 @@ export async function createPayment(
   try {
     const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-    // Determine description based on payment type
-    let description = "Payment for voice service"; // default
-    if (options?.paymentType === "service" && options?.serviceName) {
-      description = `Payment for ${options.serviceName} service`;
-    } else if (options?.paymentType === "full") {
-      description = `Full payment for Order #${order.id}`;
+    // Step 1: Create an Invoice first
+    const invoicePayload: {
+      order_uuid: string;
+      service_uuids?: string[];
+    } = {
+      order_uuid: order.uuid,
+    };
+
+    if (options?.paymentType === "service" && options?.serviceId) {
+      invoicePayload.service_uuids = Array.isArray(options.serviceId) 
+        ? options.serviceId 
+        : [options.serviceId];
     }
 
+    const invoiceResponse = await fetch(`${API_URL}/invoices`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(invoicePayload),
+    });
+
+    if (!invoiceResponse.ok) {
+      const errorData = await invoiceResponse.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to create invoice");
+    }
+
+    const invoiceData = await invoiceResponse.json();
+    const invoiceUuid = invoiceData.data.uuid;
+
+    // Step 2: Create Payment Session using the Invoice UUID
     const body = {
       agent_uuid: order.agent.uuid,
       url,
       amount: options?.amount || order.amount,
       currency: "USD",
       order_id: order.id,
-      description: description,
-      service_id: options?.serviceId || null, // Send service_id only for service payments
-      payment_type: options?.paymentType || "full", // Add payment type
+      invoice_uuid: invoiceUuid,
+      description: options?.paymentType === "full" 
+        ? `Full payment for Order #${order.id}` 
+        : `Payment for ${options?.serviceName || "selected service"}`,
+      service_id: options?.serviceId && !Array.isArray(options.serviceId) ? options.serviceId : null,
+      payment_type: options?.paymentType || "full",
     };
 
     const response = await fetch(`${API_URL}/agent/pay/create-session`, {
@@ -700,7 +727,6 @@ export async function createPayment(
       body: JSON.stringify(body),
     });
 
-    // ensure proper status
     if (!response.ok) {
       throw new Error(`HTTP ${response.status} - ${response.statusText}`);
     }
@@ -708,14 +734,13 @@ export async function createPayment(
     const data = await response.json();
 
     if (data.success && data.url) {
-      // redirect to Stripe checkout (no CORS issue)
       window.location.href = data.url;
     } else {
       throw new Error(data.message || "Failed to create payment session");
     }
   } catch (error) {
     console.error("Payment Error:", error);
-    alert("Something went wrong while creating payment. Please try again.");
+    alert(error instanceof Error ? error.message : "Something went wrong while creating payment. Please try again.");
   }
 }
 
@@ -1150,6 +1175,13 @@ import {
   StyledHighlights,
   UploadedBy,
 } from "./types/featureSheetTypes";
+
+const PROCESSING_PLACEHOLDER = `data:image/svg+xml;base64,${btoa(`
+<svg width="800" height="600" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="600" fill="#E5E7EB"/>
+  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#6B7280">Processing...</text>
+</svg>
+`)}`;
 
 export class FeatureSheetService {
   private apiBaseUrl: string;
@@ -1594,22 +1626,32 @@ export class FeatureSheetService {
     }
 
     // Persist gallery image URLs in content so they survive a DB round-trip.
-    // Blob/uploaded images are handled via S3 + FeatureSheetImage records.
     const galleryImages: Record<string, string> = {};
     const galleryImagesMeta: Record<string, { scale: number; position: { x: number; y: number } }> = {};
     for (let i = 1; i <= 20; i++) {
       const key = `image${i}`;
       const url = params.images[key];
       if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
-        galleryImages[key] = url;
+        const isFeatureSheetImg = url.includes('/feature-sheets/') || url.includes('api-stage.bcfloorplans.com/storage');
+        if (!isFeatureSheetImg) {
+          galleryImages[key] = url;
+        }
+      }
+      
+      // Store meta for ALL images that exist (blob, gallery, or existing feature sheet images) to persist pan/zoom
+      if (url) {
         galleryImagesMeta[key] = {
           scale: params.imageScales[key] ?? 1,
           position: params.imagePositions[key] ?? { x: 0, y: 0 },
         };
       }
     }
+
     if (Object.keys(galleryImages).length > 0) {
       (payload.content as Record<string, unknown>).galleryImages = galleryImages;
+    }
+    // Always persist meta for slots containing an image
+    if (Object.keys(galleryImagesMeta).length > 0) {
       (payload.content as Record<string, unknown>).galleryImagesMeta = galleryImagesMeta;
     }
 
@@ -1629,7 +1671,7 @@ export class FeatureSheetService {
     orderUuid: string,
     images: FeatureSheetImage[],
     featureSheetUuid?: string,
-  ): Promise<{ imageUuids: string[]; galleryFilePaths: { slot: string; file_path: string; meta: FeatureSheetImage['meta'] }[] }> {
+  ): Promise<{ imageUuids: string[]; galleryFilePaths: { slot: string; file_path: string; meta: FeatureSheetImage['meta'] }[], newImagesForContent: { slot: string, s3_key: string, meta?: FeatureSheetImage['meta'] }[] }> {
     // Separate local blob images from gallery images
     const localImages = images.filter(
       (img) =>
@@ -1646,7 +1688,7 @@ export class FeatureSheetService {
 
     if (localImages.length === 0) {
       console.log('[FeatureSheet] No local images to upload, returning early');
-      return { imageUuids: [], galleryFilePaths: galleryImages };
+      return { imageUuids: [], galleryFilePaths: galleryImages, newImagesForContent: [] };
     }
 
     // Convert blob URLs to File objects
@@ -1718,7 +1760,16 @@ export class FeatureSheetService {
     );
     console.log('[FeatureSheet] Confirmed uploads, imageUuids:', imageUuids);
 
-    return { imageUuids, galleryFilePaths: galleryImages };
+    const newImagesForContent: { slot: string, s3_key: string, meta?: FeatureSheetImage['meta'] }[] = [];
+    localImages.forEach((img, idx) => {
+      newImagesForContent.push({
+        slot: img.slot,
+        s3_key: uploads[idx].s3_key,
+        meta: img.meta,
+      });
+    });
+
+    return { imageUuids, galleryFilePaths: galleryImages, newImagesForContent };
   }
 
   /**
@@ -1754,7 +1805,19 @@ export class FeatureSheetService {
     const uuid = featureSheet.uuid;
 
     // Step 2: Upload blob images to S3 and get their UUIDs, passing the new featureSheet UUID
-    const { imageUuids } = await this.uploadImagesToS3(orderUuid, images, uuid);
+    const { imageUuids, newImagesForContent } = await this.uploadImagesToS3(orderUuid, images, uuid);
+
+    // Patch content with new local images so their metadata survives
+    if (newImagesForContent && newImagesForContent.length > 0) {
+      const gMeta = (payload.content as Record<string, unknown>).galleryImagesMeta as Record<string, FeatureSheetImage['meta']> || {};
+      
+      for (const img of newImagesForContent) {
+        if (img.meta) {
+          gMeta[img.slot] = img.meta;
+        }
+      }
+      (payload.content as Record<string, unknown>).galleryImagesMeta = gMeta;
+    }
 
     // Step 3: Update the feature sheet with final content, theme, and image_uuids
     const updatePayload = {
@@ -1791,7 +1854,19 @@ export class FeatureSheetService {
     const orderUuid = payload.order_uuid;
 
     // Upload any new blob images to S3 and get their UUIDs
-    const { imageUuids } = await this.uploadImagesToS3(orderUuid, images, uuid);
+    const { imageUuids, newImagesForContent } = await this.uploadImagesToS3(orderUuid, images, uuid);
+
+    // Patch content with new local images so their metadata survives
+    if (newImagesForContent && newImagesForContent.length > 0) {
+      const gMeta = (payload.content as Record<string, unknown>).galleryImagesMeta as Record<string, FeatureSheetImage['meta']> || {};
+      
+      for (const img of newImagesForContent) {
+        if (img.meta) {
+          gMeta[img.slot] = img.meta;
+        }
+      }
+      (payload.content as Record<string, unknown>).galleryImagesMeta = gMeta;
+    }
 
     // Build the clean API payload
     const apiPayload: Record<string, unknown> = {
@@ -2014,19 +2089,27 @@ export class FeatureSheetService {
           }
           if (slot) {
             const rawPath =
-              img.url || img.storage_path || img.file || img.file_path || null;
-            acc[slot] = this.buildStorageUrl(rawPath);
+              img.variant_urls?.landing || img.variant_urls?.thumb || img.thumbnail_url || img.url || img.storage_path || img.file || img.file_path || null;
+            
+            if (rawPath) {
+              acc[slot] = this.buildStorageUrl(rawPath);
+            } else if (img.is_processing || (img.source === 'upload' && !rawPath)) {
+              // If we have an image record but no URL yet, it's processing
+              acc[slot] = PROCESSING_PLACEHOLDER;
+            }
           }
         }
 
-        // 2. Overlay with gallery image URLs stored in content.galleryImages.
-        //    These take precedence because they are the exact original URLs
         //    the user selected from the gallery (no re-encoding needed).
+        //    Skip any corrupted feature-sheets URLs that were accidentally bound earlier.
         const galleryImages = (payload.content as Record<string, unknown>)
           ?.galleryImages as Record<string, string> | undefined;
         if (galleryImages) {
           for (const [slot, url] of Object.entries(galleryImages)) {
-            acc[slot] = url;
+            const isFeatureSheetImg = url.includes('/feature-sheets/') || url.includes('api-stage.bcfloorplans.com/storage');
+            if (!isFeatureSheetImg) {
+              acc[slot] = url;
+            }
           }
         }
 

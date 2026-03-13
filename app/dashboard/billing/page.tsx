@@ -26,6 +26,8 @@ import { OrderSlots } from "./billing";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import InvoiceModal from "../invoice/components/InvoiceModal";
+
 const Page = () => {
   const { userType } = useAppContext();
   const { appliedSettings } = useWhiteLabel();
@@ -62,6 +64,7 @@ const Page = () => {
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
+
   // Filter states
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [agentFilter, setAgentFilter] = useState<string>("all");
@@ -70,6 +73,8 @@ const Page = () => {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [selectedOrderUuid, setSelectedOrderUuid] = useState("");
 
   const confirmAndExecute = () => {
     pendingAction?.();
@@ -154,10 +159,6 @@ const Page = () => {
     };
     loadBillings();
   }, [userType]);
-
-
-
-  // Get unique values for filters
 
   const uniqueAgents = Array.from(
     new Set(billings.map((billing) => billing.agent_name).filter(Boolean))
@@ -247,7 +248,6 @@ const Page = () => {
     }
   ) => {
     try {
-
       const url = "/dashboard/billing";
       await createQuickBilling(
         order_uuid,
@@ -406,8 +406,6 @@ const Page = () => {
               </TableRow>
             ) : (
               paginatedBillings.map((billing, index) => {
-                console.log("billing", billing);
-
                 const orderInvoiceUrl = getOrderInvoiceUrl(billing);
                 const address = billing.slots[0]
                   ? `${billing.slots[0].address}, ${billing.slots[0].location} `
@@ -452,14 +450,14 @@ const Page = () => {
                       <TableCell className="text-[10px] py-[19px] px-[20px] text-center font-[400] text-[#7D7D7D]">
                         <label
                           className={`px-[7px] py-[1.5px] text-white rounded-[10px] leading-[100%] 
-                              ${billing.status === "paid"
-                              ? "!bg-[#6BAE41]" // green
-                              : billing.status === "unpaid"
-                                ? "!bg-[#E06D5E]" // red
-                                : billing.status === "partial"
-                                  ? "!bg-[#DC9600]" // orange (partial)
-                                  : "!bg-[#E06D5E]"
-                            }`}
+                               ${billing.status === "paid"
+                               ? "!bg-[#6BAE41]" // green
+                               : billing.status === "unpaid"
+                                 ? "!bg-[#E06D5E]" // red
+                                 : billing.status === "partial"
+                                   ? "!bg-[#DC9600]" // orange (partial)
+                                   : "!bg-[#E06D5E]"
+                             }`}
                         >
                           {billing.status}
                         </label>
@@ -533,22 +531,34 @@ const Page = () => {
                                   )}
                                   {!orderInvoiceUrl && (
                                     <div>
-                                      <Button
-                                        onClick={() =>
-                                          handlePay(
-                                            billing.order_id,
-                                            billing.agent_uuid ?? "",
-                                            billing.remaining_amount,
-                                            {
-                                              paymentType: "full",
-                                            }
-                                          )
-                                        }
-                                        className='px-16 py-5 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110'
-                                        style={{ backgroundColor: roleSettings.pageTabColor }}
-                                      >
-                                        Pay All
-                                      </Button>
+                                      <div className="flex gap-2 items-center">
+                                        <Button
+                                          onClick={() =>
+                                            handlePay(
+                                              billing.order_id,
+                                              billing.agent_uuid ?? "",
+                                              billing.remaining_amount,
+                                              {
+                                                paymentType: "full",
+                                              }
+                                            )
+                                          }
+                                          className='px-8 py-5 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110'
+                                          style={{ backgroundColor: roleSettings.pageTabColor }}
+                                        >
+                                          Pay All
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          onClick={() => {
+                                            setSelectedOrderUuid(billing.order_uuid);
+                                            setIsInvoiceModalOpen(true);
+                                          }}
+                                          className='px-8 py-5 border-gray-200 text-gray-700 rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-gray-50'
+                                        >
+                                          View Invoice
+                                        </Button>
+                                      </div>
                                       <p className="font-small">
                                         unpaid Amount:{" "}
                                         {billing.remaining_amount.toLocaleString(
@@ -751,6 +761,12 @@ const Page = () => {
         onConfirm={confirmAndExecute}
         showAgain={showAgain}
         toggleShowAgain={() => setShowAgain(!showAgain)}
+      />
+
+      <InvoiceModal 
+        isOpen={isInvoiceModalOpen} 
+        onClose={() => setIsInvoiceModalOpen(false)} 
+        uuid={selectedOrderUuid} 
       />
     </div>
   );

@@ -10,6 +10,7 @@ import { Plus, Loader2, File } from 'lucide-react';
 import { GetDiscount } from '../../global-settings/global-settings';
 import { toast } from 'sonner';
 import { Create, Edit, GetOneOrder, GetVendors, OrderPayload, CreateListings } from '../orders';
+import { CreateInvoice } from '../../invoice/invoice_api';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 
 
@@ -450,6 +451,14 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             }
 
             if (!response?.success) throw new Error("Order failed");
+
+            // Trigger Invoice Creation
+            try {
+                await CreateInvoice(response.data.uuid);
+            } catch (invoiceErr) {
+                console.error("Failed to trigger automatic invoice", invoiceErr);
+                // We don't block the order success UI if invoice creation fails
+            }
 
             setCreatedOrderUuid(response.data.uuid);
             setIsSubmitted(true);

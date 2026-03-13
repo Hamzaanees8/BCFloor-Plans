@@ -26,6 +26,7 @@ import {
   Settings,
   Sliders,
   UserCheck,
+  Receipt,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Admin, BackArrow, MatterportIcon, Vendors } from "./Icons";
@@ -66,6 +67,11 @@ const data = {
           title: "Orders",
           url: "/dashboard/orders",
           icon: File,
+        },
+        {
+          title: "Invoices",
+          url: "/dashboard/invoice",
+          icon: Receipt,
         },
         {
           title: "Services",

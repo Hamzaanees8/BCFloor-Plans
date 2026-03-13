@@ -89,6 +89,14 @@ export interface FeatureSheetImage {
     storage_path?: string;
     file_name?: string;
     url?: string;
+    thumbnail_url?: string;
+    variant_urls?: {
+        thumb?: string;
+        slider?: string;
+        landing?: string;
+        popup?: string;
+    } | null;
+    is_processing?: boolean;
     meta: ImageStyle;
 }
 

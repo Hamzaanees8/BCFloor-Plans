@@ -27,6 +27,7 @@ export type ApiFile = {
   group: string | null;
   is_processing?: boolean;
   thumbnail_url?: string;
+  is_paid?: boolean;
   variant_urls?: {
     thumb?: string;
     popup?: string;
@@ -39,6 +40,7 @@ type CombinedFile = {
   isLocal: boolean;
   type: string;
   uuid: string;
+  is_paid?: boolean;
   is_processing?: boolean;
   thumbnail_url?: string;
   variant_urls?: {
@@ -77,6 +79,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
       isLocal: false,
       type: f.type,
       uuid: f.uuid,
+      is_paid: f.is_paid,
       is_processing: f.is_processing,
       thumbnail_url: f.thumbnail_url,
       variant_urls: f.variant_urls,
@@ -310,7 +313,8 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
                     <div className="flex flex-wrap gap-1.5">
                       <Button
                         onClick={() => handleSizeSelect(file.id, 'original')}
-                        className={`px-3 ${sizeButtonClasses(file.id, 'original')}`}
+                        disabled={!file.isLocal && !file.is_paid && userType === 'agent'}
+                        className={`px-3 ${sizeButtonClasses(file.id, 'original')} ${!file.isLocal && !file.is_paid && userType === 'agent' ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         Original Quality
                       </Button>
@@ -322,13 +326,15 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
                       </Button>
                       <Button
                         onClick={() => handleSizeSelect(file.id, 'large')}
-                        className={`px-3 ${sizeButtonClasses(file.id, 'large')}`}
+                        disabled={!file.isLocal && !file.is_paid && userType === 'agent'}
+                        className={`px-3 ${sizeButtonClasses(file.id, 'large')} ${!file.isLocal && !file.is_paid && userType === 'agent' ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         Large
                       </Button>
                       <Button
                         onClick={() => handleSizeSelect(file.id, 'mls')}
-                        className={`px-3 ${sizeButtonClasses(file.id, 'mls')}`}
+                        disabled={!file.isLocal && !file.is_paid && userType === 'agent'}
+                        className={`px-3 ${sizeButtonClasses(file.id, 'mls')} ${!file.isLocal && !file.is_paid && userType === 'agent' ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         MLS
                       </Button>
