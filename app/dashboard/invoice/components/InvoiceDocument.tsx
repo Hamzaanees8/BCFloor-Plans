@@ -121,8 +121,8 @@ const InvoiceDocument = ({
                                                 <span className="text-xs text-gray-400">Rate:</span>
                                                 <Input
                                                     type="number"
-                                                    value={item.amount}
-                                                    onChange={(e) => updateItem(idx, 'amount', e.target.value)}
+                                                    value={item.unit_price}
+                                                    onChange={(e) => updateItem(idx, 'unit_price', e.target.value)}
                                                     className="w-24 text-right h-8 font-black"
                                                 />
                                             </div>

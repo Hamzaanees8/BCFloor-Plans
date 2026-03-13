@@ -7,10 +7,11 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import { Printer, Download, Loader2, Edit2, Save, X } from 'lucide-react'
+import { Printer, Download, Loader2, Edit2, Save, X, RotateCcw } from 'lucide-react'
 import DownloadPdf from '../../file-manager/components/DownloadPdf'
 import InvoiceDocument from './InvoiceDocument'
 import { UpdateInvoice } from '../invoice_api'
+import RefundModal from './RefundModal'
 
 type InvoiceModalProps = {
     uuid: string;
@@ -24,6 +25,7 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
     const [isEditing, setIsEditing] = useState(false)
     const [editData, setEditData] = useState<any>(null)
     const [saving, setSaving] = useState(false)
+    const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
 
     useEffect(() => {
         if (isOpen && uuid) {
@@ -96,6 +98,7 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                     id: item.id,
                     description: item.description,
                     quantity: item.quantity,
+                    unit_price: item.unit_price || item.unit_amount,
                     amount: item.amount,
                     order_service_id: item.order_service_id || item.order_service?.id
                 }))
@@ -110,6 +113,10 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
         } finally {
             setSaving(false)
         }
+    }
+
+    const handleRefund = async () => {
+        setIsRefundModalOpen(true)
     }
 
     const updateItem = (index: number, field: string, value: any) => {
@@ -169,6 +176,11 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                                     </>
                                 ) : (
                                     <>
+                                        {(invoice.status === 'paid' || invoice.status === 'partially_paid') && (
+                                            <Button variant="outline" size="sm" onClick={handleRefund} disabled={saving} className="text-orange-600 hover:text-orange-700">
+                                                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />} Refund
+                                            </Button>
+                                        )}
                                         <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                                             <Edit2 className="h-4 w-4 mr-2" /> Edit
                                         </Button>
@@ -203,6 +215,13 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                         setEditData={setEditData}
                     />
                 )}
+
+                <RefundModal 
+                    isOpen={isRefundModalOpen}
+                    onClose={() => setIsRefundModalOpen(false)}
+                    invoice={invoice}
+                    onSuccess={fetchInvoice}
+                />
             </DialogContent>
         </Dialog>
     )

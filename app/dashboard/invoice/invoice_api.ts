@@ -36,3 +36,11 @@ export async function UpdateInvoice(uuid: string, data: any) {
     });
     return response.data;
 }
+
+export async function RefundInvoice(uuid: string, amount: string | number, notes?: string) {
+    const response = await api.post(`/invoices/${uuid}/refund`, {
+        amount,
+        notes
+    });
+    return response.data;
+}

@@ -6,9 +6,10 @@ import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { useAppContext } from '@/app/context/AppContext'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { Download, ArrowLeft, Loader2, Edit2, Save, X, CreditCard } from 'lucide-react'
+import { Download, ArrowLeft, Loader2, Edit2, Save, X, CreditCard, RotateCcw } from 'lucide-react'
 import DownloadPdf from '../../file-manager/components/DownloadPdf'
 import InvoiceDocument from '../components/InvoiceDocument'
+import RefundModal from '../components/RefundModal'
 
 const InvoicePreviewPage = () => {
     const { uuid } = useParams()
@@ -17,12 +18,14 @@ const InvoicePreviewPage = () => {
     const { appliedSettings } = useWhiteLabel()
     const role = (userType as string) || 'admin'
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin']
+    const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`
 
     const [invoice, setInvoice] = useState<any>(null)
     const [loading, setLoading] = useState(true)
     const [isEditing, setIsEditing] = useState(false)
     const [editData, setEditData] = useState<any>(null)
     const [saving, setSaving] = useState(false)
+    const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
 
     useEffect(() => {
         fetchInvoice()
@@ -66,6 +69,7 @@ const InvoicePreviewPage = () => {
                     id: item.id,
                     description: item.description,
                     quantity: item.quantity,
+                    unit_price: item.unit_price || item.amount,
                     amount: item.amount,
                     order_service_id: item.order_service_id || item.order_service?.id
                 }))
@@ -98,6 +102,10 @@ const InvoicePreviewPage = () => {
         } catch {
             toast.error('Failed to update status')
         }
+    }
+
+    const handleRefund = async () => {
+        setIsRefundModalOpen(true)
     }
 
     const updateItem = (index: number, field: string, value: any) => {
@@ -148,12 +156,20 @@ const InvoicePreviewPage = () => {
     return (
         <div style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh' }}>
             {/* Header / Actions */}
-            <div className="sticky top-0 z-10 flex h-20 items-center justify-between px-8 no-print" style={{ backgroundColor: roleSettings.sidebarBg, color: 'white' }}>
+            <div className="sticky top-0 z-10 flex h-20 items-center justify-between px-8 no-print font-alexandria" 
+                 style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }}>
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" className="text-white hover:bg-white/10" onClick={() => router.back()}>
+                    <Button 
+                        variant="ghost" 
+                        onClick={() => router.back()}
+                        style={{ color: roleSettings.pageTabColor }}
+                        className="hover:bg-white/10"
+                    >
                         <ArrowLeft className="mr-2 h-4 w-4" /> Back
                     </Button>
-                    <h1 className="text-xl font-bold">Invoice #{invoice.invoice_number || invoice.id}</h1>
+                    <h1 className="text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
+                        Invoice #{invoice.invoice_number || invoice.id}
+                    </h1>
                 </div>
                 <div className="flex gap-3">
                     {isEditing ? (
@@ -172,10 +188,33 @@ const InvoicePreviewPage = () => {
                                     <CreditCard className="mr-2 h-4 w-4" /> Mark as Paid
                                 </Button>
                             )}
-                            <Button variant="outline" className="bg-white text-black hover:bg-gray-100" onClick={() => setIsEditing(true)}>
+                            {role === 'admin' && (invoice.status === 'paid' || invoice.status === 'partially_paid') && (
+                                <Button variant="outline" className="bg-orange-500 text-white hover:bg-orange-600 border-none" onClick={handleRefund} disabled={saving}>
+                                    {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="mr-2 h-4 w-4" />} Refund
+                                </Button>
+                            )}
+                            <Button 
+                                variant="outline" 
+                                className="border-[1px] text-[14px] md:text-[16px] font-[400] hover:opacity-90"
+                                style={{
+                                    backgroundColor: roleSettings.pageBg,
+                                    color: roleSettings.pageTabColor,
+                                    borderColor: roleSettings.pageTabColor,
+                                }}
+                                onClick={() => setIsEditing(true)}
+                            >
                                 <Edit2 className="mr-2 h-4 w-4" /> Edit
                             </Button>
-                            <Button variant="outline" className="bg-white text-black hover:bg-gray-100" onClick={handleDownload}>
+                            <Button 
+                                variant="outline" 
+                                className="border-[1px] text-[14px] md:text-[16px] font-[400] hover:opacity-90"
+                                style={{
+                                    backgroundColor: roleSettings.pageBg,
+                                    color: roleSettings.pageTabColor,
+                                    borderColor: roleSettings.pageTabColor,
+                                }}
+                                onClick={handleDownload}
+                            >
                                 <Download className="mr-2 h-4 w-4" /> Download PDF
                             </Button>
                         </>
@@ -194,6 +233,13 @@ const InvoicePreviewPage = () => {
                     setEditData={setEditData}
                 />
             </div>
+
+            <RefundModal 
+                isOpen={isRefundModalOpen}
+                onClose={() => setIsRefundModalOpen(false)}
+                invoice={invoice}
+                onSuccess={fetchInvoice}
+            />
 
             {/* Print Styles */}
             <style jsx global>{`

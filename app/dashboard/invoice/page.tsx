@@ -1,17 +1,20 @@
 'use client'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { GetInvoices, VoidInvoice } from './invoice_api'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { useAppContext } from '@/app/context/AppContext'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Search, Filter, Eye, Trash2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import Link from 'next/link'
+import { useRouter } from "next/navigation"
+import { DataTable } from '@/components/DataTable'
+import { ColumnDef } from "@tanstack/react-table"
+import { Checkbox } from "@/components/ui/checkbox"
+import DropdownActions from "@/components/DropdownActions"
+import RefundModal from './components/RefundModal'
 
 type Invoice = {
     id: number;
     uuid: string;
+    invoice_number?: string;
     status: string;
     total: string;
     currency: string;
@@ -28,22 +31,49 @@ type Invoice = {
 };
 
 const InvoiceListPage = () => {
+    const router = useRouter()
     const [invoices, setInvoices] = useState<Invoice[]>([])
     const [loading, setLoading] = useState(true)
-    const [search, setSearch] = useState('')
+    const [error, setError] = useState(false)
+    const [refundModal, setRefundModal] = useState<{ open: boolean, invoice: any }>({ open: false, invoice: null })
+    
     const { userType } = useAppContext()
     const { appliedSettings } = useWhiteLabel()
     const role = (userType as string) || 'admin'
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin']
+    const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`
+    const headerRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        const header = headerRef.current;
+        if (!header) return;
+
+        let ancestor = header.parentElement;
+        while (ancestor) {
+            const style = window.getComputedStyle(ancestor);
+            if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+                ancestor.style.setProperty('overflow-x', 'visible', 'important');
+                ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+                const target = ancestor;
+                return () => {
+                    target.style.removeProperty('overflow-x');
+                    target.style.removeProperty('overflow-y');
+                };
+            }
+            ancestor = ancestor.parentElement;
+        }
+    }, []);
 
     const fetchInvoices = () => {
-        const token = localStorage.getItem('token')
-        if (!token) return
-
         setLoading(true)
+        setError(false)
         GetInvoices()
             .then(res => setInvoices(Array.isArray(res.data) ? res.data : []))
-            .catch(() => toast.error('Failed to load invoices'))
+            .catch(() => {
+                toast.error('Failed to load invoices')
+                setError(true)
+            })
             .finally(() => setLoading(false))
     }
 
@@ -65,113 +95,137 @@ const InvoiceListPage = () => {
         }
     }
 
-    const filteredInvoices = invoices.filter(inv => 
-        inv.order?.property?.address.toLowerCase().includes(search.toLowerCase()) ||
-        inv.agent?.first_name.toLowerCase().includes(search.toLowerCase()) ||
-        inv.agent?.last_name.toLowerCase().includes(search.toLowerCase()) ||
-        inv.id.toString().includes(search)
-    )
+    const handleRefund = (invoice: any) => {
+        setRefundModal({ open: true, invoice })
+    }
+
+    const columns: ColumnDef<Invoice>[] = [
+        {
+            id: "select",
+            header: ({ table }) => (
+                <Checkbox
+                    checked={table.getIsAllPageRowsSelected()}
+                    onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+                    aria-label="Select all"
+                />
+            ),
+            cell: ({ row }) => (
+                <Checkbox
+                    checked={row.getIsSelected()}
+                    onCheckedChange={(value) => row.toggleSelected(!!value)}
+                    aria-label="Select row"
+                />
+            ),
+            enableSorting: false,
+            enableHiding: false,
+        },
+        {
+            accessorKey: "invoice_number",
+            header: "INVOICE #",
+            cell: ({ row }) => (
+                <div 
+                    className="font-bold cursor-pointer hover:underline" 
+                    style={{ color: roleSettings.pageTabColor }}
+                    onClick={() => router.push(`/dashboard/invoice/${row.original.uuid}`)}
+                >
+                    #{row.original.invoice_number || row.original.id}
+                </div>
+            )
+        },
+        {
+            accessorKey: "property",
+            header: "PROPERTY",
+            cell: ({ row }) => (
+                <div className="max-w-[250px] truncate text-gray-700">
+                    {row.original.order?.property?.address || "N/A"}
+                </div>
+            )
+        },
+        {
+            accessorKey: "agent",
+            header: "AGENT",
+            cell: ({ row }) => (
+                <div>
+                    {row.original.agent?.first_name} {row.original.agent?.last_name}
+                </div>
+            )
+        },
+        {
+            accessorKey: "issued_at",
+            header: "DATE",
+            cell: ({ row }) => <div>{new Date(row.original.issued_at).toLocaleDateString()}</div>
+        },
+        {
+            accessorKey: "total",
+            header: "TOTAL",
+            cell: ({ row }) => <div className="font-bold">${parseFloat(row.original.total).toFixed(2)}</div>
+        },
+        {
+            accessorKey: "status",
+            header: "STATUS",
+            cell: ({ row }) => {
+                const status = row.original.status;
+                return (
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${status === 'paid' ? 'bg-[#6BAE41]/10 text-[#6BAE41]' :
+                        status === 'void' ? 'bg-gray-100 text-gray-400' : 'bg-orange-100 text-orange-600'
+                        }`}>
+                        {status}
+                    </span>
+                )
+            }
+        },
+        {
+            id: "actions",
+            header: "ACTIONS",
+            cell: ({ row }) => {
+                const inv = row.original;
+                const options = [
+                    {
+                        label: "View",
+                        onClick: () => router.push(`/dashboard/invoice/${inv.uuid}`),
+                    },
+                    ...((inv.status === 'paid' || inv.status === 'partially_paid') ? [{
+                        label: "Refund",
+                        onClick: () => handleRefund(inv),
+                    }] : []),
+                    ...(inv.status !== 'void' ? [{
+                        label: "Void",
+                        onClick: () => handleVoid(inv.uuid),
+                        confirm1: true
+                    }] : [])
+                ];
+
+                return <DropdownActions options={options} />
+            }
+        }
+    ];
 
     return (
-        <div className="p-6 md:p-10 font-alexandria" style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh' }}>
-            <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold" style={{ color: roleSettings.pageTabColor }}>Invoices</h1>
-                    <p className="text-sm text-gray-500">Manage and view your property invoices</p>
-                </div>
+        <div className="font-alexandria" style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh' }}>
+            {/* Standard Whitelabel Header */}
+            <div ref={headerRef} className='w-full h-[80px] sticky top-0 z-50 flex justify-between px-[20px] items-center' style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }} >
+                <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>
+                    Invoices ({invoices.length})
+                </p>
             </div>
 
-            {/* Filters */}
-            <div className="mb-6 flex flex-col md:flex-row gap-4">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <Input 
-                        placeholder="Search by address, agent, or invoice #" 
-                        className="pl-10 h-11 border-gray-200 bg-white"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
-                </div>
-                <Button variant="outline" className="h-11 bg-white">
-                    <Filter className="mr-2 h-4 w-4" /> Filter
-                </Button>
+            <div className="w-full">
+                <DataTable
+                    columns={columns}
+                    data={invoices}
+                    loading={loading}
+                    error={error}
+                    dataName="Invoices"
+                    userType={userType}
+                />
             </div>
 
-            {/* Table */}
-            <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:shadow-md">
-                <table className="w-full text-left">
-                    <thead className="bg-gray-50/50 text-xs font-bold uppercase tracking-wider text-gray-400">
-                        <tr>
-                            <th className="px-6 py-4">Invoice</th>
-                            <th className="px-6 py-4">Property</th>
-                            <th className="px-6 py-4">Agent</th>
-                            <th className="px-6 py-4">Date</th>
-                            <th className="px-6 py-4">Total</th>
-                            <th className="px-6 py-4">Status</th>
-                            <th className="px-6 py-4 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100/50">
-                        {loading ? (
-                            <tr>
-                                <td colSpan={7} className="py-20 text-center">
-                                    <Loader2 className="mx-auto h-8 w-8 animate-spin text-gray-300" />
-                                </td>
-                            </tr>
-                        ) : filteredInvoices.length === 0 ? (
-                            <tr>
-                                <td colSpan={7} className="py-20 text-center text-gray-400">No invoices found</td>
-                            </tr>
-                        ) : (
-                            filteredInvoices.map((inv) => (
-                                <tr key={inv.uuid} className="group hover:bg-gray-50/30 transition-colors duration-200">
-                                    <td className="px-6 py-4 font-bold text-gray-900">#{inv.id}</td>
-                                    <td className="px-6 py-4">
-                                        <div className="max-w-[200px] truncate text-sm font-medium text-gray-700">
-                                            {inv.order?.property?.address}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">
-                                        {inv.agent?.first_name} {inv.agent?.last_name}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">
-                                        {new Date(inv.issued_at).toLocaleDateString()}
-                                    </td>
-                                    <td className="px-6 py-4 font-bold text-gray-900">
-                                        ${parseFloat(inv.total).toFixed(2)}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${
-                                            inv.status === 'paid' ? 'bg-[#6BAE41]/10 text-[#6BAE41]' : 
-                                            inv.status === 'void' ? 'bg-gray-100 text-gray-400' : 'bg-orange-100 text-orange-600'
-                                        }`}>
-                                            {inv.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <Link href={`/dashboard/invoice/${inv.uuid}`}>
-                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-400 hover:text-[#4290E9] transition-colors">
-                                                    <Eye className="h-4 w-4" />
-                                                </Button>
-                                            </Link>
-                                            <Button 
-                                                size="icon" 
-                                                variant="ghost" 
-                                                className="h-8 w-8 text-gray-400 hover:text-red-500 transition-colors"
-                                                onClick={() => handleVoid(inv.uuid)}
-                                                disabled={inv.status === 'void'}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
+            <RefundModal
+                isOpen={refundModal.open}
+                onClose={() => setRefundModal({ ...refundModal, open: false })}
+                invoice={refundModal.invoice}
+                onSuccess={fetchInvoices}
+            />
         </div>
     )
 }
