@@ -480,7 +480,6 @@ const FileManager = () => {
 
           // Map status='processing' to is_processing=true
           if (updatedTour.files) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             updatedTour.files = updatedTour.files.map((f: any) => ({
               ...f,
               is_processing: f.status === 'processing' || f.is_processing

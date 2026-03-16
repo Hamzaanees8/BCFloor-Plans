@@ -153,7 +153,6 @@ const InvoicePaymentDialog: React.FC<InvoicePaymentDialogProps> = ({
 
   const isFullPaymentAvailable = fullAmount > 0 && orderData?.payment_status !== 'PAID';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleAddPayment = (paymentData: any) => {
     console.log("Payment Added:", paymentData);
     toast.success("Manual payment processed successfully.");

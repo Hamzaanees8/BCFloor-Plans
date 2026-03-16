@@ -21,12 +21,13 @@ import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { BillingItem, createQuickBilling } from "./billing";
 import { getBillings } from "./billing";
-import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, FileText, Loader2, Plus, RotateCcw } from "lucide-react";
 import { OrderSlots } from "./billing";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import InvoiceModal from "../invoice/components/InvoiceModal";
+import RefundModal from "../invoice/components/RefundModal";
 
 const Page = () => {
   const { userType } = useAppContext();
@@ -74,6 +75,9 @@ const Page = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [fetchingInvoice, setFetchingInvoice] = useState(false);
   const [selectedOrderUuid, setSelectedOrderUuid] = useState("");
 
   const confirmAndExecute = () => {
@@ -261,6 +265,33 @@ const Page = () => {
     }
   };
 
+  const handleRefundClick = async (e: React.MouseEvent, orderUuid: string) => {
+    e.stopPropagation();
+    try {
+      setFetchingInvoice(true);
+      // Fetch specifically for this order
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices?order_uuid=${orderUuid}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      const res = await response.json();
+      const invoice = Array.isArray(res.data) ? res.data[0] : res.data;
+      
+      if (invoice) {
+        setSelectedInvoice(invoice);
+        setIsRefundModalOpen(true);
+      } else {
+        toast.error("Could not find invoice for this order.");
+      }
+    } catch (error) {
+      console.error("Failed to fetch invoice for refund:", error);
+      toast.error("Failed to process refund request.");
+    } finally {
+      setFetchingInvoice(false);
+    }
+  };
+
   const totalPages = Math.ceil(sortedBillings.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
@@ -273,9 +304,21 @@ const Page = () => {
         className="w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
         style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }}
       >
-        <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>
-          Billing ({sortedBillings.length})
-        </p>
+        <div className='flex items-center gap-4'>
+          <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>
+            Billing ({sortedBillings.length})
+          </p>
+        </div>
+
+        {role === 'admin' && (
+          <Button
+            onClick={() => router.push('/dashboard/invoice/create')}
+            className='w-[140px] md:w-[170px] h-[35px] md:h-[44px] rounded-[6px] text-[14px] md:text-[16px] font-[400] text-white flex gap-[5px] justify-center items-center hover:brightness-110 active:scale-[0.98] transition-all'
+            style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+          >
+            <Plus className="h-4 w-4" /> Create Invoice
+          </Button>
+        )}
       </div>
 
       {/* Filters Section */}
@@ -462,12 +505,27 @@ const Page = () => {
                           {billing.status}
                         </label>
                       </TableCell>
-                      <TableCell className="w-[40px] text-center">
-                        {expandedRow === index ? (
-                          <ChevronUp className="h-5 w-5 text-gray-600" />
-                        ) : (
-                          <ChevronDown className="h-5 w-5 text-gray-600" />
-                        )}
+                      <TableCell className="w-[120px] text-center">
+                        <div className="flex items-center justify-center gap-3">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-gray-500 hover:text-blue-600"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedOrderUuid(billing.order_uuid);
+                              setIsInvoiceModalOpen(true);
+                            }}
+                            title="View Invoice"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          {expandedRow === index ? (
+                            <ChevronUp className="h-5 w-5 text-gray-600" />
+                          ) : (
+                            <ChevronDown className="h-5 w-5 text-gray-600" />
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
 
@@ -513,64 +571,73 @@ const Page = () => {
                                       ).toLocaleDateString()}
                                     </p>
                                   </div>
-                                  {orderInvoiceUrl && (
-                                    <div>
-                                      <p className="text-gray-600">
-                                        Order Invoice
-                                      </p>
-                                      <a
-                                        href={orderInvoiceUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-500 hover:text-blue-700 flex items-center gap-1"
-                                      >
-                                        <ExternalLink className="w-4 h-4" />
-                                        View Invoice
-                                      </a>
-                                    </div>
-                                  )}
-                                  {!orderInvoiceUrl && (
-                                    <div>
-                                      <div className="flex gap-2 items-center">
-                                        <Button
-                                          onClick={() =>
-                                            handlePay(
-                                              billing.order_id,
-                                              billing.agent_uuid ?? "",
-                                              billing.remaining_amount,
-                                              {
-                                                paymentType: "full",
-                                              }
-                                            )
-                                          }
-                                          className='px-8 py-5 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110'
-                                          style={{ backgroundColor: roleSettings.pageTabColor }}
+                                  <div>
+                                    <div className="flex flex-col gap-3">
+                                      {orderInvoiceUrl && (
+                                        <a
+                                          href={orderInvoiceUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-blue-500 hover:text-blue-700 flex items-center gap-1 text-sm font-medium mb-1"
                                         >
-                                          Pay All
-                                        </Button>
+                                          <ExternalLink className="w-4 h-4" />
+                                          Stripe Invoice
+                                        </a>
+                                      )}
+                                      <div className="flex gap-2 items-center">
+                                        {billing.remaining_amount > 0 && (
+                                          <Button
+                                            onClick={() =>
+                                              handlePay(
+                                                billing.order_id,
+                                                billing.agent_uuid ?? "",
+                                                billing.remaining_amount,
+                                                {
+                                                  paymentType: "full",
+                                                }
+                                              )
+                                            }
+                                            className='px-6 py-4 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110'
+                                            style={{ backgroundColor: roleSettings.pageTabColor }}
+                                          >
+                                            Pay All
+                                          </Button>
+                                        )}
                                         <Button
                                           variant="outline"
                                           onClick={() => {
                                             setSelectedOrderUuid(billing.order_uuid);
                                             setIsInvoiceModalOpen(true);
                                           }}
-                                          className='px-8 py-5 border-gray-200 text-gray-700 rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-gray-50'
+                                          className='px-6 py-4 border-gray-200 text-gray-700 rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-gray-50'
                                         >
-                                          View Invoice
+                                          View Full Invoice
                                         </Button>
-                                      </div>
-                                      <p className="font-small">
-                                        unpaid Amount:{" "}
-                                        {billing.remaining_amount.toLocaleString(
-                                          "en-US",
-                                          {
-                                            style: "currency",
-                                            currency: "USD",
-                                          }
+                                        {role === 'admin' && billing.status === 'paid' && (
+                                          <Button
+                                            variant="outline"
+                                            onClick={(e) => handleRefundClick(e, billing.order_uuid)}
+                                            className='px-6 py-4 border-orange-200 text-orange-600 rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-orange-50'
+                                            disabled={fetchingInvoice}
+                                          >
+                                            {fetchingInvoice ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />} Refund
+                                          </Button>
                                         )}
-                                      </p>
+                                      </div>
+                                      {billing.remaining_amount > 0 && (
+                                        <p className="text-xs font-semibold text-red-500">
+                                          Unpaid Amount:{" "}
+                                          {billing.remaining_amount.toLocaleString(
+                                            "en-US",
+                                            {
+                                              style: "currency",
+                                              currency: "USD",
+                                            }
+                                          )}
+                                        </p>
+                                      )}
                                     </div>
-                                  )}
+                                  </div>
                                 </div>
                               </div>
 
@@ -767,6 +834,40 @@ const Page = () => {
         isOpen={isInvoiceModalOpen} 
         onClose={() => setIsInvoiceModalOpen(false)} 
         uuid={selectedOrderUuid} 
+      />
+
+      <RefundModal
+        isOpen={isRefundModalOpen}
+        onClose={() => {
+          setIsRefundModalOpen(false);
+          setSelectedInvoice(null);
+        }}
+        invoice={selectedInvoice}
+        onSuccess={() => {
+          // Re-fetch billings to update status
+          const loadBillings = async () => {
+            try {
+              setLoading(true);
+              const data = await getBillings();
+              if (userType === 'agent') {
+                const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+                const agentUuid = userInfo?.uuid;
+                if (agentUuid) {
+                  setBillings(data.filter(b => b.agent_uuid === agentUuid));
+                } else {
+                  setBillings(data);
+                }
+              } else {
+                setBillings(data);
+              }
+            } catch (err) {
+              console.error("Failed to reload billings:", err);
+            } finally {
+              setLoading(false);
+            }
+          };
+          loadBillings();
+        }}
       />
     </div>
   );

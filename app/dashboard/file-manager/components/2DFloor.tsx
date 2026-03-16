@@ -123,7 +123,6 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
     //     file.service_id === currentService?.uuid && (userType !== 'agent' || file.is_show !== false)
     // );
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleAddPayment = (paymentData: any) => {
         console.log("Payment Added:", paymentData);
         setSuccess(true);

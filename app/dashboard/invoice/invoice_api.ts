@@ -10,15 +10,13 @@ export async function GetInvoice(uuid: string) {
     return response.data;
 }
 
-export async function CreateInvoice(orderUuid: string) {
-    const response = await api.post('/invoices', {
-        order_uuid: orderUuid,
-    });
+export async function CreateInvoice(data: any) {
+    const response = await api.post('/invoices', data);
     return response.data;
 }
 
-export async function VoidInvoice(uuid: string) {
-    const response = await api.post(`/invoices/${uuid}/void`);
+export async function DeleteInvoice(uuid: string) {
+    const response = await api.post(`/invoices/${uuid}`, { _method: 'DELETE' });
     return response.data;
 }
 

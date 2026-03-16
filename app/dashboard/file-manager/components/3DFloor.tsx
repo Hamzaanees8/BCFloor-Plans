@@ -81,7 +81,6 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
 
     const currentBookedService = orderData?.services.find((service) => service.service.uuid === currentService?.uuid)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleAddPayment = (paymentData: any) => {
         console.log("Payment Added:", paymentData);
         setSuccess(true);

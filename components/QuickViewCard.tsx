@@ -1091,7 +1091,6 @@ export default function QuickViewCard({
                         $
                         {data?.order?.services
                           ?.reduce(
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             (total: number, service: any) =>
                               total + Number(service.amount || 0),
                             0,

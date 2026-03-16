@@ -396,7 +396,6 @@ export const connectStripe = async (
       message: data.message,
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Stripe connect error:", error);
     return {

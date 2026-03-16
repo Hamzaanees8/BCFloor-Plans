@@ -1,19 +1,21 @@
 'use client'
 import React, { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { GetInvoice, MarkPaid, UpdateInvoice } from '../invoice_api'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { useAppContext } from '@/app/context/AppContext'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { Download, ArrowLeft, Loader2, Edit2, Save, X, CreditCard, RotateCcw } from 'lucide-react'
+import { Download, Loader2, Edit2, Save, X, CreditCard, RotateCcw } from 'lucide-react'
 import DownloadPdf from '../../file-manager/components/DownloadPdf'
 import InvoiceDocument from '../components/InvoiceDocument'
 import RefundModal from '../components/RefundModal'
+import ConfirmationDialog from '@/components/ConfirmationDialog'
+
+const STORAGE_KEY_PAYMENT = 'confirmation_dialog_payment_show_again';
 
 const InvoicePreviewPage = () => {
     const { uuid } = useParams()
-    const router = useRouter()
     const { userType } = useAppContext()
     const { appliedSettings } = useWhiteLabel()
     const role = (userType as string) || 'admin'
@@ -26,6 +28,15 @@ const InvoicePreviewPage = () => {
     const [editData, setEditData] = useState<any>(null)
     const [saving, setSaving] = useState(false)
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
+    const [confirmOpen, setConfirmOpen] = useState(false)
+    const [showAgain, setShowAgain] = useState(true)
+
+    useEffect(() => {
+        const stored = localStorage.getItem(STORAGE_KEY_PAYMENT);
+        if (stored !== null) {
+            setShowAgain(JSON.parse(stored));
+        }
+    }, []);
 
     useEffect(() => {
         fetchInvoice()
@@ -61,27 +72,20 @@ const InvoicePreviewPage = () => {
         if (!token) return
 
         try {
-            const data = {
+            const payload = {
                 notes: editData.notes,
                 tax_rate: editData.tax_rate,
-                due_date: editData.due_date,
                 items: editData.items.map((item: any) => ({
-                    id: item.id,
                     description: item.description,
                     quantity: item.quantity,
-                    unit_price: item.unit_price || item.amount,
-                    amount: item.amount,
-                    order_service_id: item.order_service_id || item.order_service?.id
+                    unit_price: item.unit_price,
+                    order_service_id: item.order_service_id || item.order_service?.id || null
                 }))
             }
-            const res = await UpdateInvoice(invoice.uuid, data)
-            if (res.success) {
-                setInvoice(res.data)
-                setIsEditing(false)
-                toast.success('Invoice updated')
-            } else {
-                toast.error(res.message || 'Update failed')
-            }
+            await UpdateInvoice(invoice.uuid, payload)
+            toast.success('Invoice updated successfully')
+            fetchInvoice()
+            setIsEditing(false)
         } catch (err: any) {
             console.error('Save failed:', err)
             toast.error(err.message || 'Connection error')
@@ -91,55 +95,108 @@ const InvoicePreviewPage = () => {
     }
 
     const handleMarkPaid = async () => {
-        if (!confirm('Mark this invoice as paid?')) return
-        const token = localStorage.getItem('token')
-        if (!token) return
+        const executeMarkPaid = async () => {
+            const token = localStorage.getItem('token')
+            if (!token) return
 
-        try {
-            await MarkPaid(invoice.uuid, invoice.total)
-            toast.success('Invoice marked as paid')
-            fetchInvoice() // Refresh
-        } catch {
-            toast.error('Failed to update status')
+            try {
+                await MarkPaid(invoice.uuid, invoice.total)
+                toast.success('Invoice marked as paid')
+                fetchInvoice() // Refresh
+            } catch {
+                toast.error('Failed to update status')
+            }
         }
+
+        if (!showAgain) {
+            executeMarkPaid()
+        } else {
+            setConfirmOpen(true)
+        }
+    }
+
+    const onConfirmMarkPaid = () => {
+        const executeMarkPaid = async () => {
+            const token = localStorage.getItem('token')
+            if (!token) return
+
+            try {
+                await MarkPaid(invoice.uuid, invoice.total)
+                toast.success('Invoice marked as paid')
+                fetchInvoice() // Refresh
+            } catch {
+                toast.error('Failed to update status')
+            }
+        }
+        executeMarkPaid()
+    }
+
+    const toggleShowAgain = () => {
+        const newValue = !showAgain;
+        setShowAgain(newValue);
+        localStorage.setItem(STORAGE_KEY_PAYMENT, JSON.stringify(newValue));
     }
 
     const handleRefund = async () => {
         setIsRefundModalOpen(true)
     }
 
+    const recalulateTotals = (items: any[], taxRate: number) => {
+        const subtotal = items.reduce((acc, item) => acc + (parseFloat(item.quantity) * parseFloat(item.unit_price) || 0), 0)
+        const taxAmount = subtotal * (taxRate / 100)
+        return {
+            subtotal: subtotal.toFixed(2),
+            tax_amount: taxAmount.toFixed(2),
+            total: (subtotal + taxAmount).toFixed(2)
+        }
+    }
+
     const updateItem = (index: number, field: string, value: any) => {
         const newItems = [...editData.items]
         newItems[index] = { ...newItems[index], [field]: value }
 
-        if (field === 'quantity' || field === 'unit_price') {
-            const qty = parseFloat(newItems[index].quantity) || 0
-            const price = parseFloat(newItems[index].unit_price) || 0
-            newItems[index].amount = (qty * price).toFixed(2)
-        }
-
-        const subtotal = newItems.reduce((acc, item) => acc + parseFloat(item.amount || 0), 0)
-        const taxRate = parseFloat(editData.tax_rate) || 0
-        const taxAmount = subtotal * (taxRate / 100)
-
+        const totals = recalulateTotals(newItems, parseFloat(editData.tax_rate))
         setEditData({
             ...editData,
             items: newItems,
-            subtotal: subtotal.toFixed(2),
-            tax_amount: taxAmount.toFixed(2),
-            total: (subtotal + taxAmount).toFixed(2)
+            ...totals
+        })
+    }
+
+    const addItem = () => {
+        const newItem = {
+            description: '',
+            quantity: 1,
+            unit_price: 0,
+            amount: 0,
+            order_service_id: null
+        }
+        const newItems = [...editData.items, newItem]
+        const totals = recalulateTotals(newItems, parseFloat(editData.tax_rate))
+        setEditData({
+            ...editData,
+            items: newItems,
+            ...totals
+        })
+    }
+
+    const removeItem = (index: number) => {
+        const newItems = editData.items.filter((_: any, i: number) => i !== index)
+        const totals = recalulateTotals(newItems, parseFloat(editData.tax_rate))
+        setEditData({
+            ...editData,
+            items: newItems,
+            ...totals
         })
     }
 
     const updateTaxRate = (val: string) => {
         const rate = parseFloat(val) || 0
-        const subtotal = parseFloat(editData.subtotal) || 0
-        const taxAmount = subtotal * (rate / 100)
+        const totals = recalulateTotals(editData.items, rate)
         setEditData({
             ...editData,
             tax_rate: val,
-            tax_amount: taxAmount.toFixed(2),
-            total: (subtotal + taxAmount).toFixed(2)
+            ...totals
         })
     }
 
@@ -155,59 +212,68 @@ const InvoicePreviewPage = () => {
 
     return (
         <div style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh' }}>
-            {/* Header / Actions */}
-            <div className="sticky top-0 z-10 flex h-20 items-center justify-between px-8 no-print font-alexandria" 
+            {/* Standard Whitelabel Header */}
+            <div className="sticky top-0 z-50 flex h-[80px] items-center justify-between px-[20px] no-print font-alexandria" 
                  style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }}>
                 <div className="flex items-center gap-4">
-                    <Button 
-                        variant="ghost" 
-                        onClick={() => router.back()}
-                        style={{ color: roleSettings.pageTabColor }}
-                        className="hover:bg-white/10"
-                    >
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Back
-                    </Button>
-                    <h1 className="text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
+                    <h1 className="text-[16px] md:text-[24px] font-[400]" style={{ color: roleSettings.pageTabColor }}>
                         Invoice #{invoice.invoice_number || invoice.id}
                     </h1>
                 </div>
                 <div className="flex gap-3">
                     {isEditing ? (
                         <>
-                            <Button variant="outline" className="bg-white text-black hover:bg-gray-100" onClick={() => setIsEditing(false)} disabled={saving}>
+                            <Button 
+                                variant="outline" 
+                                className="bg-white text-black hover:bg-gray-100 border-none h-[35px] md:h-[44px] px-6 rounded-[6px]" 
+                                onClick={() => setIsEditing(false)} 
+                                disabled={saving}
+                            >
                                 <X className="mr-2 h-4 w-4" /> Cancel
                             </Button>
-                            <Button className="admin-bg text-white" onClick={handleSave} disabled={saving}>
+                            <Button 
+                                className="text-white h-[35px] md:h-[44px] px-6 rounded-[6px] hover:brightness-110 active:scale-[0.98] transition-all" 
+                                style={{ backgroundColor: roleSettings.pageTabColor }}
+                                onClick={handleSave} 
+                                disabled={saving}
+                            >
                                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4" />} Save Changes
                             </Button>
                         </>
                     ) : (
                         <>
                             {role === 'admin' && invoice.status !== 'paid' && (
-                                <Button className="bg-[#6BAE41] text-white hover:bg-[#6BAE41]/90" onClick={handleMarkPaid}>
+                                <Button className="bg-[#6BAE41] text-white hover:bg-[#6BAE41]/90 h-[35px] md:h-[44px] px-6 rounded-[6px] font-bold" onClick={handleMarkPaid}>
                                     <CreditCard className="mr-2 h-4 w-4" /> Mark as Paid
                                 </Button>
                             )}
-                            {role === 'admin' && (invoice.status === 'paid' || invoice.status === 'partially_paid') && (
-                                <Button variant="outline" className="bg-orange-500 text-white hover:bg-orange-600 border-none" onClick={handleRefund} disabled={saving}>
+                            {role === 'admin' && invoice.status === 'paid' && (
+                                <Button 
+                                    variant="outline" 
+                                    className="bg-orange-500 text-white hover:bg-orange-600 border-none h-[35px] md:h-[44px] px-6 rounded-[6px]" 
+                                    onClick={handleRefund} 
+                                    disabled={saving}
+                                >
                                     {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="mr-2 h-4 w-4" />} Refund
+                                </Button>
+                            )}
+                            {role === 'admin' && invoice.status !== 'paid' && (
+                                <Button 
+                                    variant="outline" 
+                                    className="border-[1px] text-[14px] md:text-[16px] font-[400] h-[35px] md:h-[44px] px-6 rounded-[6px] hover:brightness-110"
+                                    style={{
+                                        backgroundColor: roleSettings.pageBg,
+                                        color: roleSettings.pageTabColor,
+                                        borderColor: roleSettings.pageTabColor,
+                                    }}
+                                    onClick={() => setIsEditing(true)}
+                                >
+                                    <Edit2 className="mr-2 h-4 w-4" /> Edit
                                 </Button>
                             )}
                             <Button 
                                 variant="outline" 
-                                className="border-[1px] text-[14px] md:text-[16px] font-[400] hover:opacity-90"
-                                style={{
-                                    backgroundColor: roleSettings.pageBg,
-                                    color: roleSettings.pageTabColor,
-                                    borderColor: roleSettings.pageTabColor,
-                                }}
-                                onClick={() => setIsEditing(true)}
-                            >
-                                <Edit2 className="mr-2 h-4 w-4" /> Edit
-                            </Button>
-                            <Button 
-                                variant="outline" 
-                                className="border-[1px] text-[14px] md:text-[16px] font-[400] hover:opacity-90"
+                                className="border-[1px] text-[14px] md:text-[16px] font-[400] h-[35px] md:h-[44px] px-6 rounded-[6px] hover:brightness-110"
                                 style={{
                                     backgroundColor: roleSettings.pageBg,
                                     color: roleSettings.pageTabColor,
@@ -229,8 +295,11 @@ const InvoicePreviewPage = () => {
                     editData={editData}
                     isEditing={isEditing}
                     updateItem={updateItem}
+                    addItem={addItem}
+                    removeItem={removeItem}
                     updateTaxRate={updateTaxRate}
                     setEditData={setEditData}
+                    roleSettings={roleSettings}
                 />
             </div>
 
@@ -239,6 +308,17 @@ const InvoicePreviewPage = () => {
                 onClose={() => setIsRefundModalOpen(false)}
                 invoice={invoice}
                 onSuccess={fetchInvoice}
+            />
+
+            <ConfirmationDialog
+                open={confirmOpen}
+                setOpen={setConfirmOpen}
+                onConfirm={onConfirmMarkPaid}
+                showAgain={showAgain}
+                toggleShowAgain={toggleShowAgain}
+                dialogType="payment"
+                title="MARK AS PAID"
+                description="Are you sure you want to mark this invoice as paid? This action will update the payment status."
             />
 
             {/* Print Styles */}

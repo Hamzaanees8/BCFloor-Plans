@@ -517,7 +517,6 @@ const VendorForm = () => {
         setVendorServices(transformedServices);
       }
       if (currentUser?.work_hours?.work_days) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let parsed: any[] = [];
 
         if (typeof currentUser.work_hours.work_days === "string") {

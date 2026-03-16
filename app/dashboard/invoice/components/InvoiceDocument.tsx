@@ -1,7 +1,8 @@
 'use client'
 import React from 'react'
 import Image from 'next/image'
-import { MapPin, Mail } from 'lucide-react'
+import { MapPin, Mail, Trash2, Plus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -10,8 +11,11 @@ interface InvoiceDocumentProps {
     editData: any;
     isEditing: boolean;
     updateItem: (index: number, field: string, value: any) => void;
+    addItem: () => void;
+    removeItem: (index: number) => void;
     updateTaxRate: (val: string) => void;
     setEditData: (data: any) => void;
+    roleSettings: any;
 }
 
 const InvoiceDocument = ({
@@ -19,10 +23,16 @@ const InvoiceDocument = ({
     editData,
     isEditing,
     updateItem,
+    addItem,
+    removeItem,
     updateTaxRate,
-    setEditData
+    setEditData,
+    roleSettings
 }: InvoiceDocumentProps) => {
     if (!invoice) return null;
+
+    // Default settings if roleSettings is not provided (defensive)
+    const settings = roleSettings || { pageTabColor: '#000', pageBg: '#fff' };
 
     return (
         <div id="invoice-download-content" className="relative bg-white p-12 rounded-lg border-2 border-gray-100 shadow-2xl mx-auto w-full max-w-[800px]  flex flex-col">
@@ -37,33 +47,44 @@ const InvoiceDocument = ({
                         <p className="text-sm font-medium text-gray-600">Invoice Number: <span className="text-gray-900">{invoice.invoice_number}</span></p>
                         <p className="text-sm font-medium text-gray-600">Date: <span className="text-gray-900">{new Date(invoice.issued_at || invoice.created_at).toLocaleDateString()}</span></p>
                         <div className="mt-2">
-                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${invoice.status === 'paid' ? 'bg-[#6BAE41]/10 text-[#6BAE41]' :
-                                invoice.status === 'void' ? 'bg-gray-100 text-gray-400' : 'bg-orange-100 text-orange-600'
-                                }`}>
-                                {invoice.status}
-                            </span>
+                            {(() => {
+                                const status = (invoice.status || 'unpaid').toLowerCase();
+                                const statusStyles: Record<string, string> = {
+                                    paid: 'bg-[#6BAE41]/10 text-[#6BAE41]',
+                                    issued: 'bg-blue-100 text-blue-600',
+                                    unpaid: 'bg-orange-100 text-orange-600',
+                                    void: 'bg-gray-100 text-gray-400',
+                                    partial: 'bg-yellow-100 text-yellow-600',
+                                    refunded: 'bg-red-100 text-red-600'
+                                };
+                                return (
+                                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${statusStyles[status] || statusStyles.unpaid}`}>
+                                        {status}
+                                    </span>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
                 <div className="absolute top-12 right-0 flex items-stretch gap-1.5">
-                    <div className="admin-bg w-1"></div>
-                    <div className="admin-bg w-3"></div>
-                    <div className="admin-bg text-white px-4 py-1 flex items-center justify-center min-w-[300px] md:min-w-[300px]">
+                    <div style={{ backgroundColor: settings.pageTabColor }} className="w-1"></div>
+                    <div style={{ backgroundColor: settings.pageTabColor }} className="w-3"></div>
+                    <div style={{ backgroundColor: settings.pageTabColor }} className="text-white px-6 py-1 flex items-center justify-center min-w-[300px] md:min-w-[300px]">
                         <h1 className="text-4xl font-bold uppercase tracking-[0.2em] leading-none">Invoice</h1>
                     </div>
                 </div>
             </div>
 
-            <div className="h-px bg-[#4290E9] w-full mb-10 opacity-30"></div>
+            <div className="h-px w-full mb-10 opacity-30" style={{ backgroundColor: settings.pageTabColor }}></div>
 
             {/* Bill From/To Section */}
             <div className="grid grid-cols-1 gap-20 mb-16 px-4">
                 <div>
-                    <h3 className="text-xs font-bold uppercase tracking-widest text-[#4290E9] mb-4">Bill To:</h3>
+                    <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: settings.pageTabColor }}>Bill To:</h3>
                     <div className="space-y-2 text-sm text-gray-600">
                         <p className="font-bold text-gray-900">{invoice.agent?.first_name} {invoice.agent?.last_name}</p>
-                        <p className="flex items-center gap-2 px-1"><MapPin size={14} className="text-[#4290E9]" /> {invoice.order?.property?.address}, {invoice.order?.property?.city}, {invoice.order?.property?.province}</p>
-                        <p className="flex items-center gap-2 px-1"><Mail size={14} className="text-[#4290E9]" /> {invoice.agent?.email}</p>
+                        <p className="flex items-center gap-2 px-1"><MapPin size={14} style={{ color: settings.pageTabColor }} /> {invoice.order?.property?.address}, {invoice.order?.property?.city}, {invoice.order?.property?.province}</p>
+                        <p className="flex items-center gap-2 px-1"><Mail size={14} style={{ color: settings.pageTabColor }} /> {invoice.agent?.email}</p>
                     </div>
                 </div>
             </div>
@@ -72,7 +93,7 @@ const InvoiceDocument = ({
             <div className="flex-grow">
                 <table className="w-full">
                     <thead>
-                        <tr className="border-t-2 border-[#4290E9] border-opacity-30 text-[10px] font-bold uppercase text-gray-500">
+                        <tr className="border-t-2 border-opacity-30 text-[10px] font-bold uppercase text-gray-500" style={{ borderColor: settings.pageTabColor }}>
                             <th className="py-4 text-left px-4">Item</th>
                             <th className="py-4 text-center">Quantity</th>
                             <th className="py-4 text-right px-4">Amount</th>
@@ -96,7 +117,12 @@ const InvoiceDocument = ({
                                                     <span className="font-medium text-gray-900">{item.description}</span>
                                                 )}
                                                 {serviceOption && (
-                                                    <span className="text-[10px] text-[#4290E9] font-bold uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 min-w-fit">
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border min-w-fit"
+                                                          style={{ 
+                                                              color: settings.pageTabColor, 
+                                                              backgroundColor: `${settings.pageTabColor}1A`, 
+                                                              borderColor: `${settings.pageTabColor}33` 
+                                                          }}>
                                                         {serviceOption}
                                                     </span>
                                                 )}
@@ -125,6 +151,14 @@ const InvoiceDocument = ({
                                                     onChange={(e) => updateItem(idx, 'unit_price', e.target.value)}
                                                     className="w-24 text-right h-8 font-black"
                                                 />
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                    onClick={() => removeItem(idx)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
                                             </div>
                                         ) : (
                                             `$${parseFloat(item.amount || '0').toFixed(2)}`
@@ -135,12 +169,26 @@ const InvoiceDocument = ({
                         })}
                     </tbody>
                 </table>
+                
+                {isEditing && (
+                    <div className="mt-4 flex justify-start">
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={addItem}
+                            className="bg-white hover:brightness-95 flex items-center gap-2 border-[1px]"
+                            style={{ color: settings.pageTabColor, borderColor: settings.pageTabColor }}
+                        >
+                            <Plus className="h-4 w-4" /> Add Item
+                        </Button>
+                    </div>
+                )}
             </div>
 
             {/* Footer Totals */}
             <div className="mt-12 pt-8 border-t border-gray-100 flex justify-between items-end">
                 <div className="max-w-xs flex-grow mr-10">
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-[#4290E9] mb-4">Notes:</h4>
+                    <h4 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: settings.pageTabColor }}>Notes:</h4>
                     {isEditing ? (
                         <Textarea
                             value={editData.notes || ''}
@@ -172,7 +220,7 @@ const InvoiceDocument = ({
                         </span>
                         <span className="font-bold text-gray-900">${parseFloat(isEditing ? editData.tax_amount : invoice.tax_amount).toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between items-center admin-bg p-4 text-white rounded-sm mt-6">
+                    <div className="flex justify-between items-center p-4 text-white rounded-sm mt-6" style={{ backgroundColor: settings.pageTabColor }}>
                         <span className=" font-bold uppercase tracking-[0.1em]">Total</span>
                         <span className="text-xl font-bold">$ {parseFloat(isEditing ? editData.total : invoice.total).toFixed(2)}</span>
                     </div>

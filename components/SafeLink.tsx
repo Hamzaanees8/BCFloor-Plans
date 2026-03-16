@@ -18,7 +18,6 @@ export default function SafeLink({ href, children, className, ...props }: SafeLi
     e.preventDefault();
 
     confirmNavigation(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       router.push(typeof href === "string" ? href : (href as any).toString());
     }, {
       title: "Unsaved Changes",

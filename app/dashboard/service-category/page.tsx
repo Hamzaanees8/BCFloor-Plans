@@ -219,7 +219,6 @@ const Page = () => {
                         setDialogOpen(val)
                         if (!val) setEditData(null)
                     }}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     setCategoriesData={setCategoriesData as any}
                     editData={editData}
                     onEditSuccess={handleEditSuccess}

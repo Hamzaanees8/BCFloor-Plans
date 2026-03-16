@@ -703,7 +703,6 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
 
 
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleAddPayment = (paymentData: any) => {
         console.log("Payment Added:", paymentData);
         setSuccess(true);

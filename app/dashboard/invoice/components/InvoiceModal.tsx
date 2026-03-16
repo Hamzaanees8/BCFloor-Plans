@@ -12,6 +12,9 @@ import DownloadPdf from '../../file-manager/components/DownloadPdf'
 import InvoiceDocument from './InvoiceDocument'
 import { UpdateInvoice } from '../invoice_api'
 import RefundModal from './RefundModal'
+import { toast } from 'sonner'
+import { useWhiteLabel } from '@/app/context/Whitelabel'
+import { useAppContext } from '@/app/context/AppContext'
 
 type InvoiceModalProps = {
     uuid: string;
@@ -26,6 +29,10 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
     const [editData, setEditData] = useState<any>(null)
     const [saving, setSaving] = useState(false)
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
+    const { userType } = useAppContext()
+    const { appliedSettings } = useWhiteLabel()
+    const role = (userType as string) || 'admin'
+    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin']
 
     useEffect(() => {
         if (isOpen && uuid) {
@@ -90,26 +97,23 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
         if (!token || !invoice?.uuid) return
 
         try {
-            const data = {
+            const payload = {
                 notes: editData.notes,
                 tax_rate: editData.tax_rate,
-                due_date: editData.due_date,
                 items: editData.items.map((item: any) => ({
-                    id: item.id,
                     description: item.description,
                     quantity: item.quantity,
-                    unit_price: item.unit_price || item.unit_amount,
-                    amount: item.amount,
-                    order_service_id: item.order_service_id || item.order_service?.id
+                    unit_price: item.unit_price,
+                    order_service_id: item.order_service_id || item.order_service?.id || null
                 }))
             }
-            const res = await UpdateInvoice(invoice.uuid, data)
-            if (res.success) {
-                setInvoice(res.data)
-                setIsEditing(false)
-            }
+            await UpdateInvoice(invoice.uuid, payload)
+            toast.success('Invoice updated successfully')
+            fetchInvoice()
+            setIsEditing(false)
         } catch (error) {
             console.error('Save failed:', error)
+            toast.error('Failed to update invoice')
         } finally {
             setSaving(false)
         }
@@ -119,39 +123,62 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
         setIsRefundModalOpen(true)
     }
 
+    const recalulateTotals = (items: any[], taxRate: number) => {
+        const subtotal = items.reduce((acc, item) => acc + (parseFloat(item.quantity) * parseFloat(item.unit_price) || 0), 0)
+        const taxAmount = subtotal * (taxRate / 100)
+        return {
+            subtotal: subtotal.toFixed(2),
+            tax_amount: taxAmount.toFixed(2),
+            total: (subtotal + taxAmount).toFixed(2)
+        }
+    }
+
     const updateItem = (index: number, field: string, value: any) => {
         const newItems = [...editData.items]
         newItems[index] = { ...newItems[index], [field]: value }
 
-        // Recalculate local subtotal/total for UI feedback if price/qty changed
-        if (field === 'quantity' || field === 'unit_price') {
-            const qty = parseFloat(newItems[index].quantity) || 0
-            const price = parseFloat(newItems[index].unit_price) || 0
-            newItems[index].amount = (qty * price).toFixed(2)
-        }
-
-        const subtotal = newItems.reduce((acc, item) => acc + parseFloat(item.amount || 0), 0)
-        const taxRate = parseFloat(editData.tax_rate) || 0
-        const taxAmount = subtotal * (taxRate / 100)
-
+        const totals = recalulateTotals(newItems, parseFloat(editData.tax_rate))
         setEditData({
             ...editData,
             items: newItems,
-            subtotal: subtotal.toFixed(2),
-            tax_amount: taxAmount.toFixed(2),
-            total: (subtotal + taxAmount).toFixed(2)
+            ...totals
+        })
+    }
+
+    const addItem = () => {
+        const newItem = {
+            description: '',
+            quantity: 1,
+            unit_price: 0,
+            amount: 0,
+            order_service_id: null
+        }
+        const newItems = [...editData.items, newItem]
+        const totals = recalulateTotals(newItems, parseFloat(editData.tax_rate))
+        setEditData({
+            ...editData,
+            items: newItems,
+            ...totals
+        })
+    }
+
+    const removeItem = (index: number) => {
+        const newItems = editData.items.filter((_: any, i: number) => i !== index)
+        const totals = recalulateTotals(newItems, parseFloat(editData.tax_rate))
+        setEditData({
+            ...editData,
+            items: newItems,
+            ...totals
         })
     }
 
     const updateTaxRate = (val: string) => {
         const rate = parseFloat(val) || 0
-        const subtotal = parseFloat(editData.subtotal) || 0
-        const taxAmount = subtotal * (rate / 100)
+        const totals = recalulateTotals(editData.items, rate)
         setEditData({
             ...editData,
             tax_rate: val,
-            tax_amount: taxAmount.toFixed(2),
-            total: (subtotal + taxAmount).toFixed(2)
+            ...totals
         })
     }
 
@@ -176,14 +203,16 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                                     </>
                                 ) : (
                                     <>
-                                        {(invoice.status === 'paid' || invoice.status === 'partially_paid') && (
+                                        {role === 'admin' && invoice.status === 'paid' && (
                                             <Button variant="outline" size="sm" onClick={handleRefund} disabled={saving} className="text-orange-600 hover:text-orange-700">
                                                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />} Refund
                                             </Button>
                                         )}
-                                        <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                                            <Edit2 className="h-4 w-4 mr-2" /> Edit
-                                        </Button>
+                                        {role === 'admin' && invoice.status !== 'paid' && (
+                                            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                                                <Edit2 className="h-4 w-4 mr-2" /> Edit
+                                            </Button>
+                                        )}
                                         <Button variant="outline" size="sm" onClick={handleDownload} className="flex items-center gap-2">
                                             <Download className="h-4 w-4" /> Download PDF
                                         </Button>
@@ -211,8 +240,11 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                         editData={editData}
                         isEditing={isEditing}
                         updateItem={updateItem}
+                        addItem={addItem}
+                        removeItem={removeItem}
                         updateTaxRate={updateTaxRate}
                         setEditData={setEditData}
+                        roleSettings={roleSettings}
                     />
                 )}
 

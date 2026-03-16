@@ -695,7 +695,6 @@ const Page = () => {
                 console.error("Bulk payment failed:", result);
             }
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             console.error("Bulk payment error:", error);
             toast.error(error.message || "Bulk payment failed");
@@ -784,7 +783,6 @@ const Page = () => {
                 toast.error("Payment failed");
             }
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             console.error("Payment error:", error);
             toast.error(error.message || "Payment failed");

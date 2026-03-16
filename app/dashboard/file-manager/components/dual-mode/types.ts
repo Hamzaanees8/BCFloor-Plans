@@ -12,6 +12,5 @@ export interface FileItem {
 
     // Keep a reference to the original data (SelectedFiles or Files) 
     // so we can reconstruct the payload for saving
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     originalData?: any;
 }

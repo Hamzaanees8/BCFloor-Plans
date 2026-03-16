@@ -509,7 +509,6 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave }: { curr
         checkServiceCompletion();
     }, [currentServiceFiles, currentService, currentBookedService, orderData])
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleAddPayment = (paymentData: any) => {
         console.log("Payment Added:", paymentData);
         setSuccess(true);

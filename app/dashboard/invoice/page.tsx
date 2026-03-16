@@ -1,15 +1,19 @@
 'use client'
 import React, { useEffect, useState, useRef } from 'react'
-import { GetInvoices, VoidInvoice } from './invoice_api'
+import { GetInvoices } from './invoice_api'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { useAppContext } from '@/app/context/AppContext'
 import { toast } from 'sonner'
 import { useRouter } from "next/navigation"
 import { DataTable } from '@/components/DataTable'
 import { ColumnDef } from "@tanstack/react-table"
-import { Checkbox } from "@/components/ui/checkbox"
 import DropdownActions from "@/components/DropdownActions"
+import { Button } from '@/components/ui/button'
+import { Plus, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import RefundModal from './components/RefundModal'
+import { Get as GetAgents } from '../agents/agents'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 
 type Invoice = {
     id: number;
@@ -20,10 +24,12 @@ type Invoice = {
     currency: string;
     issued_at: string;
     agent: {
+        uuid: string;
         first_name: string;
         last_name: string;
     };
     order: {
+        id: number;
         property: {
             address: string;
         };
@@ -36,6 +42,12 @@ const InvoiceListPage = () => {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(false)
     const [refundModal, setRefundModal] = useState<{ open: boolean, invoice: any }>({ open: false, invoice: null })
+    
+    // Filters state
+    const [search, setSearch] = useState('')
+    const [statusFilter, setStatusFilter] = useState('all')
+    const [agentFilter, setAgentFilter] = useState('all')
+    const [agents, setAgents] = useState<any[]>([])
     
     const { userType } = useAppContext()
     const { appliedSettings } = useWhiteLabel()
@@ -77,48 +89,24 @@ const InvoiceListPage = () => {
             .finally(() => setLoading(false))
     }
 
+    const fetchAgents = () => {
+        GetAgents()
+            .then(res => {
+                setAgents(Array.isArray(res.data) ? res.data : [])
+            })
+            .catch(err => console.error("Failed to fetch agents", err))
+    }
+
     useEffect(() => {
         fetchInvoices()
+        fetchAgents()
     }, [])
-
-    const handleVoid = async (uuid: string) => {
-        if (!confirm('Are you sure you want to void this invoice?')) return
-        const token = localStorage.getItem('token')
-        if (!token) return
-
-        try {
-            await VoidInvoice(uuid)
-            toast.success('Invoice voided')
-            fetchInvoices()
-        } catch {
-            toast.error('Failed to void invoice')
-        }
-    }
 
     const handleRefund = (invoice: any) => {
         setRefundModal({ open: true, invoice })
     }
 
     const columns: ColumnDef<Invoice>[] = [
-        {
-            id: "select",
-            header: ({ table }) => (
-                <Checkbox
-                    checked={table.getIsAllPageRowsSelected()}
-                    onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-                    aria-label="Select all"
-                />
-            ),
-            cell: ({ row }) => (
-                <Checkbox
-                    checked={row.getIsSelected()}
-                    onCheckedChange={(value) => row.toggleSelected(!!value)}
-                    aria-label="Select row"
-                />
-            ),
-            enableSorting: false,
-            enableHiding: false,
-        },
         {
             accessorKey: "invoice_number",
             header: "INVOICE #",
@@ -152,8 +140,27 @@ const InvoiceListPage = () => {
         },
         {
             accessorKey: "issued_at",
-            header: "DATE",
-            cell: ({ row }) => <div>{new Date(row.original.issued_at).toLocaleDateString()}</div>
+            header: ({ column }) => {
+                const isSorted = column.getIsSorted();
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() => {
+                            if (isSorted === "asc") column.toggleSorting(true);
+                            else if (isSorted === "desc") column.clearSorting();
+                            else column.toggleSorting(false);
+                        }}
+                        className="p-0 hover:bg-transparent flex items-center gap-1 font-bold h-auto"
+                    >
+                        DATE
+                        {isSorted === "asc" && <ChevronUp className="h-4 w-4" style={{ color: roleSettings.pageTabColor }} />}
+                        {isSorted === "desc" && <ChevronDown className="h-4 w-4" style={{ color: roleSettings.pageTabColor }} />}
+                        {!isSorted && <ChevronsUpDown className="h-4 w-4 text-gray-400" />}
+                    </Button>
+                )
+            },
+            cell: ({ row }) => <div>{new Date(row.original.issued_at).toLocaleDateString()}</div>,
+            enableSorting: true,
         },
         {
             accessorKey: "total",
@@ -164,11 +171,17 @@ const InvoiceListPage = () => {
             accessorKey: "status",
             header: "STATUS",
             cell: ({ row }) => {
-                const status = row.original.status;
+                const status = row.original.status?.toLowerCase() || 'unpaid';
+                const statusStyles: Record<string, string> = {
+                    paid: 'bg-[#6BAE41]/10 text-[#6BAE41]',
+                    issued: 'bg-blue-100 text-blue-600',
+                    unpaid: 'bg-orange-100 text-orange-600',
+                    void: 'bg-gray-100 text-gray-400',
+                    partial: 'bg-yellow-100 text-yellow-600',
+                    refunded: 'bg-red-100 text-red-600'
+                };
                 return (
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${status === 'paid' ? 'bg-[#6BAE41]/10 text-[#6BAE41]' :
-                        status === 'void' ? 'bg-gray-100 text-gray-400' : 'bg-orange-100 text-orange-600'
-                        }`}>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${statusStyles[status] || statusStyles.unpaid}`}>
                         {status}
                     </span>
                 )
@@ -184,15 +197,10 @@ const InvoiceListPage = () => {
                         label: "View",
                         onClick: () => router.push(`/dashboard/invoice/${inv.uuid}`),
                     },
-                    ...((inv.status === 'paid' || inv.status === 'partially_paid') ? [{
+                    ...(inv.status === 'paid' ? [{
                         label: "Refund",
                         onClick: () => handleRefund(inv),
                     }] : []),
-                    ...(inv.status !== 'void' ? [{
-                        label: "Void",
-                        onClick: () => handleVoid(inv.uuid),
-                        confirm1: true
-                    }] : [])
                 ];
 
                 return <DropdownActions options={options} />
@@ -200,23 +208,107 @@ const InvoiceListPage = () => {
         }
     ];
 
+    const filteredInvoices = invoices.filter(inv => {
+        // Status Filter
+        if (statusFilter !== 'all' && inv.status !== statusFilter) return false
+        
+        // Agent Filter
+        if (agentFilter !== 'all' && inv.agent?.uuid !== agentFilter) return false
+
+        // Search Filter (Address or Order # or Invoice #)
+        if (search) {
+            const s = search.toLowerCase()
+            const addr = (inv.order?.property?.address || '').toLowerCase()
+            const orderId = String(inv.order?.id || '').toLowerCase()
+            const invNum = (inv.invoice_number || String(inv.id)).toLowerCase()
+            
+            if (!addr.includes(s) && !orderId.includes(s) && !invNum.includes(s)) return false
+        }
+
+        return true
+    })
+
     return (
         <div className="font-alexandria" style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh' }}>
             {/* Standard Whitelabel Header */}
             <div ref={headerRef} className='w-full h-[80px] sticky top-0 z-50 flex justify-between px-[20px] items-center' style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }} >
-                <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>
-                    Invoices ({invoices.length})
-                </p>
+                <div className='flex items-center gap-4'>
+                    <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>
+                        Invoices ({filteredInvoices.length})
+                    </p>
+                </div>
+                
+                <Button 
+                    onClick={() => router.push('/dashboard/invoice/create')}
+                    className='w-[140px] md:w-[170px] h-[35px] md:h-[44px] rounded-[6px] text-[14px] md:text-[16px] font-[400] text-white flex gap-[5px] justify-center items-center hover:brightness-110 active:scale-[0.98] transition-all'
+                    style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+                >
+                    <Plus className="h-4 w-4" /> Create Invoice
+                </Button>
+            </div>
+
+            {/* Filters Section */}
+            <div className="p-4 border-b sticky top-[80px] z-40" style={{ backgroundColor: roleSettings.pageBg }}>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Search Field */}
+                    <div>
+                        <label className="text-sm font-medium text-gray-700 mb-1 block">Address / Order ID</label>
+                        <Input 
+                            placeholder="Search address, order #..." 
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full h-[40px] bg-white border-[#BBBBBB]"
+                        />
+                    </div>
+
+                    {/* Agent Filter */}
+                    <div>
+                        <label className="text-sm font-medium text-gray-700 mb-1 block">Agent</label>
+                        <Select value={agentFilter} onValueChange={setAgentFilter}>
+                            <SelectTrigger className="w-full bg-white border-[#BBBBBB]">
+                                <SelectValue placeholder="All Agents" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white">
+                                <SelectItem value="all">All Agents</SelectItem>
+                                {agents.map(a => (
+                                    <SelectItem key={a.uuid} value={a.uuid}>
+                                        {a.first_name} {a.last_name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Status Filter */}
+                    <div>
+                        <label className="text-sm font-medium text-gray-700 mb-1 block">Status</label>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-full bg-white border-[#BBBBBB]">
+                                <SelectValue placeholder="All Status" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white">
+                                <SelectItem value="all">All Status</SelectItem>
+                                <SelectItem value="paid">Paid</SelectItem>
+                                <SelectItem value="issued">Issued</SelectItem>
+                                <SelectItem value="unpaid">Unpaid</SelectItem>
+                                <SelectItem value="partial">Partial</SelectItem>
+                                <SelectItem value="refunded">Refunded</SelectItem>
+                                <SelectItem value="void">Void</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
             </div>
 
             <div className="w-full">
                 <DataTable
                     columns={columns}
-                    data={invoices}
+                    data={filteredInvoices}
                     loading={loading}
                     error={error}
                     dataName="Invoices"
                     userType={userType}
+                    headerBgOverride={headerBg}
                 />
             </div>
 
