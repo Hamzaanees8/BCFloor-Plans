@@ -675,7 +675,7 @@ const Page = () => {
                                               {service.status}
                                             </span>
                                           </div>
-                                          {service.status != "paid" && (
+                                          {service.status !== "paid" && billing.status !== "paid" && (
                                             <Button
                                               onClick={() =>
                                                 handlePay(
@@ -698,7 +698,7 @@ const Page = () => {
                                               Pay Now
                                             </Button>
                                           )}
-                                          {service.status === "paid" && (
+                                          {(service.status === "paid" || billing.status === "paid") && (
                                             <Button
                                               disabled
                                               className={`px-4 py-2 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] bg-green-500 cursor-pointer hover:bg-green-600`}
