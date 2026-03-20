@@ -55,9 +55,9 @@ export default function ConfirmationCard({ title, service, selectedService, slot
                             </div>
                         ))}
                     </div>
-                    {selectedService.payment_status?.toUpperCase() === 'PAID' && (
-                        <span className="text-[10px] bg-[#6BAE41] text-white px-2 py-0.5 rounded-full font-semibold uppercase border border-green-200">
-                            Already Paid
+                    {selectedService.service_uuid && (
+                        <span className={`text-[10px] ${selectedService.payment_status?.toUpperCase() === 'PAID' ? 'bg-[#6BAE41]' : 'bg-[#E06D5E]'} text-white px-2 py-0.5 rounded-full font-semibold uppercase border ${selectedService.payment_status?.toUpperCase() === 'PAID' ? 'border-green-200' : 'border-red-200'}`}>
+                            {selectedService.payment_status?.toUpperCase() === 'PAID' ? 'Paid' : 'Unpaid'}
                         </span>
                     )}
                 </div>

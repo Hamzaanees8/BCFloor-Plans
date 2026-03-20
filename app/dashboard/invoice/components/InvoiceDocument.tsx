@@ -78,13 +78,34 @@ const InvoiceDocument = ({
             <div className="h-px w-full mb-10 opacity-30" style={{ backgroundColor: settings.pageTabColor }}></div>
 
             {/* Bill From/To Section */}
-            <div className="grid grid-cols-1 gap-20 mb-16 px-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-16 px-4">
                 <div>
-                    <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: settings.pageTabColor }}>Bill To:</h3>
+                    <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: settings.pageTabColor }}>
+                        Bill From:
+                    </h3>
                     <div className="space-y-2 text-sm text-gray-600">
-                        <p className="font-bold text-gray-900">{invoice.agent?.first_name} {invoice.agent?.last_name}</p>
-                        <p className="flex items-center gap-2 px-1"><MapPin size={14} style={{ color: settings.pageTabColor }} /> {invoice.order?.property?.address}, {invoice.order?.property?.city}, {invoice.order?.property?.province}</p>
-                        <p className="flex items-center gap-2 px-1"><Mail size={14} style={{ color: settings.pageTabColor }} /> {invoice.agent?.email}</p>
+                        <p className="font-bold text-gray-900">BC Floor plans</p>
+                        <p>info@bcfloorplans.com</p>
+                    </div>
+                </div>
+                <div>
+                    <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: settings.pageTabColor }}>
+                        Bill To:
+                    </h3>
+                    <div className="space-y-2 text-sm text-gray-600">
+                        {invoice.vendor ? (
+                            <>
+                                <p className="font-bold text-gray-900">{invoice.vendor.first_name} {invoice.vendor.last_name}</p>
+                                {invoice.vendor.company?.name && <p>{invoice.vendor.company.name}</p>}
+                                <p className="flex items-center gap-2 px-1"><Mail size={14} style={{ color: settings.pageTabColor }} /> {invoice.vendor.email}</p>
+                            </>
+                        ) : (
+                            <>
+                                <p className="font-bold text-gray-900">{invoice.agent?.first_name} {invoice.agent?.last_name}</p>
+                                <p className="flex items-center gap-2 px-1"><MapPin size={14} style={{ color: settings.pageTabColor }} /> {invoice.order?.property?.address}, {invoice.order?.property?.city}, {invoice.order?.property?.province}</p>
+                                <p className="flex items-center gap-2 px-1"><Mail size={14} style={{ color: settings.pageTabColor }} /> {invoice.agent?.email}</p>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

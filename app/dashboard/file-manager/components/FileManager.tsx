@@ -407,7 +407,7 @@ const FileManager = () => {
       }
       try {
         const filesData = await GetFilesData(token, orderData?.uuid || "");
-        if (filesData.data[0]) {
+        if (filesData.data && filesData.data.length > 0) {
           setFilesData(filesData.data[0]);
           // Removed accidental setInterval call
 
@@ -423,13 +423,14 @@ const FileManager = () => {
             filesData.data[0].slide_show &&
             (filesData.data[0].slide_show.slide_delay || 3000)
           );
+        } else {
+          // If no data found, set to an empty object to stop the loader in children
+          setFilesData({ files: [], links: [], snapshots: [] } as any);
         }
       } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "An error occurred while getting changes."
-        );
+        console.error("Error fetching files data:", error);
+        // Also set to empty state on error to prevent infinite loader
+        setFilesData({ files: [], links: [], snapshots: [] } as any);
       }
     }
     fetchFilesData();

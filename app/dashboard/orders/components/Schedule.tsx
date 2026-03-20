@@ -19,6 +19,7 @@ import VendorWorkCarousel from './VendorWorkCarousel'
 import { getEffectiveServiceDuration } from '../utils/serviceTimeUtils'
 import { Services } from '../../services/page'
 import { CleanedProductOption } from '../../services/services'
+import { useSearchParams } from 'next/navigation'
 
 interface Coordinate {
     lat: number
@@ -79,6 +80,8 @@ export interface ScheduleProps {
 }
 
 const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
+    const searchParams = useSearchParams();
+    const isEdit = searchParams.get('isEdit') === 'true';
     const [selectedVendorMap, setSelectedVendorMap] = React.useState<Record<number, string | string[]>>({});
     const [showAllVendorsMap, setShowAllVendorsMap] = useState<Record<number, 0 | 1>>({});
     const [scheduleOverrideMap, setScheduleOverrideMap] = useState<Record<number, 0 | 1>>({});
@@ -290,8 +293,10 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                 </div>
             </div>
             <div className="grid grid-cols-3 gap-16 text-[#7D7D7D] px-16 py-6 auto-rows-max">
-                {selectedServices?.map((service, idx) => {
-                    const selectedVendor = selectedVendorMap[idx] ?? 'all';
+                {(() => {
+                    const servicesToSchedule = isEdit ? selectedServices : selectedServices.filter((s: any) => !s.service_uuid);
+                    return servicesToSchedule?.map((service, idx) => {
+                        const selectedVendor = selectedVendorMap[idx] ?? 'all';
 
                     const handleVendorChange = (value: string) => {
                         setSelectedVendorMap((prev) => ({ ...prev, [idx]: value }));
@@ -317,16 +322,25 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                     const isFullyScheduled = currentDuration >= requiredDuration && requiredDuration > 0;
                     const isInvalid = invalidServices.includes(service.uuid || '');
 
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const isPastDate = isEdit && serviceSlots.some((slot: Slot) => {
+                        if (!slot.date) return false;
+                        const slotDate = new Date(slot.date + 'T00:00:00');
+                        return slotDate < today;
+                    });
+
                     return (
                         <React.Fragment key={idx}>
                             <div className={cn(
                                 "flex flex-col gap-4 p-4 rounded-lg border transition-all",
-                                isInvalid ? "border-red-500 bg-red-50/30" : "border-transparent"
+                                isInvalid ? "border-red-500 bg-red-50/30" : "border-transparent",
+                                isPastDate ? "pointer-events-none opacity-60 bg-gray-50 bg-opacity-50" : ""
                             )}>
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="text-[12px]">
-                                            Select Service Time ({idx + 1} of {selectedServices?.length})
+                                            Select Service Time ({idx + 1} of {servicesToSchedule?.length})
                                         </p>
                                         <p className="text-[16px] font-[700] max-w-[200px]">{service.title}</p>
                                         <p className="text-[12px]">
@@ -648,7 +662,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                             )}
                         </React.Fragment>
                     );
-                })}
+                })})()}
             </div>
         </div>
     )

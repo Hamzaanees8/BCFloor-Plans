@@ -397,7 +397,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
                     </div>
                 ) : (
                     <div className="py-20 text-center text-gray-500">
-                        No approved photos or videos found to download.
+                        No media available to download.
                     </div>
                 )}
             </div>

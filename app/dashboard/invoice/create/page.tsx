@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { GetListing } from '../../listings/listing'
 import { CreateInvoice } from '../invoice_api'
@@ -8,7 +8,8 @@ import { useAppContext } from '@/app/context/AppContext'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { Loader2, Save, X, Plus } from 'lucide-react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { SearchableSelect } from '@/app/dashboard/orders/components/SearchableSelect'
+import { Get as GetAgents } from '../../agents/agents'
 import InvoiceDocument from '../components/InvoiceDocument'
 
 const CreateInvoicePage = () => {
@@ -21,6 +22,9 @@ const CreateInvoicePage = () => {
 
     const [properties, setProperties] = useState<any[]>([])
     const [loadingProperties, setLoadingProperties] = useState(true)
+    const [agents, setAgents] = useState<any[]>([])
+    const [loadingAgents, setLoadingAgents] = useState(true)
+    const [selectedAgentId, setSelectedAgentId] = useState<string>('')
     const [selectedProperty, setSelectedProperty] = useState<any>(null)
     const [saving, setSaving] = useState(false)
 
@@ -40,9 +44,26 @@ const CreateInvoicePage = () => {
     })
 
     useEffect(() => {
+        const userInfoStr = localStorage.getItem('userInfo');
+        if (userInfoStr && userType === 'agent') {
+            const userInfo = JSON.parse(userInfoStr);
+            setSelectedAgentId(userInfo.uuid);
+        }
+    }, [userType]);
+
+    useEffect(() => {
         const token = localStorage.getItem('token')
         if (!token) return
 
+        setLoadingAgents(true)
+        GetAgents()
+            .then(res => {
+                setAgents(Array.isArray(res.data) ? res.data : [])
+            })
+            .catch(() => toast.error('Failed to load agents'))
+            .finally(() => setLoadingAgents(false))
+
+        setLoadingProperties(true)
         GetListing(token)
             .then(res => {
                 const allProps = Array.isArray(res.data) ? res.data : [];
@@ -54,10 +75,42 @@ const CreateInvoicePage = () => {
             .finally(() => setLoadingProperties(false))
     }, [])
 
+    const handleAgentChange = (uuid: string) => {
+        setSelectedAgentId(uuid)
+        // Only reset property if the current selected property doesn't belong to the new agent
+        if (selectedProperty && selectedProperty.agent?.uuid !== uuid) {
+            setSelectedProperty(null)
+        }
+    }
+
     const handlePropertyChange = (uuid: string) => {
         const prop = properties.find(p => p.uuid === uuid)
         setSelectedProperty(prop)
+        // If property is selected, automatically select its agent
+        if (prop?.agent?.uuid) {
+            setSelectedAgentId(prop.agent.uuid)
+        }
     }
+
+    const agentOptions = useMemo(() => {
+        return agents.map(a => ({
+            label: `${a.first_name} ${a.last_name} ${a.company_name ? `(${a.company_name})` : ''}`,
+            value: a.uuid
+        }))
+    }, [agents])
+
+    const filteredProperties = useMemo(() => {
+        // If agent is selected, filter properties by agent. Otherwise show all.
+        if (!selectedAgentId) return properties
+        return properties.filter(p => p.agent?.uuid === selectedAgentId)
+    }, [properties, selectedAgentId])
+
+    const propertyOptions = useMemo(() => {
+        return filteredProperties.map(p => ({
+            label: `${p.address}, ${p.city}`,
+            value: p.uuid
+        }))
+    }, [filteredProperties])
 
     const recalulateTotals = (items: any[], taxRate: number) => {
         const subtotal = items.reduce((acc, item) => acc + (parseFloat(item.quantity) * parseFloat(item.unit_price) || 0), 0)
@@ -201,23 +254,32 @@ const CreateInvoicePage = () => {
             </div>
 
             <div className="mx-auto max-w-5xl p-6 md:p-12 relative font-alexandria">
-                <div className="mb-10 mx-auto max-w-[800px] bg-white p-8 rounded-xl shadow-lg border border-gray-100 ">
-                    <label className="block text-xs font-bold text-gray-500 mb-4 uppercase tracking-[0.2em]">Select Property</label>
-                    <Select onValueChange={handlePropertyChange}>
-                        <SelectTrigger className="w-full h-[42px] bg-gray-50/50 border-gray-100 rounded-md text-sm focus:ring-1 transition-all" style={{ borderColor: `#BBBBBB` }}>
-                            <SelectValue placeholder={loadingProperties ? "Loading properties..." : "Search and select a property"} />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[300px] rounded-lg shadow-xl border-gray-100">
-                            {properties.map((p) => (
-                                <SelectItem key={p.uuid} value={p.uuid} className="py-3 cursor-pointer">
-                                    <div className="flex flex-col">
-                                        <span className="font-medium text-gray-900">{p.address}, {p.city}</span>
-                                        <span className="text-sm text-gray-500">Agent: {p.agent?.first_name} {p.agent?.last_name}</span>
-                                    </div>
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                <div className="mb-10 mx-auto max-w-[800px] bg-white p-8 rounded-xl shadow-lg border border-gray-100 flex flex-col gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-[0.2em]">Select Agent</label>
+                            <SearchableSelect
+                                options={agentOptions}
+                                value={selectedAgentId}
+                                onChange={handleAgentChange}
+                                placeholder={loadingAgents ? "Loading agents..." : "Search and select an agent"}
+                                searchPlaceholder="Search agent..."
+                                disabled={userType === 'agent'}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-[0.2em]">Select Property</label>
+                            <SearchableSelect
+                                options={propertyOptions}
+                                value={selectedProperty?.uuid || ''}
+                                onChange={handlePropertyChange}
+                                placeholder={loadingProperties ? "Loading properties..." : "Search and select a property"}
+                                searchPlaceholder="Search property..."
+                                disabled={!selectedAgentId || loadingProperties}
+                                emptyMessage={selectedAgentId ? "No properties found for this agent." : "Please select an agent first."}
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 {!selectedProperty ? (
@@ -225,7 +287,7 @@ const CreateInvoicePage = () => {
                         <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                             <Plus className="h-8 w-8 text-gray-400" />
                         </div>
-                        <p className="text-gray-400 text-lg">Select a property above to start creating the invoice</p>
+                        <p className="text-gray-400 text-lg">Select an agent and property above to start creating the invoice</p>
                     </div>
                 ) : (
                     <>

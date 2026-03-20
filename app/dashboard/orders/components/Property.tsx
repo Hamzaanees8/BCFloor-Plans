@@ -9,6 +9,7 @@ import { Listings } from '@/lib/types';
 import { GetListing } from '@/app/dashboard/listings/listing';
 import { Country, State } from "country-state-city";
 import { GetOneListing, fetchMlsData } from "../../listings/listing"
+import { useRouter } from 'next/navigation';
 //import AddListingDialog from './AddListingDialog';
 import { useOrderContext } from '../context/OrderContext';
 import { toast } from 'sonner';
@@ -77,6 +78,7 @@ type Listing = {
     orders?: Order[];
 };
 const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }) => {
+    const router = useRouter();
     const {
         selectedAgentId,
         setSelectedAgentId,
@@ -87,6 +89,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         setListingsData,
         setServicesData,
         setVendorsData,
+        ordersData,
         setOrdersData,
         tempPropertyData,
         setTempPropertyData,
@@ -239,13 +242,30 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             return;
         }
 
+        if (id !== 'NEW' && id !== null && ordersData && listingData) {
+            // Check if there is an existing order for this property
+            const selectedList = listingData.find(l => l.uuid === id);
+            if (selectedList) {
+                const existingOrder = ordersData.find(o => {
+                    const orderAny = o as any;
+                    return orderAny.property?.uuid === id || (selectedList.address && o.property_address?.toLowerCase() === selectedList.address.toLowerCase());
+                });
+
+                if (existingOrder) {
+                    toast.info("This property already has an order. Loading order details...");
+                    router.push(`/dashboard/orders/create/${existingOrder.uuid}`);
+                    return;
+                }
+            }
+        }
+
         if (hasSelections()) {
             setPendingListingId(id);
             setIsConfirmOpen(true);
         } else {
             proceedWithListingChange(id);
         }
-    }, [hasSelections, proceedWithListingChange, selectedListingId]);
+    }, [hasSelections, proceedWithListingChange, selectedListingId, ordersData, listingData, router]);
 
 
     const fetchAgents = useCallback(() => {

@@ -10,6 +10,7 @@ import { Services } from "../../services/page";
 import { useOrderContext } from "../context/OrderContext";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
+import { useSearchParams } from 'next/navigation';
 
 interface PricingCardProps {
   title: string;
@@ -47,8 +48,14 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     return (selectedServices ?? []).find((s) => s.uuid === service.uuid);
   }, [selectedServices, service.uuid]);
 
+  const searchParams = useSearchParams();
+  const isEdit = searchParams.get('isEdit') === 'true';
+
   const isSelected = !!selectedServiceItem;
   const isPaid = selectedServiceItem?.payment_status?.toUpperCase() === 'PAID';
+  // Check if service was fetched from backend as an existing booked service
+  // Do not mark as "booked" (and thereby disable interaction) if we are in full Edit Order mode.
+  const isBooked = !!selectedServiceItem?.service_uuid && !isEdit;
 
   const isPhotoService = useMemo(() => {
     const name = service.name?.toLowerCase() || '';
@@ -202,19 +209,24 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
   };
   return (
     <Card
-      className={`!w-[250px] h-fit border-2 rounded-[6px] px-2 py-4`}
+      className={`!w-[250px] h-fit border-2 rounded-[6px] px-2 py-4 relative ${isBooked ? 'opacity-60 pointer-events-none' : ''}`}
       style={{
         backgroundColor: fieldBg,
         borderColor: isSelected ? "#6BAE41" : fieldBorder,
         color: roleSettings.pageText
       }}
     >
+      {isBooked && (
+        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#6BAE41] text-white px-3 py-0.5 rounded-full text-[10px] uppercase font-bold z-10 shadow-sm whitespace-nowrap">
+          Booked
+        </div>
+      )}
       <CardContent className="p-0">
         <div className="flex items-start justify-between mb-2">
           <div className="flex justify-between gap-2 w-full items-center">
             <div
               onClick={() => {
-                if (isPaid) return;
+                if (isPaid || isBooked) return;
                 if (!selectedOption) return;
 
                 if (setSelectedServices) {
@@ -229,13 +241,13 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                   });
                 }
               }}
-              title={isPaid ? "Cannot modify - service has been paid" : ""}
+              title={isPaid ? "Cannot modify - service has been paid" : isBooked ? "Service is already booked" : ""}
               // style={{
               //   backgroundColor: isSelected ? roleSettings.pageTabColor : `color-mix(in srgb, ${roleSettings.pageTabColor} 100%, black)`
               // }}
               className={`
                         p-1 w-6 h-6 flex justify-center items-center rounded-md border-[2px]
-                        ${isPaid ? "cursor-not-allowed opacity-100" : !selectedOption ? "cursor-not-allowed opacity-100" : "cursor-pointer"}
+                        ${(isPaid || isBooked) ? "cursor-not-allowed opacity-100" : !selectedOption ? "cursor-not-allowed opacity-100" : "cursor-pointer"}
                         ${isSelected ? "bg-[#6BAE41] border-[#6BAE41]" : "bg-transparent border-[#BBBBBB]"}
                       `}
             >
@@ -244,10 +256,10 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
               )}
             </div>
             <div
-              className={`text-[16px] flex-1 text-left select-none ${!selectedOption || isPaid ? "" : "cursor-pointer"}`}
+              className={`text-[16px] flex-1 text-left select-none ${!selectedOption || isPaid || isBooked ? "" : "cursor-pointer"}`}
               style={{ color: roleSettings.pageText }}
               onClick={() => {
-                if (isPaid) return;
+                if (isPaid || isBooked) return;
                 if (!selectedOption) return;
 
                 if (setSelectedServices) {
@@ -316,8 +328,8 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                       <div key={idx} className="w-full flex items-center justify-between">
                         <RadioGroupItem
                           value={option?.title ?? ""}
-                          disabled={isPaid}
-                          title={isPaid ? "Cannot modify - service has been paid" : ""}
+                          disabled={isPaid || isBooked}
+                          title={isPaid ? "Cannot modify - service has been paid" : isBooked ? "Service is already booked" : ""}
                           id={`option-${idx}`}
                           className={`w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
                                   appearance-none
@@ -356,8 +368,8 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                         <RadioGroupItem
                           value="custom"
                           id="custom"
-                          disabled={isPaid}
-                          title={isPaid ? "Cannot modify - service has been paid" : ""}
+                          disabled={isPaid || isBooked}
+                          title={isPaid ? "Cannot modify - service has been paid" : isBooked ? "Service is already booked" : ""}
                           className="w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
                             appearance-none
                             after:hidden
@@ -378,11 +390,11 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                         <Input
                           placeholder={isPhotoService ? "Qty" : "Service Name"}
                           type={isPhotoService ? "number" : "text"}
-                          disabled={isPaid}
+                          disabled={isPaid || isBooked}
                           className="h-[26px] px-[5px] bg-white text-[12px] font-medium text-gray-800 col-span-4 disabled:opacity-100 disabled:text-gray-800"
                           value={customServiceName}
                           onChange={(e) => {
-                            if (isPaid) return;
+                            if (isPaid || isBooked) return;
                             setCustomServiceNames(prev => ({
                               ...prev,
                               [service.uuid]: e.target.value,
@@ -400,11 +412,11 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                             type="number"
                             min={0}
                             placeholder="__"
-                            disabled={isPaid || (isPhotoService && selectedOption === "custom")}
+                            disabled={isPaid || isBooked || (isPhotoService && selectedOption === "custom")}
                             className="h-full pl-[16px] pr-[3px] bg-white text-[12px] font-medium text-gray-800 w-full disabled:opacity-100 disabled:text-gray-800"
                             value={displayPrice}
                             onChange={e => {
-                              if (isPaid) return;
+                              if (isPaid || isBooked) return;
                               if (isPhotoService && selectedOption === "custom") return; // Read-only for photo custom qty
 
                               setCustomPrices(prev => ({

@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react';
 import { GetOne } from '../orders';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Property from '@/app/dashboard/orders/components/Property';
 import Services from '@/app/dashboard/orders/components/Services';
 import Schedule from '@/app/dashboard/orders/components/Schedule';
@@ -24,6 +24,8 @@ import { toast } from 'sonner';
 const OrderForm = () => {
     const confirmationRef = useRef<OrderConfirmationHandle>(null);
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const isEdit = searchParams.get('isEdit') === 'true';
     // type CurrentUser = {
     //     uuid: string;
     //     first_name?: string;
@@ -96,9 +98,16 @@ const OrderForm = () => {
         isPropertyValid,
         servicesData,
         tempPropertyData,
-        selectedCurrentListing
+        selectedCurrentListing,
+        resetOrderData
     } = useOrderContext();
     const { setIsDirty } = useUnsaved();
+
+    useEffect(() => {
+        if (!userId && !isEdit) {
+            resetOrderData();
+        }
+    }, [userId, isEdit, resetOrderData]);
 
     useEffect(() => {
         const warningTabs = ['schedule', 'contact', 'order'];
@@ -273,7 +282,9 @@ const OrderForm = () => {
             const newInvalidServices: string[] = [];
             let firstErrorToastShown = false;
 
-            for (const service of selectedServices) {
+            const servicesToSchedule = isEdit ? selectedServices : selectedServices.filter(s => !(s as any).service_uuid);
+
+            for (const service of servicesToSchedule) {
                 const serviceUuid = typeof service === 'string' ? service : service.uuid;
                 if (!serviceUuid) continue;
 
@@ -338,9 +349,14 @@ const OrderForm = () => {
         if (active === 'property' && isPropertyValid) {
             return true
         } else if (active === 'services' && selectedServices.length > 0) {
+            if (!isEdit) {
+                // Must have at least one new service selected (without service_uuid)
+                return selectedServices.some(s => !(s as any).service_uuid);
+            }
             return true
         } else if (active === 'schedule') {
-            const selectedServiceIds = selectedServices
+            const servicesToSchedule = isEdit ? selectedServices : selectedServices.filter(s => !(s as any).service_uuid);
+            const selectedServiceIds = servicesToSchedule
                 .map(s => typeof s === 'string' ? s : s.uuid)
                 .filter((id): id is string => typeof id === 'string');
             const scheduledServiceIds = selectedSlots.map(slot => slot.service_id);
@@ -404,7 +420,8 @@ const OrderForm = () => {
 
             // Schedule tab validation
             if (tabToCheck === 'schedule') {
-                const selectedServiceIds = selectedServices
+                const servicesToSchedule = isEdit ? selectedServices : selectedServices.filter(s => !(s as any).service_uuid);
+                const selectedServiceIds = servicesToSchedule
                     .map(s => typeof s === 'string' ? s : s.uuid)
                     .filter((id): id is string => typeof id === 'string');
                 const scheduledServiceIds = selectedSlots.map(slot => slot.service_id);

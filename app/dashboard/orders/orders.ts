@@ -34,6 +34,7 @@ export interface OrderPayload {
     km_price?: number | null;
     date: string;
   }[];
+  is_add_service?: number;
 }
 export interface EditOrderPayload {
   order_status?: "Processing" | "Completed" | "Cancelled" | string;

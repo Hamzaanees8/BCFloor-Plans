@@ -8,6 +8,7 @@ import { useOrderContext } from '../context/OrderContext'
 import { useAppContext } from '@/app/context/AppContext'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { Listings } from '@/lib/types'
+import { useSearchParams, useParams } from 'next/navigation'
 
 
 export interface SelectedService {
@@ -54,6 +55,12 @@ const PricingCardSkeleton = () => (
 );
 
 const Services = ({ showAll }: { showAll: boolean }) => {
+    const searchParams = useSearchParams();
+    const params = useParams();
+    const isEdit = searchParams.get('isEdit') === 'true';
+    const userId = params?.id as string;
+    const isAddFlow = !!userId && !isEdit;
+
     const {
         selectedServices,
         setSelectedServices,
@@ -168,7 +175,9 @@ const Services = ({ showAll }: { showAll: boolean }) => {
         return acc;
     }, {} as Record<string, Services[]>);
 
-    const rawTotalPrice = selectedServices?.reduce((total, service) => {
+    const displayedServices = isAddFlow ? selectedServices.filter(s => !s.service_uuid) : selectedServices;
+
+    const rawTotalPrice = displayedServices?.reduce((total, service) => {
         if (service.payment_status?.toUpperCase() === 'PAID') return total;
         return total + (Number(service.price) || 0);
     }, 0);
@@ -368,7 +377,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                             <div className="flex justify-between">
                                 <span className="text-[#888] text-[10px] font-[700]">Services</span>
                             </div>
-                            {selectedServices.map((service, idx) => (
+                            {displayedServices.map((service, idx) => (
                                 <div key={idx} className="flex justify-between">
                                     <div className="flex items-center gap-x-3">
                                         <div className="flex flex-col">
@@ -379,11 +388,11 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                                                 <span className='text-[10px] text-[#888] font-[500]'>Qty: {service.quantity}</span>
                                             )}
                                         </div>
-                                        {/* {service.payment_status && (
-                                            <span className={`text-[10px] uppercase font-bold ${service.payment_status === 'PAID' ? 'text-green-600' : 'text-red-500'}`}>
+                                        {(isEdit || isAddFlow) && service.payment_status && service.service_uuid && (
+                                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-sm ${service.payment_status.toUpperCase() === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                                 {service.payment_status}
                                             </span>
-                                        )} */}
+                                        )}
                                     </div>
                                     <span>$ {service.price}</span>
                                 </div>

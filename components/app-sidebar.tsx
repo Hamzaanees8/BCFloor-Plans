@@ -89,8 +89,13 @@ const data = {
         },
         {
           title: "Vendor Billing",
-          url: "/dashboard/vendor-billing",
+          url: "/dashboard/vendor-billing/uninvoiced",
           icon: PanelTop,
+        },
+        {
+          title: "Vendor Invoices",
+          url: "/dashboard/vendor-billing/invoices",
+          icon: File,
         },
         // {
         //   title: "Sub Accounts",
@@ -208,40 +213,42 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           ? "SETTINGS"
           : group.title,
       items: group.items.filter((item) => {
+        // Matterport is admin only
         if (item.url === "/dashboard/matterport" && userType !== "admin") {
           return false;
         }
+
+        // Customer billing (Admin/Agent)
         if (item.url === "/dashboard/billing" && userType !== "admin" && userType !== "agent") {
           return false;
         }
-        if (item.url === "/dashboard/vendor-billing" && userType !== "admin") {
+
+        // Vendor Billing (Admin only)
+        if (item.url === "/dashboard/vendor-billing/uninvoiced" && userType !== "admin") {
           return false;
         }
 
-        if (item.url === "/dashboard/sub-accounts") {
-          return (
-            (userType === "admin" && group.title === "PEOPLE") ||
-            (userType === "agent" && group.title === "DATA")
-          );
+        // Vendor Invoices (Admin/Vendor history)
+        if (item.url === "/dashboard/vendor-billing/invoices") {
+           if (userType === "vendor") {
+               item.url = "/dashboard/vendor-billing/my-invoices";
+               item.title = "My Invoices";
+           } else if (userType !== "admin") {
+               return false;
+           }
         }
 
-        if (
-          (userType === "agent" || userType === "vendor") &&
-          item.url === "/dashboard/global-settings"
-        ) {
-          item.title = "Settings";
-        }
-
+        // Permission based filtering for Admins
         if (userType === "admin") {
           if (
-            item.url === "/dashboard/billing" &&
+            (item.url === "/dashboard/vendor-billing/uninvoiced" || item.url === "/dashboard/vendor-billing/invoices") &&
             !hasPermission(PERMISSIONS.ACCESS_BILLING)
           ) {
             return false;
           }
 
           if (
-            item.url === "/dashboard/vendor-billing" &&
+            item.url === "/dashboard/billing" &&
             !hasPermission(PERMISSIONS.ACCESS_BILLING)
           ) {
             return false;
@@ -269,6 +276,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           }
         }
 
+        // Restricted sections for agents
         if (userType === "agent") {
           const restrictedUrls = [
             "/dashboard/admin",
@@ -279,10 +287,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           return !restrictedUrls.includes(item.url);
         }
 
-        // Existing filters for vendor
+        // Restricted sections for vendors
         if (userType === "vendor") {
           const restrictedUrls = ["/dashboard/admin", "/dashboard/vendors"];
-          return !restrictedUrls.includes(item.url);
+          if (restrictedUrls.includes(item.url)) {
+            return false;
+          }
+          if (item.url === "/dashboard/global-settings") {
+            item.title = "Settings";
+          }
         }
 
         return true;

@@ -576,7 +576,7 @@ const Page = () => {
                             setIsSubmitted(false);
                             const uuid = row.original.uuid;
                             if (uuid) {
-                                router.push(`/dashboard/orders/create/${uuid}`);
+                                router.push(`/dashboard/orders/create/${uuid}?isEdit=true`);
                             }
                         },
                     }] : []),

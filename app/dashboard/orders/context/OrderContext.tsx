@@ -1,7 +1,7 @@
 // app/orders/create/context/OrderContext.tsx
 'use client';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 import { SelectedService } from '../components/Services';
 import { Dispatch, SetStateAction } from 'react';
 import { Discount } from '../components/Confirmation';
@@ -98,7 +98,7 @@ type OrderContextType = {
     setInternal: (value: boolean) => void;
 
     agentNotes: AgentNote[];
-    setAgentNotes: React.Dispatch<React.SetStateAction<AgentNote[]>>;
+    setAgentNotes: Dispatch<SetStateAction<AgentNote[]>>;
 
     selectedSlots: Slot[];
     setSelectedSlots: Dispatch<SetStateAction<Slot[]>>;
@@ -116,7 +116,7 @@ type OrderContextType = {
     setCustomServiceNames: Dispatch<SetStateAction<Record<string, string>>>;
 
     selectedCurrentListing: Listings | null
-    setSelectedCurrentListing: React.Dispatch<React.SetStateAction<Listings | null>>;
+    setSelectedCurrentListing: Dispatch<SetStateAction<Listings | null>>;
 
     discountCode: string;
     setDiscountCode: (notes: string) => void;
@@ -201,7 +201,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     const [packagesData, setPackagesData] = useState<Packages[]>([]);
     const [activePackage, setActivePackage] = useState<Packages | null>(null);
 
-    const resetOrderData = () => {
+    const resetOrderData = useCallback(() => {
         setInitComplete(false);
         setSelectedAgentId(null);
         setSelectedListingId(null);
@@ -225,9 +225,9 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
         setActivePackage(null);
         setTempPropertyData(null);
         setIsPropertyValid(false);
-    };
+    }, []);
 
-    const clearSelections = () => {
+    const clearSelections = useCallback(() => {
         setInitComplete(false);
         setSelectedServices([]);
         setCalendarServices([]);
@@ -248,7 +248,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
         setActivePackage(null);
         setTempPropertyData(null);
         setIsPropertyValid(false);
-    };
+    }, []);
 
     return (
         <OrderContext.Provider

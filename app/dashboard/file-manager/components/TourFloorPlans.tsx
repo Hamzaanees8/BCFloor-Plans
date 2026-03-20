@@ -18,7 +18,7 @@ import { useAppContext } from "@/app/context/AppContext";
 function TourFloorPlans({ type = "" }) {
   const { userType } = useAppContext();
   const { droppedMarkers, setDroppedMarkers, filesData } = useFileManagerContext();
-  let currentTourFloorFiles = filesData?.files?.filter(file => (file?.service?.name === '2D Floor Plans' || file?.service?.name === '3D Floor Plans') && file.type === 'photo' && !file.file_path.toLowerCase().endsWith('.pdf'));
+  let currentTourFloorFiles = filesData?.files?.filter(file => (file?.service?.name === '2D Floor Plans' || file?.service?.name === '3D Floor Plans') && file.type === 'photo' && !file.file_path?.toLowerCase().endsWith('.pdf'));
   let currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === 'photo');
 
   if (userType === 'agent') {
@@ -227,7 +227,7 @@ function TourFloorPlans({ type = "" }) {
           ) : isSelectedFilePDF && selectedApiFile ? (
             // Render PDF in iframe
             <iframe
-              src={`${selectedApiFile.variant_urls?.popup || selectedApiFile.url || `${API_URL}/${selectedApiFile.file_path}`}#toolbar=0`}
+              src={`${selectedApiFile.variant_urls?.popup || selectedApiFile.url || (selectedApiFile.file_path ? `${API_URL}/${selectedApiFile.file_path}` : '')}#toolbar=0`}
               className="w-full h-full border-0"
               title="Floor Plan PDF"
             />
@@ -238,7 +238,7 @@ function TourFloorPlans({ type = "" }) {
               ref={imgRef}
               src={
                 selectedApiFile
-                  ? selectedApiFile.variant_urls?.popup || selectedApiFile.url || `${API_URL}/${selectedApiFile.file_path}`
+                  ? selectedApiFile.variant_urls?.popup || selectedApiFile.url || (selectedApiFile.file_path ? `${API_URL}/${selectedApiFile.file_path}` : '')
                   : ""
               }
               alt="Selected Floor"
@@ -456,7 +456,7 @@ function TourFloorPlans({ type = "" }) {
                     </div>
                   ) : (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`} alt="preview" className="max-w-full max-h-full" />
+                    <img src={file.variant_urls?.thumb || file.thumbnail_url || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : '')} alt="preview" className="max-w-full max-h-full" />
                   )}
                 </div>
               </div>
@@ -483,7 +483,7 @@ function TourFloorPlans({ type = "" }) {
                         setDraggedFile({ file_path: file.file_path, url: file.url, thumbnail_url: file.variant_urls?.thumb || file.thumbnail_url || file.url });
                         imageContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                       }}
-                      src={file.variant_urls?.thumb || file.url || `${API_URL}/${file.file_path}`}
+                      src={file.variant_urls?.thumb || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : '')}
                       alt="preview"
                       className="w-full h-full object-cover"
                     />

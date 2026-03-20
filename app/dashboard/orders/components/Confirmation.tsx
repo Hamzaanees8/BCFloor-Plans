@@ -4,6 +4,7 @@ import { useOrderContext } from '../context/OrderContext';
 import ConfirmationCard from './ConfirmationCard';
 import { Slot } from '../context/OrderContext';
 import { SelectedService } from './Services';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 import { Input } from '@/components/ui/input';
 import { Plus, Loader2, File } from 'lucide-react';
@@ -87,6 +88,12 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     const [orderData, setOrderData] = React.useState<Order | null>(null);
     const params = useParams();
     const userId = params?.id as string;
+
+    const isEdit = searchParams.get('isEdit') === 'true';
+    const isAddFlow = !!userId && !isEdit;
+
+    const newServices = isAddFlow ? selectedServices.filter(s => !s.service_uuid) : selectedServices;
+    const oldServices = isAddFlow ? selectedServices.filter(s => !!s.service_uuid) : [];
 
     const currentListing = listingsData.find(l => l.uuid === selectedListingId);
     const sqFootage = Number(currentListing?.square_footage || tempPropertyData?.square_footage || 0);
@@ -323,6 +330,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                 order_status: "Processing",
                 payment_status: "UNPAID",
                 split_invoice: isSplitInvoice ? 1 : 0,
+                ...(userId && { is_add_service: isAddFlow ? 1 : 0 }),
                 co_agents: coAgents,
                 notes: agentNotes.map(note => ({
                     ...note,
@@ -543,22 +551,52 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                     </p>
 
                                     <div className="grid gap-[15px]">
-                                        {orderData?.services?.map((service) => {
-                                            const isPaid = service.payment_status?.toUpperCase() === 'PAID';
+                                        {(() => {
+                                            const oldServiceUuids = isAddFlow ? selectedServices.filter(s => !!s.service_uuid).map(s => s.service_uuid) : [];
+                                            const postNewServices = orderData?.services?.filter(s => !oldServiceUuids.includes(s.uuid)) || [];
+                                            const postOldServices = orderData?.services?.filter(s => oldServiceUuids.includes(s.uuid)) || [];
+
                                             return (
-                                                <p key={service.id} className="grid grid-cols-4 gap-[15px] items-center">
-                                                    <span className="col-span-3 flex items-center gap-2">
-                                                        {service.service?.name ?? ""}
-                                                        {isPaid && (
-                                                            <span className="text-[10px] bg-[#6BAE41] text-white px-1.5 py-0.5 rounded font-semibold uppercase">
-                                                                Paid
-                                                            </span>
-                                                        )}
-                                                    </span>
-                                                    <span className="col-span-1">${parseFloat(service.amount).toFixed(2)}</span>
-                                                </p>
+                                                <>
+                                                    {postNewServices.map((service) => {
+                                                        return (
+                                                            <p key={service.id} className="grid grid-cols-4 gap-[15px] items-center">
+                                                                <span className="col-span-3 flex items-center gap-2">
+                                                                    {service.service?.name ?? ""}
+                                                                </span>
+                                                                <span className="col-span-1">${parseFloat(service.amount).toFixed(2)}</span>
+                                                            </p>
+                                                        );
+                                                    })}
+
+                                                    {isAddFlow && postOldServices.length > 0 && (
+                                                        <Accordion type="single" collapsible className="w-full">
+                                                            <AccordionItem value="previous-services-posted" className="border-none">
+                                                                <AccordionTrigger className="text-[16px] font-semibold text-[#666666] hover:no-underline px-0 py-2 bg-[#EEEEEE] rounded-md decoration-transparent">
+                                                                    Previously Booked Services
+                                                                </AccordionTrigger>
+                                                                <AccordionContent className="pt-2 space-y-3 border-none">
+                                                                    {postOldServices.map((service) => {
+                                                                        const isPaid = service.payment_status?.toUpperCase() === 'PAID';
+                                                                        return (
+                                                                            <div key={service.id} className="grid grid-cols-4 gap-[15px] items-center">
+                                                                                <span className="col-span-3 flex items-center gap-2">
+                                                                                    {service.service?.name ?? ""}
+                                                                                    <span className={`text-[10px] ${isPaid ? 'bg-[#6BAE41]' : 'bg-[#E06D5E]'} text-white px-1.5 py-0.5 rounded font-semibold uppercase`}>
+                                                                                        {isPaid ? 'Paid' : 'Unpaid'}
+                                                                                    </span>
+                                                                                </span>
+                                                                                <span className="col-span-1 text-sm">${parseFloat(service.amount).toFixed(2)}</span>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </AccordionContent>
+                                                            </AccordionItem>
+                                                        </Accordion>
+                                                    )}
+                                                </>
                                             );
-                                        })}
+                                        })()}
                                     </div>
 
                                     <p className='grid grid-cols-4 gap-[15px]'>
@@ -657,7 +695,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                             <div className='grid grid-cols-2 gap-[22px]'>
 
                                 <div className='col-span-2'>
-                                    {selectedServices.map((sel) => {
+                                    {newServices.map((sel) => {
                                         const fullService = services.find(s => s.uuid === sel.uuid);
                                         if (!fullService) return null;
 
@@ -713,7 +751,6 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                 }
 
                                                 // Format ranges
-                                                // Use dateStr + "T00:00:00" to avoid UTC timezone issues if dateStr is YYYY-MM-DD
                                                 const formattedDate = dateStr
                                                     ? new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-US", {
                                                         year: "numeric",
@@ -753,7 +790,83 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                         );
                                     })}
 
+                                    {oldServices.length > 0 && (
+                                        <Accordion type="single" collapsible className="w-full mt-4">
+                                            <AccordionItem value="previous-services" className="border-none">
+                                                <AccordionTrigger className="text-[16px] font-semibold text-[#666666] hover:no-underline px-0 py-2 bg-[#EEEEEE] rounded-md">
+                                                    Previously Booked Services
+                                                </AccordionTrigger>
+                                                <AccordionContent className="pt-2 space-y-4">
+                                                    {oldServices.map((sel) => {
+                                                        const fullService = services.find(s => s.uuid === sel.uuid);
+                                                        if (!fullService) return null;
 
+                                                        const serviceSlots = selectedSlots.filter(slot => slot.service_id === sel.uuid);
+                                                        const groupedByVendor: Record<string, typeof serviceSlots> = {};
+                                                        serviceSlots.forEach(slot => {
+                                                            if (!groupedByVendor[slot.vendor_id]) {
+                                                                groupedByVendor[slot.vendor_id] = [];
+                                                            }
+                                                            groupedByVendor[slot.vendor_id].push(slot);
+                                                        });
+
+                                                        const slotInfo = Object.entries(groupedByVendor).map(([vendorId, vendorSlots]) => {
+                                                            const vendor = vendorsData.find(v => v.uuid === vendorId);
+                                                            const vendorName = vendor ? `${vendor.first_name ?? ''} ${vendor.last_name ?? ''}`.trim() : 'Unknown Vendor';
+                                                            const slotsByDate: Record<string, typeof vendorSlots> = {};
+                                                            vendorSlots.forEach(slot => {
+                                                                if (!slotsByDate[slot.date]) slotsByDate[slot.date] = [];
+                                                                slotsByDate[slot.date].push(slot);
+                                                            });
+
+                                                            const timeRanges: string[] = [];
+                                                            Object.entries(slotsByDate).forEach(([dateStr, slots]) => {
+                                                                slots.sort((a, b) => a.start_time.localeCompare(b.start_time));
+                                                                const mergedRanges: { start: string; end: string }[] = [];
+                                                                if (slots.length > 0) {
+                                                                    let currentRange = { start: slots[0].start_time, end: slots[0].end_time };
+                                                                    for (let i = 1; i < slots.length; i++) {
+                                                                        const slot = slots[i];
+                                                                        if (slot.start_time === currentRange.end) {
+                                                                            currentRange.end = slot.end_time;
+                                                                        } else {
+                                                                            mergedRanges.push(currentRange);
+                                                                            currentRange = { start: slot.start_time, end: slot.end_time };
+                                                                        }
+                                                                    }
+                                                                    mergedRanges.push(currentRange);
+                                                                }
+                                                                const formattedDate = dateStr ? new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "";
+                                                                const formatTime = (time: string) => {
+                                                                    const [h, m] = time.split(":");
+                                                                    const hour = parseInt(h);
+                                                                    const meridian = hour >= 12 ? "PM" : "AM";
+                                                                    const formattedHour = hour % 12 || 12;
+                                                                    return `${formattedHour}:${m} ${meridian}`;
+                                                                };
+                                                                mergedRanges.forEach(range => {
+                                                                    const startTime = range.start ? formatTime(range.start) : "";
+                                                                    const endTime = range.end ? formatTime(range.end) : "";
+                                                                    timeRanges.push(`${formattedDate} | ${startTime} - ${endTime}`);
+                                                                });
+                                                            });
+                                                            return { vendorName, timeRanges };
+                                                        });
+
+                                                        return (
+                                                            <ConfirmationCard
+                                                                key={fullService.uuid}
+                                                                service={fullService}
+                                                                title={fullService.name ?? ""}
+                                                                selectedService={sel}
+                                                                slotInfo={slotInfo}
+                                                            />
+                                                        );
+                                                    })}
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        </Accordion>
+                                    )}
                                 </div>
                                 <div className="col-span-2 grid grid-cols-7 gap-x-[30px]">
                                     <div className="col-span-6">

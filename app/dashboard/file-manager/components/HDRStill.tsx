@@ -166,7 +166,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         const sortedServerFiles = (currentServiceFiles || []).map((f, index) => ({
             clientId: f.uuid, // Use existing UUID as client ID for stability
             serverId: f.uuid,
-            url: f.variant_urls?.thumb || f.thumbnail_url || f.url || `${API_URL}/${f.file_path}`,
+            url: f.variant_urls?.thumb || f.thumbnail_url || f.url || (f.file_path ? `${API_URL}/${f.file_path}` : ''),
             status: 'uploaded' as const,
             order: index + 1,
             originalData: f
@@ -433,20 +433,20 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                                     <p className="text-gray-500 font-medium text-sm">Processing...</p>
                                 </div>
-                            ) : file.file_path.toLowerCase().endsWith('.pdf') ? (
+                            ) : file.file_path?.toLowerCase().endsWith('.pdf') ? (
                                 (userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
                                     <PdfPlaceholder
                                         className="w-full h-full object-contain cursor-pointer"
                                         isRestricted={true}
-                                        onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
+                                        onClick={() => handleImageClick(file.variant_urls?.popup || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : ''), file)}
                                     />
                                 ) : (
                                     <div
                                         className="relative w-full h-full cursor-pointer overflow-hidden"
-                                        onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
+                                        onClick={() => handleImageClick(file.variant_urls?.popup || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : ''), file)}
                                     >
                                         <iframe
-                                            src={`${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                                            src={`${file.variant_urls?.popup || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : '')}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
                                             className={`w-full h-full pointer-events-none border-none ${isDragging ? 'opacity-0' : 'opacity-100'}`}
                                             tabIndex={-1}
                                             scrolling="no"
@@ -543,7 +543,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                             const cardEl = (e.currentTarget as HTMLElement).closest('[data-fileid]') as HTMLElement | null;
                                             const imgEl = cardEl?.querySelector('img') as HTMLImageElement | null;
                                             const thumbSrc = imgEl?.src ||
-                                                file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`;
+                                                file.variant_urls?.thumb || file.thumbnail_url || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : '');
 
                                             if (cardEl) {
                                                 const rect = cardEl.getBoundingClientRect();

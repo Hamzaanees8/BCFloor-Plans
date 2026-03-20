@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { GetInvoices } from './invoice_api'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { useAppContext } from '@/app/context/AppContext'
@@ -12,7 +12,9 @@ import { Button } from '@/components/ui/button'
 import { Plus, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import RefundModal from './components/RefundModal'
 import { Get as GetAgents } from '../agents/agents'
+import { GetListing } from '../listings/listing'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { SearchableSelect } from '../orders/components/SearchableSelect'
 import { Input } from '@/components/ui/input'
 
 type Invoice = {
@@ -32,6 +34,7 @@ type Invoice = {
         id: number;
         property: {
             address: string;
+            uuid: string;
         };
     };
 };
@@ -47,7 +50,9 @@ const InvoiceListPage = () => {
     const [search, setSearch] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
     const [agentFilter, setAgentFilter] = useState('all')
+    const [propertyFilter, setPropertyFilter] = useState('all')
     const [agents, setAgents] = useState<any[]>([])
+    const [properties, setProperties] = useState<any[]>([])
     
     const { userType } = useAppContext()
     const { appliedSettings } = useWhiteLabel()
@@ -97,9 +102,20 @@ const InvoiceListPage = () => {
             .catch(err => console.error("Failed to fetch agents", err))
     }
 
+    const fetchListings = () => {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        GetListing(token)
+            .then(res => {
+                setProperties(Array.isArray(res.data) ? res.data : [])
+            })
+            .catch(err => console.error("Failed to fetch listings", err))
+    }
+
     useEffect(() => {
         fetchInvoices()
         fetchAgents()
+        fetchListings()
     }, [])
 
     const handleRefund = (invoice: any) => {
@@ -208,12 +224,36 @@ const InvoiceListPage = () => {
         }
     ];
 
+    const agentOptions = useMemo(() => {
+        const options = agents.map(a => ({
+            label: `${a.first_name} ${a.last_name} ${a.company_name ? `(${a.company_name})` : ''}`,
+            value: a.uuid
+        }))
+        return [{ label: 'All Agents', value: 'all' }, ...options]
+    }, [agents])
+
+    const filteredPropertiesByAgent = useMemo(() => {
+        if (!agentFilter || agentFilter === 'all') return properties
+        return properties.filter(p => p.agent?.uuid === agentFilter)
+    }, [properties, agentFilter])
+
+    const propertyOptions = useMemo(() => {
+        const options = filteredPropertiesByAgent.map(p => ({
+            label: `${p.address}, ${p.city}`,
+            value: p.uuid
+        }))
+        return [{ label: 'All Properties', value: 'all' }, ...options]
+    }, [filteredPropertiesByAgent])
+
     const filteredInvoices = invoices.filter(inv => {
         // Status Filter
         if (statusFilter !== 'all' && inv.status !== statusFilter) return false
         
         // Agent Filter
         if (agentFilter !== 'all' && inv.agent?.uuid !== agentFilter) return false
+
+        // Property Filter
+        if (propertyFilter !== 'all' && inv.order?.property?.uuid !== propertyFilter) return false
 
         // Search Filter (Address or Order # or Invoice #)
         if (search) {
@@ -249,7 +289,7 @@ const InvoiceListPage = () => {
 
             {/* Filters Section */}
             <div className="p-4 border-b sticky top-[80px] z-40" style={{ backgroundColor: roleSettings.pageBg }}>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* Search Field */}
                     <div>
                         <label className="text-sm font-medium text-gray-700 mb-1 block">Address / Order ID</label>
@@ -264,26 +304,51 @@ const InvoiceListPage = () => {
                     {/* Agent Filter */}
                     <div>
                         <label className="text-sm font-medium text-gray-700 mb-1 block">Agent</label>
-                        <Select value={agentFilter} onValueChange={setAgentFilter}>
-                            <SelectTrigger className="w-full bg-white border-[#BBBBBB]">
-                                <SelectValue placeholder="All Agents" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white">
-                                <SelectItem value="all">All Agents</SelectItem>
-                                {agents.map(a => (
-                                    <SelectItem key={a.uuid} value={a.uuid}>
-                                        {a.first_name} {a.last_name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                            options={agentOptions}
+                            value={agentFilter}
+                            onChange={(val) => {
+                                setAgentFilter(val)
+                                // If current property filter doesn't belong to this agent, reset it
+                                if (propertyFilter !== 'all') {
+                                    const prop = properties.find(p => p.uuid === propertyFilter)
+                                    if (val !== 'all' && prop && prop.agent?.uuid !== val) {
+                                        setPropertyFilter('all')
+                                    }
+                                }
+                            }}
+                            placeholder="All Agents"
+                            searchPlaceholder="Search agent..."
+                            className="h-[40px] bg-white border-[#BBBBBB]"
+                        />
+                    </div>
+
+                    {/* Property Filter */}
+                    <div>
+                        <label className="text-sm font-medium text-gray-700 mb-1 block">Property</label>
+                        <SearchableSelect
+                            options={propertyOptions}
+                            value={propertyFilter}
+                            onChange={(val) => {
+                                setPropertyFilter(val)
+                                if (val !== 'all') {
+                                    const prop = properties.find(p => p.uuid === val)
+                                    if (prop?.agent?.uuid) {
+                                        setAgentFilter(prop.agent.uuid)
+                                    }
+                                }
+                            }}
+                            placeholder="All Properties"
+                            searchPlaceholder="Search property..."
+                            className="h-[40px] bg-white border-[#BBBBBB]"
+                        />
                     </div>
 
                     {/* Status Filter */}
                     <div>
                         <label className="text-sm font-medium text-gray-700 mb-1 block">Status</label>
                         <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-full bg-white border-[#BBBBBB]">
+                            <SelectTrigger className="w-full bg-white border-[#BBBBBB] h-[40px]">
                                 <SelectValue placeholder="All Status" />
                             </SelectTrigger>
                             <SelectContent className="bg-white">
