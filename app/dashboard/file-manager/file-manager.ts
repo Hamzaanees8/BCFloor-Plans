@@ -1169,6 +1169,7 @@ import {
   FeatureSheetImage,
   FeatureSheetContent,
   ImagePosition,
+  TextStyle,
   StyledTextField,
   HighlightItem,
   StyledKeyHighlights,
@@ -1973,6 +1974,60 @@ export class FeatureSheetService {
 
     // Backend returns { data: [...] }
     return response.data.data || response.data;
+  }
+
+  /**
+   * Fetch all feature sheets for the currently authenticated agent.
+   * Used by the "Copy Style" popup to list all previously created sheets.
+   * Calls GET /feature-sheets/agent/all
+   */
+  async getFeatureSheetsByAgent(): Promise<FeatureSheetResponse[]> {
+    const response = await api.get(
+      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/agent/all`,
+    );
+
+    if (response.status !== 200) {
+      throw new Error("Failed to fetch agent feature sheets");
+    }
+
+    return response.data.data || response.data;
+  }
+
+  /**
+   * Extract only the *style* properties from a source feature sheet's content.
+   * Used by the "Copy Style" feature to apply styling without overwriting values.
+   *
+   * Returns:
+   *   contentStyles — map of field key → TextStyle
+   *   imageStyles   — map of slot key → { scale, position }
+   */
+  extractStylesFromContent(source: FeatureSheetResponse): {
+    contentStyles: Record<string, TextStyle>;
+    imageStyles: Record<string, { scale: number; position: ImagePosition }>;
+  } {
+    const contentStyles: Record<string, TextStyle> = {};
+
+    for (const [key, field] of Object.entries(source.content)) {
+      if (field && typeof field === "object" && "style" in field) {
+        contentStyles[key] = (field as { style: TextStyle }).style;
+      }
+    }
+
+    const imageStyles: Record<
+      string,
+      { scale: number; position: ImagePosition }
+    > = {};
+
+    for (const img of source.images) {
+      if (img.slot && img.meta) {
+        imageStyles[img.slot] = {
+          scale: img.meta.scale ?? 1,
+          position: img.meta.position ?? { x: 0, y: 0 },
+        };
+      }
+    }
+
+    return { contentStyles, imageStyles };
   }
 
   /**

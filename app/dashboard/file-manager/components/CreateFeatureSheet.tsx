@@ -57,7 +57,9 @@ import { featureSheetService } from "../file-manager";
 import {
   FeatureSheetResponse,
   FeatureSheetPayload,
+  StyledTextField,
 } from "../types/featureSheetTypes";
+import CopyStylePopup from "./CopyStylePopup";
 
 interface FeatureSheetComponentRef {
   exportToPayload: () => Promise<FeatureSheetPayload>;
@@ -103,6 +105,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
     const [activeTab, setActiveTab] = useState<"listing" | "tabloid">("listing");
     const activeStandardRef = useRef<FeatureSheetComponentRef>(null);
     const [selectedSheetUuid, setSelectedSheetUuid] = useState<string | null>(null);
+    const [copyStyleOpen, setCopyStyleOpen] = useState(false);
 
     const [isDownloading, setIsDownloading] = useState(false);
 
@@ -188,6 +191,76 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
         console.error("Error saving feature sheet:", error);
         toast.error("Failed to save feature sheet. Please try again.");
       } finally {
+      }
+    };
+
+    /**
+     * Apply style properties from a source sheet to the currently open sheet.
+     * Only the `style` object of each StyledTextField is applied.
+     * Content `value` fields are left completely untouched.
+     */
+    const handleApplyStyle = async (sourceSheet: FeatureSheetResponse) => {
+      try {
+        if (!activeStandardRef.current) {
+          toast.error("No template is open to apply style to.");
+          return;
+        }
+
+        // 1. Extract styles from the chosen source sheet
+        const { contentStyles, imageStyles } =
+          featureSheetService.extractStylesFromContent(sourceSheet);
+
+        // 2. Get the current sheet's full payload (inc. its own values)
+        const currentPayload = await activeStandardRef.current.exportToPayload();
+
+        // 3. Merge: replace only the `style` on each field, keep the `value`
+        const mergedContent = { ...(currentPayload.content || {}) };
+        for (const key of Object.keys(contentStyles)) {
+          const existingField = mergedContent[key];
+          if (existingField && typeof existingField === "object" && "value" in existingField) {
+            mergedContent[key] = {
+              ...(existingField as StyledTextField),
+              style: contentStyles[key],
+            };
+          } else {
+            // Field doesn't exist in current sheet yet — add with empty value + source style
+            mergedContent[key] = {
+              value: "",
+              style: contentStyles[key],
+            };
+          }
+        }
+
+        // 4. Build a merged payload to hand to importFromPayload
+        const mergedPayload: FeatureSheetResponse = {
+          ...sourceSheet,             // carry over metadata shape
+          id: 0,                      // placeholder — won't be saved
+          uuid: selectedSheetUuid || "",
+          order_id: currentPayload.order_uuid,
+          type: currentPayload.type || "template",
+          template_key: currentPayload.template_key || selectedTemplate,
+          uploaded_by: currentPayload.uploaded_by || "admin",
+          content: mergedContent as FeatureSheetResponse["content"],
+          // Keep current images but apply source image scales/positions
+          images: sourceSheet.images.map((img) => ({
+            ...img,
+            meta: {
+              ...img.meta,
+              scale: imageStyles[img.slot]?.scale ?? img.meta?.scale ?? 1,
+              position: imageStyles[img.slot]?.position ?? img.meta?.position ?? { x: 0, y: 0 },
+            },
+          })),
+        };
+
+        console.log("[CopyStyle] merged content:", mergedPayload.content);
+
+        // 5. Push into the active template component
+        activeStandardRef.current.importFromPayload(mergedPayload);
+
+        toast.success(`Style copied from ${sourceSheet.template_key}!`);
+      } catch (err) {
+        console.error("[CopyStyle] Failed to apply style:", err);
+        toast.error("Failed to apply style. Please try again.");
       }
     };
 
@@ -420,6 +493,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
     ];
 
     return (
+      <>
       <div className="w-full h-auto">
         <div className="flex justify-between h-[60px] items-center bg-[#E4E4E4] px-4">
           <div className="flex gap-2">
@@ -454,6 +528,17 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Copy Style button — only visible when a template is open */}
+            {selectedTemplate && (
+              <button
+                type="button"
+                onClick={() => setCopyStyleOpen(true)}
+                className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:opacity-80`}
+              >
+                Copy Style
+              </button>
+            )}
           </div>
           <div className="text-center">
             <div
@@ -1114,6 +1199,15 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
           </form>
         )}
       </div>
+
+      {/* Copy Style Popup */}
+      <CopyStylePopup
+        isOpen={copyStyleOpen}
+        onClose={() => setCopyStyleOpen(false)}
+        onApply={handleApplyStyle}
+        currentSheetUuid={selectedSheetUuid}
+      />
+      </>
     );
   });
 
