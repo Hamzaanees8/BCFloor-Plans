@@ -14,11 +14,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useRouter, useParams } from "next/navigation";
 import { vendorBillingService, PendingResponse } from "../../VendorBillingService";
-import { ArrowLeft, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAppContext } from "@/app/context/AppContext";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
 
 export default function PendingItemsPage() {
     const router = useRouter();
@@ -30,6 +32,12 @@ export default function PendingItemsPage() {
     const [selectedUuids, setSelectedUuids] = useState<Set<string>>(new Set());
     const [notes, setNotes] = useState("");
     const [generating, setGenerating] = useState(false);
+
+    const { userType } = useAppContext();
+    const { appliedSettings } = useWhiteLabel();
+    const role = (userType as string) || 'admin';
+    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+    const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
 
     const fetchPendingItems = useCallback(async (token: string) => {
         try {
@@ -104,11 +112,11 @@ export default function PendingItemsPage() {
 
     const calculateTotals = () => {
         if (!data) return { services: 0, travel: 0, total: 0 };
-        
+
         const selectedItems = data.items.filter(item => selectedUuids.has(item.service.uuid));
         const services = selectedItems.reduce((acc, item) => acc + Number(item.service.amount), 0);
         const travel = selectedItems.reduce((acc, item) => acc + item.travel_cost, 0);
-        
+
         return {
             services,
             travel,
@@ -119,20 +127,17 @@ export default function PendingItemsPage() {
     const totals = calculateTotals();
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex items-center gap-4">
-                <Button variant="outline" size="icon" onClick={() => router.back()}>
-                    <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Review Billing</h1>
-                    <p className="text-muted-foreground">
+        <div className="font-alexandria" style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh' }}>
+            <div className="w-full h-[80px] flex items-center gap-4 px-[20px] border-b" style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }}>
+                <div className="flex gap-[10px]">
+                    <h1 className="text-[16px] md:text-[24px] font-[400] tracking-tight" style={{ color: roleSettings.pageTabColor }}>Review Billing › </h1>
+                    <p className="text-[16px] md:text-[24px]" style={{ color: roleSettings.pageTabColor }}>
                         {data?.vendor.company_name || `${data?.vendor.first_name} ${data?.vendor.last_name}`}
                     </p>
                 </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="p-6 grid gap-6 md:grid-cols-3">
                 <Card className="md:col-span-2">
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div>
@@ -140,10 +145,11 @@ export default function PendingItemsPage() {
                             <CardDescription>Select services to include in the next invoice.</CardDescription>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Checkbox 
-                                id="select-all" 
+                            <Checkbox
+                                id="select-all"
                                 checked={data ? selectedUuids.size === data.items.length && data.items.length > 0 : false}
                                 onCheckedChange={toggleSelectAll}
+                                style={data && selectedUuids.size === data.items.length && data.items.length > 0 ? { backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor } : {}}
                             />
                             <Label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
                                 Select All
@@ -182,9 +188,10 @@ export default function PendingItemsPage() {
                                                 return (
                                                     <TableRow key={item.service.uuid} className={isSelected ? "bg-muted/30" : ""}>
                                                         <TableCell>
-                                                            <Checkbox 
+                                                            <Checkbox
                                                                 checked={isSelected}
                                                                 onCheckedChange={() => toggleSelect(item.service.uuid)}
+                                                                style={isSelected ? { backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor } : {}}
                                                             />
                                                         </TableCell>
                                                         <TableCell>
@@ -247,16 +254,17 @@ export default function PendingItemsPage() {
 
                             <div className="pt-4 space-y-2">
                                 <Label htmlFor="notes">Notes (Optional)</Label>
-                                <Input 
-                                    id="notes" 
-                                    placeholder="e.g. Bi-weekly payout" 
+                                <Input
+                                    id="notes"
+                                    placeholder="e.g. Bi-weekly payout"
                                     value={notes}
                                     onChange={(e) => setNotes(e.target.value)}
                                 />
                             </div>
 
-                            <Button 
-                                className="w-full mt-4" 
+                            <Button
+                                className="w-full mt-4 text-white hover:brightness-110 active:scale-[0.98] transition-all border-none"
+                                style={{ backgroundColor: roleSettings.pageTabColor }}
                                 disabled={selectedUuids.size === 0 || generating}
                                 onClick={handleGenerateInvoice}
                             >
@@ -265,10 +273,10 @@ export default function PendingItemsPage() {
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-blue-50/50 border-blue-100">
+                    <Card style={{ backgroundColor: `${roleSettings.pageTabColor}15`, borderColor: `${roleSettings.pageTabColor}40` }}>
                         <CardContent className="p-4 flex gap-3">
-                            <Info className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
-                            <div className="text-xs text-blue-800 leading-relaxed">
+                            <Info className="h-5 w-5 shrink-0 mt-0.5" style={{ color: roleSettings.pageTabColor }} />
+                            <div className="text-xs leading-relaxed" style={{ color: roleSettings.pageTabColor }}>
                                 Draft invoices can be reviewed and edited in the &quot;Invoiced History&quot; tab before triggering the actual Stripe payout.
                             </div>
                         </CardContent>

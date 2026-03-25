@@ -26,6 +26,7 @@ import { HexColorPicker } from "react-colorful";
 import { Order } from "../../orders/page";
 import { useFileManagerContext, initialFormData } from "../FileManagerContext";
 import BcfpStandard from "./BcfpStandard";
+import ConfirmationDialog from "@/components/ConfirmationDialog";
 
 import DownloadPdf from "./DownloadPdf";
 // import BcfpStandard1 from "./BcfpStandard1";
@@ -106,6 +107,42 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
     const activeStandardRef = useRef<FeatureSheetComponentRef>(null);
     const [selectedSheetUuid, setSelectedSheetUuid] = useState<string | null>(null);
     const [copyStyleOpen, setCopyStyleOpen] = useState(false);
+    const [sheetToDelete, setSheetToDelete] = useState<string | null>(null);
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [showAgain, setShowAgain] = useState(true);
+
+    const STORAGE_KEY_DELETE = 'confirmation_dialog_delete_show_again';
+
+    useEffect(() => {
+      const savedDelete = localStorage.getItem(STORAGE_KEY_DELETE);
+      if (savedDelete !== null) {
+        setShowAgain(JSON.parse(savedDelete));
+      }
+    }, []);
+
+    const handleToggleShowAgain = () => {
+      const newValue = !showAgain;
+      setShowAgain(newValue);
+      localStorage.setItem(STORAGE_KEY_DELETE, JSON.stringify(newValue));
+    };
+
+    const handleDeleteFeatureSheet = async (uuid: string) => {
+      try {
+        await featureSheetService.deleteFeatureSheet(uuid);
+        setFeatureSheets(prev => prev.filter(s => s.uuid !== uuid));
+        if (selectedSheetUuid === uuid) {
+          setSelectedSheetUuid(null);
+          setSelectedTemplate("");
+        }
+        toast.success("Feature sheet deleted successfully!");
+      } catch (error) {
+        console.error("Error deleting feature sheet:", error);
+        toast.error("Failed to delete feature sheet.");
+      } finally {
+        setSheetToDelete(null);
+        setConfirmOpen(false);
+      }
+    };
 
     const [isDownloading, setIsDownloading] = useState(false);
 
@@ -216,18 +253,39 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
         // 3. Merge: replace only the `style` on each field, keep the `value`
         const mergedContent = { ...(currentPayload.content || {}) };
         for (const key of Object.keys(contentStyles)) {
+          // Handle nested styles in otherDetails
+          if (key.startsWith("otherDetails.")) {
+            const subKey = key.split(".")[1];
+            if (!mergedContent.otherDetails) (mergedContent as any).otherDetails = {};
+            const details = mergedContent.otherDetails as Record<string, any>;
+            const existingField = details[subKey];
+
+            if (existingField && typeof existingField === "object" && "value" in existingField) {
+              details[subKey] = {
+                ...(existingField as StyledTextField),
+                style: contentStyles[key],
+              };
+            } else {
+              details[subKey] = {
+                value: typeof existingField === "string" ? existingField : "",
+                style: contentStyles[key],
+              };
+            }
+            continue;
+          }
+
           const existingField = mergedContent[key];
           if (existingField && typeof existingField === "object" && "value" in existingField) {
             mergedContent[key] = {
               ...(existingField as StyledTextField),
               style: contentStyles[key],
-            };
+            } as any;
           } else {
-            // Field doesn't exist in current sheet yet — add with empty value + source style
+            // Field doesn't exist in current sheet yet — add with its value + source style
             mergedContent[key] = {
-              value: "",
+              value: typeof existingField === "string" ? existingField : "",
               style: contentStyles[key],
-            };
+            } as any;
           }
         }
 
@@ -640,15 +698,31 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                             Last updated:{" "}
                             {new Date(sheet.updated_at).toLocaleDateString()}
                           </p>
-                          <p
-                            className={`text-[15px] ${userType}-text hover:underline cursor-pointer`}
-                            onClick={() => {
-                              setSelectedTemplate(sheet.template_key);
-                              setSelectedSheetUuid(sheet.uuid);
-                            }}
-                          >
-                            Edit Feature Sheet
-                          </p>
+                          <div className="flex gap-4">
+                            <p
+                              className={`text-[15px] ${userType}-text hover:underline cursor-pointer`}
+                              onClick={() => {
+                                setSelectedTemplate(sheet.template_key);
+                                setSelectedSheetUuid(sheet.uuid);
+                              }}
+                            >
+                              Edit Feature Sheet
+                            </p>
+                            <p
+                              className="text-[15px] text-red-500 hover:underline cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (showAgain) {
+                                  setSheetToDelete(sheet.uuid);
+                                  setConfirmOpen(true);
+                                } else {
+                                  handleDeleteFeatureSheet(sheet.uuid);
+                                }
+                              }}
+                            >
+                              Delete
+                            </p>
+                          </div>
                         </div>
                         <div
                           onClick={() => {
@@ -1206,6 +1280,22 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
         onClose={() => setCopyStyleOpen(false)}
         onApply={handleApplyStyle}
         currentSheetUuid={selectedSheetUuid}
+      />
+
+      <ConfirmationDialog
+        open={confirmOpen}
+        setOpen={(open) => {
+          setConfirmOpen(open);
+          if (!open) setSheetToDelete(null);
+        }}
+        onConfirm={() => {
+          if (sheetToDelete) handleDeleteFeatureSheet(sheetToDelete);
+        }}
+        showAgain={showAgain}
+        toggleShowAgain={handleToggleShowAgain}
+        dialogType="delete"
+        title="Confirm Deletion"
+        description="Are you sure you want to delete this feature sheet? This action cannot be undone."
       />
       </>
     );

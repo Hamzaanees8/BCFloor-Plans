@@ -16,11 +16,19 @@ import { useRouter } from "next/navigation";
 import { vendorBillingService, UninvoicedVendor } from "../VendorBillingService";
 import { Users, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useAppContext } from "@/app/context/AppContext";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
 
 export default function UninvoicedVendorsPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [vendors, setVendors] = useState<UninvoicedVendor[]>([]);
+
+    const { userType } = useAppContext();
+    const { appliedSettings } = useWhiteLabel();
+    const role = (userType as string) || 'admin';
+    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+    const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -46,11 +54,13 @@ export default function UninvoicedVendorsPage() {
     };
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold tracking-tight">Vendor Billing</h1>
-                <p className="text-muted-foreground">Manage vendor services and generate invoices for completed work.</p>
+        <div className="font-alexandria" style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh' }}>
+            <div className="w-full h-[80px] flex flex-col justify-center px-[20px] border-b" style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }}>
+                <h1 className="text-[16px] md:text-[24px] font-[400] tracking-tight" style={{ color: roleSettings.pageTabColor }}>Vendor Billing</h1>
+                <p className="text-xs md:text-sm" style={{ color: roleSettings.pageTabColor, opacity: 0.8 }}>Manage vendor services and generate invoices for completed work.</p>
             </div>
+
+            <div className="p-6 space-y-6">
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
@@ -101,7 +111,7 @@ export default function UninvoicedVendorsPage() {
                                             <TableCell className="font-medium">{vendor.company_name || "—"}</TableCell>
                                             <TableCell>{vendor.first_name} {vendor.last_name}</TableCell>
                                             <TableCell className="text-center">
-                                                <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                                                <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-white ring-1 ring-inset ring-blue-700/10" style={{ backgroundColor: roleSettings.pageTabColor }}>
                                                     {vendor.uninvoiced_services_count}
                                                 </span>
                                             </TableCell>
@@ -109,7 +119,8 @@ export default function UninvoicedVendorsPage() {
                                                 <Button 
                                                     variant="ghost" 
                                                     size="sm" 
-                                                    className="gap-2"
+                                                    className="gap-2 text-white hover:brightness-110 active:scale-[0.98] transition-all"
+                                                    style={{ backgroundColor: roleSettings.pageTabColor }}
                                                     onClick={() => handleReview(vendor.uuid)}
                                                 >
                                                     Review & Invoice
@@ -124,6 +135,7 @@ export default function UninvoicedVendorsPage() {
                     )}
                 </CardContent>
             </Card>
+            </div>
         </div>
     );
 }

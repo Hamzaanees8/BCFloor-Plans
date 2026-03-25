@@ -1,9 +1,9 @@
 import { House, Pencil, Trash } from "lucide-react";
 import Image from "next/image";
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState, useEffect } from "react";
 import { Order } from "../../orders/page";
 import { featureSheetService } from "../file-manager";
-import { FeatureSheetResponse, FeatureSheetPayload } from "../types/featureSheetTypes";
+import { FeatureSheetResponse, FeatureSheetPayload, TextStyle, StyledTextField } from "../types/featureSheetTypes";
 import "../../../globals.css";
 import StyledInput from "./StyledInput";
 
@@ -14,9 +14,10 @@ export interface BcfpStandard5Ref {
 
 interface BcfpStandard5Props {
   orderData: Order | null;
+  formData: any;
 }
 
-const BcfpStandard5 = forwardRef<BcfpStandard5Ref, BcfpStandard5Props>(({ orderData }, ref) => {
+const BcfpStandard5 = forwardRef<BcfpStandard5Ref, BcfpStandard5Props>(({ orderData, formData }, ref) => {
   const [title, setTitle] = useState("0000-0000");
   const [subtitle, setSubtitle] = useState("Number 0 Road");
   const [description, setDescription] = useState("BRIGHOUSE SOUTH, RICHMOND");
@@ -26,6 +27,10 @@ const BcfpStandard5 = forwardRef<BcfpStandard5Ref, BcfpStandard5Props>(({ orderD
   const [companyName, setCompanyName] = useState("MACDONALD REALTY");
   const [phoneNumber, setPhoneNumber] = useState("604.000.0000");
   const [email, setEmail] = useState("FIRST@LAST.COM");
+  const [fieldStyles, setFieldStyles] = useState<Record<string, TextStyle>>({});
+
+  const updateFieldStyle = (field: string, style: TextStyle) =>
+    setFieldStyles((prev) => ({ ...prev, [field]: style }));
 
   // --- States ---
   const [images, setImages] = useState<{ [key: string]: string | null }>({
@@ -57,15 +62,15 @@ const BcfpStandard5 = forwardRef<BcfpStandard5Ref, BcfpStandard5Props>(({ orderD
         uploadedBy: "admin",
         type: "template",
         primaryColor: "#376173",
-        offeredAtPrice: title,
-        realtorTitle: subtitle,
-        realtorName: realtorName,
-        companyName: companyName,
-        propertyNotesTitle: description,
-        propertyNotesDescription: propertyDetails,
-        phoneNumber,
-        emailLink: email,
-        ctaText: footerText,
+        offeredAtPrice: { value: title, style: fieldStyles.title || {} as TextStyle },
+        realtorTitle: { value: subtitle, style: fieldStyles.subtitle || {} as TextStyle },
+        realtorName: { value: realtorName, style: fieldStyles.realtorName || {} as TextStyle },
+        companyName: { value: companyName, style: fieldStyles.companyName || {} as TextStyle },
+        propertyNotesTitle: { value: description, style: fieldStyles.description || {} as TextStyle },
+        propertyNotesDescription: { value: propertyDetails, style: fieldStyles.propertyDetails || {} as TextStyle },
+        phoneNumber: { value: phoneNumber, style: fieldStyles.phoneNumber || {} as TextStyle },
+        emailLink: { value: email, style: fieldStyles.email || {} as TextStyle },
+        ctaText: { value: footerText, style: fieldStyles.footerText || {} as TextStyle },
         images,
         imageScales: scale,
         imagePositions: position,
@@ -75,21 +80,67 @@ const BcfpStandard5 = forwardRef<BcfpStandard5Ref, BcfpStandard5Props>(({ orderD
 
     importFromPayload: (payload: FeatureSheetResponse) => {
       const state = featureSheetService.parsePayloadToState(payload);
-      if (state.offeredAtPrice) setTitle(state.offeredAtPrice as string);
-      if (state.realtorTitle) setSubtitle(state.realtorTitle as string);
-      if (state.realtorName) setRealtorName(state.realtorName as string);
-      if (state.companyName) setCompanyName(state.companyName as string);
-      if (state.propertyNotesTitle) setDescription(state.propertyNotesTitle as string);
-      if (state.propertyNotesDescription) setPropertyDetails(state.propertyNotesDescription as string);
-      if (state.phoneNumber) setPhoneNumber(state.phoneNumber as string);
-      if (state.emailLink) setEmail(state.emailLink as string);
-      if (state.ctaText) setFooterText(state.ctaText as string);
+      const s = (val: any) => (typeof val === 'string' ? val : (val?.value || ''));
+
+      if (state.offeredAtPrice) setTitle(s(state.offeredAtPrice));
+      if (state.realtorTitle) setSubtitle(s(state.realtorTitle));
+      if (state.realtorName) setRealtorName(s(state.realtorName));
+      if (state.companyName) setCompanyName(s(state.companyName));
+      if (state.propertyNotesTitle) setDescription(s(state.propertyNotesTitle));
+      if (state.propertyNotesDescription) setPropertyDetails(s(state.propertyNotesDescription));
+      if (state.phoneNumber) setPhoneNumber(s(state.phoneNumber));
+      if (state.emailLink) setEmail(s(state.emailLink));
+      if (state.ctaText) setFooterText(s(state.ctaText));
+
+      // Restore saved styles from server payload
+      const styles: Record<string, TextStyle> = {};
+      const c = payload.content;
+      const st = (f: any) => (f as StyledTextField)?.style;
+
+      if (st(c.offeredAtPrice)) styles.title = st(c.offeredAtPrice);
+      if (st(c.realtorTitle)) styles.subtitle = st(c.realtorTitle);
+      if (st(c.realtorName)) styles.realtorName = st(c.realtorName);
+      if (st(c.companyName)) styles.companyName = st(c.companyName);
+      if (st(c.propertyNotesTitle)) styles.description = st(c.propertyNotesTitle);
+      if (st(c.propertyNotesDescription)) styles.propertyDetails = st(c.propertyNotesDescription);
+      if (st(c.phoneNumber)) styles.phoneNumber = st(c.phoneNumber);
+      if (st(c.emailLink)) styles.email = st(c.emailLink);
+      if (st(c.ctaText)) styles.footerText = st(c.ctaText);
+
+      setFieldStyles(styles);
 
       if (state.images) setImages((prev) => ({ ...prev, ...(state.images as unknown as typeof images) }));
       if (state.imageScales) setScale((prev) => ({ ...prev, ...(state.imageScales as unknown as typeof scale) }));
       if (state.imagePositions) setPosition((prev) => ({ ...prev, ...(state.imagePositions as unknown as typeof position) }));
     },
   }));
+
+  // Initial sync from context on mount
+  useEffect(() => {
+    if (formData) {
+      const s = (val: any) => (typeof val === 'string' ? val : (val?.value || ''));
+
+      if (formData.offeredAtPrice) setTitle(s(formData.offeredAtPrice));
+      if (formData.realtorTitle) setSubtitle(s(formData.realtorTitle));
+      if (formData.realtorName) setRealtorName(s(formData.realtorName));
+      if (formData.companyName) setCompanyName(s(formData.companyName));
+      if (formData.propertyNotesTitle) setDescription(s(formData.propertyNotesTitle));
+      if (formData.propertyNotesDescription) setPropertyDetails(s(formData.propertyNotesDescription));
+      if (formData.phoneNumber) setPhoneNumber(s(formData.phoneNumber));
+      if (formData.emailLink) setEmail(s(formData.emailLink));
+      if (formData.ctaText) setFooterText(s(formData.ctaText));
+
+      if (formData.images) {
+        setImages(prev => ({ ...prev, ...(formData.images as typeof images) }));
+      }
+      if (formData.imageScales) {
+        setScale(prev => ({ ...prev, ...(formData.imageScales as typeof scale) }));
+      }
+      if (formData.imagePositions) {
+        setPosition(prev => ({ ...prev, ...(formData.imagePositions as typeof position) }));
+      }
+    }
+  }, [formData]);
 
   // --- Handlers ---
   const handleImageChange = (key: string, event: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,23 +170,29 @@ const BcfpStandard5 = forwardRef<BcfpStandard5Ref, BcfpStandard5Props>(({ orderD
         <div className="w-full bg-[#376173] flex flex-col relative">
           <div className="flex w-full flex-col justify-center relative z-[19] items-center pt-[50px]">
             <div className="text-[28px] font-light leading-none mt-0 text-[#00B9F2]">
-              <input
+              <StyledInput
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                onChangeStyle={(s) => updateFieldStyle("title", s)}
+                inputStyle={fieldStyles.title}
                 className="bg-transparent border-none text-right focus:outline-none w-[200px]"
               />
               <span className="text-[#226292]">
-                <input
+                <StyledInput
                   value={subtitle}
                   onChange={(e) => setSubtitle(e.target.value)}
+                  onChangeStyle={(s) => updateFieldStyle("subtitle", s)}
+                  inputStyle={fieldStyles.subtitle}
                   className="bg-transparent border-none focus:outline-none ml-2"
                 />
               </span>
             </div>
             <div className="text-[#2C2E35] text-[10px]">
-              <input
+              <StyledInput
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                onChangeStyle={(s) => updateFieldStyle("description", s)}
+                inputStyle={fieldStyles.description}
                 className="bg-transparent border-none text-center focus:outline-none w-full"
               />
             </div>
@@ -233,9 +290,11 @@ const BcfpStandard5 = forwardRef<BcfpStandard5Ref, BcfpStandard5Props>(({ orderD
               className="hidden"
             />
             <div className="text-[18px] text-white font-bold absolute bottom-5 shadow-sm ">
-              <input
+              <StyledInput
                 value={propertyDetails}
                 onChange={(e) => setPropertyDetails(e.target.value)}
+                onChangeStyle={(s) => updateFieldStyle("propertyDetails", s)}
+                inputStyle={fieldStyles.propertyDetails}
                 className="bg-transparent border-none text-center focus:outline-none w-[600px]"
               />
             </div>
@@ -423,9 +482,11 @@ const BcfpStandard5 = forwardRef<BcfpStandard5Ref, BcfpStandard5Props>(({ orderD
               <div className="flex-1 flex gap-8 ">
                 <div className="flex-1 space-y-4 text-sm">
                   <div className="text-[#226292] text-[30px]">
-                    <input
+                    <StyledInput
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("title", s)}
+                      inputStyle={fieldStyles.title}
                       className="bg-transparent border-none focus:outline-none w-full"
                     />
                   </div>
@@ -434,14 +495,18 @@ const BcfpStandard5 = forwardRef<BcfpStandard5Ref, BcfpStandard5Props>(({ orderD
                     <StyledInput
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("description", s)}
+                      inputStyle={fieldStyles.description}
                       className="text-[9px] w-full"
                     />
                   </div>
                   <div>
                     <p className="font-bold text-[#00B9F2] text-[10px]">MAINT. FEES:</p>
-                    <input
+                    <StyledInput
                       value={subtitle}
                       onChange={(e) => setSubtitle(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("subtitle", s)}
+                      inputStyle={fieldStyles.subtitle}
                       className="text-[9px] w-full border-none focus:outline-none"
                     />
                   </div>
@@ -555,31 +620,39 @@ const BcfpStandard5 = forwardRef<BcfpStandard5Ref, BcfpStandard5Props>(({ orderD
             <div className=" text-white leading-none text-left ">
               <div className=" text-white leading-none text-left ">
                 <div className="font-semibold text-[20px] mb-1">
-                  <input
+                  <StyledInput
                     value={realtorName}
                     onChange={(e) => setRealtorName(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("realtorName", s)}
+                    inputStyle={fieldStyles.realtorName}
                     className="bg-transparent border-none focus:outline-none w-[200px]"
                   />
                   &nbsp;{" "}
                   <span className="font-thin">
-                    <input
+                    <StyledInput
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("companyName", s)}
+                      inputStyle={fieldStyles.companyName}
                       className="bg-transparent border-none focus:outline-none w-[150px]"
                     />
                   </span>
                 </div>
                 <div className="font-thin text-[20px] mb-1 ">
-                  <input
+                  <StyledInput
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("phoneNumber", s)}
+                    inputStyle={fieldStyles.phoneNumber}
                     className="bg-transparent border-none focus:outline-none w-[150px]"
                   />
                   &nbsp;
                   <span>
-                    <input
+                    <StyledInput
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("email", s)}
+                      inputStyle={fieldStyles.email}
                       className="bg-transparent border-none focus:outline-none w-[150px]"
                     />
                   </span>
@@ -649,23 +722,29 @@ const BcfpStandard5 = forwardRef<BcfpStandard5Ref, BcfpStandard5Props>(({ orderD
         <div className="w-full bg-[#376173] flex flex-col relative">
           <div className="flex w-full flex-col justify-center relative z-[19] items-center pt-[50px]">
             <div className="text-[28px] font-light leading-none mt-0 text-[#00B9F2]">
-              <input
+              <StyledInput
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                onChangeStyle={(s) => updateFieldStyle("title", s)}
+                inputStyle={fieldStyles.title}
                 className="bg-transparent border-none text-right focus:outline-none w-[200px]"
               />
               <span className="text-[#226292]">
-                <input
+                <StyledInput
                   value={subtitle}
                   onChange={(e) => setSubtitle(e.target.value)}
+                  onChangeStyle={(s) => updateFieldStyle("subtitle", s)}
+                  inputStyle={fieldStyles.subtitle}
                   className="bg-transparent border-none focus:outline-none ml-2"
                 />
               </span>
             </div>
             <div className="text-[#2C2E35] text-[10px]">
-              <input
+              <StyledInput
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                onChangeStyle={(s) => updateFieldStyle("description", s)}
+                inputStyle={fieldStyles.description}
                 className="bg-transparent border-none text-center focus:outline-none w-full"
               />
             </div>
@@ -808,9 +887,11 @@ const BcfpStandard5 = forwardRef<BcfpStandard5Ref, BcfpStandard5Props>(({ orderD
               </defs>
             </svg>
             <div className="absolute top-0 right-10 z-10 text-right text-white px-[50px]">
-              <input
+              <StyledInput
                 value={footerText}
                 onChange={(e) => setFooterText(e.target.value)}
+                onChangeStyle={(s) => updateFieldStyle("footerText", s)}
+                inputStyle={fieldStyles.footerText}
                 className="bg-transparent border-none text-right focus:outline-none w-[400px]"
               />
             </div>

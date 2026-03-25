@@ -8,7 +8,7 @@ import ImageSourceModal from "./ImageSourceModal";
 import FileManagerGallery from "./fileManagerGallery";
 // Feature Sheet Service
 import { featureSheetService } from "../file-manager";
-import type { FeatureSheetPayload, FeatureSheetResponse } from "../types/featureSheetTypes";
+import type { FeatureSheetPayload, FeatureSheetResponse, TextStyle, StyledTextField } from "../types/featureSheetTypes";
 import { useFileManagerContext } from "../FileManagerContext";
 
 // Interface for methods exposed to parent component
@@ -38,6 +38,10 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
   const [mlsNumber, setMlsNumber] = useState("");
   const [phone, setPhone] = useState(formData.phone || "");
   const [linkedin, setLinkedin] = useState(formData.linkedin || "");
+  // Per-field style state — tracks user-chosen typography for each StyledInput
+  const [fieldStyles, setFieldStyles] = useState<Record<string, TextStyle>>({}); 
+  const updateFieldStyle = (field: string, style: TextStyle) =>
+    setFieldStyles((prev) => ({ ...prev, [field]: style }));
 
   // --- images States ---
   const [images, setImages] = useState({
@@ -170,19 +174,22 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
   // Initial sync from context on mount
   useEffect(() => {
     if (formData) {
-      if (formData.title) setTitle(formData.title);
-      if (formData.subtitle) setSubtitle(formData.subtitle);
-      if (formData.fullName) setFullName(formData.fullName);
-      if (formData.email) setEmail(formData.email);
-      if (formData.phone) setPhone(formData.phone);
-      if (formData.linkedin) setLinkedin(formData.linkedin);
-      if (formData.propertyName) setPropertyName(formData.propertyName);
-      if (formData.description) setDescription(formData.description);
-      if (formData.amount) setAmount(formData.amount);
-      if (formData.mlsNumber) setMlsNumber(formData.mlsNumber);
-      if (formData.siteInfluences) setSiteInfluences(formData.siteInfluences);
-      if (formData.grossTaxes) setGrossTaxes(formData.grossTaxes);
-      if (formData.featuresIncluded) setFeaturesIncluded(formData.featuresIncluded);
+      // Helper to safely extract string from either a plain string or a StyledTextField object
+      const s = (val: any) => (typeof val === 'string' ? val : (val?.value || ''));
+
+      if (formData.title) setTitle(s(formData.title));
+      if (formData.subtitle) setSubtitle(s(formData.subtitle));
+      if (formData.fullName) setFullName(s(formData.fullName));
+      if (formData.email) setEmail(s(formData.email));
+      if (formData.phone) setPhone(s(formData.phone));
+      if (formData.linkedin) setLinkedin(s(formData.linkedin));
+      if (formData.propertyName) setPropertyName(s(formData.propertyName));
+      if (formData.description) setDescription(s(formData.description));
+      if (formData.amount) setAmount(s(formData.amount));
+      if (formData.mlsNumber) setMlsNumber(s(formData.mlsNumber));
+      if (formData.siteInfluences) setSiteInfluences(s(formData.siteInfluences));
+      if (formData.grossTaxes) setGrossTaxes(s(formData.grossTaxes));
+      if (formData.featuresIncluded) setFeaturesIncluded(s(formData.featuresIncluded));
 
       if (formData.images) {
         setImages(prev => ({ ...prev, ...(formData.images as typeof images) }));
@@ -434,20 +441,25 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
         // Theme
         primaryColor: "#9A1F2F", // Burgundy color from the template
 
-        // Content - Text Fields
-        offeredAtPrice: title,
-        realtorTitle: subtitle,
-        realtorName: fullName,
-        emailLink: email,
-        propertyNotesTitle: propertyName,
-        propertyNotesDescription: description,
+        // Content - Text Fields (include saved styles so they persist to server)
+        offeredAtPrice: { value: title, style: fieldStyles.title || {} as TextStyle },
+        realtorTitle: { value: subtitle, style: fieldStyles.subtitle || {} as TextStyle },
+        realtorName: { value: fullName, style: fieldStyles.fullName || {} as TextStyle },
+        emailLink: { value: email, style: fieldStyles.email || {} as TextStyle },
+        propertyNotesTitle: { value: propertyName, style: fieldStyles.propertyName || {} as TextStyle },
+        propertyNotesDescription: { value: description, style: fieldStyles.description || {} as TextStyle },
         expandedDetail1Title: "Site Influences",
-        expandedDetail1Description: siteInfluences,
+        expandedDetail1Description: { value: siteInfluences, style: fieldStyles.siteInfluences || {} as TextStyle },
         expandedDetail2Title: "Gross Taxes",
-        expandedDetail2Description: grossTaxes,
+        expandedDetail2Description: { value: grossTaxes, style: fieldStyles.grossTaxes || {} as TextStyle },
         keyHighlightLabel: "Features Included",
         keyHighlights: featuresIncluded ? featuresIncluded.split("\n").filter(Boolean) : [],
-        contactInfo: `${amount} | MLS: ${mlsNumber}`,
+        otherDetails: {
+          amount: { value: amount, style: fieldStyles.amount || {} as TextStyle },
+          mlsNumber: { value: mlsNumber, style: fieldStyles.mlsNumber || {} as TextStyle },
+          outdoorAreas: { value: outdoorAreas, style: fieldStyles.outdoorAreas || {} as TextStyle },
+          featuresIncluded: { value: featuresIncluded, style: fieldStyles.featuresIncluded || {} as TextStyle },
+        },
         images: images,
         imageScales: scale,
         imagePositions: position,
@@ -459,15 +471,38 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
     importFromPayload: (payload: FeatureSheetResponse) => {
       const state = featureSheetService.parsePayloadToState(payload);
 
-      if (state.offeredAtPrice) setTitle(state.offeredAtPrice as string);
-      if (state.realtorTitle) setSubtitle(state.realtorTitle as string);
-      if (state.realtorName) setFullName(state.realtorName as string);
-      if (state.emailLink) setEmail(state.emailLink as string);
-      if (state.propertyNotesTitle) setPropertyName(state.propertyNotesTitle as string);
-      if (state.propertyNotesDescription) setDescription(state.propertyNotesDescription as string);
-      if (state.expandedDetail1Description) setSiteInfluences(state.expandedDetail1Description as string);
-      if (state.expandedDetail2Description) setGrossTaxes(state.expandedDetail2Description as string);
+      // state fields are already flattened by parsePayloadToState in file-manager.ts
+      if (state.offeredAtPrice) setTitle(state.offeredAtPrice);
+      if (state.realtorTitle) setSubtitle(state.realtorTitle);
+      if (state.realtorName) setFullName(state.realtorName);
+      if (state.emailLink) setEmail(state.emailLink);
+      if (state.propertyNotesTitle) setPropertyName(state.propertyNotesTitle);
+      if (state.propertyNotesDescription) setDescription(state.propertyNotesDescription);
+      if (state.expandedDetail1Description) setSiteInfluences(state.expandedDetail1Description);
+      if (state.expandedDetail2Description) setGrossTaxes(state.expandedDetail2Description);
       if (state.keyHighlights) setFeaturesIncluded(state.keyHighlights.join("\n"));
+      if (state.amount) setAmount(state.amount);
+      if (state.mlsNumber) setMlsNumber(state.mlsNumber);
+
+      // Restore saved styles from server payload
+      const styles: Record<string, TextStyle> = {};
+      const c = payload.content;
+      if ((c.offeredAtPrice as StyledTextField)?.style) styles.title = (c.offeredAtPrice as StyledTextField).style;
+      if ((c.realtorTitle as StyledTextField)?.style) styles.subtitle = (c.realtorTitle as StyledTextField).style;
+      if ((c.realtorName as StyledTextField)?.style) styles.fullName = (c.realtorName as StyledTextField).style;
+      if ((c.emailLink as StyledTextField)?.style) styles.email = (c.emailLink as StyledTextField).style;
+      if ((c.propertyNotesTitle as StyledTextField)?.style) styles.propertyName = (c.propertyNotesTitle as StyledTextField).style;
+      if ((c.propertyNotesDescription as StyledTextField)?.style) styles.description = (c.propertyNotesDescription as StyledTextField).style;
+      if ((c.expandedDetail1Description as StyledTextField)?.style) styles.siteInfluences = (c.expandedDetail1Description as StyledTextField).style;
+      if ((c.expandedDetail2Description as StyledTextField)?.style) styles.grossTaxes = (c.expandedDetail2Description as StyledTextField).style;
+      
+      const od = c.otherDetails as Record<string, any>;
+      if (od?.amount?.style) styles.amount = od.amount.style;
+      if (od?.mlsNumber?.style) styles.mlsNumber = od.mlsNumber.style;
+      if (od?.outdoorAreas?.style) styles.outdoorAreas = od.outdoorAreas.style;
+      if (od?.featuresIncluded?.style) styles.featuresIncluded = od.featuresIncluded.style;
+      
+      setFieldStyles(styles);
 
       if (state.images) setImages((prev) => ({ ...prev, ...(state.images as typeof images) }));
       if (state.imageScales) setScale((prev) => ({ ...prev, ...(state.imageScales as typeof scale) }));
@@ -1015,12 +1050,16 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
               <StyledInput
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                onChangeStyle={(s) => updateFieldStyle("title", s)}
+                inputStyle={fieldStyles.title}
                 className="font-semibold text-[48px] h-[55px] bg-transparent text-center w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                 placeholder="Enter Title"
               />
               <StyledInput
                 value={subtitle}
                 onChange={(e) => setSubtitle(e.target.value)}
+                onChangeStyle={(s) => updateFieldStyle("subtitle", s)}
+                inputStyle={fieldStyles.subtitle}
                 className="font-semibold text-[28px] h-[55px] bg-transparent text-center w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                 placeholder="Enter Subtitle"
               />
@@ -1034,12 +1073,16 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                   <StyledInput
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("fullName", s)}
+                    inputStyle={fieldStyles.fullName}
                     className=" text-[28px] h-[30px] bg-transparent text-right w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                     placeholder="Enter full name"
                   />
                   <StyledInput
                     value={propertyName}
                     onChange={(e) => setPropertyName(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("propertyName", s)}
+                    inputStyle={fieldStyles.propertyName}
                     className=" text-[16px] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
                     placeholder="RE/MAX City Realty"
                   />
@@ -1048,12 +1091,16 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                   <StyledInput
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("amount", s)}
+                    inputStyle={fieldStyles.amount}
                     className="font-semibold text-[16px] h-[30px] bg-transparent text-right w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                     placeholder="Enter amount"
                   />
                   <StyledInput
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("email", s)}
+                    inputStyle={fieldStyles.email}
                     className="font-thin text-[16px] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
                     placeholder="Enter email here"
                   />
@@ -1547,17 +1594,19 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
             <div className="flex flex-col gap-3 w-1/2 text-white">
               {/* Description */}
 
-              <textarea
+              <StyledInput
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                onChangeStyle={(s) => updateFieldStyle("description", s)}
+                inputStyle={fieldStyles.description}
                 className={`text-white rounded-[8px] p-2 placeholder-white font-thin leading-none text-left w-full h-48 resize-none outline-none transition-colors duration-200
               ${isFocused || !description
                     ? "bg-gray-100 bg-opacity-20"
                     : "bg-transparent"
                   }`}
-                value={description}
                 placeholder="Enter details here"
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
-                onChange={(e) => setDescription(e.target.value)}
               />
 
               <div className="flex">
@@ -1566,6 +1615,8 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                   <StyledInput
                     value={siteInfluences}
                     onChange={(e) => setSiteInfluences(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("siteInfluences", s)}
+                    inputStyle={fieldStyles.siteInfluences}
                     className="font-semibold text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                     placeholder="Enter Site Influences Here"
                   />
@@ -1575,6 +1626,8 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                   <StyledInput
                     value={grossTaxes}
                     onChange={(e) => setGrossTaxes(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("grossTaxes", s)}
+                    inputStyle={fieldStyles.grossTaxes}
                     className="font-semibold text-[12px] bg-transparent text-right w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                     placeholder="Enter Gross Taxes Here"
                   />
@@ -1589,6 +1642,8 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                   <StyledInput
                     value={featuresIncluded}
                     onChange={(e) => setFeaturesIncluded(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("featuresIncluded", s)}
+                    inputStyle={fieldStyles.featuresIncluded}
                     className="font-semibold text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                     placeholder="Enter Features Here"
                   />
@@ -1598,6 +1653,8 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                   <StyledInput
                     value={outdoorAreas}
                     onChange={(e) => setOutdoorAreas(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("outdoorAreas", s)}
+                    inputStyle={fieldStyles.outdoorAreas}
                     className="font-semibold text-[12px] bg-transparent text-right w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                     placeholder="Enter Outdoor Area Here"
                   />
@@ -1610,6 +1667,8 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                   <StyledInput
                     value={mlsNumber}
                     onChange={(e) => setMlsNumber(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("mlsNumber", s)}
+                    inputStyle={fieldStyles.mlsNumber}
                     className="font-semibold text-[14px] bg-transparent text-right w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                     placeholder="Enter MLS number"
                   />

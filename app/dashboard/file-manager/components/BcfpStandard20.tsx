@@ -7,7 +7,7 @@ import StyledInput from "./StyledInput";
 import ImageSourceModal from "./ImageSourceModal";
 import FileManagerGallery from "./fileManagerGallery";
 import { featureSheetService } from "../file-manager";
-import { FeatureSheetPayload, FeatureSheetResponse } from "../types/featureSheetTypes";
+import { FeatureSheetPayload, FeatureSheetResponse, TextStyle, StyledTextField } from "../types/featureSheetTypes";
 
 export interface BcfpStandard20Ref {
   exportToPayload: () => Promise<FeatureSheetPayload>;
@@ -43,6 +43,11 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
     const [builtYear, setBuiltYear] = useState("");
     const [maintenanceFees, setMaintenanceFees] = useState("");
     const [maintenanceFeesInclude, setMaintenanceFeesInclude] = useState("");
+
+    // Per-field style state — tracks user-chosen typography for each StyledInput
+    const [fieldStyles, setFieldStyles] = useState<Record<string, TextStyle>>({});
+    const updateFieldStyle = (field: string, style: TextStyle) =>
+      setFieldStyles((prev) => ({ ...prev, [field]: style }));
 
     // --- images States ---
     const [images, setImages] = useState({
@@ -181,30 +186,31 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
           uploadedBy: "admin",
           type: "template",
           primaryColor: "#000000",
-          offeredAtPrice: amount,
-          propertyNotesTitle: roadName,
-          propertyNotesDescription: description,
+          offeredAtPrice: { value: amount, style: fieldStyles.amount || {} as TextStyle },
+          propertyNotesTitle: { value: roadName, style: fieldStyles.roadName || {} as TextStyle },
+          propertyNotesDescription: { value: description, style: fieldStyles.description || {} as TextStyle },
           expandedDetail1Title: "By-law Restrictions",
-          expandedDetail1Description: byLawRestrictions,
+          expandedDetail1Description: { value: byLawRestrictions, style: fieldStyles.byLawRestrictions || {} as TextStyle },
           expandedDetail2Title: "Maint. Fees",
-          expandedDetail2Description: maintenanceFees,
+          expandedDetail2Description: { value: maintenanceFees, style: fieldStyles.maintenanceFees || {} as TextStyle },
           expandedDetail3Title: "Maint. Fees Include",
-          expandedDetail3Description: maintenanceFeesInclude,
+          expandedDetail3Description: { value: maintenanceFeesInclude, style: fieldStyles.maintenanceFeesInclude || {} as TextStyle },
           expandedDetail4Title: "Features Included",
-          expandedDetail4Description: featuresIncluded,
+          expandedDetail4Description: { value: featuresIncluded, style: fieldStyles.featuresIncluded || {} as TextStyle },
           keyHighlightLabel: "Site Influences",
           keyHighlights: siteInfluences ? siteInfluences.split("\n").filter(Boolean) : [],
           otherDetails: {
             maintenanceFees,
             maintenanceFeesInclude,
-            amenities,
-            view,
-            bedroom,
-            bathroom,
-            sqft,
-            builtYear,
-            addressCode,
-            cityLine,
+            amenities: { value: amenities, style: fieldStyles.amenities || {} as TextStyle },
+            view: { value: view, style: fieldStyles.view || {} as TextStyle },
+            bedroom: { value: bedroom, style: fieldStyles.bedroom || {} as TextStyle },
+            bathroom: { value: bathroom, style: fieldStyles.bathroom || {} as TextStyle },
+            sqft: { value: sqft, style: fieldStyles.sqft || {} as TextStyle },
+            builtYear: { value: builtYear, style: fieldStyles.builtYear || {} as TextStyle },
+            addressCode: { value: addressCode, style: fieldStyles.addressCode || {} as TextStyle },
+            cityLine: { value: cityLine, style: fieldStyles.cityLine || {} as TextStyle },
+            siteInfluences: { value: siteInfluences, style: fieldStyles.siteInfluences || {} as TextStyle },
           },
           images,
           imageScales: scale,
@@ -237,11 +243,36 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
           if (details.builtYear) setBuiltYear(details.builtYear as string);
           if (details.addressCode) setAddressCode(details.addressCode as string);
           if (details.cityLine) setCityLine(details.cityLine as string);
+          if (details.siteInfluences) setSiteInfluences(details.siteInfluences as string);
         }
 
         if (state.images) setImages((prev) => ({ ...prev, ...(state.images as unknown as typeof images) }));
         if (state.imageScales) setScale((prev) => ({ ...prev, ...(state.imageScales as unknown as typeof scale) }));
         if (state.imagePositions) setPosition((prev) => ({ ...prev, ...(state.imagePositions as unknown as typeof position) }));
+
+        // Restore saved styles from server payload
+        const styles: Record<string, TextStyle> = {};
+        const c = payload.content;
+        if ((c.offeredAtPrice as StyledTextField)?.style) styles.amount = (c.offeredAtPrice as StyledTextField).style;
+        if ((c.propertyNotesTitle as StyledTextField)?.style) styles.roadName = (c.propertyNotesTitle as StyledTextField).style;
+        if ((c.propertyNotesDescription as StyledTextField)?.style) styles.description = (c.propertyNotesDescription as StyledTextField).style;
+        if ((c.expandedDetail1Description as StyledTextField)?.style) styles.byLawRestrictions = (c.expandedDetail1Description as StyledTextField).style;
+        if ((c.expandedDetail2Description as StyledTextField)?.style) styles.maintenanceFees = (c.expandedDetail2Description as StyledTextField).style;
+        if ((c.expandedDetail3Description as StyledTextField)?.style) styles.maintenanceFeesInclude = (c.expandedDetail3Description as StyledTextField).style;
+        if ((c.expandedDetail4Description as StyledTextField)?.style) styles.featuresIncluded = (c.expandedDetail4Description as StyledTextField).style;
+
+        const others = c.otherDetails as Record<string, any>;
+        if (others?.amenities?.style) styles.amenities = others.amenities.style;
+        if (others?.view?.style) styles.view = others.view.style;
+        if (others?.bedroom?.style) styles.bedroom = others.bedroom.style;
+        if (others?.bathroom?.style) styles.bathroom = others.bathroom.style;
+        if (others?.sqft?.style) styles.sqft = others.sqft.style;
+        if (others?.builtYear?.style) styles.builtYear = others.builtYear.style;
+        if (others?.addressCode?.style) styles.addressCode = others.addressCode.style;
+        if (others?.cityLine?.style) styles.cityLine = others.cityLine.style;
+        if (others?.siteInfluences?.style) styles.siteInfluences = others.siteInfluences.style;
+
+        setFieldStyles(styles);
       },
     }));
 
@@ -475,6 +506,8 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                     <StyledInput
                       value={addressCode}
                       onChange={(e) => setAddressCode(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("addressCode", s)}
+                      inputStyle={fieldStyles.addressCode}
                       className="font-light text-[21px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
                       placeholder="0000-0000"
                     />
@@ -484,6 +517,8 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                     <StyledInput
                       value={roadName}
                       onChange={(e) => setRoadName(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("roadName", s)}
+                      inputStyle={fieldStyles.roadName}
                       className="font-light text-[21px] h-[24px] leading-none mt-0 bg-transparent text-[#ffffff] text-center w-[65px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
                       placeholder="0"
                     />
@@ -495,6 +530,8 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                     <StyledInput
                       value={cityLine}
                       onChange={(e) => setCityLine(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
+                      inputStyle={fieldStyles.cityLine}
                       className="text-[#ffffff] text-[13px] h-[20px] bg-transparent text-center w-[300px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
                       placeholder="BRIGHOUSE SOUTH, RICHMOND"
                     />
@@ -503,6 +540,8 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                     <StyledInput
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("amount", s)}
+                      inputStyle={fieldStyles.amount}
                       className="font-semibold text-center text-[#ffffff] text-[13px] h-[40px] bg-transparent w-full focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[500]"
                       placeholder="$000,000"
                     />
@@ -679,6 +718,8 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                     <StyledInput
                       value={bedroom}
                       onChange={(e) => setBedroom(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("bedroom", s)}
+                      inputStyle={fieldStyles.bedroom}
                       className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px] focus:outline-none border-none placeholder-black placeholder:font-[500]"
                       placeholder="0"
                     />
@@ -688,6 +729,8 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                     <StyledInput
                       value={bathroom}
                       onChange={(e) => setBathroom(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("bathroom", s)}
+                      inputStyle={fieldStyles.bathroom}
                       className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px]  focus:outline-none border-none placeholder-black placeholder:font-[500]"
                       placeholder="0"
                     />
@@ -697,6 +740,8 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                     <StyledInput
                       value={sqft}
                       onChange={(e) => setSqft(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("sqft", s)}
+                      inputStyle={fieldStyles.sqft}
                       className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[60px] focus:outline-none border-none placeholder-black placeholder:font-[500]"
                       placeholder="000"
                     />
@@ -706,6 +751,8 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                     <StyledInput
                       value={builtYear}
                       onChange={(e) => setBuiltYear(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("builtYear", s)}
+                      inputStyle={fieldStyles.builtYear}
                       className="font-semibold text-[13px] bg-transparent text-left h-[30px] w-[80px] focus:outline-none border-none placeholder-black placeholder:font-[500]"
                       placeholder="0000"
                     />
@@ -716,6 +763,8 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                     value={description}
                     rows={6}
                     onChange={(e) => setDescription(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("description", s)}
+                    inputStyle={fieldStyles.description}
                     className="font-normal text-[12px] max-h-[300px] z-20 text-black leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-black placeholder:font-[500]"
                     placeholder="On top of it all! Beautiful sub-penthouse in the well appointed CENTRO building.
                   This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally
@@ -738,6 +787,8 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                       value={byLawRestrictions}
                       rows={1}
                       onChange={(e) => setByLawRestrictions(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("byLawRestrictions", s)}
+                      inputStyle={fieldStyles.byLawRestrictions}
                       className="font-semibold text-[16px] text-left bg-transparent text-[#000000]  focus:outline-none border-none placeholder-black placeholder:font-[500]"
                       placeholder="Pets Allowed w/Rest., Rentals Allowed"
                     />
@@ -749,6 +800,8 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                       value={maintenanceFees}
                       rows={1}
                       onChange={(e) => setMaintenanceFees(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("maintenanceFees", s)}
+                      inputStyle={fieldStyles.maintenanceFees}
                       className="font-semibold text-[16px] text-left text-[#000000] bg-transparent focus:outline-none border-none placeholder-black placeholder:font-[500]"
                       placeholder="$000.00"
                     />
@@ -762,6 +815,8 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                       value={maintenanceFeesInclude}
                       rows={2}
                       onChange={(e) => setMaintenanceFeesInclude(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("maintenanceFeesInclude", s)}
+                      inputStyle={fieldStyles.maintenanceFeesInclude}
                       className="font-semibold text-[16px] text-left text-[#000000] bg-transparent focus:outline-none border-none placeholder-black placeholder:font-[500]"
                       placeholder="Gardening, Garbage  Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
                     />
@@ -775,6 +830,8 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                       value={featuresIncluded}
                       rows={1}
                       onChange={(e) => setFeaturesIncluded(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("featuresIncluded", s)}
+                      inputStyle={fieldStyles.featuresIncluded}
                       className="font-semibold text-[16px] text-left text-[#000000] bg-transparent focus:outline-none border-none placeholder-black placeholder:font-[500]"
                       placeholder="Clothes Washer/Dryer/Fridge/Stove/DW, Drapes/Window Coverings"
                     />
@@ -786,6 +843,8 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                       value={siteInfluences}
                       rows={1}
                       onChange={(e) => setSiteInfluences(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("siteInfluences", s)}
+                      inputStyle={fieldStyles.siteInfluences}
                       className="font-semibold text-[16px] text-left text-[#000000] bg-transparent focus:outline-none border-none placeholder-black placeholder:font-[500]"
                       placeholder="Central Location, Golf Course Nearby"
                     />
@@ -797,6 +856,8 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                       value={amenities}
                       rows={1}
                       onChange={(e) => setAmenities(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("amenities", s)}
+                      inputStyle={fieldStyles.amenities}
                       className="font-semibold text-[16px] text-left text-[#000000] bg-transparent focus:outline-none border-none placeholder-black placeholder:font-[500]"
                       placeholder="Exercise Centre, Garden, In Suite Laundry"
                     />
@@ -808,6 +869,8 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
                       value={view}
                       rows={1}
                       onChange={(e) => setView(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("view", s)}
+                      inputStyle={fieldStyles.view}
                       className="font-semibold text-[16px] text-left text-[#000000] bg-transparent focus:outline-none border-none placeholder-black placeholder:font-[500]"
                       placeholder="Soutn & SW - van island"
                     />

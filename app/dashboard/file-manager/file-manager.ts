@@ -1275,6 +1275,18 @@ export class FeatureSheetService {
   /**
    * Build feature sheet payload from component state
    */
+  // Helper to resolve a text field that may be a plain string or a { value, style } object
+  private resolveTextField(
+    field: string | { value: string; style: TextStyle } | undefined,
+    defaultStyle: Partial<TextStyle>,
+  ): StyledTextField | undefined {
+    if (!field) return undefined;
+    if (typeof field === "string") {
+      return { value: field, style: { fontSize: "16px", fontWeight: "400", ...defaultStyle } };
+    }
+    return { value: field.value, style: { ...defaultStyle, ...field.style } };
+  }
+
   async buildPayload(params: {
     // Metadata (now at root level)
     orderUuid: string;
@@ -1287,30 +1299,30 @@ export class FeatureSheetService {
     backgroundColor?: string;
     borderColor?: string;
 
-    // Content - Text Fields
-    offeredAtPrice?: string;
-    realtorTitle?: string;
-    realtorName?: string;
-    companyName?: string;
-    propertyNotesTitle?: string;
-    propertyNotesDescription?: string;
-    expandedDetail1Title?: string;
-    expandedDetail1Description?: string;
-    expandedDetail2Title?: string;
-    expandedDetail2Description?: string;
-    keyHighlightLabel?: string;
+    // Content - Text Fields (accept plain string OR { value, style } object)
+    offeredAtPrice?: string | { value: string; style: TextStyle };
+    realtorTitle?: string | { value: string; style: TextStyle };
+    realtorName?: string | { value: string; style: TextStyle };
+    companyName?: string | { value: string; style: TextStyle };
+    propertyNotesTitle?: string | { value: string; style: TextStyle };
+    propertyNotesDescription?: string | { value: string; style: TextStyle };
+    expandedDetail1Title?: string | { value: string; style: TextStyle };
+    expandedDetail1Description?: string | { value: string; style: TextStyle };
+    expandedDetail2Title?: string | { value: string; style: TextStyle };
+    expandedDetail2Description?: string | { value: string; style: TextStyle };
+    keyHighlightLabel?: string | { value: string; style: TextStyle };
     keyHighlights?: string[];
     highlights?: HighlightItem[];
-    contactLabel?: string;
-    contactInfo?: string;
-    ctaText?: string;
-    emailLink?: string;
-    linkedinLink?: string;
-    phoneNumber?: string;
-    expandedDetail3Title?: string;
-    expandedDetail3Description?: string;
-    expandedDetail4Title?: string;
-    expandedDetail4Description?: string;
+    contactLabel?: string | { value: string; style: TextStyle };
+    contactInfo?: string | { value: string; style: TextStyle };
+    ctaText?: string | { value: string; style: TextStyle };
+    emailLink?: string | { value: string; style: TextStyle };
+    linkedinLink?: string | { value: string; style: TextStyle };
+    phoneNumber?: string | { value: string; style: TextStyle };
+    expandedDetail3Title?: string | { value: string; style: TextStyle };
+    expandedDetail3Description?: string | { value: string; style: TextStyle };
+    expandedDetail4Title?: string | { value: string; style: TextStyle };
+    expandedDetail4Description?: string | { value: string; style: TextStyle };
     otherDetails?: Record<string, unknown>;
 
     // Images - State objects
@@ -1321,6 +1333,7 @@ export class FeatureSheetService {
     // Logo and realtor image files
     logoFile?: File | string | null;
     realtorImageFile?: File | string | null;
+    fieldStyles?: Record<string, any>;
   }): Promise<FeatureSheetPayload> {
     // Use a local guaranteed-typed content object to avoid TS errors on payload.content?
     const content: FeatureSheetContent = {};
@@ -1336,107 +1349,48 @@ export class FeatureSheetService {
       },
       content,
       images: [],
+      fieldStyles: params.fieldStyles,
     };
 
-    // Build content section
+    // Build content section — resolveTextField uses provided style when available,
+    // falling back to the hardcoded template default only when no style was passed.
+    const resolved = (
+      field: string | { value: string; style: TextStyle } | undefined,
+      defaults: Partial<TextStyle>,
+    ): StyledTextField | undefined => this.resolveTextField(field, defaults);
+
     if (params.offeredAtPrice) {
-      content.offeredAtPrice = this.buildStyledTextField(
-        params.offeredAtPrice,
-        "80px",
-        "300",
-        "#F2F2F2",
-        "right",
-      );
+      content.offeredAtPrice = resolved(params.offeredAtPrice, { fontSize: "80px", fontWeight: "300", color: "#F2F2F2", textAlign: "right" });
     }
-
     if (params.realtorTitle) {
-      content.realtorTitle = this.buildStyledTextField(
-        params.realtorTitle,
-        "16px",
-        "400",
-        "#F2F2F2",
-      );
+      content.realtorTitle = resolved(params.realtorTitle, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
     }
-
     if (params.realtorName) {
-      content.realtorName = this.buildStyledTextField(
-        params.realtorName,
-        "16px",
-        "400",
-        "#F2F2F2",
-      );
+      content.realtorName = resolved(params.realtorName, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
     }
-
     if (params.companyName) {
-      content.companyName = this.buildStyledTextField(
-        params.companyName,
-        "16px",
-        "400",
-        "#F2F2F2",
-      );
+      content.companyName = resolved(params.companyName, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
     }
-
     if (params.propertyNotesTitle) {
-      content.propertyNotesTitle = this.buildStyledTextField(
-        params.propertyNotesTitle,
-        "36px",
-        "600",
-        "#4290E9",
-      );
+      content.propertyNotesTitle = resolved(params.propertyNotesTitle, { fontSize: "36px", fontWeight: "600", color: "#4290E9" });
     }
-
     if (params.propertyNotesDescription) {
-      content.propertyNotesDescription = this.buildStyledTextField(
-        params.propertyNotesDescription,
-        "20px",
-        "400",
-        "#4290E9",
-      );
+      content.propertyNotesDescription = resolved(params.propertyNotesDescription, { fontSize: "20px", fontWeight: "400", color: "#4290E9" });
     }
-
     if (params.expandedDetail1Title) {
-      content.expandedDetail1Title = this.buildStyledTextField(
-        params.expandedDetail1Title,
-        "36px",
-        "600",
-        "#4290E9",
-      );
+      content.expandedDetail1Title = resolved(params.expandedDetail1Title, { fontSize: "36px", fontWeight: "600", color: "#4290E9" });
     }
-
     if (params.expandedDetail1Description) {
-      content.expandedDetail1Description = this.buildStyledTextField(
-        params.expandedDetail1Description,
-        "20px",
-        "400",
-        "#4290E9",
-      );
+      content.expandedDetail1Description = resolved(params.expandedDetail1Description, { fontSize: "20px", fontWeight: "400", color: "#4290E9" });
     }
-
     if (params.expandedDetail2Title) {
-      content.expandedDetail2Title = this.buildStyledTextField(
-        params.expandedDetail2Title,
-        "36px",
-        "600",
-        "#4290E9",
-      );
+      content.expandedDetail2Title = resolved(params.expandedDetail2Title, { fontSize: "36px", fontWeight: "600", color: "#4290E9" });
     }
-
     if (params.expandedDetail2Description) {
-      content.expandedDetail2Description = this.buildStyledTextField(
-        params.expandedDetail2Description,
-        "20px",
-        "400",
-        "#4290E9",
-      );
+      content.expandedDetail2Description = resolved(params.expandedDetail2Description, { fontSize: "20px", fontWeight: "400", color: "#4290E9" });
     }
-
     if (params.keyHighlightLabel) {
-      content.keyHighlightLabel = this.buildStyledTextField(
-        params.keyHighlightLabel,
-        "36px",
-        "600",
-        "#4290E9",
-      );
+      content.keyHighlightLabel = resolved(params.keyHighlightLabel, { fontSize: "36px", fontWeight: "600", color: "#4290E9" });
     }
 
     if (params.keyHighlights && params.keyHighlights.length > 0) {
@@ -1463,84 +1417,34 @@ export class FeatureSheetService {
     }
 
     if (params.emailLink) {
-      content.emailLink = this.buildStyledTextField(
-        params.emailLink,
-        "14px",
-        "400",
-      );
+      content.emailLink = resolved(params.emailLink, { fontSize: "14px", fontWeight: "400" });
     }
-
     if (params.linkedinLink) {
-      content.linkedinLink = this.buildStyledTextField(
-        params.linkedinLink,
-        "14px",
-        "400",
-      );
+      content.linkedinLink = resolved(params.linkedinLink, { fontSize: "14px", fontWeight: "400" });
     }
-
     if (params.phoneNumber) {
-      content.phoneNumber = this.buildStyledTextField(
-        params.phoneNumber,
-        "14px",
-        "400",
-      );
+      content.phoneNumber = resolved(params.phoneNumber, { fontSize: "14px", fontWeight: "400" });
     }
-
     if (params.contactLabel) {
-      content.contactLabel = this.buildStyledTextField(
-        params.contactLabel,
-        "16px",
-        "400",
-        "#F2F2F2",
-      );
+      content.contactLabel = resolved(params.contactLabel, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
     }
     if (params.contactInfo) {
-      content.contactInfo = this.buildStyledTextField(
-        params.contactInfo,
-        "16px",
-        "400",
-        "#F2F2F2",
-      );
+      content.contactInfo = resolved(params.contactInfo, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
     }
     if (params.ctaText) {
-      content.ctaText = this.buildStyledTextField(
-        params.ctaText,
-        "16px",
-        "400",
-        "#F2F2F2",
-      );
+      content.ctaText = resolved(params.ctaText, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
     }
     if (params.expandedDetail3Title) {
-      content.expandedDetail3Title = this.buildStyledTextField(
-        params.expandedDetail3Title,
-        "36px",
-        "600",
-        "#4290E9",
-      );
+      content.expandedDetail3Title = resolved(params.expandedDetail3Title, { fontSize: "36px", fontWeight: "600", color: "#4290E9" });
     }
     if (params.expandedDetail3Description) {
-      content.expandedDetail3Description = this.buildStyledTextField(
-        params.expandedDetail3Description,
-        "20px",
-        "400",
-        "#4290E9",
-      );
+      content.expandedDetail3Description = resolved(params.expandedDetail3Description, { fontSize: "20px", fontWeight: "400", color: "#4290E9" });
     }
     if (params.expandedDetail4Title) {
-      content.expandedDetail4Title = this.buildStyledTextField(
-        params.expandedDetail4Title,
-        "36px",
-        "600",
-        "#4290E9",
-      );
+      content.expandedDetail4Title = resolved(params.expandedDetail4Title, { fontSize: "36px", fontWeight: "600", color: "#4290E9" });
     }
     if (params.expandedDetail4Description) {
-      content.expandedDetail4Description = this.buildStyledTextField(
-        params.expandedDetail4Description,
-        "20px",
-        "400",
-        "#4290E9",
-      );
+      content.expandedDetail4Description = resolved(params.expandedDetail4Description, { fontSize: "20px", fontWeight: "400", color: "#4290E9" });
     }
     if (params.otherDetails) {
       content.otherDetails = params.otherDetails as unknown as
@@ -1949,6 +1853,16 @@ export class FeatureSheetService {
     return response.data.data || response.data;
   }
 
+  async deleteFeatureSheet(uuid: string): Promise<void> {
+    const response = await api.delete(
+      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/${uuid}`,
+    );
+
+    if (response.status !== 200 && response.status !== 204) {
+      throw new Error("Failed to delete feature sheet");
+    }
+  }
+
   async getFeatureSheet(uuid: string): Promise<FeatureSheetResponse> {
     const response = await api.get(
       `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/${uuid}`,
@@ -2007,9 +1921,20 @@ export class FeatureSheetService {
   } {
     const contentStyles: Record<string, TextStyle> = {};
 
+    // 1. Extract from top-level content
     for (const [key, field] of Object.entries(source.content)) {
       if (field && typeof field === "object" && "style" in field) {
         contentStyles[key] = (field as { style: TextStyle }).style;
+      }
+    }
+
+    // 2. Extract from otherDetails (for template-specific fields)
+    if (source.content.otherDetails && typeof source.content.otherDetails === "object") {
+      for (const [key, field] of Object.entries(source.content.otherDetails)) {
+        if (field && typeof field === "object" && "style" in field) {
+          // Use a prefixed key to identify these are from otherDetails
+          contentStyles[`otherDetails.${key}`] = (field as { style: TextStyle }).style;
+        }
       }
     }
 
@@ -2018,11 +1943,23 @@ export class FeatureSheetService {
       { scale: number; position: ImagePosition }
     > = {};
 
+    // 3. Extract from image metadata (pan/zoom)
     for (const img of source.images) {
       if (img.slot && img.meta) {
         imageStyles[img.slot] = {
           scale: img.meta.scale ?? 1,
           position: img.meta.position ?? { x: 0, y: 0 },
+        };
+      }
+    }
+
+    // 4. Extract from galleryImagesMeta (redundancy for gallery images)
+    const gMeta = (source.content as any).galleryImagesMeta;
+    if (gMeta && typeof gMeta === 'object') {
+      for (const [slot, meta] of Object.entries(gMeta)) {
+        imageStyles[slot] = {
+          scale: (meta as any).scale ?? imageStyles[slot]?.scale ?? 1,
+          position: (meta as any).position ?? imageStyles[slot]?.position ?? { x: 0, y: 0 },
         };
       }
     }
@@ -2039,6 +1976,15 @@ export class FeatureSheetService {
       (img) => img.slot === "property" || img.slot?.startsWith("image"),
     );
 
+    // Helper to safely extract string from either a plain string or a StyledTextField object
+    const getString = (val: any): string => {
+      if (!val) return "";
+      if (typeof val === "string") return val;
+      if (typeof val === "object" && "value" in val)
+        return String(val.value || "");
+      return "";
+    };
+
     return {
       // Metadata
       templateKey: payload.template_key,
@@ -2052,81 +1998,66 @@ export class FeatureSheetService {
       borderColor: "#BBBBBB",
 
       // Content
-      offeredAtPrice: payload.content.offeredAtPrice?.value || "",
-      realtorTitle: payload.content.realtorTitle?.value || "",
-      realtorName: payload.content.realtorName?.value || "",
-      companyName: payload.content.companyName?.value || "",
-      propertyNotesTitle: payload.content.propertyNotesTitle?.value || "",
-      propertyNotesDescription:
-        payload.content.propertyNotesDescription?.value || "",
-      expandedDetail1Title:
-        payload.content.expandedDetail1Title?.value || "Site Influences",
-      expandedDetail1Description: (payload.content.expandedDetail1Description
-        ?.value ||
-        payload.content.expandedDetail1?.value ||
-        "") as string,
-      expandedDetail2Title: (payload.content.expandedDetail2Title?.value ||
-        "Gross Taxes") as string,
-      expandedDetail2Description: (payload.content.expandedDetail2Description
-        ?.value ||
-        payload.content.expandedDetail2?.value ||
-        "") as string,
-      keyHighlightLabel:
-        payload.content.keyHighlightLabel?.value || "Features Included",
-      keyHighlights: payload.content.keyHighlights?.value || [],
-      highlights: payload.content.highlights?.value || [],
-      emailLink: (payload.content.emailLink as StyledTextField)?.value || "",
-      linkedinLink:
-        (payload.content.linkedinLink as StyledTextField)?.value || "",
-      phoneNumber:
-        (payload.content.phoneNumber as StyledTextField)?.value || "",
-      contactLabel:
-        (payload.content.contactLabel as StyledTextField)?.value || "",
-      contactInfo:
-        (payload.content.contactInfo as StyledTextField)?.value || "",
-      ctaText: (payload.content.ctaText as StyledTextField)?.value || "",
+      offeredAtPrice: getString(payload.content.offeredAtPrice),
+      realtorTitle: getString(payload.content.realtorTitle),
+      realtorName: getString(payload.content.realtorName),
+      companyName: getString(payload.content.companyName),
+      propertyNotesTitle: getString(payload.content.propertyNotesTitle),
+      propertyNotesDescription: getString(payload.content.propertyNotesDescription),
+      expandedDetail1Title: getString(payload.content.expandedDetail1Title) || "Site Influences",
+      expandedDetail1Description: getString(payload.content.expandedDetail1Description) || getString(payload.content.expandedDetail1),
+      expandedDetail2Title: getString(payload.content.expandedDetail2Title) || "Gross Taxes",
+      expandedDetail2Description: getString(payload.content.expandedDetail2Description) || getString(payload.content.expandedDetail2),
+      keyHighlightLabel: getString(payload.content.keyHighlightLabel) || "Features Included",
+      keyHighlights: (payload.content.keyHighlights as any)?.value || [],
+      highlights: (payload.content.highlights as any)?.value || [],
+      emailLink: getString(payload.content.emailLink),
+      linkedinLink: getString(payload.content.linkedinLink),
+      phoneNumber: getString(payload.content.phoneNumber),
+      contactLabel: getString(payload.content.contactLabel),
+      contactInfo: getString(payload.content.contactInfo),
+      ctaText: getString(payload.content.ctaText),
       amount:
-        ((payload.content.otherDetails as unknown as Record<string, unknown>)
-          ?.amount as string) || "",
+        getString(
+          (payload.content.otherDetails as unknown as Record<string, unknown>)
+            ?.amount
+        ),
       mlsNumber:
-        ((payload.content.otherDetails as unknown as Record<string, unknown>)
-          ?.mlsNumber as string) || "",
-      email: (payload.content.emailLink as StyledTextField)?.value || "",
-      phone: (payload.content.phoneNumber as StyledTextField)?.value || "",
-      linkedin: (payload.content.linkedinLink as StyledTextField)?.value || "",
-      expandedDetail3Title:
-        (payload.content.expandedDetail3Title as StyledTextField)?.value || "",
-      expandedDetail3Description:
-        (payload.content.expandedDetail3Description as StyledTextField)
-          ?.value || "",
-      expandedDetail4Title:
-        (payload.content.expandedDetail4Title as StyledTextField)?.value || "",
-      expandedDetail4Description:
-        (payload.content.expandedDetail4Description as StyledTextField)
-          ?.value || "",
-      otherDetails:
-        (payload.content.otherDetails as unknown as Record<string, unknown>) ||
-        {},
+        getString(
+          (payload.content.otherDetails as unknown as Record<string, unknown>)
+            ?.mlsNumber
+        ),
+      email: getString(payload.content.emailLink),
+      phone: getString(payload.content.phoneNumber),
+      linkedin: getString(payload.content.linkedinLink),
+      expandedDetail3Title: getString(payload.content.expandedDetail3Title),
+      expandedDetail3Description: getString(
+        payload.content.expandedDetail3Description
+      ),
+      expandedDetail4Title: getString(payload.content.expandedDetail4Title),
+      expandedDetail4Description: getString(
+        payload.content.expandedDetail4Description
+      ),
+      otherDetails: Object.fromEntries(
+        Object.entries((payload.content.otherDetails as Record<string, any>) || {}).map(([k, v]) => [
+          k,
+          getString(v),
+        ])
+      ),
 
       // Mapped for BcfpStandard2 state
-      title: ((payload.content.offeredAtPrice as StyledTextField)?.value ||
-        "") as string,
-      subtitle: ((payload.content.realtorTitle as StyledTextField)?.value ||
-        "") as string,
-      fullName: ((payload.content.realtorName as StyledTextField)?.value ||
-        "") as string,
-      propertyName: ((payload.content.propertyNotesTitle as StyledTextField)
-        ?.value || "") as string,
-      description: ((
-        payload.content.propertyNotesDescription as StyledTextField
-      )?.value || "") as string,
-      siteInfluences: (payload.content.expandedDetail1Description?.value ||
-        payload.content.expandedDetail1?.value ||
-        "") as string,
-      grossTaxes: (payload.content.expandedDetail2Description?.value ||
-        payload.content.expandedDetail2?.value ||
-        "") as string,
-      featuresIncluded: (payload.content.keyHighlights?.value?.join("\n") ||
+      title: getString(payload.content.offeredAtPrice),
+      subtitle: getString(payload.content.realtorTitle),
+      fullName: getString(payload.content.realtorName),
+      propertyName: getString(payload.content.propertyNotesTitle),
+      description: getString(payload.content.propertyNotesDescription),
+      siteInfluences:
+        getString(payload.content.expandedDetail1Description) ||
+        getString(payload.content.expandedDetail1),
+      grossTaxes:
+        getString(payload.content.expandedDetail2Description) ||
+        getString(payload.content.expandedDetail2),
+      featuresIncluded: ((payload.content.keyHighlights as any)?.value?.join("\n") ||
         "") as string,
 
       // Images — start with DB-backed feature sheet images (blob uploads)
@@ -2218,6 +2149,7 @@ export class FeatureSheetService {
         }
         return acc;
       })(),
+      fieldStyles: payload.fieldStyles,
     };
   }
 }

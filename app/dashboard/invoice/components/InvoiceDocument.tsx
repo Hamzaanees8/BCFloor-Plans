@@ -96,7 +96,7 @@ const InvoiceDocument = ({
                         {invoice.vendor ? (
                             <>
                                 <p className="font-bold text-gray-900">{invoice.vendor.first_name} {invoice.vendor.last_name}</p>
-                                {invoice.vendor.company?.name && <p>{invoice.vendor.company.name}</p>}
+                                {(invoice.vendor.company?.name || invoice.vendor.company_name) && <p>{invoice.vendor.company?.name || invoice.vendor.company_name}</p>}
                                 <p className="flex items-center gap-2 px-1"><Mail size={14} style={{ color: settings.pageTabColor }} /> {invoice.vendor.email}</p>
                             </>
                         ) : (
@@ -226,7 +226,7 @@ const InvoiceDocument = ({
                 <div className="w-80 space-y-3">
                     <div className="flex justify-between text-sm">
                         <span className="text-gray-500 font-medium uppercase tracking-wider text-xs">Subtotal:</span>
-                        <span className="font-bold text-gray-900">${parseFloat(isEditing ? editData.subtotal : invoice.subtotal).toFixed(2)}</span>
+                        <span className="font-bold text-gray-900">${parseFloat(isEditing ? editData.subtotal : (invoice.subtotal || '0')).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-sm items-center">
                         <span className="text-gray-500 font-medium uppercase tracking-wider text-xs">
@@ -237,13 +237,13 @@ const InvoiceDocument = ({
                                     onChange={(e) => updateTaxRate(e.target.value)}
                                     className="w-16 h-6 inline-block ml-1 py-0 px-1 text-right"
                                 />
-                            ) : `(${invoice.tax_rate}%)`}:
+                            ) : `(${invoice.tax_rate || 0}%)`}:
                         </span>
-                        <span className="font-bold text-gray-900">${parseFloat(isEditing ? editData.tax_amount : invoice.tax_amount).toFixed(2)}</span>
+                        <span className="font-bold text-gray-900">${parseFloat(isEditing ? editData.tax_amount : (invoice.tax_amount || '0')).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center p-4 text-white rounded-sm mt-6" style={{ backgroundColor: settings.pageTabColor }}>
                         <span className=" font-bold uppercase tracking-[0.1em]">Total</span>
-                        <span className="text-xl font-bold">$ {parseFloat(isEditing ? editData.total : invoice.total).toFixed(2)}</span>
+                        <span className="text-xl font-bold">$ {parseFloat(isEditing ? editData.total : (invoice.total || invoice.total_amount || '0')).toFixed(2)}</span>
                     </div>
                 </div>
             </div>

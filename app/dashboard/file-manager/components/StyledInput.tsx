@@ -3,11 +3,16 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Bold, Italic, Underline, ChevronDown } from "lucide-react";
+import type { TextStyle } from "../types/featureSheetTypes";
 
 type StyledInputProps = {
   className?: string;
   value?: string;
   onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  /** Called whenever the user changes any style property from the toolbar */
+  onChangeStyle?: (style: TextStyle) => void;
+  /** Pass a saved TextStyle to restore styles (e.g. after importFromPayload) */
+  inputStyle?: TextStyle;
   placeholder?: string;
   [key: string]: any;
 };
@@ -58,10 +63,30 @@ function restoreCaretPosition(el: HTMLElement, offset: number) {
   }
 }
 
+/** Convert a TextStyle fontWeight string/number to a Tailwind class for display. */
+function fontWeightToClass(fw?: string | number): string {
+  const fwStr = String(fw ?? "400");
+  if (fwStr === "100") return "font-thin";
+  if (fwStr === "500") return "font-medium";
+  if (fwStr === "700") return "font-bold";
+  if (fwStr === "800") return "font-extrabold";
+  return "font-normal";
+}
+
+/** Convert a CSS fontFamily string to Tailwind class for display. */
+function fontFamilyToClass(ff?: string): string {
+  if (!ff) return "font-sans";
+  if (ff.toLowerCase().includes("alexandria")) return "font-alexandria";
+  if (ff.toLowerCase().includes("raleway")) return "font-raleway";
+  return "font-sans";
+}
+
 export default function StyledInput({
   className,
   value,
   onChange,
+  onChangeStyle,
+  inputStyle,
   placeholder,
   ...props
 }: StyledInputProps) {
@@ -82,16 +107,25 @@ export default function StyledInput({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const hoverRef = useRef(false);
 
+  // ─── Sync value from parent ───────────────────────────────────────
   useEffect(() => {
     if (value !== undefined) {
-      setInternalValue(value);
-      setShowPlaceholder(!value);
-      if (editableRef.current && editableRef.current.textContent !== value) {
-        editableRef.current.textContent = value;
+      // Robustly extract string value if an object {value, style} was passed
+      const stringValue = typeof value === 'string'
+        ? value
+        : (value && typeof value === 'object' && 'value' in (value as any))
+          ? (value as any).value || ''
+          : String(value || '');
+
+      setInternalValue(stringValue);
+      setShowPlaceholder(!stringValue);
+      if (editableRef.current && editableRef.current.textContent !== stringValue) {
+        editableRef.current.textContent = stringValue;
       }
     }
   }, [value]);
 
+  // ─── Sync className-embedded size/align (initial layout only) ────
   useEffect(() => {
     if (className) {
       const match = className.match(/text-\[(\d+)px\]/);
@@ -102,12 +136,83 @@ export default function StyledInput({
     }
   }, [className]);
 
-  // ⭐ FIXED HANDLE_INPUT WITH CARET PRESERVATION
+  // ─── Restore saved styles (from importFromPayload) ────────────────
+  useEffect(() => {
+    if (!inputStyle) return;
+    if (inputStyle.fontSize) setFontSize(inputStyle.fontSize);
+    if (inputStyle.fontWeight !== undefined) {
+      setFontWeight(fontWeightToClass(inputStyle.fontWeight));
+    }
+    if (inputStyle.fontFamily) setFontFamily(fontFamilyToClass(inputStyle.fontFamily));
+    if (inputStyle.textAlign) setTextAlign(inputStyle.textAlign);
+    // italic / underline not stored in TextStyle currently — skip
+  }, [inputStyle]);
+
+  // ─── Helpers ─────────────────────────────────────────────────────
+  const getFontWeightStyle = () => {
+    switch (fontWeight) {
+      case "font-thin": return "100";
+      case "font-normal": return "400";
+      case "font-medium": return "500";
+      case "font-bold": return "700";
+      case "font-extrabold": return "800";
+      default: return "400";
+    }
+  };
+
+  const getFontFamilyStyle = () => {
+    switch (fontFamily) {
+      case "font-alexandria": return "Alexandria, sans-serif";
+      case "font-raleway": return "Raleway, sans-serif";
+      case "font-sans": return "sans-serif";
+      default: return "sans-serif";
+    }
+  };
+
+  /** Build a TextStyle snapshot and notify parent. */
+  const notifyStyleChange = useCallback(
+    (overrides: Partial<{ fw: string; fs: string; ff: string; it: boolean; ul: boolean; ta: "left" | "center" | "right" }>) => {
+      if (!onChangeStyle) return;
+      const fw = overrides.fw ?? fontWeight;
+      const fs = overrides.fs ?? fontSize;
+      const ff = overrides.ff ?? fontFamily;
+      const ta = overrides.ta ?? textAlign;
+
+      const fwNum = (() => {
+        switch (fw) {
+          case "font-thin": return "100";
+          case "font-normal": return "400";
+          case "font-medium": return "500";
+          case "font-bold": return "700";
+          case "font-extrabold": return "800";
+          default: return "400";
+        }
+      })();
+
+      const ffCss = (() => {
+        switch (ff) {
+          case "font-alexandria": return "Alexandria, sans-serif";
+          case "font-raleway": return "Raleway, sans-serif";
+          default: return "sans-serif";
+        }
+      })();
+
+      onChangeStyle({
+        fontSize: fs,
+        fontWeight: fwNum,
+        fontFamily: ffCss,
+        textAlign: ta,
+      });
+    },
+    [onChangeStyle, fontWeight, fontSize, fontFamily, textAlign]
+  );
+
+  // ─── Input handler ────────────────────────────────────────────────
   const handleInput = useCallback(() => {
     const el = editableRef.current;
     if (!el) return;
 
-    const caret = saveCaretPosition(el); // <-- save caret
+    const caret = saveCaretPosition(el);
 
     const newValue = el.textContent || "";
     setInternalValue(newValue);
@@ -126,7 +231,7 @@ export default function StyledInput({
 
     requestAnimationFrame(() => {
       if (editableRef.current && caret !== null) {
-        restoreCaretPosition(editableRef.current, caret); // <-- restore caret
+        restoreCaretPosition(editableRef.current, caret);
       }
     });
   }, [onChange, props.name]);
@@ -157,37 +262,21 @@ export default function StyledInput({
   const handleMouseEnter = (key: string) => setActiveDropdown(key);
   const handleMouseLeave = (key: string) => activeDropdown === key && setActiveDropdown(null);
 
-  const applyStyle = (style: string, value: any) => {
+  const applyStyle = (style: string, val: any) => {
     if (!editableRef.current) return;
 
+    let newFw = fontWeight, newFs = fontSize, newFf = fontFamily, newIt = italic, newUl = underline, newTa = textAlign;
+
     switch (style) {
-      case "fontWeight": setFontWeight(value); break;
-      case "fontSize": setFontSize(value); break;
-      case "italic": setItalic(value); break;
-      case "underline": setUnderline(value); break;
-      case "textAlign": setTextAlign(value); break;
-      case "fontFamily": setFontFamily(value); break;
+      case "fontWeight": setFontWeight(val); newFw = val; break;
+      case "fontSize": setFontSize(val); newFs = val; break;
+      case "italic": setItalic(val); newIt = val; break;
+      case "underline": setUnderline(val); newUl = val; break;
+      case "textAlign": setTextAlign(val); newTa = val; break;
+      case "fontFamily": setFontFamily(val); newFf = val; break;
     }
-  };
 
-  const getFontWeightStyle = () => {
-    switch (fontWeight) {
-      case "font-thin": return "100";
-      case "font-normal": return "400";
-      case "font-medium": return "500";
-      case "font-bold": return "700";
-      case "font-extrabold": return "800";
-      default: return "400";
-    }
-  };
-
-  const getFontFamilyStyle = () => {
-    switch (fontFamily) {
-      case "font-alexandria": return "Alexandria, sans-serif";
-      case "font-raleway": return "Raleway, sans-serif";
-      case "font-sans": return "sans-serif";
-      default: return "sans-serif";
-    }
+    notifyStyleChange({ fw: newFw, fs: newFs, ff: newFf, it: newIt, ul: newUl, ta: newTa });
   };
 
   return (

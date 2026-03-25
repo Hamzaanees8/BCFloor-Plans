@@ -41,6 +41,11 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
     const [bathroom, setBathroom] = useState("");
     const [sqft, setSqft] = useState("");
     const [builtYear, setBuiltYear] = useState("");
+    const [fieldStyles, setFieldStyles] = useState<Record<string, any>>({});
+
+    const updateFieldStyle = (fieldName: string, style: any) => {
+      setFieldStyles((prev) => ({ ...prev, [fieldName]: style }));
+    };
 
     // --- images States ---
     const [images, setImages] = useState({
@@ -197,6 +202,7 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
           images,
           imageScales: scale,
           imagePositions: position,
+          fieldStyles,
         });
         return payload;
       },
@@ -232,6 +238,7 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
         if (state.images) setImages((prev) => ({ ...prev, ...(state.images as unknown as typeof images) }));
         if (state.imageScales) setScale((prev) => ({ ...prev, ...(state.imageScales as unknown as typeof scale) }));
         if (state.imagePositions) setPosition((prev) => ({ ...prev, ...(state.imagePositions as unknown as typeof position) }));
+        if (state.fieldStyles) setFieldStyles(state.fieldStyles as Record<string, any>);
       },
     }));
 
@@ -545,6 +552,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     rows={1}
+                    inputStyle={fieldStyles["fullName"]}
+                    onChangeStyle={(s) => updateFieldStyle("fullName", s)}
                     className=" text-[11px] text-[#B3B394] h-[18px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[500]"
                     placeholder="FIRSTNAME LASTNAME"
                   />
@@ -553,6 +562,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                   value={propertyName}
                   rows={1}
                   onChange={(e) => setPropertyName(e.target.value)}
+                  inputStyle={fieldStyles["propertyName"]}
+                  onChangeStyle={(s) => updateFieldStyle("propertyName", s)}
                   className=" text-[11px] font-bold h-[18px] font- bg-transparent text-left text-white w-full focus:outline-none border-none placeholder-white placeholder:font-[200]"
                   placeholder="Macdonald Realty"
                 />
@@ -564,6 +575,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                       value={number}
                       onChange={(e) => setNumber(e.target.value)}
                       rows={1}
+                      inputStyle={fieldStyles["number"]}
+                      onChangeStyle={(s) => updateFieldStyle("number", s)}
                       className="font-thin inline text-[9px] h-[16px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
                       placeholder="604.000.0000"
                     />
@@ -574,6 +587,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       rows={1}
+                      inputStyle={fieldStyles["email"]}
+                      onChangeStyle={(s) => updateFieldStyle("email", s)}
                       className="font-thin inline text-[9px] h-[16px] bg-transparent text-left w-[180px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
                       placeholder="FIRST@LAST.COM"
                     />
@@ -883,6 +898,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                       <StyledInput
                         value={bedroom}
                         onChange={(e) => setBedroom(e.target.value)}
+                        inputStyle={fieldStyles["bedroom"]}
+                        onChangeStyle={(s) => updateFieldStyle("bedroom", s)}
                         className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                         placeholder="0"
                       />
@@ -892,6 +909,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                       <StyledInput
                         value={bathroom}
                         onChange={(e) => setBathroom(e.target.value)}
+                        inputStyle={fieldStyles["bathroom"]}
+                        onChangeStyle={(s) => updateFieldStyle("bathroom", s)}
                         className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                         placeholder="0"
                       />
@@ -901,6 +920,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                       <StyledInput
                         value={sqft}
                         onChange={(e) => setSqft(e.target.value)}
+                        inputStyle={fieldStyles["sqft"]}
+                        onChangeStyle={(s) => updateFieldStyle("sqft", s)}
                         className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                         placeholder="000"
                       />
@@ -910,6 +931,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                       <StyledInput
                         value={builtYear}
                         onChange={(e) => setBuiltYear(e.target.value)}
+                        inputStyle={fieldStyles["builtYear"]}
+                        onChangeStyle={(s) => updateFieldStyle("builtYear", s)}
                         className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                         placeholder="0000"
                       />
@@ -930,6 +953,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                     <StyledInput
                       value={addressCode}
                       onChange={(e) => setAddressCode(e.target.value)}
+                      inputStyle={fieldStyles["addressCode"]}
+                      onChangeStyle={(s) => updateFieldStyle("addressCode", s)}
                       className="font-light text-[21px] h-[24px] w-[150px] leading-none mt-0 bg-transparent text-[#ffffff] text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
                       placeholder="0000-0000"
                     />
@@ -939,6 +964,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                     <StyledInput
                       value={roadName}
                       onChange={(e) => setRoadName(e.target.value)}
+                      inputStyle={fieldStyles["roadName"]}
+                      onChangeStyle={(s) => updateFieldStyle("roadName", s)}
                       className="font-light text-[13px] h-[24px] leading-none mt-0 bg-transparent text-[#ffffff] text-center w-[22px] focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[200]"
                       placeholder="0"
                     />
@@ -950,6 +977,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                       value={cityLine}
                       rows={2}
                       onChange={(e) => setCityLine(e.target.value)}
+                      inputStyle={fieldStyles["cityLine"]}
+                      onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
                       className="text-[#B3B394] text-[13px] h-[40px] bg-transparent text-center focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[200]"
                       placeholder="BRIGHOUSE SOUTH, RICHMOND"
                     />
@@ -966,6 +995,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                   <StyledInput
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
+                    inputStyle={fieldStyles["amount"]}
+                    onChangeStyle={(s) => updateFieldStyle("amount", s)}
                     className="font-semibold content-center text-center text-[#ffffff] text-[30px] h-[40px] bg-transparent w-full focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[500]"
                     placeholder="$000,000"
                   />
@@ -1438,6 +1469,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                   value={description}
                   rows={8}
                   onChange={(e) => setDescription(e.target.value)}
+                  inputStyle={fieldStyles["description"]}
+                  onChangeStyle={(s) => updateFieldStyle("description", s)}
                   className="font-normal text-[10px] max-h-[300px] z-20 text-white leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
                   placeholder="This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS overlooking Brighouse Park & to the South
                   and South Westproviding unhindered privacy. The perfect floorplan with open concept living and cross unit bedrooms. Dark laminate flooring,
@@ -1455,6 +1488,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                         value={byLawRestrictions}
                         rows={1}
                         onChange={(e) => setByLawRestrictions(e.target.value)}
+                        inputStyle={fieldStyles["byLawRestrictions"]}
+                        onChangeStyle={(s) => updateFieldStyle("byLawRestrictions", s)}
                         className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                         placeholder="Pets Allowed w/Rest., Rentals Allowed"
                       />
@@ -1467,6 +1502,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                         value={maintFees}
                         rows={1}
                         onChange={(e) => setMaintFees(e.target.value)}
+                        inputStyle={fieldStyles["maintFees"]}
+                        onChangeStyle={(s) => updateFieldStyle("maintFees", s)}
                         className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                         placeholder="$000.00"
                       />
@@ -1478,6 +1515,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                       <StyledInput
                         value={maintFeesInclude}
                         onChange={(e) => setMaintFeesInclude(e.target.value)}
+                        inputStyle={fieldStyles["maintFeesInclude"]}
+                        onChangeStyle={(s) => updateFieldStyle("maintFeesInclude", s)}
                         className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[500]"
                         placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
                       />
@@ -1489,6 +1528,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                       <StyledInput
                         value={featuresIncluded}
                         onChange={(e) => setFeaturesIncluded(e.target.value)}
+                        inputStyle={fieldStyles["featuresIncluded"]}
+                        onChangeStyle={(s) => updateFieldStyle("featuresIncluded", s)}
                         className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#fff] placeholder:font-[500]"
                         placeholder="Clothes Washer/Dryer/ Fridge/Stove/DW, Drapes/ Window Coverings"
                       />
@@ -1502,6 +1543,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                       <StyledInput
                         value={siteInfluences}
                         onChange={(e) => setSiteInfluences(e.target.value)}
+                        inputStyle={fieldStyles["siteInfluences"]}
+                        onChangeStyle={(s) => updateFieldStyle("siteInfluences", s)}
                         className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                         placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
                       />
@@ -1513,6 +1556,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                       <StyledInput
                         value={amenities}
                         onChange={(e) => setAmenities(e.target.value)}
+                        inputStyle={fieldStyles["amenities"]}
+                        onChangeStyle={(s) => updateFieldStyle("amenities", s)}
                         className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                         placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
                       />
@@ -1525,6 +1570,8 @@ const BcfpStandard14 = forwardRef<BcfpStandard14Ref, BcfpStandard14Props>(
                         value={view}
                         rows={1}
                         onChange={(e) => setView(e.target.value)}
+                        inputStyle={fieldStyles["view"]}
+                        onChangeStyle={(s) => updateFieldStyle("view", s)}
                         className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
                         placeholder="South & SW - Van Isl."
                       />

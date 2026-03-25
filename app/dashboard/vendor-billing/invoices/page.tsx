@@ -14,6 +14,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { vendorBillingService, VendorInvoice } from "../VendorBillingService";
+import { useAppContext } from "@/app/context/AppContext";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { CreditCard, Eye, Plus, Pencil, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +36,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
+import DownloadPdf from "@/app/dashboard/file-manager/components/DownloadPdf";
+import { Download } from "lucide-react";
 
 export default function VendorInvoicesListPage() {
     const router = useRouter();
@@ -41,6 +46,11 @@ export default function VendorInvoicesListPage() {
     const [invoices, setInvoices] = useState<VendorInvoice[]>([]);
     const [paying, setPaying] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'draft' | 'paid'>('draft');
+    const { userType } = useAppContext();
+    const { appliedSettings } = useWhiteLabel();
+    const role = (userType as string) || 'admin';
+    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+    const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
     
     // Edit state
     const [editingInvoice, setEditingInvoice] = useState<VendorInvoice | null>(null);
@@ -62,13 +72,15 @@ export default function VendorInvoicesListPage() {
 
     const fetchInvoices = async (token: string) => {
         try {
-            const data = await vendorBillingService.getAdminInvoices(token);
-            setInvoices(data);
+            const data: any = await vendorBillingService.getAdminInvoices(token);
+            const invoicesList = Array.isArray(data) ? data : (data?.data ? data.data : []);
+            setInvoices(invoicesList);
             setLoading(false);
         } catch (err) {
             console.error("Failed to fetch invoices:", err);
             toast.error("Failed to load invoices list");
             setLoading(false);
+            setInvoices([]);
         }
     };
 
@@ -128,17 +140,19 @@ export default function VendorInvoicesListPage() {
         }
     };
 
-    const filteredInvoices = invoices.filter(inv => inv.status === activeTab);
+    const safeInvoices = Array.isArray(invoices) ? invoices : [];
+    const filteredInvoices = safeInvoices.filter(inv => inv.status === activeTab);
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex justify-between items-center">
-                <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-bold tracking-tight">Invoice Management</h1>
-                    <p className="text-muted-foreground">Manage generated invoices and trigger Stripe Connect payouts.</p>
+        <div className="font-alexandria" style={{ backgroundColor: roleSettings.pageBg, minHeight: '100vh' }}>
+            <div className="w-full h-[80px] flex justify-between items-center px-[20px] border-b" style={{ backgroundColor: headerBg, boxShadow: "0px 4px 4px #0000001F" }}>
+                <div className="flex flex-col">
+                    <h1 className="text-[16px] md:text-[24px] font-[400] tracking-tight" style={{ color: roleSettings.pageTabColor }}>Invoice Management</h1>
+                    <p className="text-xs md:text-sm" style={{ color: roleSettings.pageTabColor, opacity: 0.8 }}>Manage generated invoices and trigger Stripe Connect payouts.</p>
                 </div>
                 <Button 
-                    className="gap-2" 
+                    className="gap-2 h-[35px] md:h-[44px] hover:brightness-110 active:scale-[0.98] transition-all text-white" 
+                    style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
                     onClick={() => router.push('/dashboard/vendor-billing/uninvoiced')}
                 >
                     <Plus className="h-4 w-4" />
@@ -146,32 +160,36 @@ export default function VendorInvoicesListPage() {
                 </Button>
             </div>
 
+            <div className="p-6 space-y-6">
+
             <div className="flex items-center gap-1 border-b pb-px">
                 <button
                     onClick={() => setActiveTab('draft')}
                     className={cn(
                         "px-4 py-2 text-sm font-medium transition-colors relative",
-                        activeTab === 'draft' ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                        activeTab === 'draft' ? "" : "text-muted-foreground hover:text-foreground"
                     )}
+                    style={activeTab === 'draft' ? { color: roleSettings.pageTabColor } : {}}
                 >
                     Drafts
                     <Badge variant="secondary" className="ml-2 px-1.5 h-5 min-w-[20px]">
-                        {invoices.filter(i => i.status === 'draft').length}
+                        {safeInvoices.filter(i => i.status === 'draft').length}
                     </Badge>
-                    {activeTab === 'draft' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+                    {activeTab === 'draft' && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: roleSettings.pageTabColor }} />}
                 </button>
                 <button
                     onClick={() => setActiveTab('paid')}
                     className={cn(
                         "px-4 py-2 text-sm font-medium transition-colors relative",
-                        activeTab === 'paid' ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                        activeTab === 'paid' ? "" : "text-muted-foreground hover:text-foreground"
                     )}
+                    style={activeTab === 'paid' ? { color: roleSettings.pageTabColor } : {}}
                 >
                     Paid
                     <Badge variant="secondary" className="ml-2 px-1.5 h-5 min-w-[20px]">
-                        {invoices.filter(i => i.status === 'paid').length}
+                        {safeInvoices.filter(i => i.status === 'paid').length}
                     </Badge>
-                    {activeTab === 'paid' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+                    {activeTab === 'paid' && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: roleSettings.pageTabColor }} />}
                 </button>
             </div>
 
@@ -191,6 +209,7 @@ export default function VendorInvoicesListPage() {
                     onClose={() => setIsEditModalOpen(false)} 
                     invoice={editingInvoice}
                     onSuccess={handleUpdateSuccess}
+                    roleSettings={roleSettings}
                 />
             )}
 
@@ -199,8 +218,10 @@ export default function VendorInvoicesListPage() {
                     isOpen={isViewModalOpen} 
                     onClose={() => setIsViewModalOpen(false)} 
                     invoice={viewingInvoice}
+                    roleSettings={roleSettings}
                 />
             )}
+            </div>
         </div>
     );
 }
@@ -302,85 +323,72 @@ function InvoiceTable({ invoices, loading, onPay, onEdit, onView, paying, getSta
     );
 }
 
-function ViewInvoiceModal({ isOpen, onClose, invoice }: any) {
+function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
+    const handleDownload = async () => {
+        if (!invoice) return;
+        const invoiceNumber = invoice.invoice_number || invoice.id;
+        const fileName = `Invoice_${invoiceNumber}.pdf`;
+        await DownloadPdf('invoice-download-content', fileName);
+    }
+
+    // Map vendor invoice data to InvoiceDocument format
+    const documentData = {
+        ...invoice,
+        items: invoice.lines?.map((line: any) => ({
+            ...line,
+            quantity: line.quantity || 1, // Default to 1 if missing
+            unit_price: line.unit_price || line.amount, // Vendor lines might use amount directly
+        })) || []
+    }
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Invoice Details: {invoice.invoice_number}</DialogTitle>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader className="flex flex-row items-center justify-between pr-8 border-b pb-4">
+                    <DialogTitle className="text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
+                        Invoice Details: {invoice.invoice_number}
+                    </DialogTitle>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-2 h-9 text-white hover:brightness-110 active:scale-[0.98] transition-all border-none"
+                        style={{ backgroundColor: roleSettings.pageTabColor }}
+                        onClick={handleDownload}
+                    >
+                        <Download className="h-4 w-4" />
+                        Download PDF
+                    </Button>
                 </DialogHeader>
-                <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                            <p className="text-muted-foreground">Vendor</p>
-                            <p className="font-medium">{invoice.vendor?.company_name || "—"}</p>
-                            <p className="text-xs text-muted-foreground">{invoice.vendor?.first_name} {invoice.vendor?.last_name}</p>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-muted-foreground">Status</p>
-                            <Badge className="mt-1">{invoice.status.toUpperCase()}</Badge>
-                        </div>
-                    </div>
-
-                    <div className="border rounded-lg overflow-hidden">
-                        <Table>
-                            <TableHeader className="bg-muted/50">
-                                <TableRow>
-                                    <TableHead>Description</TableHead>
-                                    <TableHead className="text-right">Amount</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {invoice.lines?.map((line: any, idx: number) => (
-                                    <TableRow key={idx}>
-                                        <TableCell>
-                                            <div className="flex flex-col">
-                                                <span>{line.description}</span>
-                                                {line.order_service?.order?.property?.property_address && (
-                                                    <span className="text-[10px] text-muted-foreground">
-                                                        Property: {line.order_service.order.property.property_address}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-right font-medium">${Number(line.amount).toFixed(2)}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-1 pt-2 border-t font-bold">
-                        <div className="flex w-full justify-between max-w-[200px] text-sm font-normal text-muted-foreground">
-                            <span>Subtotal</span>
-                            <span>${Number(invoice.subtotal).toFixed(2)}</span>
-                        </div>
-                        <div className="flex w-full justify-between max-w-[200px] text-sm font-normal text-muted-foreground">
-                            <span>Travel</span>
-                            <span>${Number(invoice.travel_amount).toFixed(2)}</span>
-                        </div>
-                        <div className="flex w-full justify-between max-w-[200px] text-lg pt-1 border-t mt-1">
-                            <span>Total</span>
-                            <span>${Number(invoice.total_amount).toFixed(2)}</span>
-                        </div>
-                    </div>
-
-                    {invoice.notes && (
-                        <div className="mt-4 p-3 bg-muted/30 rounded-md text-sm italic">
-                            <p className="text-xs font-semibold not-italic mb-1 text-muted-foreground uppercase tracking-wider">Internal Notes</p>
-                            {invoice.notes}
-                        </div>
-                    )}
+                
+                <div className="py-4">
+                    <InvoiceDocument 
+                        invoice={documentData}
+                        editData={null}
+                        isEditing={false}
+                        updateItem={() => {}}
+                        addItem={() => {}}
+                        removeItem={() => {}}
+                        updateTaxRate={() => {}}
+                        setEditData={() => {}}
+                        roleSettings={roleSettings}
+                    />
                 </div>
-                <DialogFooter>
-                    <Button onClick={onClose}>Close</Button>
+
+                <DialogFooter className="border-t pt-4">
+                    <Button 
+                        onClick={onClose}
+                        className="text-white hover:brightness-110 transition-all px-8 h-10"
+                        style={{ backgroundColor: roleSettings.pageTabColor }}
+                    >
+                        Close
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 }
 
-function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess }: any) {
+function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess, roleSettings }: any) {
     const [status, setStatus] = useState(invoice.status);
     const [notes, setNotes] = useState(invoice.notes || "");
     const [loading, setLoading] = useState(false);
@@ -405,14 +413,16 @@ function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess }: any) {
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Edit Invoice {invoice.invoice_number}</DialogTitle>
+                <DialogHeader className="border-b pb-4">
+                    <DialogTitle className="text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
+                        Edit Invoice {invoice.invoice_number}
+                    </DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="status">Status</Label>
+                        <Label htmlFor="status" className="font-bold text-xs uppercase tracking-wider text-gray-500">Status</Label>
                         <Select value={status} onValueChange={setStatus}>
-                            <SelectTrigger id="status">
+                            <SelectTrigger id="status" className="focus:ring-offset-0 focus:ring-1" style={{ '--tw-ring-color': roleSettings.pageTabColor } as any}>
                                 <SelectValue placeholder="Select status" />
                             </SelectTrigger>
                             <SelectContent>
@@ -422,18 +432,25 @@ function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess }: any) {
                         </Select>
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="remarks">Internal Notes</Label>
+                        <Label htmlFor="remarks" className="font-bold text-xs uppercase tracking-wider text-gray-500">Internal Notes</Label>
                         <Textarea 
                             id="remarks" 
                             placeholder="Add notes for this invoice..." 
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
+                            className="min-h-[100px] focus-visible:ring-offset-0 focus-visible:ring-1"
+                            style={{ '--tw-ring-color': roleSettings.pageTabColor } as any}
                         />
                     </div>
                 </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
-                    <Button onClick={handleSave} disabled={loading} className="gap-2">
+                <DialogFooter className="border-t pt-4">
+                    <Button variant="outline" onClick={onClose} disabled={loading} className="h-10 px-6">Cancel</Button>
+                    <Button 
+                        onClick={handleSave} 
+                        disabled={loading} 
+                        className="gap-2 text-white hover:brightness-110 active:scale-[0.98] transition-all h-10 px-8"
+                        style={{ backgroundColor: roleSettings.pageTabColor }}
+                    >
                         {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                         Save Changes
                     </Button>

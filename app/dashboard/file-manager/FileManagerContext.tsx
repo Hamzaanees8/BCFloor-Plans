@@ -183,6 +183,7 @@ type FormData = {
     featuredImage2FileName: string;
     featuredImage3Preview: string | null;
     featuredImage3FileName: string;
+    fieldStyles?: { [key: string]: any };
 };
 
 type FileManagerContextType = {
@@ -343,6 +344,7 @@ export const initialFormData: FormData = {
     featuredImage2FileName: "",
     featuredImage3Preview: null,
     featuredImage3FileName: "",
+    fieldStyles: {},
 };
 
 export const FileManagerProvider = ({ children }: { children: ReactNode }) => {

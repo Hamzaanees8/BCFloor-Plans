@@ -7,7 +7,7 @@ import StyledInput from "./StyledInput";
 import FileManagerGallery from "./fileManagerGallery";
 import { useFileManagerContext } from "../FileManagerContext";
 import { featureSheetService } from "../file-manager";
-import { FeatureSheetResponse, FeatureSheetPayload } from "../types/featureSheetTypes";
+import { FeatureSheetResponse, FeatureSheetPayload, TextStyle, StyledTextField } from "../types/featureSheetTypes";
 
 export interface BcfpStandard9Ref {
   exportToPayload: () => Promise<FeatureSheetPayload>;
@@ -39,6 +39,14 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
   const [addressCode, setAddressCode] = useState("");
   const [roadName, setRoadName] = useState("");
   const [cityLine, setCityLine] = useState("");
+  const [fieldStyles, setFieldStyles] = useState<Record<string, TextStyle>>({});
+
+  const updateFieldStyle = (fieldName: string, style: TextStyle) => {
+    setFieldStyles((prev) => ({
+      ...prev,
+      [fieldName]: style,
+    }));
+  };
 
   // --- images States ---
   const [images, setImages] = useState({
@@ -140,6 +148,9 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
       if (formData.imagePositions) {
         setPosition(prev => ({ ...prev, ...(formData.imagePositions as typeof position) }));
       }
+      if (formData.fieldStyles) {
+        setFieldStyles(formData.fieldStyles as Record<string, TextStyle>);
+      }
     }
     // Only run on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,13 +181,14 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
       cityLine,
       images,
       imageScales: scale,
-      imagePositions: position
+      imagePositions: position,
+      fieldStyles
     });
   }, [
     fullName, email, propertyName, amount, byLawRestrictions, maintenanceFees,
     maintenanceFeesInclude, featuresIncluded, siteInfluences, amenities, mlsNumber,
     view, bedroom, bathroom, sqft, builtYear, description, addressCode, roadName,
-    cityLine, images, scale, position, updateFormData
+    cityLine, images, scale, position, fieldStyles, updateFormData
   ]);
 
   // Expose methods via ref
@@ -188,32 +200,33 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
         uploadedBy: "admin",
         type: "template",
         primaryColor: "#376173",
-        offeredAtPrice: amount,
-        realtorName: fullName,
-        emailLink: email,
-        propertyNotesTitle: roadName,
-        propertyNotesDescription: description,
+        offeredAtPrice: { value: amount, style: fieldStyles.amount || ({} as TextStyle) },
+        realtorName: { value: fullName, style: fieldStyles.fullName || ({} as TextStyle) },
+        emailLink: { value: email, style: fieldStyles.email || ({} as TextStyle) },
+        propertyNotesTitle: { value: roadName, style: fieldStyles.roadName || ({} as TextStyle) },
+        propertyNotesDescription: { value: description, style: fieldStyles.description || ({} as TextStyle) },
+
         expandedDetail1Title: "By-law Restrictions",
-        expandedDetail1Description: byLawRestrictions,
+        expandedDetail1Description: { value: byLawRestrictions, style: fieldStyles.byLawRestrictions || ({} as TextStyle) },
         expandedDetail2Title: "Maint. Fees",
-        expandedDetail2Description: maintenanceFees,
+        expandedDetail2Description: { value: maintenanceFees, style: fieldStyles.maintenanceFees || ({} as TextStyle) },
         expandedDetail3Title: "Maint. Fees Include",
-        expandedDetail3Description: maintenanceFeesInclude,
+        expandedDetail3Description: { value: maintenanceFeesInclude, style: fieldStyles.maintenanceFeesInclude || ({} as TextStyle) },
         expandedDetail4Title: "Features Included",
-        expandedDetail4Description: featuresIncluded,
+        expandedDetail4Description: { value: featuresIncluded, style: fieldStyles.featuresIncluded || ({} as TextStyle) },
         keyHighlightLabel: "Site Influences",
         keyHighlights: siteInfluences ? siteInfluences.split("\n").filter(Boolean) : [],
         otherDetails: {
-          amenities,
-          view,
-          bedroom,
-          bathroom,
-          sqft,
-          builtYear,
-          addressCode,
-          cityLine,
-          mlsNumber,
-          propertyName
+          amenities: { value: amenities, style: fieldStyles.amenities || ({} as TextStyle) },
+          view: { value: view, style: fieldStyles.view || ({} as TextStyle) },
+          bedroom: { value: bedroom, style: fieldStyles.bedroom || ({} as TextStyle) },
+          bathroom: { value: bathroom, style: fieldStyles.bathroom || ({} as TextStyle) },
+          sqft: { value: sqft, style: fieldStyles.sqft || ({} as TextStyle) },
+          builtYear: { value: builtYear, style: fieldStyles.builtYear || ({} as TextStyle) },
+          addressCode: { value: addressCode, style: fieldStyles.addressCode || ({} as TextStyle) },
+          cityLine: { value: cityLine, style: fieldStyles.cityLine || ({} as TextStyle) },
+          mlsNumber: { value: mlsNumber, style: fieldStyles.mlsNumber || ({} as TextStyle) },
+          propertyName: { value: propertyName, style: fieldStyles.propertyName || ({} as TextStyle) }
         },
         images,
         imageScales: scale,
@@ -224,36 +237,73 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
 
     importFromPayload: (payload: FeatureSheetResponse) => {
       const state = featureSheetService.parsePayloadToState(payload);
-      if (state.offeredAtPrice) setAmount(state.offeredAtPrice as string);
-      if (state.realtorName) setFullName(state.realtorName as string);
-      if (state.emailLink) setEmail(state.emailLink as string);
-      if (state.propertyNotesTitle) setRoadName(state.propertyNotesTitle as string);
-      if (state.propertyNotesDescription) setDescription(state.propertyNotesDescription as string);
+      const s = (val: any) => (typeof val === 'string' ? val : (val?.value || ''));
 
-      if (state.expandedDetail1Description) setByLawRestrictions(state.expandedDetail1Description as string);
-      if (state.expandedDetail2Description) setMaintenanceFees(state.expandedDetail2Description as string);
-      if (state.expandedDetail3Description) setMaintenanceFeesInclude(state.expandedDetail3Description as string);
-      if (state.expandedDetail4Description) setFeaturesIncluded(state.expandedDetail4Description as string);
+      if (state.offeredAtPrice) setAmount(s(state.offeredAtPrice));
+      if (state.realtorName) setFullName(s(state.realtorName));
+      if (state.emailLink) setEmail(s(state.emailLink));
+      if (state.propertyNotesTitle) setRoadName(s(state.propertyNotesTitle));
+      if (state.propertyNotesDescription) setDescription(s(state.propertyNotesDescription));
 
-      if (state.keyHighlights) setSiteInfluences(state.keyHighlights.join("\n"));
+      if (state.expandedDetail1Description) setByLawRestrictions(s(state.expandedDetail1Description));
+      if (state.expandedDetail2Description) setMaintenanceFees(s(state.expandedDetail2Description));
+      if (state.expandedDetail3Description) setMaintenanceFeesInclude(s(state.expandedDetail3Description));
+      if (state.expandedDetail4Description) setFeaturesIncluded(s(state.expandedDetail4Description));
+
+      if (state.keyHighlights) {
+        setSiteInfluences(Array.isArray(state.keyHighlights)
+          ? state.keyHighlights.map(h => s(h)).join("\n")
+          : s(state.keyHighlights));
+      }
 
       if (state.otherDetails) {
-        const details = state.otherDetails as Record<string, unknown>;
-        if (details.amenities) setAmenities(details.amenities as string);
-        if (details.view) setView(details.view as string);
-        if (details.bedroom) setBedroom(details.bedroom as string);
-        if (details.bathroom) setBathroom(details.bathroom as string);
-        if (details.sqft) setSqft(details.sqft as string);
-        if (details.builtYear) setBuiltYear(details.builtYear as string);
-        if (details.addressCode) setAddressCode(details.addressCode as string);
-        if (details.cityLine) setCityLine(details.cityLine as string);
-        if (details.mlsNumber) setMlsNumber(details.mlsNumber as string);
-        if (details.propertyName) setPropertyName(details.propertyName as string);
+        const details = state.otherDetails as Record<string, any>;
+        if (details.amenities) setAmenities(s(details.amenities));
+        if (details.view) setView(s(details.view));
+        if (details.bedroom) setBedroom(s(details.bedroom));
+        if (details.bathroom) setBathroom(s(details.bathroom));
+        if (details.sqft) setSqft(s(details.sqft));
+        if (details.builtYear) setBuiltYear(s(details.builtYear));
+        if (details.addressCode) setAddressCode(s(details.addressCode));
+        if (details.cityLine) setCityLine(s(details.cityLine));
+        if (details.mlsNumber) setMlsNumber(s(details.mlsNumber));
+        if (details.propertyName) setPropertyName(s(details.propertyName));
       }
 
       if (state.images) setImages((prev) => ({ ...prev, ...(state.images as unknown as typeof images) }));
       if (state.imageScales) setScale((prev) => ({ ...prev, ...(state.imageScales as unknown as typeof scale) }));
       if (state.imagePositions) setPosition((prev) => ({ ...prev, ...(state.imagePositions as unknown as typeof position) }));
+
+      // Restore saved styles from server payload
+      const styles: Record<string, TextStyle> = {};
+      const c = payload.content;
+      const st = (f: any) => (f as StyledTextField)?.style;
+
+      if (st(c.offeredAtPrice)) styles.amount = st(c.offeredAtPrice);
+      if (st(c.realtorName)) styles.fullName = st(c.realtorName);
+      if (st(c.emailLink)) styles.email = st(c.emailLink);
+      if (st(c.propertyNotesTitle)) styles.roadName = st(c.propertyNotesTitle);
+      if (st(c.propertyNotesDescription)) styles.description = st(c.propertyNotesDescription);
+      if (st(c.expandedDetail1Description)) styles.byLawRestrictions = st(c.expandedDetail1Description);
+      if (st(c.expandedDetail2Description)) styles.maintenanceFees = st(c.expandedDetail2Description);
+      if (st(c.expandedDetail3Description)) styles.maintenanceFeesInclude = st(c.expandedDetail3Description);
+      if (st(c.expandedDetail4Description)) styles.featuresIncluded = st(c.expandedDetail4Description);
+
+      const od = c.otherDetails as Record<string, any>;
+      if (od) {
+        if (st(od.amenities)) styles.amenities = st(od.amenities);
+        if (st(od.view)) styles.view = st(od.view);
+        if (st(od.bedroom)) styles.bedroom = st(od.bedroom);
+        if (st(od.bathroom)) styles.bathroom = st(od.bathroom);
+        if (st(od.sqft)) styles.sqft = st(od.sqft);
+        if (st(od.builtYear)) styles.builtYear = st(od.builtYear);
+        if (st(od.addressCode)) styles.addressCode = st(od.addressCode);
+        if (st(od.cityLine)) styles.cityLine = st(od.cityLine);
+        if (st(od.mlsNumber)) styles.mlsNumber = st(od.mlsNumber);
+        if (st(od.propertyName)) styles.propertyName = st(od.propertyName);
+      }
+
+      setFieldStyles(styles);
     },
   }));
   console.log('orderData', orderData);
@@ -645,12 +695,16 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
               <div className="font-semibold text-[20px] flex gap-3">
                 <StyledInput
                   value={fullName}
+                  onChangeStyle={(style) => updateFieldStyle("fullName", style)}
+                  inputStyle={fieldStyles.fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className=" text-[28px] h-[30px] bg-transparent text-right w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                   placeholder="Enter full name"
                 />
                 <StyledInput
                   value={propertyName}
+                  onChangeStyle={(style) => updateFieldStyle("propertyName", style)}
+                  inputStyle={fieldStyles.propertyName}
                   onChange={(e) => setPropertyName(e.target.value)}
                   className=" text-[16px] h-[16px] mt-2 font- bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
                   placeholder="MACDONALD  Realty"
@@ -659,12 +713,16 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
               <div className="font-semibold text-[20px] flex gap-3">
                 <StyledInput
                   value={amount}
+                  onChangeStyle={(style) => updateFieldStyle("amount", style)}
+                  inputStyle={fieldStyles.amount}
                   onChange={(e) => setAmount(e.target.value)}
                   className="font-semibold text-[16px] h-[30px] bg-transparent text-right w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                   placeholder="Enter amount"
                 />
                 <StyledInput
                   value={email}
+                  onChangeStyle={(style) => updateFieldStyle("email", style)}
+                  inputStyle={fieldStyles.email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="font-thin text-[16px] h-[30px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
                   placeholder="Enter email here"
@@ -674,6 +732,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
             <div className="w-full text-right">
               <StyledInput
                 value={mlsNumber}
+                onChangeStyle={(style) => updateFieldStyle("mlsNumber", style)}
+                inputStyle={fieldStyles.mlsNumber}
                 onChange={(e) => setMlsNumber(e.target.value)}
                 className="font-semibold text-[14px] bg-transparent text-center w-full focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                 placeholder="Enter MLS number"
@@ -750,6 +810,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
                 <span className="inline">
                   <StyledInput
                     value={addressCode}
+                    onChangeStyle={(style) => updateFieldStyle("addressCode", style)}
+                    inputStyle={fieldStyles.addressCode}
                     onChange={(e) => setAddressCode(e.target.value)}
                     className="font-light text-[28px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
                     placeholder="0000-0000"
@@ -759,6 +821,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
                   Number
                   <StyledInput
                     value={roadName}
+                    onChangeStyle={(style) => updateFieldStyle("roadName", style)}
+                    inputStyle={fieldStyles.roadName}
                     onChange={(e) => setRoadName(e.target.value)}
                     className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-center w-[65px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
                     placeholder="0"
@@ -769,6 +833,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
               <div className="text-white text-[10px] justify-self-center">
                 <StyledInput
                   value={cityLine}
+                  onChangeStyle={(style) => updateFieldStyle("cityLine", style)}
+                  inputStyle={fieldStyles.cityLine}
                   onChange={(e) => setCityLine(e.target.value)}
                   className="text-white text-[10px] h-[20px] bg-transparent text-center w-[250px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
                   placeholder="BRIGHOUSE SOUTH, RICHMOND"
@@ -777,6 +843,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
               <div className="text-center justify-self-center">
                 <StyledInput
                   value={amount}
+                  onChangeStyle={(style) => updateFieldStyle("amount", style)}
+                  inputStyle={fieldStyles.amount}
                   onChange={(e) => setAmount(e.target.value)}
                   className="font-light text-[28px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-white text-center focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
                   placeholder="$000,000"
@@ -1274,6 +1342,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
                   <div className="inline">
                     <StyledInput
                       value={bedroom}
+                      onChangeStyle={(style) => updateFieldStyle("bedroom", style)}
+                      inputStyle={fieldStyles.bedroom}
                       onChange={(e) => setBedroom(e.target.value)}
                       className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                       placeholder="0"
@@ -1283,6 +1353,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
                   <div className="inline">
                     <StyledInput
                       value={bathroom}
+                      onChangeStyle={(style) => updateFieldStyle("bathroom", style)}
+                      inputStyle={fieldStyles.bathroom}
                       onChange={(e) => setBathroom(e.target.value)}
                       className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                       placeholder="0"
@@ -1292,6 +1364,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
                   <div className="inline">
                     <StyledInput
                       value={sqft}
+                      onChangeStyle={(style) => updateFieldStyle("sqft", style)}
+                      inputStyle={fieldStyles.sqft}
                       onChange={(e) => setSqft(e.target.value)}
                       className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                       placeholder="000"
@@ -1301,6 +1375,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
                   <div className="inline">
                     <StyledInput
                       value={builtYear}
+                      onChangeStyle={(style) => updateFieldStyle("builtYear", style)}
+                      inputStyle={fieldStyles.builtYear}
                       onChange={(e) => setBuiltYear(e.target.value)}
                       className="font-semibold text-[13px] bg-transparent text-left h-[30px] w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                       placeholder="0000"
@@ -1562,6 +1638,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
                 <StyledInput
                   value={description}
                   rows={8}
+                  onChangeStyle={(style) => updateFieldStyle("description", style)}
+                  inputStyle={fieldStyles.description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="font-normal w-full text-[14px] h-[300px] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                   placeholder="On top of it all! Beautiful sub-penthouse in the well
@@ -1591,6 +1669,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
               <StyledInput
                 value={byLawRestrictions}
                 rows={1}
+                onChangeStyle={(style) => updateFieldStyle("byLawRestrictions", style)}
+                inputStyle={fieldStyles.byLawRestrictions}
                 onChange={(e) => setByLawRestrictions(e.target.value)}
                 className="font-semibold text-[10px] bg-transparent text-white text-right h-[15px]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                 placeholder="Pets Allowed w/Rest., Rentals Allowed"
@@ -1601,6 +1681,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
               <StyledInput
                 value={maintenanceFees}
                 rows={1}
+                onChangeStyle={(style) => updateFieldStyle("maintenanceFees", style)}
+                inputStyle={fieldStyles.maintenanceFees}
                 onChange={(e) => setMaintenanceFees(e.target.value)}
                 className="font-semibold text-[10px] text-white bg-transparent text-right h-[15px]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                 placeholder="$000.00"
@@ -1611,6 +1693,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
               <StyledInput
                 value={maintenanceFeesInclude}
                 rows={2}
+                onChangeStyle={(style) => updateFieldStyle("maintenanceFeesInclude", style)}
+                inputStyle={fieldStyles.maintenanceFeesInclude}
                 onChange={(e) => setMaintenanceFeesInclude(e.target.value)}
                 className="font-semibold text-white text-[10px] bg-transparent  text-right h-auto min-h-[11px]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                 placeholder="Gardening, Garbage  Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
@@ -1621,6 +1705,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
               <StyledInput
                 value={featuresIncluded}
                 rows={2}
+                onChangeStyle={(style) => updateFieldStyle("featuresIncluded", style)}
+                inputStyle={fieldStyles.featuresIncluded}
                 onChange={(e) => setFeaturesIncluded(e.target.value)}
                 className="font-semibold text-white text-[8px] bg-transparent  text-right h-[15px] min-h-[10px]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                 placeholder="Clothes"
@@ -1631,6 +1717,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
               <StyledInput
                 value={siteInfluences}
                 rows={1}
+                onChangeStyle={(style) => updateFieldStyle("siteInfluences", style)}
+                inputStyle={fieldStyles.siteInfluences}
                 onChange={(e) => setSiteInfluences(e.target.value)}
                 className="font-semibold text-white text-[8px] bg-transparent  text-right h-[15px] min-h-[10px]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                 placeholder="Central Location, Golf Course Nearby"
@@ -1641,6 +1729,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
               <StyledInput
                 value={amenities}
                 rows={2}
+                onChangeStyle={(style) => updateFieldStyle("amenities", style)}
+                inputStyle={fieldStyles.amenities}
                 onChange={(e) => setAmenities(e.target.value)}
                 className="font-semibold text-white text-[8px] bg-transparent  text-right h-[15px] min-h-[10px]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                 placeholder="Exercise Centre, Garden, In Suite Laundry"
@@ -1652,6 +1742,8 @@ const BcfpStandard9 = forwardRef<BcfpStandard9Ref, BcfpStandard9Props>(({ orderD
               <StyledInput
                 value={view}
                 rows={1}
+                onChangeStyle={(style) => updateFieldStyle("view", style)}
+                inputStyle={fieldStyles.view}
                 onChange={(e) => setView(e.target.value)}
                 className="font-semibold text-white text-[8px] bg-transparent  text-right h-[15px] min-h-[10px]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                 placeholder="Soutn & SW - van island"

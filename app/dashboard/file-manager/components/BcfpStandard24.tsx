@@ -34,6 +34,11 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
     // const [amount, setAmount] = useState("");
     const [strNum, setStrNum] = useState("");
     const [strName, setStrName] = useState("");
+    const [fieldStyles, setFieldStyles] = useState<Record<string, any>>({});
+
+    const updateFieldStyle = (fieldName: string, style: any) => {
+      setFieldStyles((prev) => ({ ...prev, [fieldName]: style }));
+    };
     // const [byLawRestrictions, setByLawRestrictions] = useState("");
     // const [maintenanceFees, setMaintenanceFees] = useState("");
     // const [maintenanceFeesInclude, setMaintenanceFeesInclude] = useState("");
@@ -737,6 +742,7 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
           images,
           imageScales: scale,
           imagePositions: position,
+          fieldStyles,
         });
         return payload;
       },
@@ -950,6 +956,9 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
             ...prev,
             ...state.imagePositions,
           }));
+        }
+        if (state.fieldStyles) {
+          setFieldStyles(state.fieldStyles as Record<string, any>);
         }
       },
     }));
@@ -1868,6 +1877,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         value={strNum}
                         rows={1}
                         onChange={(e) => setStrNum(e.target.value)}
+                        inputStyle={fieldStyles["strNum"]}
+                        onChangeStyle={(style) => updateFieldStyle("strNum", style)}
                         className="font-bold text-[40px] bg-transparent h-full text-left content-center w-full focus:outline-none border-none placeholder-white  placeholder:font-[500]"
                         placeholder="906-555"
                       />
@@ -1877,6 +1888,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         value={strName}
                         rows={1}
                         onChange={(e) => setStrName(e.target.value)}
+                        inputStyle={fieldStyles["strName"]}
+                        onChangeStyle={(style) => updateFieldStyle("strName", style)}
                         className="font-thin text-[40px] bg-transparent h-full text-left content-center w-full focus:outline-none border-none placeholder-white "
                         placeholder="JERVIS STREET"
                       />
@@ -1893,6 +1906,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         value={strNum}
                         rows={1}
                         onChange={(e) => setStrNum(e.target.value)}
+                        inputStyle={fieldStyles["strNum2"]}
+                        onChangeStyle={(style) => updateFieldStyle("strNum2", style)}
                         className="font-bold text-[40px] bg-transparent h-full text-left content-center w-full focus:outline-none border-none placeholder-white  placeholder:font-[500]"
                         placeholder="000,000"
                       />
@@ -1903,9 +1918,11 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       <div className="bg-white rounded-full p-3 mr-3 flex items-center justify-center w-10 h-10">
                         <Bedrooms className="w-4 h-4 text-black" />
                       </div>
-                      <StyledInput
+                       <StyledInput
                         value={bedroom}
                         onChange={(e) => setBedroom(e.target.value)}
+                        inputStyle={fieldStyles["bedroom"]}
+                        onChangeStyle={(style) => updateFieldStyle("bedroom", style)}
                         className="font-semibold text-[24px] bg-transparent text-left w-[20px] h-[20px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
                         placeholder="0"
                       />
@@ -1918,6 +1935,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       <StyledInput
                         value={bathroom}
                         onChange={(e) => setBathroom(e.target.value)}
+                        inputStyle={fieldStyles["bathroom"]}
+                        onChangeStyle={(style) => updateFieldStyle("bathroom", style)}
                         className="font-semibold text-[24px] w-[33px] bg-transparent text-left  h-[20px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
                         placeholder="0"
                       />
@@ -1931,6 +1950,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         <StyledInput
                           value={sqft}
                           onChange={(e) => setSqft(e.target.value)}
+                          inputStyle={fieldStyles["sqft"]}
+                          onChangeStyle={(style) => updateFieldStyle("sqft", style)}
                           className="font-semibold text-[24px] bg-transparent text-left w-full h-[20px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
                           placeholder="0,000"
                         />
@@ -2364,6 +2385,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       <StyledInput
                         value={presentedBy}
                         onChange={(e) => setPresentedBy(e.target.value)}
+                        inputStyle={fieldStyles["presentedBy"]}
+                        onChangeStyle={(style) => updateFieldStyle("presentedBy", style)}
                         rows={1}
                         className=" h-full bg-transparent font-bold text-black placeholder:text-black placeholder:font-bold text-center w-full focus:outline-none border-none "
                         placeholder="Joe Chan"
@@ -2373,6 +2396,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       <StyledInput
                         value={presentedByCompany}
                         onChange={(e) => setPresentedByCompany(e.target.value)}
+                        inputStyle={fieldStyles["presentedByCompany"]}
+                        onChangeStyle={(style) => updateFieldStyle("presentedByCompany", style)}
                         rows={1}
                         className=" h-full bg-transparent text-[10px] font-thin text-black placeholder:text-black placeholder:font-thin text-center w-full focus:outline-none border-none "
                         placeholder="Sutton Group - 1st West Realty"
@@ -2383,6 +2408,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       <StyledInput
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
+                        inputStyle={fieldStyles["phone"]}
+                        onChangeStyle={(style) => updateFieldStyle("phone", style)}
                         rows={1}
                         className=" h-full bg-transparent text-[10px] font-thin text-black placeholder:text-black placeholder:font-thin text-left w-full focus:outline-none border-none "
                         placeholder="778-668-1668"
@@ -2392,6 +2419,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       <StyledInput
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
+                        inputStyle={fieldStyles["email"]}
+                        onChangeStyle={(style) => updateFieldStyle("email", style)}
                         rows={1}
                         className=" h-full bg-transparent text-[10px] font-thin text-black placeholder:text-black placeholder:font-thin text-center w-full focus:outline-none border-none "
                         placeholder="joechan@sutton.com"
@@ -2491,6 +2520,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         <StyledInput
                           value={mlsNumber}
                           onChange={(e) => setMlsNumber(e.target.value)}
+                          inputStyle={fieldStyles["mlsNumber"]}
+                          onChangeStyle={(style) => updateFieldStyle("mlsNumber", style)}
                           rows={1}
                           className=" h-full bg-transparent text-[12px] font-bold placeholder:font-bold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                           placeholder="R2236953"
@@ -2502,6 +2533,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         <StyledInput
                           value={board}
                           onChange={(e) => setBoard(e.target.value)}
+                          inputStyle={fieldStyles["board"]}
+                          onChangeStyle={(style) => updateFieldStyle("board", style)}
                           rows={1}
                           className=" h-full bg-transparent text-[12px] font-normal placeholder:font-normal text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                           placeholder="V"
@@ -2511,6 +2544,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         <StyledInput
                           value={propertyType}
                           onChange={(e) => setPropertyType(e.target.value)}
+                          inputStyle={fieldStyles["propertyType"]}
+                          onChangeStyle={(style) => updateFieldStyle("propertyType", style)}
                           rows={1}
                           className=" h-full bg-transparent text-[12px] font-normal placeholder:font-normal text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                           placeholder="Apartment/Condo"
@@ -2522,6 +2557,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         <StyledInput
                           value={fullAddress}
                           onChange={(e) => setFullAddress(e.target.value)}
+                          inputStyle={fieldStyles["fullAddress"]}
+                          onChangeStyle={(style) => updateFieldStyle("fullAddress", style)}
                           rows={1}
                           className=" h-full bg-transparent text-[12px] font-bold placeholder:font-bold text-black placeholder:text-black text-center w-full focus:outline-none border-none "
                           placeholder="906 555 JERVIS STREET"
@@ -2531,6 +2568,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         <StyledInput
                           value={area}
                           onChange={(e) => setArea(e.target.value)}
+                          inputStyle={fieldStyles["area"]}
+                          onChangeStyle={(style) => updateFieldStyle("area", style)}
                           rows={1}
                           className=" h-full bg-transparent text-[12px] font-normal placeholder:font-normal text-black placeholder:text-black text-center w-full focus:outline-none border-none "
                           placeholder="Vancouver West"
@@ -2540,6 +2579,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         <StyledInput
                           value={neighborhood}
                           onChange={(e) => setNeighborhood(e.target.value)}
+                          inputStyle={fieldStyles["neighborhood"]}
+                          onChangeStyle={(style) => updateFieldStyle("neighborhood", style)}
                           rows={1}
                           className=" h-full bg-transparent text-[12px] font-normal placeholder:font-normal text-black placeholder:text-black text-center w-full focus:outline-none border-none "
                           placeholder="Coal Harbour"
@@ -2549,6 +2590,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         <StyledInput
                           value={postalCode}
                           onChange={(e) => setPostalCode(e.target.value)}
+                          inputStyle={fieldStyles["postalCode"]}
+                          onChangeStyle={(style) => updateFieldStyle("postalCode", style)}
                           rows={1}
                           className=" h-full bg-transparent text-[12px] font-normal placeholder:font-normal text-black placeholder:text-black text-center w-full focus:outline-none border-none "
                           placeholder="V6E 4N1"
@@ -2560,6 +2603,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         <StyledInput
                           value={propertyCategory}
                           onChange={(e) => setPropertyCategory(e.target.value)}
+                          inputStyle={fieldStyles["propertyCategory"]}
+                          onChangeStyle={(style) => updateFieldStyle("propertyCategory", style)}
                           rows={1}
                           className=" h-full bg-transparent text-[12px] font-normal placeholder:font-normal text-black placeholder:text-black text-right w-full focus:outline-none border-none "
                           placeholder="Residential Attached"
@@ -2579,6 +2624,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         <StyledInput
                           value={soldPrice}
                           onChange={(e) => setSoldPrice(e.target.value)}
+                          inputStyle={fieldStyles["soldPrice"]}
+                          onChangeStyle={(style) => updateFieldStyle("soldPrice", style)}
                           rows={1}
                           className=" h-full bg-transparent text-[12px] font-normal placeholder:font-normal text-black placeholder:text-black text-right w-full focus:outline-none border-none "
                           placeholder="(SP)"
@@ -2683,6 +2730,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={soldDate}
                               onChange={(e) => setSoldDate(e.target.value)}
+                              inputStyle={fieldStyles["soldDate"]}
+                              onChangeStyle={(style) => updateFieldStyle("soldDate", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-normal placeholder:font-normal text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
@@ -2695,6 +2744,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={measureType}
                               onChange={(e) => setMeasureType(e.target.value)}
+                              inputStyle={fieldStyles["measureType"]}
+                              onChangeStyle={(style) => updateFieldStyle("measureType", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-normal placeholder:font-normal text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
@@ -2707,6 +2758,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={depthSize}
                               onChange={(e) => setDepthSize(e.target.value)}
+                              inputStyle={fieldStyles["depthSize"]}
+                              onChangeStyle={(style) => updateFieldStyle("depthSize", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-normal placeholder:font-normal text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
@@ -2719,6 +2772,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={lotArea}
                               onChange={(e) => setLotArea(e.target.value)}
+                              inputStyle={fieldStyles["lotArea"]}
+                              onChangeStyle={(style) => updateFieldStyle("lotArea", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-normal placeholder:font-normal text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="0.00"
@@ -2731,6 +2786,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={floodPlain}
                               onChange={(e) => setFloodPlain(e.target.value)}
+                              inputStyle={fieldStyles["floodPlain"]}
+                              onChangeStyle={(style) => updateFieldStyle("floodPlain", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-normal placeholder:font-normal text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
@@ -2745,6 +2802,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                               onChange={(e) =>
                                 setCouncilApproval(e.target.value)
                               }
+                              inputStyle={fieldStyles["councilApproval"]}
+                              onChangeStyle={(style) => updateFieldStyle("councilApproval", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-normal placeholder:font-normal text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
@@ -2755,6 +2814,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={exposure}
                               onChange={(e) => setExposure(e.target.value)}
+                              inputStyle={fieldStyles["exposure"]}
+                              onChangeStyle={(style) => updateFieldStyle("exposure", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-normal placeholder:font-normal text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
@@ -2769,6 +2830,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={frontageFeet}
                               onChange={(e) => setFrontageFeet(e.target.value)}
+                              inputStyle={fieldStyles["frontageFeet"]}
+                              onChangeStyle={(style) => updateFieldStyle("frontageFeet", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
@@ -2783,6 +2846,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                               onChange={(e) =>
                                 setFrontageMeters(e.target.value)
                               }
+                              inputStyle={fieldStyles["frontageMeters"]}
+                              onChangeStyle={(style) => updateFieldStyle("frontageMeters", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
@@ -2795,6 +2860,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={depthSizeFeet}
                               onChange={(e) => setDepthSizeFeet(e.target.value)}
+                              inputStyle={fieldStyles["depthSizeFeet"]}
+                              onChangeStyle={(style) => updateFieldStyle("depthSizeFeet", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
@@ -2807,6 +2874,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={bedrooms}
                               onChange={(e) => setBedrooms(e.target.value)}
+                              inputStyle={fieldStyles["bedrooms"]}
+                              onChangeStyle={(style) => updateFieldStyle("bedrooms", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="1"
@@ -2819,6 +2888,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={bathrooms}
                               onChange={(e) => setBathrooms(e.target.value)}
+                              inputStyle={fieldStyles["bathrooms"]}
+                              onChangeStyle={(style) => updateFieldStyle("bathrooms", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="1"
@@ -2831,6 +2902,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={fullBaths}
                               onChange={(e) => setFullBaths(e.target.value)}
+                              inputStyle={fieldStyles["fullBaths"]}
+                              onChangeStyle={(style) => updateFieldStyle("fullBaths", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="1"
@@ -2843,6 +2916,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={halfBaths}
                               onChange={(e) => setHalfBaths(e.target.value)}
+                              inputStyle={fieldStyles["halfBaths"]}
+                              onChangeStyle={(style) => updateFieldStyle("halfBaths", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="0"
@@ -2857,6 +2932,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                               onChange={(e) =>
                                 setMaintenanceFee(e.target.value)
                               }
+                              inputStyle={fieldStyles["maintenanceFee"]}
+                              onChangeStyle={(style) => updateFieldStyle("maintenanceFee", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="380.76"
@@ -2871,6 +2948,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={originalPrice}
                               onChange={(e) => setOriginalPrice(e.target.value)}
+                              inputStyle={fieldStyles["originalPrice"]}
+                              onChangeStyle={(style) => updateFieldStyle("originalPrice", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="799,000"
@@ -2881,6 +2960,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={depth}
                               onChange={(e) => setDepth(e.target.value)}
+                              inputStyle={fieldStyles["depth"]}
+                              onChangeStyle={(style) => updateFieldStyle("depth", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
@@ -2891,6 +2972,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={age}
                               onChange={(e) => setAge(e.target.value)}
+                              inputStyle={fieldStyles["age"]}
+                              onChangeStyle={(style) => updateFieldStyle("age", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="21"
@@ -2901,6 +2984,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={zoning}
                               onChange={(e) => setZoning(e.target.value)}
+                              inputStyle={fieldStyles["zoning"]}
+                              onChangeStyle={(style) => updateFieldStyle("zoning", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="CD-1"
@@ -2913,6 +2998,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={grossTaxes}
                               onChange={(e) => setGrossTaxes(e.target.value)}
+                              inputStyle={fieldStyles["grossTaxes"]}
+                              onChangeStyle={(style) => updateFieldStyle("grossTaxes", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="1,381.81"
@@ -2925,6 +3012,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={taxYear}
                               onChange={(e) => setTaxYear(e.target.value)}
+                              inputStyle={fieldStyles["taxYear"]}
+                              onChangeStyle={(style) => updateFieldStyle("taxYear", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="2017"
@@ -2939,6 +3028,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                               onChange={(e) =>
                                 setTaxIncludeUtilities(e.target.value)
                               }
+                              inputStyle={fieldStyles["taxIncludeUtilities"]}
+                              onChangeStyle={(style) => updateFieldStyle("taxIncludeUtilities", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="No"
@@ -2949,6 +3040,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={pid}
                               onChange={(e) => setPid(e.target.value)}
+                              inputStyle={fieldStyles["pid"]}
+                              onChangeStyle={(style) => updateFieldStyle("pid", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="023-225-629"
@@ -2959,6 +3052,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={tour}
                               onChange={(e) => setTour(e.target.value)}
+                              inputStyle={fieldStyles["tour"]}
+                              onChangeStyle={(style) => updateFieldStyle("tour", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
@@ -2974,6 +3069,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={gstHst}
                             onChange={(e) => setGstHst(e.target.value)}
+                            inputStyle={fieldStyles["gstHst"]}
+                            onChangeStyle={(style) => updateFieldStyle("gstHst", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder=""
@@ -2988,6 +3085,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             onChange={(e) =>
                               setManagementCompany(e.target.value)
                             }
+                            inputStyle={fieldStyles["managementCompany"]}
+                            onChangeStyle={(style) => updateFieldStyle("managementCompany", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="FirstService Residentia"
@@ -3000,6 +3099,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={managementPhone}
                             onChange={(e) => setManagementPhone(e.target.value)}
+                            inputStyle={fieldStyles["managementPhone"]}
+                            onChangeStyle={(style) => updateFieldStyle("managementPhone", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="604-683-8900"
@@ -3010,6 +3111,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={view}
                             onChange={(e) => setView(e.target.value)}
+                            inputStyle={fieldStyles["view"]}
+                            onChangeStyle={(style) => updateFieldStyle("view", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Yes: Coal Harbour & Burrard Inlet"
@@ -3022,6 +3125,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={complexSubdiv}
                             onChange={(e) => setComplexSubdiv(e.target.value)}
+                            inputStyle={fieldStyles["complexSubdiv"]}
+                            onChangeStyle={(style) => updateFieldStyle("complexSubdiv", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Harbourside Park"
@@ -3036,6 +3141,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             onChange={(e) =>
                               setServicesConnected(e.target.value)
                             }
+                            inputStyle={fieldStyles["servicesConnected"]}
+                            onChangeStyle={(style) => updateFieldStyle("servicesConnected", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Electricity, Sanitary Sewer, Water"
@@ -3056,6 +3163,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={styleOfHome}
                             onChange={(e) => setStyleOfHome(e.target.value)}
+                            inputStyle={fieldStyles["styleOfHome"]}
+                            onChangeStyle={(style) => updateFieldStyle("styleOfHome", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Corner Unit"
@@ -3068,6 +3177,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={construction}
                             onChange={(e) => setConstruction(e.target.value)}
+                            inputStyle={fieldStyles["construction"]}
+                            onChangeStyle={(style) => updateFieldStyle("construction", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Concrete"
@@ -3078,6 +3189,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={exterior}
                             onChange={(e) => setExterior(e.target.value)}
+                            inputStyle={fieldStyles["exterior"]}
+                            onChangeStyle={(style) => updateFieldStyle("exterior", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Glass, Metal, Mixed"
@@ -3090,6 +3203,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={foundation}
                             onChange={(e) => setFoundation(e.target.value)}
+                            inputStyle={fieldStyles["foundation"]}
+                            onChangeStyle={(style) => updateFieldStyle("foundation", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Concrete Perimeter"
@@ -3102,6 +3217,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={rainScreen}
                             onChange={(e) => setRainScreen(e.target.value)}
+                            inputStyle={fieldStyles["rainScreen"]}
+                            onChangeStyle={(style) => updateFieldStyle("rainScreen", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder=""
@@ -3114,6 +3231,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={renovations}
                             onChange={(e) => setRenovations(e.target.value)}
+                            inputStyle={fieldStyles["renovations"]}
+                            onChangeStyle={(style) => updateFieldStyle("renovations", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder=""
@@ -3126,6 +3245,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={waterSupply}
                             onChange={(e) => setWaterSupply(e.target.value)}
+                            inputStyle={fieldStyles["waterSupply"]}
+                            onChangeStyle={(style) => updateFieldStyle("waterSupply", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="City/Municipal"
@@ -3138,6 +3259,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={fireplaceFuel}
                             onChange={(e) => setFireplaceFuel(e.target.value)}
+                            inputStyle={fieldStyles["fireplaceFuel"]}
+                            onChangeStyle={(style) => updateFieldStyle("fireplaceFuel", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder=""
@@ -3150,6 +3273,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={fuelHeating}
                             onChange={(e) => setFuelHeating(e.target.value)}
+                            inputStyle={fieldStyles["fuelHeating"]}
+                            onChangeStyle={(style) => updateFieldStyle("fuelHeating", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Baseboard, Electric"
@@ -3162,6 +3287,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={outdoorArea}
                             onChange={(e) => setOutdoorArea(e.target.value)}
+                            inputStyle={fieldStyles["outdoorArea"]}
+                            onChangeStyle={(style) => updateFieldStyle("outdoorArea", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Balcony(s)"
@@ -3174,6 +3301,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={roofType}
                             onChange={(e) => setRoofType(e.target.value)}
+                            inputStyle={fieldStyles["roofType"]}
+                            onChangeStyle={(style) => updateFieldStyle("roofType", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Other"
@@ -3188,6 +3317,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={renoYear}
                             onChange={(e) => setRenoYear(e.target.value)}
+                            inputStyle={fieldStyles["renoYear"]}
+                            onChangeStyle={(style) => updateFieldStyle("renoYear", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder=""
@@ -3200,6 +3331,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={riPlumbing}
                             onChange={(e) => setRiPlumbing(e.target.value)}
+                            inputStyle={fieldStyles["riPlumbing"]}
+                            onChangeStyle={(style) => updateFieldStyle("riPlumbing", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder=""
@@ -3212,6 +3345,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={riFireplaces}
                             onChange={(e) => setRiFireplaces(e.target.value)}
+                            inputStyle={fieldStyles["riFireplaces"]}
+                            onChangeStyle={(style) => updateFieldStyle("riFireplaces", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder=""
@@ -3224,6 +3359,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={numFireplaces}
                             onChange={(e) => setNumFireplaces(e.target.value)}
+                            inputStyle={fieldStyles["numFireplaces"]}
+                            onChangeStyle={(style) => updateFieldStyle("numFireplaces", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="0"
@@ -3241,6 +3378,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={totalParking}
                               onChange={(e) => setTotalParking(e.target.value)}
+                              inputStyle={fieldStyles["totalParking"]}
+                              onChangeStyle={(style) => updateFieldStyle("totalParking", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="1"
@@ -3255,6 +3394,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                               onChange={(e) =>
                                 setCoveredParking(e.target.value)
                               }
+                              inputStyle={fieldStyles["coveredParking"]}
+                              onChangeStyle={(style) => updateFieldStyle("coveredParking", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="1"
@@ -3265,6 +3406,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={parking}
                               onChange={(e) => setParking(e.target.value)}
+                              inputStyle={fieldStyles["parking"]}
+                              onChangeStyle={(style) => updateFieldStyle("parking", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="Garage; Underground"
@@ -3279,6 +3422,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                               onChange={(e) =>
                                 setDistToPublicTransit(e.target.value)
                               }
+                              inputStyle={fieldStyles["distToPublicTransit"]}
+                              onChangeStyle={(style) => updateFieldStyle("distToPublicTransit", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="1 Block"
@@ -3293,6 +3438,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                               onChange={(e) =>
                                 setUnitsInDevelopment(e.target.value)
                               }
+                              inputStyle={fieldStyles["unitsInDevelopment"]}
+                              onChangeStyle={(style) => updateFieldStyle("unitsInDevelopment", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
@@ -3307,6 +3454,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={parkingAccess}
                               onChange={(e) => setParkingAccess(e.target.value)}
+                              inputStyle={fieldStyles["parkingAccess"]}
+                              onChangeStyle={(style) => updateFieldStyle("parkingAccess", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="Side"
@@ -3317,6 +3466,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             <StyledInput
                               value={locker}
                               onChange={(e) => setLocker(e.target.value)}
+                              inputStyle={fieldStyles["locker"]}
+                              onChangeStyle={(style) => updateFieldStyle("locker", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="Y"
@@ -3331,6 +3482,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                               onChange={(e) =>
                                 setDistToSchoolBus(e.target.value)
                               }
+                              inputStyle={fieldStyles["distToSchoolBus"]}
+                              onChangeStyle={(style) => updateFieldStyle("distToSchoolBus", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder=""
@@ -3345,6 +3498,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                               onChange={(e) =>
                                 setTotalUnitsInStrata(e.target.value)
                               }
+                              inputStyle={fieldStyles["totalUnitsInStrata"]}
+                              onChangeStyle={(style) => updateFieldStyle("totalUnitsInStrata", style)}
                               rows={1}
                               className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                               placeholder="382"
@@ -3360,6 +3515,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={titleToLand}
                             onChange={(e) => setTitleToLand(e.target.value)}
+                            inputStyle={fieldStyles["titleToLand"]}
+                            onChangeStyle={(style) => updateFieldStyle("titleToLand", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Freehold Strata"
@@ -3374,6 +3531,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             onChange={(e) =>
                               setPropertyDisclosure(e.target.value)
                             }
+                            inputStyle={fieldStyles["propertyDisclosure"]}
+                            onChangeStyle={(style) => updateFieldStyle("propertyDisclosure", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="No"
@@ -3386,6 +3545,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={fixturesLeased}
                             onChange={(e) => setFixturesLeased(e.target.value)}
+                            inputStyle={fieldStyles["fixturesLeased"]}
+                            onChangeStyle={(style) => updateFieldStyle("fixturesLeased", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder=""
@@ -3398,6 +3559,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={fixturesRemoved}
                             onChange={(e) => setFixturesRemoved(e.target.value)}
+                            inputStyle={fieldStyles["fixturesRemoved"]}
+                            onChangeStyle={(style) => updateFieldStyle("fixturesRemoved", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Baseboard, Electric"
@@ -3410,6 +3573,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floorFinish}
                             onChange={(e) => setFloorFinish(e.target.value)}
+                            inputStyle={fieldStyles["floorFinish"]}
+                            onChangeStyle={(style) => updateFieldStyle("floorFinish", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Hardwood, Laminate, Mixed"
@@ -3426,6 +3591,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       <StyledInput
                         value={maintFeeInc}
                         onChange={(e) => setMaintFeeInc(e.target.value)}
+                        inputStyle={fieldStyles["maintFeeInc"]}
+                        onChangeStyle={(style) => updateFieldStyle("maintFeeInc", style)}
                         rows={1}
                         className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                         placeholder="Caretaker, Gardening, Hot Water, Management, Recreation Facility"
@@ -3436,6 +3603,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       <StyledInput
                         value={legal}
                         onChange={(e) => setLegal(e.target.value)}
+                        inputStyle={fieldStyles["legal"]}
+                        onChangeStyle={(style) => updateFieldStyle("legal", style)}
                         rows={2}
                         className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                         placeholder="PL LMS2064 LT 253 DL 185 LD 36. GROUP 1, UNDIV 620/249910 SHARE IN COM PROP THEREIN TOGETHER WITH AN INTEREST IN THE
@@ -3447,6 +3616,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       <StyledInput
                         value={amenities}
                         onChange={(e) => setAmenities(e.target.value)}
+                        inputStyle={fieldStyles["amenities"]}
+                        onChangeStyle={(style) => updateFieldStyle("amenities", style)}
                         rows={1}
                         className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                         placeholder="Elevator, Exercise Centre, In Suite Laundry, Pool; Indoor, Storage, Swirlpool/Hot Tub"
@@ -3459,6 +3630,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       <StyledInput
                         value={siteInfluences}
                         onChange={(e) => setSiteInfluences(e.target.value)}
+                        inputStyle={fieldStyles["siteInfluences"]}
+                        onChangeStyle={(style) => updateFieldStyle("siteInfluences", style)}
                         rows={1}
                         className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                         placeholder="Central Location, Recreation Nearby, Shopping Nearby, Waterfront Property"
@@ -3469,6 +3642,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                       <StyledInput
                         value={features}
                         onChange={(e) => setFeatures(e.target.value)}
+                        inputStyle={fieldStyles["features"]}
+                        onChangeStyle={(style) => updateFieldStyle("features", style)}
                         rows={1}
                         className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                         placeholder="ClthWsh/Dryr/Frdg/Stve/DW, Drapes/Window Coverings, Smoke Alarm, Sprinkler - Fire"
@@ -3485,6 +3660,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor1}
                             onChange={(e) => setFloor1(e.target.value)}
+                            inputStyle={fieldStyles["floor1"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor1", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Main"
@@ -3494,6 +3671,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor2}
                             onChange={(e) => setFloor2(e.target.value)}
+                            inputStyle={fieldStyles["floor2"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor2", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Main"
@@ -3503,6 +3682,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor3}
                             onChange={(e) => setFloor3(e.target.value)}
+                            inputStyle={fieldStyles["floor3"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor3", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Main"
@@ -3512,6 +3693,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor4}
                             onChange={(e) => setFloor4(e.target.value)}
+                            inputStyle={fieldStyles["floor4"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor4", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Main"
@@ -3521,6 +3704,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor5}
                             onChange={(e) => setFloor5(e.target.value)}
+                            inputStyle={fieldStyles["floor5"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor5", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Main"
@@ -3530,6 +3715,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor6}
                             onChange={(e) => setFloor6(e.target.value)}
+                            inputStyle={fieldStyles["floor6"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor6", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Main"
@@ -3539,6 +3726,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor7}
                             onChange={(e) => setFloor7(e.target.value)}
+                            inputStyle={fieldStyles["floor7"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor7", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Main"
@@ -3548,6 +3737,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor8}
                             onChange={(e) => setFloor8(e.target.value)}
+                            inputStyle={fieldStyles["floor8"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor8", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder=""
@@ -3557,6 +3748,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor9}
                             onChange={(e) => setFloor9(e.target.value)}
+                            inputStyle={fieldStyles["floor9"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor9", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder=""
@@ -3566,6 +3759,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor10}
                             onChange={(e) => setFloor10(e.target.value)}
+                            inputStyle={fieldStyles["floor10"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor10", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder=""
@@ -3578,6 +3773,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type1}
                             onChange={(e) => setType1(e.target.value)}
+                            inputStyle={fieldStyles["type1"]}
+                            onChangeStyle={(style) => updateFieldStyle("type1", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Living Room"
@@ -3587,6 +3784,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type2}
                             onChange={(e) => setType2(e.target.value)}
+                            inputStyle={fieldStyles["type2"]}
+                            onChangeStyle={(style) => updateFieldStyle("type2", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Kitchen"
@@ -3596,6 +3795,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type3}
                             onChange={(e) => setType3(e.target.value)}
+                            inputStyle={fieldStyles["type3"]}
+                            onChangeStyle={(style) => updateFieldStyle("type3", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Dining Room"
@@ -3605,6 +3806,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type4}
                             onChange={(e) => setType4(e.target.value)}
+                            inputStyle={fieldStyles["type4"]}
+                            onChangeStyle={(style) => updateFieldStyle("type4", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Bedroom"
@@ -3614,6 +3817,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type5}
                             onChange={(e) => setType5(e.target.value)}
+                            inputStyle={fieldStyles["type5"]}
+                            onChangeStyle={(style) => updateFieldStyle("type5", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Den"
@@ -3623,6 +3828,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type6}
                             onChange={(e) => setType6(e.target.value)}
+                            inputStyle={fieldStyles["type6"]}
+                            onChangeStyle={(style) => updateFieldStyle("type6", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Storage"
@@ -3632,6 +3839,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type7}
                             onChange={(e) => setType7(e.target.value)}
+                            inputStyle={fieldStyles["type7"]}
+                            onChangeStyle={(style) => updateFieldStyle("type7", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder="Foyer"
@@ -3641,6 +3850,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type8}
                             onChange={(e) => setType8(e.target.value)}
+                            inputStyle={fieldStyles["type8"]}
+                            onChangeStyle={(style) => updateFieldStyle("type8", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder=""
@@ -3650,6 +3861,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type9}
                             onChange={(e) => setType9(e.target.value)}
+                            inputStyle={fieldStyles["type9"]}
+                            onChangeStyle={(style) => updateFieldStyle("type9", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder=""
@@ -3659,6 +3872,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type10}
                             onChange={(e) => setType10(e.target.value)}
+                            inputStyle={fieldStyles["type10"]}
+                            onChangeStyle={(style) => updateFieldStyle("type10", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none "
                             placeholder=""
@@ -3671,6 +3886,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions1}
                             onChange={(e) => setDimensions1(e.target.value)}
+                            inputStyle={fieldStyles["dimensions1"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions1", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none "
                             placeholder="9'11 x 9'2"
@@ -3680,6 +3897,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions2}
                             onChange={(e) => setDimensions2(e.target.value)}
+                            inputStyle={fieldStyles["dimensions2"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions2", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none "
                             placeholder="9'2 x 7'4"
@@ -3689,6 +3908,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions3}
                             onChange={(e) => setDimensions3(e.target.value)}
+                            inputStyle={fieldStyles["dimensions3"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions3", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none "
                             placeholder="9'11 x 8'4"
@@ -3698,6 +3919,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions4}
                             onChange={(e) => setDimensions4(e.target.value)}
+                            inputStyle={fieldStyles["dimensions4"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions4", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none "
                             placeholder="11'4 x 10'8"
@@ -3707,6 +3930,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions5}
                             onChange={(e) => setDimensions5(e.target.value)}
+                            inputStyle={fieldStyles["dimensions5"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions5", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none "
                             placeholder="6'6 x 4'8"
@@ -3716,6 +3941,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions6}
                             onChange={(e) => setDimensions6(e.target.value)}
+                            inputStyle={fieldStyles["dimensions6"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions6", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none "
                             placeholder="7'6 x 4'8"
@@ -3725,6 +3952,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions7}
                             onChange={(e) => setDimensions7(e.target.value)}
+                            inputStyle={fieldStyles["dimensions7"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions7", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none "
                             placeholder="7'2 x 4'7"
@@ -3734,6 +3963,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions8}
                             onChange={(e) => setDimensions8(e.target.value)}
+                            inputStyle={fieldStyles["dimensions8"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions8", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none "
                             placeholder="x"
@@ -3743,6 +3974,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions9}
                             onChange={(e) => setDimensions9(e.target.value)}
+                            inputStyle={fieldStyles["dimensions9"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions9", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none "
                             placeholder="x"
@@ -3752,6 +3985,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions10}
                             onChange={(e) => setDimensions10(e.target.value)}
+                            inputStyle={fieldStyles["dimensions10"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions10", style)}
                             rows={1}
                             className=" h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none "
                             placeholder="x"
@@ -3766,6 +4001,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor11}
                             onChange={(e) => setFloor11(e.target.value)}
+                            inputStyle={fieldStyles["floor11"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor11", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3775,6 +4012,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor12}
                             onChange={(e) => setFloor12(e.target.value)}
+                            inputStyle={fieldStyles["floor12"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor12", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3784,6 +4023,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor13}
                             onChange={(e) => setFloor13(e.target.value)}
+                            inputStyle={fieldStyles["floor13"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor13", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3793,6 +4034,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor14}
                             onChange={(e) => setFloor14(e.target.value)}
+                            inputStyle={fieldStyles["floor14"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor14", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3802,6 +4045,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor15}
                             onChange={(e) => setFloor15(e.target.value)}
+                            inputStyle={fieldStyles["floor15"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor15", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3811,6 +4056,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor16}
                             onChange={(e) => setFloor16(e.target.value)}
+                            inputStyle={fieldStyles["floor16"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor16", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3820,6 +4067,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor17}
                             onChange={(e) => setFloor17(e.target.value)}
+                            inputStyle={fieldStyles["floor17"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor17", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3829,6 +4078,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor18}
                             onChange={(e) => setFloor18(e.target.value)}
+                            inputStyle={fieldStyles["floor18"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor18", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3838,6 +4089,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor19}
                             onChange={(e) => setFloor19(e.target.value)}
+                            inputStyle={fieldStyles["floor19"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor19", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3847,6 +4100,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor20}
                             onChange={(e) => setFloor20(e.target.value)}
+                            inputStyle={fieldStyles["floor20"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor20", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3859,6 +4114,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type11}
                             onChange={(e) => setType11(e.target.value)}
+                            inputStyle={fieldStyles["type11"]}
+                            onChangeStyle={(style) => updateFieldStyle("type11", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3868,6 +4125,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type12}
                             onChange={(e) => setType12(e.target.value)}
+                            inputStyle={fieldStyles["type12"]}
+                            onChangeStyle={(style) => updateFieldStyle("type12", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3877,6 +4136,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type13}
                             onChange={(e) => setType13(e.target.value)}
+                            inputStyle={fieldStyles["type13"]}
+                            onChangeStyle={(style) => updateFieldStyle("type13", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3886,6 +4147,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type14}
                             onChange={(e) => setType14(e.target.value)}
+                            inputStyle={fieldStyles["type14"]}
+                            onChangeStyle={(style) => updateFieldStyle("type14", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3895,6 +4158,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type15}
                             onChange={(e) => setType15(e.target.value)}
+                            inputStyle={fieldStyles["type15"]}
+                            onChangeStyle={(style) => updateFieldStyle("type15", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3904,6 +4169,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type16}
                             onChange={(e) => setType16(e.target.value)}
+                            inputStyle={fieldStyles["type16"]}
+                            onChangeStyle={(style) => updateFieldStyle("type16", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3913,6 +4180,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type17}
                             onChange={(e) => setType17(e.target.value)}
+                            inputStyle={fieldStyles["type17"]}
+                            onChangeStyle={(style) => updateFieldStyle("type17", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3922,6 +4191,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type18}
                             onChange={(e) => setType18(e.target.value)}
+                            inputStyle={fieldStyles["type18"]}
+                            onChangeStyle={(style) => updateFieldStyle("type18", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3931,6 +4202,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type19}
                             onChange={(e) => setType19(e.target.value)}
+                            inputStyle={fieldStyles["type19"]}
+                            onChangeStyle={(style) => updateFieldStyle("type19", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3940,6 +4213,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type20}
                             onChange={(e) => setType20(e.target.value)}
+                            inputStyle={fieldStyles["type20"]}
+                            onChangeStyle={(style) => updateFieldStyle("type20", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -3952,6 +4227,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions11}
                             onChange={(e) => setDimensions11(e.target.value)}
+                            inputStyle={fieldStyles["dimensions11"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions11", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -3961,6 +4238,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions12}
                             onChange={(e) => setDimensions12(e.target.value)}
+                            inputStyle={fieldStyles["dimensions12"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions12", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -3970,6 +4249,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions13}
                             onChange={(e) => setDimensions13(e.target.value)}
+                            inputStyle={fieldStyles["dimensions13"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions13", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -3979,6 +4260,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions14}
                             onChange={(e) => setDimensions14(e.target.value)}
+                            inputStyle={fieldStyles["dimensions14"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions14", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -3988,6 +4271,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions15}
                             onChange={(e) => setDimensions15(e.target.value)}
+                            inputStyle={fieldStyles["dimensions15"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions15", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -3997,6 +4282,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions16}
                             onChange={(e) => setDimensions16(e.target.value)}
+                            inputStyle={fieldStyles["dimensions16"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions16", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -4006,6 +4293,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions17}
                             onChange={(e) => setDimensions17(e.target.value)}
+                            inputStyle={fieldStyles["dimensions17"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions17", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -4015,6 +4304,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions18}
                             onChange={(e) => setDimensions18(e.target.value)}
+                            inputStyle={fieldStyles["dimensions18"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions18", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -4024,6 +4315,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions19}
                             onChange={(e) => setDimensions19(e.target.value)}
+                            inputStyle={fieldStyles["dimensions19"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions19", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -4033,6 +4326,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions20}
                             onChange={(e) => setDimensions20(e.target.value)}
+                            inputStyle={fieldStyles["dimensions20"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions20", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -4047,6 +4342,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor21}
                             onChange={(e) => setFloor21(e.target.value)}
+                            inputStyle={fieldStyles["floor21"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor21", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4056,6 +4353,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor22}
                             onChange={(e) => setFloor22(e.target.value)}
+                            inputStyle={fieldStyles["floor22"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor22", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4065,6 +4364,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor23}
                             onChange={(e) => setFloor23(e.target.value)}
+                            inputStyle={fieldStyles["floor23"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor23", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4074,6 +4375,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor24}
                             onChange={(e) => setFloor24(e.target.value)}
+                            inputStyle={fieldStyles["floor24"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor24", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4083,6 +4386,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor25}
                             onChange={(e) => setFloor25(e.target.value)}
+                            inputStyle={fieldStyles["floor25"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor25", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4092,6 +4397,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor26}
                             onChange={(e) => setFloor26(e.target.value)}
+                            inputStyle={fieldStyles["floor26"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor26", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4101,6 +4408,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor27}
                             onChange={(e) => setFloor27(e.target.value)}
+                            inputStyle={fieldStyles["floor27"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor27", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4110,6 +4419,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor28}
                             onChange={(e) => setFloor28(e.target.value)}
+                            inputStyle={fieldStyles["floor28"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor28", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4119,6 +4430,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor29}
                             onChange={(e) => setFloor29(e.target.value)}
+                            inputStyle={fieldStyles["floor29"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor29", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4128,6 +4441,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={floor30}
                             onChange={(e) => setFloor30(e.target.value)}
+                            inputStyle={fieldStyles["floor30"]}
+                            onChangeStyle={(style) => updateFieldStyle("floor30", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4140,6 +4455,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type21}
                             onChange={(e) => setType21(e.target.value)}
+                            inputStyle={fieldStyles["type21"]}
+                            onChangeStyle={(style) => updateFieldStyle("type21", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4149,6 +4466,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type22}
                             onChange={(e) => setType22(e.target.value)}
+                            inputStyle={fieldStyles["type22"]}
+                            onChangeStyle={(style) => updateFieldStyle("type22", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4158,6 +4477,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type23}
                             onChange={(e) => setType23(e.target.value)}
+                            inputStyle={fieldStyles["type23"]}
+                            onChangeStyle={(style) => updateFieldStyle("type23", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4167,6 +4488,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type24}
                             onChange={(e) => setType24(e.target.value)}
+                            inputStyle={fieldStyles["type24"]}
+                            onChangeStyle={(style) => updateFieldStyle("type24", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4176,6 +4499,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type25}
                             onChange={(e) => setType25(e.target.value)}
+                            inputStyle={fieldStyles["type25"]}
+                            onChangeStyle={(style) => updateFieldStyle("type25", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4185,6 +4510,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type26}
                             onChange={(e) => setType26(e.target.value)}
+                            inputStyle={fieldStyles["type26"]}
+                            onChangeStyle={(style) => updateFieldStyle("type26", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4194,6 +4521,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type27}
                             onChange={(e) => setType27(e.target.value)}
+                            inputStyle={fieldStyles["type27"]}
+                            onChangeStyle={(style) => updateFieldStyle("type27", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4203,6 +4532,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type28}
                             onChange={(e) => setType28(e.target.value)}
+                            inputStyle={fieldStyles["type28"]}
+                            onChangeStyle={(style) => updateFieldStyle("type28", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4212,6 +4543,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type29}
                             onChange={(e) => setType29(e.target.value)}
+                            inputStyle={fieldStyles["type29"]}
+                            onChangeStyle={(style) => updateFieldStyle("type29", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4221,6 +4554,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={type30}
                             onChange={(e) => setType30(e.target.value)}
+                            inputStyle={fieldStyles["type30"]}
+                            onChangeStyle={(style) => updateFieldStyle("type30", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4233,6 +4568,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions21}
                             onChange={(e) => setDimensions21(e.target.value)}
+                            inputStyle={fieldStyles["dimensions21"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions21", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -4242,6 +4579,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions22}
                             onChange={(e) => setDimensions22(e.target.value)}
+                            inputStyle={fieldStyles["dimensions22"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions22", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -4251,6 +4590,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions23}
                             onChange={(e) => setDimensions23(e.target.value)}
+                            inputStyle={fieldStyles["dimensions23"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions23", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -4260,6 +4601,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions24}
                             onChange={(e) => setDimensions24(e.target.value)}
+                            inputStyle={fieldStyles["dimensions24"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions24", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -4269,6 +4612,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions25}
                             onChange={(e) => setDimensions25(e.target.value)}
+                            inputStyle={fieldStyles["dimensions25"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions25", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -4278,6 +4623,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions26}
                             onChange={(e) => setDimensions26(e.target.value)}
+                            inputStyle={fieldStyles["dimensions26"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions26", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -4287,6 +4634,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions27}
                             onChange={(e) => setDimensions27(e.target.value)}
+                            inputStyle={fieldStyles["dimensions27"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions27", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -4296,6 +4645,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions28}
                             onChange={(e) => setDimensions28(e.target.value)}
+                            inputStyle={fieldStyles["dimensions28"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions28", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -4305,6 +4656,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions29}
                             onChange={(e) => setDimensions29(e.target.value)}
+                            inputStyle={fieldStyles["dimensions29"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions29", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -4314,6 +4667,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dimensions30}
                             onChange={(e) => setDimensions30(e.target.value)}
+                            inputStyle={fieldStyles["dimensions30"]}
+                            onChangeStyle={(style) => updateFieldStyle("dimensions30", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="x"
@@ -4333,6 +4688,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         <StyledInput
                           value={finishedFloorMain}
                           onChange={(e) => setFinishedFloorMain(e.target.value)}
+                          inputStyle={fieldStyles["finishedFloorMain"]}
+                          onChangeStyle={(style) => updateFieldStyle("finishedFloorMain", style)}
                           rows={1}
                           className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-right w-full focus:outline-none border-none"
                           placeholder="640"
@@ -4347,6 +4704,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           onChange={(e) =>
                             setFinishedFloorAbove(e.target.value)
                           }
+                          inputStyle={fieldStyles["finishedFloorAbove"]}
+                          onChangeStyle={(style) => updateFieldStyle("finishedFloorAbove", style)}
                           rows={1}
                           className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-right w-full focus:outline-none border-none"
                           placeholder="0"
@@ -4361,6 +4720,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           onChange={(e) =>
                             setFinishedFloorBelow(e.target.value)
                           }
+                          inputStyle={fieldStyles["finishedFloorBelow"]}
+                          onChangeStyle={(style) => updateFieldStyle("finishedFloorBelow", style)}
                           rows={1}
                           className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-right w-full focus:outline-none border-none"
                           placeholder="0"
@@ -4375,6 +4736,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           onChange={(e) =>
                             setFinishedFloorBasement(e.target.value)
                           }
+                          inputStyle={fieldStyles["finishedFloorBasement"]}
+                          onChangeStyle={(style) => updateFieldStyle("finishedFloorBasement", style)}
                           rows={1}
                           className="h-full bg-transparent border-b border-dotted border-gray-400 border-x-0 border-t-0 rounded-none text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-right w-full focus:outline-none"
                           placeholder="0"
@@ -4389,6 +4752,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           onChange={(e) =>
                             setFinishedFloorTotal(e.target.value)
                           }
+                          inputStyle={fieldStyles["finishedFloorTotal"]}
+                          onChangeStyle={(style) => updateFieldStyle("finishedFloorTotal", style)}
                           rows={1}
                           className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-right w-full focus:outline-none border-none"
                           placeholder="640"
@@ -4402,6 +4767,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         <StyledInput
                           value={unfinishedFloor}
                           onChange={(e) => setUnfinishedFloor(e.target.value)}
+                          inputStyle={fieldStyles["unfinishedFloor"]}
+                          onChangeStyle={(style) => updateFieldStyle("unfinishedFloor", style)}
                           rows={1}
                           className="h-full bg-transparent border-b border-dotted border-gray-400 border-x-0 border-t-0 rounded-none text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-right w-full focus:outline-none"
                           placeholder="0"
@@ -4412,6 +4779,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         <StyledInput
                           value={grandTotal}
                           onChange={(e) => setGrandTotal(e.target.value)}
+                          inputStyle={fieldStyles["grandTotal"]}
+                          onChangeStyle={(style) => updateFieldStyle("grandTotal", style)}
                           rows={1}
                           className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-right w-full focus:outline-none border-none"
                           placeholder="640"
@@ -4428,6 +4797,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={numRooms}
                             onChange={(e) => setNumRooms(e.target.value)}
+                            inputStyle={fieldStyles["numRooms"]}
+                            onChangeStyle={(style) => updateFieldStyle("numRooms", style)}
                             rows={1}
                             className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder="7"
@@ -4440,6 +4811,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={numKitchens}
                             onChange={(e) => setNumKitchens(e.target.value)}
+                            inputStyle={fieldStyles["numKitchens"]}
+                            onChangeStyle={(style) => updateFieldStyle("numKitchens", style)}
                             rows={1}
                             className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder="1"
@@ -4452,6 +4825,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={numLevels}
                             onChange={(e) => setNumLevels(e.target.value)}
+                            inputStyle={fieldStyles["numLevels"]}
+                            onChangeStyle={(style) => updateFieldStyle("numLevels", style)}
                             rows={1}
                             className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder="1"
@@ -4468,6 +4843,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             onChange={(e) =>
                               setCrawlBasementHeight(e.target.value)
                             }
+                            inputStyle={fieldStyles["crawlBasementHeight"]}
+                            onChangeStyle={(style) => updateFieldStyle("crawlBasementHeight", style)}
                             rows={1}
                             className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4480,6 +4857,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={restrictedAge}
                             onChange={(e) => setRestrictedAge(e.target.value)}
+                            inputStyle={fieldStyles["restrictedAge"]}
+                            onChangeStyle={(style) => updateFieldStyle("restrictedAge", style)}
                             rows={1}
                             className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4492,6 +4871,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={numPets}
                             onChange={(e) => setNumPets(e.target.value)}
+                            inputStyle={fieldStyles["numPets"]}
+                            onChangeStyle={(style) => updateFieldStyle("numPets", style)}
                             rows={1}
                             className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4502,6 +4883,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={cats}
                             onChange={(e) => setCats(e.target.value)}
+                            inputStyle={fieldStyles["cats"]}
+                            onChangeStyle={(style) => updateFieldStyle("cats", style)}
                             rows={1}
                             className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4512,6 +4895,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={dogs}
                             onChange={(e) => setDogs(e.target.value)}
+                            inputStyle={fieldStyles["dogs"]}
+                            onChangeStyle={(style) => updateFieldStyle("dogs", style)}
                             rows={1}
                             className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4526,6 +4911,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={rentalsAllowed}
                             onChange={(e) => setRentalsAllowed(e.target.value)}
+                            inputStyle={fieldStyles["rentalsAllowed"]}
+                            onChangeStyle={(style) => updateFieldStyle("rentalsAllowed", style)}
                             rows={1}
                             className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4540,6 +4927,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                             onChange={(e) =>
                               setBylawRestrictions(e.target.value)
                             }
+                            inputStyle={fieldStyles["bylawRestrictions"]}
+                            onChangeStyle={(style) => updateFieldStyle("bylawRestrictions", style)}
                             rows={2}
                             className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder="Pets Allowed w/Rest., Rentals Allwd w/Restrctns"
@@ -4550,6 +4939,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={basement}
                             onChange={(e) => setBasement(e.target.value)}
+                            inputStyle={fieldStyles["basement"]}
+                            onChangeStyle={(style) => updateFieldStyle("basement", style)}
                             rows={1}
                             className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder="None"
@@ -4564,6 +4955,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bath1}
                             onChange={(e) => setBath1(e.target.value)}
+                            inputStyle={fieldStyles["bath1"]}
+                            onChangeStyle={(style) => updateFieldStyle("bath1", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder="1"
@@ -4573,6 +4966,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bath2}
                             onChange={(e) => setBath2(e.target.value)}
+                            inputStyle={fieldStyles["bath2"]}
+                            onChangeStyle={(style) => updateFieldStyle("bath2", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder="2"
@@ -4582,6 +4977,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bath3}
                             onChange={(e) => setBath3(e.target.value)}
+                            inputStyle={fieldStyles["bath3"]}
+                            onChangeStyle={(style) => updateFieldStyle("bath3", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder="3"
@@ -4591,6 +4988,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bath4}
                             onChange={(e) => setBath4(e.target.value)}
+                            inputStyle={fieldStyles["bath4"]}
+                            onChangeStyle={(style) => updateFieldStyle("bath4", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder="4"
@@ -4600,6 +4999,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bath5}
                             onChange={(e) => setBath5(e.target.value)}
+                            inputStyle={fieldStyles["bath5"]}
+                            onChangeStyle={(style) => updateFieldStyle("bath5", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder="5"
@@ -4609,6 +5010,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bath6}
                             onChange={(e) => setBath6(e.target.value)}
+                            inputStyle={fieldStyles["bath6"]}
+                            onChangeStyle={(style) => updateFieldStyle("bath6", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder="6"
@@ -4618,6 +5021,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bath7}
                             onChange={(e) => setBath7(e.target.value)}
+                            inputStyle={fieldStyles["bath7"]}
+                            onChangeStyle={(style) => updateFieldStyle("bath7", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder="7"
@@ -4627,6 +5032,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bath8}
                             onChange={(e) => setBath8(e.target.value)}
+                            inputStyle={fieldStyles["bath8"]}
+                            onChangeStyle={(style) => updateFieldStyle("bath8", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder="8"
@@ -4639,6 +5046,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathType1}
                             onChange={(e) => setBathType1(e.target.value)}
+                            inputStyle={fieldStyles["bathType1"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathType1", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder="Main"
@@ -4648,6 +5057,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathType2}
                             onChange={(e) => setBathType2(e.target.value)}
+                            inputStyle={fieldStyles["bathType2"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathType2", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4657,6 +5068,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathType3}
                             onChange={(e) => setBathType3(e.target.value)}
+                            inputStyle={fieldStyles["bathType3"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathType3", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4666,6 +5079,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathType4}
                             onChange={(e) => setBathType4(e.target.value)}
+                            inputStyle={fieldStyles["bathType4"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathType4", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4675,6 +5090,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathType5}
                             onChange={(e) => setBathType5(e.target.value)}
+                            inputStyle={fieldStyles["bathType5"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathType5", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4684,6 +5101,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathType6}
                             onChange={(e) => setBathType6(e.target.value)}
+                            inputStyle={fieldStyles["bathType6"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathType6", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4693,6 +5112,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathType7}
                             onChange={(e) => setBathType7(e.target.value)}
+                            inputStyle={fieldStyles["bathType7"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathType7", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4702,6 +5123,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathType8}
                             onChange={(e) => setBathType8(e.target.value)}
+                            inputStyle={fieldStyles["bathType8"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathType8", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                             placeholder=""
@@ -4716,6 +5139,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathPieces1}
                             onChange={(e) => setBathPieces1(e.target.value)}
+                            inputStyle={fieldStyles["bathPieces1"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathPieces1", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="4"
@@ -4725,6 +5150,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathPieces2}
                             onChange={(e) => setBathPieces2(e.target.value)}
+                            inputStyle={fieldStyles["bathPieces2"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathPieces2", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4734,6 +5161,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathPieces3}
                             onChange={(e) => setBathPieces3(e.target.value)}
+                            inputStyle={fieldStyles["bathPieces3"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathPieces3", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4743,6 +5172,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathPieces4}
                             onChange={(e) => setBathPieces4(e.target.value)}
+                            inputStyle={fieldStyles["bathPieces4"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathPieces4", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4752,6 +5183,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathPieces5}
                             onChange={(e) => setBathPieces5(e.target.value)}
+                            inputStyle={fieldStyles["bathPieces5"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathPieces5", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4761,6 +5194,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathPieces6}
                             onChange={(e) => setBathPieces6(e.target.value)}
+                            inputStyle={fieldStyles["bathPieces6"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathPieces6", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4770,6 +5205,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathPieces7}
                             onChange={(e) => setBathPieces7(e.target.value)}
+                            inputStyle={fieldStyles["bathPieces7"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathPieces7", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4779,6 +5216,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathPieces8}
                             onChange={(e) => setBathPieces8(e.target.value)}
+                            inputStyle={fieldStyles["bathPieces8"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathPieces8", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4793,6 +5232,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathEnsuite1}
                             onChange={(e) => setBathEnsuite1(e.target.value)}
+                            inputStyle={fieldStyles["bathEnsuite1"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathEnsuite1", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder="No"
@@ -4802,6 +5243,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathEnsuite2}
                             onChange={(e) => setBathEnsuite2(e.target.value)}
+                            inputStyle={fieldStyles["bathEnsuite2"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathEnsuite2", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4811,6 +5254,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathEnsuite3}
                             onChange={(e) => setBathEnsuite3(e.target.value)}
+                            inputStyle={fieldStyles["bathEnsuite3"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathEnsuite3", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4820,6 +5265,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathEnsuite4}
                             onChange={(e) => setBathEnsuite4(e.target.value)}
+                            inputStyle={fieldStyles["bathEnsuite4"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathEnsuite4", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4829,6 +5276,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathEnsuite5}
                             onChange={(e) => setBathEnsuite5(e.target.value)}
+                            inputStyle={fieldStyles["bathEnsuite5"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathEnsuite5", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4838,6 +5287,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathEnsuite6}
                             onChange={(e) => setBathEnsuite6(e.target.value)}
+                            inputStyle={fieldStyles["bathEnsuite6"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathEnsuite6", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4847,6 +5298,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathEnsuite7}
                             onChange={(e) => setBathEnsuite7(e.target.value)}
+                            inputStyle={fieldStyles["bathEnsuite7"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathEnsuite7", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4856,6 +5309,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={bathEnsuite8}
                             onChange={(e) => setBathEnsuite8(e.target.value)}
+                            inputStyle={fieldStyles["bathEnsuite8"]}
+                            onChangeStyle={(style) => updateFieldStyle("bathEnsuite8", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4873,6 +5328,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={barn}
                             onChange={(e) => setBarn(e.target.value)}
+                            inputStyle={fieldStyles["barn"]}
+                            onChangeStyle={(style) => updateFieldStyle("barn", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4885,6 +5342,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={workshopShed}
                             onChange={(e) => setWorkshopShed(e.target.value)}
+                            inputStyle={fieldStyles["workshopShed"]}
+                            onChangeStyle={(style) => updateFieldStyle("workshopShed", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4895,6 +5354,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={pool}
                             onChange={(e) => setPool(e.target.value)}
+                            inputStyle={fieldStyles["pool"]}
+                            onChangeStyle={(style) => updateFieldStyle("pool", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4905,6 +5366,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={garageSize}
                             onChange={(e) => setGarageSize(e.target.value)}
+                            inputStyle={fieldStyles["garageSize"]}
+                            onChangeStyle={(style) => updateFieldStyle("garageSize", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4917,6 +5380,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                           <StyledInput
                             value={doorHeight}
                             onChange={(e) => setDoorHeight(e.target.value)}
+                            inputStyle={fieldStyles["doorHeight"]}
+                            onChangeStyle={(style) => updateFieldStyle("doorHeight", style)}
                             rows={1}
                             className="h-full bg-transparent text-[10px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-center w-full focus:outline-none border-none"
                             placeholder=""
@@ -4936,6 +5401,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         <StyledInput
                           value={listingBroker}
                           onChange={(e) => setListingBroker(e.target.value)}
+                          inputStyle={fieldStyles["listingBroker"]}
+                          onChangeStyle={(style) => updateFieldStyle("listingBroker", style)}
                           rows={1}
                           className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-right w-full focus:outline-none border-none"
                           placeholder="Sutton Group - 1st West Realty"
@@ -4951,6 +5418,8 @@ const BcfpStandard24 = forwardRef<BcfpStandard24Ref, BcfpStandard24Props>(
                         <StyledInput
                           value={description}
                           onChange={(e) => setDescription(e.target.value)}
+                          inputStyle={fieldStyles["description"]}
+                          onChangeStyle={(style) => updateFieldStyle("description", style)}
                           rows={6}
                           className="h-full bg-transparent text-[12px] font-semibold placeholder:font-semibold text-black placeholder:text-black text-left w-full focus:outline-none border-none"
                           placeholder="View! View! View! Ocean view Coal Harbour 1 Bedroom + Den/Office Condo with gorgeous water view of Burrard Inlet. Great layout with

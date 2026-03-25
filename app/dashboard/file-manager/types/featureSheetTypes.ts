@@ -161,6 +161,7 @@ export interface FeatureSheetPayload {
     pdf_s3_key?: string;
     // Internal only — used by buildPayload, never sent to backend directly
     images?: FeatureSheetImage[];
+    fieldStyles?: Record<string, any>;
 }
 
 export interface FeatureSheetResponse {
@@ -170,6 +171,7 @@ export interface FeatureSheetResponse {
     type: FeatureSheetType;
     template_key: string;
     content: FeatureSheetContent;
+    fieldStyles?: Record<string, any>;
     images: FeatureSheetImage[];
     pdf_path: string | null;
     pdf_url: string | null;
@@ -227,6 +229,7 @@ export interface FeatureSheetState {
     images: { [key: string]: string | null };
     imageScales: { [key: string]: number };
     imagePositions: { [key: string]: ImagePosition };
+    fieldStyles?: Record<string, any>;
 }
 
 
