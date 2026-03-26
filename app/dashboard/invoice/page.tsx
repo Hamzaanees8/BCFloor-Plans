@@ -140,7 +140,7 @@ const InvoiceListPage = () => {
             accessorKey: "property",
             header: "PROPERTY",
             cell: ({ row }) => (
-                <div className="max-w-[250px] truncate text-gray-700">
+                <div className="max-w-[250px] truncate" style={{ color: roleSettings.pageText }}>
                     {row.original.order?.property?.address || "N/A"}
                 </div>
             )
@@ -149,7 +149,7 @@ const InvoiceListPage = () => {
             accessorKey: "agent",
             header: "AGENT",
             cell: ({ row }) => (
-                <div>
+                <div style={{ color: roleSettings.pageText }}>
                     {row.original.agent?.first_name} {row.original.agent?.last_name}
                 </div>
             )
@@ -169,38 +169,40 @@ const InvoiceListPage = () => {
                         className="p-0 hover:bg-transparent flex items-center gap-1 font-bold h-auto"
                     >
                         DATE
-                        {isSorted === "asc" && <ChevronUp className="h-4 w-4" style={{ color: roleSettings.pageTabColor }} />}
-                        {isSorted === "desc" && <ChevronDown className="h-4 w-4" style={{ color: roleSettings.pageTabColor }} />}
-                        {!isSorted && <ChevronsUpDown className="h-4 w-4 text-gray-400" />}
+                        {isSorted === "asc" && <span><ChevronUp strokeWidth={3} className="h-4 w-4" style={{ color: roleSettings.pageTabColor }} /></span>}
+                        {isSorted === "desc" && <span><ChevronDown strokeWidth={3} className="h-4 w-4" style={{ color: roleSettings.pageTabColor }} /></span>}
+                        {!isSorted && <span className="text-gray-400"><ChevronsUpDown strokeWidth={3} className="h-4 w-4 text-gray-400" /></span>}
                     </Button>
                 )
             },
-            cell: ({ row }) => <div>{new Date(row.original.issued_at).toLocaleDateString()}</div>,
+            cell: ({ row }) => <div style={{ color: roleSettings.pageText }}>{new Date(row.original.issued_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" })}</div>,
             enableSorting: true,
         },
         {
             accessorKey: "total",
             header: "TOTAL",
-            cell: ({ row }) => <div className="font-bold">${parseFloat(row.original.total).toFixed(2)}</div>
+            cell: ({ row }) => <div style={{ color: roleSettings.pageText }}>${parseFloat(row.original.total).toFixed(2)}</div>
         },
         {
             accessorKey: "status",
             header: "STATUS",
             cell: ({ row }) => {
-                const status = row.original.status?.toLowerCase() || 'unpaid';
-                const statusStyles: Record<string, string> = {
-                    paid: 'bg-[#6BAE41]/10 text-[#6BAE41]',
-                    issued: 'bg-blue-100 text-blue-600',
-                    unpaid: 'bg-orange-100 text-orange-600',
-                    void: 'bg-gray-100 text-gray-400',
-                    partial: 'bg-yellow-100 text-yellow-600',
-                    refunded: 'bg-red-100 text-red-600'
-                };
+                const status = (row.original.status || 'unpaid').toUpperCase();
+                let bgColor = "#E06D5E"; // Unpaid
+                if (status === "PAID") bgColor = "#6BAE41";
+                else if (status === "ISSUED") bgColor = "#4A90E2";
+                else if (status === "VOID") bgColor = "#A0A0A0";
+                else if (status === "PARTIAL") bgColor = "#F5A623";
+                else if (status === "REFUNDED") bgColor = "#D0021B";
+
                 return (
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${statusStyles[status] || statusStyles.unpaid}`}>
+                    <div
+                        className="text-white px-3 py-1 rounded-full text-[10px] font-medium w-fit uppercase"
+                        style={{ backgroundColor: bgColor }}
+                    >
                         {status}
-                    </span>
-                )
+                    </div>
+                );
             }
         },
         {

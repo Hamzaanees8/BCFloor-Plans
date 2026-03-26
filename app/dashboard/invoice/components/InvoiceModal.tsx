@@ -8,8 +8,9 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { Printer, Download, Loader2, Edit2, Save, X, RotateCcw } from 'lucide-react'
-import DownloadPdf from '../../file-manager/components/DownloadPdf'
+import DownloadInvoicePdf from './DownloadInvoicePdf'
 import InvoiceDocument from './InvoiceDocument'
+import InvoicePdfDocument from './InvoicePdfDocument'
 import { UpdateInvoice } from '../invoice_api'
 import RefundModal from './RefundModal'
 import { toast } from 'sonner'
@@ -87,7 +88,8 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
         if (!invoice) return;
         const invoiceNumber = invoice.invoice_number || invoice.id;
         const fileName = `Invoice_${invoiceNumber}.pdf`;
-        await DownloadPdf('invoice-download-content', fileName);
+        // Use the specialized invoice PDF downloader and component
+        await DownloadInvoicePdf('invoice-pdf-content', fileName);
     }
 
     const handleSave = async () => {
@@ -247,6 +249,14 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                         roleSettings={roleSettings}
                     />
                 )}
+
+                {/* Hidden PDF component for high-accuracy capture */}
+                <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+                    <InvoicePdfDocument
+                        invoice={isEditing ? editData : invoice}
+                        roleSettings={roleSettings}
+                    />
+                </div>
 
                 <RefundModal 
                     isOpen={isRefundModalOpen}

@@ -1,23 +1,15 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { vendorBillingService, VendorInvoice } from "../VendorBillingService";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
-import { CreditCard, Eye, Plus, Pencil, Loader2 } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { CreditCard, Eye, Plus, Pencil, Loader2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
@@ -37,7 +29,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
-import DownloadPdf from "@/app/dashboard/file-manager/components/DownloadPdf";
+import InvoicePdfDocument from "@/app/dashboard/invoice/components/InvoicePdfDocument";
+import DownloadInvoicePdf from "@/app/dashboard/invoice/components/DownloadInvoicePdf";
 import { Download } from "lucide-react";
 
 export default function VendorInvoicesListPage() {
@@ -51,7 +44,7 @@ export default function VendorInvoicesListPage() {
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
     const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
-    
+
     // Edit state
     const [editingInvoice, setEditingInvoice] = useState<VendorInvoice | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -113,7 +106,7 @@ export default function VendorInvoicesListPage() {
     const handleView = async (invoice: VendorInvoice) => {
         const token = localStorage.getItem("token");
         if (!token) return;
-        
+
         try {
             const details = await vendorBillingService.getAdminInvoiceDetails(invoice.uuid, token);
             setViewingInvoice(details);
@@ -150,8 +143,8 @@ export default function VendorInvoicesListPage() {
                     <h1 className="text-[16px] md:text-[24px] font-[400] tracking-tight" style={{ color: roleSettings.pageTabColor }}>Invoice Management</h1>
                     <p className="text-xs md:text-sm" style={{ color: roleSettings.pageTabColor, opacity: 0.8 }}>Manage generated invoices and trigger Stripe Connect payouts.</p>
                 </div>
-                <Button 
-                    className="gap-2 h-[35px] md:h-[44px] hover:brightness-110 active:scale-[0.98] transition-all text-white" 
+                <Button
+                    className="gap-2 h-[35px] md:h-[44px] hover:brightness-110 active:scale-[0.98] transition-all text-white"
                     style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
                     onClick={() => router.push('/dashboard/vendor-billing/uninvoiced')}
                 >
@@ -162,164 +155,197 @@ export default function VendorInvoicesListPage() {
 
             <div className="p-6 space-y-6">
 
-            <div className="flex items-center gap-1 border-b pb-px">
-                <button
-                    onClick={() => setActiveTab('draft')}
-                    className={cn(
-                        "px-4 py-2 text-sm font-medium transition-colors relative",
-                        activeTab === 'draft' ? "" : "text-muted-foreground hover:text-foreground"
-                    )}
-                    style={activeTab === 'draft' ? { color: roleSettings.pageTabColor } : {}}
-                >
-                    Drafts
-                    <Badge variant="secondary" className="ml-2 px-1.5 h-5 min-w-[20px]">
-                        {safeInvoices.filter(i => i.status === 'draft').length}
-                    </Badge>
-                    {activeTab === 'draft' && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: roleSettings.pageTabColor }} />}
-                </button>
-                <button
-                    onClick={() => setActiveTab('paid')}
-                    className={cn(
-                        "px-4 py-2 text-sm font-medium transition-colors relative",
-                        activeTab === 'paid' ? "" : "text-muted-foreground hover:text-foreground"
-                    )}
-                    style={activeTab === 'paid' ? { color: roleSettings.pageTabColor } : {}}
-                >
-                    Paid
-                    <Badge variant="secondary" className="ml-2 px-1.5 h-5 min-w-[20px]">
-                        {safeInvoices.filter(i => i.status === 'paid').length}
-                    </Badge>
-                    {activeTab === 'paid' && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: roleSettings.pageTabColor }} />}
-                </button>
-            </div>
+                <div className="flex items-center gap-1 border-b pb-px">
+                    <button
+                        onClick={() => setActiveTab('draft')}
+                        className={cn(
+                            "px-4 py-2 text-sm font-medium transition-colors relative",
+                            activeTab === 'draft' ? "" : "text-muted-foreground hover:text-foreground"
+                        )}
+                        style={activeTab === 'draft' ? { color: roleSettings.pageTabColor } : {}}
+                    >
+                        Drafts
+                        <Badge variant="secondary" className="ml-2 px-1.5 h-5 min-w-[20px]">
+                            {safeInvoices.filter(i => i.status === 'draft').length}
+                        </Badge>
+                        {activeTab === 'draft' && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: roleSettings.pageTabColor }} />}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('paid')}
+                        className={cn(
+                            "px-4 py-2 text-sm font-medium transition-colors relative",
+                            activeTab === 'paid' ? "" : "text-muted-foreground hover:text-foreground"
+                        )}
+                        style={activeTab === 'paid' ? { color: roleSettings.pageTabColor } : {}}
+                    >
+                        Paid
+                        <Badge variant="secondary" className="ml-2 px-1.5 h-5 min-w-[20px]">
+                            {safeInvoices.filter(i => i.status === 'paid').length}
+                        </Badge>
+                        {activeTab === 'paid' && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: roleSettings.pageTabColor }} />}
+                    </button>
+                </div>
 
-            <InvoiceTable 
-                invoices={filteredInvoices} 
-                loading={loading} 
-                onPay={activeTab === 'draft' ? handlePay : undefined}
-                onEdit={activeTab === 'draft' ? handleEdit : undefined}
-                onView={handleView}
-                paying={paying}
-                getStatusColor={getStatusColor}
-            />
-
-            {editingInvoice && (
-                <EditInvoiceModal 
-                    isOpen={isEditModalOpen} 
-                    onClose={() => setIsEditModalOpen(false)} 
-                    invoice={editingInvoice}
-                    onSuccess={handleUpdateSuccess}
+                <InvoiceTable
+                    invoices={filteredInvoices}
+                    loading={loading}
+                    onPay={activeTab === 'draft' ? handlePay : undefined}
+                    onEdit={activeTab === 'draft' ? handleEdit : undefined}
+                    onView={handleView}
+                    paying={paying}
+                    getStatusColor={getStatusColor}
                     roleSettings={roleSettings}
+                    headerBg={headerBg}
+                    userType={userType}
                 />
-            )}
 
-            {viewingInvoice && (
-                <ViewInvoiceModal 
-                    isOpen={isViewModalOpen} 
-                    onClose={() => setIsViewModalOpen(false)} 
-                    invoice={viewingInvoice}
-                    roleSettings={roleSettings}
-                />
-            )}
+                {editingInvoice && (
+                    <EditInvoiceModal
+                        isOpen={isEditModalOpen}
+                        onClose={() => setIsEditModalOpen(false)}
+                        invoice={editingInvoice}
+                        onSuccess={handleUpdateSuccess}
+                        roleSettings={roleSettings}
+                    />
+                )}
+
+                {viewingInvoice && (
+                    <ViewInvoiceModal
+                        isOpen={isViewModalOpen}
+                        onClose={() => setIsViewModalOpen(false)}
+                        invoice={viewingInvoice}
+                        roleSettings={roleSettings}
+                    />
+                )}
             </div>
         </div>
     );
 }
 
-function InvoiceTable({ invoices, loading, onPay, onEdit, onView, paying, getStatusColor }: any) {
-    if (loading) {
-        return (
-            <div className="space-y-4">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-            </div>
-        );
-    }
+function InvoiceTable({ invoices, loading, onPay, onEdit, onView, paying, roleSettings, headerBg, userType }: any) {
+    const columns: ColumnDef<VendorInvoice>[] = [
+        {
+            accessorKey: "invoice_number",
+            header: "INVOICE #",
+            cell: ({ row }) => <div className="ml-[5px]" style={{ color: roleSettings?.pageTabColor }}>#{row.original.invoice_number}</div>
+        },
+        {
+            accessorKey: "vendor",
+            header: "VENDOR",
+            cell: ({ row }) => {
+                const company = row.original.vendor?.company_name;
+                const name = `${row.original.vendor?.first_name || ""} ${row.original.vendor?.last_name || ""}`.trim();
+                const display = company || name || "—";
+                return (
+                    <div style={{ color: roleSettings?.pageText }}>
+                        {display}
+                    </div>
+                );
+            }
+        },
+        {
+            accessorKey: "created_at",
+            header: ({ column }) => {
+                const isSorted = column.getIsSorted();
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() => {
+                            if (isSorted === "asc") column.toggleSorting(true);
+                            else if (isSorted === "desc") column.clearSorting();
+                            else column.toggleSorting(false);
+                        }}
+                        className="p-0 hover:bg-transparent flex items-center gap-1 font-bold h-auto border-none"
+                    >
+                        DATE
+                        {isSorted === "asc" && <span><ChevronUp strokeWidth={3} className="h-4 w-4" style={{ color: roleSettings?.pageTabColor }} /></span>}
+                        {isSorted === "desc" && <span><ChevronDown strokeWidth={3} className="h-4 w-4" style={{ color: roleSettings?.pageTabColor }} /></span>}
+                        {!isSorted && <span className="text-gray-400"><ChevronsUpDown strokeWidth={3} className="h-4 w-4 text-gray-400" /></span>}
+                    </Button>
+                )
+            },
+            cell: ({ row }) => <div style={{ color: roleSettings?.pageText }}>{new Date(row.original.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" })}</div>,
+            enableSorting: true,
+        },
+        {
+            accessorKey: "total_amount",
+            header: "AMOUNT",
+            cell: ({ row }) => <div style={{ color: roleSettings?.pageText }}>${Number(row.original.total_amount).toFixed(2)}</div>
+        },
+        {
+            accessorKey: "status",
+            header: "STATUS",
+            cell: ({ row }) => {
+                const status = row.original.status || "draft";
+                let bgColor = "#E06D5E"; // cancelled / unhandled
+                if (status === "paid") bgColor = "#6BAE41";
+                else if (status === "draft") bgColor = "#F5A623";
+
+                return (
+                    <div
+                        className="text-white px-3 py-1 rounded-full text-[10px] font-medium w-fit uppercase"
+                        style={{ backgroundColor: bgColor }}
+                    >
+                        {status.toUpperCase()}
+                    </div>
+                );
+            }
+        },
+        {
+            id: "actions",
+            header: "ACTIONS",
+            enableHiding: false,
+            cell: ({ row }) => {
+                const invoice = row.original;
+                return (
+                    <div className="flex justify-end gap-2">
+                        {invoice.status === 'draft' && onPay && (
+                            <Button
+                                variant="default"
+                                size="sm"
+                                className="h-8 gap-2 bg-green-600 hover:bg-green-700 text-white"
+                                onClick={() => onPay(invoice.uuid)}
+                                disabled={paying === invoice.uuid}
+                            >
+                                {paying === invoice.uuid ? "Paying..." : "Pay Now"}
+                                <CreditCard className="h-4 w-4" />
+                            </Button>
+                        )}
+                        {invoice.status === 'draft' && onEdit && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-2"
+                                onClick={() => onEdit(invoice)}
+                            >
+                                <Pencil className="h-4 w-4" />
+                                Edit
+                            </Button>
+                        )}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-2"
+                            onClick={() => onView(invoice)}
+                        >
+                            <Eye className="h-4 w-4" />
+                            Details
+                        </Button>
+                    </div>
+                );
+            }
+        }
+    ];
 
     return (
-        <Card>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Invoice #</TableHead>
-                        <TableHead>Vendor</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {invoices.length === 0 ? (
-                        <TableRow>
-                            <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
-                                No invoices found.
-                            </TableCell>
-                        </TableRow>
-                    ) : (
-                        invoices.map((invoice: VendorInvoice) => (
-                            <TableRow key={invoice.uuid}>
-                                <TableCell className="font-mono text-xs">{invoice.invoice_number}</TableCell>
-                                <TableCell>
-                                    <div className="flex flex-col">
-                                        <span className="font-medium">{invoice.vendor?.company_name || "—"}</span>
-                                        <span className="text-xs text-muted-foreground">
-                                            {invoice.vendor?.first_name} {invoice.vendor?.last_name}
-                                        </span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-xs text-muted-foreground">
-                                    {new Date(invoice.created_at).toLocaleDateString()}
-                                </TableCell>
-                                <TableCell className="font-bold">${Number(invoice.total_amount).toFixed(2)}</TableCell>
-                                <TableCell>
-                                    <Badge className={getStatusColor(invoice.status)}>
-                                        {invoice.status.toUpperCase()}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <div className="flex justify-end gap-2">
-                                        {invoice.status === 'draft' && onPay && (
-                                            <Button 
-                                                variant="default" 
-                                                size="sm" 
-                                                className="h-8 gap-2 bg-green-600 hover:bg-green-700"
-                                                onClick={() => onPay(invoice.uuid)}
-                                                disabled={paying === invoice.uuid}
-                                            >
-                                                {paying === invoice.uuid ? "Paying..." : "Pay Now"}
-                                                <CreditCard className="h-4 w-4" />
-                                            </Button>
-                                        )}
-                                        {invoice.status === 'draft' && onEdit && (
-                                            <Button 
-                                                variant="outline" 
-                                                size="sm" 
-                                                className="h-8 gap-2"
-                                                onClick={() => onEdit(invoice)}
-                                            >
-                                                <Pencil className="h-4 w-4" />
-                                                Edit
-                                            </Button>
-                                        )}
-                                        <Button 
-                                            variant="outline" 
-                                            size="sm" 
-                                            className="h-8 gap-2"
-                                            onClick={() => onView(invoice)}
-                                        >
-                                            <Eye className="h-4 w-4" />
-                                            Details
-                                        </Button>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))
-                    )}
-                </TableBody>
-            </Table>
-        </Card>
+        <DataTable
+            data={invoices}
+            columns={columns}
+            loading={loading}
+            dataName="Invoices"
+            userType={userType}
+            headerBgOverride={headerBg}
+        />
     );
 }
 
@@ -328,7 +354,7 @@ function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
         if (!invoice) return;
         const invoiceNumber = invoice.invoice_number || invoice.id;
         const fileName = `Invoice_${invoiceNumber}.pdf`;
-        await DownloadPdf('invoice-download-content', fileName);
+        await DownloadInvoicePdf('invoice-pdf-content', fileName);
     }
 
     // Map vendor invoice data to InvoiceDocument format
@@ -348,9 +374,9 @@ function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
                     <DialogTitle className="text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
                         Invoice Details: {invoice.invoice_number}
                     </DialogTitle>
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
+                    <Button
+                        variant="outline"
+                        size="sm"
                         className="gap-2 h-9 text-white hover:brightness-110 active:scale-[0.98] transition-all border-none"
                         style={{ backgroundColor: roleSettings.pageTabColor }}
                         onClick={handleDownload}
@@ -359,23 +385,31 @@ function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
                         Download PDF
                     </Button>
                 </DialogHeader>
-                
+
                 <div className="py-4">
-                    <InvoiceDocument 
+                    <InvoiceDocument
                         invoice={documentData}
                         editData={null}
                         isEditing={false}
-                        updateItem={() => {}}
-                        addItem={() => {}}
-                        removeItem={() => {}}
-                        updateTaxRate={() => {}}
-                        setEditData={() => {}}
+                        updateItem={() => { }}
+                        addItem={() => { }}
+                        removeItem={() => { }}
+                        updateTaxRate={() => { }}
+                        setEditData={() => { }}
+                        roleSettings={roleSettings}
+                    />
+                </div>
+
+                {/* Hidden PDF component for high-accuracy capture */}
+                <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+                    <InvoicePdfDocument
+                        invoice={documentData}
                         roleSettings={roleSettings}
                     />
                 </div>
 
                 <DialogFooter className="border-t pt-4">
-                    <Button 
+                    <Button
                         onClick={onClose}
                         className="text-white hover:brightness-110 transition-all px-8 h-10"
                         style={{ backgroundColor: roleSettings.pageTabColor }}
@@ -433,9 +467,9 @@ function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess, roleSettings }:
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="remarks" className="font-bold text-xs uppercase tracking-wider text-gray-500">Internal Notes</Label>
-                        <Textarea 
-                            id="remarks" 
-                            placeholder="Add notes for this invoice..." 
+                        <Textarea
+                            id="remarks"
+                            placeholder="Add notes for this invoice..."
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             className="min-h-[100px] focus-visible:ring-offset-0 focus-visible:ring-1"
@@ -445,9 +479,9 @@ function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess, roleSettings }:
                 </div>
                 <DialogFooter className="border-t pt-4">
                     <Button variant="outline" onClick={onClose} disabled={loading} className="h-10 px-6">Cancel</Button>
-                    <Button 
-                        onClick={handleSave} 
-                        disabled={loading} 
+                    <Button
+                        onClick={handleSave}
+                        disabled={loading}
                         className="gap-2 text-white hover:brightness-110 active:scale-[0.98] transition-all h-10 px-8"
                         style={{ backgroundColor: roleSettings.pageTabColor }}
                     >

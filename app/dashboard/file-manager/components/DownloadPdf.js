@@ -134,8 +134,8 @@ const preloadImages = (element) => {
 
   for (let img of images) {
     let changed = false;
-    // Check if the image has a source and isn't a data URI
-    if (img.src && !img.src.startsWith('data:')) {
+    // Check if the image has a source and isn't a data URI or blob URI
+    if (img.src && !img.src.startsWith('data:') && !img.src.startsWith('blob:')) {
       // Add a cache-busting query parameter to force a fresh request with CORS headers
       try {
         const url = new URL(img.src, window.location.href);

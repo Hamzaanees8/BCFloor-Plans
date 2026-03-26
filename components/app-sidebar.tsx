@@ -89,13 +89,8 @@ const data = {
         },
         {
           title: "Vendor Billing",
-          url: "/dashboard/vendor-billing/uninvoiced",
+          url: "/dashboard/vendor-billing",
           icon: PanelTop,
-        },
-        {
-          title: "Vendor Invoices",
-          url: "/dashboard/vendor-billing/invoices",
-          icon: File,
         },
         // {
         //   title: "Sub Accounts",
@@ -224,24 +219,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         }
 
         // Vendor Billing (Admin only)
-        if (item.url === "/dashboard/vendor-billing/uninvoiced" && userType !== "admin") {
+        if (item.url === "/dashboard/vendor-billing" && userType !== "admin") {
           return false;
-        }
-
-        // Vendor Invoices (Admin/Vendor history)
-        if (item.url === "/dashboard/vendor-billing/invoices") {
-           if (userType === "vendor") {
-               item.url = "/dashboard/vendor-billing/my-invoices";
-               item.title = "My Invoices";
-           } else if (userType !== "admin") {
-               return false;
-           }
         }
 
         // Permission based filtering for Admins
         if (userType === "admin") {
           if (
-            (item.url === "/dashboard/vendor-billing/uninvoiced" || item.url === "/dashboard/vendor-billing/invoices") &&
+            item.url === "/dashboard/vendor-billing" &&
             !hasPermission(PERMISSIONS.ACCESS_BILLING)
           ) {
             return false;

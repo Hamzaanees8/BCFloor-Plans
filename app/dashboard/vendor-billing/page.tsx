@@ -820,6 +820,13 @@ const Page = () => {
                         className="text-white h-[42px] px-6 text-[14px] hover:brightness-110 active:scale-[0.98] transition-all"
                         style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
                     >
+                        View Invoices
+                    </Button>
+                    <Button
+                        onClick={() => router.push('/dashboard/vendor-billing/uninvoiced')}
+                        className="text-white h-[42px] px-6 text-[14px] hover:brightness-110 active:scale-[0.98] transition-all"
+                        style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+                    >
                         Create Invoice
                     </Button>
                     <Select onValueChange={(value) => console.log(value)}>

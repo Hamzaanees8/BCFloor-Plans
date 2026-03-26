@@ -27,7 +27,8 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
-import DownloadPdf from "@/app/dashboard/file-manager/components/DownloadPdf";
+import InvoicePdfDocument from "@/app/dashboard/invoice/components/InvoicePdfDocument";
+import DownloadInvoicePdf from "@/app/dashboard/invoice/components/DownloadInvoicePdf";
 
 export default function MyInvoicesPage() {
     const router = useRouter();
@@ -186,7 +187,7 @@ function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
         if (!invoice) return;
         const invoiceNumber = invoice.invoice_number || invoice.id;
         const fileName = `Invoice_${invoiceNumber}.pdf`;
-        await DownloadPdf('invoice-download-content', fileName);
+        await DownloadInvoicePdf('invoice-pdf-content', fileName);
     }
 
     // Map vendor invoice data to InvoiceDocument format
@@ -228,6 +229,14 @@ function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
                         removeItem={() => {}}
                         updateTaxRate={() => {}}
                         setEditData={() => {}}
+                        roleSettings={roleSettings}
+                    />
+                </div>
+
+                {/* Hidden PDF component for high-accuracy capture */}
+                <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+                    <InvoicePdfDocument
+                        invoice={documentData}
                         roleSettings={roleSettings}
                     />
                 </div>

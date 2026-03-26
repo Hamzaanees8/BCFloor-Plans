@@ -39,9 +39,9 @@ const InvoiceDocument = ({
             {/* Header Section */}
             <div className="flex justify-between items-start mb-12">
                 <div>
-                    <div className="flex items-center gap-3 mb-6">
+                    <div className="flex border-box items-center gap-3 mb-6">
                         <Image src="/bcfloor.png" alt="BCFloor Logo" width={60} height={60} className="object-contain" />
-                        <span className="text-2xl font-bold tracking-tight text-gray-900 leading-none">BC Floor plans</span>
+                        <span className="text-2xl font-bold tracking-tight text-gray-900 leading-normal mb-0 pb-0">BC Floor plans</span>
                     </div>
                     <div className="space-y-1">
                         <p className="text-sm font-medium text-gray-600">Invoice Number: <span className="text-gray-900">{invoice.invoice_number}</span></p>
@@ -58,7 +58,7 @@ const InvoiceDocument = ({
                                     refunded: 'bg-red-100 text-red-600'
                                 };
                                 return (
-                                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${statusStyles[status] || statusStyles.unpaid}`}>
+                                    <span className={`inline-block rounded-full px-3 py-1 text-[11px] leading-normal font-bold uppercase ${statusStyles[status] || statusStyles.unpaid}`}>
                                         {status}
                                     </span>
                                 );
@@ -69,8 +69,8 @@ const InvoiceDocument = ({
                 <div className="absolute top-12 right-0 flex items-stretch gap-1.5">
                     <div style={{ backgroundColor: settings.pageTabColor }} className="w-1"></div>
                     <div style={{ backgroundColor: settings.pageTabColor }} className="w-3"></div>
-                    <div style={{ backgroundColor: settings.pageTabColor }} className="text-white px-6 py-1 flex items-center justify-center min-w-[300px] md:min-w-[300px]">
-                        <h1 className="text-4xl font-bold uppercase tracking-[0.2em] leading-none">Invoice</h1>
+                    <div style={{ backgroundColor: settings.pageTabColor }} className="text-white px-6 py-3 flex items-center justify-center min-w-[300px] md:min-w-[300px]">
+                        <h1 className="text-[32px] font-bold uppercase tracking-wider" style={{ lineHeight: '1.2' }}>Invoice</h1>
                     </div>
                 </div>
             </div>
@@ -97,13 +97,13 @@ const InvoiceDocument = ({
                             <>
                                 <p className="font-bold text-gray-900">{invoice.vendor.first_name} {invoice.vendor.last_name}</p>
                                 {(invoice.vendor.company?.name || invoice.vendor.company_name) && <p>{invoice.vendor.company?.name || invoice.vendor.company_name}</p>}
-                                <p className="flex items-center gap-2 px-1"><Mail size={14} style={{ color: settings.pageTabColor }} /> {invoice.vendor.email}</p>
+                                <p className="flex items-center gap-2 px-1"><Mail size={14} className="shrink-0" style={{ color: settings.pageTabColor }} /> <span>{invoice.vendor.email}</span></p>
                             </>
                         ) : (
                             <>
                                 <p className="font-bold text-gray-900">{invoice.agent?.first_name} {invoice.agent?.last_name}</p>
-                                <p className="flex items-center gap-2 px-1"><MapPin size={14} style={{ color: settings.pageTabColor }} /> {invoice.order?.property?.address}, {invoice.order?.property?.city}, {invoice.order?.property?.province}</p>
-                                <p className="flex items-center gap-2 px-1"><Mail size={14} style={{ color: settings.pageTabColor }} /> {invoice.agent?.email}</p>
+                                <p className="flex items-start gap-2 px-1"><MapPin size={14} className="shrink-0 mt-0.5" style={{ color: settings.pageTabColor }} /> <span>{invoice.order?.property?.address}, {invoice.order?.property?.city}, {invoice.order?.property?.province}</span></p>
+                                <p className="flex items-center gap-2 px-1"><Mail size={14} className="shrink-0" style={{ color: settings.pageTabColor }} /> <span>{invoice.agent?.email}</span></p>
                             </>
                         )}
                     </div>
@@ -241,9 +241,9 @@ const InvoiceDocument = ({
                         </span>
                         <span className="font-bold text-gray-900">${parseFloat(isEditing ? editData.tax_amount : (invoice.tax_amount || '0')).toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between items-center p-4 text-white rounded-sm mt-6" style={{ backgroundColor: settings.pageTabColor }}>
-                        <span className=" font-bold uppercase tracking-[0.1em]">Total</span>
-                        <span className="text-xl font-bold">$ {parseFloat(isEditing ? editData.total : (invoice.total || invoice.total_amount || '0')).toFixed(2)}</span>
+                    <div className="flex justify-between items-center px-5 py-4 text-white rounded-sm mt-6" style={{ backgroundColor: settings.pageTabColor }}>
+                        <span className="font-bold uppercase tracking-wider text-sm leading-normal">Total</span>
+                        <span className="text-xl font-bold leading-normal">$ {parseFloat(isEditing ? editData.total : (invoice.total || invoice.total_amount || '0')).toFixed(2)}</span>
                     </div>
                 </div>
             </div>

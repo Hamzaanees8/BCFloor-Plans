@@ -7,8 +7,9 @@ import { useAppContext } from '@/app/context/AppContext'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { Download, Loader2, Edit2, Save, X, CreditCard, RotateCcw } from 'lucide-react'
-import DownloadPdf from '../../file-manager/components/DownloadPdf'
+import DownloadInvoicePdf from '../components/DownloadInvoicePdf'
 import InvoiceDocument from '../components/InvoiceDocument'
+import InvoicePdfDocument from '../components/InvoicePdfDocument'
 import RefundModal from '../components/RefundModal'
 import ConfirmationDialog from '@/components/ConfirmationDialog'
 
@@ -62,7 +63,7 @@ const InvoicePreviewPage = () => {
         if (!invoice) return;
         const invoiceNumber = invoice.invoice_number || invoice.id;
         const fileName = `Invoice_${invoiceNumber}.pdf`;
-        await DownloadPdf('invoice-download-content', fileName);
+        await DownloadInvoicePdf('invoice-pdf-content', fileName);
     }
 
     const handleSave = async () => {
@@ -299,6 +300,14 @@ const InvoicePreviewPage = () => {
                     removeItem={removeItem}
                     updateTaxRate={updateTaxRate}
                     setEditData={setEditData}
+                    roleSettings={roleSettings}
+                />
+            </div>
+
+            {/* Hidden PDF component for high-accuracy capture */}
+            <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+                <InvoicePdfDocument
+                    invoice={isEditing ? editData : invoice}
                     roleSettings={roleSettings}
                 />
             </div>
