@@ -27,7 +27,12 @@ import { SaveModal } from "@/components/SaveModal";
 import RichTextEditor from "./RichTextEditor";
 import { useAppContext } from "@/app/context/AppContext";
 import { sendEmailNotification } from "../calendar";
-import { EmailTemplate } from "@/app/dashboard/global-settings/templates";
+import { 
+  fetchGlobalTemplates, 
+  interpolateTemplate, 
+  prepareTemplateData, 
+  EmailTemplate 
+} from "@/lib/email-templates";
 
 const fallbackTemplateOptions = [
   { id: "schedule_change", name: "Your upcoming appointment has changed", uuid: "schedule_change" },
@@ -192,6 +197,7 @@ const NotificationModal: React.FC<Props> = ({
   setVendorChecked,
   order,
   agent,
+  vendor,
   service,
 }) => {
   const { userType } = useAppContext();
@@ -219,26 +225,28 @@ const NotificationModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (open) {
-      try {
-        const localData = localStorage.getItem("emailTemplates");
-        const fetchedTemplates: EmailTemplate[] = localData ? JSON.parse(localData) : [];
-        setDbTemplates(fetchedTemplates);
+      const loadTemplates = async () => {
+        const response = await fetchGlobalTemplates('schedule_change');
+        let templates = [];
+        if (response?.success) {
+          templates = response.data;
+          setDbTemplates(templates);
+        }
 
-        if (fetchedTemplates.length > 0) {
-          const defaultTemplate = fetchedTemplates[0];
+        if (templates.length > 0) {
+          const defaultTemplate = templates[0];
           setSelectedAgentTemplate(defaultTemplate.uuid);
-          handleAgentTemplateChange(defaultTemplate.uuid, fetchedTemplates);
+          handleAgentTemplateChange(defaultTemplate.uuid, templates);
           setSelectedVendorTemplate(defaultTemplate.uuid);
-          handleVendorTemplateChange(defaultTemplate.uuid, fetchedTemplates);
+          handleVendorTemplateChange(defaultTemplate.uuid, templates);
         } else {
           setSelectedAgentTemplate("schedule_change");
           handleAgentTemplateChange("schedule_change", []);
           setSelectedVendorTemplate("schedule_change");
           handleVendorTemplateChange("schedule_change", []);
         }
-      } catch (err) {
-        console.error("Failed to parse local templates:", err);
-      }
+      };
+      loadTemplates();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -485,17 +493,17 @@ const NotificationModal: React.FC<Props> = ({
   }
 
   function fillTemplate(template: string) {
-    // Use first slot for vendor info if available
-    // Build time section HTML
-    let timeSection = "";
+    if (!order) return template;
+    const templateData = prepareTemplateData(order, agent, service, vendor);
+    
+    // Additional specific data for this modal
     const slots = order?.slots || [];
     const summary = getSingleServiceSummary(slots);
     const vendorInfo: Vendor | undefined = summary?.vendor;
+    
+    let timeSection = "";
     if (summary) {
-      // Service title
       timeSection += `<h3 style=\"margin: 0 0 8px 0; font-size: 18px\">${service?.name ?? ""}</h3>`;
-      // Service name in bold after service work
-
       timeSection += `<p style=\"margin: 4px 0; color: #d33434 !important; font-weight: bold; font-size: 16px\">${summary.timeStr}</p>`;
       if (vendorInfo) {
         timeSection += `<p style=\"margin: 8px 0 0\">Vendor: ${(vendorInfo.first_name || "") + " " + (vendorInfo.last_name || "")}</p>`;
@@ -507,37 +515,26 @@ const NotificationModal: React.FC<Props> = ({
         timeSection += `</ul>`;
       }
     }
-    return template
-      .replace(
-        /\{agent name\}/gi,
-        agent
-          ? `${agent.first_name || ""} ${agent.last_name || ""}`.trim()
-          : "",
-      )
-      .replace(
-        /\{service name\}/gi,
-        summary?.serviceName || service?.name || "",
-      )
-      .replace(
-        /\{vendor name\}/gi,
-        vendorInfo
-          ? `${vendorInfo.first_name || ""} ${vendorInfo.last_name || ""}`.trim()
-          : "",
-      )
-      .replace(
-        /\{listing location\}/gi,
-        order?.property_address || order?.property?.address || "",
-      )
-      .replace(/\{vendor email\}/gi, vendorInfo?.email || "")
-      .replace(/\{vendor phone\}/gi, vendorInfo?.primary_phone || "")
-      .replace(/\{vendor address\}/gi, vendorInfo?.address || "")
-      .replace(/\{agent email\}/gi, agent?.email || "")
-      .replace(/\{agent phone\}/gi, agent?.primary_phone || "")
-      .replace(/\{agent address\}/gi, agent?.headquarter_address || "")
-      .replace(
-        /<div\s+className="se-listing"[\s\S]*?<\/div>/,
-        `<div className=\"se-listing\" style=\"padding-left: 50px; padding-right: 50px; margin-bottom: 10px;\">${timeSection}</div>`,
-      );
+
+    const dataWithContext = {
+      ...templateData,
+      vendor_email: vendorInfo?.email || "",
+      vendor_phone: vendorInfo?.primary_phone || "",
+      vendor_address: vendorInfo?.address || "",
+      agent_email: agent?.email || "",
+      agent_phone: agent?.primary_phone || "",
+      agent_address: agent?.headquarter_address || "",
+    };
+
+    let result = interpolateTemplate(template, dataWithContext);
+    
+    // Inject the special timeSection div if the placeholder exists or just replace the old div structure
+    result = result.replace(
+      /<div\s+className="se-listing"[\s\S]*?<\/div>/,
+      `<div className=\"se-listing\" style=\"padding-left: 50px; padding-right: 50px; margin-bottom: 10px;\">${timeSection}</div>`,
+    );
+
+    return result;
   }
 
   // Helper to format time as 12-hour with am/pm

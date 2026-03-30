@@ -11,6 +11,11 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Services } from '../../services/page';
 import { Files, SelectedFiles, useFileManagerContext } from '../FileManagerContext';
 import { toast } from 'sonner';
@@ -387,44 +392,58 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 </div>
                             )}
                             {userType !== 'agent' && (
-                                <span
-                                    className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
-                                    style={{
-                                        clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                        backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
-                                    }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedFiles(prev =>
-                                            prev.map(f => {
-                                                if (f.file === file.file && f.service_id === file.service_id) {
-                                                    return { ...f, is_show: f.is_show === false ? true : false };
-                                                }
-                                                return f;
-                                            })
-                                        );
-                                    }}
-                                >
-                                    {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
-                                </span>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span
+                                            className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
+                                            style={{
+                                                clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
+                                                backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
+                                            }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedFiles(prev =>
+                                                    prev.map(f => {
+                                                        if (f.file === file.file && f.service_id === file.service_id) {
+                                                            return { ...f, is_show: f.is_show === false ? true : false };
+                                                        }
+                                                        return f;
+                                                    })
+                                                );
+                                            }}
+                                        >
+                                            {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left" align="start" className="mt-2 mr-2">
+                                        {file.is_show !== false ? "Hide from agent" : "Make visible to agent"}
+                                    </TooltipContent>
+                                </Tooltip>
                             )}
                             {!file.is_deleted && (
-                                <div
-                                    className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-500 rounded-full p-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-300 z-[20] shadow-md hover:scale-110"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedFiles(prev =>
-                                            prev.map(f => {
-                                                if (f.file === file.file && f.service_id === file.service_id) {
-                                                    return { ...f, is_deleted: true };
-                                                }
-                                                return f;
-                                            })
-                                        );
-                                    }}
-                                >
-                                    <X color="white" size={14} strokeWidth={3} />
-                                </div>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div
+                                            className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-500 rounded-full p-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-300 z-[20] shadow-md hover:scale-110"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedFiles(prev =>
+                                                    prev.map(f => {
+                                                        if (f.file === file.file && f.service_id === file.service_id) {
+                                                            return { ...f, is_deleted: true };
+                                                        }
+                                                        return f;
+                                                    })
+                                                );
+                                            }}
+                                        >
+                                            <X color="white" size={14} strokeWidth={3} />
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">
+                                        Remove file
+                                    </TooltipContent>
+                                </Tooltip>
                             )}
                         </>
                     ) : (
@@ -617,46 +636,53 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 </div>
                             )}
                             {userType !== 'agent' && (
-                                <span
-                                    className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
-                                    style={{
-                                        clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                        backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
-                                    }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setFilesData(prev => {
-                                            if (!prev) return prev;
-                                            return {
-                                                ...prev,
-                                                files: prev.files.map(f => {
-                                                    if (f.uuid === file.uuid) {
-                                                        setChangedFileUuids(prevSet => {
-                                                            const newSet = new Set(prevSet);
-                                                            newSet.add(f.uuid);
-                                                            return newSet;
-                                                        });
-                                                        return { ...f, is_show: f.is_show === false ? true : false };
-                                                    }
-                                                    return f;
-                                                })
-                                            };
-                                        });
-                                    }}
-                                >
-                                    {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
-                                </span>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span
+                                            className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
+                                            style={{
+                                                clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
+                                                backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
+                                            }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setFilesData(prev => {
+                                                    if (!prev) return prev;
+                                                    return {
+                                                        ...prev,
+                                                        files: prev.files.map(f => {
+                                                            if (f.uuid === file.uuid) {
+                                                                setChangedFileUuids(prevSet => {
+                                                                    const newSet = new Set(prevSet);
+                                                                    newSet.add(f.uuid);
+                                                                    return newSet;
+                                                                });
+                                                                return { ...f, is_show: f.is_show === false ? true : false };
+                                                            }
+                                                            return f;
+                                                        })
+                                                    };
+                                                });
+                                            }}
+                                        >
+                                            {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left" align="start" className="mt-2 mr-2">
+                                        {file.is_show !== false ? "Hide from agent" : "Make visible to agent"}
+                                    </TooltipContent>
+                                </Tooltip>
                             )}
                         </>
                     )}
                 </div>
                 <div
                     className='grid grid-cols-2 gap-1 justify-between items-center px-1 py-1'
-                    style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)`, fontSize: imagesPerRow >= 6 ? '7px' : '9px' }}
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)`, fontSize: '14px' }}
                 >
                     {/* <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{isLocal ? file.file.name : file.name}</p> */}
-                    <div className='col-span-2 flex items-center justify-between overflow-hidden'>
-                        <p className='text-[#8E8E8E] mt-1 flex items-center gap-1 truncate pr-1'><CopyableFileName name={isLocal ? (file.type || "Exterior") : (file.group || "Exterior")} /> ({idx + 1}{!isLocal ? ` of ${totalUploaded}` : ''})</p>
+                    <div className='col-span-2 flex items-center justify-between overflow-hidden' style={{ fontSize: '14px' }}>
+                        <p className='text-[#8E8E8E] mt-1 flex items-center gap-1 truncate pr-1' style={{ fontSize: '14px' }}><CopyableFileName name={isLocal ? (file.type || "Exterior") : (file.group || "Exterior")} /> ({idx + 1}{!isLocal ? ` of ${totalUploaded}` : ''})</p>
                         {isLocal ? (
                             <div
                                 onClick={(e) => {

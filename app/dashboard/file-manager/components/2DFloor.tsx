@@ -3,6 +3,11 @@ import ConfirmationDialog from '@/components/ConfirmationDialog'
 import NextImage from "next/image";
 
 import { Button } from '@/components/ui/button'
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import HouseSheetModal from './HouseSheetModal';
 import SquareFootage from '../../calendar/components/SquareFootage';
@@ -394,55 +399,69 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                         )}
 
                         {userType !== 'agent' && (
-                            <span
-                                className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300 z-10`}
-                                style={{
-                                    clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                    backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
-                                }}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (isLocal) {
-                                        setFloorFiles(prev =>
-                                            prev.map(f => f.file === file.file ? { ...f, is_show: f.is_show === false ? true : false } : f)
-                                        );
-                                    } else {
-                                        setFilesData(prev => {
-                                            if (!prev) return prev;
-                                            return {
-                                                ...prev,
-                                                files: prev.files.map(f => {
-                                                    if (f.uuid === file.uuid) {
-                                                        setChangedFileUuids(prevSet => {
-                                                            const newSet = new Set(prevSet);
-                                                            newSet.add(f.uuid);
-                                                            return newSet;
-                                                        });
-                                                        return { ...f, is_show: f.is_show === false ? true : false };
-                                                    }
-                                                    return f;
-                                                })
-                                            };
-                                        });
-                                    }
-                                }}
-                            >
-                                {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
-                            </span>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span
+                                        className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300 z-10`}
+                                        style={{
+                                            clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
+                                            backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
+                                        }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (isLocal) {
+                                                setFloorFiles(prev =>
+                                                    prev.map(f => f.file === file.file ? { ...f, is_show: f.is_show === false ? true : false } : f)
+                                                );
+                                            } else {
+                                                setFilesData(prev => {
+                                                    if (!prev) return prev;
+                                                    return {
+                                                        ...prev,
+                                                        files: prev.files.map(f => {
+                                                            if (f.uuid === file.uuid) {
+                                                                setChangedFileUuids(prevSet => {
+                                                                    const newSet = new Set(prevSet);
+                                                                    newSet.add(f.uuid);
+                                                                    return newSet;
+                                                                });
+                                                                return { ...f, is_show: f.is_show === false ? true : false };
+                                                            }
+                                                            return f;
+                                                        })
+                                                    };
+                                                });
+                                            }
+                                        }}
+                                    >
+                                        {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="left" align="start" className="mt-2 mr-2">
+                                    {file.is_show !== false ? "Hide from agent" : "Make visible to agent"}
+                                </TooltipContent>
+                            </Tooltip>
                         )}
 
                         {isLocal && !file.is_deleted && (
-                            <div
-                                className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-500 rounded-full p-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-300 z-[20] shadow-md hover:scale-110"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setFloorFiles(prev =>
-                                        prev.map(f => f.file === file.file ? { ...f, is_deleted: true } : f)
-                                    );
-                                }}
-                            >
-                                <X color="white" size={14} strokeWidth={3} />
-                            </div>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div
+                                        className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-500 rounded-full p-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-300 z-[20] shadow-md hover:scale-110"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setFloorFiles(prev =>
+                                                prev.map(f => f.file === file.file ? { ...f, is_deleted: true } : f)
+                                            );
+                                        }}
+                                    >
+                                        <X color="white" size={14} strokeWidth={3} />
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                    Remove file
+                                </TooltipContent>
+                            </Tooltip>
                         )}
 
                         {userType === 'admin' && reviewFilesEnabled && (
@@ -523,11 +542,11 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                 </div>
                 <div
                     className='grid grid-cols-4 gap-1 justify-between items-center px-1 py-1'
-                    style={{ backgroundColor: `var(--${userType}-page-bg, #ffffff)`, fontSize: imagesPerRow >= 6 ? '7px' : '9px' }}
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #ffffff)`, fontSize: '14px' }}
                 >
-                    <p className="col-span-2 text-[#8E8E8E] mt-1 truncate" title={`Uploaded by: ${vendorName}`}>{isLocal ? 'Uploaded by: ' + vendorName : 'Uploaded by: ' + vendorName}</p>
-                    <div className='col-span-2 flex items-center justify-between overflow-hidden'>
-                        <p className='text-[#8E8E8E] mt-1 truncate pr-1'>05/15/2025</p>
+                    <p className="col-span-2 text-[#8E8E8E] mt-1 truncate" style={{ fontSize: '14px' }} title={`Uploaded by: ${vendorName}`}>{isLocal ? 'Uploaded by: ' + vendorName : 'Uploaded by: ' + vendorName}</p>
+                    <div className='col-span-2 flex items-center justify-between overflow-hidden' style={{ fontSize: '14px' }}>
+                        <p className='text-[#8E8E8E] mt-1 truncate pr-1' style={{ fontSize: '14px' }}>05/15/2025</p>
                         {isLocal ? (
                             <span className='flex shrink-0 cursor-not-allowed opacity-50' style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}>
                                 <DownloadIcon width='100%' height='100%' fill='#6BAE41' />

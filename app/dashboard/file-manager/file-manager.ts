@@ -1175,6 +1175,7 @@ import {
   StyledKeyHighlights,
   StyledHighlights,
   UploadedBy,
+  PrintRequestData,
 } from "./types/featureSheetTypes";
 
 const PROCESSING_PLACEHOLDER = `data:image/svg+xml;base64,${btoa(`
@@ -1905,6 +1906,17 @@ export class FeatureSheetService {
     }
 
     return response.data.data || response.data;
+  }
+
+  async requestPrint(uuid: string, data: PrintRequestData): Promise<void> {
+    const response = await api.post(
+      `${process.env.NEXT_PUBLIC_API_URL}/feature-sheets/${uuid}/print-request`,
+      data,
+    );
+
+    if (response.status !== 200 && response.status !== 201) {
+      throw new Error("Failed to send print request");
+    }
   }
 
   /**

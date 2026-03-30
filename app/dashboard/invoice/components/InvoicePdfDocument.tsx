@@ -1,5 +1,6 @@
 'use client'
 import React from 'react'
+import Image from 'next/image'
 import { MapPin, Mail } from 'lucide-react'
 
 interface InvoicePdfDocumentProps {
@@ -17,7 +18,15 @@ const InvoicePdfDocument = ({ invoice, roleSettings }: InvoicePdfDocumentProps) 
             <div className="flex justify-between items-start mb-12">
                 <div className="flex flex-col gap-4">
                     <div className="flex items-center gap-3 h-[60px]">
-                        <img src="/bcfloor.png" alt="Logo" className="w-[60px] h-[60px] object-contain" crossOrigin="anonymous" />
+                        <Image 
+                            src="/bcfloor.png" 
+                            alt="Logo" 
+                            width={60} 
+                            height={60} 
+                            className="object-contain" 
+                            crossOrigin="anonymous" 
+                            unoptimized
+                        />
                         <span className="text-2xl font-bold tracking-tight leading-none pt-1">BC Floor plans</span>
                     </div>
                     <div>

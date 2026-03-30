@@ -9,6 +9,11 @@ import {
 import React, { useState } from "react";
 import { useFileManagerContext } from "../FileManagerContext";
 import { Check, X } from "lucide-react";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { DownloadIcon } from "@/components/Icons";
 import {
   Select,
@@ -132,38 +137,45 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                           alt="preview"
                           className="absolute inset-0 w-full h-full object-cover"
                         />
-                        <span
-                          className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
-                          style={{
-                            clipPath: "polygon(100% 0, 0 0, 100% 100%)",
-                            backgroundColor: `${file.upload ? "#6BAE41" : "#E06D5E"
-                              }`,
-                          }}
-                          onClick={() => {
-                            setSelectedFiles((prev) =>
-                              prev.flatMap((f) => {
-                                if (
-                                  f.file === file.file &&
-                                  f.service_id === file.service_id
-                                ) {
-                                  return f.upload
-                                    ? [{ ...f, upload: false }]
-                                    : [];
-                                }
-                                return [f];
-                              })
-                            );
-                          }}
-                        >
-                          {file.upload ? (
-                            <Check color="#fff" size={14} />
-                          ) : (
-                            <X color="#fff" size={14} />
-                          )}
-                        </span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span
+                              className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
+                              style={{
+                                clipPath: "polygon(100% 0, 0 0, 100% 100%)",
+                                backgroundColor: `${file.upload ? "#6BAE41" : "#E06D5E"
+                                  }`,
+                              }}
+                              onClick={() => {
+                                setSelectedFiles((prev) =>
+                                  prev.flatMap((f) => {
+                                    if (
+                                      f.file === file.file &&
+                                      f.service_id === file.service_id
+                                    ) {
+                                      return f.upload
+                                        ? [{ ...f, upload: false }]
+                                        : [];
+                                    }
+                                    return [f];
+                                  })
+                                );
+                              }}
+                            >
+                              {file.upload ? (
+                                <Check color="#fff" size={14} />
+                              ) : (
+                                <X color="#fff" size={14} />
+                              )}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" align="start" className="mt-2 mr-2">
+                            {file.upload ? "Hide from agent" : "Make visible to agent"}
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
-                      <div className="grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 bg-[#BBBBBB] text-[9px]">
-                        <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">
+                      <div className="grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 bg-[#BBBBBB] text-[14px]">
+                        <p className="col-span-2 text-[#8E8E8E] mt-1 truncate !text-[14px]">
                           {file.file.name}
                         </p>
                         <div className="col-span-2 flex items-center justify-between">
@@ -197,21 +209,28 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                               alt="preview"
                               className="absolute inset-0 w-full h-full object-cover"
                             />
-                            <span
-                              className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
-                              style={{
-                                clipPath: "polygon(100% 0, 0 0, 100% 100%)",
-                                backgroundColor: "#6BAE41",
-                              }}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]`}
+                                  style={{
+                                    clipPath: "polygon(100% 0, 0 0, 100% 100%)",
+                                    backgroundColor: "#6BAE41",
+                                  }}
 
-                            >
-                              <Check color="#fff" size={14} />
-                            </span>
+                                >
+                                  <Check color="#fff" size={14} />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" align="start" className="mt-2 mr-2">
+                                Hide from agent
+                              </TooltipContent>
+                            </Tooltip>
                           </>
                         )}
                       </div>
-                      <div className="grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 bg-[#BBBBBB] text-[9px]">
-                        <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">
+                      <div className="grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 bg-[#BBBBBB] text-[14px]">
+                        <p className="col-span-2 text-[#8E8E8E] mt-1 truncate !text-[14px]">
                           {file.name}
                         </p>
                         <div className="col-span-2 flex items-center justify-between">

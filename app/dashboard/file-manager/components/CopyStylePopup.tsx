@@ -13,6 +13,8 @@ interface CopyStylePopupProps {
   onApply: (sheet: FeatureSheetResponse) => void;
   /** UUID of the sheet currently being edited — shown differently in the list */
   currentSheetUuid?: string | null;
+  /** The template key of the current open sheet to filter for compatibility */
+  currentTemplateKey?: string | null;
 }
 
 const templateImageMap: Record<string, string> = {
@@ -46,6 +48,7 @@ export default function CopyStylePopup({
   onClose,
   onApply,
   currentSheetUuid,
+  currentTemplateKey,
 }: CopyStylePopupProps) {
   const { userType } = useAppContext();
   const [sheets, setSheets] = useState<FeatureSheetResponse[]>([]);
@@ -77,9 +80,19 @@ export default function CopyStylePopup({
 
   if (!isOpen) return null;
 
-  const filtered = sheets.filter((s) =>
-    s.template_key.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const filtered = sheets.filter((s) => {
+    // 1. Filter by current template key for compatibility (if provided)
+    const matchesTemplate = currentTemplateKey
+      ? s.template_key === currentTemplateKey
+      : true;
+
+    // 2. Filter by search query
+    const matchesSearch = s.template_key
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+
+    return matchesTemplate && matchesSearch;
+  });
 
   const handleApply = async (sheet: FeatureSheetResponse) => {
     setApplyingUuid(sheet.uuid);

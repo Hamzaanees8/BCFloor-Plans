@@ -5,7 +5,7 @@ import OneDayCalendar from './OneDayCalendar'
 import { Services } from '../../services/page'
 import { VendorData } from '../../orders/[id]/page'
 import { useOrderContext } from '../../orders/context/OrderContext'
-import { fetchTwilightTime, GetServices, GetVendors, TwilightResponse } from '../../orders/orders'
+import { GetServices, GetVendors, getPropertyTimezone, PropertyLocation } from '../../orders/orders'
 import { Order, OrderService } from '../../orders/page'
 import { useAppContext } from '@/app/context/AppContext'
 // import OneDayCalendar from '../../orders/components/OneDayCalendar'
@@ -108,12 +108,12 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
     const [filteredVendorsByService, setFilteredVendorsByService] = useState<Record<string, VendorData[]>>({});
     const [mergedServices, setMergedServices] = useState<OrderService[]>([]);
     const { setSelectedSlots, calendarServices, selectedSlots } = useOrderContext();
-    const [data, setData] = useState<TwilightResponse | null>(null);
-    const [selectedDate, setSelectedDate] = useState<string>(''); // For twilight
     const [serviceDates, setServiceDates] = useState<Record<number, Date | undefined>>({}); // For calendar control
     const [vendorDistances, setVendorDistances] = useState<Record<string, number>>({});
     const [selectedVendorForModal, setSelectedVendorForModal] = useState<VendorData | null>(null);
     const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
+    const [isCalculating, setIsCalculating] = useState(false);
+    const [propertyLocation, setPropertyLocation] = useState<PropertyLocation | null>(null);
 
     useEffect(() => {
         if (!currentOrder?.slots || !currentOrder?.services) return;
@@ -297,6 +297,8 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
         async function filterVendorsByService() {
             if (!vendorsData.length || !currentOrder?.property || !servicesData.length) return;
 
+            setIsCalculating(true);
+
             const addressString = `${currentOrder?.property.address}, ${currentOrder?.property.city}, ${currentOrder?.property.country}`;
             const result: Record<string, VendorData[]> = {};
 
@@ -327,6 +329,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
             }
 
             setFilteredVendorsByService(result);
+            setIsCalculating(false);
         }
 
         filterVendorsByService();
@@ -413,33 +416,16 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
         return `${hours} hour${hours > 1 ? 's' : ''} ${mins} min`;
     };
 
+    // Load property timezone
     useEffect(() => {
-        const address = `${currentOrder?.property?.address}, ${currentOrder?.property?.city}, ${currentOrder?.property?.country}`
-
-        async function loadTwilight() {
-            const result = await fetchTwilightTime(address, selectedDate);
-            if (result) setData(result);
+        async function loadPropertyTimezone() {
+            if (!currentOrder?.property) return;
+            const fullAddress = `${currentOrder.property.address}, ${currentOrder.property.city}, ${currentOrder.property.province}, ${currentOrder.property.country}`;
+            const location = await getPropertyTimezone(fullAddress);
+            if (location) setPropertyLocation(location);
         }
-
-        loadTwilight();
-    }, [currentOrder, selectedDate]);
-
-    const formatLocalTime = (utcTime: string, fixedTimeZone: string = "America/Vancouver") => {
-        if (!utcTime) return "—";
-        try {
-            const date = new Date(utcTime);
-            return date.toLocaleTimeString("en-CA", {
-                timeZone: fixedTimeZone,
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-            });
-        } catch (error) {
-            console.error("Error formatting time:", error);
-            return "Invalid time";
-        }
-    };
+        loadPropertyTimezone();
+    }, [currentOrder]);
     return (
         <div className='font-alexandria'>
             <div className="grid grid-cols-2 gap-8 text-[#7D7D7D] px-3 py-20 auto-rows-max">
@@ -472,11 +458,20 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                     const isFullyScheduled = currentDuration >= requiredDuration && requiredDuration > 0;
                     const isInvalid = invalidServices.includes(service.service.uuid || '');
 
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const isPastDate = serviceSlots.some((slot: Slot) => {
+                        if (!slot.date) return false;
+                        const slotDate = new Date(slot.date + 'T00:00:00');
+                        return slotDate < today;
+                    });
+
                     return (
                         <React.Fragment key={idx}>
                             <div className={cn(
                                 "flex flex-col gap-4 p-4 rounded-lg border transition-all",
-                                isInvalid ? "border-red-500 bg-red-50/30" : "border-transparent"
+                                isInvalid ? "border-red-500 bg-red-50/30" : "border-transparent",
+                                isPastDate ? "pointer-events-none opacity-60 bg-gray-50 bg-opacity-50" : ""
                             )}>
                                 <div className="flex justify-between items-start">
                                     <div>
@@ -599,8 +594,16 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="all">All Vendors</SelectItem>
-                                            {service.service.uuid && filteredVendorsByService[service.service.uuid]?.length ? (
-                                                filteredVendorsByService[service.service.uuid]!.map((vendor, vidx) => {
+                                            {isCalculating ? (
+                                                <SelectItem value="loading" disabled>Fetching vendors...</SelectItem>
+                                            ) : service.service.uuid && filteredVendorsByService[service.service.uuid]?.length ? (
+                                                [...filteredVendorsByService[service.service.uuid]!]
+                                                    .sort((a, b) => {
+                                                        const ta = vendorDistances[a.uuid ?? ''] ?? Infinity;
+                                                        const tb = vendorDistances[b.uuid ?? ''] ?? Infinity;
+                                                        return ta - tb;
+                                                    })
+                                                    .map((vendor, vidx) => {
                                                     const travelTime = vendorDistances[vendor.uuid ?? ''];
                                                     const color = getDistanceColor(travelTime);
                                                     return (
@@ -725,8 +728,6 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                             showAllVendors={showAllVendors}
                                             scheduleOverride={scheduleOverride}
                                             setSelectedDate={(date) => {
-                                                // Sync back to serviceDates and twilight date
-                                                setSelectedDate(date);
                                                 if (date) {
                                                     const [y, m, d] = date.split('-').map(Number);
                                                     const newDate = new Date(y, m - 1, d);
@@ -737,32 +738,12 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                             currentOrderId={currentOrder?.id}
                                             vendorDistances={vendorDistances}
                                             onVendorSelected={handleVendorChange}
+                                            propertyTimezone={propertyLocation?.timeZoneId}
+                                            squareFootage={currentOrder?.property?.square_footage}
                                         />
                                     </div>
 
-                                    {data && (
-                                        <div className="mt-4 p-3 bg-gray-50 rounded-md">
-                                            <h4 className="text-sm font-[600] text-[#666666] mb-2">Twilight Times</h4>
-
-                                            <div className="grid grid-cols-2 gap-2 text-xs">
-                                                <div className="col-span-2 mt-2 font-[500] text-gray-500">Morning </div>
-                                                <div className="col-span-1">
-                                                    Civil: {formatLocalTime(data.civil_twilight_begin)}
-                                                </div>
-                                                <div className="col-span-1">
-                                                    Nautical: {formatLocalTime(data.nautical_twilight_begin)}
-                                                </div>
-
-                                                <div className="col-span-2 mt-2 font-[500] text-gray-500">Evening </div>
-                                                <div className="col-span-1">
-                                                    Civil: {formatLocalTime(data.civil_twilight_end)}
-                                                </div>
-                                                <div className="col-span-1">
-                                                    Nautical: {formatLocalTime(data.nautical_twilight_end)}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
+                                    {/* Twilight info is now rendered per-service inside OneDayCalendar */}
                                 </div>
                             </div>
 

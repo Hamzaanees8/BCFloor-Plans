@@ -27,7 +27,13 @@ import { useAppContext } from "@/app/context/AppContext";
 import RichTextEditor from "../../calendar/components/RichTextEditor";
 import { Services } from "../../services/page";
 import { Order } from "../../orders/page";
-const templateOptions = [{ id: "service_ready", name: "Service Ready" }];
+import { 
+  fetchGlobalTemplates, 
+  interpolateTemplate, 
+  prepareTemplateData, 
+  EmailTemplate 
+} from "@/lib/email-templates";
+
 
 type CoAgent = {
     name: string;
@@ -82,6 +88,7 @@ const ServiceReadyModal: React.FC<Props> = ({
     const [draftCoAgentsVendor, setDraftCoAgentsVendor] = useState<
         typeof coAgentsVendor
     >([]);
+    const [dbTemplates, setDbTemplates] = useState<EmailTemplate[]>([]);
 
     const templateHTMLs: Record<string, string> = {
         service_ready: `
@@ -142,12 +149,22 @@ const ServiceReadyModal: React.FC<Props> = ({
         }
     }, [openAddCoAgentDialog]);
     useEffect(() => {
+        const loadTemplates = async () => {
+            const response = await fetchGlobalTemplates('service_ready');
+            if (response?.success) {
+                setDbTemplates(response.data);
+            }
+        };
+        loadTemplates();
+    }, []);
+
+    useEffect(() => {
         if (open) {
             setSelectedAgentTemplate("service_ready");
             handleAgentTemplateChange("service_ready");
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open]);
+    }, [open, dbTemplates]);
 
     const handleNext = () => {
         setShowAgentModal?.(false);
@@ -205,9 +222,17 @@ const ServiceReadyModal: React.FC<Props> = ({
     };
     const handleAgentTemplateChange = (val: string) => {
         setSelectedAgentTemplate(val);
-        const html = templateHTMLs[val];
-        if (html) {
-            setDescriptionAgent(html);
+        
+        // Find in DB templates first
+        const dbMatch = dbTemplates.find(t => t.uuid === val);
+        if (dbMatch) {
+            const templateData = prepareTemplateData(orderData, orderData?.agent, serviceDate);
+            setDescriptionAgent(interpolateTemplate(dbMatch.content, templateData));
+        } else {
+            const html = templateHTMLs[val];
+            if (html) {
+                setDescriptionAgent(html);
+            }
         }
     };
     const removeAdmin = () => setAdminEmail("");
@@ -304,9 +329,10 @@ const ServiceReadyModal: React.FC<Props> = ({
                             </span>
                         </SelectTrigger>
                         <SelectContent>
-                            {templateOptions.map((option) => (
-                                <SelectItem key={option.id} value={option.id}>
-                                    {option.name}
+                            <SelectItem value="service_ready">Service Ready</SelectItem>
+                            {dbTemplates.map((option) => (
+                                <SelectItem key={option.uuid} value={option.uuid}>
+                                    {option.title}
                                 </SelectItem>
                             ))}
                         </SelectContent>

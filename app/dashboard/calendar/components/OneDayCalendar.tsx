@@ -7,14 +7,28 @@ import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { GetOneListing } from '../../listings/listing';
 import { useOrderContext } from '../../orders/context/OrderContext';
 import { VendorData } from '../../orders/[id]/page';
-import { Get, GetVendors } from '../../orders/orders';
+import {
+  Get,
+  GetVendors,
+  fetchTwilightTime,
+  TwilightResponse,
+  formatTwilightTime,
+  convertUTCToTimezone,
+} from '../../orders/orders';
 import { useAppContext } from '@/app/context/AppContext';
 import { Order } from '../../orders/page';
-dayjs.extend(isSameOrAfter);
-dayjs.extend(isSameOrBefore);
 import { toast } from 'sonner';
 import { getEffectiveServiceDuration } from '../../orders/utils/serviceTimeUtils';
 import { getDistanceColor } from './Schedule';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+dayjs.extend(isSameOrAfter);
+dayjs.extend(isSameOrBefore);
 
 interface WorkHours {
   start_time?: string;
@@ -36,7 +50,13 @@ interface Slots {
   title: string;
   className: string;
   vendor_id?: string;
+  extendedProps?: {
+    availableVendorIds?: string[];
+    twilightRecommended?: boolean;
+  };
+  [key: string]: string | undefined | { availableVendorIds?: string[]; twilightRecommended?: boolean };
 }
+
 interface SelectedService {
   title?: string;
   uuid?: string;
@@ -49,9 +69,10 @@ interface SelectedService {
   service: {
     id: number;
     name: string;
-    uuid: string
-  }
+    uuid: string;
+  };
 }
+
 interface CalendarProps {
   selectedVendors: string[];
   service: SelectedService;
@@ -69,8 +90,9 @@ interface CalendarProps {
   currentOrderId?: number;
   vendorDistances?: Record<string, number>;
   onVendorSelected?: (vendorId: string) => void;
+  propertyTimezone?: string;
+  squareFootage?: number;
 }
-
 
 interface MinimalSlot {
   date: string;
@@ -123,7 +145,6 @@ function generateMarkedSlots(
   const dayOfWeek = dayjs(date).format('ddd').toLowerCase();
   const daySchedule = workHours.work_days?.find(d => d.day === dayOfWeek);
 
-  // If vendor has work_days and is off today, return no slots
   if (daySchedule && (daySchedule.is_off === '1' || daySchedule.is_off === 1 || daySchedule.is_off === true)) {
     return [];
   }
@@ -138,6 +159,7 @@ function generateMarkedSlots(
   const end = dayjs(`${date}T${effectiveEndTime}`);
   const breakStart = workHours.break_start ? dayjs(`${date}T${workHours.break_start}`) : null;
   const breakEnd = workHours.break_end ? dayjs(`${date}T${workHours.break_end}`) : null;
+  const currentDateObj = dayjs(date);
 
   let current = start;
 
@@ -146,16 +168,11 @@ function generateMarkedSlots(
 
     const inBreak = breakStart && breakEnd && next.isAfter(breakStart) && current.isBefore(breakEnd);
 
-    // Check if this slot is already booked for this vendor
     const isBooked = allBookedSlots?.some(bookedSlot => {
       if (!bookedSlot) return false;
-
       const bookedStart = dayjs(`${bookedSlot.date}T${bookedSlot.start_time}`);
       const bookedEnd = dayjs(`${bookedSlot.date}T${bookedSlot.end_time}`);
-
-      // Check both vendor_id and vendor.uuid to handle different slot formats
       const bookedVendorId = bookedSlot.vendor?.uuid || bookedSlot.vendor_id;
-
       return (
         bookedVendorId === vendorId &&
         bookedSlot.date === date &&
@@ -164,11 +181,9 @@ function generateMarkedSlots(
       );
     }) || false;
 
-    // Check for conflicts with locally selected slots for other services for the same vendor
     const isConflict = otherServiceSlots.some(conflictSlot => {
       const conflictStart = dayjs(`${conflictSlot.date}T${conflictSlot.start_time}`);
       const conflictEnd = dayjs(`${conflictSlot.date}T${conflictSlot.end_time}`);
-
       return (
         (conflictSlot.vendor?.uuid === vendorId || conflictSlot.vendor_id === vendorId) &&
         conflictSlot.date === date &&
@@ -179,71 +194,34 @@ function generateMarkedSlots(
 
     const isTimeOff = vendorTimeOffs?.some(timeOff => {
       if (!timeOff) return false;
-
       const timeOffStartDate = timeOff.start_date || timeOff.date;
       const timeOffEndDate = timeOff.end_date || timeOff.date;
-
-      const currentDateObj = dayjs(date);
       const startDateObj = dayjs(timeOffStartDate);
       const endDateObj = dayjs(timeOffEndDate);
-
-      const isDateInRange = currentDateObj.isSameOrAfter(startDateObj, 'day') &&
-        currentDateObj.isSameOrBefore(endDateObj, 'day');
-
+      const isDateInRange = currentDateObj.isSameOrAfter(startDateObj, 'day') && currentDateObj.isSameOrBefore(endDateObj, 'day');
       if (!isDateInRange) return false;
-
-      const isSingleDay = startDateObj.isSame(endDateObj, 'day');
       const isStartDay = currentDateObj.isSame(startDateObj, 'day');
       const isEndDay = currentDateObj.isSame(endDateObj, 'day');
-
-      if (isSingleDay) {
-        const timeOffStart = dayjs(`${date}T${timeOff.start_time}`);
-        const timeOffEnd = dayjs(`${date}T${timeOff.end_time}`);
-
-        return (
-          (current.isSameOrAfter(timeOffStart) && current.isBefore(timeOffEnd)) ||
-          (next.isAfter(timeOffStart) && next.isSameOrBefore(timeOffEnd)) ||
-          (current.isBefore(timeOffStart) && next.isAfter(timeOffEnd))
-        );
-      } else {
-        if (isStartDay && isEndDay) {
-          const timeOffStart = dayjs(`${date}T${timeOff.start_time}`);
-          const timeOffEnd = dayjs(`${date}T${timeOff.end_time}`);
-          return (
-            (current.isSameOrAfter(timeOffStart) && current.isBefore(timeOffEnd)) ||
-            (next.isAfter(timeOffStart) && next.isSameOrBefore(timeOffEnd)) ||
-            (current.isBefore(timeOffStart) && next.isAfter(timeOffEnd))
-          );
-        } else if (isStartDay) {
-          const timeOffStart = dayjs(`${date}T${timeOff.start_time}`);
-          return current.isSameOrAfter(timeOffStart);
-        } else if (isEndDay) {
-          const timeOffEnd = dayjs(`${date}T${timeOff.end_time}`);
-          return current.isBefore(timeOffEnd);
-        } else {
-          return true;
-        }
+      if (isStartDay && isEndDay) {
+        const s = dayjs(`${date}T${timeOff.start_time}`);
+        const e = dayjs(`${date}T${timeOff.end_time}`);
+        return (current.isSameOrAfter(s) && current.isBefore(e)) || (next.isAfter(s) && next.isSameOrBefore(e)) || (current.isBefore(s) && next.isAfter(e));
+      } else if (isStartDay) {
+        return current.isSameOrAfter(dayjs(`${date}T${timeOff.start_time}`));
+      } else if (isEndDay) {
+        return current.isBefore(dayjs(`${date}T${timeOff.end_time}`));
       }
+      return true;
     }) || false;
 
-    // Check if slot conflicts with Google Calendar events
     const isCalendarEvent = calendarEvents?.some(event => {
       if (!event || event.status === 'cancelled') return false;
-
-      // Parse event times (they are in UTC ISO format)
       const eventStart = dayjs(event.start);
       const eventEnd = dayjs(event.end);
-
-      // Check if the event is on the current date
-      const eventDate = eventStart.format('YYYY-MM-DD');
-      if (eventDate !== date) return false;
-
-      // Check if current slot overlaps with the calendar event
-      return (
-        (current.isSameOrAfter(eventStart) && current.isBefore(eventEnd)) ||
+      if (eventStart.format('YYYY-MM-DD') !== date) return false;
+      return (current.isSameOrAfter(eventStart) && current.isBefore(eventEnd)) ||
         (next.isAfter(eventStart) && next.isSameOrBefore(eventEnd)) ||
-        (current.isBefore(eventStart) && next.isAfter(eventEnd))
-      );
+        (current.isBefore(eventStart) && next.isAfter(eventEnd));
     }) || false;
 
     if (!inBreak && !isBooked && !isConflict && !isTimeOff && !isCalendarEvent) {
@@ -268,27 +246,33 @@ function generateAllDaySlots(date: string, interval = 15): Slots[] {
   const start = dayjs(`${date}T00:00:00`);
   const end = dayjs(`${date}T24:00:00`);
   let current = start;
-
   while (current.isBefore(end)) {
     const next = current.add(interval, 'minute');
-    slots.push({
-      start: current.toISOString(),
-      end: next.toISOString(),
-      title: '',
-      className: 'slot-unavailable',
-    });
+    slots.push({ start: current.toISOString(), end: next.toISOString(), title: '', className: 'slot-unavailable' });
     current = next;
   }
-
   return slots;
 }
 
-
-
-
-export default function OneDayCalendar({ setSelectedDate, targetDate, selectedListingId, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, currentOrderId, vendorDistances, onVendorSelected }: CalendarProps) {
+export default function OneDayCalendar({
+  setSelectedDate,
+  targetDate,
+  selectedListingId,
+  selectedVendors,
+  service,
+  showAllVendorsMap,
+  scheduleOverrideMap,
+  recommendTimeMap,
+  calendarIdx,
+  currentOrderId,
+  vendorDistances,
+  onVendorSelected,
+  propertyTimezone,
+  squareFootage,
+}: CalendarProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const hasScrolledToFirstSlot = useRef(false);
+
   const {
     selectedSlots,
     setSelectedSlots,
@@ -296,80 +280,57 @@ export default function OneDayCalendar({ setSelectedDate, targetDate, selectedLi
     selectedCurrentListing,
     tempPropertyData,
   } = useOrderContext();
+
+  const { userType } = useAppContext();
+
   const [events, setEvents] = useState<Slots[]>([]);
-  const [vendors, setVendors] = React.useState<VendorData[]>([]);
+  const [vendors, setVendors] = useState<VendorData[]>([]);
   const [currentDate, setCurrentDate] = useState<string>(dayjs().format('YYYY-MM-DD'));
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [clickedSlot, setClickedSlot] = useState<{ start: string; end: string } | null>(null);
   const [availableSlotVendors, setAvailableSlotVendors] = useState<VendorData[]>([]);
   const [destinationAddress, setDestinationAddress] = useState<string>('');
   const [orderData, setOrderData] = useState<Order[]>([]);
-  const { userType } = useAppContext()
+  const [twilightData, setTwilightData] = useState<TwilightResponse | null>(null);
 
-  // useEffect(() => {
-  //   const selectedServiceIds = selectedServices.map(s => s.uuid);
-  //   setSelectedSlots((prev) =>
-  //     prev.filter((slot) => selectedServiceIds.includes(slot.service_id))
-  //   );
-  // }, [selectedServices, setSelectedSlots]);
+  const calendarRef = useRef<FullCalendar>(null);
+
+  // Effective square footage: prop first, then context fallback
+  const effectiveSquareFootage = squareFootage ?? tempPropertyData?.square_footage ?? selectedCurrentListing?.square_footage;
+
+  // Load all orders for booked slots
   useEffect(() => {
     const token = localStorage.getItem("token");
-
-    if (!token) {
-      return;
-    }
-
-    Get(token)
-      .then((data) => {
-        setOrderData(data.data);
-      })
-      .catch((err) => console.log(err.message));
+    if (!token) return;
+    Get(token).then(data => setOrderData(data.data)).catch(err => console.log(err.message));
   }, []);
 
-
-  const AllBookedSlots = orderData
-    ?.filter((order) => currentOrderId ? order.id !== currentOrderId : true)
-    .map((order) => order.slots).flat()
-
+  // Load vendors
   useEffect(() => {
     const token = localStorage.getItem("token");
-
-    if (!token) {
-      return;
-    }
-
-    GetVendors(token)
-      .then((data) => {
-        setVendors(data.data);
-      })
-      .catch((err) => console.log(err.message));
+    if (!token) return;
+    GetVendors(token).then(data => setVendors(data.data)).catch(err => console.log(err.message));
   }, []);
 
-
+  // Load listing address for distance calc
   useEffect(() => {
     const token = localStorage.getItem("token");
-
-    if (!token) {
-      console.log('Token not found.')
-      return;
-    }
-
+    if (!token) return;
     if (selectedListingId) {
       GetOneListing(selectedListingId)
         .then(data => setDestinationAddress(data.data.address))
         .catch(err => console.log(err.message));
-    } else {
-      console.log('Property ID is undefined.');
     }
   }, [selectedListingId]);
 
-  const calendarRef = useRef<FullCalendar>(null);
+  const AllBookedSlots = orderData
+    ?.filter(order => currentOrderId ? order.id !== currentOrderId : true)
+    .map(order => order.slots)
+    .flat();
 
+  // Sync currentDate with existing selected slot
   useEffect(() => {
-    const matchingSlot = selectedSlots.find(
-      (slot) => slot.service_id === service.service.uuid
-    );
-
+    const matchingSlot = selectedSlots.find(slot => slot.service_id === service.service.uuid);
     if (matchingSlot) {
       setCurrentDate(matchingSlot.date);
     } else {
@@ -377,12 +338,11 @@ export default function OneDayCalendar({ setSelectedDate, targetDate, selectedLi
     }
   }, [selectedSlots, service]);
 
+  // Navigate calendar when targetDate changes
   useEffect(() => {
     if (calendarRef.current && (targetDate || currentDate)) {
       const calendarApi = calendarRef.current.getApi();
       const dateToGo = targetDate || currentDate;
-
-      // Prevent redundant updates if already on the date
       if (dayjs(calendarApi.getDate()).format('YYYY-MM-DD') !== dateToGo) {
         calendarApi.gotoDate(dateToGo);
         if (targetDate && targetDate !== currentDate) {
@@ -392,328 +352,320 @@ export default function OneDayCalendar({ setSelectedDate, targetDate, selectedLi
     }
   }, [currentDate, targetDate]);
 
+  // Fetch twilight for current date
+  useEffect(() => {
+    async function loadTwilight() {
+      const address = destinationAddress ||
+        (selectedCurrentListing ? `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.country}` :
+          tempPropertyData ? `${tempPropertyData.address}, ${tempPropertyData.city}, ${tempPropertyData.country}` : '');
+      if (!address) return;
+      const result = await fetchTwilightTime(address, currentDate);
+      if (result) setTwilightData(result);
+    }
+    loadTwilight();
+  }, [destinationAddress, currentDate, selectedCurrentListing, tempPropertyData]);
 
+  // Build events from vendor slots
   useEffect(() => {
     const date = currentDate;
+    const filteredVendors = vendors.filter(v => v.uuid !== undefined && selectedVendors.includes(v.uuid!));
 
-    const filteredVendors = vendors.filter((vendor) =>
-      vendor.uuid !== undefined && selectedVendors.includes(vendor.uuid)
-    );
-
-    if (!filteredVendors.length) return;
+    if (!filteredVendors.length) {
+      setEvents([]);
+      return;
+    }
 
     const fullDaySlots = generateAllDaySlots(date, 15);
-    const availableSlotMap = new Map<string, Slots>();
+    const slotVendorsMap = new Map<string, string[]>();
 
-    // Identify slots selected for OTHER services (to block them)
     const otherServiceSlots = selectedSlots.filter(s =>
       s.service_id !== service.service.uuid && s.date === date
     );
 
-    filteredVendors.forEach((vendor) => {
-      if (!vendor.work_hours) return;
-
-      const vendorSlots = generateMarkedSlots(
-        date,
-        vendor.work_hours,
-        vendor.uuid ?? '',
-        AllBookedSlots as unknown as MinimalSlot[],
-        otherServiceSlots as unknown as MinimalSlot[],
-        vendor.additional_breaks || [],
-        vendor.calendar_events || [],
-        15
-      );
-      vendorSlots.forEach((slot) => {
-        const key = `${slot.start}_${slot.end}`;
-        availableSlotMap.set(key, {
-          ...slot,
-          className: 'slot-available'
+    filteredVendors.forEach(vendor => {
+      if (scheduleOverrideMap[calendarIdx] === 1) {
+        const fullDayWorkHours: WorkHours = {
+          start_time: '00:00:00',
+          end_time: '23:59:59',
+          break_start: '',
+          break_end: '',
+          work_days: [{
+            day: dayjs(date).format('ddd').toLowerCase(),
+            start_time: '00:00:00',
+            end_time: '23:59:59',
+            is_off: 0,
+            is_twilight: 0,
+          }],
+        };
+        const vendorSlots = generateMarkedSlots(date, fullDayWorkHours, vendor.uuid ?? '', AllBookedSlots as unknown as MinimalSlot[], otherServiceSlots as unknown as MinimalSlot[], [], [], 15);
+        vendorSlots.forEach(slot => {
+          const key = `${slot.start}_${slot.end}`;
+          if (!slotVendorsMap.has(key)) slotVendorsMap.set(key, []);
+          slotVendorsMap.get(key)!.push(vendor.uuid ?? '');
         });
-      });
+      } else {
+        if (!vendor.work_hours) return;
+        const vendorSlots = generateMarkedSlots(date, vendor.work_hours, vendor.uuid ?? '', AllBookedSlots as unknown as MinimalSlot[], otherServiceSlots as unknown as MinimalSlot[], vendor.additional_breaks || [], vendor.calendar_events || [], 15);
+        vendorSlots.forEach(slot => {
+          const key = `${slot.start}_${slot.end}`;
+          if (!slotVendorsMap.has(key)) slotVendorsMap.set(key, []);
+          slotVendorsMap.get(key)!.push(vendor.uuid ?? '');
+        });
+      }
     });
 
-    let firstAvailableFound = false;
-    const finalSlots = fullDaySlots.map((slot) => {
-      const key = `${slot.start}_${slot.end}`;
-      const matchedAvailable = availableSlotMap.get(key);
+    const currentServiceData = servicesData.find(s => s.uuid === service.service.uuid || String(s.id) === String(service.service.id));
 
-      if (matchedAvailable) {
-        let isFirstAvailable = false;
-        if (recommendTimeMap[calendarIdx] === 1 && !firstAvailableFound) {
-          firstAvailableFound = true;
-          isFirstAvailable = true;
+    let availableSlotsCount = 0;
+    const finalSlots = fullDaySlots.map(slot => {
+      const key = `${slot.start}_${slot.end}`;
+      const availableVendorIds = slotVendorsMap.get(key) || [];
+
+      // Twilight restriction
+      let isTwilightRestricted = false;
+      if (currentServiceData?.category?.name === "Twilight Photos" && twilightData?.sunset) {
+        const targetTz = propertyTimezone || 'America/Vancouver';
+        const sunsetLocalTimeStr = convertUTCToTimezone(twilightData.sunset, targetTz);
+        const twilightTime = dayjs(`${date}T${sunsetLocalTimeStr}`);
+        const allowedStartTime = twilightTime.subtract(30, 'minute');
+        if (dayjs(slot.start).isBefore(allowedStartTime)) {
+          isTwilightRestricted = true;
+        }
+      }
+
+      if (availableVendorIds.length > 0 && !isTwilightRestricted) {
+        const isTwilightService = currentServiceData?.category?.name === "Twilight Photos" || service?.title?.includes("Twilight");
+        let isRecommended = false;
+        let maxRecommended = 1;
+
+        if (isTwilightService) {
+          const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === service.option_id);
+          const reqDur = getEffectiveServiceDuration(productOption?.service_duration, effectiveSquareFootage);
+          maxRecommended = Math.ceil(reqDur / 15);
         }
 
-        // Check if already selected
-        const matchingSelected = selectedSlots.find(
-          (s) =>
-            s.service_id === service.service.uuid &&
-            dayjs(`${s.date}T${s.start_time}`).toISOString() === slot.start &&
-            dayjs(`${s.date}T${s.end_time}`).toISOString() === slot.end
-        );
+        if (availableSlotsCount < maxRecommended && (recommendTimeMap[calendarIdx] === 1 || isTwilightService)) {
+          isRecommended = true;
+          availableSlotsCount++;
+        }
 
+        const matchingSelected = selectedSlots.find(s =>
+          s.service_id === service.service.uuid &&
+          dayjs(`${s.date}T${s.start_time}`).toISOString() === slot.start &&
+          dayjs(`${s.date}T${s.end_time}`).toISOString() === slot.end
+        );
 
         if (matchingSelected) {
           const vendorId = matchingSelected.vendor?.uuid || matchingSelected.vendor_id;
-
           const matchedVendor = vendors.find(v => v.uuid === vendorId);
-          const vendorName = matchedVendor ? `${matchedVendor.first_name} ${matchedVendor.last_name}` : 'Unknown Vendor';
-
+          const vendorName = matchedVendor ? `${matchedVendor.first_name} ${matchedVendor.last_name}` : 'Unknown';
           return {
-            ...matchedAvailable,
-            title: `${vendorName}\n${service.service.name}`,
-            className: `slot-selected vendor-${vendorId}${isFirstAvailable ? ' slot-recommended' : ''}`,
+            ...slot,
+            title: `${vendorName}\n${service.title || service.service.name}`,
+            className: `slot-selected vendor-${vendorId}${isRecommended ? ' slot-recommended' : ''}`,
+            extendedProps: { availableVendorIds: [], twilightRecommended: isTwilightService && isRecommended },
           };
         }
 
-        if (isFirstAvailable) {
+        if (isRecommended) {
           return {
-            ...matchedAvailable,
+            ...slot,
             title: 'Recommended',
-            className: 'slot-available slot-recommended'
+            className: 'slot-available slot-recommended',
+            extendedProps: { availableVendorIds, twilightRecommended: isTwilightService },
           };
         }
 
-        return matchedAvailable;
+        return { ...slot, title: '', className: 'slot-available', extendedProps: { availableVendorIds } };
       }
 
-      return { ...slot, title: 'Unavailable', className: 'slot-unavailable' };
+      return { ...slot, title: 'Unavailable', className: 'slot-unavailable', extendedProps: { availableVendorIds: [] } };
     });
 
     setEvents(finalSlots);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vendors, currentDate, selectedVendors, selectedSlots, service.title, service.service.id, service.service.name, recommendTimeMap, calendarIdx]);
+  }, [vendors, currentDate, selectedVendors, selectedSlots, service.service.uuid, service.service.id, recommendTimeMap, calendarIdx, scheduleOverrideMap, twilightData, servicesData, effectiveSquareFootage, propertyTimezone]);
 
-
-  // Easing function for smooth animation
-  const easeInOutCubic = (t: number): number => {
-    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-  };
-
-  const smoothScrollTo = React.useCallback((element: HTMLElement, target: number, duration: number) => {
-    const start = element.scrollTop;
-    const change = target - start;
-    const startTime = performance.now();
-
-    const animateScroll = (currentTime: number) => {
-      const elapsed = currentTime - startTime;
-      if (elapsed < duration) {
-        const progress = easeInOutCubic(elapsed / duration);
-        element.scrollTop = start + change * progress;
-        requestAnimationFrame(animateScroll);
-      } else {
-        element.scrollTop = target;
-      }
-    };
-
-    requestAnimationFrame(animateScroll);
-  }, []);
-
+  // Auto-scroll to first slot
   useEffect(() => {
     if (!containerRef.current || events.length === 0) return;
-
     if (!hasScrolledToFirstSlot.current) {
       setTimeout(() => {
         if (!containerRef.current) return;
-
         const recommendedEl = containerRef.current.querySelector('.slot-recommended') as HTMLElement;
         const selectedEl = containerRef.current.querySelector('.slot-selected') as HTMLElement;
-        const targetEl = recommendedEl || selectedEl;
-
+        const availableEl = containerRef.current.querySelector('.slot-available') as HTMLElement;
+        const targetEl = recommendedEl || selectedEl || availableEl;
         if (targetEl) {
           const container = containerRef.current;
           const containerRect = container.getBoundingClientRect();
           const targetRect = targetEl.getBoundingClientRect();
-
-          const currentScroll = container.scrollTop;
-          const targetCenter = targetRect.top + targetRect.height / 2;
-          const containerCenter = containerRect.top + container.clientHeight / 2;
-          const offset = targetCenter - containerCenter;
-
-          smoothScrollTo(container, currentScroll + offset, 800);
-
+          const relativeTop = targetRect.top - containerRect.top + container.scrollTop;
+          const scrollTo = Math.max(0, relativeTop - containerRect.height / 3);
+          container.scrollTo({ top: scrollTo, behavior: 'smooth' });
           hasScrolledToFirstSlot.current = true;
         }
-      }, 200);
+      }, 300);
     }
-  }, [events, smoothScrollTo]);
+  }, [events]);
 
   function geocodeAddress(address: string): Promise<string> {
     const geocoder = new window.google.maps.Geocoder();
-
     return new Promise((resolve, reject) => {
       geocoder.geocode({ address }, (results, status) => {
-        if (status === "OK" && results && results[0]) {
-          const formattedAddress = results[0].formatted_address;
-          resolve(formattedAddress); // or use results[0].geometry.location for LatLng
-        } else {
-          reject(`Geocode failed: ${status}`);
-        }
+        if (status === "OK" && results && results[0]) resolve(results[0].formatted_address);
+        else reject(`Geocode failed: ${status}`);
       });
     });
   }
-  function normalizeAddress(address: string): string {
-    return address?.trim() || "";
-  }
+
   async function calculateDistance(originInput: string, destinationInput: string): Promise<{ est_time: number; distance: number } | null> {
     try {
-      if (!originInput || !destinationInput) {
-        console.error("Origin or destination address is empty.");
-        return null;
-      }
-      const originResolved = await geocodeAddress(normalizeAddress(originInput));
-      const destinationResolved = await geocodeAddress(normalizeAddress(destinationInput));
-
-      const service = new window.google.maps.DistanceMatrixService();
-
-      return new Promise((resolve) => {
-        service.getDistanceMatrix(
-          {
-            origins: [originResolved],
-            destinations: [destinationResolved],
-            travelMode: window.google.maps.TravelMode.DRIVING,
-          },
-          (response, status) => {
-            if (status !== "OK") {
-              console.error("Distance Matrix failed:", status);
-              resolve(null);
-              return;
-            }
-
-            const result = response?.rows?.[0]?.elements?.[0];
-            if (!result || result.status !== "OK") {
-              console.error("Invalid element in Distance Matrix:", result);
-              resolve(null);
-              return;
-            }
-
-            const distance = result.distance.value / 1000;
-            const est_time = result.duration.value / 60;
-
-            resolve({ est_time, distance });
-          }
-        );
+      if (!originInput || !destinationInput) return null;
+      const originResolved = await geocodeAddress(originInput.trim());
+      const destinationResolved = await geocodeAddress(destinationInput.trim());
+      const svc = new window.google.maps.DistanceMatrixService();
+      return new Promise(resolve => {
+        svc.getDistanceMatrix({ origins: [originResolved], destinations: [destinationResolved], travelMode: window.google.maps.TravelMode.DRIVING }, (response, status) => {
+          if (status !== "OK") { resolve(null); return; }
+          const result = response?.rows?.[0]?.elements?.[0];
+          if (!result || result.status !== "OK") { resolve(null); return; }
+          resolve({ est_time: result.duration.value / 60, distance: result.distance.value / 1000 });
+        });
       });
-    } catch (err) {
-      console.error("Error:", err);
-      return null;
-    }
+    } catch { return null; }
   }
 
   const onEventClick = async (info: import('@fullcalendar/core').EventClickArg) => {
     if (!info.event.start || !info.event.end) return;
-    if (userType === 'vendor') {
-      return;
-    }
+    if (userType === 'vendor') return;
 
-    const clicked = {
-      start: info.event.start.toISOString(),
-      end: info.event.end.toISOString(),
-    };
-
-    const slotStart = dayjs(info.event.start).format('HH:mm');
-    const slotEnd = dayjs(info.event.end).format('HH:mm');
+    const clicked = { start: info.event.start.toISOString(), end: info.event.end.toISOString() };
+    const slotStart = dayjs(info.event.start).format('HH:mm:ss');
+    const slotEnd = dayjs(info.event.end).format('HH:mm:ss');
     const selectedDate = dayjs(info.event.start).format('YYYY-MM-DD');
 
-    const isAlreadySelected = selectedSlots.find(
-      (slot) =>
-        slot.service_id === service.service.uuid &&
-        slot.start_time === dayjs(clicked.start).format('HH:mm:ss') &&
-        slot.end_time === dayjs(clicked.end).format('HH:mm:ss') &&
-        slot.date === selectedDate
+    const isAlreadySelected = selectedSlots.find(slot =>
+      slot.service_id === service.service.uuid &&
+      slot.start_time === slotStart &&
+      slot.end_time === slotEnd &&
+      slot.date === selectedDate
     );
 
     if (isAlreadySelected) {
-      setSelectedSlots((prev) =>
-        prev.filter(
-          (slot) =>
-            !(
-              slot.service_id === service.service.uuid &&
-              slot.start_time === dayjs(clicked.start).format('HH:mm:ss') &&
-              slot.end_time === dayjs(clicked.end).format('HH:mm:ss') &&
-              slot.date === selectedDate
-            )
-        )
-      );
+      const serviceSlotsForDate = selectedSlots
+        .filter(slot => slot.service_id === service.service.uuid && slot.date === selectedDate)
+        .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
+      if (serviceSlotsForDate.length === 1) {
+        setSelectedSlots(prev => prev.filter(slot =>
+          !(slot.service_id === service.service.uuid && slot.start_time === slotStart && slot.end_time === slotEnd && slot.date === selectedDate)
+        ));
+        setEvents(prev => prev.map(e =>
+          dayjs(e.start).isSame(clicked.start) && dayjs(e.end).isSame(clicked.end)
+            ? { ...e, title: '', className: 'slot-available' }
+            : e
+        ));
+        return;
+      }
+
+      const firstSlot = serviceSlotsForDate[0];
+      const lastSlot = serviceSlotsForDate[serviceSlotsForDate.length - 1];
+      const isFirst = slotStart === firstSlot.start_time && slotEnd === firstSlot.end_time;
+      const isLast = slotStart === lastSlot.start_time && slotEnd === lastSlot.end_time;
+
+      if (!isFirst && !isLast) {
+        toast.error('You can only remove slots from the start or end of your booking.');
+        return;
+      }
+
+      setSelectedSlots(prev => prev.filter(slot =>
+        !(slot.service_id === service.service.uuid && slot.start_time === slotStart && slot.end_time === slotEnd && slot.date === selectedDate)
+      ));
+      setEvents(prev => prev.map(e =>
+        dayjs(e.start).isSame(clicked.start) && dayjs(e.end).isSame(clicked.end)
+          ? { ...e, title: '', className: 'slot-available' }
+          : e
+      ));
       return;
     }
+
+    // Duration enforcement: compute how many consecutive slots to select
+    const currentServiceData = servicesData?.find(s => s.uuid === service.service.uuid);
+    const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === service.option_id);
+    const requiredDuration = getEffectiveServiceDuration(productOption?.service_duration, effectiveSquareFootage);
+
     const currentServiceSlots = selectedSlots.filter(
-      (slot) => slot.service_id === service.service.uuid && slot.date === selectedDate
+      slot => slot.service_id === service.service.uuid && slot.date === selectedDate
     );
+    const requiredSlots = Math.ceil(requiredDuration / 15);
+    let remainingSlotsNeeded = requiredSlots - currentServiceSlots.length;
+    if (remainingSlotsNeeded <= 0) remainingSlotsNeeded = 1;
 
+    const slotsToSelect: { start: string; end: string }[] = [];
+    for (let i = 0; i < remainingSlotsNeeded; i++) {
+      slotsToSelect.push({
+        start: dayjs(clicked.start).add(i * 15, 'minute').toISOString(),
+        end: dayjs(clicked.start).add((i + 1) * 15, 'minute').toISOString(),
+      });
+    }
+
+    // Find vendors available for ALL consecutive slots
     const matching = vendors.filter(vendor => {
-      if (!vendor.uuid || !selectedVendors.includes(vendor.uuid)) {
-        return false;
-      }
-
+      if (!vendor.uuid || !selectedVendors.includes(vendor.uuid)) return false;
       if (!vendor.work_hours) return false;
 
-      const dayOfWeek = dayjs(selectedDate).format('ddd').toLowerCase();
-      const daySchedule = vendor.work_hours.work_days?.find(d => d.day === dayOfWeek);
+      const vendorAvailableSlots = generateMarkedSlots(
+        selectedDate,
+        vendor.work_hours,
+        vendor.uuid ?? '',
+        AllBookedSlots as unknown as MinimalSlot[],
+        selectedSlots.filter(s => s.service_id !== service.service.uuid && s.date === selectedDate) as unknown as MinimalSlot[],
+        vendor.additional_breaks || [],
+        vendor.calendar_events || [],
+        15
+      );
 
-      if (daySchedule && (daySchedule.is_off === '1' || daySchedule.is_off === 1 || daySchedule.is_off === true)) {
-        return false;
-      }
-
-      const effectiveStartTime = daySchedule?.start_time || vendor.work_hours.start_time;
-      const effectiveEndTime = daySchedule?.end_time || vendor.work_hours.end_time;
-
-      if (!effectiveStartTime || !effectiveEndTime) return false;
-
-      const eventStart = dayjs(`2000-01-01T${slotStart}`);
-      const eventEnd = dayjs(`2000-01-01T${slotEnd}`);
-      const workStart = dayjs(`2000-01-01T${effectiveStartTime}`);
-      const workEnd = dayjs(`2000-01-01T${effectiveEndTime}`);
-      const breakStartTime = vendor.work_hours.break_start ? dayjs(`2000-01-01T${vendor.work_hours.break_start}`) : null;
-      const breakEndTime = vendor.work_hours.break_end ? dayjs(`2000-01-01T${vendor.work_hours.break_end}`) : null;
-
-      const isWithinWorkingHours = eventStart.isSameOrAfter(workStart) && eventEnd.isSameOrBefore(workEnd);
-      const isNotDuringBreak = !breakStartTime || !breakEndTime || (eventEnd.isSameOrBefore(breakStartTime) || eventStart.isSameOrAfter(breakEndTime));
-
-      return isWithinWorkingHours && isNotDuringBreak;
+      return slotsToSelect.every(slotToSelect =>
+        vendorAvailableSlots.some(avail =>
+          dayjs(avail.start).isSame(slotToSelect.start) && dayjs(avail.end).isSame(slotToSelect.end)
+        )
+      );
     });
 
-
-    // Check for "sticky" vendor: if a vendor is already assigned to this service on this date,
-    // and that vendor is available for the current slot, auto-assign them.
-    const assignedVendorId = currentServiceSlots.length > 0 ? (currentServiceSlots[0].vendor?.uuid || currentServiceSlots[0].vendor_id) : null;
+    const assignedVendorId = currentServiceSlots.length > 0
+      ? (currentServiceSlots[0].vendor?.uuid || currentServiceSlots[0].vendor_id)
+      : null;
 
     if (assignedVendorId) {
       const stickyVendor = matching.find(v => v.uuid === assignedVendorId);
-      if (stickyVendor) {
-        handleAssignVendor(stickyVendor, clicked);
-        return;
-      }
+      if (stickyVendor) { await handleAssignVendor(stickyVendor, slotsToSelect); return; }
     }
 
     if (matching.length === 1) {
-      //('Single vendor match, auto-assigning:', matching[0]);
-      handleAssignVendor(matching[0], clicked);
-    }
-    else if (matching.length > 1) {
+      await handleAssignVendor(matching[0], slotsToSelect);
+    } else if (matching.length > 1) {
       setClickedSlot(clicked);
       setAvailableSlotVendors(matching);
       setShowVendorModal(true);
-    }
-    else {
-      //('No vendors available for this service at selected time');
+    } else {
+      toast.error(`No vendor has ${remainingSlotsNeeded * 15} consecutive minutes available starting at this time.`);
     }
   };
-  const handleAssignVendor = async (vendor: VendorData, slot: { start: string; end: string }) => {
-    const origin = vendor?.addresses?.[1]?.address_line_1 || "";
-    // const destination = destinationAddress;
 
+  const handleAssignVendor = async (vendor: VendorData, slots: { start: string; end: string }[]) => {
+    const originAddress = vendor?.addresses?.find(a => a.type === 'start_location') || vendor?.addresses?.[1];
+    const origin = originAddress ? `${originAddress.address_line_1}, ${originAddress.city}, ${originAddress.province}, ${originAddress.country}` : '';
     const result = await calculateDistance(origin, destinationAddress);
 
-    const updatedEvents = events.map((event) => {
-      if (
-        dayjs(event.start).isSame(slot.start) &&
-        dayjs(event.end).isSame(slot.end)
-      ) {
+    const updatedEvents = events.map(event => {
+      const isMatchingSlot = slots.some(slot =>
+        dayjs(event.start).isSame(slot.start) && dayjs(event.end).isSame(slot.end)
+      );
+      if (isMatchingSlot) {
         return {
           ...event,
-          title: `${vendor.first_name} ${vendor.last_name}\n${service.title}`,
+          title: `${vendor.first_name} ${vendor.last_name}\n${service.title || service.service.name}`,
           className: `slot-selected vendor-${vendor.uuid}`,
         };
       }
@@ -721,9 +673,10 @@ export default function OneDayCalendar({ setSelectedDate, targetDate, selectedLi
     });
 
     setEvents(updatedEvents);
-    const newSlot = {
+
+    const newSlots = slots.map(slot => ({
       service_id: service.service.uuid ?? '',
-      vendor_id: vendor.uuid ? vendor.uuid : '',
+      vendor_id: vendor.uuid || '',
       show_all_vendors: showAllVendorsMap[calendarIdx] ?? 0,
       schedule_override: scheduleOverrideMap[calendarIdx] ?? 0,
       recommend_time: recommendTimeMap[calendarIdx] ?? 0,
@@ -734,181 +687,241 @@ export default function OneDayCalendar({ setSelectedDate, targetDate, selectedLi
       est_time: result?.est_time ?? null,
       distance: result?.distance ?? null,
       km_price: null,
-    };
-    setSelectedSlots((prev) => [...prev, newSlot]);
+    }));
 
+    setSelectedSlots(prev => [...prev, ...newSlots]);
     setShowVendorModal(false);
 
-    // Show informational message about slot selection progress
-    // Recalculate service duration and current slots for toast message
-    const currentService = servicesData?.find((s) => s.uuid === service.service.uuid);
-    const productOption = currentService?.product_options?.find(
-      (option) => option.uuid === service.option_id
-    );
-    const squareFootage = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
-    const requiredDuration = getEffectiveServiceDuration(
-      productOption?.service_duration,
-      squareFootage
-    );
-
-    const selectedDate = dayjs(slot.start).format('YYYY-MM-DD');
-    const currentServiceSlots = selectedSlots.filter(
-      (s) => s.service_id === service.service.uuid && s.date === selectedDate
-    );
-    const newTotalSlots = currentServiceSlots.length + 1;
-    const newTotalDuration = newTotalSlots * 15;
-
-    if (newTotalDuration < requiredDuration) {
-      // Toast removed - validation now happens on "Next" button click
-    } else if (newTotalDuration === requiredDuration) {
-      // Toast removed - validation now handled elsewhere for better UX
-    } else {
-      const currentService = servicesData?.find((s) => s.uuid === service.service.uuid);
-      const productOption = currentService?.product_options?.find(
-        (option) => option.uuid === service.option_id
-      );
-      const squareFootage = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
-      const requiredDuration = getEffectiveServiceDuration(
-        productOption?.service_duration,
-        squareFootage
-      );
-      toast.info(`Note: You have selected more time than the required ${requiredDuration} minutes for "${service.service.name}".`);
+    // Warn if over-selecting
+    const currentServiceData = servicesData?.find(s => s.uuid === service.service.uuid);
+    const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === service.option_id);
+    const requiredDuration = getEffectiveServiceDuration(productOption?.service_duration, effectiveSquareFootage);
+    const selDate = dayjs(slots[0].start).format('YYYY-MM-DD');
+    const existingCount = selectedSlots.filter(s => s.service_id === service.service.uuid && s.date === selDate).length;
+    const newTotal = (existingCount + slots.length) * 15;
+    if (newTotal > requiredDuration) {
+      toast.info(`Note: You've selected more than the required ${requiredDuration} min for "${service.service.name}".`);
     }
+
     onVendorSelected?.(vendor.uuid || '');
   };
 
   const vendorColorStyles = Object.entries(vendorDistances || {})
-    .map(([uuid, distance]) => `
-    .vendor-${uuid}::before {
-      background-color: ${getDistanceColor(distance)} !important;
-    }
-  `)
+    .map(([uuid, distance]) => `.vendor-${uuid}::before { background-color: ${getDistanceColor(distance)} !important; }`)
+    .join('\n');
 
   const customStyles = `
     ${vendorColorStyles}
-    .slot-recommended:not(.slot-selected) {
-      background-color: #B2FFB2 !important;
-    }
+    .slot-recommended:not(.slot-selected) { background-color: #B2FFB2 !important; }
+    .twilight-recommended-slot { border: 2px solid orange !important; }
     .recommended-corner-indicator {
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 0;
-      height: 0;
-      border-style: solid;
-      border-width: 0 24px 24px 0;
-      border-color: transparent #E8B611 transparent transparent;
-      z-index: 10;
+      position: absolute; top: 0; right: 0; width: 0; height: 0;
+      border-style: solid; border-width: 0 24px 24px 0;
+      border-color: transparent #E8B611 transparent transparent; z-index: 10;
     }
-    .recommended-corner-indicator svg {
-      position: absolute;
-      top: 2px;
-      right: -22px;
-    }
+    .recommended-corner-indicator svg { position: absolute; top: 2px; right: -22px; }
     .fc-header-toolbar {
-      position: sticky !important;
-      top: 0 !important;
-      background: #EEEEEE !important;
-      z-index: 10 !important;
-      margin-bottom: 0 !important;
-      padding-top: 10px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid #BBBBBB;
+      position: sticky !important; top: 0 !important; background: #EEEEEE !important;
+      z-index: 10 !important; margin-bottom: 0 !important;
+      padding-top: 10px; padding-bottom: 10px; border-bottom: 1px solid #BBBBBB;
     }
   `;
 
-  return (
-    <div ref={containerRef} className="mt-[20px] relative custom-scrollbar" style={{
-      border: '2px solid #BBBBBB',
-      borderRadius: '6px',
-      maxHeight: 430,
-      height: 430,
-      overflowY: 'auto',
-      width: '100%',
-    }}>
-      <FullCalendar
-        ref={calendarRef}
-        initialDate={currentDate}
-        plugins={[timeGridPlugin]}
-        initialView="timeGridDay"
-        slotDuration="00:15:00"
-        slotLabelInterval="00:15:00"
-        slotMinTime="00:00:00"
-        slotMaxTime="24:00:00"
-        allDaySlot={false}
-        events={events}
-        eventContent={(eventInfo) => {
-          const isRecommended = eventInfo.event.classNames.includes('slot-recommended');
+  const hasSelectedSlots = selectedSlots.some(s => s.service_id === service.service.uuid);
 
-          return (
-            <div className="fc-event-main-frame w-full h-full relative flex items-center justify-center">
-              <div className="fc-event-title fc-sticky text-center" style={{ fontSize: '9px', color: '#424242' }}>
-                {eventInfo.event.title}
+  return (
+    <>
+      <div
+        ref={containerRef}
+        className="mt-[20px] relative custom-scrollbar"
+        style={{
+          border: hasSelectedSlots ? '3px solid #6bae41' : '2px solid #BBBBBB',
+          borderRadius: '6px',
+          maxHeight: 430,
+          height: 430,
+          overflowY: 'auto',
+          width: '100%',
+        }}
+      >
+        <FullCalendar
+          ref={calendarRef}
+          initialDate={currentDate}
+          plugins={[timeGridPlugin]}
+          initialView="timeGridDay"
+          slotDuration="00:15:00"
+          slotLabelInterval="00:15:00"
+          slotMinTime="00:00:00"
+          slotMaxTime="24:00:00"
+          allDaySlot={false}
+          events={events}
+          eventContent={(eventInfo) => {
+            const isRecommended = eventInfo.event.classNames.includes('slot-recommended');
+            const isAvailable = eventInfo.event.classNames.includes('slot-available');
+            const isTwilightRecommended = eventInfo.event.extendedProps?.twilightRecommended;
+            const availableVendorIds: string[] = eventInfo.event.extendedProps?.availableVendorIds || [];
+
+            const availableVendors = availableVendorIds
+              .map((vid: string) => vendors.find(v => v.uuid === vid))
+              .filter((v): v is VendorData => v !== undefined)
+              .sort((a, b) => {
+                const da = vendorDistances?.[a.uuid ?? ''] ?? Infinity;
+                const db = vendorDistances?.[b.uuid ?? ''] ?? Infinity;
+                return da - db;
+              });
+
+            const visibleVendors = availableVendors.slice(0, 3);
+            const overflowVendors = availableVendors.slice(3);
+
+            const content = (
+              <div className={`fc-event-main-frame w-full h-full relative flex flex-col items-center justify-center p-1 gap-0.5 ${isTwilightRecommended ? 'twilight-recommended-slot' : ''}`}>
+                {isAvailable && availableVendors.length > 0 ? (
+                  <TooltipProvider delayDuration={200}>
+                    <div className="flex flex-wrap gap-0.5 items-center justify-center w-full">
+                      {visibleVendors.map(vendor => {
+                        const distance = vendorDistances?.[vendor.uuid ?? ''];
+                        const color = getDistanceColor(distance);
+                        return (
+                          <div key={vendor.uuid} className="flex items-center rounded-sm text-[9px] px-1.5 py-0.5 bg-white/90" style={{ borderLeft: `5px solid ${color}`, maxWidth: '100%' }}>
+                            <span className="truncate text-[#424242] font-medium">{vendor.first_name}</span>
+                          </div>
+                        );
+                      })}
+                      {overflowVendors.length > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center rounded-sm text-[9px] px-1.5 py-0.5 bg-gray-200 cursor-pointer">
+                              <span className="text-[#424242] font-medium">+{overflowVendors.length}</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="bg-white border border-gray-200 shadow-lg p-2">
+                            <div className="flex flex-col gap-1">
+                              {overflowVendors.map(vendor => {
+                                const color = getDistanceColor(vendorDistances?.[vendor.uuid ?? '']);
+                                return (
+                                  <div key={vendor.uuid} className="flex items-center gap-1.5 text-[11px]">
+                                    <div className="w-1 h-4 rounded-sm" style={{ backgroundColor: color, width: '4px' }} />
+                                    <span className="text-[#424242]">{vendor.first_name} {vendor.last_name}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                  </TooltipProvider>
+                ) : (
+                  <div className="fc-event-title fc-sticky text-center" style={{ fontSize: '9px', color: '#424242' }}>
+                    {eventInfo.event.title}
+                  </div>
+                )}
+                {isRecommended && !isTwilightRecommended && (
+                  <div className="recommended-corner-indicator">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  </div>
+                )}
               </div>
-              {isRecommended && (
-                <div className="recommended-corner-indicator">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                </div>
+            );
+
+            if (isTwilightRecommended) {
+              return (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>{content}</TooltipTrigger>
+                    <TooltipContent side="top" className="bg-orange-500 text-white border-none text-xs p-2">
+                      Recommended for Twilight
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            }
+
+            return content;
+          }}
+          height="auto"
+          dayHeaders={false}
+          eventClick={onEventClick}
+          selectable={true}
+          editable={true}
+          headerToolbar={{ left: 'prev,next', center: 'title', right: '' }}
+          titleFormat={{ weekday: 'short', day: 'numeric' }}
+          datesSet={(arg) => {
+            const calendarDate = dayjs(arg.start).format('YYYY-MM-DD');
+            setCurrentDate(calendarDate);
+            setSelectedDate(calendarDate);
+          }}
+        />
+
+        {showVendorModal && clickedSlot && (
+          <div
+            onClick={() => setShowVendorModal(false)}
+            style={{ height: '-webkit-fill-available' }}
+            className="sticky top-0 inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          >
+            <div onClick={e => e.stopPropagation()} className="bg-[#EEEEEE] rounded-lg p-4 w-[300px] shadow-lg">
+              {availableSlotVendors.length === 0 ? (
+                <p className="text-gray-500">No vendors available at this time.</p>
+              ) : (
+                <ul className="space-y-2 max-h-60 overflow-y-auto">
+                  {[...availableSlotVendors]
+                    .sort((a, b) => {
+                      const ta = vendorDistances?.[a.uuid ?? ''] ?? Infinity;
+                      const tb = vendorDistances?.[b.uuid ?? ''] ?? Infinity;
+                      return ta - tb;
+                    })
+                    .map(vendor => {
+                      const distance = vendor.uuid ? vendorDistances?.[vendor.uuid] : undefined;
+                      const color = getDistanceColor(distance);
+                      return (
+                        <li
+                          key={vendor.uuid}
+                          className="cursor-pointer p-2 flex items-center gap-1 hover:bg-gray-100"
+                          onClick={async () => {
+                            const currentServiceData = servicesData?.find(s => s.uuid === service.service.uuid);
+                            const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === service.option_id);
+                            const reqDuration = getEffectiveServiceDuration(productOption?.service_duration, effectiveSquareFootage);
+                            const selDate = dayjs(clickedSlot.start).format('YYYY-MM-DD');
+                            const existingSlots = selectedSlots.filter(s => s.service_id === service.service.uuid && s.date === selDate);
+                            let remaining = Math.ceil(reqDuration / 15) - existingSlots.length;
+                            if (remaining <= 0) remaining = 1;
+                            const slotsToSelect = [];
+                            for (let i = 0; i < remaining; i++) {
+                              slotsToSelect.push({
+                                start: dayjs(clickedSlot.start).add(i * 15, 'minute').toISOString(),
+                                end: dayjs(clickedSlot.start).add((i + 1) * 15, 'minute').toISOString(),
+                              });
+                            }
+                            await handleAssignVendor(vendor, slotsToSelect);
+                          }}
+                        >
+                          <span style={{ backgroundColor: color }} className="flex h-[16px] w-[5px]"></span>
+                          <span className="text-[14px] truncate">{vendor.first_name} {vendor.last_name}</span>
+                          {distance !== undefined && (
+                            <span className="text-gray-500 text-[12px] ml-auto">
+                              ({distance < 60 ? `${Math.round(distance)} min` : `${Math.floor(distance / 60)}h ${Math.round(distance % 60)}m`})
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
+                </ul>
               )}
             </div>
-          );
-        }}
-        height="auto"
-        dayHeaders={false}
-        eventClick={onEventClick}
-        selectable={true}
-        editable={true}
-        headerToolbar={{
-          left: 'prev,next',
-          center: 'title',
-          right: ''
-        }}
-        titleFormat={{ weekday: 'short', day: 'numeric' }}
-        datesSet={(arg) => {
-          const calendarDate = dayjs(arg.start).format('YYYY-MM-DD');
-          setCurrentDate(calendarDate);
-          setSelectedDate(calendarDate)
-        }}
-      // validRange={{
-      //   start: dayjs().format("YYYY-MM-DD")
-      // }}
-      />
-      {showVendorModal && clickedSlot && (
-        <div
-          onClick={() => setShowVendorModal(false)}
-          style={{ height: '-webkit-fill-available' }}
-          className="sticky top-0 inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-[#EEEEEE] rounded-lg p-4 w-[300px] shadow-lg">
-            {availableSlotVendors.length === 0 ? (
-              <p className="text-gray-500">No vendors available for this service at selected time.</p>
-            ) : (
-              <ul className="space-y-2 max-h-60 overflow-y-auto">
-                {availableSlotVendors.map((vendor) => {
-                  const distance = vendor.uuid ? vendorDistances?.[vendor.uuid] : undefined;
-                  const color = getDistanceColor(distance);
-                  return (
-                    <li
-                      key={vendor.uuid}
-                      className="cursor-pointer p-2 flex items-center gap-1 hover:bg-gray-100"
-                      onClick={() => handleAssignVendor(vendor, clickedSlot)}
-                    >
-                      <span
-                        style={{ backgroundColor: color }}
-                        className={`flex h-[16px] w-[5px]`}></span>
-                      <span className='text-[14px]'>{vendor.first_name} {vendor.last_name}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+          </div>
+        )}
+        <style>{customStyles}</style>
+      </div>
+
+      {twilightData && (
+        <div className="mt-4 p-3 bg-gray-50 rounded-md border border-[#EEEEEE]">
+          <h4 className="text-sm font-[600] text-[#666666] mb-2">Twilight Time ({dayjs(currentDate).format('MMM D')})</h4>
+          <div className="text-xs text-gray-500">
+            Time: {formatTwilightTime(twilightData.sunset, propertyTimezone || "America/Vancouver")} – {formatTwilightTime(twilightData.civil_twilight_end, propertyTimezone || "America/Vancouver")}
           </div>
         </div>
       )}
-      <style>{customStyles}</style>
-    </div>
+    </>
   );
 }

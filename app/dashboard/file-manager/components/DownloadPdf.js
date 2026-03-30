@@ -9,11 +9,29 @@ const DownloadPdf = async (elementId, fileName = "section.pdf", withBleed = fals
     return;
   }
 
+  // Detect background color from the first child (template root) or section itself
+  const getBackgroundColor = (el) => {
+    const child = el.firstElementChild;
+    let bgColor = window.getComputedStyle(child || el).backgroundColor;
+    // If transparent, try searching deeper or default to white
+    if (bgColor === "rgba(0, 0, 0, 0)" || bgColor === "transparent") {
+      if (child && child.firstElementChild) {
+        bgColor = window.getComputedStyle(child.firstElementChild).backgroundColor;
+      }
+    }
+    return bgColor === "rgba(0, 0, 0, 0)" || bgColor === "transparent" ? "#ffffff" : bgColor;
+  };
+
+  const bgColor = getBackgroundColor(section);
+
   const clone = section.cloneNode(true);
   clone.style.position = "absolute";
   clone.style.top = "-9999px";
   clone.style.left = "-9999px";
   clone.style.width = `${section.offsetWidth}px`;
+  clone.style.height = "auto";
+  clone.style.overflow = "visible";
+  clone.style.maxHeight = "none";
   document.body.appendChild(clone);
 
   const originalInputs = section.querySelectorAll("input, textarea");
@@ -53,71 +71,69 @@ const DownloadPdf = async (elementId, fileName = "section.pdf", withBleed = fals
 
   await new Promise((resolve) => setTimeout(resolve, 500));
 
-  const options = {
-    scale: 2, // Use higher scale for better quality
-    useCORS: true,
-    logging: false,
-    allowTaint: true,
-    backgroundColor: '#ffffff',
-    removeContainer: true,
-    width: clone.scrollWidth,
-    height: clone.scrollHeight,
-    windowWidth: clone.scrollWidth,
-    windowHeight: clone.scrollHeight,
-    onclone: (clonedDoc) => {
-      const clonedElement = clonedDoc.getElementById(elementId);
-      if (clonedElement) {
-        clonedElement.style.width = '100%';
-        clonedElement.style.overflow = 'visible';
-      }
-    }
-  };
-
   try {
-    const canvas = await html2canvas(clone, options);
+    // Measure natural dimensions from the clone (off-screen, fully expanded)
+    const originalWidth = clone.scrollWidth;
+    const originalHeight = clone.scrollHeight;
 
-    document.body.removeChild(clone);
-
-    const imgWidth = canvas.width;
-    const imgHeight = canvas.height;
-
-    // A4 dimensions at 72 DPI (default for jsPDF)
-    // However, the code uses 794x1123 (approx 96 DPI)
-    const a4Width = 794;
-    const a4Height = 1123;
-
-    // Bleed calculation (3mm on each side)
-    // 1mm = 3.7795275591 pixels (at 96 DPI)
-    // 3mm = 11.338582677 pixels
+    // Bleed calculation (3mm ≈ 11.34px at 96 DPI)
     const bleedPx = withBleed ? 11.34 : 0;
     
-    // Final PDF page dimensions including bleed
-    const finalPageWidth = a4Width + (bleedPx * 2);
-    const finalPageHeight = a4Height + (bleedPx * 2);
+    // Final PDF page dimensions including optional bleed
+    const finalPageWidth = originalWidth + (bleedPx * 2);
+    const finalPageHeight = originalHeight + (bleedPx * 2);
 
-    let pdfWidth = a4Width + (bleedPx * 2);
-    let pdfHeight = (imgHeight * pdfWidth) / imgWidth;
+    const options = {
+      scale: 2, // High quality
+      useCORS: true,
+      logging: false,
+      allowTaint: true,
+      backgroundColor: bgColor,
+      removeContainer: true,
+      width: originalWidth,
+      height: originalHeight,
+      // windowWidth/windowHeight intentionally omitted so html2canvas
+      // captures the full content without any viewport clipping
+      scrollX: 0,
+      scrollY: 0,
+      x: 0,
+      y: 0,
+      onclone: (clonedDoc) => {
+        const clonedElement = clonedDoc.getElementById(elementId);
+        if (clonedElement) {
+          clonedElement.style.width = `${originalWidth}px`;
+          clonedElement.style.height = `${originalHeight}px`;
+          clonedElement.style.overflow = 'visible';
+          clonedElement.style.maxHeight = 'none';
+          clonedElement.style.backgroundColor = bgColor;
+        }
+      }
+    };
 
-    // If the content is taller than the page, scale it down
-    if (pdfHeight > finalPageHeight) {
-      pdfHeight = finalPageHeight;
-      pdfWidth = (imgWidth * finalPageHeight) / imgHeight;
+    const canvas = await html2canvas(clone, options);
+    
+    if (document.body.contains(clone)) {
+      document.body.removeChild(clone);
     }
 
+    // PDF orientation based on actual content dimensions
     const orientation = finalPageHeight > finalPageWidth ? "portrait" : "landscape";
 
     const pdf = new jsPDF({
       orientation: orientation,
       unit: "px",
-      format: [finalPageWidth, finalPageHeight]
+      format: [finalPageWidth, finalPageHeight],
+      hotfixes: ["px_scaling"] // Prevent jsPDF from applying its own DPI scaling
     });
 
-    // Center the image on the PDF page
-    const x = (finalPageWidth - pdfWidth) / 2;
-    const y = (finalPageHeight - pdfHeight) / 2;
+    // Fill background
+    pdf.setFillColor(bgColor);
+    pdf.rect(0, 0, finalPageWidth, finalPageHeight, 'F');
 
     const imgData = canvas.toDataURL("image/png", 1.0);
-    pdf.addImage(imgData, "PNG", x, y, pdfWidth, pdfHeight);
+    
+    // Place image to fill the entire PDF page (plus bleed offset if any)
+    pdf.addImage(imgData, "PNG", bleedPx, bleedPx, originalWidth, originalHeight);
     pdf.save(fileName);
 
   } catch (error) {

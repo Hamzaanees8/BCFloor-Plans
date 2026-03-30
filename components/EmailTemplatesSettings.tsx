@@ -11,6 +11,9 @@ import DropdownActions from "./DropdownActions";
 import { EmailTemplate, GetTemplates, DeleteTemplate, UpdateTemplate } from "@/app/dashboard/global-settings/templates";
 import AddTemplateDialog from "./AddTemplateDialog";
 import { DateTime } from "luxon";
+import SignatureCreatorDialog from "./SignatureCreatorDialog";
+import { Signature, GetSignatures, DeleteSignature } from "@/app/dashboard/global-settings/signatures";
+import { GetCompany } from "@/app/dashboard/global-settings/global-settings";
 
 const EmailTemplatesSettings = () => {
     const { userType } = useAppContext();
@@ -19,9 +22,14 @@ const EmailTemplatesSettings = () => {
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
 
     const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+    const [signatures, setSignatures] = useState<Signature[]>([]);
     const [openAddDialog, setOpenAddDialog] = useState(false);
+    const [openSignatureDialog, setOpenSignatureDialog] = useState(false);
     const [templateToEdit, setTemplateToEdit] = useState<EmailTemplate | null>(null);
+    const [signatureToEdit, setSignatureToEdit] = useState<Signature | null>(null);
     const [loading, setLoading] = useState(true);
+    const [sigsLoading, setSigsLoading] = useState(true);
+    const [companyUuid, setCompanyUuid] = useState<string | null>(null);
 
     const fetchTemplates = useCallback(async () => {
         setLoading(true);
@@ -40,9 +48,54 @@ const EmailTemplatesSettings = () => {
         }
     }, []);
 
+    const fetchSignatures = useCallback(async (uuid: string) => {
+        setSigsLoading(true);
+        try {
+            const res = await GetSignatures(uuid);
+            if (res.status !== false && res.data) {
+                setSignatures(res.data);
+            } else {
+                setSignatures([]);
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to load signatures");
+        } finally {
+            setSigsLoading(false);
+        }
+    }, []);
+
     useEffect(() => {
         fetchTemplates();
-    }, [fetchTemplates]);
+
+        const initSigs = async () => {
+            try {
+                const res = await GetCompany();
+                if (res.status && res.data?.uuid) {
+                    setCompanyUuid(res.data.uuid);
+                    fetchSignatures(res.data.uuid);
+                }
+            } catch (err) {
+                console.error("Failed to fetch company for signatures", err);
+            }
+        };
+        initSigs();
+    }, [fetchTemplates, fetchSignatures]);
+
+    const handleSignatureDelete = async (sigUuid: string) => {
+        if (!companyUuid) return;
+        try {
+            const res = await DeleteSignature(sigUuid);
+            if (res.status !== false) {
+                setSignatures((prev) => prev.filter(s => s.uuid !== sigUuid));
+                toast.success("Signature deleted successfully");
+            } else {
+                toast.error(res.message || "Failed to delete signature");
+            }
+        } catch {
+            toast.error("Failed to delete signature");
+        }
+    };
 
     const handleDelete = async (uuid: string) => {
         try {
@@ -140,16 +193,60 @@ const EmailTemplatesSettings = () => {
         },
     ];
 
+    const signatureColumns: ColumnDef<Signature>[] = [
+        {
+            accessorKey: "name",
+            header: "NAME",
+            cell: ({ row }) => <div className="text-[#666666] font-semibold">{row.getValue("name")}</div>,
+        },
+        {
+            accessorKey: "updated_at",
+            header: "LAST UPDATED",
+            cell: ({ row }) => {
+                const dateStr = row.getValue("updated_at") as string;
+                if (!dateStr) return <div className="text-[#666666]">-</div>;
+                return <div className="text-[#666666]">{DateTime.fromISO(dateStr).toFormat("LLL dd, yyyy")}</div>;
+            },
+        },
+        {
+            id: "actions",
+            header: "ACTIONS",
+            cell: ({ row }) => (
+                <div className="flex items-center gap-[10px]">
+                    <DropdownActions
+                        options={[
+                            {
+                                label: "Edit",
+                                onClick: () => {
+                                    setSignatureToEdit(row.original);
+                                    setOpenSignatureDialog(true);
+                                },
+                            },
+                            {
+                                label: "Delete",
+                                onClick: () => handleSignatureDelete(row.original.uuid),
+                                confirm1: true,
+                            },
+                        ]}
+                    />
+                </div>
+            ),
+        }
+    ];
+
     return (
         <div className="w-full flex-col flex rounded-lg">
             <div className="flex items-center justify-between w-full pb-4 px-4 py-4" style={{ backgroundColor: `color-mix(in srgb, ${roleSettings.pageBg}, black 10%)` }}>
                 <p className={`text-[18px] font-semibold uppercase ${userType === "admin" ? "[&>svg]:text-[#4290E9] text-[#4290E9]" : "[&>svg]:text-[#6BAE41] text-[#6BAE41]"}`}>TEMPLATES</p>
-                <div
-                    onClick={() => setOpenAddDialog(true)}
-                    className="flex items-center gap-x-[10px] cursor-pointer"
-                >
-                    <p className={`text-base font-semibold font-raleway ${userType === "admin" ? "[&>svg]:text-[#4290E9] text-[#4290E9]" : "[&>svg]:text-[#6BAE41] text-[#6BAE41]"}`}>Add Template</p>
-                    <Plus className={`w-[18px] h-[18px] ${userType}-bg text-white rounded-sm`} />
+                <div className="flex items-center gap-x-6">
+
+                    <div
+                        onClick={() => setOpenAddDialog(true)}
+                        className="flex items-center gap-x-[10px] cursor-pointer"
+                    >
+                        <p className={`text-base font-semibold font-raleway ${userType === "admin" ? "[&>svg]:text-[#4290E9] text-[#4290E9]" : "[&>svg]:text-[#6BAE41] text-[#6BAE41]"}`}>Add Template</p>
+                        <Plus className={`w-[18px] h-[18px] ${userType}-bg text-white rounded-sm`} />
+                    </div>
                 </div>
             </div>
             <div className="w-full mt-4">
@@ -162,6 +259,30 @@ const EmailTemplatesSettings = () => {
                     userType={userType}
                 />
             </div>
+
+            <div className="flex items-center justify-between w-full pb-4 px-4 py-4 mt-8" style={{ backgroundColor: `color-mix(in srgb, ${roleSettings.pageBg}, black 10%)` }}>
+                <p className={`text-[18px] font-semibold uppercase ${userType === "admin" ? "[&>svg]:text-[#4290E9] text-[#4290E9]" : "[&>svg]:text-[#6BAE41] text-[#6BAE41]"}`}>SIGNATURES</p>
+                <div
+                    onClick={() => {
+                        setSignatureToEdit(null);
+                        setOpenSignatureDialog(true);
+                    }}
+                    className="flex items-center gap-x-[10px] cursor-pointer"
+                >
+                    <p className={`text-base font-semibold font-raleway ${userType === "admin" ? "[&>svg]:text-[#4290E9] text-[#4290E9]" : "[&>svg]:text-[#6BAE41] text-[#6BAE41]"}`}>Create Signature</p>
+                    <Plus className={`w-[18px] h-[18px] ${userType}-bg text-white rounded-sm`} />
+                </div>
+            </div>
+            <div className="w-full mt-4">
+                <DataTable
+                    data={signatures}
+                    columns={signatureColumns}
+                    loading={sigsLoading}
+                    error={false}
+                    dataName="Signatures"
+                    userType={userType}
+                />
+            </div>
             <AddTemplateDialog
                 open={openAddDialog}
                 setOpen={(open) => {
@@ -170,6 +291,17 @@ const EmailTemplatesSettings = () => {
                 }}
                 onSuccess={fetchTemplates}
                 initialData={templateToEdit}
+            />
+            <SignatureCreatorDialog
+                open={openSignatureDialog}
+                setOpen={(open) => {
+                    setOpenSignatureDialog(open);
+                    if (!open) setSignatureToEdit(null);
+                }}
+                onSave={() => {
+                    if (companyUuid) fetchSignatures(companyUuid);
+                }}
+                initialData={signatureToEdit}
             />
         </div>
     );

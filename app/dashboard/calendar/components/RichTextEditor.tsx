@@ -31,7 +31,7 @@ export default function RichTextEditor({ value, onChange, insertText, onTextInse
                 getSunEditorInstance={(sunEditor: SunEditorCore) => {
                     editorRef.current = sunEditor;
                 }}
-                defaultValue={value}
+                setContents={value}
                 onChange={onChange}
                 setOptions={{
                     defaultStyle: "font-family: 'Alexandria', sans-serif; font-weight: 400;",

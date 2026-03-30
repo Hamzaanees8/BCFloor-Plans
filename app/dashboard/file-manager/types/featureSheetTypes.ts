@@ -248,3 +248,9 @@ export interface PositionState {
 export interface DraggingState {
     [key: string]: boolean;
 }
+
+export interface PrintRequestData {
+    copies: number;
+    with_bleed: boolean;
+    additional_info?: string;
+}

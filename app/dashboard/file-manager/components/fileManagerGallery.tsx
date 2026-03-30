@@ -133,8 +133,8 @@ export default function FileManagerGallery({
                       )}
                     </div>
                   </div>
-                  <div className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 bg-[#ffffff] text-[9px]'>
-                    <p className="col-span-2 text-[#8E8E8E] mt-1">
+                  <div className='grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 bg-[#ffffff] text-[14px]'>
+                    <p className="col-span-2 text-[#8E8E8E] mt-1 !text-[14px]">
                       <CopyableFileName name={file.group || ''} />
                     </p>
                     <div className='col-span-2 flex items-center justify-between'>

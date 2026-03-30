@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     Dialog,
     DialogContent,
@@ -23,6 +23,8 @@ import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
 import RichTextEditor from "@/app/dashboard/calendar/components/RichTextEditor";
 import { EmailTemplate, CreateTemplate, UpdateTemplate } from "@/app/dashboard/global-settings/templates";
+import { Signature, GetSignatures } from "@/app/dashboard/global-settings/signatures";
+import SignatureCreatorDialog from "./SignatureCreatorDialog";
 
 interface Props {
     open: boolean;
@@ -39,6 +41,7 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
     const [tagInput, setTagInput] = useState("");
     const [content, setContent] = useState("");
     const [isActive, setIsActive] = useState<boolean>(true);
+    const [openSignatureCreator, setOpenSignatureCreator] = useState(false);
 
     const [textToInsert, setTextToInsert] = useState("");
 
@@ -47,8 +50,10 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
     const [previewHtml, setPreviewHtml] = useState<string | null>(null);
 
     const [loading, setLoading] = useState(false);
+    const [signatures, setSignatures] = useState<Signature[]>([]);
+    const [fetchingSigs, setFetchingSigs] = useState(false);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (open) {
             setPreviewHtml(null);
             if (initialData) {
@@ -65,6 +70,23 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                 setContent("");
                 setIsActive(true);
             }
+
+            // Fetch signatures
+            const fetchSigs = async () => {
+                setFetchingSigs(true);
+                try {
+                    // Using the hardcoded UUID as per request
+                    const res = await GetSignatures("fbd6e3a5-4b2c-4de1-ab73-e677b54c4b8a");
+                    if (res.status !== false && res.data) {
+                        setSignatures(res.data);
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch signatures for template creator", err);
+                } finally {
+                    setFetchingSigs(false);
+                }
+            };
+            fetchSigs();
         }
     }, [open, initialData]);
 
@@ -242,7 +264,37 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
 
                         <div className="flex flex-col gap-4">
                             <div className="flex-1 flex flex-col gap-2 relative z-10 w-full min-w-0">
-                                <Label>Template Content <span className="text-red-500">*</span></Label>
+                                <div className="flex justify-between items-center">
+                                    <Label>Template Content <span className="text-red-500">*</span></Label>
+                                    
+                                    {/* Signature Insertion Dropdown */}
+                                    <div className="flex items-center gap-2">
+                                        <Label className="text-xs text-[#888] font-semibold invisible sm:visible">Insert Signature:</Label>
+                                        <Select 
+                                            onValueChange={(val) => {
+                                                const sig = signatures.find(s => s.uuid === val);
+                                                if (sig) {
+                                                    setTextToInsert(sig.html_content);
+                                                }
+                                            }}
+                                        >
+                                            <SelectTrigger className="h-8 w-[200px] text-xs bg-white border-[#4290E9] text-[#4290E9] font-semibold">
+                                                <SelectValue placeholder={fetchingSigs ? "Loading..." : "Choose a signature"} />
+                                            </SelectTrigger>
+                                            <SelectContent className="z-[1000]">
+                                                {signatures.length === 0 ? (
+                                                    <SelectItem value="none" disabled>No signatures found</SelectItem>
+                                                ) : (
+                                                    signatures.map((sig) => (
+                                                        <SelectItem key={sig.uuid} value={sig.uuid}>
+                                                            {sig.name}
+                                                        </SelectItem>
+                                                    ))
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
                                 <div className="border border-[#BBBBBB] bg-white rounded-md p-2 min-h-[300px] w-full max-w-full overflow-hidden">
                                     {open && <RichTextEditor
                                         value={content}
@@ -252,8 +304,9 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                                     />}
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="flex-shrink-0 bg-white border border-[#BBBBBB] rounded-md p-4 text-xs">
+                            <div className="flex-shrink-0 bg-white border border-[#BBBBBB] rounded-md p-4 text-xs mt-4">
                                 <h4 className="font-semibold text-sm mb-2 text-[#4290E9]">Common Placeholders</h4>
                                 <p className="mb-2 text-[#888]">Click on a tag below to dynamically insert it at the cursor.</p>
                                 <ul className="flex flex-wrap gap-2 font-mono bg-[#f4f4f4] p-2 rounded max-h-[200px] overflow-y-auto">
@@ -283,7 +336,6 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                                     </div>
                                 )} */}
                             </div>
-                        </div>
 
                         {previewHtml && (
                             <div className="mt-4 p-4 border border-[#4290E9] rounded bg-white">
@@ -304,6 +356,11 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                     </div>
                 </form>
             </DialogContent>
+            <SignatureCreatorDialog 
+                open={openSignatureCreator}
+                setOpen={setOpenSignatureCreator}
+                onSave={(sig: Signature) => setTextToInsert(sig.html_content)}
+            />
         </Dialog>
     );
 };

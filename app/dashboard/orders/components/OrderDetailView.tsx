@@ -74,6 +74,7 @@ export interface OrderPayload {
         date: string;
     }[];
     areas: Area[];
+    is_add_service?: number;
 }
 interface Notes {
     name: string;
@@ -215,6 +216,8 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
         try {
             const token = localStorage.getItem('token') || '';
 
+            const isAddServiceVal = (calendarServices.length > 0 || (OrderServices.length !== (currentOrder?.services?.length || 0))) ? 1 : 0;
+
             const payload: OrderPayload = {
                 agent_id: String(currentOrder?.agent?.uuid) || "",
                 property_id: currentOrder?.property.uuid || "",
@@ -226,7 +229,8 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                 notes: notes || [],
                 services: servicesPayload,
                 slots: slotsPayload,
-                areas: area
+                areas: area,
+                is_add_service: isAddServiceVal
             };
 
             const updatedPayload = { ...payload, _method: 'PUT' };
