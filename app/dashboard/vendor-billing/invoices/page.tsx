@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { vendorBillingService, VendorInvoice } from "../VendorBillingService";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
-import { CreditCard, Eye, Plus, Pencil, Loader2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { CreditCard, Eye, Plus, Pencil, Loader2, ChevronUp, ChevronDown, ChevronsUpDown, Save, X, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
@@ -19,19 +19,9 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
 import InvoicePdfDocument from "@/app/dashboard/invoice/components/InvoicePdfDocument";
 import DownloadInvoicePdf from "@/app/dashboard/invoice/components/DownloadInvoicePdf";
-import { Download } from "lucide-react";
 
 export default function VendorInvoicesListPage() {
     const router = useRouter();
@@ -98,9 +88,18 @@ export default function VendorInvoicesListPage() {
         }
     };
 
-    const handleEdit = (invoice: VendorInvoice) => {
-        setEditingInvoice(invoice);
-        setIsEditModalOpen(true);
+    const handleEdit = async (invoice: VendorInvoice) => {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        try {
+            const details = await vendorBillingService.getAdminInvoiceDetails(invoice.uuid, token);
+            setEditingInvoice(details);
+            setIsEditModalOpen(true);
+        } catch (err) {
+            console.error("Failed to fetch invoice details for editing:", err);
+            toast.error("Failed to load invoice details");
+        }
     };
 
     const handleView = async (invoice: VendorInvoice) => {
@@ -423,72 +422,164 @@ function ViewInvoiceModal({ isOpen, onClose, invoice, roleSettings }: any) {
 }
 
 function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess, roleSettings }: any) {
-    const [status, setStatus] = useState(invoice.status);
-    const [notes, setNotes] = useState(invoice.notes || "");
-    const [loading, setLoading] = useState(false);
+    const [editData, setEditData] = useState<any>(null);
+    const [saving, setSaving] = useState(false);
+
+    // Normalise vendor `lines[]` → `items[]` that InvoiceDocument understands
+    useEffect(() => {
+        if (!invoice) return;
+
+        const items = (invoice.lines || []).map((line: any) => ({
+            description: line.description || '',
+            quantity: parseFloat(String(line.quantity ?? 1)),
+            unit_price: parseFloat(String(line.unit_price ?? line.amount ?? 0)),
+            amount: parseFloat(String(line.amount ?? 0)),
+            type: line.type || 'service',
+            order_service_id: line.order_service_id ?? null,
+        }));
+
+        const taxRate = parseFloat(String(invoice.tax_rate ?? 0));
+        const subtotal = items.reduce(
+            (acc: number, item: any) => acc + (item.quantity * item.unit_price || 0), 0
+        );
+        const taxAmount = subtotal * (taxRate / 100);
+
+        setEditData({
+            ...invoice,
+            items,
+            tax_rate: taxRate,
+            subtotal: subtotal.toFixed(2),
+            tax_amount: taxAmount.toFixed(2),
+            total: (subtotal + taxAmount).toFixed(2),
+            notes: invoice.notes || '',
+        });
+    }, [invoice]);
+
+    const recalculateTotals = (items: any[], taxRate: number) => {
+        const subtotal = items.reduce(
+            (acc: number, item: any) =>
+                acc + (parseFloat(item.quantity) * parseFloat(item.unit_price) || 0),
+            0
+        );
+        const taxAmount = subtotal * (taxRate / 100);
+        return {
+            subtotal: subtotal.toFixed(2),
+            tax_amount: taxAmount.toFixed(2),
+            total: (subtotal + taxAmount).toFixed(2),
+        };
+    };
+
+    const updateItem = (index: number, field: string, value: any) => {
+        const newItems = [...editData.items];
+        newItems[index] = { ...newItems[index], [field]: value };
+        const totals = recalculateTotals(newItems, parseFloat(editData.tax_rate));
+        setEditData({ ...editData, items: newItems, ...totals });
+    };
+
+    const addItem = () => {
+        const newItem = {
+            description: '',
+            quantity: 1,
+            unit_price: 0,
+            amount: 0,
+            type: 'service',
+            order_service_id: null,
+        };
+        const newItems = [...editData.items, newItem];
+        const totals = recalculateTotals(newItems, parseFloat(editData.tax_rate));
+        setEditData({ ...editData, items: newItems, ...totals });
+    };
+
+    const removeItem = (index: number) => {
+        const newItems = editData.items.filter((_: any, i: number) => i !== index);
+        const totals = recalculateTotals(newItems, parseFloat(editData.tax_rate));
+        setEditData({ ...editData, items: newItems, ...totals });
+    };
+
+    const updateTaxRate = (val: string) => {
+        const rate = parseFloat(val) || 0;
+        const totals = recalculateTotals(editData.items, rate);
+        setEditData({ ...editData, tax_rate: val, ...totals });
+    };
 
     const handleSave = async () => {
+        if (!editData) return;
         const token = localStorage.getItem("token");
         if (!token) return;
 
-        setLoading(true);
+        setSaving(true);
         try {
-            await vendorBillingService.updateInvoice(invoice.uuid, { status, notes }, token);
+            const payload = {
+                notes: editData.notes,
+                tax_rate: editData.tax_rate,
+                lines: editData.items.map((item: any) => ({
+                    description: item.description,
+                    quantity: item.quantity,
+                    unit_price: item.unit_price,
+                    amount: parseFloat(item.quantity) * parseFloat(item.unit_price),
+                    type: item.type || 'service',
+                    order_service_id: item.order_service_id || null,
+                })),
+            };
+            await vendorBillingService.updateInvoice(invoice.uuid, payload as any, token);
             toast.success("Invoice updated successfully!");
             onSuccess();
         } catch (err: any) {
             console.error("Update failed:", err);
             toast.error(err.response?.data?.message || "Failed to update invoice");
         } finally {
-            setLoading(false);
+            setSaving(false);
         }
     };
 
+    if (!editData) return null;
+
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent>
-                <DialogHeader className="border-b pb-4">
+        <Dialog open={isOpen} onOpenChange={saving ? undefined : onClose}>
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader className="flex flex-row items-center justify-between pr-8 border-b pb-4">
                     <DialogTitle className="text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
-                        Edit Invoice {invoice.invoice_number}
+                        Edit Vendor Invoice: {invoice.invoice_number}
                     </DialogTitle>
+                    <div className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-4 gap-2"
+                            onClick={onClose}
+                            disabled={saving}
+                        >
+                            <X className="h-4 w-4" /> Cancel
+                        </Button>
+                        <Button
+                            size="sm"
+                            className="h-9 px-5 gap-2 text-white hover:brightness-110 active:scale-[0.98] transition-all"
+                            style={{ backgroundColor: roleSettings.pageTabColor }}
+                            onClick={handleSave}
+                            disabled={saving}
+                        >
+                            {saving
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <Save className="h-4 w-4" />
+                            }
+                            Save Changes
+                        </Button>
+                    </div>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="status" className="font-bold text-xs uppercase tracking-wider text-gray-500">Status</Label>
-                        <Select value={status} onValueChange={setStatus}>
-                            <SelectTrigger id="status" className="focus:ring-offset-0 focus:ring-1" style={{ '--tw-ring-color': roleSettings.pageTabColor } as any}>
-                                <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="draft">Draft</SelectItem>
-                                <SelectItem value="cancelled">Cancelled</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="remarks" className="font-bold text-xs uppercase tracking-wider text-gray-500">Internal Notes</Label>
-                        <Textarea
-                            id="remarks"
-                            placeholder="Add notes for this invoice..."
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            className="min-h-[100px] focus-visible:ring-offset-0 focus-visible:ring-1"
-                            style={{ '--tw-ring-color': roleSettings.pageTabColor } as any}
-                        />
-                    </div>
+
+                <div className="py-4">
+                    <InvoiceDocument
+                        invoice={editData}
+                        editData={editData}
+                        isEditing={true}
+                        updateItem={updateItem}
+                        addItem={addItem}
+                        removeItem={removeItem}
+                        updateTaxRate={updateTaxRate}
+                        setEditData={setEditData}
+                        roleSettings={roleSettings}
+                    />
                 </div>
-                <DialogFooter className="border-t pt-4">
-                    <Button variant="outline" onClick={onClose} disabled={loading} className="h-10 px-6">Cancel</Button>
-                    <Button
-                        onClick={handleSave}
-                        disabled={loading}
-                        className="gap-2 text-white hover:brightness-110 active:scale-[0.98] transition-all h-10 px-8"
-                        style={{ backgroundColor: roleSettings.pageTabColor }}
-                    >
-                        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                        Save Changes
-                    </Button>
-                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

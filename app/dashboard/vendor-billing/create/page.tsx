@@ -6,11 +6,13 @@ import { toast } from "sonner";
 import { Loader2, Save, X, Plus } from "lucide-react";
 import { SearchableSelect } from "@/app/dashboard/orders/components/SearchableSelect";
 import { Get, GetVendors } from "../../orders/orders";
-import { calculateDistance, GetOne } from "../../vendors/vendors";
+import { GetOne } from "../../vendors/vendors";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { useAppContext } from "@/app/context/AppContext";
 import { CreateInvoice } from "../../invoice/invoice_api";
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
+import { batchCalculateTravelCosts, buildTripChainLegs, calculateTravelCostFromBatch } from "@/lib/batchTravelCalculator";
+import { getTaxRateByLocation } from "@/lib/taxCalculator";
 
 
 
@@ -28,6 +30,7 @@ const CreateVendorInvoicePage = () => {
     const [selectedVendor, setSelectedVendor] = useState<any>(null);
     const [loadingData, setLoadingData] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [vendorTaxInfo, setVendorTaxInfo] = useState<any>(null);
 
     const [editData, setEditData] = useState<any>({
         items: [],
@@ -84,6 +87,27 @@ const CreateVendorInvoicePage = () => {
 
             const orders = Array.isArray(ordersRes.data) ? ordersRes.data : [];
             const vendorDetails = vendorDetailsRes?.data;
+            
+            // AUTO-DETECT TAX RATE BASED ON VENDOR LOCATION
+            let autoTaxRate = 13.0; // Default fallback
+            let taxInfo = { province: "", country: "", taxType: "HST (13%)" };
+            
+            if (vendorDetails?.addresses && vendorDetails.addresses.length > 0) {
+                const primaryAddress = vendorDetails.addresses[0];
+                const province = primaryAddress.province || "";
+                const country = primaryAddress.country || "Canada";
+                
+                const taxData = getTaxRateByLocation(province, country);
+                autoTaxRate = taxData.rate;
+                taxInfo = {
+                    province: province,
+                    country: country,
+                    taxType: taxData.taxType
+                };
+                
+                setVendorTaxInfo(taxInfo);
+            }
+            
             const paymentPerKm = Number(vendorDetails?.settings?.payment_per_km ?? 0);
             const startLocation = vendorDetails?.addresses?.find((a: any) => a.type === 'start_location');
             const startLocationAddress = startLocation ? `${startLocation.address_line_1}, ${startLocation.city}, ${startLocation.country}` : "";
@@ -168,10 +192,12 @@ const CreateVendorInvoicePage = () => {
                 }
             });
 
-            // Calculate Travel Costs (Simplified version of vendor-billing/page.tsx logic)
+            // Calculate Travel Costs - BATCHED VERSION (1 API call instead of N)
             const travelItems: any[] = [];
             let totalTravelCost = 0;
             let totalKm = 0;
+            const travelFailures: string[] = [];
+
             if (startLocationAddress && paymentPerKm > 0 && ordersToCalculateTravel.length > 0) {
                 // Group by date
                 const ordersByDate = new Map<string, any[]>();
@@ -181,59 +207,79 @@ const CreateVendorInvoicePage = () => {
                     ordersByDate.get(date)?.push(o);
                 });
 
-                for (const [, dailyOrders] of Array.from(ordersByDate.entries())) {
+                for (const [date, dailyOrders] of Array.from(ordersByDate.entries())) {
                     dailyOrders.sort((a, b) => (a.slots[0].start_time || "").localeCompare(b.slots[0].start_time || ""));
                     
-                    let currentPos = startLocationAddress;
-                    let dailyDistance = 0;
-                    let lastTravelOrderIndex = -1;
+                    // Get orders with travel required
+                    const travelOrders = dailyOrders.filter(o => o.hasTravelRequiredService);
+                    if (travelOrders.length === 0) continue;
 
-                    for (let i = dailyOrders.length - 1; i >= 0; i--) {
-                        if (dailyOrders[i].hasTravelRequiredService) {
-                            lastTravelOrderIndex = i;
-                            break;
-                        }
-                    }
+                    // Log route sequence for audit trail
+                    const routeSequence = travelOrders.map(o => `#${o.id}`).join(" → ");
+                    console.log(`🚗 Travel route for ${date}:`, `Start → ${routeSequence} → Start`);
 
-                    for (let i = 0; i < dailyOrders.length; i++) {
-                        const o = dailyOrders[i];
-                        if (!o.hasTravelRequiredService) continue;
+                    // Build trip chain: [Vendor, Job1, Job2, Job3]
+                    const orderAddresses = travelOrders.map(o => o.address);
+                    const tripLegs = buildTripChainLegs(startLocationAddress, orderAddresses);
 
-                        const dest = o.address;
-                        try {
-                            const res = await calculateDistance(currentPos, dest);
-                            if (res) {
-                                dailyDistance += res.distance;
-                                if (i === lastTravelOrderIndex) {
-                                    const ret = await calculateDistance(dest, startLocationAddress);
-                                    if (ret) dailyDistance += ret.distance;
-                                }
-                                currentPos = dest;
+                    console.log(`📍 Batching ${tripLegs.length} legs in 1 Google Maps API call...`);
+
+                    try {
+                        // SINGLE BATCH CALL for all legs on this day!
+                        const batchResult = await batchCalculateTravelCosts(tripLegs);
+
+                        if (batchResult.status === "OK" || batchResult.status === "PARTIAL_FAILURE") {
+                            const costInfo = calculateTravelCostFromBatch(batchResult, paymentPerKm);
+                            totalKm += costInfo.distance;
+                            totalTravelCost += costInfo.cost;
+
+                            if (batchResult.failedLegs.length > 0) {
+                                const failedAddrs = batchResult.failedLegs
+                                    .map(fl => `${fl.from.substring(0, 30)}... to ${fl.to.substring(0, 30)}...`)
+                                    .join("; ");
+                                travelFailures.push(`${date}: ${failedAddrs}`);
+                                console.warn(`⚠️ ${batchResult.failedLegs.length} legs failed on ${date}`);
                             }
-                        } catch (e) { console.error(e); }
+                        } else {
+                            // Total failure for this day
+                            console.error(`❌ Travel calculation failed completely for ${date}`);
+                            travelFailures.push(`${date}: All legs failed - ${batchResult.failedLegs[0]?.status || 'unknown error'}`);
+                        }
+                    } catch (e) {
+                        console.error(`❌ Exception calculating travel for ${date}:`, e);
+                        travelFailures.push(`${date}: Exception occurred`);
                     }
-
-                    const costForDay = dailyDistance * paymentPerKm;
-                    totalTravelCost += costForDay;
-                    totalKm += dailyDistance;
                 }
 
                 if (totalTravelCost > 0) {
+                    const description = travelFailures.length > 0
+                        ? `Travel Compensation (${totalKm.toFixed(2)} km) ⚠️`
+                        : `Travel Compensation (${totalKm.toFixed(2)} km)`;
+
                     travelItems.push({
-                        description: `Travel Compensation (${totalKm.toFixed(2)} km)`,
+                        description,
                         quantity: 1,
                         unit_price: totalTravelCost.toFixed(2),
-                        amount: totalTravelCost.toFixed(2)
+                        amount: totalTravelCost.toFixed(2),
+                        hasWarnings: travelFailures.length > 0,
+                        warnings: travelFailures
                     });
+                }
+
+                if (travelFailures.length > 0) {
+                    toast.warning(`Travel calculation: ${travelFailures.length} issues detected. Please review.`);
                 }
             }
 
             const allItems = [...unpaidServices, ...travelItems];
-            const totals = recalulateTotals(allItems, parseFloat(editData.tax_rate));
+            const totals = recalulateTotals(allItems, autoTaxRate);
             setEditData({
-                ...editData,
                 items: allItems,
-                ...totals
+                tax_rate: autoTaxRate.toFixed(2),
+                subtotal: totals.subtotal,
+                tax_amount: totals.tax_amount,
+                total: totals.total,
+                notes: editData.notes
             });
 
         } catch (err) {
@@ -359,6 +405,18 @@ const CreateVendorInvoicePage = () => {
                             searchPlaceholder="Search vendor..."
                         />
                     </div>
+
+                    {vendorTaxInfo && selectedVendorUuid && (
+                        <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                            <div className="flex items-start gap-3">
+                                <div className="flex-1">
+                                    <p className="text-sm font-semibold text-gray-700 mb-1">📍 Tax Location</p>
+                                    <p className="text-xs text-gray-600 mb-3">{vendorTaxInfo.province}, {vendorTaxInfo.country}</p>
+                                    <p className="text-sm font-bold text-indigo-700">💳 {vendorTaxInfo.taxType}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {loadingData ? (

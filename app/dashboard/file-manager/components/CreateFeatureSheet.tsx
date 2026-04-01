@@ -105,7 +105,9 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
     const [uploadedPdfs, setUploadedPdfs] = useState<
       { name: string; url: string }[]
     >([]);
-    const [activeTab, setActiveTab] = useState<"listing" | "tabloid">("listing");
+    const [activeTab, setActiveTab] = useState<"listing" | "tabloid" | "my_sheets">("listing");
+    const [agentSheets, setAgentSheets] = useState<FeatureSheetResponse[]>([]);
+    const [loadingAgentSheets, setLoadingAgentSheets] = useState(false);
     const activeStandardRef = useRef<FeatureSheetComponentRef>(null);
     const [selectedSheetUuid, setSelectedSheetUuid] = useState<string | null>(null);
     const [copyStyleOpen, setCopyStyleOpen] = useState(false);
@@ -325,6 +327,24 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
       }
     };
 
+    const handleMySheetClick = async (sheet: FeatureSheetResponse) => {
+      // 1. If no template is selected, we first need to "open" the template
+      // If one IS selected, we just apply the style to it.
+      
+      if (!selectedTemplate) {
+        // Open the template
+        handleTemplateChange(sheet.template_key);
+        // Wait for the component to mount and then apply style
+        // We use a small delay to ensure the template component ref is ready
+        setTimeout(() => {
+          handleApplyStyle(sheet);
+        }, 300);
+      } else {
+        // Already have a template open, just apply style
+        handleApplyStyle(sheet);
+      }
+    };
+
     useImperativeHandle(ref, () => ({
       handleSave: handleSaveFeatureSheet,
     }));
@@ -412,6 +432,26 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
 
       fetchFeatureSheets();
     }, [orderData?.uuid, setFeatureSheets]);
+
+    useEffect(() => {
+      const fetchAgentSheets = async () => {
+        if (activeTab !== "my_sheets") return;
+        setLoadingAgentSheets(true);
+        try {
+          const response = await featureSheetService.getFeatureSheetsByAgent();
+          // Filter to only include template sheets (not raw PDF uploads)
+          const templateSheets = response.filter((s) => s.type === "template");
+          setAgentSheets(templateSheets);
+        } catch (error) {
+          console.error("Error fetching agent feature sheets:", error);
+          toast.error("Failed to load your saved sheets.");
+        } finally {
+          setLoadingAgentSheets(false);
+        }
+      };
+
+      fetchAgentSheets();
+    }, [activeTab]);
 
     // Load data into formData when selectedTemplate changes
     useEffect(() => {
@@ -665,6 +705,15 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                 >
                   Tabloid Feature Sheet
                 </button>
+                <button
+                  onClick={() => setActiveTab("my_sheets")}
+                  className={`flex items-center w-[200px] justify-center font-medium text-sm transition-colors h-[40px] rounded-[6px] ${activeTab === "my_sheets"
+                    ? `text-white border-b-2  ${userType}-bg`
+                    : "bg-[#EEEEEE] hover:text-gray-700"
+                    }`}
+                >
+                  My Sheets
+                </button>
               </div>
 
               <div className="mt-10">
@@ -775,16 +824,84 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                         </div>
                       );
                     })}
-                  <div className="col-span-full mt-4">
-                    <h2 className="text-[24px] font-semibold text-[#666666] mb-4">
-                      Create New Feature Sheet
+
+                  {activeTab !== "my_sheets" && (
+                    <div className="col-span-full mt-4">
+                      <h2 className="text-[24px] font-semibold text-[#666666] mb-4">
+                        Create New Feature Sheet
+                      </h2>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* My Sheets Tab Content */}
+              {activeTab === "my_sheets" && (
+                <>
+                  <div className="col-span-full">
+                    <h2 className={`text-[24px] font-semibold ${userType}-text mb-4`}>
+                      My Saved Sheets (Style Sources)
                     </h2>
+                    <p className="text-sm text-[#7D7D7D] mb-6">
+                      Click a sheet to apply its styling (fonts, colors, layout) to your current order.
+                    </p>
                   </div>
+
+                  {loadingAgentSheets ? (
+                    <div className="col-span-full flex flex-col items-center justify-center py-20 gap-4">
+                      <Loader2 className={`w-10 h-10 animate-spin ${userType}-text`} />
+                      <p className="text-[#7D7D7D]">Loading your sheets...</p>
+                    </div>
+                  ) : agentSheets.length === 0 ? (
+                    <div className="col-span-full flex flex-col items-center justify-center py-20">
+                      <p className="text-[#7D7D7D]">No saved sheets found.</p>
+                    </div>
+                  ) : (
+                    agentSheets.map((sheet) => {
+                      const templateImg = templateImages.find(t => t.id === sheet.template_key);
+                      return (
+                        <div key={sheet.uuid} className="flex flex-col gap-2">
+                          <div className="text-start">
+                            <p className="text-[20px] font-medium text-[#444444] truncate">
+                              {sheet.template_key}
+                            </p>
+                            <p className="text-[12px] text-[#888888]">
+                              Last updated: {new Date(sheet.updated_at).toLocaleDateString()}
+                            </p>
+                            <button
+                              onClick={() => handleMySheetClick(sheet)}
+                              className={`mt-2 text-[14px] ${userType}-text hover:underline font-medium`}
+                            >
+                              Apply Style →
+                            </button>
+                          </div>
+                          <div
+                            onClick={() => handleMySheetClick(sheet)}
+                            className={`cursor-pointer border-2 rounded-lg overflow-hidden hover:scale-[1.03] transition-transform border-gray-300 shadow-sm hover:${userType}-border relative group`}
+                          >
+                            <div
+                              className="w-full h-[300px] bg-center bg-no-repeat relative"
+                              style={{
+                                backgroundImage: `url(/${templateImg?.url || sheet.template_key}.png)`,
+                                backgroundSize: "contain",
+                              }}
+                            >
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                <span className="bg-white/90 text-black px-4 py-2 rounded-full text-sm font-medium shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
+                                  Use This Style
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </>
               )}
 
               {/* Template Options */}
-              {templateImages
+              {activeTab !== "my_sheets" && templateImages
                 .filter((template) => template.type === activeTab)
                 .map((template) => (
                   <div key={template.id} className="flex flex-col gap-2">

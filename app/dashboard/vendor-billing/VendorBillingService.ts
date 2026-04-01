@@ -49,12 +49,16 @@ export interface VendorInvoice {
     total_amount: string | number;
     subtotal: string | number;
     travel_amount: string | number;
+    tax_rate?: string | number;
+    tax_amount?: string | number;
+    total?: string | number;
     created_at: string;
     notes?: string;
     vendor?: {
         company_name: string;
         first_name: string;
         last_name: string;
+        email?: string;
     };
     lines?: VendorInvoiceLine[];
 }
@@ -62,7 +66,10 @@ export interface VendorInvoice {
 export interface VendorInvoiceLine {
     description: string;
     amount: string | number;
+    unit_price?: string | number;
+    quantity?: string | number;
     type: 'service' | 'travel';
+    order_service_id?: string | number | null;
 }
 
 export interface GenerateInvoicePayload {
@@ -71,6 +78,8 @@ export interface GenerateInvoicePayload {
     cycle_start?: string;
     cycle_end?: string;
     notes?: string;
+    tax_rate?: number | string;
+    lines?: VendorInvoiceLine[];
 }
 
 class VendorBillingService {

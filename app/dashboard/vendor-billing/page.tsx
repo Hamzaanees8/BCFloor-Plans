@@ -19,13 +19,14 @@ import {
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
-import { ChevronDown, ChevronUp, ExternalLink, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, Loader2, AlertCircle } from "lucide-react";
 import { Get, GetVendors } from "../orders/orders";
 import { toast } from "sonner";
 import { payVendor } from "./vendorBilling";
 import { Button } from "@/components/ui/button";
-import { calculateDistance, GetOne } from "../vendors/vendors";
+import { GetOne } from "../vendors/vendors";
 import { useRouter } from "next/navigation";
+import { batchCalculateTravelCosts, buildTripChainLegs, calculateTravelCostFromBatch } from "@/lib/batchTravelCalculator";
 
 
 interface UnpaidService {
@@ -397,84 +398,120 @@ const Page = () => {
                 ordersByDate.get(date)?.push(order);
             });
 
+            // BATCHED TRAVEL CALCULATION - Process each day in one API call!
             for (const dayOrders of Array.from(ordersByDate.values())) {
-                let dailyCurrentFromAddress = startLocationAddress;
-                let dailyCurrentFromAddressForDisplay = startLocationAddress;
+                // Filter orders that actually require travel
+                const travelOrdersForDay = dayOrders.filter(order =>
+                    order.services.some(svc => svc.is_travel_required === true || svc.is_travel_required === 1)
+                );
 
-                // Find the index of the last order in this day that actually requires travel
-                let lastTravelOrderIndex = -1;
-                for (let i = dayOrders.length - 1; i >= 0; i--) {
-                    if (dayOrders[i].services.some(svc => svc.is_travel_required === true || svc.is_travel_required === 1)) {
-                        lastTravelOrderIndex = i;
-                        break;
-                    }
-                }
-
-                for (let i = 0; i < dayOrders.length; i++) {
-                    const order = dayOrders[i];
-                    const vendorSlot = orderSlotMap.get(order.orderId);
-
-                    if (!vendorSlot || !vendorSlot.order) {
-                        console.error(`Could not find vendor slot for order ${order.orderId}`);
-                        continue;
-                    }
-
-                    const toAddress = `${vendorSlot.order.property_address}, ${vendorSlot.order.property_location}`;
-                    const toAddressForDisplay = `${vendorSlot.order.property_address}, ${vendorSlot.order.property_location}`;
-
-                    const requiresTravel = order.services.some(svc => svc.is_travel_required === true || svc.is_travel_required === 1);
-
-                    if (!requiresTravel) {
-                        newTravelCosts.set(order.orderId, {
-                            orderId: order.orderId,
-                            distance: 0,
-                            estimatedTime: 0,
-                            travelCost: 0,
-                            fromAddress: dailyCurrentFromAddressForDisplay,
-                            toAddress: toAddressForDisplay
-                        });
-                        continue;
-                    }
-
-                    try {
-                        const result = await calculateDistance(dailyCurrentFromAddress, toAddress);
-                        if (result) {
-                            let distance = parseFloat(result.distance.toFixed(2));
-                            let estimatedTime = Math.round(result.est_time);
-
-                            // If this is the LAST order of the day that requires travel, add the return trip
-                            if (i === lastTravelOrderIndex) {
-                                try {
-                                    const returnResult = await calculateDistance(toAddress, startLocationAddress);
-                                    if (returnResult) {
-                                        distance += parseFloat(returnResult.distance.toFixed(2));
-                                        estimatedTime += Math.round(returnResult.est_time);
-                                    }
-                                } catch (error) {
-                                    console.error(`Return distance calculation failed for order ${order.orderId}:`, error);
-                                }
-                            }
-
-                            const travelCost = parseFloat((distance * paymentPerKm).toFixed(2));
-
+                // First, add all non-travel orders with 0 cost
+                dayOrders.forEach(order => {
+                    if (!order.services.some(svc => svc.is_travel_required === true || svc.is_travel_required === 1)) {
+                        const vendorSlot = orderSlotMap.get(order.orderId);
+                        if (vendorSlot?.order) {
+                            const toAddressForDisplay = `${vendorSlot.order.property_address}, ${vendorSlot.order.property_location}`;
                             newTravelCosts.set(order.orderId, {
                                 orderId: order.orderId,
-                                distance,
-                                estimatedTime,
-                                travelCost,
-                                fromAddress: dailyCurrentFromAddressForDisplay,
+                                distance: 0,
+                                estimatedTime: 0,
+                                travelCost: 0,
+                                fromAddress: startLocationAddress,
                                 toAddress: toAddressForDisplay
                             });
-
-                            // Update current address for next iteration in the same day
-                            dailyCurrentFromAddress = toAddress;
-                            dailyCurrentFromAddressForDisplay = toAddressForDisplay;
                         }
-                    } catch (error) {
-                        console.error(`Distance calculation failed for order ${order.orderId}:`, error);
                     }
+                });
 
-                    await new Promise((r) => setTimeout(r, 300));
+                if (travelOrdersForDay.length === 0) continue;
+
+                // Build trip chain legs for all travel orders in this day
+                const orderAddresses = travelOrdersForDay.map(order => {
+                    const vendorSlot = orderSlotMap.get(order.orderId);
+                    return vendorSlot?.order?.property_address || "";
+                }).filter(addr => addr);
+
+                if (orderAddresses.length === 0) continue;
+
+                const tripLegs = buildTripChainLegs(startLocationAddress, orderAddresses);
+
+                console.log(`📍 Batching ${tripLegs.length} legs for ${dayOrders[0].created_at.split('T')[0]} in 1 API call`);
+
+                try {
+                    // SINGLE BATCH API CALL for all legs on this day!
+                    const batchResult = await batchCalculateTravelCosts(tripLegs);
+
+                    if (batchResult.status === "OK" || batchResult.status === "PARTIAL_FAILURE") {
+                        // Map results back to orders
+                        let legIndex = 0;
+
+                        for (let i = 0; i < travelOrdersForDay.length; i++) {
+                            const order = travelOrdersForDay[i];
+                            const vendorSlot = orderSlotMap.get(order.orderId);
+
+                            if (!vendorSlot?.order) continue;
+
+                            const toAddressForDisplay = `${vendorSlot.order.property_address}, ${vendorSlot.order.property_location}`;
+
+                            // Get distance for this order (from trip leg)
+                            const legResult = batchResult.legs.find(l => l.legIndex === i);
+
+                            if (legResult) {
+                                let distance = parseFloat(legResult.distance.toFixed(2));
+                                let estimatedTime = Math.round(legResult.duration);
+
+                                // If this is the last order, include return trip
+                                if (i === travelOrdersForDay.length - 1) {
+                                    const returnLeg = batchResult.legs.find(l => l.legIndex === travelOrdersForDay.length);
+                                    if (returnLeg) {
+                                        distance += parseFloat(returnLeg.distance.toFixed(2));
+                                        estimatedTime += Math.round(returnLeg.duration);
+                                    }
+                                }
+
+                                const travelCost = parseFloat((distance * paymentPerKm).toFixed(2));
+
+                                newTravelCosts.set(order.orderId, {
+                                    orderId: order.orderId,
+                                    distance,
+                                    estimatedTime,
+                                    travelCost,
+                                    fromAddress: i === 0 ? startLocationAddress : travelOrdersForDay[i - 1].created_at,
+                                    toAddress: toAddressForDisplay
+                                });
+                            } else if (batchResult.failedLegs.length > 0) {
+                                // Handle failed calculation
+                                console.warn(`⚠️ Distance calculation failed for order ${order.orderId}`);
+                                newTravelCosts.set(order.orderId, {
+                                    orderId: order.orderId,
+                                    distance: 0,
+                                    estimatedTime: 0,
+                                    travelCost: 0,
+                                    fromAddress: startLocationAddress,
+                                    toAddress: toAddressForDisplay
+                                });
+                            }
+                        }
+                    } else {
+                        // Batch failed completely
+                        console.error("❌ Batch travel calculation failed completely");
+                        travelOrdersForDay.forEach(order => {
+                            const vendorSlot = orderSlotMap.get(order.orderId);
+                            if (vendorSlot?.order) {
+                                const toAddressForDisplay = `${vendorSlot.order.property_address}, ${vendorSlot.order.property_location}`;
+                                newTravelCosts.set(order.orderId, {
+                                    orderId: order.orderId,
+                                    distance: 0,
+                                    estimatedTime: 0,
+                                    travelCost: 0,
+                                    fromAddress: startLocationAddress,
+                                    toAddress: toAddressForDisplay
+                                });
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.error(`❌ Exception in batch travel calculation:`, error);
                 }
             }
 
@@ -1028,38 +1065,43 @@ const Page = () => {
                                                                                                 </div>
 
                                                                                                 <div className="flex flex-col gap-2 items-end">
-                                                                                                    <button
-                                                                                                        disabled={svc.vendor_payment != null || processingPayments.has(`${svc.uuid}-${svc.slots[0].vendor.uuid}`)}
-                                                                                                        onClick={(e) => {
-                                                                                                            e.stopPropagation();
-                                                                                                            triggerPaymentAction(() => {
-                                                                                                                handlePayVendor({
-                                                                                                                    vendor_uuid: svc.slots[0].vendor.uuid,
-                                                                                                                    order_service_uuids: [svc.uuid ?? ''],
-                                                                                                                    amount: Number(svc.amount ?? 0)
-                                                                                                                });
-                                                                                                            });
-                                                                                                        }}
-                                                                                                        className={`
-                                                                                                                px-4 py-2 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px]
-                                                                                                                ${svc.vendor_payment != null
-                                                                                                                ? 'bg-green-500 cursor-not-allowed'
-                                                                                                                : processingPayments.has(`${svc.uuid}-${svc.slots[0].vendor.uuid}`)
-                                                                                                                    ? 'bg-blue-400 cursor-not-allowed'
-                                                                                                                    : 'bg-blue-500 hover:bg-blue-600 cursor-pointer'
-                                                                                                            } `}
-                                                                                                    >
-                                                                                                        {processingPayments.has(`${svc.uuid}-${svc.slots[0].vendor.uuid}`) ? (
-                                                                                                            <span className="flex items-center text-white">
-                                                                                                                <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" />
-                                                                                                                Processing...
-                                                                                                            </span>
-                                                                                                        ) : svc.vendor_payment != null ? (
-                                                                                                            'Paid'
-                                                                                                        ) : (
-                                                                                                            'Pay Now'
-                                                                                                        )}
-                                                                                                    </button>
+                                                                                                    {(() => {
+                                                                                                        const paymentKey = `${svc.uuid}-${svc.slots[0].vendor.uuid}`;
+                                                                                                        return (
+                                                                                                            <button
+                                                                                                                disabled={svc.vendor_payment != null || processingPayments.has(paymentKey)}
+                                                                                                                onClick={(e) => {
+                                                                                                                    e.stopPropagation();
+                                                                                                                    triggerPaymentAction(() => {
+                                                                                                                        handlePayVendor({
+                                                                                                                            vendor_uuid: svc.slots[0].vendor.uuid,
+                                                                                                                            order_service_uuids: [svc.uuid ?? ''],
+                                                                                                                            amount: Number(svc.amount ?? 0)
+                                                                                                                        });
+                                                                                                                    });
+                                                                                                                }}
+                                                                                                                className={`px-4 py-2 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] ${
+                                                                                                                    svc.vendor_payment != null
+                                                                                                                        ? 'bg-green-500 cursor-not-allowed'
+                                                                                                                        : processingPayments.has(paymentKey)
+                                                                                                                            ? 'bg-blue-400 cursor-not-allowed'
+                                                                                                                            : 'bg-blue-500 hover:bg-blue-600 cursor-pointer'
+                                                                                                                }`}
+                                                                                                            >
+                                                                                                                {processingPayments.has(paymentKey) ? (
+                                                                                                                    <span className="flex items-center text-white">
+                                                                                                                        <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" />
+                                                                                                                        Processing...
+                                                                                                                    </span>
+                                                                                                                ) : svc.vendor_payment != null ? (
+                                                                                                                    'Paid'
+                                                                                                                ) : (
+                                                                                                                    'Pay Now'
+                                                                                                                )}
+                                                                                                            </button>
+                                                                                                        );
+                                                                                                    })()}
+                                                                                                    
                                                                                                     {svc.vendor_payment?.invoice_url &&
                                                                                                         <div className="flex items-center gap-2">
                                                                                                             <ExternalLink className="w-4 h-4 text-blue-500 flex-shrink-0" />

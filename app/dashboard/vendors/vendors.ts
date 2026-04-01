@@ -309,66 +309,78 @@ export async function GetServices() {
 export async function calculateDistance(
   originAddress: string,
   destinationAddress: string
-): Promise<{ est_time: number; distance: number } | null> {
+): Promise<{ est_time: number; distance: number; status: string } | null> {
   if (typeof window === "undefined" || !window.google?.maps) {
     console.error("Google Maps API not loaded.");
     return null;
   }
 
-  const geocoder = new window.google.maps.Geocoder();
   const distanceService = new window.google.maps.DistanceMatrixService();
 
-  // Helper: Geocode function
-  function geocode(address: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      geocoder.geocode({ address }, (results, status) => {
-        if (status === "OK" && results?.[0]) {
-          resolve(results[0].formatted_address);
-        } else {
-          reject(`Geocode failed for ${address}: ${status}`);
-        }
-      });
-    });
-  }
-
-  try {
-    const [origin, destination] = await Promise.all([
-      geocode(originAddress.trim()),
-      geocode(destinationAddress.trim()),
-    ]);
-
-    return new Promise((resolve) => {
+  return new Promise((resolve) => {
+    try {
       distanceService.getDistanceMatrix(
         {
-          origins: [origin],
-          destinations: [destination],
+          origins: [originAddress.trim()],
+          destinations: [destinationAddress.trim()],
           travelMode: window.google.maps.TravelMode.DRIVING,
         },
         (response, status) => {
-          if (status !== "OK" || !response?.rows?.[0]?.elements?.[0]) {
+          // Return status for better error handling
+          if (status !== "OK") {
             console.error("Distance Matrix failed:", status);
-            resolve(null);
+            resolve({
+              distance: 0,
+              est_time: 0,
+              status: status,
+            });
+            return;
+          }
+
+          if (!response?.rows?.[0]?.elements?.[0]) {
+            console.error("No distance matrix elements found");
+            resolve({
+              distance: 0,
+              est_time: 0,
+              status: "NO_ROUTES",
+            });
             return;
           }
 
           const element = response.rows[0].elements[0];
+
           if (element.status !== "OK") {
-            console.error("Invalid element:", element.status);
-            resolve(null);
+            console.warn(
+              `Element error for ${originAddress} → ${destinationAddress}:`,
+              element.status
+            );
+            resolve({
+              distance: 0,
+              est_time: 0,
+              status: element.status,
+            });
             return;
           }
 
-          const distance = element.distance.value / 1000;
-          const est_time = element.duration.value / 60;
+          const distance = element.distance.value / 1000; // Convert meters to km
+          const est_time = element.duration.value / 60; // Convert seconds to minutes
 
-          resolve({ distance, est_time });
+          resolve({
+            distance,
+            est_time,
+            status: "OK",
+          });
         }
       );
-    });
-  } catch (error) {
-    console.error("Error calculating distance:", error);
-    return null;
-  }
+    } catch (error) {
+      console.error("Error calculating distance:", error);
+      resolve({
+        distance: 0,
+        est_time: 0,
+        status: "ERROR",
+      });
+    }
+  });
 }
 
 // lib/api/stripeAPI.ts
