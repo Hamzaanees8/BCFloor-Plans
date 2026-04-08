@@ -658,16 +658,10 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                 </button>
               )}
 
-              {(userType === 'agent' || userType === 'admin') && selectedTemplate && (
+              {(userType === 'agent' || userType === 'admin') && selectedTemplate && selectedSheetUuid && (
                 <button
                   type="button"
-                  onClick={() => {
-                    if (!selectedSheetUuid) {
-                      toast.error("Please save your feature sheet before requesting a print.");
-                      return;
-                    }
-                    setIsPrintModalOpen(true);
-                  }}
+                  onClick={() => setIsPrintModalOpen(true)}
                   className={`flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] h-[32px] transition-colors border-2 ${userType}-border ${userType}-text bg-white rounded-[6px] font-[500] hover:bg-gray-50`}
                 >
                   <Printer className="w-4 h-4" />
