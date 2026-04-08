@@ -18,7 +18,8 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { ApiFile } from './DownloadModal';
 import { Order } from '../../orders/page';
 import { Input } from '@/components/ui/input';
-import { EditOrderStatus, SyncToMls } from '../../orders/orders';
+import { SyncToMls } from '../../orders/orders';
+import { EditListings } from '../../listings/listing';
 import { toast } from 'sonner';
 
 type ValidationStatus = 'idle' | 'valid' | 'invalid';
@@ -42,6 +43,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
   // Internal actions state
   const [isUpdatingMls, setIsUpdatingMls] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isExistingMls, setIsExistingMls] = useState(false);
 
   // Validation state
   const [mlsStatus, setMlsStatus] = useState<ValidationStatus>('idle');
@@ -63,6 +65,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
     if (open && orderData) {
       const initialMls = orderData.property?.mls_number || orderData.property?.mls_property || '';
       setMlsNumber(initialMls);
+      setIsExistingMls(!!initialMls);
       
       // Auto-validate if pre-filled
       if (initialMls) performValidation(initialMls);
@@ -143,11 +146,16 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
     try {
       const token = localStorage.getItem('token') || '';
 
-      // 1. Update MLS number if changed
-      const currentMls = orderData?.property?.mls_number || orderData?.property?.mls_property || '';
-      if (mlsNumber.trim() !== currentMls) {
+      // 1. Update MLS number to property if not already exists
+      if (!isExistingMls && mlsNumber.trim()) {
         setIsUpdatingMls(true);
-        await EditOrderStatus(orderData?.uuid || '', { mls_property: mlsNumber.trim() }, token);
+        const propertyUuid = orderData?.property?.uuid;
+        if (propertyUuid) {
+          await EditListings(propertyUuid, {
+            mls_number: mlsNumber.trim(),
+            mls_property: `MLS#: ${mlsNumber.trim()}`
+          });
+        }
         setIsUpdatingMls(false);
       }
 
@@ -211,7 +219,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
                 className={`h-[44px] pr-10 ${
                   mlsStatus === 'valid' ? 'border-green-500' : mlsStatus === 'invalid' ? 'border-red-400' : 'border-[#BBBBBB]'
                 }`}
-                disabled={isSyncing}
+                disabled={isSyncing || isExistingMls}
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
                 {mlsStatus === 'valid' && <CheckCircle2 className="w-4 h-4 text-green-500" />}

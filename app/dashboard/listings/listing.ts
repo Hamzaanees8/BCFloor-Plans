@@ -2,6 +2,8 @@ import { api } from "@/lib/api";
 
 export interface ListingsPayload {
     address?: string | null;
+    mls_number?: string | null;
+    mls_property?: string | null;
 }
 
 export interface FetchErrors {

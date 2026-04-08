@@ -229,6 +229,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           return false;
         }
 
+        // Print Requests (Admin only)
+        if (item.url === "/dashboard/admin/print-requests" && userType !== "admin") {
+          return false;
+        }
+
         // Permission based filtering for Admins
         if (userType === "admin") {
           if (
@@ -274,7 +279,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             "/dashboard/services",
             "/dashboard/agents",
             "/dashboard/vendors",
-            "/dashboard/admin/print-requests",
           ];
           return !restrictedUrls.includes(item.url);
         }
