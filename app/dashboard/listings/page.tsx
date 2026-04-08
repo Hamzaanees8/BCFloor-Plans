@@ -345,15 +345,7 @@ const Page = () => {
           Listings ({filteredListings?.length})
         </p>
         <div className="flex justify-end items-center gap-4">
-          {userType !== "vendor" && (
-            <Link
-              href={"/dashboard/orders/create"}
-              className='w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] justify-center items-center hover:brightness-110'
-              style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
-            >
-              + New Booking
-            </Link>
-          )}
+
           <div className="flex items-center gap-4">
             <div className="flex bg-white rounded-lg p-1 gap-2 border border-gray-300">
               <button
@@ -377,6 +369,15 @@ const Page = () => {
               </button>
             </div>
           </div>
+          {userType !== "vendor" && (
+            <Link
+              href={"/dashboard/orders/create"}
+              className='w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] justify-center items-center hover:brightness-110'
+              style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+            >
+              + New Booking
+            </Link>
+          )}
           {userType !== "vendor" && (
             <Link
               href={"/dashboard/listings/create"}

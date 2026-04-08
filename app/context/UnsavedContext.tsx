@@ -1,6 +1,7 @@
 "use client";
 
 import UnsavedChangesDialog from "@/components/UnsavedChangesDialog";
+import { usePathname } from "next/navigation";
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 
 type ConfirmOptions = {
@@ -26,11 +27,22 @@ const UnsavedContext = createContext<UnsavedContextType>({
 
 export const UnsavedProvider = ({ children }: { children: React.ReactNode }) => {
   const [isDirty, setIsDirty] = useState(false);
+  const pathname = usePathname();
 
   // dialog state
   const [open, setOpen] = useState(false);
   const nextActionRef = useRef<(() => void) | null>(null);
   const optionsRef = useRef<ConfirmOptions>({});
+
+  // Auto-reset dirty state whenever the route changes.
+  // This prevents stale dirty state from a previous page triggering
+  // the warning on a freshly navigated-to page.
+  useEffect(() => {
+    setIsDirty(false);
+    optionsRef.current = {};
+    setOpen(false);
+    nextActionRef.current = null;
+  }, [pathname]);
 
   const setIsDirtyWithOpts = (v: boolean, opts?: ConfirmOptions) => {
     setIsDirty(v);

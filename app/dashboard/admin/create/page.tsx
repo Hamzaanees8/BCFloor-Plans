@@ -147,7 +147,11 @@ const AdminForm = () => {
   useEffect(() => {
     if (country) {
       setStates(State.getStatesOfCountry(country));
-      setProvince("");
+      // Only reset province when the user manually changes country,
+      // not when we are populating existing data from the API.
+      if (!isPopulatingData.current) {
+        setProvince("");
+      }
     }
   }, [country]);
 
@@ -196,11 +200,12 @@ const AdminForm = () => {
       // if (currentUser.company_banner_url)
       //   setCompanyBannerUrl(currentUser.company_banner_url);
 
-      // Use setTimeout to ensure all state updates and DOM updates complete
+      // Use setTimeout to ensure all state updates + cascading effects (e.g. country→states)
+      // complete before dirty tracking is enabled. 300ms covers the async chain.
       setTimeout(() => {
         isPopulatingData.current = false;
         hasInitiallyRendered.current = true;
-      }, 100);
+      }, 300);
 
       setIsDirty(false);
     }

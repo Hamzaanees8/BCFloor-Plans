@@ -63,9 +63,10 @@ interface CalendarProps {
   showAllVendors: number;
   scheduleOverride: number;
   calendarIdx: number;
-  showAllVendorsMap: Record<number, 0 | 1>;
-  scheduleOverrideMap: Record<number, 0 | 1>;
-  recommendTimeMap: Record<number, 0 | 1>;
+  serviceKey: string;
+  showAllVendorsMap: Record<string, 0 | 1>;
+  scheduleOverrideMap: Record<string, 0 | 1>;
+  recommendTimeMap: Record<string, 0 | 1>;
   setSelectedDate: (date: string) => void;
   vendorDistances: Record<string, number>;
   propertyTimezone?: string;
@@ -292,7 +293,7 @@ export function getDistanceColor(distance: number | undefined): string {
   return "#171484";
 }
 
-export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, vendorDistances, propertyTimezone, masterDate, externalSetSelectedSlots, externalSelectedSlots, externalBookedSlots, externalVendorsData, onVendorSelected }: CalendarProps) {
+export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, serviceKey, vendorDistances, propertyTimezone, masterDate, externalSetSelectedSlots, externalSelectedSlots, externalBookedSlots, externalVendorsData, onVendorSelected }: CalendarProps) {
   const {
     selectedSlots: contextSelectedSlots,
     setSelectedSlots: contextSetSelectedSlots,
@@ -395,7 +396,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
     filteredVendors.forEach((vendor) => {
       // IF SCHEDULE OVERRIDE IS ON, FORCE FULL DAY AVAILABILITY
-      if (scheduleOverrideMap[calendarIdx] === 1) {
+      if (scheduleOverrideMap[serviceKey] === 1) {
         // Create 24h work hours
         const fullDayWorkHours: WorkHours = {
           start_time: '00:00:00',
@@ -509,7 +510,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           maxRecommended = Math.ceil(requiredDuration / 15);
         }
 
-        if (availableSlotsCount < maxRecommended && (recommendTimeMap[calendarIdx] === 1 || isTwilightService)) {
+        if (availableSlotsCount < maxRecommended && (recommendTimeMap[serviceKey] === 1 || isTwilightService)) {
           isRecommended = true;
           availableSlotsCount++;
         }
@@ -561,7 +562,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     });
 
     setEvents(finalSlots);
-  }, [vendorsData, ordersData, currentDate, selectedVendors, selectedSlots, service.title, service.uuid, service.id, service.option_id, AllBookedSlots, propertyTimezone, recommendTimeMap, calendarIdx, scheduleOverrideMap, twilightData, servicesData, tempPropertyData, selectedCurrentListing]);
+  }, [vendorsData, ordersData, currentDate, selectedVendors, selectedSlots, service.title, service.uuid, service.id, service.option_id, AllBookedSlots, propertyTimezone, recommendTimeMap, serviceKey, scheduleOverrideMap, twilightData, servicesData, tempPropertyData, selectedCurrentListing]);
 
   useEffect(() => {
     async function loadTwilight() {

@@ -170,6 +170,7 @@ const OrderForm = () => {
                     custom: s.custom,
                     optionName: s.option?.title ?? s.custom ?? '',
                     payment_status: s.payment_status,
+                    is_completed: s.is_completed,
                 }));
             });
             setCustomServiceNames(() => {
@@ -320,6 +321,31 @@ const OrderForm = () => {
         }
     };
 
+    const validateScheduleServices = () => {
+        const servicesToSchedule = isEdit ? selectedServices : selectedServices.filter(s => !(s as any).service_uuid);
+        const squareFootage = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
+        const invalidServiceIds: string[] = [];
+
+        servicesToSchedule.forEach(service => {
+            const serviceId = typeof service === 'string' ? service : service.uuid;
+            if (!serviceId) return;
+
+            const globalService = servicesData?.find(s => s.uuid === serviceId);
+            const productOption = globalService?.product_options?.find(opt => opt.uuid === (service as any).option_id);
+            const requiredDuration = getEffectiveServiceDuration(productOption?.service_duration, squareFootage);
+            const serviceSlots = selectedSlots.filter(slot => slot.service_id === serviceId);
+            const currentDuration = serviceSlots.length * 15;
+
+            if (currentDuration < requiredDuration) {
+                if (!invalidServiceIds.includes(serviceId)) {
+                    invalidServiceIds.push(serviceId);
+                }
+            }
+        });
+
+        return invalidServiceIds;
+    };
+
     const handleTabClick = (tabName: string) => {
         const currentIndex = tabs.indexOf(active);
         const targetIndex = tabs.indexOf(tabName);
@@ -356,16 +382,10 @@ const OrderForm = () => {
             return true
         } else if (active === 'schedule') {
             const servicesToSchedule = isEdit ? selectedServices : selectedServices.filter(s => !(s as any).service_uuid);
-            const selectedServiceIds = servicesToSchedule
-                .map(s => typeof s === 'string' ? s : s.uuid)
-                .filter((id): id is string => typeof id === 'string');
-            const scheduledServiceIds = selectedSlots.map(slot => slot.service_id);
+            if (servicesToSchedule.length === 0) return false;
 
-            const allScheduled = selectedServiceIds.every(serviceId =>
-                scheduledServiceIds.includes(serviceId)
-            );
-
-            return allScheduled;
+            const invalidScheduleServices = validateScheduleServices();
+            return invalidScheduleServices.length === 0;
         } else if (active === 'contact') {
             return true;
         } else if (active === 'order') {
@@ -420,12 +440,8 @@ const OrderForm = () => {
 
             // Schedule tab validation
             if (tabToCheck === 'schedule') {
-                const servicesToSchedule = isEdit ? selectedServices : selectedServices.filter(s => !(s as any).service_uuid);
-                const selectedServiceIds = servicesToSchedule
-                    .map(s => typeof s === 'string' ? s : s.uuid)
-                    .filter((id): id is string => typeof id === 'string');
-                const scheduledServiceIds = selectedSlots.map(slot => slot.service_id);
-                if (!selectedServiceIds.every(id => scheduledServiceIds.includes(id))) return false;
+                const invalidScheduleServices = validateScheduleServices();
+                if (invalidScheduleServices.length > 0) return false;
             }
         }
         return true;

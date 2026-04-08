@@ -21,6 +21,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { HexColorPicker } from "react-colorful";
 import { Order } from "../../orders/page";
@@ -90,14 +91,30 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
       updateFormData,
       featureSheets,
       setFeatureSheets,
+      filesData,
     } = useFileManagerContext();
     const { userType } = useAppContext();
+    const [userInfo, setUserInfo] = useState<any>(null);
+
+    useEffect(() => {
+      const storedUserInfo = localStorage.getItem("userInfo");
+      if (storedUserInfo) {
+        try {
+          setUserInfo(JSON.parse(storedUserInfo));
+        } catch (e) {
+          console.error("Failed to parse userInfo from localStorage", e);
+        }
+      }
+    }, []);
+
     const [openColorPicker, setOpenColorPicker] = useState(false);
     const wrapperRef = useRef<HTMLDivElement | null>(null);
     const wrapperRef1 = useRef<HTMLDivElement | null>(null);
     const [selectedTemplate, setSelectedTemplate] = useState("");
     const [realtorPreview, setRealtorPreview] = useState<string | null>(null);
     const realtorInputRef = useRef<HTMLInputElement | null>(null);
+    const searchParams = useSearchParams();
+    const listingId = searchParams.get("listingId");
     const [customPdf, setCustomPdf] = useState<{
       name: string;
       url: string;
@@ -1448,6 +1465,9 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
           open={isPrintModalOpen}
           onClose={() => setIsPrintModalOpen(false)}
           featureSheetUuid={selectedSheetUuid}
+          agentId={orderData?.agent?.uuid || (userType === "agent" ? userInfo?.uuid : undefined)}
+          propertyId={listingId || orderData?.property?.uuid}
+          tourId={filesData?.uuid}
         />
       </>
     );

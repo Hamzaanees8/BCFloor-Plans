@@ -22,6 +22,7 @@ export interface SelectedService {
     option_id?: string;
     optionName: string;
     payment_status?: string;
+    is_completed?: boolean | number;
 }
 
 
@@ -89,21 +90,33 @@ const Services = ({ showAll }: { showAll: boolean }) => {
     const [listingData, setListingData] = useState<Listings | undefined>(undefined);
 
     useEffect(() => {
-        const selectedIds = selectedServices.map(s => s.uuid);
+        const selectedIds = selectedServices.map(s => s.uuid).filter(Boolean) as string[];
+
+        const createCountMap = (arr: string[]) => arr.reduce<Record<string, number>>((acc, id) => {
+            acc[id] = (acc[id] || 0) + 1;
+            return acc;
+        }, {});
+
+        const selectedCount = createCountMap(selectedIds);
+
         let foundPackage = null;
 
         for (const pkg of packagesData) {
-            const pkgServiceIds = pkg.services.map(s => s.uuid);
-            const isMatch =
-                pkgServiceIds.length > 0 &&
-                pkgServiceIds.length === selectedIds.length &&
-                pkgServiceIds.every(id => selectedIds.includes(id));
+            const pkgServiceIds = (pkg.services || []).map(s => s.uuid).filter(Boolean) as string[];
+            if (pkgServiceIds.length === 0) continue;
 
-            if (isMatch) {
+            const pkgCount = createCountMap(pkgServiceIds);
+
+            const hasExactServices = Object.keys(pkgCount).every((uuid) => {
+                return selectedCount[uuid] === pkgCount[uuid];
+            }) && Object.keys(selectedCount).every((uuid) => pkgCount[uuid] === selectedCount[uuid]);
+
+            if (hasExactServices) {
                 foundPackage = pkg;
                 break;
             }
         }
+
         setActivePackage(foundPackage);
     }, [selectedServices, packagesData, setActivePackage]);
 

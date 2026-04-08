@@ -535,7 +535,6 @@ const FileManager = () => {
         title: "Unsaved Changes",
         description: `You have ${unsavedCount} file(s) unsaved. Are you sure you want to leave? Your changes will not be saved.`,
         confirmLabel: "Leave Anyway",
-        cancelLabel: "Cancel",
         onSave: handleSave
       });
     } else {

@@ -31,6 +31,7 @@ import { OptimizedImagePreview, PdfPlaceholder } from './OptimizedPreview';
 import { DualModeFileManager } from './dual-mode/DualModeFileManager';
 import { ModeToggle } from './dual-mode/ModeToggle';
 import { FileItem, DualMode } from './dual-mode/types';
+import { canDownloadFile, getDownloadBlockReason } from '../utils/filePermissions';
 import { GridSizeToggle } from './dual-mode/GridSizeToggle';
 type Props = {
     orderData: Order | null;
@@ -551,20 +552,34 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                             <span className='flex shrink-0 cursor-not-allowed opacity-50' style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}>
                                 <DownloadIcon width='100%' height='100%' fill='#6BAE41' />
                             </span>
+                        ) : canDownloadFile({
+                            file: file as Files,
+                            currentService,
+                            orderData,
+                            userType,
+                        }) ? (
+                            <span
+                                onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
+                                className='flex shrink-0 cursor-pointer' style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}>
+                                <DownloadIcon width='100%' height='100%' fill='#6BAE41' />
+                            </span>
                         ) : (
-                            (userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID"))) ? (
-                                <span
-                                    onClick={(e) => { e.stopPropagation(); handledownloadFile(file.uuid, file.name) }}
-                                    className='flex shrink-0 cursor-pointer' style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}>
-                                    <DownloadIcon width='100%' height='100%' fill='#6BAE41' />
-                                </span>
-                            ) : (
-                                <span
-                                    title="service not paid yet"
-                                    className='flex shrink-0 cursor-not-allowed opacity-50' style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}>
-                                    <DownloadIcon width='100%' height='100%' fill='#6BAE41' />
-                                </span>
-                            )
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span
+                                        className='flex shrink-0 cursor-not-allowed opacity-50' style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}>
+                                        <DownloadIcon width='100%' height='100%' fill='#6BAE41' />
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    {getDownloadBlockReason({
+                                        file: file as Files,
+                                        currentService,
+                                        orderData,
+                                        userType,
+                                    }) || 'Download not available'}
+                                </TooltipContent>
+                            </Tooltip>
                         )}
                     </div>
                 </div>

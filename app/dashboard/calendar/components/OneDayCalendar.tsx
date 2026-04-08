@@ -66,6 +66,9 @@ interface SelectedService {
   quantity?: number;
   option_id?: string;
   optionName: string;
+  option?: {
+    uuid?: string;
+  };
   service: {
     id: number;
     name: string;
@@ -439,9 +442,9 @@ export default function OneDayCalendar({
         let maxRecommended = 1;
 
         if (isTwilightService) {
-          const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === service.option_id);
+          const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === (service.option_id || service.option?.uuid));
           const reqDur = getEffectiveServiceDuration(productOption?.service_duration, effectiveSquareFootage);
-          maxRecommended = Math.ceil(reqDur / 15);
+          maxRecommended = Math.ceil(reqDur / 15) || 1;
         }
 
         if (availableSlotsCount < maxRecommended && (recommendTimeMap[calendarIdx] === 1 || isTwilightService)) {
@@ -486,28 +489,53 @@ export default function OneDayCalendar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendors, currentDate, selectedVendors, selectedSlots, service.service.uuid, service.service.id, recommendTimeMap, calendarIdx, scheduleOverrideMap, twilightData, servicesData, effectiveSquareFootage, propertyTimezone]);
 
+  // Reset scroll ref when service or date changes
+  useEffect(() => {
+    hasScrolledToFirstSlot.current = false;
+  }, [service.service.uuid, service.service.id, currentDate]);
+
   // Auto-scroll to first slot
   useEffect(() => {
     if (!containerRef.current || events.length === 0) return;
+
+    // Check if current service is Twilight
+    const currentServiceData = servicesData.find(s => s.uuid === service.service.uuid || String(s.id) === String(service.service.id));
+    const isTwilightService = currentServiceData?.category?.name === "Twilight Photos" || service?.service?.name?.includes("Twilight");
+
+    // For twilight services, wait until we have twilight data for a stable scroll
+    if (isTwilightService && !twilightData) return;
+
     if (!hasScrolledToFirstSlot.current) {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (!containerRef.current) return;
         const recommendedEl = containerRef.current.querySelector('.slot-recommended') as HTMLElement;
         const selectedEl = containerRef.current.querySelector('.slot-selected') as HTMLElement;
         const availableEl = containerRef.current.querySelector('.slot-available') as HTMLElement;
+
+        // Priority: Recommended > Selected > Available
         const targetEl = recommendedEl || selectedEl || availableEl;
+
         if (targetEl) {
           const container = containerRef.current;
           const containerRect = container.getBoundingClientRect();
           const targetRect = targetEl.getBoundingClientRect();
+
+          // Ensure the element has a valid position before scrolling
+          if (targetRect.height === 0 || targetRect.top === 0) return;
+
+          // Calculate relative top position
           const relativeTop = targetRect.top - containerRect.top + container.scrollTop;
+
+          // Scroll to 1/3 down the container for better visibility
           const scrollTo = Math.max(0, relativeTop - containerRect.height / 3);
+
           container.scrollTo({ top: scrollTo, behavior: 'smooth' });
           hasScrolledToFirstSlot.current = true;
         }
-      }, 300);
+      }, 500);
+      return () => clearTimeout(timer);
     }
-  }, [events]);
+  }, [events, twilightData, servicesData, service.service.uuid, service.service.id, service.service?.name]);
 
   function geocodeAddress(address: string): Promise<string> {
     const geocoder = new window.google.maps.Geocoder();
@@ -592,7 +620,7 @@ export default function OneDayCalendar({
 
     // Duration enforcement: compute how many consecutive slots to select
     const currentServiceData = servicesData?.find(s => s.uuid === service.service.uuid);
-    const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === service.option_id);
+    const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === (service.option_id || service.option?.uuid));
     const requiredDuration = getEffectiveServiceDuration(productOption?.service_duration, effectiveSquareFootage);
 
     const currentServiceSlots = selectedSlots.filter(
@@ -694,7 +722,7 @@ export default function OneDayCalendar({
 
     // Warn if over-selecting
     const currentServiceData = servicesData?.find(s => s.uuid === service.service.uuid);
-    const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === service.option_id);
+    const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === (service.option_id || service.option?.uuid));
     const requiredDuration = getEffectiveServiceDuration(productOption?.service_duration, effectiveSquareFootage);
     const selDate = dayjs(slots[0].start).format('YYYY-MM-DD');
     const existingCount = selectedSlots.filter(s => s.service_id === service.service.uuid && s.date === selDate).length;
@@ -721,7 +749,7 @@ export default function OneDayCalendar({
     }
     .recommended-corner-indicator svg { position: absolute; top: 2px; right: -22px; }
     .fc-header-toolbar {
-      position: sticky !important; top: 0 !important; background: #EEEEEE !important;
+      position: sticky !important; top: 0 !important; background: var(--${userType}-page-bg, #EEEEEE) !important;
       z-index: 10 !important; margin-bottom: 0 !important;
       padding-top: 10px; padding-bottom: 10px; border-bottom: 1px solid #BBBBBB;
     }
@@ -860,7 +888,7 @@ export default function OneDayCalendar({
             style={{ height: '-webkit-fill-available' }}
             className="sticky top-0 inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
           >
-            <div onClick={e => e.stopPropagation()} className="bg-[#EEEEEE] rounded-lg p-4 w-[300px] shadow-lg">
+            <div onClick={e => e.stopPropagation()} className="rounded-lg p-4 w-[300px] shadow-lg" style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>
               {availableSlotVendors.length === 0 ? (
                 <p className="text-gray-500">No vendors available at this time.</p>
               ) : (
@@ -880,7 +908,7 @@ export default function OneDayCalendar({
                           className="cursor-pointer p-2 flex items-center gap-1 hover:bg-gray-100"
                           onClick={async () => {
                             const currentServiceData = servicesData?.find(s => s.uuid === service.service.uuid);
-                            const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === service.option_id);
+                            const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === (service.option_id || service.option?.uuid));
                             const reqDuration = getEffectiveServiceDuration(productOption?.service_duration, effectiveSquareFootage);
                             const selDate = dayjs(clickedSlot.start).format('YYYY-MM-DD');
                             const existingSlots = selectedSlots.filter(s => s.service_id === service.service.uuid && s.date === selDate);

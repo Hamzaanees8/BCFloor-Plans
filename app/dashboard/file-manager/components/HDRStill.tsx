@@ -36,6 +36,7 @@ import { DualModeFileManager } from './dual-mode/DualModeFileManager';
 import { ModeToggle } from './dual-mode/ModeToggle';
 import { FileItem, DualMode } from './dual-mode/types';
 import { GridSizeToggle } from './dual-mode/GridSizeToggle';
+import { canDownloadFile } from '../utils/filePermissions';
 
 export interface PaymentData {
     payment_type: "cheque" | "bank_transfer" | "cash"; // restrict to valid types
@@ -151,16 +152,25 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 }
             });
 
-        // If Agent and review is enabled, only show approved files and those marked to show
+        // If Agent, show only approved files for download + obey service quantity limit
         if (userType === 'agent') {
+            files = files?.filter(file => file.is_show !== false && file.is_agent_approved === true);
+
             if (reviewFilesEnabled) {
-                files = files?.filter(file => file.is_admin_approved && file.is_show !== false);
-            } else {
-                files = files?.filter(file => file.is_show !== false);
+                files = files?.filter(file => file.is_admin_approved === true);
             }
+
+            const targetQuantity = currentBookedService?.option?.quantity ?? 0;
+            if (targetQuantity > 0) {
+                files = files?.slice(0, targetQuantity);
+            }
+
+            // additional guard: canDownloadFile ensures complete pay / approval rules
+            files = files?.filter(file => canDownloadFile({ file, currentService: currentBookedService, orderData, userType: 'agent' }));
         }
+
         return files || [];
-    }, [filesData?.files, currentService?.uuid, userType, reviewFilesEnabled, sortBy]);
+    }, [filesData?.files, currentService?.uuid, userType, reviewFilesEnabled, sortBy, currentBookedService, orderData]);
 
     const filesForService = useMemo(() => selectedFiles.filter(f => f.service_id === currentService?.uuid), [selectedFiles, currentService?.uuid]);
 

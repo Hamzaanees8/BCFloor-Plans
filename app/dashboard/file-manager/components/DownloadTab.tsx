@@ -6,9 +6,11 @@ import { toast } from 'sonner';
 import { useAppContext } from '@/app/context/AppContext';
 import BulkDownloadSizeModal, { DownloadSize } from './BulkDownloadSizeModal';
 import DownloadModal, { ApiFile } from './DownloadModal';
+import SyncMlsModal from './SyncMlsModal';
 import { useGlobalDownload } from '@/context/GlobalDownloadContext';
 
 import { Order } from '../../orders/page';
+import { canDownloadFile, getDownloadBlockReason } from '../utils/filePermissions';
 
 interface DownloadTabProps {
     orderData: Order | null;
@@ -26,11 +28,11 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
         label: ''
     });
     const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+    const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
     const [selectedImageUuids, setSelectedImageUuids] = useState<Set<string>>(new Set());
 
     // Helper to check if a service or the entire order is paid
     const isServicePaid = useCallback((serviceUuid: string, fileIsPaid?: boolean) => {
-        // If file.is_paid is explicitly provided (from API), use it as the source of truth
         if (fileIsPaid !== undefined) return fileIsPaid;
         
         if (userType !== 'agent') return true;
@@ -70,8 +72,6 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
             const isForbiddenService = serviceName.toLowerCase().includes("floor plan") ||
                 serviceName.toLowerCase().includes("3d tour");
 
-            // Note: We no longer exclude "video" from the name check as we want to include them
-
             const isApproved = userType === 'agent' ? file.is_agent_approved : true;
             const isValidType = file.type === 'photo' || file.type === 'video';
 
@@ -103,18 +103,24 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
 
     // Filter paid files for agents (for download actions)
     const paidPhotos = useMemo(() => {
-        if (userType !== 'agent' || orderData?.payment_status === 'PAID') {
-            return allApprovedPhotos;
-        }
-        return allApprovedPhotos.filter(p => p.is_paid || isServicePaid(p.service?.uuid || ""));
-    }, [allApprovedPhotos, userType, orderData, isServicePaid]);
+        return allApprovedPhotos.filter(p =>
+            canDownloadFile({
+                file: p,
+                orderData,
+                userType,
+            })
+        );
+    }, [allApprovedPhotos, userType, orderData]);
 
     const paidVideos = useMemo(() => {
-        if (userType !== 'agent' || orderData?.payment_status === 'PAID') {
-            return allApprovedVideos;
-        }
-        return allApprovedVideos.filter(p => p.is_paid || isServicePaid(p.service?.uuid || ""));
-    }, [allApprovedVideos, userType, orderData, isServicePaid]);
+        return allApprovedVideos.filter(p =>
+            canDownloadFile({
+                file: p,
+                orderData,
+                userType,
+            })
+        );
+    }, [allApprovedVideos, userType, orderData]);
 
     // Selected files filter
     const selectedFiles = useMemo(() => {
@@ -124,17 +130,30 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
 
     // Filtered selected files (for manual download)
     const selectedPaidFiles = useMemo(() => {
-        if (userType !== 'agent' || orderData?.payment_status === 'PAID') {
-            return selectedFiles;
-        }
-        return selectedFiles.filter(file => file.is_paid || isServicePaid(file.service?.uuid || ""));
-    }, [selectedFiles, userType, orderData, isServicePaid]);
+        return selectedFiles.filter(file =>
+            canDownloadFile({
+                file,
+                orderData,
+                userType,
+            })
+        );
+    }, [selectedFiles, userType, orderData]);
 
     const toggleImageSelection = (uuid: string) => {
         const allApproved = [...allApprovedPhotos, ...allApprovedVideos];
         const file = allApproved.find(f => f.uuid === uuid);
-        if (userType === 'agent' && file && !(file.is_paid || isServicePaid(file.service?.uuid || ""))) {
-            toast.error("This service is not paid yet.");
+
+        if (!file || !canDownloadFile({
+            file,
+            orderData,
+            userType,
+        })) {
+            const reason = file ? getDownloadBlockReason({
+                file,
+                orderData,
+                userType,
+            }) : 'File not found';
+            toast.error(reason || 'Cannot select this file for download');
             return;
         }
 
@@ -150,7 +169,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
     };
 
     const handleDownload = async (files: Files[], label: string, size: DownloadSize = 'original') => {
-        setSizeModal(prev => ({ ...prev, isOpen: false })); // close modal immediately
+        setSizeModal(prev => ({ ...prev, isOpen: false })); 
 
         try {
             const payload: { uuid: string; size?: DownloadSize }[] = files.map(f => ({
@@ -158,7 +177,6 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
                 size
             }));
 
-            // start download via global context
             startDownload(payload, label);
         } catch (err) {
             console.error("Download error:", err);
@@ -173,7 +191,6 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
     const [visibleCount, setVisibleCount] = useState(30);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-    // Filtered services for rendering (lazy loading)
     const visibleServices = useMemo(() => {
         let currentCount = 0;
         return groupedServices.map(service => {
@@ -239,7 +256,6 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
                             setIsManualModalOpen(true);
                         }}
                         disabled={selectedImageUuids.size === 0 || (allApprovedPhotos.length === 0 && allApprovedVideos.length === 0) || (!isAnyPhotoPaid && !isAnyVideoPaid)}
-                        title={(!isAnyPhotoPaid && !isAnyVideoPaid) ? "service not paid yet" : ""}
                         className={`px-4 h-[32px] md:h-[38px] border-[1px] ${selectedImageUuids.size === 0 ? "border-gray-300 text-gray-500 bg-gray-100" : `${userType}-border ${userType}-text hover:text-[#fff] hover-${userType}-bg ${userType}-button`} text-[12px] md:text-[13px] font-[500] flex gap-[5px] justify-center items-center rounded-[6px] transition-colors ${(!isAnyPhotoPaid && !isAnyVideoPaid) ? "opacity-50 cursor-not-allowed" : ""}`}
                         style={selectedImageUuids.size === 0 ? {} : { backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     >
@@ -248,6 +264,18 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
                     </Button>
                     <span className="text-gray-500 text-sm hidden md:inline">Click a file to select it for downloading manually.</span>
                 </div>
+
+                                {/* Sync MLS — only visible to agents and admins */}
+                {(userType === 'agent' || userType === 'admin') && (
+                  <Button
+                      onClick={() => setIsSyncModalOpen(true)}
+                      disabled={(allApprovedPhotos.length === 0 && allApprovedVideos.length === 0)}
+                      className={`px-4 h-[32px] md:h-[38px] border-[1px] ${(allApprovedPhotos.length === 0 && allApprovedVideos.length === 0) ? "border-gray-300 text-gray-500 bg-gray-100 opacity-50 cursor-not-allowed" : `${userType}-border ${userType}-text hover:text-[#fff] hover-${userType}-bg ${userType}-button`} text-[12px] md:text-[13px] font-[500] flex gap-[5px] justify-center items-center rounded-[6px] transition-colors`}
+                      style={(allApprovedPhotos.length === 0 && allApprovedVideos.length === 0) ? {} : { backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                  >
+                      Sync MLS
+                  </Button>
+                )}
 
                 {selectedImageUuids.size > 0 && (
                     <Button
@@ -411,8 +439,26 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
 
             <DownloadModal
                 open={isManualModalOpen}
-                onClose={() => setIsManualModalOpen(false)}
+                onClose={() => {
+                    setIsManualModalOpen(false);
+                    setSelectedImageUuids(new Set());
+                }}
                 apiFiles={selectedPaidFiles as unknown as ApiFile[]}
+            />
+
+            {/* Sync Modal only shows paid/approved files regardless of user role */}
+            <SyncMlsModal 
+                open={isSyncModalOpen}
+                onClose={() => setIsSyncModalOpen(false)}
+                apiFiles={[...allApprovedPhotos, ...allApprovedVideos].filter(f => 
+                  canDownloadFile({
+                    file: f,
+                    orderData,
+                    userType: 'agent', // Force strict payment check even for Admins
+                  })
+                ) as unknown as ApiFile[]}
+                orderData={orderData}
+                tourUuid={filesData?.uuid}
             />
         </div>
     );

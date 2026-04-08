@@ -59,6 +59,7 @@ import VendorWorkHours, {
 import { VendorsTourMedia } from "@/components/vendorWorkGallery";
 import { S3UploadService } from "@/lib/upload/s3-service";
 import { PresignedUrlRequest, ConfirmUploadRequest } from "@/lib/upload/types";
+import { validateForm, ValidationSchema } from "@/lib/validation";
 // import { tree } from "next/dist/build/templates/app-page";
 interface VendorCompany {
   company_name: string;
@@ -273,21 +274,25 @@ const VendorForm = () => {
   const [payOutsidePlatform, setPayOutsidePlatform] = useState<boolean>(true);
   const [inkilometers, setInKilometers] = useState<boolean>(true);
   // const [inmiles, setInMiles] = useState<boolean>(false);
-  const { userType } = useAppContext();
-  const { isDirty, setIsDirty } = useUnsaved();
-  useUnsavedChangesWarning(isDirty);
-  const isPopulatingData = useRef(false);
-  const hasInitiallyRendered = useRef(false);
-
-  const handleReset = () => {
-    setPassword("");
-  };
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
   const userId = params?.id as string;
   const state = searchParams.get("state");
   const code = searchParams.get("code");
+
+  const { userType } = useAppContext();
+  const { isDirty, setIsDirty } = useUnsaved();
+  useUnsavedChangesWarning(isDirty);
+  const isPopulatingData = useRef(false);
+  const hasInitiallyRendered = useRef(false);
+
+  const [useHeadquarterForStart, setUseHeadquarterForStart] = useState<boolean>(!params?.id);
+  const [useHeadquarterForBilling, setUseHeadquarterForBilling] = useState<boolean>(!params?.id);
+
+  const handleReset = () => {
+    setPassword("");
+  };
 
   useEffect(() => {
     setCountries(Country.getAllCountries());
@@ -308,7 +313,11 @@ const VendorForm = () => {
   useEffect(() => {
     if (companyCountry) {
       setStates(State.getStatesOfCountry(companyCountry));
-      setCompanyProvince("");
+      // Only clear province when user manually changes the country,
+      // not when we are populating data from the API.
+      if (!isPopulatingData.current) {
+        setCompanyProvince("");
+      }
     }
   }, [companyCountry]);
   const capitalizeFirst = (str: string) =>
@@ -332,7 +341,11 @@ const VendorForm = () => {
   useEffect(() => {
     if (billingCountry) {
       setStates(State.getStatesOfCountry(billingCountry));
-      setBillingProvince("");
+      // Only clear province when user manually changes the country,
+      // not when we are populating data from the API.
+      if (!isPopulatingData.current) {
+        setBillingProvince("");
+      }
     }
   }, [billingCountry]);
 
@@ -568,11 +581,13 @@ const VendorForm = () => {
       setIsSyncToGoogle(currentUser.sync_google);
       setSyncEmailType(currentUser.sync_email || "");
 
-      // Use setTimeout to ensure all state updates and DOM updates complete
+      // Use setTimeout to ensure all state updates and DOM/async effects (e.g. country→states)
+      // fully complete before we allow dirty-state tracking.
+      // 300ms is enough to cover the cascading useEffect chain from country changes.
       setTimeout(() => {
         isPopulatingData.current = false;
         hasInitiallyRendered.current = true;
-      }, 100);
+      }, 300);
 
       setIsDirty(false);
     }
@@ -645,45 +660,54 @@ const VendorForm = () => {
   };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validationErrors: Record<string, string[]> = {};
 
-    if (!firstName?.trim())
-      validationErrors.first_name = ["First Name is required"];
-    if (!lastName?.trim())
-      validationErrors.last_name = ["Last Name is required"];
-    if (!email?.trim()) validationErrors.email = ["Email is required"];
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-      validationErrors.email = ["Invalid email format"];
+    const schema: ValidationSchema = {
+      first_name: { required: true, message: "First Name is required" },
+      last_name: { required: true, message: "Last Name is required" },
+      email: { required: true, email: true, message: "Invalid email format" },
+      primary_phone: { required: true, message: "Primary Phone is required" },
+      company_address: { required: true, message: "Headquarter Address is required" },
+      company_city: { required: true, message: "Headquarter City is required" },
+      company_province: { required: true, message: "Headquarter Province is required" },
+      timezone: { required: true, message: "Timezone is required" },
+    };
 
-    if (!userId && !password && userType != "vendor")
-      validationErrors.password = ["Password is required"];
-    if (password && password.length < 8)
-      validationErrors.password = ["Password must be at least 8 characters"];
+    const values: Record<string, any> = {
+      first_name: firstName,
+      last_name: lastName,
+      email: email,
+      primary_phone: primaryPhone,
+      company_address: companyAddress,
+      company_city: companyCity,
+      company_province: companyProvince,
+      timezone: workHours.timezone,
+    };
 
-    if (!primaryPhone?.trim())
-      validationErrors.primary_phone = ["Primary Phone is required"];
+    if (!userId && userType != "vendor") {
+      schema.password = {
+        required: true,
+        minLength: 8,
+        message: password ? "Password must be at least 8 characters" : "Password is required"
+      };
+      values.password = password;
+    }
 
-    if (!companyAddress?.trim())
-      validationErrors.company_address = ["Headquarter Address is required"];
-    if (!companyCity?.trim())
-      validationErrors.company_city = ["Headquarter City is required"];
-    if (!companyProvince?.trim())
-      validationErrors.company_province = ["Headquarter Province is required"];
+    const validationErrors = validateForm(values, schema);
 
-    if (!startLocation?.trim())
-      validationErrors[`addresses.1.address_line_1`] = [
-        "Start Location is required",
-      ];
+    // Manual checks for specific complex logic
+    if (!startLocation?.trim()) {
+      validationErrors[`addresses.1.address_line_1`] = ["Start Location is required"];
+    }
 
-    if (!billingAddress1?.trim())
-      validationErrors[`addresses.2.address_line_1`] = [
-        "Billing Address is required",
-      ];
+    if (!billingAddress1?.trim()) {
+      validationErrors[`addresses.2.address_line_1`] = ["Billing Address is required"];
+    }
 
     if (!billingCity?.trim()) {
       validationErrors[`addresses.1.city`] = ["City is required"];
       validationErrors[`addresses.2.city`] = ["City is required"];
     }
+
     if (!billingProvince?.trim()) {
       validationErrors[`addresses.1.province`] = ["Province is required"];
       validationErrors[`addresses.2.province`] = ["Province is required"];
@@ -693,23 +717,14 @@ const VendorForm = () => {
       validationErrors.sync_email = ["The selected sync email is invalid."];
     }
 
-    if (
-      paymentPerKm === "" ||
-      isNaN(Number(paymentPerKm)) ||
-      Number(paymentPerKm) < 0
-    ) {
-      validationErrors.payment_per_km = [
-        "Payment per KM must be a positive number",
-      ];
-    }
-    if (enableServiceArea && (!map_coordinates || map_coordinates.length < 3)) {
-      validationErrors.map_coordinates = [
-        "Map coordinates are required and must have at least 3 points",
-      ];
+    const paymentVal = Number(paymentPerKm);
+    if (paymentPerKm === "" || isNaN(paymentVal) || paymentVal < 0) {
+      validationErrors.payment_per_km = ["Payment per KM must be a positive number"];
     }
 
-    if (!workHours.timezone)
-      validationErrors.timezone = ["Timezone is required"];
+    if (enableServiceArea && (!map_coordinates || map_coordinates.length < 3)) {
+      validationErrors.map_coordinates = ["Map coordinates are required and must have at least 3 points"];
+    }
 
     if (!userId && userType !== "vendor") {
       if (selectedServices.length === 0) {
@@ -717,24 +732,10 @@ const VendorForm = () => {
       } else {
         selectedServices.forEach((service, index) => {
           if (!service.service_id) {
-            validationErrors[`services[${index}].service_id`] = [
-              "Service ID is required",
-            ];
+            validationErrors[`services[${index}].service_id`] = ["Service ID is required"];
           }
           if (!service.options || service.options.length === 0) {
-            validationErrors[`services[${index}].options`] = [
-              `Options are required for selected service`,
-            ];
-          } else {
-            service.options.forEach((opt) => {
-              if (
-                opt.vendor_price === undefined ||
-                opt.vendor_price === null ||
-                isNaN(Number(opt.vendor_price)) ||
-                Number(opt.vendor_price) < 0
-              ) {
-              }
-            });
+            validationErrors[`services[${index}].options`] = [`Options are required for selected service`];
           }
         });
       }
@@ -743,9 +744,7 @@ const VendorForm = () => {
     if (Object.keys(validationErrors).length > 0) {
       setFieldErrors(validationErrors);
       const firstError = Object.values(validationErrors).flat()[0];
-      toast.error(
-        firstError || "Please fill in all required fields correctly."
-      );
+      toast.error(firstError || "Please fill in all required fields correctly.");
       return;
     }
 
@@ -1082,7 +1081,7 @@ const VendorForm = () => {
           </p>
         )}
         {userType !== "vendor" && (
-          <p className="text-[16px] md:text-[24px] font-[400]  text-[#4290E9]">
+          <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}>
             {" "}
             Vendor
             {currentUser
@@ -1130,7 +1129,7 @@ const VendorForm = () => {
       /> */}
       {
         <div
-          className="flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] text-[#4290E9] text-[18px] font-[600]"
+          className={`flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600]`}
           style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
         >
           <div className="flex gap-2">
@@ -1425,18 +1424,22 @@ const VendorForm = () => {
                                 setCompanyProvince(components.province);
                               }, 100);
 
-                              // Auto-copy full address to Billing Address Line 1
-                              setBillingAddress1(components.full_address);
+                                // Auto-copy full address to Billing Address Line 1 if toggle is on
+                                if (useHeadquarterForBilling) {
+                                  setBillingAddress1(components.full_address);
+                                }
 
-                              // Auto-fill Location Address fields
-                              setBillingAddress(components.full_address);
-                              setBillingCity(components.city);
-                              setBillingCountry(components.country);
-                              setBillingPostalCode(components.postal_code);
-                              setTimeout(() => {
-                                setBillingProvince(components.province);
-                              }, 100);
-                            }}
+                                // Auto-fill Location Address fields if toggle is on
+                                if (useHeadquarterForStart) {
+                                  setBillingAddress(components.full_address);
+                                  setBillingCity(components.city);
+                                  setBillingCountry(components.country);
+                                  setBillingPostalCode(components.postal_code);
+                                  setTimeout(() => {
+                                    setBillingProvince(components.province);
+                                  }, 100);
+                                }
+                              }}
                             className="h-[42px] mt-[12px]"
                             inputClassName={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] ${fieldErrors[`addresses.${1}.address_line_1`]
                               ? "border-red-500"
@@ -1623,21 +1626,34 @@ const VendorForm = () => {
                     <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
                       <div className="grid grid-cols-2 gap-[16px] text-sm font-normal text-[#424242]">
                         <div className="col-span-2">
-                          <label htmlFor="">
-                            Start Location{" "}
-                            <span className="text-red-500">*</span>
-                          </label>
+                          <div className="flex items-center justify-between mt-[12px]">
+                            <label htmlFor="">
+                              Start Location{" "}
+                              <span className="text-red-500">*</span>
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id="useHeadquarterForStart"
+                                checked={useHeadquarterForStart}
+                                onChange={(e) => setUseHeadquarterForStart(e.target.checked)}
+                                className="h-4 w-4"
+                              />
+                              <label htmlFor="useHeadquarterForStart" className="text-xs text-[#666666]">Same as Headquarter</label>
+                            </div>
+                          </div>
                           <Input
                             value={startLocation}
                             onChange={(e) => {
                               setStartLocation(e.target.value);
+                              setUseHeadquarterForStart(false);
                               if (fieldErrors[`addresses.1.address_line_1`]) {
                                 const newErrors = { ...fieldErrors };
                                 delete newErrors[`addresses.1.address_line_1`];
                                 setFieldErrors(newErrors);
                               }
                             }}
-                            className={`h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] mt-[12px] ${fieldErrors[`addresses.1.address_line_1`]
+                            className={`h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] mt-[8px] ${fieldErrors[`addresses.1.address_line_1`]
                               ? "border-red-500"
                               : "border-[#BBBBBB]"
                               }`}
@@ -1656,12 +1672,16 @@ const VendorForm = () => {
                           </label>
                           <GooglePlacesAutocomplete
                             value={billingAddress}
-                            onChange={(val) => setBillingAddress(val)}
+                            onChange={(val) => {
+                              setBillingAddress(val);
+                              setUseHeadquarterForStart(false);
+                            }}
                             onAddressComponents={(components) => {
                               setBillingAddress(components.address_line_1);
                               setBillingCity(components.city);
                               setBillingCountry(components.country);
                               setBillingPostalCode(components.postal_code);
+                              setUseHeadquarterForStart(false);
                               // Set province after a short delay to ensure states are loaded
                               setTimeout(() => {
                                 setBillingProvince(components.province);
@@ -1791,14 +1811,27 @@ const VendorForm = () => {
                           )}
                         </div>
                         <div className="col-span-2">
-                          <label htmlFor="">
-                            Billing Address {" "}
-                            <span className="text-red-500">*</span>
-                          </label>
+                          <div className="flex items-center justify-between mt-[12px]">
+                            <label htmlFor="">
+                              Billing Address {" "}
+                              <span className="text-red-500">*</span>
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id="useHeadquarterForBilling"
+                                checked={useHeadquarterForBilling}
+                                onChange={(e) => setUseHeadquarterForBilling(e.target.checked)}
+                                className="h-4 w-4"
+                              />
+                              <label htmlFor="useHeadquarterForBilling" className="text-xs text-[#666666]">Same as Headquarter</label>
+                            </div>
+                          </div>
                           <GooglePlacesAutocomplete
                             value={billingAddress1}
                             onChange={(val) => {
                               setBillingAddress1(val);
+                              setUseHeadquarterForBilling(false);
                               if (fieldErrors[`addresses.2.address_line_1`]) {
                                 const newErrors = { ...fieldErrors };
                                 delete newErrors[`addresses.2.address_line_1`];
@@ -1807,6 +1840,7 @@ const VendorForm = () => {
                             }}
                             onAddressComponents={(components) => {
                               setBillingAddress1(components.full_address);
+                              setUseHeadquarterForBilling(false);
                             }}
                             className="h-[42px] mt-[12px]"
                             inputClassName={`h-[42px] bg-[#EEEEEE] border-[1px] placeholder:text-[#9ca3af] ${fieldErrors[`addresses.2.address_line_1`]
@@ -1987,11 +2021,6 @@ const VendorForm = () => {
                           </div>
                         </>
                       )}
-                      <p className="text-[#666666] text-sm font-normal pt-4">
-                        Explanation of where these assets are used and
-                        leveraged, recommended/specify dimensions, color
-                        variations, etc.
-                      </p>
                     </div>
                   </div>
                 </AccordionContent>

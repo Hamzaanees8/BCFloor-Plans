@@ -32,6 +32,7 @@ export type ApiFile = {
     thumb?: string;
     popup?: string;
   };
+  service?: { id: number; uuid: string; name: string };
 };
 type CombinedFile = {
   id: string;
@@ -156,7 +157,7 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       // Wait 1.5 seconds between downloads
       await new Promise(res => setTimeout(res, 1500));
     }
@@ -284,9 +285,9 @@ const DownloadModal: React.FC<Props> = ({ open, onClose, localFiles, apiFiles })
 
                 <div className="relative w-[140px] h-[85px] shrink-0 bg-gray-100 rounded-md overflow-hidden">
                   {file.is_processing ? (
-                      <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
-                          <p className="text-gray-500 font-medium text-xs">Processing...</p>
-                      </div>
+                    <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                      <p className="text-gray-500 font-medium text-xs">Processing...</p>
+                    </div>
                   ) : file.type === 'photo' ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img

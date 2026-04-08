@@ -22,9 +22,12 @@ interface PrintRequestModalProps {
   open: boolean;
   onClose: () => void;
   featureSheetUuid: string | null;
+  agentId?: string;
+  propertyId?: string;
+  tourId?: string;
 }
 
-export default function PrintRequestModal({ open, onClose, featureSheetUuid }: PrintRequestModalProps) {
+export default function PrintRequestModal({ open, onClose, featureSheetUuid, agentId, propertyId, tourId }: PrintRequestModalProps) {
   const { userType } = useAppContext();
   const [copies, setCopies] = useState<number>(25);
   const [withBleed, setWithBleed] = useState<boolean>(false);
@@ -37,12 +40,24 @@ export default function PrintRequestModal({ open, onClose, featureSheetUuid }: P
       return;
     }
 
+    if (!agentId || !propertyId || !tourId) {
+      const missing = [];
+      if (!agentId) missing.push("Agent ID");
+      if (!propertyId) missing.push("Property ID");
+      if (!tourId) missing.push("Tour ID");
+      toast.error(`Missing associated order information: ${missing.join(", ")}`);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await featureSheetService.requestPrint(featureSheetUuid, {
         copies,
         with_bleed: withBleed,
         additional_info: additionalInfo,
+        agent_id: agentId,
+        property_id: propertyId,
+        tour_id: tourId,
       });
       toast.success("Print request sent successfully!");
       onClose();

@@ -327,7 +327,7 @@ export default function PendingItemsPage() {
                 })),
             };
 
-            const newlyGeneratedInvoice = await vendorBillingService.generateInvoice(generatePayload, token);
+            await vendorBillingService.generateInvoice(generatePayload, token);
             toast.success("Custom invoice generated successfully!");
             router.push('/dashboard/vendor-billing/invoices');
         } catch (err: any) {

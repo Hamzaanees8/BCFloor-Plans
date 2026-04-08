@@ -25,7 +25,17 @@ function BookNowPageContent() {
 
         const checkToken = () => {
             if (typeof window !== 'undefined') {
-                const token = localStorage.getItem('agentToken');
+                let token = localStorage.getItem('agentToken');
+                const dashboardToken = localStorage.getItem('token');
+                const userType = localStorage.getItem('userType');
+
+                // If user is logged into dashboard as admin or agent, use that token
+                if (!token && dashboardToken && (userType === 'admin' || userType === 'agent')) {
+                    token = dashboardToken;
+                    localStorage.setItem('agentToken', token);
+                    window.dispatchEvent(new Event('agentLogin'));
+                }
+
                 setHasAgentToken(!!token);
                 return token;
             }

@@ -253,4 +253,7 @@ export interface PrintRequestData {
     copies: number;
     with_bleed: boolean;
     additional_info?: string;
+    agent_id: string;
+    property_id: string;
+    tour_id: string;
 }

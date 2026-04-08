@@ -119,29 +119,44 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         return originalPrice;
     }, [services, sqFootage]);
 
-    // Helper function to calculate discounted price for a service
-    const calculateDiscountedPrice = React.useCallback((sel: SelectedService) => {
+    // Helper function to calculate discounted price for a service (code or quantity discount, whichever is greater)
+    const calculateServicePriceAfterDiscounts = React.useCallback((sel: SelectedService) => {
         const originalPrice = getOriginalPrice(sel);
+
+        if (sel.payment_status?.toUpperCase() === 'PAID') {
+            return originalPrice;
+        }
+
         const codeDiscount = appliedCodeDiscount?.services?.some(d => d.uuid === sel.uuid)
             ? appliedCodeDiscount
             : null;
         const quantityDiscounts = appliedQuantityDiscounts.filter(d =>
             d.services?.some(s => s.uuid === sel.uuid)
         );
-        const allDiscounts: Discount[] = [];
-        if (codeDiscount) allDiscounts.push(codeDiscount);
-        allDiscounts.push(...quantityDiscounts);
-        const bestDiscount = allDiscounts.reduce((best, curr) => {
+
+        const applicableDiscounts: Discount[] = [];
+        if (codeDiscount) applicableDiscounts.push(codeDiscount);
+        applicableDiscounts.push(...quantityDiscounts);
+
+        const bestDiscount = applicableDiscounts.reduce((best, curr) => {
             const currPercent = parseFloat(curr.percentage ?? "0");
             const bestPercent = best ? parseFloat(best.percentage ?? "0") : 0;
             return currPercent > bestPercent ? curr : best;
         }, null as Discount | null);
-        const finalPrice = bestDiscount
-            ? originalPrice * ((100 - parseFloat(bestDiscount.percentage ?? "0")) / 100)
-            : originalPrice;
 
+        if (!bestDiscount) return originalPrice;
+
+        const parsedPercent = parseFloat(bestDiscount.percentage ?? "0");
+        const finalPrice = originalPrice * Math.max(0, (100 - parsedPercent) / 100);
         return finalPrice;
     }, [getOriginalPrice, appliedCodeDiscount, appliedQuantityDiscounts]);
+
+    const calculatePackageDiscount = React.useCallback((rawTotal: number) => {
+        if (!activePackage || !activePackage.discount) return 0;
+        const packagePercent = Number(activePackage.discount) || 0;
+        if (packagePercent <= 0) return 0;
+        return Math.max(0, rawTotal * (packagePercent / 100));
+    }, [activePackage]);
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -211,36 +226,63 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     }, [selectedServices, discounts, setAppliedQuantityDiscounts]);
 
     useEffect(() => {
-        if (!selectedServices?.length || !services?.length) return;
-
-        let newTotal = 0;
-
-        selectedServices.forEach(sel => {
-            newTotal += calculateDiscountedPrice(sel);
-        });
-
-        if (activePackage && (activePackage.discount || 0) > 0) {
-            const rawShopTotal = selectedServices.reduce((sum, s) => {
-                return sum + getOriginalPrice(s);
-            }, 0);
-            const pkgDiscount = (rawShopTotal * (activePackage.discount || 0)) / 100;
-            // Ensure we don't go below zero?
-            newTotal = Math.max(0, newTotal - pkgDiscount);
+        if (!selectedServices?.length || !services?.length) {
+            setTotal(0);
+            return;
         }
 
-        setTotal(newTotal);
-    }, [selectedServices, services, appliedCodeDiscount, appliedQuantityDiscounts, setTotal, activePackage, listingsData, selectedListingId, tempPropertyData, getOriginalPrice, calculateDiscountedPrice]);
+        const rawTotal = selectedServices.reduce((sum, sel) => {
+            if (sel.payment_status?.toUpperCase() === 'PAID') {
+                return sum + getOriginalPrice(sel);
+            }
+            return sum + getOriginalPrice(sel);
+        }, 0);
+
+        const subtotalWithServiceDiscounts = selectedServices.reduce((sum, sel) => {
+            return sum + calculateServicePriceAfterDiscounts(sel);
+        }, 0);
+
+        const packageDiscount = calculatePackageDiscount(rawTotal);
+
+        const orderTotal = Math.max(0, subtotalWithServiceDiscounts - packageDiscount);
+
+        setTotal(Number(orderTotal.toFixed(2)));
+    }, [selectedServices, services, appliedCodeDiscount, appliedQuantityDiscounts, setTotal, activePackage, listingsData, selectedListingId, tempPropertyData, getOriginalPrice, calculateServicePriceAfterDiscounts, calculatePackageDiscount]);
 
     const handleApplyDiscount = () => {
+        if (!discountCode?.trim()) {
+            toast.error("Please enter a discount code.");
+            return;
+        }
+
+        const code = discountCode.trim().toLowerCase();
+
+        if (appliedCodeDiscount?.code_key?.toLowerCase() === code) {
+            toast.error("This discount code is already applied.");
+            return;
+        }
+
         const matched = discounts.find(
-            (d) => d.type === "code" && d.code_key?.toLowerCase() === discountCode.toLowerCase()
+            (d) => d.type === "code" && d.code_key?.toLowerCase() === code
         );
 
         if (!matched) {
             toast.error("Invalid discount code");
             return;
         }
-        // Check if selectedServices contains at least one of the services eligible for this discount
+
+        if (!matched.status) {
+            toast.error("This discount code is inactive.");
+            return;
+        }
+
+        const now = new Date();
+        const expiry = matched.expiry_date ? new Date(matched.expiry_date) : null;
+        if (expiry && expiry.getTime() < now.getTime()) {
+            toast.error("This discount code has expired.");
+            return;
+        }
+
         const validForService = selectedServices.some(sel =>
             matched.services?.some(dService => dService.uuid === sel.uuid)
         );
@@ -251,6 +293,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         }
 
         setAppliedCodeDiscount(matched);
+        setDiscountCode('');
         toast.success("Discount Applied Successfully");
     };
 
@@ -294,6 +337,20 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                 });
             }
         });
+
+        if (activePackage && activePackage.uuid && activePackage.discount && activePackage.discount > 0) {
+            const rawShopTotal = selectedServices.reduce((sum, s) => {
+                return sum + getOriginalPrice(s);
+            }, 0);
+            const pkgDiscountAmount = calculatePackageDiscount(rawShopTotal);
+
+            // Add package discount as a separate discount entry for auditing payload
+            discountPayload.push({
+                discount_id: activePackage.uuid,
+                type: 'package',
+                value: Number(pkgDiscountAmount.toFixed(2)),
+            });
+        }
 
         return discountPayload;
     };
@@ -340,22 +397,13 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                     .map(service => {
                         const isPaid = service.payment_status?.toUpperCase() === 'PAID';
                         const originalPrice = getOriginalPrice(service);
-
-                        if (isPaid) {
-                            return {
-                                ...(service.service_uuid && { uuid: service.service_uuid }),
-                                service_id: service.uuid as string,
-                                option_id: service.option_id ?? undefined,
-                                amount: Number(originalPrice.toFixed(2)),
-                                custom: service.custom ?? undefined
-                            };
-                        }
+                        const computedPrice = isPaid ? originalPrice : calculateServicePriceAfterDiscounts(service);
 
                         return {
                             ...(service.service_uuid && { uuid: service.service_uuid }), // Include uuid for existing services
                             service_id: service.uuid as string,
                             option_id: service.option_id ?? undefined,
-                            amount: Number(originalPrice.toFixed(2)),
+                            amount: Number(computedPrice.toFixed(2)),
                             custom: service.custom ?? undefined
                         };
                     }),

@@ -82,13 +82,13 @@ export interface ScheduleProps {
 const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
     const searchParams = useSearchParams();
     const isEdit = searchParams.get('isEdit') === 'true';
-    const [selectedVendorMap, setSelectedVendorMap] = React.useState<Record<number, string | string[]>>({});
-    const [showAllVendorsMap, setShowAllVendorsMap] = useState<Record<number, 0 | 1>>({});
-    const [scheduleOverrideMap, setScheduleOverrideMap] = useState<Record<number, 0 | 1>>({});
-    const [recommendTimeMap, setRecommendTimeMap] = useState<Record<number, 0 | 1>>({});
+    const [selectedVendorMap, setSelectedVendorMap] = React.useState<Record<string, string | string[]>>({});
+    const [showAllVendorsMap, setShowAllVendorsMap] = useState<Record<string, 0 | 1>>({});
+    const [scheduleOverrideMap, setScheduleOverrideMap] = useState<Record<string, 0 | 1>>({});
+    const [recommendTimeMap, setRecommendTimeMap] = useState<Record<string, 0 | 1>>({});
     const [filteredVendorsByService, setFilteredVendorsByService] = useState<Record<string, VendorData[]>>({});
     const [masterDate, setMasterDate] = useState<Date>(new Date());
-    const [serviceDates, setServiceDates] = useState<Record<number, Date | null>>({});
+    const [serviceDates, setServiceDates] = useState<Record<string, Date | null>>({});
     const [vendorDistances, setVendorDistances] = useState<Record<string, number>>({});
     const [selectedVendorForModal, setSelectedVendorForModal] = useState<VendorData | null>(null);
     const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
@@ -296,15 +296,16 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                 {(() => {
                     const servicesToSchedule = isEdit ? selectedServices : selectedServices.filter((s: any) => !s.service_uuid);
                     return servicesToSchedule?.map((service, idx) => {
-                        const selectedVendor = selectedVendorMap[idx] ?? 'all';
+                        const serviceKey = service.uuid || `service-${idx}`;
+                        const selectedVendor = selectedVendorMap[serviceKey] ?? 'all';
 
-                    const handleVendorChange = (value: string) => {
-                        setSelectedVendorMap((prev) => ({ ...prev, [idx]: value }));
-                    };
+                        const handleVendorChange = (value: string) => {
+                            setSelectedVendorMap((prev) => ({ ...prev, [serviceKey]: value }));
+                        };
 
-                    const showAllVendors = showAllVendorsMap[idx] ?? 0;
-                    const scheduleOverride = scheduleOverrideMap[idx] ?? 0;
-                    const recommendTime = recommendTimeMap[idx] ?? 0;
+                        const showAllVendors = showAllVendorsMap[serviceKey] ?? 0;
+                        const scheduleOverride = scheduleOverrideMap[serviceKey] ?? 0;
+                        const recommendTime = recommendTimeMap[serviceKey] ?? 0;
 
                     const currentService = servicesData?.find((s: Services) => s.uuid === service.uuid);
                     const productOption = currentService?.product_options?.find(
@@ -392,7 +393,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                             onCheckedChange={() =>
                                                 setShowAllVendorsMap((prev) => ({
                                                     ...prev,
-                                                    [idx]: showAllVendors === 1 ? 0 : 1,
+                                                    [serviceKey]: showAllVendors === 1 ? 0 : 1,
                                                 }))
                                             }
                                             className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
@@ -406,7 +407,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                             onCheckedChange={() =>
                                                 setScheduleOverrideMap((prev) => ({
                                                     ...prev,
-                                                    [idx]: scheduleOverride === 1 ? 0 : 1,
+                                                    [serviceKey]: scheduleOverride === 1 ? 0 : 1,
                                                 }))
                                             }
                                             className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
@@ -420,7 +421,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                             onCheckedChange={(checked) => {
                                                 setRecommendTimeMap((prev) => ({
                                                     ...prev,
-                                                    [idx]: checked ? 1 : 0,
+                                                    [serviceKey]: checked ? 1 : 0,
                                                 }));
 
                                                 if (checked) {
@@ -438,11 +439,11 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                         });
 
                                                         if (nearestVendorId) {
-                                                            setSelectedVendorMap((prev) => ({ ...prev, [idx]: nearestVendorId }));
+                                                            setSelectedVendorMap((prev) => ({ ...prev, [serviceKey]: nearestVendorId }));
                                                         }
                                                     }
                                                 } else {
-                                                    setSelectedVendorMap((prev) => ({ ...prev, [idx]: 'all' }));
+                                                    setSelectedVendorMap((prev) => ({ ...prev, [serviceKey]: 'all' }));
                                                 }
                                             }}
                                             className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
@@ -536,16 +537,16 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                 )}
                                             >
                                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {serviceDates[idx] || masterDate ? format(serviceDates[idx] || masterDate, "PPP") : <span>Pick a date</span>}
+                                                {serviceDates[serviceKey] || masterDate ? format(serviceDates[serviceKey] || masterDate, "PPP") : <span>Pick a date</span>}
                                             </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-0" align="end">
                                             <Calendar
                                                 mode="single"
-                                                selected={serviceDates[idx] || masterDate}
+                                                selected={serviceDates[serviceKey] || masterDate}
                                                 onSelect={(date) => {
                                                     if (date) {
-                                                        setServiceDates(prev => ({ ...prev, [idx]: date }));
+                                                        setServiceDates(prev => ({ ...prev, [serviceKey]: date }));
                                                     }
                                                 }}
                                                 initialFocus
@@ -604,6 +605,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                             }
                                             service={service}
                                             calendarIdx={idx}
+                                            serviceKey={serviceKey}
                                             showAllVendorsMap={showAllVendorsMap}
                                             scheduleOverrideMap={scheduleOverrideMap}
                                             recommendTimeMap={recommendTimeMap}
@@ -614,12 +616,12 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                 if (date) {
                                                     const [y, m, d] = date.split('-').map(Number);
                                                     const newDate = new Date(y, m - 1, d);
-                                                    setServiceDates(prev => ({ ...prev, [idx]: newDate }));
+                                                    setServiceDates(prev => ({ ...prev, [serviceKey]: newDate }));
                                                 }
                                             }}
                                             vendorDistances={vendorDistances}
                                             propertyTimezone={propertyLocation?.timeZoneId}
-                                            masterDate={serviceDates[idx] || masterDate}
+                                            masterDate={serviceDates[serviceKey] || masterDate}
                                             onVendorSelected={handleVendorChange}
                                         />
                                     </div>

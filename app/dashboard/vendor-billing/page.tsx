@@ -19,14 +19,14 @@ import {
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
-import { ChevronDown, ChevronUp, ExternalLink, Loader2, AlertCircle } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, Loader2 } from "lucide-react";
 import { Get, GetVendors } from "../orders/orders";
 import { toast } from "sonner";
 import { payVendor } from "./vendorBilling";
 import { Button } from "@/components/ui/button";
 import { GetOne } from "../vendors/vendors";
 import { useRouter } from "next/navigation";
-import { batchCalculateTravelCosts, buildTripChainLegs, calculateTravelCostFromBatch } from "@/lib/batchTravelCalculator";
+import { batchCalculateTravelCosts, buildTripChainLegs } from "@/lib/batchTravelCalculator";
 
 
 interface UnpaidService {
@@ -443,7 +443,7 @@ const Page = () => {
 
                     if (batchResult.status === "OK" || batchResult.status === "PARTIAL_FAILURE") {
                         // Map results back to orders
-                        let legIndex = 0;
+
 
                         for (let i = 0; i < travelOrdersForDay.length; i++) {
                             const order = travelOrdersForDay[i];

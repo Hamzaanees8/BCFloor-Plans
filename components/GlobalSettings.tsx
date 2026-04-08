@@ -1132,6 +1132,7 @@ const GlobalSettings = () => {
                             {tabs.map((tab) => (
                                 <button
                                     key={tab}
+                                    type="button"
                                     onClick={() => setActiveTab(tab)}
                                     className={`text-center px-6 py-2 text-[13px] whitespace-nowrap h-[32px] transition-all duration-200 cursor-pointer ${activeTab === tab
                                         ? `${userType}-bg text-white rounded-[6px] font-[500] shadow-sm`
@@ -1749,6 +1750,7 @@ const GlobalSettings = () => {
                                                                         {coagent.name} &lt;{coagent.email}&gt;
                                                                     </span>
                                                                     <button
+                                                                        type="button"
                                                                         onClick={() => removeAgent(index)}
                                                                         className="text-red-500 hover:text-red-700 ml-2 flex-shrink-0"
                                                                     >
@@ -2078,6 +2080,7 @@ const GlobalSettings = () => {
                                                                         return (
                                                                             <button
                                                                                 key={day}
+                                                                                type="button"
                                                                                 onClick={() => toggleDay(day)}
                                                                                 className="flex items-center gap-2 cursor-pointer text-[#666666] text-sm"
                                                                             >

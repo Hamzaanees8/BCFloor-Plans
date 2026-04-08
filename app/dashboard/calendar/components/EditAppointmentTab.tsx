@@ -15,7 +15,7 @@ import { useOrderContext } from '../../orders/context/OrderContext';
 import { useAppContext } from '@/app/context/AppContext';
 
 import Link from 'next/link';
-
+import { getEffectiveServiceDuration } from "../../orders/utils/serviceTimeUtils";
 // interface Notes {
 //     name: string;
 //     note: string;
@@ -70,9 +70,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
     // const [additionalServices, setAdditionalServices] = useState<
     //     { serviceId: number; optionId: string | null; price: string }[]
     // >([]);
-
-    const { setCalendarServices, calendarServices, servicesData, OrderServices, setOrderServices, setSelectedSlots } = useOrderContext();
-
+    const { setCalendarServices, calendarServices, servicesData, OrderServices, setOrderServices, selectedSlots, setSelectedSlots } = useOrderContext();
     useEffect(() => {
         // This was a problematic useEffect without dependencies
         // setCalendarServices(calendarServices)
@@ -185,6 +183,51 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
         setEditingNoteIndex(null);
         setTempNotes('');
     };
+
+    const [invalidServices, setInvalidServices] = useState<string[]>([]);
+
+    useEffect(() => {
+        const sqFt = parseInt(squareFootage, 10);
+        const hasValidSqFt = !isNaN(sqFt);
+
+        const allServices = [
+            ...OrderServices.map((s) => ({
+                uuid: s.service?.uuid,
+                id: s.service?.id,
+                optionId: s.option?.uuid,
+            })),
+            ...calendarServices.map((cs) => {
+                const matchedService = servicesData.find((s) => s.id === cs.serviceId);
+                return {
+                    uuid: matchedService?.uuid,
+                    id: cs.serviceId,
+                    optionId: cs.optionId,
+                };
+            }),
+        ];
+
+        const newInvalidServices: string[] = [];
+
+        for (const srv of allServices) {
+            if (!srv.uuid) continue;
+
+            const serviceData = servicesData.find((sd) => sd.uuid === srv.uuid || sd.id === srv.id);
+            const productOption = serviceData?.product_options?.find((opt) => opt.uuid === srv.optionId);
+
+            const requiredDuration = getEffectiveServiceDuration(productOption?.service_duration, hasValidSqFt ? sqFt : undefined);
+            const serviceSlots = selectedSlots.filter((slot) => slot.service_id === srv.uuid);
+            const allocatedDuration = serviceSlots.length * 15;
+
+            // Only mark invalid if there's > 0 required duration and we haven't met it.
+            // When calendarService is just added, selectedSlots is empty, length * 15 = 0
+            if (requiredDuration > 0 && allocatedDuration < requiredDuration) {
+                newInvalidServices.push(srv.uuid);
+            }
+        }
+
+        setInvalidServices(newInvalidServices);
+    }, [OrderServices, calendarServices, servicesData, selectedSlots, squareFootage]);
+
     return (
         <Accordion
             type="multiple"
@@ -607,7 +650,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
 
                         </div>
                         <div>
-                            <Schedule currentOrder={currentOrder} />
+                            <Schedule currentOrder={currentOrder} invalidServices={invalidServices} />
                             {/* <div className='col-span-5 flex items-center justify-end mt-[10px]'>
                                 <label className='flex items-center justify-end gap-x-[10px] cursor-pointer'>
                                     <input

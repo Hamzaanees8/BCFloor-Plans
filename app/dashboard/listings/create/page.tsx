@@ -239,11 +239,12 @@ const ListingsFrom = () => {
             setIsStaticmail(!!data.send_statistics_email);
             setEmailFrequency(data.statistics_email_frequency || "");
             setstaticEmail(data.statistics_email_recipients || []);
-            // Use setTimeout to ensure all state updates and DOM updates complete
+            // Use setTimeout to ensure all state updates + cascading effects (e.g. country→states)
+            // complete before dirty tracking is enabled. 300ms covers the async chain.
             setTimeout(() => {
               isPopulatingData.current = false;
               hasInitiallyRendered.current = true;
-            }, 100);
+            }, 300);
 
             setIsDirty(false);
           }
@@ -281,7 +282,11 @@ const ListingsFrom = () => {
   useEffect(() => {
     if (country) {
       setStates(State.getStatesOfCountry(country));
-      setProvince("");
+      // Only reset province when the user manually changes country,
+      // not when we are populating existing data from the API.
+      if (!isPopulatingData.current) {
+        setProvince("");
+      }
     }
   }, [country]);
 

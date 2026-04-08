@@ -32,6 +32,7 @@ import {
 import WarningIcon from "@/components/Icons";
 import NotificationModal from "./NotificationModal";
 import { useAppContext } from "@/app/context/AppContext";
+import { getEffectiveServiceDuration } from "../../orders/utils/serviceTimeUtils";
 
 interface OrderDetailViewProps {
   open: boolean;
@@ -147,6 +148,13 @@ export default function OrderDetailView({
       setShowAgentModal(false);
       setShowVendorModal(true);
       setShowNotification(true);
+    } else {
+      // No notification selected, close the dialog
+      onClose();
+      setOrderServices([]);
+      setSelectedSlots([]);
+      setCalendarServices([]);
+      setIsEdit(false);
     }
   };
 
@@ -176,12 +184,86 @@ export default function OrderDetailView({
   }, [servicesData.length, setServicesData]);
 
   useEffect(() => {
-    if (open && currentOrder) {
-      setOrderServices(currentOrder.services || []);
+    if (open) {
+      setIsEdit(false);
+      setActiveTab("appointment");
+      setAgentChecked(false);
+      setVendorChecked(false);
+      setVendorSelected(false);
+      setShowAgentModal(false);
+      setShowVendorModal(false);
+      setShowNotification(false);
+      setShowConfirmation(false);
+      
+      if (currentOrder) {
+        setOrderServices(currentOrder.services || []);
+        setNotes(
+          (currentOrder.notes || []).map((n) => ({
+            ...n,
+            date: n.date instanceof Date ? n.date.toISOString() : String(n.date),
+          })),
+        );
+        setCoAgent(currentOrder.co_agents || []);
+        setArea(currentOrder.areas || []);
+      }
     }
-  }, [open, currentOrder, setOrderServices]);
+  }, [open, orderId, currentOrder, setOrderServices]);
   const handleSubmitOrder = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
+
+    // Check duration requirements before processing payload
+    const allServices = [
+      ...OrderServices.map((s) => ({
+        uuid: s.service?.uuid,
+        id: s.service?.id,
+        optionId: s.option?.uuid,
+        name: s.service?.name,
+      })),
+      ...calendarServices.map((s) => {
+        const matched = servicesData.find((sd) => sd.id === s.serviceId);
+        return {
+          uuid: matched?.uuid,
+          id: s.serviceId,
+          optionId: s.optionId,
+          name: matched?.name,
+        };
+      }),
+    ];
+
+    const sqFt = currentOrder?.property?.square_footage;
+    let hasInvalidDuration = false;
+
+    for (const srv of allServices) {
+      if (!srv.uuid) continue;
+
+      const currentServiceData = servicesData.find(
+        (sd) => sd.uuid === srv.uuid || sd.id === srv.id
+      );
+      const productOption = currentServiceData?.product_options?.find(
+        (opt) => opt.uuid === srv.optionId
+      );
+
+      const requiredDuration = getEffectiveServiceDuration(
+        productOption?.service_duration,
+        sqFt
+      );
+      const currentServiceSlots = selectedSlots.filter(
+        (slot) => slot.service_id === srv.uuid
+      );
+
+      if (currentServiceSlots.length * 15 < requiredDuration) {
+        const slotsNeeded = Math.ceil((requiredDuration - currentServiceSlots.length * 15) / 15);
+        toast.error(
+          `Please add ${slotsNeeded} more slot(s) for "${srv.name}". Required: ${requiredDuration} min, Selected: ${currentServiceSlots.length * 15} min`
+        );
+        hasInvalidDuration = true;
+      }
+    }
+
+    if (hasInvalidDuration) {
+      return false;
+    }
+
     const calendarServicesPayload = calendarServices
       .map((service) => {
         const matchedService = servicesData.find(
@@ -285,20 +367,17 @@ export default function OrderDetailView({
 
       if (response?.success) {
         toast.success("Order updated successfully");
-        onClose();
-        setOrderServices([]);
-        setSelectedSlots([]);
-        setCalendarServices([]);
-        setIsEdit(false);
+        // onClose();
+        // setOrderServices([]);
+        // setSelectedSlots([]);
+        // setCalendarServices([]);
+        // setIsEdit(false);
+        return true;
       } else {
         toast.error("Something went wrong");
+        return false;
       }
     } catch (error) {
-      // setIsLoading(false);
-      // setIsSubmitted(false);
-      // console.log('Raw error:', error);
-
-      // setFieldErrors({});
       const apiError = error as {
         message?: string;
         errors?: Record<string, string[]>;
@@ -314,16 +393,12 @@ export default function OrderDetailView({
           }
           normalizedErrors[normalizedKey].push(...messages);
         });
-
-        // setFieldErrors(normalizedErrors);
-
-        // const firstError = Object.values(normalizedErrors).flat()[0];
-        // toast.error(firstError || 'Validation error');
       } else if (error instanceof Error) {
         toast.error(error.message);
       } else {
         toast.error("Failed to submit order data");
       }
+      return false;
     }
   };
 
@@ -449,9 +524,11 @@ export default function OrderDetailView({
                 Close
               </Button>
               <Button
-                onClick={(e) => {
-                  handleSubmitOrder(e);
-                  setShowConfirmation(true);
+                onClick={async (e) => {
+                  const success = await handleSubmitOrder(e);
+                  if (success) {
+                    setShowConfirmation(true);
+                  }
                 }}
                 className={`${userType}-bg ${userType}-border text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff]  w-[132px] h-[42px] hover:text-white hover-${userType}-bg hover:opacity-95`}
               >
@@ -579,7 +656,7 @@ export default function OrderDetailView({
           order={currentOrder}
           agent={currentOrder?.agent}
           vendor={currentOrder?.vendor}
-          service={currentOrder?.services?.[0]?.service}
+          service={currentOrder?.services?.find((s: any) => s.service.id === serviceId)?.service}
         />
       </AlertDialog>
     </Dialog>

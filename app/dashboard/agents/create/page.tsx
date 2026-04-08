@@ -297,6 +297,9 @@ const AgentForm = () => {
                         role.name.toLowerCase() === 'agent'
                     );
 
+                    // Set role while inside the populate guard so it doesn't
+                    // trigger a dirty state on create mode.
+                    isPopulatingData.current = true;
                     if (agentRoles.length > 0) {
                         setRole(String(agentRoles[0].id));
                     } else if (allRoles.length > 0) {
@@ -305,6 +308,11 @@ const AgentForm = () => {
                         setRole(String(allRoles[0].id));
                     }
                     setRoles(allRoles);
+                    // Release guard shortly after — the form onChange will fire
+                    // after this resolves, so we need a brief wait.
+                    setTimeout(() => {
+                        isPopulatingData.current = false;
+                    }, 100);
                 })
                 .catch(err => console.log(err.message));
 
@@ -369,11 +377,12 @@ const AgentForm = () => {
             }
             setAgentNotes(currentUser.notes || "")
 
-            // Use setTimeout to ensure all state updates and DOM updates complete
+            // Use setTimeout to ensure all state updates and DOM updates complete.
+            // 300ms covers cascading async effects triggered by state changes above.
             setTimeout(() => {
                 isPopulatingData.current = false;
                 hasInitiallyRendered.current = true;
-            }, 100);
+            }, 300);
 
             setIsDirty(false);
         }

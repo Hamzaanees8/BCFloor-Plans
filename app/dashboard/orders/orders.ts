@@ -856,3 +856,30 @@ export function convertVendorWorkHoursToPropertyTimezone(
 
   return converted;
 }
+
+export async function SyncToMls(
+  tourId: string,
+  payload: { file_ids: number[] },
+  token: string
+) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  const response = await fetch(`${API_URL}/tours/${tourId}/sync-mls`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = new Error(data.message || "MLS Sync failed");
+    (error as FetchErrors).errors = data.errors;
+    throw error;
+  }
+
+  return data;
+}

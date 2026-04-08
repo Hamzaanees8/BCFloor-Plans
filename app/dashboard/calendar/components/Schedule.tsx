@@ -530,7 +530,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                                     [idx]: showAllVendors === 1 ? 0 : 1,
                                                 }))
                                             }
-                                            className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
+                                            className={cn("data-[state=unchecked]:bg-gray-300", showAllVendors ? `${userType}-bg border-none` : "")}
                                         />
                                         <p className="text-[12px]">Show all Vendors Regardless of Travel Time</p>
                                     </div>
@@ -543,7 +543,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                                     [idx]: scheduleOverride === 1 ? 0 : 1,
                                                 }))
                                             }
-                                            className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
+                                            className={cn("data-[state=unchecked]:bg-gray-300", scheduleOverride ? `${userType}-bg border-none` : "")}
                                         />
                                         <p className="text-[12px]">Schedule Override</p>
                                     </div>
@@ -579,7 +579,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                                     setSelectedVendorMap((prev) => ({ ...prev, [idx]: 'all' }));
                                                 }
                                             }}
-                                            className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
+                                            className={cn("data-[state=unchecked]:bg-gray-300", recommendTime ? `${userType}-bg border-none` : "")}
                                         />
                                         <p className="text-[12px]">Recommend Best Time</p>
                                     </div>
@@ -589,7 +589,10 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                         value={typeof selectedVendor === 'string' ? selectedVendor : 'all'}
                                         onValueChange={handleVendorChange}
                                     >
-                                        <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
+                                        <SelectTrigger 
+                                            className="w-full h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                        >
                                             <SelectValue placeholder="Select Vendor" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -646,7 +649,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                                             setSelectedVendorForModal(vendor);
                                                             setIsVendorModalOpen(true);
                                                         }}
-                                                        className="w-full text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700 flex gap-2 items-center justify-center mt-2 capitalize"
+                                                        className={`w-full ${userType}-text ${userType}-border hover-${userType}-bg hover:text-white flex gap-2 items-center justify-center mt-2 capitalize`}
                                                     >
                                                         <Images className="w-4 h-4" />
                                                         {`View Portfolio`}
@@ -670,8 +673,9 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                             <Button
                                                 variant={"outline"}
                                                 className={cn(
-                                                    "w-full h-[42px] justify-start text-left font-normal bg-[#EEEEEE] border-[#BBBBBB] text-[#7D7D7D] mt-3",
+                                                    `w-full h-[42px] justify-start text-left font-normal border-[#BBBBBB] text-[#7D7D7D] mt-3`,
                                                 )}
+                                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                             >
                                                 <CalendarIcon className="mr-2 h-4 w-4" />
                                                 {serviceDates[idx] ? format(serviceDates[idx]!, "PPP") : <span>Pick a date</span>}

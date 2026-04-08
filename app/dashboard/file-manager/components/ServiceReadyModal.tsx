@@ -226,12 +226,20 @@ const ServiceReadyModal: React.FC<Props> = ({
         // Find in DB templates first
         const dbMatch = dbTemplates.find(t => t.uuid === val);
         if (dbMatch) {
-            const templateData = prepareTemplateData(orderData, orderData?.agent, serviceDate);
+            const templateData = prepareTemplateData(orderData, orderData?.agent, serviceDate, null, {
+                action_url: `${window.location.origin}/dashboard/file-manager/${orderData?.uuid}`,
+                vendor_number: orderData?.vendor?.primary_phone || "",
+            });
             setDescriptionAgent(interpolateTemplate(dbMatch.content, templateData));
         } else {
             const html = templateHTMLs[val];
             if (html) {
-                setDescriptionAgent(html);
+                // For fallback HTML strings, we should also try to interpolate if they contain placeholders
+                const templateData = prepareTemplateData(orderData, orderData?.agent, serviceDate, null, {
+                    action_url: `${window.location.origin}/dashboard/file-manager/${orderData?.uuid}`,
+                    vendor_number: orderData?.vendor?.primary_phone || "",
+                });
+                setDescriptionAgent(interpolateTemplate(html, templateData));
             }
         }
     };

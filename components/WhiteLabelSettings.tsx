@@ -65,6 +65,7 @@ const Settings = () => {
                         {(['admin', 'vendor', 'agent'] as const).map((roleKey) => (
                             <button
                                 key={roleKey}
+                                type="button"
                                 onClick={() => setActiveTab(roleKey)}
                                 className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all capitalize ${activeTab === roleKey
                                     ? 'text-white shadow-sm'
@@ -322,6 +323,7 @@ const Settings = () => {
                     >
                         {/* Collapse Button */}
                         <button
+                            type="button"
                             onClick={() => setIsCollapsed(!isCollapsed)}
                             className="absolute top-[55px] -right-3 z-[9] flex items-center justify-center h-5 w-7 rounded-[4px] bg-white border border-[#D1D5DB] shadow-sm text-[#6B7280] hover:bg-gray-50 cursor-pointer"
                         >
@@ -485,6 +487,7 @@ const Settings = () => {
                                     {['SETTINGS', 'TOUR SETTINGS'].map(tab => (
                                         <button
                                             key={tab}
+                                            type="button"
                                             className={`text-center px-4 py-2 text-[13px] w-[180px] h-[32px] transition-colors ${tab === 'SETTINGS'
                                                 ? 'text-white rounded-[6px] font-[500]'
                                                 : 'text-[#666666] font-[700]'

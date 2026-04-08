@@ -178,34 +178,34 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent
-                className="w-[900px] max-w-[90vw] h-[90vh] p-0 flex flex-col overflow-hidden bg-[#FAFAFA] rounded-[8px] font-alexandria shadow-lg"
+                className="w-[1100px] max-w-[95vw] h-[95vh] p-0 flex flex-col overflow-hidden bg-[#FAFAFA] rounded-[12px] font-alexandria shadow-2xl"
             >
-                <DialogHeader className="px-6 py-4 flex-shrink-0 bg-[#FAFAFA] z-20 border-b border-[#BBBBBB]">
-                    <DialogTitle className="flex justify-between items-center text-[#4290E9] uppercase text-[18px] font-[600]">
+                <DialogHeader className="px-8 py-5 flex-shrink-0 bg-white z-20 border-b border-[#EEEEEE]">
+                    <DialogTitle className="flex justify-between items-center text-[#4290E9] uppercase text-[20px] font-[700] tracking-tight">
                         {initialData ? "Edit Email Template" : "Create Email Template"}
-                        <DialogClose className="border-none shadow-none hover:bg-transparent !p-0">
-                            <X className="w-5 h-5 text-[#7D7D7D] cursor-pointer" />
+                        <DialogClose className="border-none shadow-none hover:bg-gray-100 rounded-full p-2 transition-all">
+                            <X className="w-6 h-6 text-[#7D7D7D] cursor-pointer" />
                         </DialogClose>
                     </DialogTitle>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden text-[#666666]">
-                    <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-4">
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-6">
+                        <div className="grid grid-cols-2 gap-6 text-sm">
                             <div className="flex flex-col gap-2">
-                                <Label htmlFor="title">Title <span className="text-red-500">*</span></Label>
+                                <Label htmlFor="title" className="font-semibold text-gray-700">Title <span className="text-red-500">*</span></Label>
                                 <Input
                                     id="title"
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                     placeholder="e.g. Reschedule Notification"
-                                    className="h-[42px] bg-[#EEEEEE] border-[#BBBBBB]"
+                                    className="h-[46px] bg-white border-[#DDDDDD] focus:border-[#4290E9] focus:ring-1 focus:ring-[#4290E9] transition-all rounded-md"
                                 />
                             </div>
                             <div className="flex flex-col gap-2">
-                                <Label htmlFor="type">Type <span className="text-red-500">*</span></Label>
+                                <Label htmlFor="type" className="font-semibold text-gray-700">Type <span className="text-red-500">*</span></Label>
                                 <Select value={type} onValueChange={setType}>
-                                    <SelectTrigger id="type" className="h-[42px] bg-[#EEEEEE] border-[#BBBBBB]">
+                                    <SelectTrigger id="type" className="h-[46px] bg-white border-[#DDDDDD] transition-all rounded-md">
                                         <SelectValue placeholder="Select a type" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -222,13 +222,13 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                         </div>
 
                         <div className="flex flex-col gap-2 text-sm">
-                            <Label htmlFor="tags">Tags</Label>
-                            <div className="flex flex-wrap gap-2 items-center bg-[#EEEEEE] border-[#BBBBBB] border rounded-md p-2 min-h-[42px]">
+                            <Label htmlFor="tags" className="font-semibold text-gray-700">Tags</Label>
+                            <div className="flex flex-wrap gap-2 items-center bg-white border-[#DDDDDD] border rounded-md p-2 min-h-[46px]">
                                 {tags.map((t, idx) => (
-                                    <span key={idx} className="flex items-center gap-1 bg-white border border-[#BBBBBB] px-2 py-1 rounded-full text-xs text-[#666666]">
+                                    <span key={idx} className="flex items-center gap-1 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-full text-xs text-[#4290E9] font-medium">
                                         {t}
                                         <X
-                                            className="w-3 h-3 cursor-pointer text-red-500 hover:text-red-700"
+                                            className="w-3.5 h-3.5 cursor-pointer text-blue-400 hover:text-blue-600 transition-colors"
                                             onClick={() => setTags(tags.filter((_, i) => i !== idx))}
                                         />
                                     </span>
@@ -247,29 +247,30 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                                         }
                                     }}
                                     placeholder="Type tag and press Enter"
-                                    className="flex-1 bg-transparent min-w-[120px] outline-none border-none text-sm placeholder:text-gray-400"
+                                    className="flex-1 bg-transparent min-w-[150px] outline-none border-none text-sm placeholder:text-gray-400 py-1"
                                 />
                             </div>
                         </div>
 
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-3 bg-white p-3 rounded-md border border-[#EEEEEE] w-fit">
                             <Switch
                                 id="isActive"
                                 checked={isActive}
                                 onCheckedChange={setIsActive}
                                 className={isActive ? "data-[state=checked]:bg-[#6BAE41]" : "data-[state=unchecked]:bg-red-500"}
                             />
-                            <Label htmlFor="isActive" className="cursor-pointer">{isActive ? "Active" : "Inactive"}</Label>
+                            <Label htmlFor="isActive" className="cursor-pointer font-medium text-gray-700">{isActive ? "Active" : "Inactive"}</Label>
                         </div>
 
-                        <div className="flex flex-col gap-4">
-                            <div className="flex-1 flex flex-col gap-2 relative z-10 w-full min-w-0">
+                        <div className="flex flex-col lg:flex-row gap-8 flex-1 min-h-[650px]">
+                            {/* Left Side: Editor */}
+                            <div className="flex-[3] flex flex-col gap-4 relative z-10 min-w-0">
                                 <div className="flex justify-between items-center">
-                                    <Label>Template Content <span className="text-red-500">*</span></Label>
+                                    <Label className="font-bold text-gray-800 text-base">Template Content <span className="text-red-500">*</span></Label>
                                     
                                     {/* Signature Insertion Dropdown */}
                                     <div className="flex items-center gap-2">
-                                        <Label className="text-xs text-[#888] font-semibold invisible sm:visible">Insert Signature:</Label>
+                                        <Label className="text-xs text-[#888] font-semibold hidden md:inline-block">Insert Signature:</Label>
                                         <Select 
                                             onValueChange={(val) => {
                                                 const sig = signatures.find(s => s.uuid === val);
@@ -278,15 +279,15 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                                                 }
                                             }}
                                         >
-                                            <SelectTrigger className="h-8 w-[200px] text-xs bg-white border-[#4290E9] text-[#4290E9] font-semibold">
+                                            <SelectTrigger className="h-9 w-[220px] text-xs bg-white border-[#4290E9] text-[#4290E9] font-bold shadow-sm hover:bg-blue-50 transition-colors">
                                                 <SelectValue placeholder={fetchingSigs ? "Loading..." : "Choose a signature"} />
                                             </SelectTrigger>
                                             <SelectContent className="z-[1000]">
                                                 {signatures.length === 0 ? (
-                                                    <SelectItem value="none" disabled>No signatures found</SelectItem>
+                                                    <SelectItem value="none" disabled className="text-xs">No signatures found</SelectItem>
                                                 ) : (
                                                     signatures.map((sig) => (
-                                                        <SelectItem key={sig.uuid} value={sig.uuid}>
+                                                        <SelectItem key={sig.uuid} value={sig.uuid} className="text-xs">
                                                             {sig.name}
                                                         </SelectItem>
                                                     ))
@@ -295,7 +296,7 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                                         </Select>
                                     </div>
                                 </div>
-                                <div className="border border-[#BBBBBB] bg-white rounded-md p-2 min-h-[300px] w-full max-w-full overflow-hidden">
+                                <div className="border border-[#DDDDDD] bg-white rounded-lg p-1.5 flex-1 w-full max-w-full overflow-hidden shadow-inner">
                                     {open && <RichTextEditor
                                         value={content}
                                         onChange={setContent}
@@ -304,38 +305,41 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                                     />}
                                 </div>
                             </div>
-                        </div>
 
-                            <div className="flex-shrink-0 bg-white border border-[#BBBBBB] rounded-md p-4 text-xs mt-4">
-                                <h4 className="font-semibold text-sm mb-2 text-[#4290E9]">Common Placeholders</h4>
-                                <p className="mb-2 text-[#888]">Click on a tag below to dynamically insert it at the cursor.</p>
-                                <ul className="flex flex-wrap gap-2 font-mono bg-[#f4f4f4] p-2 rounded max-h-[200px] overflow-y-auto">
-                                    {["{{user_name}}", "{{company_name}}", "{{order_id}}", "{{date}}", "{{service_name}}", "{{amount}}", "{{action_url}}", "{{reset_link}}"].map((ph) => (
-                                        <li
-                                            key={ph}
-                                            onClick={() => setTextToInsert(ph)}
-                                            className="cursor-pointer hover:bg-[#e0e0e0] p-1.5 rounded transition-colors text-gray-500 font-semibold inline-block bg-white border"
-                                            title="Click to insert"
-                                        >
-                                            {ph}
-                                        </li>
-                                    ))}
-                                </ul>
-
-                                {/* {initialData && (
-                                    <div className="mt-6 border-t pt-4 max-w-xs">
-                                        <h4 className="font-semibold text-sm mb-2 text-[#4290E9]">Preview Template</h4>
-                                        <Button
-                                            type="button"
-                                            onClick={handlePreview}
-                                            disabled={previewLoading}
-                                            className="w-full flex items-center justify-center gap-2 bg-[#6BAE41] hover:bg-[#5a9c33] text-white"
-                                        >
-                                            {previewLoading ? "Loading..." : "Load Preview"}
-                                        </Button>
+                            {/* Right Side: Placeholders */}
+                            <div className="flex-1 flex flex-col gap-4">
+                                <div className="bg-white border border-[#DDDDDD] rounded-lg p-5 sticky top-0 h-full flex flex-col shadow-sm">
+                                    <h4 className="font-bold text-sm mb-3 text-[#4290E9] uppercase tracking-widest">Dynamic Tags</h4>
+                                    <p className="mb-5 text-[#888] text-xs leading-relaxed">Click any tag below to insert it dynamically at your cursor position.</p>
+                                    <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                                        <ul className="flex flex-wrap gap-2.5 font-mono bg-[#f9f9f9] p-4 rounded-xl content-start border border-dashed border-[#CCCCCC]">
+                                            {[
+                                                "{{user_name}}", 
+                                                "{{agent_name}}",
+                                                "{{vendor_name}}",
+                                                "{{vendor_number}}",
+                                                "{{property_address}}", 
+                                                "{{order_id}}", 
+                                                "{{service_name}}", 
+                                                "{{amount}}", 
+                                                "{{schedule_date}}", 
+                                                "{{schedule_time}}", 
+                                                "{{company_name}}", 
+                                            ].map((ph) => (
+                                                <li
+                                                    key={ph}
+                                                    onClick={() => setTextToInsert(ph)}
+                                                    className="cursor-pointer hover:bg-[#4290E9] hover:text-white hover:scale-105 hover:shadow-md p-2.5 rounded-lg transition-all text-[#555555] font-bold text-[11px] inline-block bg-white border border-[#EEEEEE] shadow-sm select-none border-b-2 active:translate-y-0.5 active:shadow-inner"
+                                                    title={`Click to insert ${ph}`}
+                                                >
+                                                    {ph}
+                                                </li>
+                                            ))}
+                                        </ul>
                                     </div>
-                                )} */}
+                                </div>
                             </div>
+                        </div>
 
                         {previewHtml && (
                             <div className="mt-4 p-4 border border-[#4290E9] rounded bg-white">

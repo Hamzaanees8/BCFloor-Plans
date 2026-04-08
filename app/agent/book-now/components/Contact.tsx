@@ -119,9 +119,18 @@ const BookNowContact = () => {
 
     useEffect(() => {
         setUserName("Agent");
-        // Check for agentToken
-        const token = localStorage.getItem('agentToken');
-        setHasAgentToken(!!token);
+        const checkAuth = () => {
+             const token = localStorage.getItem('agentToken');
+             setHasAgentToken(!!token);
+        };
+        checkAuth();
+        
+        window.addEventListener('storage', checkAuth);
+        window.addEventListener('agentLogin', checkAuth);
+        return () => {
+             window.removeEventListener('storage', checkAuth);
+             window.removeEventListener('agentLogin', checkAuth);
+        }
     }, []);
 
     useEffect(() => {

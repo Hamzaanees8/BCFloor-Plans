@@ -30,6 +30,10 @@ export async function fetchGlobalTemplates(type?: string) {
  * Interpolates a template string with provided data.
  * Supports both {snake_case_placeholder} and {human readable placeholder}.
  */
+/**
+ * Interpolates a template string with provided data.
+ * Supports both {placeholder}, {{placeholder}}, {human readable placeholder}, and {{human readable placeholder}}.
+ */
 export function interpolateTemplate(html: string, data: Record<string, any>) {
     if (!html) return "";
     let result = html;
@@ -37,31 +41,42 @@ export function interpolateTemplate(html: string, data: Record<string, any>) {
     // Helper to escape regex special characters
     const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    // 1. Process standard placeholders like {agent_name}
+    // 1. Process all data placeholders (handles both {key} and {{key}})
     Object.entries(data).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-            const regex = new RegExp(`{${escapeRegExp(key)}}`, 'g');
+            // Allow optional double braces and optional whitespace inside
+            const escapedKey = escapeRegExp(key);
+            const regex = new RegExp(`{{?\\s*${escapedKey}\\s*}?}`, 'g');
             result = result.replace(regex, String(value));
         }
     });
 
     // 2. Backward compatibility mapping for specific old placeholders
     const legacyMapping: Record<string, string> = {
-        "{agent name}": data.agent_name || "",
-        "{service name}": data.service_name || "",
-        "{listing location}": data.listing_address || "",
-        "{listing address}": data.listing_address || "",
-        "{vendor name}": data.vendor_name || "",
-        "{order id}": data.order_id || "",
-        "{appointment date}": data.appointment_date || "",
-        "{appointment time}": data.appointment_time || "",
+        "agent name": data.agent_name || "",
+        "service name": data.service_name || "",
+        "listing location": data.listing_address || "",
+        "listing address": data.listing_address || "",
+        "vendor name": data.vendor_name || "",
+        "vendor number": data.vendor_number || data.vendor_phone || "",
+        "vendor phone": data.vendor_phone || data.vendor_number || "",
+        "order id": data.order_id || "",
+        "appointment date": data.appointment_date || "",
+        "appointment time": data.appointment_time || "",
+        // Add more human-readable mappings
+        "user name": data.agent_name || "",
+        "property address": data.listing_address || "",
+        "amount": data.amount || "",
+        "date": data.appointment_date || "",
+        "schedule date": data.appointment_date || "",
+        "schedule time": data.appointment_time || "",
     };
 
     Object.entries(legacyMapping).forEach(([key, value]) => {
-        if (value) {
-            const regex = new RegExp(escapeRegExp(key), 'g');
-            result = result.replace(regex, String(value));
-        }
+        const escapedKey = escapeRegExp(key);
+        // Match both {human readable} and {{human readable}}
+        const regex = new RegExp(`{{?${escapedKey}}}?`, 'g');
+        result = result.replace(regex, String(value));
     });
 
     return result;
@@ -70,17 +85,67 @@ export function interpolateTemplate(html: string, data: Record<string, any>) {
 /**
  * Common data extractor to prepare data for interpolation from standard app objects.
  */
-export function prepareTemplateData(order: any, agent?: any, service?: any, vendor?: any) {
+/**
+ * Common data extractor to prepare data for interpolation from standard app objects.
+ */
+export function prepareTemplateData(order: any, agent?: any, service?: any, vendor?: any, additionalData: Record<string, any> = {}) {
+    // Current date for general use
+    const now = new Date().toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
+
+    // Helper for currency formatting
+    const formatCurrency = (amt: any) => {
+        if (amt === undefined || amt === null) return "";
+        const numeric = Number(amt);
+        return isNaN(numeric) ? String(amt) : `$${numeric.toFixed(2)}`;
+    };
+
+    const slots = order?.slots || service?.slots || [];
+    const firstSlot = slots[0];
+    
+    // Deeper search for service name
+    const serviceName = (typeof service === 'string' ? service : (
+        service?.name || 
+        service?.service?.name || 
+        firstSlot?.service_name || 
+        firstSlot?.service?.name || 
+        order?.services?.[0]?.service?.name || 
+        order?.services?.[0]?.name ||
+        ""
+    ));
+
+    // Deeper search for vendor data
+    const vendorObj = vendor || firstSlot?.vendor;
+    const vendorName = vendorObj?.company?.business_name || 
+                      (vendorObj?.first_name ? `${vendorObj.first_name} ${vendorObj.last_name || ""}`.trim() : "Vendor");
+    const vendorPhone = vendorObj?.primary_phone || vendorObj?.secondary_phone || vendorObj?.phone || "";
+
     return {
-        agent_name: agent ? `${agent.first_name || ""} ${agent.last_name || ""}`.trim() : "",
-        agent_first_name: agent?.first_name || "",
-        agent_last_name: agent?.last_name || "",
+        // Standard keys
         listing_address: order?.property_address || "",
         listing_location: order?.property_location || "",
-        service_name: service?.name || service?.service?.name || "",
-        vendor_name: vendor?.company?.business_name || vendor?.first_name || "Vendor",
+        property_address: order?.property_address || "",
+        service_name: serviceName,
+        vendor_name: vendorName,
+        vendor_number: vendorPhone,
+        vendor_phone: vendorPhone,
         order_id: order?.id || order?.uuid || "",
-        appointment_date: service?.slots?.[0]?.date || order?.slots?.[0]?.date || "",
-        appointment_time: service?.slots?.[0]?.start_time || order?.slots?.[0]?.start_time || "",
+        appointment_date: firstSlot?.date || "",
+        appointment_time: firstSlot?.start_time || "",
+        
+        // New expanded keys
+        user_name: agent ? `${agent.first_name || ""} ${agent.last_name || ""}`.trim() : "",
+        amount: formatCurrency(order?.amount),
+        date: firstSlot?.date || now,
+        schedule_date: firstSlot?.date || "",
+        schedule_time: firstSlot?.start_time || "",
+        company_name: "BC Floor Plans", // Default fallback
+        action_url: additionalData.action_url || "",
+        
+        // Spread additional data that might be passed
+        ...additionalData
     };
 }

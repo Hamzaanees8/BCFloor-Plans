@@ -23,6 +23,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   PanelTop,
+  Printer,
   Settings,
   Sliders,
   UserCheck,
@@ -129,6 +130,11 @@ const data = {
       title: "GENERAL",
       url: "#",
       items: [
+        {
+          title: "Print Requests",
+          url: "/dashboard/admin/print-requests",
+          icon: Printer,
+        },
         {
           title: "Global Settings",
           url: "/dashboard/global-settings",
@@ -268,6 +274,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             "/dashboard/services",
             "/dashboard/agents",
             "/dashboard/vendors",
+            "/dashboard/admin/print-requests",
           ];
           return !restrictedUrls.includes(item.url);
         }
