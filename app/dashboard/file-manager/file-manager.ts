@@ -86,14 +86,15 @@ function getFileTypeFromContentType(contentType: string): string {
 }
 
 
-export async function GetFilesData(token: string, orderUuid: string) {
+export async function GetFilesData(token: string, orderUuid: string, includeHidden: boolean = false) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   if (orderUuid === "") {
     toast.error("Order UUID is required to fetch files.");
     return;
   }
-  const response = await fetch(`${API_URL}/tours/order/${orderUuid}`, {
+  const url = `${API_URL}/tours/order/${orderUuid}${includeHidden ? "?include_hidden=1" : ""}`;
+  const response = await fetch(url, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -105,6 +106,45 @@ export async function GetFilesData(token: string, orderUuid: string) {
     throw new Error(
       error.message || `Upload failed with status ${response.status}`,
     );
+  }
+
+  return response.json();
+}
+
+export async function HideMediaFiles(token: string, uuids: string[], is_hidden: boolean) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  const response = await fetch(`${API_URL}/uploads/hide`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ uuids, is_hidden }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || "Failed to hide media files");
+  }
+
+  return response.json();
+}
+
+export async function ToggleFeatureSheetImage(token: string, image_uuid: string) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  const response = await fetch(`${API_URL}/feature-sheets/images/${image_uuid}/toggle-hide`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || "Failed to toggle feature sheet image");
   }
 
   return response.json();
@@ -2111,6 +2151,36 @@ export class FeatureSheetService {
           }
         }
 
+        return acc;
+      })(),
+
+      imageUuids: (() => {
+        const acc: { [key: string]: string | null } = {};
+        for (const img of payload.images) {
+          let slot = img.slot;
+          if (slot === 'property') {
+            const propIndex = propertyImages.findIndex(
+              (p) => p.id === img.id || p.uuid === img.uuid,
+            );
+            if (propIndex !== -1) slot = `image${propIndex + 1}`;
+          }
+          if (slot && img.uuid) acc[slot] = img.uuid;
+        }
+        return acc;
+      })(),
+
+      hiddenImages: (() => {
+        const acc: { [key: string]: boolean } = {};
+        for (const img of payload.images) {
+          let slot = img.slot;
+          if (slot === 'property') {
+            const propIndex = propertyImages.findIndex(
+              (p) => p.id === img.id || p.uuid === img.uuid,
+            );
+            if (propIndex !== -1) slot = `image${propIndex + 1}`;
+          }
+          if (slot) acc[slot] = !!img.is_hidden;
+        }
         return acc;
       })(),
 

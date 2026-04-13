@@ -3,13 +3,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Check, Copy, ClipboardCheck } from 'lucide-react';
+import { Check, Copy, ClipboardCheck, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Services } from '../../services/page';
 import { useFileManagerContext } from '../FileManagerContext';
 import ManualPayment from './ManualPayment';
 import { useAppContext } from '@/app/context/AppContext';
-import { Order } from '../../orders/page';
+import { Order, OrderService } from '../../orders/page';
 import UpgradeServicePopup from './UpgradeServicePopup';
 import PayInvoiceModal from './PayInvoiceModal';
 import AgentNotificationModal from './AgentNotificationModal';
@@ -22,15 +23,16 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover"
-import { ServiceCompletion } from '../file-manager';
+import { ServiceCompletion, HideMediaFiles } from '../file-manager';
 
-function FileTab2({ currentService, orderData, isListing }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean }) {
-    const { links, setLinks, setPreviewFiles, filesData } = useFileManagerContext();
+function FileTab2({ currentService, orderData, isListing, currentBookedService }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, currentBookedService?: OrderService }) {
+    const { links, setLinks, setPreviewFiles, filesData, setFilesData, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [openPayment, setOpenPayment] = useState(false);
     const [, setSuccess] = useState(false);
     const [openPaymentModal, setOpenPaymentModal] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
+    const [isHidingLoading, setIsHidingLoading] = useState(false);
     const [openUpgrade, setOpenUpgrade] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [copiedField, setCopiedField] = useState<'branded' | 'unbranded' | null>(null);
@@ -79,7 +81,7 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
     const unbrandedApiExpiry = unbrandedApiLinkObj?.expiry_date;
     const unbrandedApiUuid = unbrandedApiLinkObj?.uuid;
 
-    const currentBookedService = orderData?.services.find((service) => service.service.uuid === currentService?.uuid)
+    const bookingToUse = currentBookedService || orderData?.services.find((service) => service.service.uuid === currentService?.uuid)
 
     const handleAddPayment = (paymentData: any) => {
         console.log("Payment Added:", paymentData);
@@ -238,16 +240,60 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
             const numberOfbrandedApiLink = brandedApiLink?.length ?? 0
             const numberOfUnbrandedApiLink = unbrandedApiLink?.length ?? 0
 
-            if (numberOfbrandedApiLink >= (currentBookedService?.option?.quantity ?? 1) && numberOfUnbrandedApiLink >= (currentBookedService?.option?.quantity ?? 1)) {
-                if (token && currentBookedService?.uuid && orderData?.uuid && !currentBookedService?.is_completed) {
-                    await ServiceCompletion(token, currentBookedService.uuid, true, orderData.uuid)
+            if (numberOfbrandedApiLink >= (bookingToUse?.option?.quantity ?? 1) && numberOfUnbrandedApiLink >= (bookingToUse?.option?.quantity ?? 1)) {
+                if (token && bookingToUse?.uuid && orderData?.uuid && !bookingToUse?.is_completed) {
+                    await ServiceCompletion(token, bookingToUse.uuid, true, orderData.uuid)
                 }
             }
         };
         checkServiceCompletion();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [unbrandedApiLink, currentService, brandedApiLink, orderData, currentBookedService?.uuid, currentBookedService?.is_completed])
+    }, [unbrandedApiLink, currentService, brandedApiLink, orderData, bookingToUse?.uuid, bookingToUse?.is_completed])
 
+
+    const handleBatchHide = async () => {
+        if (filesToHide.size === 0) {
+            setIsHidingMode(false);
+            return;
+        }
+
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        setIsHidingLoading(true);
+        try {
+            await HideMediaFiles(token, Array.from(filesToHide), true);
+            toast.success(`${filesToHide.size} item(s) hidden successfully`);
+
+            // Update local state to remove hidden items
+            if (filesData) {
+                setFilesData({
+                    ...filesData,
+                    links: filesData.links.filter(l => l.uuid && !filesToHide.has(l.uuid))
+                });
+            }
+
+            setFilesToHide(new Set());
+            setIsHidingMode(false);
+        } catch (error) {
+            console.error("Error hiding links:", error);
+            toast.error("Failed to hide links");
+        } finally {
+            setIsHidingLoading(false);
+        }
+    };
+
+    const toggleHideSelection = (uuid: string) => {
+        setFilesToHide(prev => {
+            const next = new Set(prev);
+            if (next.has(uuid)) {
+                next.delete(uuid);
+            } else {
+                next.add(uuid);
+            }
+            return next;
+        });
+    };
 
     return (
         <div className='font-alexandria w-full'>
@@ -265,12 +311,33 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
                                 {currentService ? currentService.name : '3D Tour'}
                             </span>
                             <span className='text-[12px] text-[#7D7D7D]'>
-                                {currentBookedService?.option?.title ?? '1 Link'}
+                                {bookingToUse?.option?.title ?? '1 Link'}
                             </span>
                         </p>
                     </div>
                     <div className='flex justify-center items-center gap-x-[14px]'>
-                        {userType !== 'agent' &&
+                        {userType === 'admin' && (
+                            <Button
+                                onClick={() => {
+                                    if (isHidingMode) {
+                                        handleBatchHide();
+                                    } else {
+                                        setIsHidingMode(true);
+                                        setFilesToHide(new Set());
+                                    }
+                                }}
+                                disabled={isHidingLoading}
+                                className={`h-[32px] w-[120px] flex justify-center items-center ${isHidingMode ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white' : 'bg-gray-600 hover:bg-gray-700 text-white'}`}
+                                variant={isHidingMode ? 'default' : 'outline'}
+                            >
+                                {isHidingLoading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    isHidingMode ? 'Save' : 'Hide Media'
+                                )}
+                            </Button>
+                        )}
+                        {userType !== 'agent' && !isHidingMode &&
                             <Button
                                 onClick={() => {
                                     setMediaUploaded(true)
@@ -287,16 +354,16 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
                         {userType === 'agent' && (
                             <div className='flex items-center gap-[10px] mr-2'>
                                 <div className='flex flex-col justify-center items-center mr-2'>
-                                    <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>${currentBookedService?.option?.amount}</p>
+                                    <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>${bookingToUse?.option?.amount}</p>
                                     <p className='text-[#7D7D7D] text-[10px] leading-none'>1 Link</p>
                                 </div>
                                 <Button
                                     className={`h-[32px] w-[100px] flex justify-center items-center 
-                                        ${paymentSuccess || currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
+                                        ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                             ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
                                             : "bg-[#DC9600] hover:bg-[#eda304]"}`}
                                 >
-                                    {currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'Paid' : 'UnPaid'}
+                                    {bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'Paid' : 'UnPaid'}
                                 </Button>
                             </div>
                         )}
@@ -319,7 +386,7 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
                             open={openUpgrade}
                             setOpen={setOpenUpgrade}
                             currentService={currentService}
-                            currentOption={currentBookedService?.option}
+                            currentOption={bookingToUse?.option}
                             orderData={orderData}
                             currentBookedService={currentBookedService}
                             onSuccess={() => {
@@ -339,7 +406,7 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
                         <div className="flex items-center gap-8">
                             <div className="flex flex-col items-center">
                                 <span className="text-[22px] font-medium text-[#7D7D7D] leading-none">
-                                    {(isValidUrl(brandedLink) && isValidUrl(unbrandedLink)) ? 1 : 0} <span className="text-[#7D7D7D]">/ {currentBookedService?.option?.quantity || 1}</span>
+                                    {(isValidUrl(brandedLink) && isValidUrl(unbrandedLink)) ? 1 : 0} <span className="text-[#7D7D7D]">/ {bookingToUse?.option?.quantity || 1}</span>
                                 </span>
                                 <span className="text-[12px] text-[#7D7D7D] mt-1">Selected</span>
                             </div>
@@ -366,13 +433,19 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
                     <div className="flex gap-2">
 
                         {userType === 'agent' ? (
-                            <div className="relative w-full">
+                             <div className="relative w-full">
+                                <div className={`absolute inset-0 z-10 cursor-pointer ${isHidingMode ? 'block' : 'hidden'}`} onClick={() => brandedApiUuid && toggleHideSelection(brandedApiUuid)} />
                                 <Input
-                                    className='w-full h-[42px] text-[#666666] pr-9 cursor-default select-text'
+                                    className={`w-full h-[42px] text-[#666666] pr-9 cursor-default select-text ${isHidingMode && brandedApiUuid && filesToHide.has(brandedApiUuid) ? 'ring-2 ring-red-500 bg-red-50' : ''}`}
                                     value={brandedLink}
                                     readOnly
                                     placeholder="No link available"
                                 />
+                                {isHidingMode && brandedApiUuid && filesToHide.has(brandedApiUuid) && (
+                                    <div className="absolute right-10 top-1/2 -translate-y-1/2">
+                                        <Check className="text-red-500" size={16} />
+                                    </div>
+                                )}
                                 {brandedLink && (
                                     <div className="absolute right-2 top-1/2 -translate-y-1/2 group">
                                         <button
@@ -392,12 +465,20 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
                                 )}
                             </div>
                         ) : (
-                            <Input
-                                className='w-full h-[42px] text-[#666666]'
-                                value={brandedLink}
-                                onChange={(e) => handleLinkChange("branded", e.target.value)}
-                                placeholder="Enter branded link"
-                            />
+                            <div className="relative w-full">
+                                <div className={`absolute inset-0 z-10 cursor-pointer ${isHidingMode ? 'block' : 'hidden'}`} onClick={() => brandedApiUuid && toggleHideSelection(brandedApiUuid)} />
+                                <Input
+                                    className={`w-full h-[42px] text-[#666666] ${isHidingMode && brandedApiUuid && filesToHide.has(brandedApiUuid) ? 'ring-2 ring-red-500 bg-red-50' : ''}`}
+                                    value={brandedLink}
+                                    onChange={(e) => handleLinkChange("branded", e.target.value)}
+                                    placeholder="Enter branded link"
+                                />
+                                {isHidingMode && brandedApiUuid && filesToHide.has(brandedApiUuid) && (
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                        <Check className="text-red-500" size={16} />
+                                    </div>
+                                )}
+                            </div>
                         )}
                         <Popover>
                             <PopoverTrigger asChild>
@@ -430,13 +511,19 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
                     <div className="flex gap-2">
 
                         {userType === 'agent' ? (
-                            <div className="relative w-full">
+                             <div className="relative w-full">
+                                <div className={`absolute inset-0 z-10 cursor-pointer ${isHidingMode ? 'block' : 'hidden'}`} onClick={() => unbrandedApiUuid && toggleHideSelection(unbrandedApiUuid)} />
                                 <Input
-                                    className='w-full h-[42px] text-[#666] pr-9 cursor-default select-text'
+                                    className={`w-full h-[42px] text-[#666] pr-9 cursor-default select-text ${isHidingMode && unbrandedApiUuid && filesToHide.has(unbrandedApiUuid) ? 'ring-2 ring-red-500 bg-red-50' : ''}`}
                                     value={unbrandedLink}
                                     readOnly
                                     placeholder="No link available"
                                 />
+                                {isHidingMode && unbrandedApiUuid && filesToHide.has(unbrandedApiUuid) && (
+                                    <div className="absolute right-10 top-1/2 -translate-y-1/2">
+                                        <Check className="text-red-500" size={16} />
+                                    </div>
+                                )}
                                 {unbrandedLink && (
                                     <div className="absolute right-2 top-1/2 -translate-y-1/2 group">
                                         <button
@@ -456,12 +543,20 @@ function FileTab2({ currentService, orderData, isListing }: { currentService?: S
                                 )}
                             </div>
                         ) : (
-                            <Input
-                                className='w-full h-[42px] text-[#666]'
-                                value={unbrandedLink}
-                                onChange={(e) => handleLinkChange("unbranded", e.target.value)}
-                                placeholder="Enter unbranded link"
-                            />
+                            <div className="relative w-full">
+                                <div className={`absolute inset-0 z-10 cursor-pointer ${isHidingMode ? 'block' : 'hidden'}`} onClick={() => unbrandedApiUuid && toggleHideSelection(unbrandedApiUuid)} />
+                                <Input
+                                    className={`w-full h-[42px] text-[#666] ${isHidingMode && unbrandedApiUuid && filesToHide.has(unbrandedApiUuid) ? 'ring-2 ring-red-500 bg-red-50' : ''}`}
+                                    value={unbrandedLink}
+                                    onChange={(e) => handleLinkChange("unbranded", e.target.value)}
+                                    placeholder="Enter unbranded link"
+                                />
+                                {isHidingMode && unbrandedApiUuid && filesToHide.has(unbrandedApiUuid) && (
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                        <Check className="text-red-500" size={16} />
+                                    </div>
+                                )}
+                            </div>
                         )}
                         <Popover>
                             <PopoverTrigger asChild>

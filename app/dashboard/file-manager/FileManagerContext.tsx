@@ -59,6 +59,7 @@ export type Files = {
     is_deleted?: boolean;
     is_paid?: boolean;
     is_complimentary?: boolean;
+    is_hidden?: boolean;
     variant_urls?: {
         thumb: string;
         slider: string;
@@ -253,6 +254,12 @@ type FileManagerContextType = {
 
     isSaving: boolean;
     setIsSaving: Dispatch<SetStateAction<boolean>>;
+
+    isHidingMode: boolean;
+    setIsHidingMode: Dispatch<SetStateAction<boolean>>;
+
+    filesToHide: Set<string>;
+    setFilesToHide: Dispatch<SetStateAction<Set<string>>>;
 };
 
 const FileManagerContext = createContext<FileManagerContextType | undefined>(undefined);
@@ -375,6 +382,8 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
     const [fileManagerMode, setFileManagerMode] = useState<'upload' | 'reorder'>('upload');
     const [imagesPerRow, setImagesPerRow] = useState<number>(4);
     const [isSaving, setIsSaving] = useState<boolean>(false);
+    const [isHidingMode, setIsHidingMode] = useState<boolean>(false);
+    const [filesToHide, setFilesToHide] = useState<Set<string>>(new Set());
 
 
     const [formData, setFormData] = useState<FormData>(initialFormData);
@@ -431,13 +440,17 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
         imagesPerRow,
         setImagesPerRow,
         isSaving,
-        setIsSaving
+        setIsSaving,
+        isHidingMode,
+        setIsHidingMode,
+        filesToHide,
+        setFilesToHide
     }), [
         files, floorFiles, selectedFiles, links, brandedSelected, unBrandedSelected,
         previewFiles, selectedVideoFiles, droppedMarkers, delay, transition,
         audioUrl, selectedAudioTrack, formData, updateFormData, filesData,
         featureSheets, changedFileUuids, selectionChangedUuids, area, fileManagerMode, imagesPerRow,
-        isSaving
+        isSaving, isHidingMode, filesToHide
     ]);
 
     return (

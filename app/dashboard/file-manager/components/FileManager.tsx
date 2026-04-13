@@ -42,11 +42,19 @@ type OrerServices = {
   service: Service;
 };
 
+export type MediaDateBoundary = {
+  from: Date | null;
+  to: Date | null;
+};
+
 const FileManager = () => {
   const router = useRouter();
-  const [services, setServices] = React.useState([]);
   const [servicesData, setServicesData] = React.useState<Services[]>([]);
+  // services is set by useEffect (used by setServices) but the value is consumed via groupedServices
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [services, setServices] = React.useState<OrerServices[]>([]);
   const [activeTab, setActiveTab] = useState<string>("download");
+  const [activeServiceIndex, setActiveServiceIndex] = useState<number>(0);
   const [orderData, setOrderData] = React.useState<Order | null>(null);
   const { userType } = useAppContext();
   const {
@@ -257,13 +265,53 @@ const FileManager = () => {
     activeSlot?.vendor?.review_files ?? orderData?.vendor?.review_files
   );
 
+  // --- Duplicate service grouping ---
+  // Group order.services by service.uuid (definition UUID), sorted by created_at asc
+  const groupedServices = React.useMemo(() => {
+    const map = new Map<string, NonNullable<typeof orderData>["services"][0][]>();
+    (orderData?.services ?? []).forEach((os) => {
+      const key = os.service.uuid;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(os);
+    });
+    // Sort each group by created_at ascending
+    map.forEach((group) =>
+      group.sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+    );
+    return map;
+  }, [orderData]);
+
+  // Compute the media date boundary for the current service + sub-tab index
+  type OrderServiceEntry = NonNullable<typeof orderData>["services"][0];
+  const computeMediaBoundary = (
+    group: OrderServiceEntry[] | undefined,
+    index: number
+  ): MediaDateBoundary => {
+    if (!group || group.length <= 1) return { from: null, to: null };
+    const from = index === 0 ? null : new Date(group[index].created_at);
+    const to =
+      index < group.length - 1
+        ? new Date(group[index + 1].created_at)
+        : null;
+    return { from, to };
+  };
+
+  const activeServiceGroup = groupedServices.get(activeTab);
+  const mediaDateBoundary = computeMediaBoundary(
+    activeServiceGroup,
+    activeServiceIndex
+  );
+
   const renderContent = () => {
     if (activeTab === "tour") {
       return <TourTabs orderData={orderData} />;
     }
 
     if (activeTab === "download") {
-      return <DownloadTab orderData={orderData} />;
+      return <DownloadTab orderData={orderData} groupedOrderServices={groupedServices} />;
     }
 
     if (activeTab === "CreateFeatureSheet") {
@@ -278,9 +326,11 @@ const FileManager = () => {
             <Video
               currentService={activeService}
               orderData={orderData}
+              currentBookedService={activeServiceGroup?.[activeServiceIndex]}
               isListing={false}
               reviewFilesEnabled={reviewFilesEnabled}
               onSave={handleSave}
+              mediaDateBoundary={mediaDateBoundary}
             />
           </div>
         );
@@ -289,9 +339,11 @@ const FileManager = () => {
           <Service
             orderData={orderData}
             currentService={activeService}
+            currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onSave={handleSave}
+            mediaDateBoundary={mediaDateBoundary}
           />
         );
       case "HDR Photos":
@@ -299,9 +351,11 @@ const FileManager = () => {
           <FileTab1
             currentService={activeService}
             orderData={orderData}
+            currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onSave={handleSave}
+            mediaDateBoundary={mediaDateBoundary}
           />
         );
       case "3d rendering":
@@ -309,6 +363,7 @@ const FileManager = () => {
           <FileTab2
             currentService={activeService}
             orderData={orderData}
+            currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
           />
@@ -318,9 +373,11 @@ const FileManager = () => {
           <FileTab1
             currentService={activeService}
             orderData={orderData}
+            currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onSave={handleSave}
+            mediaDateBoundary={mediaDateBoundary}
           />
         );
       case "Staging":
@@ -328,6 +385,7 @@ const FileManager = () => {
           <FileTab2
             currentService={activeService}
             orderData={orderData}
+            currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
           />
@@ -337,9 +395,11 @@ const FileManager = () => {
           <FileTab1
             currentService={activeService}
             orderData={orderData}
+            currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onSave={handleSave}
+            mediaDateBoundary={mediaDateBoundary}
           />
         );
       case "Twilight Photos":
@@ -347,9 +407,11 @@ const FileManager = () => {
           <FileTab1
             currentService={activeService}
             orderData={orderData}
+            currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onSave={handleSave}
+            mediaDateBoundary={mediaDateBoundary}
           />
         );
       case "3D Tour":
@@ -357,6 +419,7 @@ const FileManager = () => {
           <FileTab2
             currentService={activeService}
             orderData={orderData}
+            currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
           />
@@ -371,11 +434,15 @@ const FileManager = () => {
   };
 
   // Add this function to get the current active service with pricing info
+  // Uses the correct booking index when the service is booked multiple times
   const getCurrentService = () => {
     const serviceFromData = servicesData?.find((srv) => srv.uuid === activeTab);
-    const serviceFromOrder = orderData?.services?.find(
-      (srv: OrerServices) => srv.service?.uuid === activeTab
-    );
+    const group = groupedServices.get(activeTab);
+    const serviceFromOrder = group
+      ? group[activeServiceIndex]
+      : orderData?.services?.find(
+          (srv: OrerServices) => srv.service?.uuid === activeTab
+        );
     // If no service found at all, return null
     if (!serviceFromData && !serviceFromOrder) {
       return null;
@@ -774,15 +841,17 @@ const FileManager = () => {
             >
               Download
             </div>
-            {services?.map((service: OrerServices) => {
-              const isActive = service.service.uuid === activeTab;
+            {/* Render one tab per unique service uuid */}
+            {Array.from(groupedServices.entries()).map(([serviceUuid, group]) => {
+              const isActive = serviceUuid === activeTab;
               return (
                 <div
-                  key={service.service.uuid}
+                  key={serviceUuid}
                   onClick={() => {
-                    setActiveTab(service.service.uuid);
+                    setActiveTab(serviceUuid);
+                    setActiveServiceIndex(0);
                     const params = new URLSearchParams(searchParams.toString());
-                    params.set("serviceId", service.service.uuid);
+                    params.set("serviceId", serviceUuid);
                     router.replace(`?${params.toString()}`);
                   }}
                   className={`h-[60px] cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-200 ${isActive
@@ -795,7 +864,7 @@ const FileManager = () => {
                       : `var(--${userType}-page-bg, #F2F2F2)`,
                   }}
                 >
-                  {service.service.name}
+                  {group[0].service.name}
                 </div>
               );
             })}
@@ -845,6 +914,71 @@ const FileManager = () => {
           </div>
         </div>
       </div>
+
+      {/* Sub-tabs for duplicate service bookings */}
+      {activeServiceGroup && activeServiceGroup.length > 1 && (
+        <div
+          className="w-full flex flex-col gap-0 border-b border-[#BBBBBB]"
+          style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), white 40%)` }}
+        >
+          <div className="flex items-stretch h-[45px]">
+            {activeServiceGroup.map((booking, idx) => {
+              const isSubActive = idx === activeServiceIndex;
+              const bookingDate = new Date(booking.created_at).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              });
+              const isPaid =
+                orderData?.payment_status === "PAID" ||
+                booking.payment_status === "PAID";
+
+              return (
+                <div
+                  key={booking.uuid}
+                  onClick={() => setActiveServiceIndex(idx)}
+                  className={`flex-1 cursor-pointer border-r border-[#BBBBBB] last:border-r-0 transition-all duration-200 flex items-center justify-between px-6 ${
+                    isSubActive
+                      ? `${userType}-bg shadow-inner`
+                      : "bg-white/50 hover:bg-white/80"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`text-[13px] font-bold tracking-tight ${
+                        isSubActive ? "text-white" : `${userType}-text`
+                      }`}
+                    >
+                      Booking #{idx + 1}
+                    </span>
+                    <span
+                      className={`text-[11px] font-medium ${
+                        isSubActive ? "text-white/80" : "text-[#7D7D7D]"
+                      }`}
+                    >
+                      {bookingDate}
+                    </span>
+                  </div>
+                  
+                  {/* Status Badge */}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                        isPaid
+                          ? "bg-[#6BAE41] text-white"
+                          : "bg-[#DC9600] text-white"
+                      }`}
+                    >
+                      {isPaid ? "PAID" : "UNPAID"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div>{renderContent()}</div>
     </div >
   );

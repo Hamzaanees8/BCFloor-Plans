@@ -11,14 +11,19 @@ import { useGlobalDownload } from '@/context/GlobalDownloadContext';
 
 import { Order } from '../../orders/page';
 import { canDownloadFile, getDownloadBlockReason } from '../utils/filePermissions';
+import { MediaDateBoundary } from './FileManager';
+
+type OrderServiceEntry = NonNullable<Order>["services"][0];
 
 interface DownloadTabProps {
     orderData: Order | null;
+    /** Booking-aware service groups passed from FileManager (key = service definition UUID) */
+    groupedOrderServices?: Map<string, OrderServiceEntry[]>;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
-const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
+const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServices }) => {
     const { filesData } = useFileManagerContext();
     const { userType } = useAppContext();
     const { startDownload } = useGlobalDownload();
@@ -59,47 +64,122 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
             ?.some(f => f.type === 'video' && (f.is_paid || isServicePaid(f.service?.uuid || "")));
     }, [userType, orderData, filesData, isServicePaid]);
 
-    // Group files by service (photos and videos)
-    const groupedServices = useMemo(() => {
+    // Helper to compute date boundary for a specific booking index within a group
+    const computeBookingBoundary = useCallback((group: OrderServiceEntry[], index: number): MediaDateBoundary => {
+        if (!group || group.length <= 1) return { from: null, to: null };
+        const from = index === 0 ? null : new Date(group[index].created_at);
+        const to = index < group.length - 1 ? new Date(group[index + 1].created_at) : null;
+        return { from, to };
+    }, []);
+
+    // Group files by service uuid + booking index (handles duplicate service bookings)
+    // Returns a flat list of booking sections: { serviceUuid, bookingIndex, bookingEntry, label, files[] }
+    const bookingSections = useMemo(() => {
         if (!filesData?.files) return [];
 
-        const servicesMap = new Map<number, { id: number; uuid: string; name: string; files: Files[] }>();
+        // Build a list of section descriptors from groupedOrderServices
+        // Fall back to a flat per-service grouping if prop not provided
+        const sections: {
+            key: string;
+            serviceUuid: string;
+            bookingIndex: number;
+            bookingEntry: OrderServiceEntry | null;
+            label: string;
+            isPaid: boolean;
+            boundary: MediaDateBoundary;
+            files: Files[];
+        }[] = [];
 
+        if (groupedOrderServices && groupedOrderServices.size > 0) {
+            groupedOrderServices.forEach((group, serviceUuid) => {
+                group.forEach((booking, idx) => {
+                    const boundary = computeBookingBoundary(group, idx);
+                    const isPaid = orderData?.payment_status === 'PAID' || booking.payment_status === 'PAID';
+                    const label = group.length > 1
+                        ? `${booking.service.name} — Booking #${idx + 1}`
+                        : booking.service.name;
+                    sections.push({
+                        key: `${serviceUuid}-${idx}`,
+                        serviceUuid,
+                        bookingIndex: idx,
+                        bookingEntry: booking,
+                        label,
+                        isPaid,
+                        boundary,
+                        files: [],
+                    });
+                });
+            });
+        }
+
+        // Now populate files into sections
         filesData.files.forEach(file => {
             if (file.is_deleted) return;
 
-            const serviceName = file.service?.name || "";
-            const isForbiddenService = serviceName.toLowerCase().includes("floor plan") ||
-                serviceName.toLowerCase().includes("3d tour");
-
+            const serviceName = file.service?.name || '';
+            const isForbiddenService = serviceName.toLowerCase().includes('floor plan') ||
+                serviceName.toLowerCase().includes('3d tour');
             const isApproved = userType === 'agent' ? file.is_agent_approved : true;
             const isValidType = file.type === 'photo' || file.type === 'video';
 
-            if (isApproved && isValidType && file.service && !isForbiddenService) {
-                const serviceId = file.service.id;
-                if (!servicesMap.has(serviceId)) {
-                    servicesMap.set(serviceId, {
-                        id: serviceId,
-                        uuid: file.service.uuid,
-                        name: file.service.name,
-                        files: []
+            if (!isApproved || !isValidType || !file.service || isForbiddenService) return;
+
+            const fileDate = new Date(file.created_at).getTime();
+
+            // Find the matching section
+            let matched = false;
+            for (const section of sections) {
+                if (section.serviceUuid !== file.service.uuid) continue;
+                const { from, to } = section.boundary;
+                const afterFrom = from ? fileDate >= from.getTime() : true;
+                const beforeTo = to ? fileDate < to.getTime() : true;
+                if (afterFrom && beforeTo) {
+                    section.files.push(file);
+                    matched = true;
+                    break;
+                }
+            }
+
+            // If no boundary matched (single booking or no groupedOrderServices provided)
+            // fall back: put in any section matching the service uuid
+            if (!matched) {
+                const fallback = sections.find(s => s.serviceUuid === file.service?.uuid);
+                if (fallback) fallback.files.push(file);
+                else {
+                    // Service not in groupedOrderServices at all — add a plain section
+                    sections.push({
+                        key: file.service.uuid,
+                        serviceUuid: file.service.uuid,
+                        bookingIndex: 0,
+                        bookingEntry: null,
+                        label: file.service.name,
+                        isPaid: userType !== 'agent' || orderData?.payment_status === 'PAID',
+                        boundary: { from: null, to: null },
+                        files: [file],
                     });
                 }
-                servicesMap.get(serviceId)?.files.push(file);
             }
         });
 
-        return Array.from(servicesMap.values());
-    }, [filesData, userType]);
+        return sections.filter(s => s.files.length > 0);
+    }, [filesData?.files, groupedOrderServices, userType, orderData, computeBookingBoundary]);
 
-    // All approved files
+    // All approved files (derived from bookingSections)
     const allApprovedPhotos = useMemo(() => {
-        return groupedServices.flatMap(service => service.files.filter(f => f.type === 'photo'));
-    }, [groupedServices]);
+        return bookingSections.flatMap(s => s.files.filter(f => f.type === 'photo'));
+    }, [bookingSections]);
 
     const allApprovedVideos = useMemo(() => {
-        return groupedServices.flatMap(service => service.files.filter(f => f.type === 'video'));
-    }, [groupedServices]);
+        return bookingSections.flatMap(s => s.files.filter(f => f.type === 'video'));
+    }, [bookingSections]);
+
+    // Flat list for "download all" and MLS actions
+    const groupedServices = useMemo(() => bookingSections.map(s => ({
+        uuid: s.serviceUuid,
+        name: s.label,
+        files: s.files,
+        isPaid: s.isPaid,
+    })), [bookingSections]);
 
     // Filter paid files for agents (for download actions)
     const paidPhotos = useMemo(() => {
@@ -188,23 +268,23 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
         setSizeModal({ isOpen: true, files, label });
     };
 
+    const totalFilesCount = useMemo(() => {
+        return bookingSections.reduce((acc, s) => acc + s.files.length, 0);
+    }, [bookingSections]);
+
     const [visibleCount, setVisibleCount] = useState(30);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-    const visibleServices = useMemo(() => {
+    const visibleSections = useMemo(() => {
         let currentCount = 0;
-        return groupedServices.map(service => {
-            if (currentCount >= visibleCount) return { ...service, files: [] };
+        return bookingSections.map(section => {
+            if (currentCount >= visibleCount) return { ...section, files: [] };
             const remaining = visibleCount - currentCount;
-            const filesToShow = service.files.slice(0, remaining);
+            const filesToShow = section.files.slice(0, remaining);
             currentCount += filesToShow.length;
-            return { ...service, files: filesToShow };
-        }).filter(service => service.files.length > 0);
-    }, [groupedServices, visibleCount]);
-
-    const totalFilesCount = useMemo(() => {
-        return groupedServices.reduce((acc, s) => acc + s.files.length, 0);
-    }, [groupedServices]);
+            return { ...section, files: filesToShow };
+        }).filter(s => s.files.length > 0);
+    }, [bookingSections, visibleCount]);
 
     const handleShowMore = () => {
         setIsLoadingMore(true);
@@ -288,15 +368,15 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
                 )}
             </div>
 
-            {/* Buttons Row 2: Per-Service Actions */}
+            {/* Per-service download buttons */}
             <div className="flex flex-wrap gap-3 mb-8">
                 {groupedServices.map(service => {
                     const servicePhotos = service.files.filter(f => f.type === 'photo');
                     const serviceVideos = service.files.filter(f => f.type.toLowerCase() === 'video');
-                    const isPaid = isServicePaid(service.uuid);
+                    const isPaid = service.isPaid;
 
                     return (
-                        <React.Fragment key={service.uuid}>
+                        <React.Fragment key={service.uuid + service.name}>
                             {servicePhotos.length > 0 && (
                                 <Button
                                     onClick={() => openSizeModal(servicePhotos, service.name)}
@@ -326,86 +406,128 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData }) => {
                 })}
             </div>
 
-            {/* Grouped Services Grid */}
+            {/* Booking-aware grouped file grid */}
             <div className="space-y-12">
-                {visibleServices.length > 0 ? (
+                {visibleSections.length > 0 ? (
                     <div className="space-y-12">
-                        {visibleServices.map((service) => (
-                            <div key={service.uuid} className="space-y-4">
-                                <h3 className={`text-xl font-semibold ${userType}-text border-l-4 border-current pl-3`}>
-                                    {service.name}
-                                </h3>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                                    {service.files.map((file) => {
-                                        const isSelected = selectedImageUuids.has(file.uuid);
-                                        const isVideo = file.type.toLowerCase() === 'video';
-                                        return (
-                                            <div
-                                                key={file.uuid}
-                                                onClick={() => toggleImageSelection(file.uuid)}
-                                                className={`relative group aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden border-2 transition-all cursor-pointer select-none
-                                                ${isSelected ? `${userType}-border shadow-md` : 'border-gray-200 hover:border-gray-300'}`}
-                                            >
-                                                <div className="relative w-full h-full">
-                                                    {file.is_processing ? (
-                                                        <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
-                                                            <p className="text-gray-500 font-medium text-sm">Processing...</p>
-                                                        </div>
-                                                    ) : isVideo ? (
-                                                        file.variant_urls?.thumb ? (
+                        {visibleSections.map((section) => {
+                            const sectionPhotos = section.files.filter(f => f.type === 'photo');
+                            const sectionVideos = section.files.filter(f => f.type === 'video');
+
+                            return (
+                                <div key={section.key} className="space-y-4">
+                                    {/* Section header with label + paid badge + download button */}
+                                    <div className="flex items-center justify-between flex-wrap gap-2">
+                                        <h3 className={`text-xl font-semibold ${userType}-text border-l-4 border-current pl-3`}>
+                                            {section.label}
+                                        </h3>
+                                        <div className="flex items-center gap-2">
+                                            {/* Paid/Unpaid badge */}
+                                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                                section.isPaid ? 'bg-[#6BAE41] text-white' : 'bg-[#DC9600] text-white'
+                                            }`}>
+                                                {section.isPaid ? 'PAID' : 'UNPAID'}
+                                            </span>
+                                            {/* Per-section download buttons */}
+                                            {sectionPhotos.length > 0 && (
+                                                <Button
+                                                    onClick={() => openSizeModal(sectionPhotos, section.label)}
+                                                    disabled={!section.isPaid}
+                                                    title={!section.isPaid ? 'Service not paid yet' : ''}
+                                                    className={`px-3 h-[30px] border-[1px] ${userType}-border text-[11px] font-[500] ${userType}-text flex gap-[4px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors ${!section.isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                >
+                                                    <Download className="h-3 w-3" />
+                                                    Photos ({sectionPhotos.length})
+                                                </Button>
+                                            )}
+                                            {sectionVideos.length > 0 && (
+                                                <Button
+                                                    onClick={() => handleDownload(sectionVideos, section.label, 'original')}
+                                                    disabled={!section.isPaid}
+                                                    title={!section.isPaid ? 'Service not paid yet' : ''}
+                                                    className={`px-3 h-[30px] border-[1px] ${userType}-border text-[11px] font-[500] ${userType}-text flex gap-[4px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors ${!section.isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                >
+                                                    <Download className="h-3 w-3" />
+                                                    Videos ({sectionVideos.length})
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                                        {section.files.map((file) => {
+                                            const isSelected = selectedImageUuids.has(file.uuid);
+                                            const isVideo = file.type.toLowerCase() === 'video';
+                                            return (
+                                                <div
+                                                    key={file.uuid}
+                                                    onClick={() => toggleImageSelection(file.uuid)}
+                                                    className={`relative group aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden border-2 transition-all cursor-pointer select-none
+                                                    ${isSelected ? `${userType}-border shadow-md` : 'border-gray-200 hover:border-gray-300'}`}
+                                                >
+                                                    <div className="relative w-full h-full">
+                                                        {file.is_processing ? (
+                                                            <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                                                                <p className="text-gray-500 font-medium text-sm">Processing...</p>
+                                                            </div>
+                                                        ) : isVideo ? (
+                                                            file.variant_urls?.thumb ? (
+                                                                /* eslint-disable-next-line @next/next/no-img-element */
+                                                                <img
+                                                                    src={file.variant_urls.thumb}
+                                                                    alt={file.group || file.name}
+                                                                    title={file.group || file.name}
+                                                                    className={`w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
+                                                                />
+                                                            ) : (
+                                                                <video
+                                                                    src={`${file.url || `${API_URL}/${file.file_path}`}#t=0.1`}
+                                                                    preload="metadata"
+                                                                    muted
+                                                                    playsInline
+                                                                    title={file.group || file.name}
+                                                                    className={`absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
+                                                                />
+                                                            )
+                                                        ) : (
                                                             /* eslint-disable-next-line @next/next/no-img-element */
                                                             <img
-                                                                src={file.variant_urls.thumb}
+                                                                src={file.thumbnail_url || file.variant_urls?.thumb || file.url}
                                                                 alt={file.group || file.name}
                                                                 title={file.group || file.name}
                                                                 className={`w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
                                                             />
-                                                        ) : (
-                                                            <video
-                                                                src={`${file.url || `${API_URL}/${file.file_path}`}#t=0.1`}
-                                                                preload="metadata"
-                                                                muted
-                                                                playsInline
-                                                                title={file.group || file.name}
-                                                                className={`absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
-                                                            />
-                                                        )
-                                                    ) : (
-                                                        /* eslint-disable-next-line @next/next/no-img-element */
-                                                        <img
-                                                            src={file.thumbnail_url || file.variant_urls?.thumb || file.url}
-                                                            alt={file.group || file.name}
-                                                            title={file.group || file.name}
-                                                            className={`w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
-                                                        />
+                                                        )}
+                                                    </div>
+                                                    {isSelected && (
+                                                        <div className={`absolute top-2 right-2 z-10 ${userType}-text bg-white rounded-full shadow-sm`}>
+                                                            <CheckCircle2 className="w-6 h-6 shadow-sm" />
+                                                        </div>
                                                     )}
+                                                    {!section.isPaid && userType === 'agent' && (
+                                                        <div className="absolute top-2 right-2 z-10 bg-black/50 text-white text-[10px] px-2 py-1 rounded flex items-center gap-1">
+                                                            <Loader2 className="w-3 h-3 animate-pulse" />
+                                                            Unpaid
+                                                        </div>
+                                                    )}
+                                                    {isVideo && (
+                                                        <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
+                                                            <PlayCircle className="w-12 h-12 text-white/90 drop-shadow-md group-hover:scale-110 transition-transform duration-300 fill-black/40" />
+                                                        </div>
+                                                    )}
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 pointer-events-none">
+                                                        <p className="text-white text-xs truncate font-medium">{file.group || file.name}</p>
+                                                        <p className="text-gray-300 text-[10px] truncate">{file.service?.name}</p>
+                                                    </div>
                                                 </div>
-                                                {isSelected && (
-                                                    <div className={`absolute top-2 right-2 z-10 ${userType}-text bg-white rounded-full shadow-sm`}>
-                                                        <CheckCircle2 className="w-6 h-6 shadow-sm" />
-                                                    </div>
-                                                )}
-                                                {!isServicePaid(file.service?.uuid || "", file.is_paid) && userType === 'agent' && (
-                                                    <div className="absolute top-2 right-2 z-10 bg-black/50 text-white text-[10px] px-2 py-1 rounded flex items-center gap-1">
-                                                        <Loader2 className="w-3 h-3 animate-pulse" />
-                                                        Unpaid
-                                                    </div>
-                                                )}
-                                                {isVideo && (
-                                                    <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
-                                                        <PlayCircle className="w-12 h-12 text-white/90 drop-shadow-md group-hover:scale-110 transition-transform duration-300 fill-black/40" />
-                                                    </div>
-                                                )}
-                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 pointer-events-none">
-                                                    <p className="text-white text-xs truncate font-medium">{file.group || file.name}</p>
-                                                    <p className="text-gray-300 text-[10px] truncate">{file.service?.name}</p>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
 
                         {visibleCount < totalFilesCount && (
                             <div className="flex justify-center pt-8">

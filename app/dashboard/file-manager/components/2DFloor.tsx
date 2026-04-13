@@ -11,9 +11,9 @@ import {
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import HouseSheetModal from './HouseSheetModal';
 import SquareFootage from '../../calendar/components/SquareFootage';
-import { Order } from '../../orders/page';
+import { Order, OrderService } from '../../orders/page';
 import { Check, X, Loader2 } from 'lucide-react';
-import { DownloadFile, ServiceCompletion } from '../file-manager';
+import { DownloadFile, ServiceCompletion, HideMediaFiles } from '../file-manager';
 import { S3UploadService } from '@/lib/upload/s3-service';
 import FilePreviewModal from './FilePreviewModal';
 import { Services } from '../../services/page';
@@ -33,14 +33,17 @@ import { ModeToggle } from './dual-mode/ModeToggle';
 import { FileItem, DualMode } from './dual-mode/types';
 import { canDownloadFile, getDownloadBlockReason } from '../utils/filePermissions';
 import { GridSizeToggle } from './dual-mode/GridSizeToggle';
+import { MediaDateBoundary } from './FileManager';
 type Props = {
     orderData: Order | null;
     currentService?: Services;
     isListing: boolean;
     reviewFilesEnabled?: boolean;
+    mediaDateBoundary?: MediaDateBoundary;
+    currentBookedService?: OrderService;
 };
-const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, currentService, isListing, reviewFilesEnabled, onSave }) => {
-    const { floorFiles, setFloorFiles, filesData, setFilesData, setChangedFileUuids, setSelectionChangedUuids, area, setArea, fileManagerMode, setFileManagerMode, imagesPerRow, isSaving } = useFileManagerContext();
+const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, currentService, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService }) => {
+    const { floorFiles, setFloorFiles, filesData, setFilesData, setChangedFileUuids, setSelectionChangedUuids, area, setArea, fileManagerMode, setFileManagerMode, imagesPerRow, isSaving, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
     const [replacingFile, setReplacingFile] = useState<File | null>(null);
     const [openPreview, setOpenPreview] = useState(false);
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
@@ -100,7 +103,17 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
     // Filter existing files safely with useMemo to prevent infinite loops
     const currentServiceFiles = useMemo(() => {
         let files = filesData?.files
-            ?.filter(file => file?.service?.uuid === currentService?.uuid)
+            ?.filter(file => {
+                if (file?.service?.uuid !== currentService?.uuid) return false;
+                // Date boundary filter for duplicate service bookings
+                if (mediaDateBoundary) {
+                    const fileDate = new Date(file.created_at).getTime();
+                    const from = mediaDateBoundary.from ? mediaDateBoundary.from.getTime() : 0;
+                    const to = mediaDateBoundary.to ? mediaDateBoundary.to.getTime() : Infinity;
+                    if (fileDate < from || fileDate >= to) return false;
+                }
+                return true;
+            })
             .sort((a, b) => {
                 if (a.sort_order !== undefined && b.sort_order !== undefined) {
                     return a.sort_order - b.sort_order;
@@ -115,7 +128,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
             }
         }
         return files || [];
-    }, [filesData?.files, currentService?.uuid, userType, reviewFilesEnabled]);
+    }, [filesData?.files, currentService?.uuid, userType, reviewFilesEnabled, mediaDateBoundary]);
 
     const contextualLocal = useMemo(() => {
         let local = floorFiles.filter(f => f.service_id === currentService?.uuid);
@@ -227,7 +240,8 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
         });
     }, [contextualLocal, currentServiceFiles]);
 
-    const currentBookedService = orderData?.services.find((service) => service.service.uuid === currentService?.uuid)
+    // Use passed currentBookedService
+    const bookingToUse = currentBookedService || orderData?.services.find((service) => service.service.uuid === currentService?.uuid)
     const currentSlot = orderData?.slots?.find((slot) => slot.service_id === currentService?.id);
     const vendor = currentSlot?.vendor || orderData?.vendor;
     const vendorName = vendor ? `${vendor.first_name} ${vendor.last_name}` : "Taylor Tayburn";
@@ -289,15 +303,44 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
         }
     };
 
+    const handleHideSubmit = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            toast.error("No authentication token found");
+            return;
+        }
+
+        if (filesToHide.size === 0) {
+            setIsHidingMode(false);
+            return;
+        }
+
+        try {
+            await HideMediaFiles(token, Array.from(filesToHide), true);
+            toast.success("Media hidden successfully");
+            setIsHidingMode(false);
+            setFilesToHide(new Set());
+            setFilesData(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    files: prev.files.filter(f => !filesToHide.has(f.uuid))
+                };
+            });
+        } catch (error: any) {
+            toast.error(error.message || "Failed to hide media");
+        }
+    };
+
     useEffect(() => {
         const checkServiceCompletion = async () => {
             const token = localStorage.getItem("token");
             // Count only agent approved files
             const numberOfApprovedFiles = currentServiceFiles?.filter(f => f.is_agent_approved).length ?? 0
 
-            if (numberOfApprovedFiles >= (currentBookedService?.option?.quantity ?? 1)) {
-                if (token && currentBookedService?.uuid && orderData?.uuid && !currentBookedService?.is_completed) {
-                    await ServiceCompletion(token, currentBookedService.uuid, true, orderData.uuid)
+            if (numberOfApprovedFiles >= (bookingToUse?.option?.quantity ?? 1)) {
+                if (token && bookingToUse?.uuid && orderData?.uuid && !bookingToUse?.is_completed) {
+                    await ServiceCompletion(token, bookingToUse.uuid, true, orderData.uuid)
                 }
             }
         };
@@ -340,10 +383,18 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                     className={`absolute inset-0 w-full h-full object-contain cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : (!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : '')}`}
                                     draggable={false}
                                     onClick={() => {
-                                        if (file.is_deleted) return;
-                                        handleImageClick(item.url, file);
+                                        if (isHidingMode && file.uuid) {
+                                            setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
+                                        } else if (!isHidingMode) {
+                                            if (!file.is_deleted) handleImageClick(item.url, file);
+                                        }
                                     }}
                                 />
+                                {file.uuid && filesToHide.has(file.uuid) && (
+                                    <div className="absolute inset-0 bg-black/50 z-[25] flex flex-col items-center justify-center pointer-events-none">
+                                        <Check color="white" size={48} className="opacity-100" />
+                                    </div>
+                                )}
                                 {file.is_deleted && (
                                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 z-[30] gap-2">
                                         <p className="text-white font-medium text-lg drop-shadow-lg uppercase mb-4">Deleted</p>
@@ -366,17 +417,29 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                 <p className="text-gray-500 font-medium text-sm">Processing...</p>
                             </div>
                         ) : isPdf ? (
-                            (userType === 'agent' && currentBookedService?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
+                            (userType === 'agent' && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
                                 <PdfPlaceholder
                                     className="w-full h-full object-contain cursor-pointer"
                                     isRestricted={true}
-                                    onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
+                                    onClick={() => {
+                                        if (isHidingMode && file.uuid) {
+                                            setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
+                                        } else if (!isHidingMode) {
+                                            handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file);
+                                        }
+                                    }}
                                 />
                             ) : (
                                 <div className="absolute inset-0 overflow-hidden rounded-[6px]">
                                     <div
                                         className={`relative overflow-hidden cursor-pointer w-full h-full transition-all duration-300 ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
-                                        onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
+                                        onClick={() => {
+                                            if (isHidingMode && file.uuid) {
+                                                setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
+                                            } else if (!isHidingMode) {
+                                                handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file);
+                                            }
+                                        }}
                                     >
                                         <iframe
                                             src={`${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
@@ -389,14 +452,27 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                 </div>
                             )
                         ) : (
-                            <NextImage
-                                src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
-                                onClick={() => handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file)}
-                                alt="Preview"
-                                fill
-                                draggable={false}
-                                className={`object-contain cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
-                            />
+                            <>
+                                <NextImage
+                                    src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
+                                    onClick={() => {
+                                        if (isHidingMode && file.uuid) {
+                                            setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
+                                        } else if (!isHidingMode) {
+                                            handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file);
+                                        }
+                                    }}
+                                    alt="Preview"
+                                    fill
+                                    draggable={false}
+                                    className={`object-contain cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                />
+                                {file.uuid && filesToHide.has(file.uuid) && (!file.file || typeof file.file === 'string') && (
+                                    <div className="absolute inset-0 bg-black/50 z-[25] flex flex-col items-center justify-center pointer-events-none">
+                                        <Check color="white" size={48} className="opacity-100" />
+                                    </div>
+                                )}
+                            </>
                         )}
 
                         {userType !== 'agent' && (
@@ -586,7 +662,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
             </div>
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [API_URL, currentBookedService?.payment_status, orderData?.payment_status, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setFloorFiles, vendorName, currentBookedService?.option?.title, currentBookedService?.uuid, currentService?.uuid, handleImageClick, orderData?.uuid, reviewFilesEnabled, userType, imagesPerRow]);
+    }, [API_URL, bookingToUse?.payment_status, orderData?.payment_status, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setFloorFiles, vendorName, bookingToUse?.option?.title, bookingToUse?.uuid, currentService?.uuid, handleImageClick, orderData?.uuid, reviewFilesEnabled, userType, imagesPerRow, filesToHide, isHidingMode, setFilesToHide]);
 
     return (
         <div>
@@ -607,9 +683,9 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                     onClick={() => {
                                         setShowDownloadModal(true);
                                     }}
-                                    title={!(currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "service not paid yet" : ""}
-                                    disabled={!(currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID")}
-                                    className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center ${!(currentBookedService?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                                    title={!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "service not paid yet" : ""}
+                                    disabled={!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID")}
+                                    className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
                                     Download Files
                                 </Button>
                             </div>
@@ -618,7 +694,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
                         <p className='flex flex-col items-center pointer-events-auto'><span className={`${userType}-text font-bold text-[16px]`}>{currentService ? currentService.name : ''}</span>
                             <span className='text-[12px] text-[#7D7D7D]'>
-                                {currentBookedService?.option?.title || `${currentBookedService?.option?.quantity || 0} Files`}
+                                {bookingToUse?.option?.title || `${bookingToUse?.option?.quantity || 0} Files`}
                             </span>
                         </p>
                     </div>
@@ -635,7 +711,23 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                     Download Files
                                 </Button>
                             )}
-                            {userType !== 'agent' &&
+                            {userType !== 'agent' && (
+                                <Button
+                                    onClick={() => {
+                                        if (isHidingMode) {
+                                            handleHideSubmit();
+                                        } else {
+                                            setIsHidingMode(true);
+                                            setFilesToHide(new Set());
+                                        }
+                                    }}
+                                    variant={isHidingMode ? 'default' : 'outline'}
+                                    className={`h-[32px] w-[120px] flex justify-center items-center ${isHidingMode ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white' : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50'}`}
+                                >
+                                    {isHidingMode ? 'Save' : 'Hide Media'}
+                                </Button>
+                            )}
+                            {!isHidingMode && userType !== 'agent' && (
                                 <Button
                                     onClick={() => {
                                         setFileManagerMode('upload');
@@ -644,7 +736,8 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                         if (onSave) onSave();
                                     }}
                                     disabled={isSaving}
-                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center `}>
+                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center `}
+                                >
                                     {isSaving ? (
                                         <>
                                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -656,7 +749,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                         'Submit to Client'
                                     )}
                                 </Button>
-                            }
+                            )}
                             <AgentNotificationModal
                                 open={showEmailConfirmation}
                                 onClose={() => setShowEmailConfirmation(false)}
@@ -666,27 +759,27 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                             {userType === 'agent' ? (
                                 <div className='flex items-center gap-[10px] mr-2'>
                                     <div className='flex flex-col justify-center items-center mr-2'>
-                                        <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>${currentBookedService?.option?.amount}</p>
-                                        <p className='text-[#7D7D7D] text-[10px] leading-none'>{currentBookedService?.option?.quantity || 1} Files</p>
+                                        <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>${bookingToUse?.option?.amount}</p>
+                                        <p className='text-[#7D7D7D] text-[10px] leading-none'>{bookingToUse?.option?.quantity || 1} Files</p>
                                     </div>
                                     <Button
                                         className={`h-[32px] w-[100px] flex justify-center items-center 
-                                            ${paymentSuccess || currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
+                                            ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                                 ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
                                                 : "bg-[#DC9600] hover:bg-[#eda304]"}`}
                                     >
-                                        {currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'Paid' : 'UnPaid'}
+                                        {bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'Paid' : 'UnPaid'}
                                     </Button>
                                 </div>
                             ) : (
                                 <div className='flex items-center gap-[10px] mr-2'>
                                     <Button
                                         className={`h-[32px] w-[100px] flex justify-center items-center pointer-events-none font-bold text-white
-                                            ${paymentSuccess || currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
+                                            ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                                 ? "bg-[#6BAE41]"
                                                 : "bg-[#DC9600]"}`}
                                     >
-                                        {currentBookedService?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'PAID' : 'UNPAID'}
+                                        {bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'PAID' : 'UNPAID'}
                                     </Button>
                                 </div>
                             )}
@@ -695,7 +788,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                 open={openUpgrade}
                                 setOpen={setOpenUpgrade}
                                 currentService={currentService}
-                                currentOption={currentBookedService?.option}
+                                currentOption={bookingToUse?.option}
                                 orderData={orderData}
                                 currentBookedService={currentBookedService}
                                 onSuccess={() => {
@@ -751,7 +844,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                         <div className="flex items-center gap-8">
                             {/* <div className="flex flex-col items-center">
                                 <span className="text-[22px] font-medium text-[#7D7D7D] leading-none">
-                                    {currentServiceFiles?.filter(f => f.is_agent_approved).length || 0} <span className="text-[#7D7D7D]">/ {currentBookedService?.option?.quantity || 0}</span>
+                                    {currentServiceFiles?.filter(f => f.is_agent_approved).length || 0} <span className="text-[#7D7D7D]">/ {bookingToUse?.option?.quantity || 0}</span>
                                 </span>
                                 <span className="text-[12px] text-[#7D7D7D] mt-1">Selected</span>
                             </div>
@@ -773,7 +866,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                         <div className="flex items-center gap-8">
                             <div className="flex flex-col items-center">
                                 <span className="text-[22px] font-medium text-[#7D7D7D] leading-none">
-                                    {currentServiceFiles?.filter(f => !f.is_deleted).length || 0} <span className="text-[#7D7D7D]">/ {currentBookedService?.option?.quantity || 1}</span>
+                                    {currentServiceFiles?.filter(f => !f.is_deleted).length || 0} <span className="text-[#7D7D7D]">/ {bookingToUse?.option?.quantity || 1}</span>
                                 </span>
                                 <span className="text-[12px] text-[#7D7D7D] mt-1">Uploaded</span>
                             </div>
@@ -879,7 +972,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                 file={editingFile && 'file' in editingFile ? editingFile.file : selectedImageUrl}
                 title={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || '2D Floor Plan') : '2D Floor Plan'}
                 initialName={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || '2D Floor Plan') : ''}
-                isPaid={currentBookedService?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}
+                isPaid={bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}
                 isAgentApproved={editingFile && !('file' in editingFile) ? (editingFile as Files).is_agent_approved : false}
                 onSave={(newName) => {
                     if (!editingFile) return;
