@@ -530,7 +530,8 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
         />
       )}
       <div className="w-full items-center justify-center font-alexandria">
-        <div className="relative">
+        <div className="pdf-page">
+          <div className="relative">
           <div className="bg-[#9A1F2F] group relative h-[100px] md:h-[100px] justify-center w-full flex flex-col md:flex-row items-center px-5 py-5 md:py-0 overflow-hidden">
             <div
               className="w-[200px] h-full relative overflow-hidden flex items-center justify-center"
@@ -1166,9 +1167,10 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
             <div className="flex gap-5 w-1/2 px-14"></div>
           </div>
           {/* <div className="absolute bottom-0 left-0 w-[340px] h-[362px] bg-[#ffffff] opacity-[.2]"></div> */}
-          <div className="absolute bottom-0 right-0 w-[180px] h-[200px] bg-[#ffffff] "></div>
         </div>
+      </div>
 
+      <div className="pdf-page">
         <div className="relative">
           <div className="bg-[#9A1F2F] justify-center w-full flex gap-7 items-center px-7 py-5 h-[550px]">
             <div className="flex w-1/2 h-full group">
@@ -1760,6 +1762,7 @@ const BcfpStandard2 = forwardRef<BcfpStandard2Ref, BcfpStandard2Props>(({ orderD
                 />
               </div>
             </div>
+          </div>
           </div>
         </div>
       </div>

@@ -1,7 +1,12 @@
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
-const DownloadPdf = async (elementId, fileName = "section.pdf", withBleed = false) => {
+const DownloadPdf = async (
+  elementId,
+  fileName = "section.pdf",
+  withBleed = false,
+  paperSize = { width: 8.5, height: 11 }
+) => {
   const section = document.getElementById(elementId);
 
   if (!section) {
@@ -9,11 +14,10 @@ const DownloadPdf = async (elementId, fileName = "section.pdf", withBleed = fals
     return;
   }
 
-  // Detect background color from the first child (template root) or section itself
+  // Detect background color
   const getBackgroundColor = (el) => {
     const child = el.firstElementChild;
     let bgColor = window.getComputedStyle(child || el).backgroundColor;
-    // If transparent, try searching deeper or default to white
     if (bgColor === "rgba(0, 0, 0, 0)" || bgColor === "transparent") {
       if (child && child.firstElementChild) {
         bgColor = window.getComputedStyle(child.firstElementChild).backgroundColor;
@@ -24,38 +28,29 @@ const DownloadPdf = async (elementId, fileName = "section.pdf", withBleed = fals
 
   const bgColor = getBackgroundColor(section);
 
+  // Reference width for consistent layout rendering
+  // We use 96 DPI as base browser reference (1 inch = 96px)
+  const renderWidth = paperSize.width * 96;
+  const renderHeight = paperSize.height * 96;
+
   const clone = section.cloneNode(true);
   clone.style.position = "absolute";
   clone.style.top = "-9999px";
   clone.style.left = "-9999px";
-  clone.style.width = `${section.offsetWidth}px`;
-  clone.style.height = "auto";
-  clone.style.overflow = "visible";
+  clone.style.width = `${renderWidth}px`;
+  clone.style.height = `${renderHeight}px`; // Force exact height for aspect ratio
+  clone.style.overflow = "hidden";
   clone.style.maxHeight = "none";
   document.body.appendChild(clone);
 
+  // Sync inputs
   const originalInputs = section.querySelectorAll("input, textarea");
   const cloneInputs = clone.querySelectorAll("input, textarea");
 
   originalInputs.forEach((input, index) => {
     if (!cloneInputs[index]) return;
-
     const cloneInput = cloneInputs[index];
     const inputType = input.type.toLowerCase();
-
-    if (inputType === 'file') {
-      cloneInput.value = "";
-      if (input.files && input.files[0]) {
-        const fileNameDisplay = document.createElement('span');
-        // fileNameDisplay.textContent = `Selected file: ${input.files[0].name}`;
-        // fileNameDisplay.style.color = '#666';
-        // fileNameDisplay.style.fontStyle = 'italic';
-        cloneInput.parentNode?.insertBefore(fileNameDisplay, cloneInput.nextSibling);
-        cloneInput.style.display = 'none';
-      }
-      return;
-    }
-
     if (inputType === 'checkbox' || inputType === 'radio') {
       cloneInput.checked = input.checked;
     } else if (inputType === 'textarea' || input.tagName.toLowerCase() === 'textarea') {
@@ -63,77 +58,80 @@ const DownloadPdf = async (elementId, fileName = "section.pdf", withBleed = fals
       cloneInput.textContent = input.value;
     } else {
       cloneInput.value = input.value;
-      cloneInput.setAttribute("value", input.value);
     }
   });
 
   await preloadImages(clone);
-
   await new Promise((resolve) => setTimeout(resolve, 500));
 
   try {
-    // Measure natural dimensions from the clone (off-screen, fully expanded)
-    const originalWidth = clone.scrollWidth;
-    const originalHeight = clone.scrollHeight;
-
-    // Bleed calculation (3mm ≈ 11.34px at 96 DPI)
-    const bleedPx = withBleed ? 11.34 : 0;
-    
-    // Final PDF page dimensions including optional bleed
-    const finalPageWidth = originalWidth + (bleedPx * 2);
-    const finalPageHeight = originalHeight + (bleedPx * 2);
+    const pWidth = paperSize.width * 96;
+    const pHeight = paperSize.height * 96;
 
     const options = {
-      scale: 2, // High quality
+      scale: 3, // Premium quality (>300 DPI)
       useCORS: true,
       logging: false,
       allowTaint: true,
       backgroundColor: bgColor,
-      removeContainer: true,
-      width: originalWidth,
-      height: originalHeight,
-      // windowWidth/windowHeight intentionally omitted so html2canvas
-      // captures the full content without any viewport clipping
-      scrollX: 0,
-      scrollY: 0,
-      x: 0,
-      y: 0,
-      onclone: (clonedDoc) => {
-        const clonedElement = clonedDoc.getElementById(elementId);
-        if (clonedElement) {
-          clonedElement.style.width = `${originalWidth}px`;
-          clonedElement.style.height = `${originalHeight}px`;
-          clonedElement.style.overflow = 'visible';
-          clonedElement.style.maxHeight = 'none';
-          clonedElement.style.backgroundColor = bgColor;
-        }
-      }
+      width: pWidth,
+      height: pHeight,
+      windowWidth: pWidth,
+      windowHeight: pHeight,
     };
 
-    const canvas = await html2canvas(clone, options);
-    
+    const pages = clone.querySelectorAll(".pdf-page");
+    const elementsToCapture = pages.length > 0 ? Array.from(pages) : [clone];
+
+    const orientation = paperSize.width > paperSize.height ? "landscape" : "portrait";
+    const pdf = new jsPDF({
+      orientation: orientation,
+      unit: "in",
+      format: [paperSize.width, paperSize.height]
+    });
+
+    for (let i = 0; i < elementsToCapture.length; i++) {
+      const el = elementsToCapture[i];
+      
+      // Overflow Detection (Debug Warning)
+      if (el.scrollHeight > pHeight + 10) {
+        console.warn(`[PDF Generator] Warning: Content for page ${i + 1} is taller (${el.scrollHeight}px) than the target page height (${pHeight}px). Part of the content will be clipped. Please use the ".pdf-page" class to wrap contents into separate pages if needed.`);
+      }
+
+      // Ensure the page element is properly sized for capture
+      el.style.width = `${pWidth}px`;
+      el.style.height = `${pHeight}px`;
+      el.style.overflow = "hidden";
+      el.style.display = "block"; // Ensure it's not hidden
+
+      const canvas = await html2canvas(el, options);
+      const imgData = canvas.toDataURL("image/png", 1.0);
+
+      if (i > 0) {
+        pdf.addPage([paperSize.width, paperSize.height], orientation);
+      }
+
+      if (withBleed) {
+        pdf.addImage(imgData, "PNG", 0, 0, paperSize.width, paperSize.height);
+      } else {
+        const margin = 0.1; // Reduced margin from 0.25 to 0.1
+        pdf.setFillColor(bgColor);
+        pdf.rect(0, 0, paperSize.width, paperSize.height, 'F');
+        pdf.addImage(
+          imgData, 
+          "PNG", 
+          margin, 
+          margin, 
+          paperSize.width - (margin * 2), 
+          paperSize.height - (margin * 2)
+        );
+      }
+    }
+
     if (document.body.contains(clone)) {
       document.body.removeChild(clone);
     }
 
-    // PDF orientation based on actual content dimensions
-    const orientation = finalPageHeight > finalPageWidth ? "portrait" : "landscape";
-
-    const pdf = new jsPDF({
-      orientation: orientation,
-      unit: "px",
-      format: [finalPageWidth, finalPageHeight],
-      hotfixes: ["px_scaling"] // Prevent jsPDF from applying its own DPI scaling
-    });
-
-    // Fill background
-    pdf.setFillColor(bgColor);
-    pdf.rect(0, 0, finalPageWidth, finalPageHeight, 'F');
-
-    const imgData = canvas.toDataURL("image/png", 1.0);
-    
-    // Place image to fill the entire PDF page (plus bleed offset if any)
-    pdf.addImage(imgData, "PNG", bleedPx, bleedPx, originalWidth, originalHeight);
     pdf.save(fileName);
 
   } catch (error) {

@@ -172,14 +172,22 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
       setIsDownloading(true);
       try {
         const propertyAddress = orderData?.property_address || "Property";
-        // Remove .pdf extension if it exists (e.g. for custom uploads)
         const sheetName = selectedTemplate.replace(/\.pdf$/i, "");
         const fileName = `${propertyAddress.replace(/[/\\?%*:|"<>]/g, "-")}_${sheetName}.pdf`;
+
+        // Determine paper size based on template type
+        const templateInfo = templateImages.find(t => t.id === selectedTemplate);
+        let paperSize = { width: 8.5, height: 11 }; // Default Letter
+        
+        if (templateInfo?.type === "tabloid") {
+          paperSize = { width: 17, height: 11 }; // Tabloid Landscape
+        }
 
         await DownloadPdf(
           "pdf-section",
           fileName,
-          withBleed
+          withBleed,
+          paperSize
         );
       } catch (error) {
         console.error("Download failed:", error);
@@ -631,7 +639,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                     )}
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[164px]">
+                <DropdownMenuContent align="start" className="w-[180px]">
                   <DropdownMenuItem
                     onClick={() => handleDownload(false)}
                     className="cursor-pointer"
@@ -642,7 +650,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                     onClick={() => handleDownload(true)}
                     className="cursor-pointer"
                   >
-                    Download (3mm Bleed)
+                    Download (With Bleed)
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
