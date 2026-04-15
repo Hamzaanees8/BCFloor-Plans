@@ -595,391 +595,395 @@ const BcfpStandard8 = forwardRef<BcfpStandard8Ref, BcfpStandard8Props>(({ orderD
         />
       )}
 
-      <div className="flex gap-10 px-[50px] py-[40px] bg-[#647074] relative">
-        <div className="w-1/2 flex flex-col gap-4 relative z-[1]">
-          {renderImageWithControls("image1", fileInputRef1, "w-[500px] h-[600px] bg-white border-[2px] border-white shadow-sm place-self-center")}
+      <div className="pdf-page">
+        <div className="flex gap-10 px-[50px] py-[40px] bg-[#647074] relative">
+          <div className="w-1/2 flex flex-col gap-4 relative z-[1]">
+            {renderImageWithControls("image1", fileInputRef1, "w-[500px] h-[600px] bg-white border-[2px] border-white shadow-sm place-self-center")}
 
-          <div className="flex flex-col gap-4">
-            <div className="group z-10">
-              {renderImageWithControls("image2", fileInputRef2, "w-[200px] h-[110px] relative bg-white shadow-md", false)}
-            </div>
-            <div className="flex gap-2">
-              <div className="">
-                <span className="text-[20px] text-white">CONTACT:</span>
-                <StyledInput
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  onChangeStyle={(s) => updateFieldStyle("fullName", s)}
-                  inputStyle={fieldStyles.fullName}
-                  className="text-[20px] text-white h-[22px] bg-transparent text-left w-[200px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
-                  placeholder="FIRSTNAME LASTNAME"
-                />
-                <div className="flex gap-2 font-normal text-[20px] text-white">
-                  Phone:
+            <div className="flex flex-col gap-4">
+              <div className="group z-10">
+                {renderImageWithControls("image2", fileInputRef2, "w-[200px] h-[110px] relative bg-white shadow-md", false)}
+              </div>
+              <div className="flex gap-2">
+                <div className="">
+                  <span className="text-[20px] text-white">CONTACT:</span>
                   <StyledInput
-                    value={number}
-                    onChange={(e) => setNumber(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("number", s)}
-                    inputStyle={fieldStyles.number}
-                    className="font-thin text-[20px] h-[22px] bg-transparent text-left w-[200px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
-                    placeholder="604.000.0000"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("fullName", s)}
+                    inputStyle={fieldStyles.fullName}
+                    className="text-[20px] text-white h-[22px] bg-transparent text-left w-[200px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                    placeholder="FIRSTNAME LASTNAME"
                   />
-                </div>
-                <div className="flex gap-2 font-normal text-[20px] text-white">
-                  Email:
-                  <StyledInput
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("email", s)}
-                    inputStyle={fieldStyles.email}
-                    className="font-thin text-[20px] h-[22px] bg-transparent text-left w-[200px] focus:outline-none border-none placeholder-white placeholder:font-[200]"
-                    placeholder="Enter email here"
-                  />
-                </div>
-                <div className="flex gap-2 font-normal text-[20px] text-white">
-                  MLS#
-                  <StyledInput
-                    value={mlsNumber}
-                    onChange={(e) => setMlsNumber(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("mlsNumber", s)}
-                    inputStyle={fieldStyles.mlsNumber}
-                    className="font-thin text-[20px] h-[22px] bg-transparent text-left w-[200px] focus:outline-none border-none placeholder-white placeholder:font-[200]"
-                    placeholder="Enter MLS here"
-                  />
+                  <div className="flex gap-2 font-normal text-[20px] text-white">
+                    Phone:
+                    <StyledInput
+                      value={number}
+                      onChange={(e) => setNumber(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("number", s)}
+                      inputStyle={fieldStyles.number}
+                      className="font-thin text-[20px] h-[22px] bg-transparent text-left w-[200px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                      placeholder="604.000.0000"
+                    />
+                  </div>
+                  <div className="flex gap-2 font-normal text-[20px] text-white">
+                    Email:
+                    <StyledInput
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("email", s)}
+                      inputStyle={fieldStyles.email}
+                      className="font-thin text-[20px] h-[22px] bg-transparent text-left w-[200px] focus:outline-none border-none placeholder-white placeholder:font-[200]"
+                      placeholder="Enter email here"
+                    />
+                  </div>
+                  <div className="flex gap-2 font-normal text-[20px] text-white">
+                    MLS#
+                    <StyledInput
+                      value={mlsNumber}
+                      onChange={(e) => setMlsNumber(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("mlsNumber", s)}
+                      inputStyle={fieldStyles.mlsNumber}
+                      className="font-thin text-[20px] h-[22px] bg-transparent text-left w-[200px] focus:outline-none border-none placeholder-white placeholder:font-[200]"
+                      placeholder="Enter MLS here"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          <div className="text-start w-[67%] font-thin flex gap-2 text-white absolute bottom-[4px] right-0">
-            <span className="text-[8px] font-bold leading-normal">
-              All information deemed reliable but not guaranteed and should be
-              independently verified. All properties are subject to prior
-              sale, change or withdrawal. Neither listing broker(s) nor BC
-              Floor Plans shall be responsible for any typographical errors,
-              misinformation, misprints and shall be held totally harmless.
-            </span>
-            <span className="flex flex-col mt-1">
-              <House className="w-4 h-4" />
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 8 8"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M1.07208 6.90507H1.20908C1.29908 6.90507 1.36508 6.90507 1.41708 6.95207C1.46108 6.99307 1.48508 7.04807 1.48508 7.11207C1.48508 7.22007 1.40508 7.30107 1.28408 7.30107H1.19308L1.47508 7.75507H1.58608L1.35708 7.38907C1.48808 7.37607 1.58608 7.25507 1.58608 7.11207C1.58608 7.01407 1.53908 6.91807 1.46108 6.86707C1.39608 6.81707 1.32508 6.81007 1.23408 6.81007H0.981079V7.75507H1.07208V6.90507Z"
-                  fill="white"
-                />
-                <path
-                  d="M1.93073 6.81015V7.75415H2.41973V7.66515H2.02373V7.32915H2.41973V7.23415H2.02373V6.90415H2.41973V6.81015H1.93073Z"
-                  fill="white"
-                />
-                <path
-                  d="M3.04311 6.81015L2.67511 7.75415H2.77411L2.88611 7.45715H3.30711L3.42011 7.75415H3.51911L3.15411 6.81015H3.04311ZM3.09611 6.89915L3.27511 7.37315H2.92011L3.09611 6.89915Z"
-                  fill="white"
-                />
-                <path
-                  d="M3.7901 6.81015V7.75415H4.2151V7.66515H3.8821V6.81015H3.7901Z"
-                  fill="white"
-                />
-                <path
-                  d="M4.39758 6.81015V6.90415H4.58758V7.75415H4.67958V6.90415H4.86958V6.81015H4.39758Z"
-                  fill="white"
-                />
-                <path
-                  d="M5.06702 7.27662C5.06702 7.56062 5.27402 7.77362 5.54502 7.77362C5.68702 7.77362 5.80902 7.71862 5.90602 7.61262C5.99002 7.52262 6.03102 7.41062 6.03102 7.27662C6.03102 7.14462 5.98202 7.02362 5.88502 6.93162C5.79302 6.83962 5.68002 6.79162 5.54802 6.79162C5.41702 6.79162 5.30602 6.83962 5.21402 6.92862C5.11902 7.02362 5.06702 7.14462 5.06702 7.27662ZM5.16202 7.27662C5.16202 7.16162 5.22002 7.04762 5.30702 6.97162C5.37602 6.91262 5.45902 6.88262 5.54502 6.88262C5.76502 6.88262 5.93702 7.06462 5.93702 7.27662C5.93702 7.50762 5.76502 7.68462 5.55402 7.68462C5.33602 7.68462 5.16202 7.51362 5.16202 7.27662Z"
-                  fill="white"
-                />
-                <path
-                  d="M6.43873 6.90507H6.57373C6.66173 6.90507 6.72973 6.90507 6.77973 6.95207C6.82773 6.99307 6.84873 7.04807 6.84873 7.11207C6.84873 7.22007 6.76873 7.30107 6.64773 7.30107H6.55773L6.83973 7.75507H6.94873L6.71973 7.38907C6.85373 7.37607 6.94873 7.25507 6.94873 7.11207C6.94873 7.01407 6.90173 6.91807 6.82773 6.86707C6.75973 6.81707 6.68873 6.81007 6.60073 6.81007H6.34473V7.75507H6.43873V6.90507Z"
-                  fill="white"
-                />
-                <path
-                  d="M0.880005 6.474H6.89398V0.460997H0.880005V6.474ZM4.07703 1.183H4.74799C5.36499 1.245 5.81501 1.728 5.80701 2.328C5.80201 2.92 5.35999 3.386 4.74799 3.449H4.07703V1.183ZM3.42798 5.714H1.73199V1.178H3.42798V5.714ZM4.07703 5.724V3.467L6.427 5.724H4.07703Z"
-                  fill="white"
-                />
-                <path
-                  d="M7.07922 6.6356C7.03422 6.6356 6.99122 6.6546 6.96222 6.6886C6.92922 6.7186 6.91022 6.7646 6.91022 6.8076C6.91022 6.8516 6.92722 6.8956 6.96222 6.9276C6.99122 6.9616 7.03422 6.9776 7.07922 6.9776C7.12522 6.9776 7.16922 6.9616 7.20322 6.9276C7.23322 6.8956 7.25122 6.8546 7.25122 6.8076C7.25122 6.7626 7.23322 6.7186 7.20322 6.6886C7.16922 6.6546 7.12722 6.6356 7.07922 6.6356ZM7.23322 6.8076C7.23322 6.8516 7.21822 6.8856 7.19022 6.9156C7.15922 6.9436 7.11922 6.9586 7.07922 6.9586C7.03922 6.9586 7.00322 6.9436 6.97422 6.9156C6.94422 6.8856 6.92922 6.8466 6.92922 6.8076C6.92922 6.7696 6.94422 6.7286 6.97422 6.6976C7.00322 6.6706 7.03822 6.6546 7.07922 6.6546C7.12122 6.6546 7.15922 6.6706 7.19022 6.7016C7.21622 6.7286 7.23322 6.7656 7.23322 6.8076ZM7.08722 6.7066H7.01222V6.9016H7.04322V6.8156H7.08822L7.13122 6.9016H7.16522L7.11922 6.8106C7.15022 6.8076 7.16722 6.7896 7.16722 6.7626C7.16722 6.7236 7.14122 6.7066 7.08722 6.7066ZM7.07922 6.7256C7.11822 6.7256 7.13822 6.7366 7.13822 6.7646C7.13822 6.7896 7.11822 6.7976 7.07922 6.7976H7.04322V6.7256H7.07922Z"
-                  fill="white"
-                />
-              </svg>
-            </span>
-          </div>
-        </div>
-
-        <div className="w-1/2 flex flex-col relative z-[1] gap-4">
-          <div className="">
-            {renderImageWithControls("image3", fileInputRef3, "w-full h-[400px] border-[2px] border-white shadow-sm place-self-center")}
-          </div>
-
-          <div className="flex w-full flex-col justify-center relative z-[19] items-center">
-            <div className="text-[28px] font-light leading-none mt-0 text-white flex gap-2">
-              <span className="inline">
-                <StyledInput
-                  value={addressCode}
-                  onChange={(e) => setAddressCode(e.target.value)}
-                  onChangeStyle={(s) => updateFieldStyle("addressCode", s)}
-                  inputStyle={fieldStyles.addressCode}
-                  className="font-semibold text-[#FFFFFF] text-left text-[30px] h-[30px] w-[180px] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                  placeholder="0000-0000"
-                />
+            <div className="text-start w-[67%] font-thin flex gap-2 text-white absolute bottom-[4px] right-0">
+              <span className="text-[8px] font-bold leading-normal">
+                All information deemed reliable but not guaranteed and should be
+                independently verified. All properties are subject to prior
+                sale, change or withdrawal. Neither listing broker(s) nor BC
+                Floor Plans shall be responsible for any typographical errors,
+                misinformation, misprints and shall be held totally harmless.
               </span>
-              <span className="text-white flex">
-                <StyledInput
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  onChangeStyle={(s) => updateFieldStyle("address", s)}
-                  inputStyle={fieldStyles.address}
-                  className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-left w-[230px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                  placeholder="Address Avenue"
-                />
+              <span className="flex flex-col mt-1">
+                <House className="w-4 h-4" />
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 8 8"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M1.07208 6.90507H1.20908C1.29908 6.90507 1.36508 6.90507 1.41708 6.95207C1.46108 6.99307 1.48508 7.04807 1.48508 7.11207C1.48508 7.22007 1.40508 7.30107 1.28408 7.30107H1.19308L1.47508 7.75507H1.58608L1.35708 7.38907C1.48808 7.37607 1.58608 7.25507 1.58608 7.11207C1.58608 7.01407 1.53908 6.91807 1.46108 6.86707C1.39608 6.81707 1.32508 6.81007 1.23408 6.81007H0.981079V7.75507H1.07208V6.90507Z"
+                    fill="white"
+                  />
+                  <path
+                    d="M1.93073 6.81015V7.75415H2.41973V7.66515H2.02373V7.32915H2.41973V7.23415H2.02373V6.90415H2.41973V6.81015H1.93073Z"
+                    fill="white"
+                  />
+                  <path
+                    d="M3.04311 6.81015L2.67511 7.75415H2.77411L2.88611 7.45715H3.30711L3.42011 7.75415H3.51911L3.15411 6.81015H3.04311ZM3.09611 6.89915L3.27511 7.37315H2.92011L3.09611 6.89915Z"
+                    fill="white"
+                  />
+                  <path
+                    d="M3.7901 6.81015V7.75415H4.2151V7.66515H3.8821V6.81015H3.7901Z"
+                    fill="white"
+                  />
+                  <path
+                    d="M4.39758 6.81015V6.90415H4.58758V7.75415H4.67958V6.90415H4.86958V6.81015H4.39758Z"
+                    fill="white"
+                  />
+                  <path
+                    d="M5.06702 7.27662C5.06702 7.56062 5.27402 7.77362 5.54502 7.77362C5.68702 7.77362 5.80902 7.71862 5.90602 7.61262C5.99002 7.52262 6.03102 7.41062 6.03102 7.27662C6.03102 7.14462 5.98202 7.02362 5.88502 6.93162C5.79302 6.83962 5.68002 6.79162 5.54802 6.79162C5.41702 6.79162 5.30602 6.83962 5.21402 6.92862C5.11902 7.02362 5.06702 7.14462 5.06702 7.27662ZM5.16202 7.27662C5.16202 7.16162 5.22002 7.04762 5.30702 6.97162C5.37602 6.91262 5.45902 6.88262 5.54502 6.88262C5.76502 6.88262 5.93702 7.06462 5.93702 7.27662C5.93702 7.50762 5.76502 7.68462 5.55402 7.68462C5.33602 7.68462 5.16202 7.51362 5.16202 7.27662Z"
+                    fill="white"
+                  />
+                  <path
+                    d="M6.43873 6.90507H6.57373C6.66173 6.90507 6.72973 6.90507 6.77973 6.95207C6.82773 6.99307 6.84873 7.04807 6.84873 7.11207C6.84873 7.22007 6.76873 7.30107 6.64773 7.30107H6.55773L6.83973 7.75507H6.94873L6.71973 7.38907C6.85373 7.37607 6.94873 7.25507 6.94873 7.11207C6.94873 7.01407 6.90173 6.91807 6.82773 6.86707C6.75973 6.81707 6.68873 6.81007 6.60073 6.81007H6.34473V7.75507H6.43873V6.90507Z"
+                    fill="white"
+                  />
+                  <path
+                    d="M0.880005 6.474H6.89398V0.460997H0.880005V6.474ZM4.07703 1.183H4.74799C5.36499 1.245 5.81501 1.728 5.80701 2.328C5.80201 2.92 5.35999 3.386 4.74799 3.449H4.07703V1.183ZM3.42798 5.714H1.73199V1.178H3.42798V5.714ZM4.07703 5.724V3.467L6.427 5.724H4.07703Z"
+                    fill="white"
+                  />
+                  <path
+                    d="M7.07922 6.6356C7.03422 6.6356 6.99122 6.6546 6.96222 6.6886C6.92922 6.7186 6.91022 6.7646 6.91022 6.8076C6.91022 6.8516 6.92722 6.8956 6.96222 6.9276C6.99122 6.9616 7.03422 6.9776 7.07922 6.9776C7.12522 6.9776 7.16922 6.9616 7.20322 6.9276C7.23322 6.8956 7.25122 6.8546 7.25122 6.8076C7.25122 6.7626 7.23322 6.7186 7.20322 6.6886C7.16922 6.6546 7.12722 6.6356 7.07922 6.6356ZM7.23322 6.8076C7.23322 6.8516 7.21822 6.8856 7.19022 6.9156C7.15922 6.9436 7.11922 6.9586 7.07922 6.9586C7.03922 6.9586 7.00322 6.9436 6.97422 6.9156C6.94422 6.8856 6.92922 6.8466 6.92922 6.8076C6.92922 6.7696 6.94422 6.7286 6.97422 6.6976C7.00322 6.6706 7.03822 6.6546 7.07922 6.6546C7.12122 6.6546 7.15922 6.6706 7.19022 6.7016C7.21622 6.7286 7.23322 6.7656 7.23322 6.8076ZM7.08722 6.7066H7.01222V6.9016H7.04322V6.8156H7.08822L7.13122 6.9016H7.16522L7.11922 6.8106C7.15022 6.8076 7.16722 6.7896 7.16722 6.7626C7.16722 6.7236 7.14122 6.7066 7.08722 6.7066ZM7.07922 6.7256C7.11822 6.7256 7.13822 6.7366 7.13822 6.7646C7.13822 6.7896 7.11822 6.7976 7.07922 6.7976H7.04322V6.7256H7.07922Z"
+                    fill="white"
+                  />
+                </svg>
               </span>
             </div>
-            <div className="text-white text-[10px]">
-              <StyledInput
-                value={cityLine}
-                onChange={(e) => setCityLine(e.target.value)}
-                onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
-                inputStyle={fieldStyles.cityLine}
-                className="text-white text-[10px] h-[20px] bg-transparent text-center w-[210px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                placeholder="BRIGHOUSE SOUTH, RICHMOND"
-              />
-            </div>
+          </div>
+
+          <div className="w-1/2 flex flex-col relative z-[1] gap-4">
             <div className="">
-              <StyledInput
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                onChangeStyle={(s) => updateFieldStyle("amount", s)}
-                inputStyle={fieldStyles.amount}
-                className="font-light text-[28px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                placeholder="$000,000"
-              />
+              {renderImageWithControls("image3", fileInputRef3, "w-full h-[400px] border-[2px] border-white shadow-sm place-self-center")}
             </div>
-          </div>
 
-          <div className="flex flex-col relative justify-center items-center">
-            {renderImageWithControls("image4", fileInputRef4, "w-[350px] h-[250px] border-[2px] border-white shadow-sm place-self-center")}
-
-            <div className="flex flex-col w-full absolute z-[-1]">
-              <hr className="border-t-4 border-white border-dotted w-full" />
-              <div className="h-[100px] w-full bg-[#9BA4A7] my-2"></div>
-              <hr className="border-t-4 border-white border-dotted w-full" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex gap-4 bg-[#647074] relative">
-        <div className="w-1/2 pl-[50px] py-[40px] flex flex-col gap-4">
-          {renderImageWithControls("image5", fileInputRef5, "w-full h-[420px] border-[2px] border-white shadow-sm place-self-center")}
-
-          <div className="font-bold text-[18px] text-[#FFFFFF] flex flex-wrap gap-2">
-            <div className="inline">
-              <StyledInput
-                value={bedroom}
-                onChange={(e) => setBedroom(e.target.value)}
-                onChangeStyle={(s) => updateFieldStyle("bedroom", s)}
-                inputStyle={fieldStyles.bedroom}
-                className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                placeholder="0"
-              />
-            </div>
-            BEDROOM •
-            <div className="inline">
-              <StyledInput
-                value={bathroom}
-                onChange={(e) => setBathroom(e.target.value)}
-                onChangeStyle={(s) => updateFieldStyle("bathroom", s)}
-                inputStyle={fieldStyles.bathroom}
-                className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                placeholder="0"
-              />
-            </div>
-            BATHROOM •
-            <div className="inline">
-              <StyledInput
-                value={sqft}
-                onChange={(e) => setSqft(e.target.value)}
-                onChangeStyle={(s) => updateFieldStyle("sqft", s)}
-                inputStyle={fieldStyles.sqft}
-                className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[60px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                placeholder="000"
-              />
-            </div>
-            SQ FT •
-            BUILT IN
-            <div className="inline">
-              <StyledInput
-                value={builtYear}
-                onChange={(e) => setBuiltYear(e.target.value)}
-                onChangeStyle={(s) => updateFieldStyle("builtYear", s)}
-                inputStyle={fieldStyles.builtYear}
-                className="font-semibold text-[13px] bg-transparent text-left h-[30px] w-[80px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                placeholder="0000"
-              />
-            </div>
-          </div>
-
-          <StyledInput
-            value={description}
-            rows={8}
-            onChange={(e) => setDescription(e.target.value)}
-            onChangeStyle={(s) => updateFieldStyle("description", s)}
-            inputStyle={fieldStyles.description}
-            className="font-normal text-[10px] h-[90px] z-20 text-white leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
-            placeholder="This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS overlooking Brighouse Park & to
-              the South and South Westproviding unhindered privacy. The perfect floorplan with open concept living and cross unit bedrooms. Dark
-              laminate flooring, S/S appliances, Gas range and a large open 'den/nook' area perfect for the home office. Huge private balcony,
-              great building amenities including exercise room, sauna, roof top courtyard and outdoor kids playground. With parking, and storage
-              locker and balance of the the 5-10 warranty, this home provides nothing but exceptional value. Call today to set up your viewing.
-              MLS # V981073 This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS overlooking
-              Brighouse Park & to the South and South Westproviding unhindered privacy. The perfect floorplan with open concept living and cross
-              unit bedrooms. Dark laminate flooring, S/S appliances, Gas range and a large open 'den/nook' area perfect for the home office. Huge
-              private balcony, great building amenities including exercise room, sauna, roof top courtyard and outdoor kids playground. With parking,
-              and storage locker and balance of the the 5-10 warranty, this home provides nothing but exceptional value. Call today to set up your
-              viewing. MLS # 00000"
-          />
-
-          <div className="grid grid-cols-2 gap-4">
-            {renderImageWithControls("image6", fileInputRef6, "h-[200px] border-[2px] border-white shadow-sm")}
-            {renderImageWithControls("image7", fileInputRef7, "h-[200px] border-[2px] border-white shadow-sm")}
-          </div>
-        </div>
-
-        <div className="w-1/2 flex gap-4">
-          <div className="w-[70%] flex flex-col gap-4 py-[40px]">
-            <div className="grid grid-cols-2 gap-2">
-              {renderImageWithControls("image8", fileInputRef8, "h-[165px] border-[2px] border-white shadow-sm", false)}
-              {renderImageWithControls("image9", fileInputRef9, "h-[165px] border-[2px] border-white shadow-sm", false)}
-              {renderImageWithControls("image10", fileInputRef10, "h-[165px] border-[2px] border-white shadow-sm", false)}
-              {renderImageWithControls("image11", fileInputRef11, "h-[165px] border-[2px] border-white shadow-sm", false)}
-            </div>
-            {renderImageWithControls("image12", fileInputRef12, "h-[480px] border-[2px] border-white shadow-sm")}
-          </div>
-
-          <div className="bg-[#9BA4A7] w-[30%] py-[40px] pl-[18px] pr-[50px]">
-            <div className="flex flex-col gap-2 text-black text-[12px] leading-relaxed relative z-10">
-              <div className="text-[28px] flex font-light leading-none mt-0 text-white">
-                <span className="text-[16px]">#</span>
+            <div className="flex w-full flex-col justify-center relative z-[19] items-center">
+              <div className="text-[28px] font-light leading-none mt-0 text-white flex gap-2">
                 <span className="inline">
                   <StyledInput
                     value={addressCode}
                     onChange={(e) => setAddressCode(e.target.value)}
                     onChangeStyle={(s) => updateFieldStyle("addressCode", s)}
                     inputStyle={fieldStyles.addressCode}
-                    className="font-light text-[28px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                    className="font-semibold text-[#FFFFFF] text-left text-[30px] h-[30px] w-[180px] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                     placeholder="0000-0000"
                   />
                 </span>
+                <span className="text-white flex">
+                  <StyledInput
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("address", s)}
+                    inputStyle={fieldStyles.address}
+                    className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-left w-[230px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                    placeholder="Address Avenue"
+                  />
+                </span>
               </div>
-              <span className="text-white flex text-[18px]">
-                Number
+              <div className="text-white text-[10px]">
                 <StyledInput
-                  value={roadName}
-                  onChange={(e) => setRoadName(e.target.value)}
-                  onChangeStyle={(s) => updateFieldStyle("roadName", s)}
-                  inputStyle={fieldStyles.roadName}
-                  className="font-light text-[18px] h-[30px] leading-none mt-0 bg-transparent text-white text-center w-[65px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                  value={cityLine}
+                  onChange={(e) => setCityLine(e.target.value)}
+                  onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
+                  inputStyle={fieldStyles.cityLine}
+                  className="text-white text-[10px] h-[20px] bg-transparent text-center w-[210px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                  placeholder="BRIGHOUSE SOUTH, RICHMOND"
+                />
+              </div>
+              <div className="">
+                <StyledInput
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  onChangeStyle={(s) => updateFieldStyle("amount", s)}
+                  inputStyle={fieldStyles.amount}
+                  className="font-light text-[28px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                  placeholder="$000,000"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col relative justify-center items-center">
+              {renderImageWithControls("image4", fileInputRef4, "w-[350px] h-[250px] border-[2px] border-white shadow-sm place-self-center")}
+
+              <div className="flex flex-col w-full absolute z-[-1]">
+                <hr className="border-t-4 border-white border-dotted w-full" />
+                <div className="h-[100px] w-full bg-[#9BA4A7] my-2"></div>
+                <hr className="border-t-4 border-white border-dotted w-full" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="pdf-page">
+        <div className="flex gap-4 bg-[#647074] relative">
+          <div className="w-1/2 pl-[50px] py-[40px] flex flex-col gap-4">
+            {renderImageWithControls("image5", fileInputRef5, "w-full h-[420px] border-[2px] border-white shadow-sm place-self-center")}
+
+            <div className="font-bold text-[18px] text-[#FFFFFF] flex flex-wrap gap-2">
+              <div className="inline">
+                <StyledInput
+                  value={bedroom}
+                  onChange={(e) => setBedroom(e.target.value)}
+                  onChangeStyle={(s) => updateFieldStyle("bedroom", s)}
+                  inputStyle={fieldStyles.bedroom}
+                  className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                   placeholder="0"
                 />
-                Road
-              </span>
-              <StyledInput
-                value={description}
-                rows={8}
-                onChange={(e) => setDescription(e.target.value)}
-                onChangeStyle={(s) => updateFieldStyle("description", s)}
-                inputStyle={fieldStyles.description}
-                className="font-normal text-[12px] h-[250px] w-full text-white bg-transparent text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                placeholder="On top of it all! Beautiful sub-penthouse in the well
-                appointed CENTRO building. This centrally located 2 bedroom, 2
-                bathroom home boasts incredible, totally unobstructed VIEWS
-                overlooking Brighouse Park & to the South and South
-                Westproviding unhindered privacy. The perfect floorplan with
-                open concept living and cross unit bedrooms. Dark laminate
-                flooring, S/S appliances, Gas range and a large open
-                'den/nook' area perfect for the home office.."
-              />
-              <div className="space-y-2 text-[8px]">
-                <div>
-                  <span className="font-bold text-[#FFFFFF] text-[12px]">BY-LAW RESTRICTIONS:</span>
-                  <StyledInput
-                    value={byLawRestrictions}
-                    onChange={(e) => setByLawRestrictions(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("byLawRestrictions", s)}
-                    inputStyle={fieldStyles.byLawRestrictions}
-                    className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                    placeholder="Pets Allowed w/Rest., Rentals Allowed"
-                  />
-                </div>
-                <div>
-                  <span className="font-bold text-[#FFFFFF] text-[12px]">MAINT. FEES:</span>
-                  <StyledInput
-                    value={maintFees}
-                    onChange={(e) => setMaintFees(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("maintFees", s)}
-                    inputStyle={fieldStyles.maintFees}
-                    className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                    placeholder="$000.00"
-                  />
-                </div>
-                <div>
-                  <span className="font-bold text-[#FFFFFF] text-[12px]">MAINT. FEES INCLUDE:</span>
-                  <StyledInput
-                    value={maintFeesInclude}
-                    onChange={(e) => setMaintFeesInclude(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("maintFeesInclude", s)}
-                    inputStyle={fieldStyles.maintFeesInclude}
-                    className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                    placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
-                  />
-                </div>
-                <div>
-                  <span className="font-bold text-[#FFFFFF] text-[12px]">FEATURES INCLUDED:</span>
-                  <StyledInput
-                    value={featuresIncluded}
-                    onChange={(e) => setFeaturesIncluded(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("featuresIncluded", s)}
-                    inputStyle={fieldStyles.featuresIncluded}
-                    className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                    placeholder="Clothes Washer/Dryer/ Fridge/Stove/DW, Drapes/ Window Coverings"
-                  />
-                </div>
               </div>
-              <div className="space-y-2 text-[8px]">
-                <div>
-                  <span className="font-bold text-[#FFFFFF] text-[12px]">SITE INFLUENCES:</span>
-                  <StyledInput
-                    value={siteInfluences}
-                    onChange={(e) => setSiteInfluences(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("siteInfluences", s)}
-                    inputStyle={fieldStyles.siteInfluences}
-                    className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                    placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
-                  />
+              BEDROOM •
+              <div className="inline">
+                <StyledInput
+                  value={bathroom}
+                  onChange={(e) => setBathroom(e.target.value)}
+                  onChangeStyle={(s) => updateFieldStyle("bathroom", s)}
+                  inputStyle={fieldStyles.bathroom}
+                  className="font-semibold text-[13px] bg-transparent text-left w-[20px] h-[20px]  focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                  placeholder="0"
+                />
+              </div>
+              BATHROOM •
+              <div className="inline">
+                <StyledInput
+                  value={sqft}
+                  onChange={(e) => setSqft(e.target.value)}
+                  onChangeStyle={(s) => updateFieldStyle("sqft", s)}
+                  inputStyle={fieldStyles.sqft}
+                  className="font-semibold text-[13px] bg-transparent text-left h-[20px] w-[60px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                  placeholder="000"
+                />
+              </div>
+              SQ FT •
+              BUILT IN
+              <div className="inline">
+                <StyledInput
+                  value={builtYear}
+                  onChange={(e) => setBuiltYear(e.target.value)}
+                  onChangeStyle={(s) => updateFieldStyle("builtYear", s)}
+                  inputStyle={fieldStyles.builtYear}
+                  className="font-semibold text-[13px] bg-transparent text-left h-[30px] w-[80px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                  placeholder="0000"
+                />
+              </div>
+            </div>
+
+            <StyledInput
+              value={description}
+              rows={8}
+              onChange={(e) => setDescription(e.target.value)}
+              onChangeStyle={(s) => updateFieldStyle("description", s)}
+              inputStyle={fieldStyles.description}
+              className="font-normal text-[10px] h-[90px] z-20 text-white leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
+              placeholder="This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS overlooking Brighouse Park & to
+                the South and South Westproviding unhindered privacy. The perfect floorplan with open concept living and cross unit bedrooms. Dark
+                laminate flooring, S/S appliances, Gas range and a large open 'den/nook' area perfect for the home office. Huge private balcony,
+                great building amenities including exercise room, sauna, roof top courtyard and outdoor kids playground. With parking, and storage
+                locker and balance of the the 5-10 warranty, this home provides nothing but exceptional value. Call today to set up your viewing.
+                MLS # V981073 This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS overlooking
+                Brighouse Park & to the South and South Westproviding unhindered privacy. The perfect floorplan with open concept living and cross
+                unit bedrooms. Dark laminate flooring, S/S appliances, Gas range and a large open 'den/nook' area perfect for the home office. Huge
+                private balcony, great building amenities including exercise room, sauna, roof top courtyard and outdoor kids playground. With parking,
+                and storage locker and balance of the the 5-10 warranty, this home provides nothing but exceptional value. Call today to set up your
+                viewing. MLS # 00000"
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              {renderImageWithControls("image6", fileInputRef6, "h-[200px] border-[2px] border-white shadow-sm")}
+              {renderImageWithControls("image7", fileInputRef7, "h-[200px] border-[2px] border-white shadow-sm")}
+            </div>
+          </div>
+
+          <div className="w-1/2 flex gap-4">
+            <div className="w-[70%] flex flex-col gap-4 py-[40px]">
+              <div className="grid grid-cols-2 gap-2">
+                {renderImageWithControls("image8", fileInputRef8, "h-[165px] border-[2px] border-white shadow-sm", false)}
+                {renderImageWithControls("image9", fileInputRef9, "h-[165px] border-[2px] border-white shadow-sm", false)}
+                {renderImageWithControls("image10", fileInputRef10, "h-[165px] border-[2px] border-white shadow-sm", false)}
+                {renderImageWithControls("image11", fileInputRef11, "h-[165px] border-[2px] border-white shadow-sm", false)}
+              </div>
+              {renderImageWithControls("image12", fileInputRef12, "h-[480px] border-[2px] border-white shadow-sm")}
+            </div>
+
+            <div className="bg-[#9BA4A7] w-[30%] py-[40px] pl-[18px] pr-[50px]">
+              <div className="flex flex-col gap-2 text-black text-[12px] leading-relaxed relative z-10">
+                <div className="text-[28px] flex font-light leading-none mt-0 text-white">
+                  <span className="text-[16px]">#</span>
+                  <span className="inline">
+                    <StyledInput
+                      value={addressCode}
+                      onChange={(e) => setAddressCode(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("addressCode", s)}
+                      inputStyle={fieldStyles.addressCode}
+                      className="font-light text-[28px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                      placeholder="0000-0000"
+                    />
+                  </span>
                 </div>
-                <div>
-                  <span className="font-bold text-[#FFFFFF] text-[12px]">AMENITIES:</span>
+                <span className="text-white flex text-[18px]">
+                  Number
                   <StyledInput
-                    value={amenities}
-                    onChange={(e) => setAmenities(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("amenities", s)}
-                    inputStyle={fieldStyles.amenities}
-                    className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                    placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
+                    value={roadName}
+                    onChange={(e) => setRoadName(e.target.value)}
+                    onChangeStyle={(s) => updateFieldStyle("roadName", s)}
+                    inputStyle={fieldStyles.roadName}
+                    className="font-light text-[18px] h-[30px] leading-none mt-0 bg-transparent text-white text-center w-[65px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                    placeholder="0"
                   />
+                  Road
+                </span>
+                <StyledInput
+                  value={description}
+                  rows={8}
+                  onChange={(e) => setDescription(e.target.value)}
+                  onChangeStyle={(s) => updateFieldStyle("description", s)}
+                  inputStyle={fieldStyles.description}
+                  className="font-normal text-[12px] h-[250px] w-full text-white bg-transparent text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                  placeholder="On top of it all! Beautiful sub-penthouse in the well
+                  appointed CENTRO building. This centrally located 2 bedroom, 2
+                  bathroom home boasts incredible, totally unobstructed VIEWS
+                  overlooking Brighouse Park & to the South and South
+                  Westproviding unhindered privacy. The perfect floorplan with
+                  open concept living and cross unit bedrooms. Dark laminate
+                  flooring, S/S appliances, Gas range and a large open
+                  'den/nook' area perfect for the home office.."
+                />
+                <div className="space-y-2 text-[8px]">
+                  <div>
+                    <span className="font-bold text-[#FFFFFF] text-[12px]">BY-LAW RESTRICTIONS:</span>
+                    <StyledInput
+                      value={byLawRestrictions}
+                      onChange={(e) => setByLawRestrictions(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("byLawRestrictions", s)}
+                      inputStyle={fieldStyles.byLawRestrictions}
+                      className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                      placeholder="Pets Allowed w/Rest., Rentals Allowed"
+                    />
+                  </div>
+                  <div>
+                    <span className="font-bold text-[#FFFFFF] text-[12px]">MAINT. FEES:</span>
+                    <StyledInput
+                      value={maintFees}
+                      onChange={(e) => setMaintFees(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("maintFees", s)}
+                      inputStyle={fieldStyles.maintFees}
+                      className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                      placeholder="$000.00"
+                    />
+                  </div>
+                  <div>
+                    <span className="font-bold text-[#FFFFFF] text-[12px]">MAINT. FEES INCLUDE:</span>
+                    <StyledInput
+                      value={maintFeesInclude}
+                      onChange={(e) => setMaintFeesInclude(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("maintFeesInclude", s)}
+                      inputStyle={fieldStyles.maintFeesInclude}
+                      className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                      placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
+                    />
+                  </div>
+                  <div>
+                    <span className="font-bold text-[#FFFFFF] text-[12px]">FEATURES INCLUDED:</span>
+                    <StyledInput
+                      value={featuresIncluded}
+                      onChange={(e) => setFeaturesIncluded(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("featuresIncluded", s)}
+                      inputStyle={fieldStyles.featuresIncluded}
+                      className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                      placeholder="Clothes Washer/Dryer/ Fridge/Stove/DW, Drapes/ Window Coverings"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <span className="font-bold text-[#FFFFFF] text-[12px]">VIEW:</span>
-                  <StyledInput
-                    value={view}
-                    onChange={(e) => setView(e.target.value)}
-                    onChangeStyle={(s) => updateFieldStyle("view", s)}
-                    inputStyle={fieldStyles.view}
-                    className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                    placeholder="South & SW - Van Isl."
-                  />
+                <div className="space-y-2 text-[8px]">
+                  <div>
+                    <span className="font-bold text-[#FFFFFF] text-[12px]">SITE INFLUENCES:</span>
+                    <StyledInput
+                      value={siteInfluences}
+                      onChange={(e) => setSiteInfluences(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("siteInfluences", s)}
+                      inputStyle={fieldStyles.siteInfluences}
+                      className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                      placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
+                    />
+                  </div>
+                  <div>
+                    <span className="font-bold text-[#FFFFFF] text-[12px]">AMENITIES:</span>
+                    <StyledInput
+                      value={amenities}
+                      onChange={(e) => setAmenities(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("amenities", s)}
+                      inputStyle={fieldStyles.amenities}
+                      className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                      placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
+                    />
+                  </div>
+                  <div>
+                    <span className="font-bold text-[#FFFFFF] text-[12px]">VIEW:</span>
+                    <StyledInput
+                      value={view}
+                      onChange={(e) => setView(e.target.value)}
+                      onChangeStyle={(s) => updateFieldStyle("view", s)}
+                      inputStyle={fieldStyles.view}
+                      className="font-semibold text-[8px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
+                      placeholder="South & SW - Van Isl."
+                    />
+                  </div>
                 </div>
               </div>
             </div>

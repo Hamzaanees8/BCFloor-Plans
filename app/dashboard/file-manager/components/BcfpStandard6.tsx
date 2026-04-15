@@ -582,7 +582,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(({ orderD
           onImageSelect={handleGalleryImageSelect}
         />
       )}
-      <div className="">
+      <div className="pdf-page">
         <div className="w-full flex  justify-center font-alexandria">
           <div className="w-1/2 bg-white flex flex-col relative">
             <div
@@ -1455,7 +1455,7 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(({ orderD
           </div>
         </div>
       </div>
-      <div className="">
+      <div className="pdf-page">
         <div className="w-full flex flex-col justify-center font-alexandria relative p-[50px] pb-[20px]">
           <div className="flex gap-4">
             <div className="w-1/2 flex flex-col gap-4">
@@ -2194,57 +2194,57 @@ const BcfpStandard6 = forwardRef<BcfpStandard6Ref, BcfpStandard6Props>(({ orderD
                 <div className="flex gap-4 text-white text-[12px] leading-relaxed pt-[20px]">
                   <div className="space-y-2 text-[8px] w-1/2">
                     <div>
-                                     <p className="font-bold text-[#00B9F2] text-[10px]">
-                      BY-LAW RESTRICTIONS:
-                    </p>
-                    <StyledInput
-                      value={byLawRestrictions}
-                      onChange={(e) => setByLawRestrictions(e.target.value)}
-                      onChangeStyle={(s) => updateFieldStyle("byLawRestrictions", s)}
-                      inputStyle={fieldStyles.byLawRestrictions}
-                      className="text-[9px] w-full border-none focus:outline-none placeholder-gray-300 placeholder:font-[200]"
-                      placeholder="Enter details here"
-                    />
-                  </div>
-                  <div>
-                    <p className="font-bold text-[#00B9F2] text-[10px]">
-                      MAINT. FEES:
-                    </p>
-                    <StyledInput
-                      value={maintFees}
-                      onChange={(e) => setMaintFees(e.target.value)}
-                      onChangeStyle={(s) => updateFieldStyle("maintFees", s)}
-                      inputStyle={fieldStyles.maintFees}
-                      className="text-[9px] w-full border-none focus:outline-none placeholder-gray-300 placeholder:font-[200]"
-                      placeholder="Enter fees here"
-                    />
-                  </div>
-                  <div>
-                    <p className="font-bold text-[#00B9F2] text-[10px]">
-                      MAINT. FEES INCLUDE:
-                    </p>
-                    <StyledInput
-                      value={maintFeesInclude}
-                      onChange={(e) => setMaintFeesInclude(e.target.value)}
-                      onChangeStyle={(s) => updateFieldStyle("maintFeesInclude", s)}
-                      inputStyle={fieldStyles.maintFeesInclude}
-                      className="text-[9px] w-full border-none focus:outline-none placeholder-gray-300 placeholder:font-[200]"
-                      placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
-                    />
-                  </div>
-                  <div>
-                    <p className="font-bold text-[#00B9F2] text-[10px]">
-                      FEATURES INCLUDED:
-                    </p>
-                    <StyledInput
-                      value={featuresIncluded}
-                      onChange={(e) => setFeaturesIncluded(e.target.value)}
-                      onChangeStyle={(s) => updateFieldStyle("featuresIncluded", s)}
-                      inputStyle={fieldStyles.featuresIncluded}
-                      className="text-[9px] w-full border-none focus:outline-none placeholder-gray-300 placeholder:font-[200]"
-                      placeholder="Clothes Washer/Dryer/ Fridge/Stove/DW, Drapes/ Window Coverings"
-                    />
-                  </div>
+                      <p className="font-bold text-[#00B9F2] text-[10px]">
+                        BY-LAW RESTRICTIONS:
+                      </p>
+                      <StyledInput
+                        value={byLawRestrictions}
+                        onChange={(e) => setByLawRestrictions(e.target.value)}
+                        onChangeStyle={(s) => updateFieldStyle("byLawRestrictions", s)}
+                        inputStyle={fieldStyles.byLawRestrictions}
+                        className="text-[9px] w-full border-none focus:outline-none placeholder-gray-300 placeholder:font-[200]"
+                        placeholder="Enter details here"
+                      />
+                    </div>
+                    <div>
+                      <p className="font-bold text-[#00B9F2] text-[10px]">
+                        MAINT. FEES:
+                      </p>
+                      <StyledInput
+                        value={maintFees}
+                        onChange={(e) => setMaintFees(e.target.value)}
+                        onChangeStyle={(s) => updateFieldStyle("maintFees", s)}
+                        inputStyle={fieldStyles.maintFees}
+                        className="text-[9px] w-full border-none focus:outline-none placeholder-gray-300 placeholder:font-[200]"
+                        placeholder="Enter fees here"
+                      />
+                    </div>
+                    <div>
+                      <p className="font-bold text-[#00B9F2] text-[10px]">
+                        MAINT. FEES INCLUDE:
+                      </p>
+                      <StyledInput
+                        value={maintFeesInclude}
+                        onChange={(e) => setMaintFeesInclude(e.target.value)}
+                        onChangeStyle={(s) => updateFieldStyle("maintFeesInclude", s)}
+                        inputStyle={fieldStyles.maintFeesInclude}
+                        className="text-[9px] w-full border-none focus:outline-none placeholder-gray-300 placeholder:font-[200]"
+                        placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
+                      />
+                    </div>
+                    <div>
+                      <p className="font-bold text-[#00B9F2] text-[10px]">
+                        FEATURES INCLUDED:
+                      </p>
+                      <StyledInput
+                        value={featuresIncluded}
+                        onChange={(e) => setFeaturesIncluded(e.target.value)}
+                        onChangeStyle={(s) => updateFieldStyle("featuresIncluded", s)}
+                        inputStyle={fieldStyles.featuresIncluded}
+                        className="text-[9px] w-full border-none focus:outline-none placeholder-gray-300 placeholder:font-[200]"
+                        placeholder="Clothes Washer/Dryer/ Fridge/Stove/DW, Drapes/ Window Coverings"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2 text-[8px] w-1/2">
                     <div>

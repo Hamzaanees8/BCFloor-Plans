@@ -166,7 +166,7 @@ const BcfpStandard5 = forwardRef<BcfpStandard5Ref, BcfpStandard5Props>(({ orderD
 
   return (
     <>
-      <div className="w-full flex  justify-center font-alexandria">
+      <div className="w-full flex  justify-center font-alexandria pdf-page">
         <div className="w-full bg-[#376173] flex flex-col relative">
           <div className="flex w-full flex-col justify-center relative z-[19] items-center pt-[50px]">
             <div className="text-[28px] font-light leading-none mt-0 text-[#00B9F2]">
@@ -718,7 +718,7 @@ const BcfpStandard5 = forwardRef<BcfpStandard5Ref, BcfpStandard5Props>(({ orderD
           </div>
         </div>
       </div>
-      <div className="w-full flex  justify-center font-alexandria">
+      <div className="w-full flex  justify-center font-alexandria pdf-page">
         <div className="w-full bg-[#376173] flex flex-col relative">
           <div className="flex w-full flex-col justify-center relative z-[19] items-center pt-[50px]">
             <div className="text-[28px] font-light leading-none mt-0 text-[#00B9F2]">

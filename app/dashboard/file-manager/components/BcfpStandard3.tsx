@@ -42,7 +42,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
   const [sqft, setSqft] = useState("");
   const [builtYear, setBuiltYear] = useState("");
   const [description, setDescription] = useState("");
-  const [fieldStyles, setFieldStyles] = useState<Record<string, TextStyle>>({}); 
+  const [fieldStyles, setFieldStyles] = useState<Record<string, TextStyle>>({});
   const updateFieldStyle = (field: string, style: TextStyle) =>
     setFieldStyles((prev) => ({ ...prev, [field]: style }));
 
@@ -520,7 +520,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
       const styles: Record<string, TextStyle> = {};
       const c = payload.content;
       const st = (f: any) => (f as StyledTextField)?.style;
-      
+
       if (st(c.offeredAtPrice)) styles.title = st(c.offeredAtPrice);
       if (st(c.realtorTitle)) styles.subtitle = st(c.realtorTitle);
       if (st(c.realtorName)) styles.fullName = st(c.realtorName);
@@ -531,7 +531,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
       if (st(c.expandedDetail2Description)) styles.maintenanceFees = st(c.expandedDetail2Description);
       if (st(c.expandedDetail3Description)) styles.maintenanceFeesInclude = st(c.expandedDetail3Description);
       if (st(c.expandedDetail4Description)) styles.amenities = st(c.expandedDetail4Description);
-      
+
       const od = c.otherDetails as Record<string, any>;
       if (od?.view?.style) styles.view = od.view.style;
       if (od?.bedroom?.style) styles.bedroom = od.bedroom.style;
@@ -542,7 +542,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
       if (od?.amount?.style) styles.amount = od.amount.style;
       if (od?.featuresIncluded?.style) styles.featuresIncluded = od.featuresIncluded.style;
       if (od?.siteInfluences?.style) styles.siteInfluences = od.siteInfluences.style;
-      
+
       setFieldStyles(styles);
 
       if (state.images) setImages((prev) => ({ ...prev, ...(state.images as unknown as typeof images) }));
@@ -571,11 +571,8 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
         />
       )}
       <div className="w-full items-center justify-center font-alexandria">
-        <div className="">
-          <div className=""> </div>
-        </div>
 
-        <div className="flex items-stretch ">
+        <div className="flex items-stretch pdf-page ">
           <div
             className="w-1/2 flex flex-col relative overflow-hidden items-center justify-center group p-[50px]"
             style={{
@@ -1174,7 +1171,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(({ orderD
           </div>
         </div>
 
-        <div className="flex items-stretch  min-h-[990px] relative">
+        <div className="flex items-stretch  min-h-[990px] relative pdf-page">
           <div className="w-1/2 relative ">
             <svg
               width="400px"

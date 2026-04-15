@@ -178,7 +178,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
         // Determine paper size based on template type
         const templateInfo = templateImages.find(t => t.id === selectedTemplate);
         let paperSize = { width: 8.5, height: 11 }; // Default Letter
-        
+
         if (templateInfo?.type === "tabloid") {
           paperSize = { width: 17, height: 11 }; // Tabloid Landscape
         }
@@ -355,7 +355,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
     const handleMySheetClick = async (sheet: FeatureSheetResponse) => {
       // 1. If no template is selected, we first need to "open" the template
       // If one IS selected, we just apply the style to it.
-      
+
       if (!selectedTemplate) {
         // Open the template
         handleTemplateChange(sheet.template_key);
@@ -990,7 +990,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                           Upgrade Plan
                         </button>
                       </div>
-                      <div className="grid grid-cols-3 gap-6 ">
+                      <div className="grid grid-cols-3 gap-6 !hidden">
                         <div className="">
                           <div ref={wrapperRef} className="relative w-full">
                             <label
@@ -1230,6 +1230,46 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                               />
                             </div>
                           </div>
+                        </div>
+                      </div>
+                      <div className="flex w-full">
+                        <div className="w-[20%]">
+                          <label htmlFor="">Template</label>
+                          <Select
+                            value={selectedTemplate}
+                            onValueChange={handleTemplateChange}
+                          >
+                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
+                              <SelectValue placeholder="Select Template" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {/* Standard Templates */}
+                              <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase">
+                                Standard Templates
+                              </div>
+                              {templateOptions
+                                .filter((opt) => opt.startsWith("BCFPStandard"))
+                                .map((template) => (
+                                  <SelectItem key={template} value={template}>
+                                    {template}
+                                  </SelectItem>
+                                ))}
+
+                              {/* Uploaded PDFs */}
+                              {uploadedPdfs.length > 0 && (
+                                <>
+                                  <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase mt-2">
+                                    Uploaded Sheets
+                                  </div>
+                                  {uploadedPdfs.map((pdf) => (
+                                    <SelectItem key={pdf.name} value={pdf.name}>
+                                      {pdf.name}
+                                    </SelectItem>
+                                  ))}
+                                </>
+                              )}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                     </div>
