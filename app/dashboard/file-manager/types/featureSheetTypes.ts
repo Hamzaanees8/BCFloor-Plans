@@ -97,6 +97,7 @@ export interface FeatureSheetImage {
         popup?: string;
     } | null;
     is_processing?: boolean;
+    is_hidden?: boolean;
     meta: ImageStyle;
 }
 
@@ -227,6 +228,8 @@ export interface FeatureSheetState {
     phoneNumber: string;
     otherDetails: Record<string, unknown>;
     images: { [key: string]: string | null };
+    imageUuids: { [key: string]: string | null };
+    hiddenImages: { [key: string]: boolean };
     imageScales: { [key: string]: number };
     imagePositions: { [key: string]: ImagePosition };
     fieldStyles?: Record<string, any>;

@@ -16,7 +16,12 @@ export interface AgentPayload {
   password_confirmation?: string;
   avatar?: File | null;
   role_id?: number;
-  company_logo?: File | null;
+  company_logos?: {
+    file?: File | null;
+    type: string;
+    url?: string;
+    uuid?: string;
+  }[];
   company_banner?: File | null;
   roles?: number[];
   permissions?: number[];
@@ -89,6 +94,16 @@ export function payloadToFormData(payload: AgentPayload): FormData {
               }
             });
           }
+        } else if (key === 'company_logos') {
+          value.forEach((logo, index) => {
+            if (logo.file) {
+              formData.append(`${key}[${index}][file]`, logo.file);
+            }
+            formData.append(`${key}[${index}][type]`, logo.type || '');
+            if (logo.uuid) {
+              formData.append(`${key}[${index}][uuid]`, logo.uuid);
+            }
+          });
         } else {
           value.forEach(val => {
             formData.append(key + "[]", val);

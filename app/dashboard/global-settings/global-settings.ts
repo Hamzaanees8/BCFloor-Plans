@@ -496,6 +496,19 @@ export interface MediaSettingsPayload {
     large: { width: number; height: number };
     mls: { width: number; height: number };
   };
+  tour_defaults?: {
+    music_enabled: boolean;
+    default_song: string;
+    transition_effect: string[];
+    layout_option: string;
+    video_slideshow_enabled: boolean;
+    letterbox_correction: boolean;
+    aspect_ratio: string;
+    autoplay_enabled: boolean;
+    allow_print_download: boolean;
+    allow_client_upload: boolean;
+    require_payment_before_download: boolean;
+  };
 }
 export async function CreateMediaSettings(payload: MediaSettingsPayload) {
 

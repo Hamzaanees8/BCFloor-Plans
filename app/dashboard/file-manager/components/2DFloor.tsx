@@ -105,6 +105,10 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
         let files = filesData?.files
             ?.filter(file => {
                 if (file?.service?.uuid !== currentService?.uuid) return false;
+
+                // Exclude hidden files from the main gallery
+                if (file.is_hidden) return false;
+
                 // Date boundary filter for duplicate service bookings
                 if (mediaDateBoundary) {
                     const fileDate = new Date(file.created_at).getTime();
@@ -370,6 +374,9 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                         title={displayType}
                     >
                         {displayType}
+                        {file.is_hidden && (
+                            <span className="ml-2 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full uppercase font-bold">Hidden</span>
+                        )}
                     </p>
                     <div
                         className="relative w-full aspect-[4/3] border border-[#A8A8A8] rounded-[6px] overflow-hidden"
@@ -380,7 +387,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                 <OptimizedImagePreview
                                     file={file.file}
                                     alt="Preview"
-                                    className={`absolute inset-0 w-full h-full object-contain cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : (!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : '')}`}
+                                    className={`absolute inset-0 w-full h-full object-contain cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : (!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : '')} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                     draggable={false}
                                     onClick={() => {
                                         if (isHidingMode && file.uuid) {
@@ -432,7 +439,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                             ) : (
                                 <div className="absolute inset-0 overflow-hidden rounded-[6px]">
                                     <div
-                                        className={`relative overflow-hidden cursor-pointer w-full h-full transition-all duration-300 ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                        className={`relative overflow-hidden cursor-pointer w-full h-full transition-all duration-300 ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                         onClick={() => {
                                             if (isHidingMode && file.uuid) {
                                                 setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
@@ -465,7 +472,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                     alt="Preview"
                                     fill
                                     draggable={false}
-                                    className={`object-contain cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                    className={`object-contain cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                 />
                                 {file.uuid && filesToHide.has(file.uuid) && (!file.file || typeof file.file === 'string') && (
                                     <div className="absolute inset-0 bg-black/50 z-[25] flex flex-col items-center justify-center pointer-events-none">
@@ -711,7 +718,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                     Download Files
                                 </Button>
                             )}
-                            {userType !== 'agent' && (
+                            {(userType === 'admin' || userType === 'agent') && (
                                 <Button
                                     onClick={() => {
                                         if (isHidingMode) {

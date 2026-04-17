@@ -12,6 +12,7 @@ export const PERMISSIONS = {
     CREATE_SERVICES: "Create Services",
     VIEW_ORDERS: "View Orders",
     VIEW_APPOINTMENTS: "View Appointments",
+    EDIT_APPOINTMENTS: "Edit Appointments",
 } as const;
 
 export type Permission = {

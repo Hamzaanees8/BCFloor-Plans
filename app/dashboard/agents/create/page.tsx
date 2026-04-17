@@ -68,6 +68,12 @@ type CurrentAgent = {
     website: string | null;
     headquarter_address: string | null;
     license_number: string | null;
+    company_logos_data?: {
+        uuid: string;
+        file_url: string;
+        file_name: string;
+        type: string;
+    }[];
     status: boolean;
     payment_status: string;
     requires_payment: boolean;
@@ -90,6 +96,25 @@ type CurrentAgent = {
         is_active?: 1 | 0 | string;
     } | null;
 };
+
+type CompanyLogoState = {
+    file?: File | null;
+    url: string;
+    fileName: string;
+    type: string;
+    uuid?: string;
+};
+
+const SERVICE_LOGO_TYPES = [
+    'General',
+    'Video',
+    '2DFLOOR',
+    '3DFLOOR',
+    'HDRSTILL',
+    'TWILIGHT',
+    'DRONE',
+    'STAGING'
+];
 
 const AgentForm = () => {
     const { userType } = useAppContext();
@@ -143,9 +168,7 @@ const AgentForm = () => {
     const [isPaymentRequired, setIsPaymentRequired] = useState(false);
     const [openChangePasswordDialog, setOpenChangePasswordDialog] = useState(false);
     const [openAddAgentDialog, setOpenAddAgentDialog] = useState(false);
-    const CompanyLogofileInputRef = useRef(null)
-    const [CompanyLogofileName, setCompanyLogoFileName] = useState('')
-    const [CompanyLogoUrl, setCompanyLogoUrl] = useState('')
+    const [companyLogos, setCompanyLogos] = useState<CompanyLogoState[]>([]);
     const AvatarfileInputRef = useRef(null)
     const [AvatarfileName, setAvatarFileName] = useState('')
     const [avatarUrl, setAvatarUrl] = useState('')
@@ -155,7 +178,6 @@ const AgentForm = () => {
     type Role = { id: string; name: string };
     const [roles, setRoles] = useState<Role[]>([])
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
-    const [companyLogoFile, setCompanyLogoFile] = useState<File | null>(null);
     const [companyBannerFile, setCompanyBannerFile] = useState<File | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
     const [isTourMediaEnabled, setIsTourMediaEnabled] = useState<boolean>(true);
@@ -352,9 +374,15 @@ const AgentForm = () => {
             setIsPaymentRequired(currentUser.requires_payment)
             setAvatarFileName(currentUser.avatar || "")
             setCompanyBannerFileName(currentUser.company_banner || "")
-            setCompanyLogoFileName(currentUser.company_logo || "")
             if (currentUser.avatar_url) setAvatarUrl(currentUser.avatar_url);
-            if (currentUser.company_logo_url) setCompanyLogoUrl(currentUser.company_logo_url);
+            if (currentUser.company_logos_data && Array.isArray(currentUser.company_logos_data)) {
+                setCompanyLogos(currentUser.company_logos_data.map(logo => ({
+                    uuid: logo.uuid,
+                    url: logo.file_url,
+                    fileName: logo.file_name,
+                    type: logo.type || 'General'
+                })));
+            }
             if (currentUser.company_banner_url) setCompanyBannerUrl(currentUser.company_banner_url);
             if (currentUser.co_agents && Array.isArray(currentUser.co_agents)) {
                 const formattedAgents = currentUser.co_agents.map(agent => ({
@@ -403,21 +431,33 @@ const AgentForm = () => {
             (AvatarfileInputRef.current as HTMLInputElement).click()
         }
     }
-    const handleFileChange1 = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleAddLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (file) {
-            setCompanyLogoFile(file)
-            setCompanyLogoFileName(file.name)
-            setCompanyLogoUrl(URL.createObjectURL(file))
+            const newLogo: CompanyLogoState = {
+                file,
+                url: URL.createObjectURL(file),
+                fileName: file.name,
+                type: 'General'
+            };
+            setCompanyLogos(prev => [...prev, newLogo]);
             if (hasInitiallyRendered.current) setIsDirty(true);
         }
     }
 
-    const triggerFileInput1 = () => {
-        if (CompanyLogofileInputRef.current) {
-            (CompanyLogofileInputRef.current as HTMLInputElement).click()
-        }
-    }
+    const handleRemoveLogo = (index: number) => {
+        setCompanyLogos(prev => prev.filter((_, i) => i !== index));
+        if (hasInitiallyRendered.current) setIsDirty(true);
+    };
+
+    const handleLogoTypeChange = (index: number, type: string) => {
+        setCompanyLogos(prev => {
+            const next = [...prev];
+            next[index] = { ...next[index], type };
+            return next;
+        });
+        if (hasInitiallyRendered.current) setIsDirty(true);
+    };
     const handleFileChange2 = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (file) {
@@ -556,7 +596,11 @@ const AgentForm = () => {
                 website: formattedWebsite || undefined,
                 password: userId ? undefined : (password || undefined),
                 avatar: avatarFile || undefined,
-                company_logo: companyLogoFile || undefined,
+                company_logos: companyLogos.map(logo => ({
+                    file: logo.file,
+                    type: logo.type,
+                    uuid: logo.uuid
+                })),
                 company_banner: companyBannerFile || undefined,
                 role_id: role ? Number(role) : undefined,
                 notes: agentNotes,
@@ -1471,50 +1515,83 @@ const AgentForm = () => {
                                                         />
                                                     </div>
                                                 </div>
-                                                <p className="text-[10px] text-[#6BAE41] ">
-                                                    Company logo 512 x 512, PNG or JPG
+                                                <p className="text-[10px] text-[#4290E9] ">
+                                                    Profile picture 512 x 512, PNG or JPG
                                                 </p>
 
                                             </div>
-                                            <div className='flex flex-col gap-y-[6px]'>
-                                                <div className='flex items-end gap-x-[6px]'>
-                                                    {CompanyLogoUrl ?
-                                                        <Image
-                                                            unoptimized
-                                                            src={CompanyLogoUrl}
-                                                            alt="Avatar"
-                                                            width={64}
-                                                            height={64}
-                                                            className="h-16 w-16 object-cover border"
-                                                        />
-                                                        : <div className='w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]'></div>
-                                                    }
-                                                    <div className="flex-1">
-                                                        <Label className="text-sm  text-gray-600">Company Logo</Label>
-                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden">
-                                                            <span className="bg-[#EEEEEE] max-w-[246px] text-[16px] font-normal py-2 w-full h-full px-4 focus:outline-none truncate whitespace-nowrap overflow-hidden">{CompanyLogofileName}
-                                                            </span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={triggerFileInput1}
-                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                                                            >
-                                                                Replace
-                                                            </button>
-                                                        </div>
-                                                        <input
-                                                            type="file"
-                                                            accept="image/png, image/jpeg"
-                                                            ref={CompanyLogofileInputRef}
-                                                            onChange={handleFileChange1}
-                                                            className="hidden"
-                                                        />
+                                            <div className='flex flex-col gap-y-[16px]'>
+                                                <div className='flex items-center justify-between'>
+                                                    <Label className="text-sm text-gray-600 font-bold">Company Logos</Label>
+                                                    <div className='flex items-center gap-x-[10px] cursor-pointer' onClick={() => {
+                                                        const el = document.createElement('input');
+                                                        el.type = 'file';
+                                                        el.accept = 'image/png, image/jpeg';
+                                                        el.onchange = (e) => handleAddLogo(e as unknown as React.ChangeEvent<HTMLInputElement>);
+                                                        el.click();
+                                                    }}>
+                                                        <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add Logo</p>
+                                                        <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm' />
                                                     </div>
                                                 </div>
-                                                <p className="text-[10px] text-[#6BAE41] ">
-                                                    Company logo 512 x 512, PNG or JPG
-                                                </p>
 
+                                                <div className="space-y-4">
+                                                    {companyLogos.map((logo, index) => (
+                                                        <div key={index} className="flex flex-col gap-y-2 p-4 border border-[#BBBBBB] rounded-[8px] bg-white shadow-sm overflow-hidden">
+                                                            <div className="flex items-center gap-x-4">
+                                                                <div className="w-[64px] h-[64px] shrink-0 border border-gray-200 rounded-[6px] overflow-hidden">
+                                                                    <Image
+                                                                        unoptimized
+                                                                        src={logo.url}
+                                                                        alt={`Logo ${index + 1}`}
+                                                                        width={64}
+                                                                        height={64}
+                                                                        className="w-full h-full object-cover"
+                                                                    />
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-xs font-medium text-gray-500 truncate" title={logo.fileName}>
+                                                                        {logo.fileName}
+                                                                    </p>
+                                                                    <div className="mt-1 flex items-center gap-x-2">
+                                                                        <Select
+                                                                            value={logo.type}
+                                                                            onValueChange={(val) => handleLogoTypeChange(index, val)}
+                                                                        >
+                                                                            <SelectTrigger className="h-[32px] w-[140px] text-xs">
+                                                                                <SelectValue placeholder="Logo Type" />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                {SERVICE_LOGO_TYPES.map(type => (
+                                                                                    <SelectItem key={type} value={type} className="text-xs">
+                                                                                        {type}
+                                                                                    </SelectItem>
+                                                                                ))}
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                                            onClick={() => handleRemoveLogo(index)}
+                                                                        >
+                                                                            <X className="w-4 h-4" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    {companyLogos.length === 0 && (
+                                                        <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-200 rounded-[8px] bg-gray-50/50">
+                                                            <p className="text-xs text-gray-400">No logos added yet</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <p className="text-[10px] text-[#6BAE41]">
+                                                    Add multiple logos for different services (Video, 2D Floor Plan, etc.). Recommended 512 x 512, PNG or JPG.
+                                                </p>
                                             </div>
                                             <div className='flex flex-col gap-y-[6px]'>
                                                 <div className='flex items-end gap-x-[6px] flex-1'>

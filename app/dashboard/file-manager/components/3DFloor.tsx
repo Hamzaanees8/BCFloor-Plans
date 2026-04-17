@@ -89,7 +89,7 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService }
     };
     useEffect(() => {
         if (currentService?.uuid) {
-            if (brandedApiLink || brandedApiExpiry) {
+            if ((brandedApiLink || brandedApiExpiry) && !brandedApiLinkObj?.is_hidden) {
                 setLinks((prev) => {
                     const existingIndex = prev.findIndex(
                         l => l.type === "branded" && l.service_id === currentService.uuid
@@ -115,7 +115,7 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService }
                 });
             }
 
-            if (unbrandedApiLink || unbrandedApiExpiry) {
+            if ((unbrandedApiLink || unbrandedApiExpiry) && !unbrandedApiLinkObj?.is_hidden) {
                 setLinks((prev) => {
                     const existingIndex = prev.findIndex(
                         l => l.type === "unbranded" && l.service_id === currentService.uuid
@@ -141,7 +141,7 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService }
                 });
             }
         }
-    }, [brandedApiLink, brandedApiExpiry, brandedApiUuid, unbrandedApiLink, unbrandedApiExpiry, unbrandedApiUuid, currentService?.uuid, setLinks]);
+    }, [brandedApiLink, brandedApiExpiry, brandedApiUuid, unbrandedApiLink, unbrandedApiExpiry, unbrandedApiUuid, currentService?.uuid, setLinks, brandedApiLinkObj?.is_hidden, unbrandedApiLinkObj?.is_hidden]);
 
 
 
@@ -316,7 +316,7 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService }
                         </p>
                     </div>
                     <div className='flex justify-center items-center gap-x-[14px]'>
-                        {userType === 'admin' && (
+                        {(userType === 'admin' || userType === 'agent') && (
                             <Button
                                 onClick={() => {
                                     if (isHidingMode) {
@@ -429,7 +429,12 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService }
             )}
             <div className='flex flex-col items-center justify-center my-4'>
                 <div className='w-[650px]'>
-                    <Label className='text-[14px] text-[#424242]'>3D Tour Link - Branded</Label>
+                    <Label className='text-[14px] text-[#424242]'>
+                        3D Tour Link - Branded
+                        {brandedApiLinkObj?.is_hidden && (
+                            <span className="ml-2 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full uppercase font-bold">Hidden</span>
+                        )}
+                    </Label>
                     <div className="flex gap-2">
 
                         {userType === 'agent' ? (
@@ -507,7 +512,12 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService }
                 </div>
 
                 <div className='w-[650px] mt-[10px]'>
-                    <Label className='text-[14px] text-[#424242]'>3D Tour Link - Unbranded</Label>
+                    <Label className='text-[14px] text-[#424242]'>
+                        3D Tour Link - Unbranded
+                        {unbrandedApiLinkObj?.is_hidden && (
+                            <span className="ml-2 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full uppercase font-bold">Hidden</span>
+                        )}
+                    </Label>
                     <div className="flex gap-2">
 
                         {userType === 'agent' ? (

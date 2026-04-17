@@ -200,7 +200,7 @@ function AppointmentTab({ currentOrder, serviceId, disabled }: AppointmentTab) {
                         <div className="col-span-2">NAME</div>
                         <div className="col-span-3">EMAIL</div>
                     </div>
-                    {coAgent.map((agent, index) => (
+                    {Array.isArray(coAgent) && coAgent.map((agent, index) => (
                         <div key={index} className="grid grid-cols-5 gap-2 px-2 py-3 border-b border-[#BBBBBB] items-center hover:bg-[#F9F9F9]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
                             <div className="col-span-2 text-[#666666] text-xs break-words truncate" title={agent.name}>{agent.name}</div>
                             <div className="col-span-3 text-[#666666] text-xs truncate" title={agent.email}>{agent.email}</div>

@@ -4,7 +4,6 @@ import React, { useEffect, useState, useRef } from "react";
 import { BackArrow } from "@/components/Icons";
 import {
   useParams,
-  usePathname,
   useRouter,
   useSearchParams,
 } from "next/navigation";
@@ -19,20 +18,28 @@ import TourTabs from "./TourTabs";
 import Video from "./Video";
 import CreateFeatureSheet, { CreateFeatureSheetRef } from "./CreateFeatureSheet";
 import DownloadTab from "./DownloadTab";
+import HiddenMediaModal from "./HiddenMediaModal";
 import { useAppContext } from "@/app/context/AppContext";
 import { Button } from "@/components/ui/button";
 import { useFileManagerContext, Files } from "../FileManagerContext";
 import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import { toast } from "sonner";
-import InvoicePaymentDialog from "./invoicePaymentDialog";
+import { GetInvoicesByOrder, PayInvoiceWithStripe } from "../../invoice/invoice_api";
+import InvoiceDocument from "../../invoice/components/InvoiceDocument";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   GetFilesData,
 } from "../file-manager";
 import { GetOneListing } from "../../listings/listing";
 import { Listings } from "@/lib/types";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 
 type Service = {
   uuid: string;
@@ -79,8 +86,11 @@ const FileManager = () => {
     setSelectionChangedUuids,
     setFileManagerMode,
     isSaving,
-    setIsSaving
+    setIsSaving,
+    includeHidden,
+    setIncludeHidden
   } = useFileManagerContext();
+  const [isHiddenMediaModalOpen, setIsHiddenMediaModalOpen] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
   const featureSheetRef = useRef<CreateFeatureSheetRef>(null);
   const { startUpload } = useGlobalFileUpload();
@@ -112,13 +122,15 @@ const FileManager = () => {
   const listingId = searchParams.get("listingId");
   const isListing = listingId ? true : false;
 
-  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+  const [showInvoicesModal, setShowInvoicesModal] = useState(false);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [viewingInvoice, setViewingInvoice] = useState<any | null>(null);
   const [currentListing, setCurrentListing] = useState<Listings | null>(null);
-  const pathname = usePathname();
+
   const serviceIdFromURL = searchParams.get("serviceId");
 
-  const fullUrl = `/dashboard${pathname.replace("/dashboard", "")}${searchParams.toString() ? `?${searchParams.toString()}` : ""
-    }`;
+
 
   useEffect(() => {
     const fetchListing = async () => {
@@ -193,6 +205,29 @@ const FileManager = () => {
 
     processStripePayment();
   }, [searchParams, router]);
+
+  useEffect(() => {
+    if (!orderData?.uuid) return;
+    setInvoicesLoading(true);
+    GetInvoicesByOrder(orderData.uuid)
+      .then((res) => setInvoices(Array.isArray(res.data) ? res.data : []))
+      .catch(() => console.log("Failed to load invoices"))
+      .finally(() => setInvoicesLoading(false));
+  }, [orderData?.uuid]);
+
+  const handlePayInvoice = async (invoice: any) => {
+    if (!orderData) return;
+    try {
+      const redirectUrl =
+        window.location.origin +
+        window.location.pathname +
+        (window.location.search ? window.location.search : "");
+      await PayInvoiceWithStripe(invoice, orderData, redirectUrl);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to initiate payment.");
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -433,37 +468,7 @@ const FileManager = () => {
     }
   };
 
-  // Add this function to get the current active service with pricing info
-  // Uses the correct booking index when the service is booked multiple times
-  const getCurrentService = () => {
-    const serviceFromData = servicesData?.find((srv) => srv.uuid === activeTab);
-    const group = groupedServices.get(activeTab);
-    const serviceFromOrder = group
-      ? group[activeServiceIndex]
-      : orderData?.services?.find(
-          (srv: OrerServices) => srv.service?.uuid === activeTab
-        );
-    // If no service found at all, return null
-    if (!serviceFromData && !serviceFromOrder) {
-      return null;
-    }
-
-    // Let the payment dialog handle the "no price" case
-    return {
-      name: serviceFromData?.name,
-      amount: Number(
-        serviceFromOrder?.amount !== undefined ? serviceFromOrder?.amount : 0
-      ),
-      uuid: serviceFromOrder?.uuid,
-    };
-  };
-  interface CurrentServiceType {
-    name: string | undefined;
-    amount: number | undefined;
-    uuid: string | undefined;
-  }
-  // Use this in your component
-  const currentService: CurrentServiceType | null = getCurrentService();
+  // currentService removed — no longer needed after invoice-first flow
 
   useEffect(() => {
     async function fetchFilesData() {
@@ -473,7 +478,7 @@ const FileManager = () => {
         return;
       }
       try {
-        const filesData = await GetFilesData(token, orderData?.uuid || "");
+        const filesData = await GetFilesData(token, orderData?.uuid || "", includeHidden);
         if (filesData.data && filesData.data.length > 0) {
           setFilesData(filesData.data[0]);
           // Removed accidental setInterval call
@@ -502,7 +507,7 @@ const FileManager = () => {
     }
     fetchFilesData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderData]);
+  }, [orderData, includeHidden]);
 
 
 
@@ -632,16 +637,194 @@ const FileManager = () => {
         className="w-full h-[80px] font-alexandria pr-5 sticky top-0 z-50 flex justify-between items-center"
         style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
       >
-        {/* Invoice Payment Dialog - Move this outside the header div */}
-        <InvoicePaymentDialog
-          open={showInvoiceDialog}
-          onClose={() => setShowInvoiceDialog(false)}
-          orderData={orderData}
-          currentService={currentService} // Pass the actual service object
-          activeTab={activeTab}
-          userType={userType}
-          url={fullUrl}
-        />
+        {/* Invoices List Modal */}
+        <Dialog open={showInvoicesModal} onOpenChange={setShowInvoicesModal}>
+          <DialogContent className="max-w-3xl w-[95vw] md:w-[700px] rounded-[8px] p-0 font-alexandria overflow-hidden [&>button]:hidden">
+            <DialogHeader className="p-4 md:p-6 border-b border-[#E4E4E4] bg-white">
+              <DialogTitle className="flex items-center justify-between text-[18px] font-[600] uppercase" style={{ color: `var(--${userType}-page-tab-color)` }}>
+                Order Invoices
+                <Button className="border-none !shadow-none bg-transparent hover:bg-transparent p-0" onClick={() => setShowInvoicesModal(false)}>
+                  <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
+                </Button>
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="max-h-[60vh] overflow-y-auto p-4 md:p-6 bg-white">
+              {invoicesLoading ? (
+                <div className="flex justify-center py-10">
+                  <Loader2 className="h-8 w-8 animate-spin" style={{ color: `var(--${userType}-page-tab-color)` }} />
+                </div>
+              ) : invoices.length === 0 ? (
+                <div className="text-center py-10 italic text-[#666666]">
+                  No invoices found for this order.
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {invoices.map((invoice) => {
+                    const status = (invoice.status || "unpaid").toUpperCase();
+                    let badgeBg = "#E06D5E";
+                    if (status === "PAID") badgeBg = "#6BAE41";
+                    else if (status === "ISSUED") badgeBg = "#4A90E2";
+                    else if (status === "VOID") badgeBg = "#A0A0A0";
+                    else if (
+                      status === "PARTIAL_PAID" ||
+                      status === "PARTIALLY_PAID" ||
+                      status === "PARTIAL"
+                    ) badgeBg = "#F5A623";
+                    else if (status === "REFUNDED") badgeBg = "#D0021B";
+
+                    return (
+                      <div
+                        key={invoice.uuid}
+                        className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 rounded-[6px] border border-[#E4E4E4] gap-4"
+                        style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EEEEEE), white 70%)` }}
+                      >
+                        <div className="flex flex-col gap-1 w-full md:w-1/2">
+                          <div className="flex items-center gap-3">
+                            <span className="font-[600] text-[16px] text-[#424242]">
+                              #{invoice.invoice_number || invoice.id}
+                            </span>
+                            <span
+                              className="text-white px-2 py-0.5 rounded-full text-[10px] font-bold uppercase"
+                              style={{ backgroundColor: badgeBg }}
+                            >
+                              {status}
+                            </span>
+                          </div>
+                          <span className="text-[12px] text-[#666666]">
+                            Issued: {new Date(invoice.issued_at).toLocaleDateString()}
+                          </span>
+                          {invoice.items && invoice.items.length > 0 && (
+                            <div className="mt-1 text-[12px] truncate text-[#7D7D7D]">
+                              Services: {invoice.items.map((i: any) => i.description || "Service Item").join(", ")}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full md:w-auto">
+                          <div className="flex flex-col md:items-end">
+                            <span className="text-[18px] font-bold text-[#424242]">
+                              ${parseFloat(invoice.total).toFixed(2)}
+                            </span>
+                            {parseFloat(invoice.paid_amount) > 0 && (
+                              <span className="text-[12px] text-[#6BAE41] font-medium">
+                                Paid: ${parseFloat(invoice.paid_amount).toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => setViewingInvoice(invoice)}
+                              className={`h-[35px] text-[13px] px-4 font-semibold hover:opacity-80 border rounded-[6px] ${userType}-button`}
+                              style={{
+                                borderColor: `var(--${userType}-page-tab-color)`,
+                                color: `var(--${userType}-page-tab-color)`,
+                                backgroundColor: 'transparent'
+                              }}
+                            >
+                              View
+                            </Button>
+                            {userType !== "vendor" &&
+                              status !== "PAID" &&
+                              status !== "VOID" && (
+                                <Button
+                                  onClick={() => {
+                                    setShowInvoicesModal(false);
+                                    handlePayInvoice(invoice);
+                                  }}
+                                  className={`h-[35px] text-[13px] px-4 font-semibold text-white hover:opacity-90 rounded-[6px] ${userType}-bg`}
+                                  style={{
+                                    backgroundColor: `var(--${userType}-page-tab-color)`,
+                                  }}
+                                >
+                                  Pay Now
+                                </Button>
+                              )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 md:p-6 border-t border-[#E4E4E4] flex justify-center bg-white">
+              <Button 
+                onClick={() => setShowInvoicesModal(false)}
+                className={`w-full md:w-[150px] h-[40px] text-[16px] font-[400] bg-white border rounded-[8px] ${userType}-text ${userType}-border hover:bg-gray-50`}
+                style={{ color: `var(--${userType}-page-tab-color)`, borderColor: `var(--${userType}-page-tab-color)` }}
+              >
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Invoice Document View Modal */}
+        <Dialog
+          open={!!viewingInvoice}
+          onOpenChange={(open) => !open && setViewingInvoice(null)}
+        >
+          <DialogContent className="max-w-4xl w-[95vw] rounded-[8px] p-0 font-alexandria overflow-hidden [&>button]:hidden">
+            <DialogHeader className="p-4 md:p-6 border-b border-[#E4E4E4] bg-white">
+              <DialogTitle className="flex items-center justify-between text-[18px] font-[600] uppercase" style={{ color: `var(--${userType}-page-tab-color)` }}>
+                Invoice #{viewingInvoice?.invoice_number || viewingInvoice?.id}
+                <Button className="border-none !shadow-none bg-transparent hover:bg-transparent p-0" onClick={() => setViewingInvoice(null)}>
+                  <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
+                </Button>
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="max-h-[70vh] overflow-y-auto p-4 md:p-8 bg-[#F9F9F9]">
+              {viewingInvoice && (
+                <div className="flex flex-col items-center">
+                  <InvoiceDocument
+                    invoice={viewingInvoice}
+                    editData={viewingInvoice}
+                    isEditing={false}
+                    updateItem={() => {}}
+                    addItem={() => {}}
+                    removeItem={() => {}}
+                    updateTaxRate={() => {}}
+                    setEditData={() => {}}
+                    roleSettings={{
+                      pageTabColor: `var(--${userType}-page-tab-color, #4290E9)`,
+                      pageBg: `var(--${userType}-page-bg, #FFFFFF)`,
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 md:p-6 border-t border-[#E4E4E4] flex flex-col md:flex-row justify-end gap-3 bg-white">
+              <Button 
+                onClick={() => setViewingInvoice(null)}
+                className={`h-[40px] px-6 text-[16px] font-[400] bg-white border rounded-[8px] ${userType}-text ${userType}-border hover:bg-gray-50`}
+                style={{ color: `var(--${userType}-page-tab-color)`, borderColor: `var(--${userType}-page-tab-color)` }}
+              >
+                Close
+              </Button>
+              {userType !== "vendor" &&
+                viewingInvoice?.status?.toUpperCase() !== "PAID" &&
+                viewingInvoice?.status?.toUpperCase() !== "VOID" && (
+                  <Button
+                    onClick={() => {
+                      handlePayInvoice(viewingInvoice);
+                      setViewingInvoice(null);
+                    }}
+                    className={`h-[40px] px-8 text-[16px] font-semibold text-white hover:brightness-110 rounded-[8px] ${userType}-bg`}
+                    style={{
+                      backgroundColor: `var(--${userType}-page-tab-color, #4290E9)`,
+                    }}
+                  >
+                    Pay Now
+                  </Button>
+                )}
+            </div>
+          </DialogContent>
+        </Dialog>
         <div className="flex items-center gap-x-4">
           {!isListing && (
             <div
@@ -692,12 +875,13 @@ const FileManager = () => {
             )}
           </Button>
           <Button
-            onClick={() => setShowInvoiceDialog(true)} // Add this onClick handler
+            onClick={() => setShowInvoicesModal(true)}
             className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[400] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button`}
             style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
           >
             Invoice
           </Button>
+
 
           {/* <Link
             href={""}
@@ -913,6 +1097,20 @@ const FileManager = () => {
             </div>
           </div>
         </div>
+        {userType !== 'vendor' && (
+          <div className="flex items-center gap-x-4 pr-6">
+            <Button
+              onClick={() => {
+                setIsHiddenMediaModalOpen(true);
+                setIncludeHidden(true); // Ensure hidden files are fetched when opening the modal
+              }}
+              className={`h-[40px] px-4 rounded-[6px] border-[1px] transition-all duration-200 text-[12px] md:text-[14px] font-[500] flex items-center gap-2 ${userType}-border ${userType}-text hover:text-white hover-${userType}-bg ${userType}-button`}
+              style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+            >
+              Show Hidden Media
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Sub-tabs for duplicate service bookings */}
@@ -937,37 +1135,33 @@ const FileManager = () => {
                 <div
                   key={booking.uuid}
                   onClick={() => setActiveServiceIndex(idx)}
-                  className={`flex-1 cursor-pointer border-r border-[#BBBBBB] last:border-r-0 transition-all duration-200 flex items-center justify-between px-6 ${
-                    isSubActive
+                  className={`flex-1 cursor-pointer border-r border-[#BBBBBB] last:border-r-0 transition-all duration-200 flex items-center justify-between px-6 ${isSubActive
                       ? `${userType}-bg shadow-inner`
                       : "bg-white/50 hover:bg-white/80"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <span
-                      className={`text-[13px] font-bold tracking-tight ${
-                        isSubActive ? "text-white" : `${userType}-text`
-                      }`}
+                      className={`text-[13px] font-bold tracking-tight ${isSubActive ? "text-white" : `${userType}-text`
+                        }`}
                     >
                       Booking #{idx + 1}
                     </span>
                     <span
-                      className={`text-[11px] font-medium ${
-                        isSubActive ? "text-white/80" : "text-[#7D7D7D]"
-                      }`}
+                      className={`text-[11px] font-medium ${isSubActive ? "text-white/80" : "text-[#7D7D7D]"
+                        }`}
                     >
                       {bookingDate}
                     </span>
                   </div>
-                  
+
                   {/* Status Badge */}
                   <div className="flex items-center gap-2">
                     <span
-                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                        isPaid
+                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${isPaid
                           ? "bg-[#6BAE41] text-white"
                           : "bg-[#DC9600] text-white"
-                      }`}
+                        }`}
                     >
                       {isPaid ? "PAID" : "UNPAID"}
                     </span>
@@ -980,6 +1174,13 @@ const FileManager = () => {
       )}
 
       <div>{renderContent()}</div>
+
+      <HiddenMediaModal
+        open={isHiddenMediaModalOpen}
+        onClose={() => setIsHiddenMediaModalOpen(false)}
+        currentService={activeService}
+        mediaDateBoundary={mediaDateBoundary}
+      />
     </div >
   );
 };

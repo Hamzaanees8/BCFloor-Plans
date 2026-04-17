@@ -93,8 +93,18 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
         setContactEmail(currentAgent?.email ?? '')
         setListing(currentOrder?.property ? `${currentOrder?.property.address}, ${currentOrder?.property.city}, ${currentOrder?.property.province}` : '')
         setSquareFootage(String(currentOrder?.property?.square_footage))
-        // @ts-expect-error  error
-        setNotes(currentOrder?.notes ? JSON.parse(currentOrder?.notes) as Notes[] : []);
+        if (Array.isArray(currentOrder?.notes)) {
+            setNotes(currentOrder.notes as unknown as Notes[]);
+        } else if (typeof currentOrder?.notes === 'string') {
+            try {
+                setNotes(JSON.parse(currentOrder.notes) as Notes[]);
+            } catch (e) {
+                console.error("Failed to parse notes:", e);
+                setNotes([]);
+            }
+        } else {
+            setNotes([]);
+        }
 
         try {
             const raw = currentOrder?.co_agents;
@@ -304,7 +314,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                             <div className="col-span-3">EMAIL</div>
                                             <div className="col-span-1 text-center">ACTIONS</div>
                                         </div>
-                                        {coAgent.map((agent, index) => (
+                                        {Array.isArray(coAgent) && coAgent.map((agent, index) => (
                                             <div key={index} className="grid grid-cols-6 gap-2 px-2 py-3 border-b border-[#BBBBBB] items-center hover:bg-[#F9F9F9]" style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
                                                 <div className="col-span-2 text-[#666666] text-xs break-words truncate cursor-pointer" title={agent.name}>{agent.name}</div>
                                                 <div className="col-span-3 text-[#666666] text-xs truncate cursor-pointer" title={agent.email}>{agent.email}</div>

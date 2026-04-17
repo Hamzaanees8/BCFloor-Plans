@@ -138,6 +138,10 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         let files = filesData?.files
             ?.filter((file: Files) => {
                 if (file?.service?.uuid !== currentService?.uuid) return false;
+                
+                // Exclude hidden files from the main gallery
+                if (file.is_hidden) return false;
+
                 // Date boundary filter for duplicate service bookings
                 if (mediaDateBoundary) {
                     const fileDate = new Date(file.created_at).getTime();
@@ -360,7 +364,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 }}
                                 alt="preview"
                                 isRestricted={userType === 'agent' && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
-                                className={`absolute inset-0 w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''}`}
+                                className={`absolute inset-0 w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                 draggable={false}
                             />
                             {file.uuid && filesToHide.has(file.uuid) && (
@@ -530,7 +534,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         }
                                     }}
                                     alt="preview"
-                                    className={`absolute inset-0 w-full h-full object-cover cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                    className={`absolute inset-0 w-full h-full object-cover cursor-pointer ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                     draggable={false}
                                 />
                             )}
@@ -738,7 +742,12 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 >
                     {/* <p className="col-span-2 text-[#8E8E8E] mt-1 truncate">{isLocal ? file.file.name : file.name}</p> */}
                     <div className='col-span-2 flex items-center justify-between overflow-hidden' style={{ fontSize: '14px' }}>
-                        <p className='text-[#8E8E8E] mt-1 flex items-center gap-1 truncate pr-1' style={{ fontSize: '14px' }}><CopyableFileName name={isLocal ? (file.type || "Exterior") : (file.group || "Exterior")} /> ({idx + 1}{!isLocal ? ` of ${totalUploaded}` : ''})</p>
+                        <p className='text-[#8E8E8E] mt-1 flex items-center gap-1 truncate pr-1' style={{ fontSize: '14px' }}>
+                            <CopyableFileName name={isLocal ? (file.type || "Exterior") : (file.group || "Exterior")} /> ({idx + 1}{!isLocal ? ` of ${totalUploaded}` : ''})
+                            {file.is_hidden && (
+                                <span className="ml-1 bg-red-600 text-white text-[8px] px-1 py-0.5 rounded-full uppercase font-bold">Hidden</span>
+                            )}
+                        </p>
                         {isLocal ? (
                             <div
                                 onClick={(e) => {
@@ -988,7 +997,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 Download Files
                             </Button>
                         )}
-                        {userType !== 'agent' && (
+                        {(userType === 'admin' || userType === 'agent') && (
                             <Button
                                 onClick={() => {
                                     if (isHidingMode) {

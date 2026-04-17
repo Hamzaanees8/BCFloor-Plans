@@ -1145,8 +1145,8 @@ const VendorWorkHours = ({
 
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <div className="w-1/2 flex items-center mb-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="w-[40%] flex items-center mb-4">
                         <Checkbox
                           id="google-sync-enabled"
                           checked={workHours.googleSyncEnabled}

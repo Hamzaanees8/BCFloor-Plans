@@ -68,6 +68,10 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
         let files = filesData?.files
             ?.filter(file => {
                 if (file?.service?.uuid !== currentService?.uuid || file.type !== "video") return false;
+
+                // Exclude hidden files from the main gallery
+                if (file.is_hidden) return false;
+
                 // Date boundary filter for duplicate service bookings
                 if (mediaDateBoundary) {
                     const fileDate = new Date(file.created_at).getTime();
@@ -251,7 +255,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                 file={file.file}
                                 alt="Video thumbnail"
                                 isRestricted={userType === 'agent' && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID'}
-                                className={`absolute inset-0 w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''}`}
+                                className={`absolute inset-0 w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                 onClick={() => {
                                     if (isHidingMode && file.uuid) {
                                         setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
@@ -385,7 +389,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                         <img
                                             src={file.variant_urls.thumb}
                                             alt={file.name}
-                                            className={`absolute inset-0 w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''}`}
+                                            className={`absolute inset-0 w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                         />
                                     ) : (
                                         <video
@@ -393,7 +397,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                             preload="metadata"
                                             muted
                                             playsInline
-                                            className={`absolute inset-0 w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${isDragging ? 'opacity-0' : 'opacity-100'}`}
+                                            className={`absolute inset-0 w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${isDragging ? 'opacity-0' : 'opacity-100'} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                         />
                                     )}
                                     <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
@@ -512,7 +516,12 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 >
                     {/* <p className="col-span-2 text-[#8E8E8E] mt-1 truncate" title={isLocal ? file.file.name : file.name}>{isLocal ? file.file.name : file.name}</p> */}
                     <div className='col-span-2 flex items-center justify-between overflow-hidden' style={{ fontSize: '14px' }}>
-                        <p className='text-[#8E8E8E] mt-1 flex items-center gap-1 truncate pr-1' style={{ fontSize: '14px' }}><CopyableFileName name={isLocal ? (file.type || "Exterior") : (file.group || "Exterior")} /> ({idx + 1}{!isLocal ? ` of ${totalUploaded}` : ''})</p>
+                        <p className='text-[#8E8E8E] mt-1 flex items-center gap-1 truncate pr-1' style={{ fontSize: '14px' }}>
+                            <CopyableFileName name={isLocal ? (file.type || "Exterior") : (file.group || "Exterior")} /> ({idx + 1}{!isLocal ? ` of ${totalUploaded}` : ''})
+                            {file.is_hidden && (
+                                <span className="ml-1 bg-red-600 text-white text-[8px] px-1 py-0.5 rounded-full uppercase font-bold">Hidden</span>
+                            )}
+                        </p>
                         {isLocal ? (
                             <span className='flex shrink-0 cursor-not-allowed opacity-50' style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}>
                                 <DownloadIcon width='100%' height='100%' fill='#6BAE41' />
@@ -559,7 +568,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
             }
         };
         checkServiceCompletion();
-    }, [currentServiceFiles, currentService, currentBookedService, orderData])
+    }, [currentServiceFiles, currentService, currentBookedService, orderData, bookingToUse?.option?.quantity])
 
     const handleAddPayment = (paymentData: any) => {
         console.log("Payment Added:", paymentData);
@@ -709,7 +718,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                             Download Files
                         </Button>
                     )}
-                    {userType !== 'agent' && (
+                    {(userType === 'admin' || userType === 'agent') && (
                         <Button
                             onClick={() => {
                                 if (isHidingMode) {

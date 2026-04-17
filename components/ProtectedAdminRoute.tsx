@@ -68,7 +68,7 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
       }
 
       if (pathname.startsWith("/dashboard/orders/create")) {
-        if (!hasPermission(PERMISSIONS.CREATE_ORDERS)) {
+        if (!hasPermission(PERMISSIONS.BOOK_APPOINTMENTS)) {
           toast.error("You do not have permission to access this page");
           router.replace("/dashboard/orders");
           setIsAllowed(false);
@@ -77,7 +77,7 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
       }
 
       if (pathname.includes("/dashboard/orders/") && pathname.includes("/edit")) {
-        if (!hasPermission(PERMISSIONS.EDIT_ORDERS)) {
+        if (!hasPermission(PERMISSIONS.EDIT_APPOINTMENTS)) {
           toast.error("You do not have permission to access this page");
           router.replace("/dashboard/orders");
           setIsAllowed(false);

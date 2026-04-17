@@ -870,7 +870,7 @@ const ServicesFrom = () => {
                               className="text-sm font-medium"
                               style={{ color: roleSettings.pageText }}
                             >
-                              Travel Allowed
+                              Requires travel scheduling
                             </label>
                             <Switch
                               id="is_travel_required"

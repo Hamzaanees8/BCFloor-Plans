@@ -97,7 +97,12 @@ const Contact = () => {
         }
 
         // Percentage validation
-        if (isSplitInvoice && (percentage === '' || isNaN(Number(percentage)) || Number(percentage) <= 0)) {
+        if (percentage !== '' && (isNaN(Number(percentage)) || Number(percentage) < 0 || Number(percentage) > 100)) {
+            toast.error("Please enter a valid percentage between 0 and 100.");
+            return;
+        }
+
+        if (isSplitInvoice && (percentage === '' || Number(percentage) <= 0)) {
             toast.error("Please enter a valid percentage.");
             return;
         }
@@ -108,7 +113,7 @@ const Contact = () => {
         const newAgent = {
             email,
             name: name || email.split('@')[0],
-            ...(isSplitInvoice && { percentage: Number(percentage) }),
+            percentage: Number(percentage) || 0,
         };
 
         if (editingCoAgentIndex !== null) {
@@ -122,6 +127,11 @@ const Contact = () => {
             setCoAgents(prev => [...prev, newAgent]);
             toast.success("Co-Agent added.");
 
+        }
+
+        // Auto-enable split invoice if percentage is set
+        if (Number(percentage) > 0 && !isSplitInvoice) {
+            setIsSplitInvoice(true);
         }
 
         // Reset
@@ -472,26 +482,24 @@ const Contact = () => {
                                                 </div>
 
                                                 {/* Common Fields */}
-                                                {isSplitInvoice && (
-                                                    <div className="mt-4">
-                                                        <label className="text-sm font-normal text-[#666666] block mb-2">Percentage <span className="text-red-500">*</span></label>
-                                                        <div className="relative">
-                                                            <Input
-                                                                type="number"
-                                                                min={0}
-                                                                max={100}
-                                                                value={percentage === '' ? '' : percentage}
-                                                                onChange={(e) => {
-                                                                    const val = e.target.value;
-                                                                    if (val === '') setPercentage('');
-                                                                    else setPercentage(Number(val));
-                                                                }}
-                                                                className="h-[42px] bg-[#EEEEEE] appearance-none"
-                                                            />
-                                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
-                                                        </div>
+                                                <div className="mt-4">
+                                                    <label className="text-sm font-normal text-[#666666] block mb-2">Percentage <span className="text-red-500">*</span></label>
+                                                    <div className="relative">
+                                                        <Input
+                                                            type="number"
+                                                            min={0}
+                                                            max={100}
+                                                            value={percentage === '' ? '' : percentage}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                if (val === '') setPercentage('');
+                                                                else setPercentage(Number(val));
+                                                            }}
+                                                            className="h-[42px] bg-[#EEEEEE] appearance-none"
+                                                        />
+                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
                                                     </div>
-                                                )}
+                                                </div>
 
                                                 <DialogFooter className="mt-6 flex gap-2">
                                                     <Button variant="outline" onClick={closeCoAgentDialog} className="w-full">Cancel</Button>

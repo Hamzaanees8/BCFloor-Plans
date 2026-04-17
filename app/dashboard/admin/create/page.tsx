@@ -283,9 +283,17 @@ const AdminForm = () => {
 
   useEffect(() => {
     GetPermissions()
-      .then((data) => setPermissions(Array.isArray(data.data) ? data.data : []))
+      .then((data) => {
+        const perms = Array.isArray(data.data) ? data.data : [];
+        setPermissions(perms);
+        
+        // If creating a new admin, select all permissions by default
+        if (!userId) {
+            setSelectedPermissions(perms.map((p: any) => Number(p.id)));
+        }
+      })
       .catch((err) => console.log(err.message));
-  }, []);
+  }, [userId]);
 
   const validateForm = () => {
     const errors: Record<string, string[]> = {};
@@ -835,23 +843,52 @@ const AdminForm = () => {
               <AccordionContent className="grid gap-4">
                 <div className="w-full flex flex-col items-center">
                   <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
-                    {permissions?.map((permission) => (
-                      <div
-                        key={permission.id}
-                        className="flex items-center justify-between"
-                      >
-                        <p>{permission.name}</p>
-                        <Switch
-                          checked={selectedPermissions.includes(
-                            Number(permission.id)
-                          )}
-                          onCheckedChange={(checked) =>
-                            togglePermission(Number(permission.id), checked)
-                          }
-                          className="bg-gray-300 data-[state=checked]:bg-[#6BAE41]"
-                        />
-                      </div>
-                    ))}
+                    {(() => {
+                      const allGroupedNames = [
+                        "Book Appointments", "View Appointments", "Edit Appointments",
+                        "Create Listing", "View Listing", "Create Tour Settings",
+                        "View Services", "Create Services",
+                        "Access Billing", "Access Vendor Billing", "Set Discounts",
+                        "Create Agent", "View Agent", "Create Vendor", "View Vendor",
+                        "Create Admin", "View Admin", "Receive Notifications", "Create Sub-Accounts"
+                      ];
+
+                      const excludedNames = [
+                        "Create Orders", "Edit Orders", "View All Orders",
+                        "View Only Orders For Co-Agent", "View Only Appointments For Co-Agent",
+                        "View All Appointments"
+                      ];
+
+                      const filteredPermissions = permissions?.filter(p => !excludedNames.includes(p.name)) || [];
+
+                      const sortedPermissions = [...filteredPermissions].sort((a, b) => {
+                        const indexA = allGroupedNames.indexOf(a.name);
+                        const indexB = allGroupedNames.indexOf(b.name);
+
+                        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                        if (indexA !== -1) return -1; // a is in group, b is not, a comes first
+                        if (indexB !== -1) return 1;  // b is in group, a is not, b comes first
+                        return a.name.localeCompare(b.name); // neither are in group, sort alphabetically
+                      });
+
+                      return sortedPermissions.map((permission) => (
+                        <div
+                          key={permission.id}
+                          className="flex items-center justify-between"
+                        >
+                          <p>{permission.name}</p>
+                          <Switch
+                            checked={selectedPermissions.includes(
+                              Number(permission.id)
+                            )}
+                            onCheckedChange={(checked) =>
+                              togglePermission(Number(permission.id), checked)
+                            }
+                            className="bg-gray-300 data-[state=checked]:bg-[#6BAE41]"
+                          />
+                        </div>
+                      ));
+                    })()}
 
                     {fieldErrors.permissions && (
                       <p className="text-red-500 text-[10px]">
@@ -863,159 +900,7 @@ const AdminForm = () => {
               </AccordionContent>
             </AccordionItem>
 
-            {/* {currentUser?.roles?.some((role) =>
-              roles[0]?.name?.includes("Admin")
-            ) && (
-            //   <AccordionItem value="branding">
-            //     <AccordionTrigger className="px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current">
-            //       Branding Assets
-            //     </AccordionTrigger>
-            //     <AccordionContent className="grid gap-4">
-            //       <div className="w-full flex flex-col items-center">
-            //         <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
-            //           <div className="flex flex-col gap-y-[6px]">
-            //             <div className="flex items-end gap-x-[6px]">
-            //               {avatarUrl ? (
-            //                 <Image
-            //                   src={avatarUrl}
-            //                   alt="Avatar"
-            //                   width={64}
-            //                   height={64}
-            //                   unoptimized
-            //                   className="h-16 w-16 object-cover border"
-            //                 />
-            //               ) : (
-            //                 <div className="w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]"></div>
-            //               )}
-            //               <div className="flex-1">
-            //                 <Label className="text-sm  text-gray-600">
-            //                   Avatar
-            //                 </Label>
-            //                 <div className="flex w-[340px] items-center mt-1 border rounded-md overflow-hidden">
-            //                   <span
-            //                     title={AvatarfileName}
-            //                     className="flex-1 px-3 py-2 text-sm text-[#7D7D7D] truncate whitespace-nowrap overflow-hidden"
-            //                   >
-            //                     {AvatarfileName}
-            //                   </span>
-            //                   <button
-            //                     type="button"
-            //                     onClick={triggerFileInput}
-            //                     className="bg-[#A8A8A8] px-4 py-2 text-base font-medium text-[#666666] hover:bg-gray-300 whitespace-nowrap"
-            //                   >
-            //                     Replace
-            //                   </button>
-            //                 </div>
 
-            //                 <input
-            //                   type="file"
-            //                   accept="image/png, image/jpeg"
-            //                   ref={AvatarfileInputRef}
-            //                   onChange={handleFileChange}
-            //                   className="hidden"
-            //                 />
-            //               </div>
-            //             </div>
-            //             <p className="text-[10px] text-[#6BAE41] ">
-            //               Avatar 96 x 96, PNG or JPG
-            //             </p>
-            //           </div>
-            //           <div className="flex flex-col gap-y-[6px]">
-            //             <div className="flex items-end gap-x-[6px]">
-            //               {CompanyLogoUrl ? (
-            //                 <Image
-            //                   src={CompanyLogoUrl}
-            //                   alt="Company Logo"
-            //                   width={64}
-            //                   height={64}
-            //                   unoptimized
-            //                   className="h-16 w-16 object-cover border"
-            //                 />
-            //               ) : (
-            //                 <div className="w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]"></div>
-            //               )}
-            //               <div className="flex-1">
-            //                 <Label className="text-sm  text-gray-600">
-            //                   Company Logo
-            //                 </Label>
-            //                 <div className="flex  w-[340px] items-center mt-1 border rounded-md overflow-hidden">
-            //                   <span className="flex-1 px-3 py-2 text-sm text-[#7D7D7D] truncate">
-            //                     {CompanyLogofileName}
-            //                   </span>
-            //                   <button
-            //                     type="button"
-            //                     onClick={triggerFileInput1}
-            //                     className="bg-[#A8A8A8] px-4 py-2 text-base font-medium text-[#666666] hover:bg-gray-300"
-            //                   >
-            //                     Replace
-            //                   </button>
-            //                 </div>
-            //                 <input
-            //                   type="file"
-            //                   accept="image/png, image/jpeg"
-            //                   ref={CompanyLogofileInputRef}
-            //                   onChange={handleFileChange1}
-            //                   className="hidden"
-            //                 />
-            //               </div>
-            //             </div>
-            //             <p className="text-[10px] text-[#6BAE41] ">
-            //               Company logo 512 x 512, PNG or JPG
-            //             </p>
-            //           </div>
-            //           <div className="flex flex-col gap-y-[6px]">
-            //             <div className="flex items-end gap-x-[6px]">
-            //               {CompanyBannerUrl ? (
-            //                 <Image
-            //                   unoptimized
-            //                   src={CompanyBannerUrl}
-            //                   alt="Company Banner"
-            //                   width={64}
-            //                   height={64}
-            //                   className="h-16 w-16 object-cover border"
-            //                 />
-            //               ) : (
-            //                 <div className="w-[64px] h-[64px] bg-[#E4E4E4] rounded-[6px]"></div>
-            //               )}
-            //               <div className="flex-1">
-            //                 <Label className="text-sm  text-gray-600">
-            //                   Company Banner
-            //                 </Label>
-            //                 <div className="flex  w-[340px] items-center mt-1 border rounded-md overflow-hidden">
-            //                   <span className="flex-1 px-3 py-2 text-sm text-[#7D7D7D] truncate">
-            //                     {CompanyBannerfileName}
-            //                   </span>
-            //                   <button
-            //                     type="button"
-            //                     onClick={triggerFileInput2}
-            //                     className="bg-[#A8A8A8] px-4 py-2 text-base font-medium text-[#666666] hover:bg-gray-300"
-            //                   >
-            //                     Browse
-            //                   </button>
-            //                 </div>
-            //                 <input
-            //                   type="file"
-            //                   accept="image/png, image/jpeg"
-            //                   ref={CompanyBannerfileInputRef}
-            //                   onChange={handleFileChange2}
-            //                   className="hidden"
-            //                 />
-            //               </div>
-            //             </div>
-            //             <p className="text-[10px] text-[#4290E9] ">
-            //               Company banner 1600 x 720, PNG or JPG
-            //             </p>
-            //           </div>
-            //           <p className="text-[#666666] text-sm font-normal pt-4">
-            //             Explanation of where these assets are used and
-            //             leveraged, recommended/specify dimensions, color
-            //             variations, etc.
-            //           </p>
-            //         </div>
-            //       </div>
-            //     </AccordionContent>
-            //   </AccordionItem>
-            )} */}
           </Accordion>
         </form>
       </div>

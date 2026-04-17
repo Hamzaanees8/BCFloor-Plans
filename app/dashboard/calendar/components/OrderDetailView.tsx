@@ -6,7 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Order } from "../../orders/page";
 import AppointmentTab from "./AppointmentTab";
@@ -128,6 +128,7 @@ export default function OrderDetailView({
   const [showAgentModal, setShowAgentModal] = useState(false);
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const bothSelected = agentChecked && vendorChecked;
   const currentOrder = orderData.find((order) => {
     return order.uuid == orderId;
@@ -135,6 +136,11 @@ export default function OrderDetailView({
   const handleClose = () => {
     setAgentChecked(false);
     setVendorChecked(false);
+    onClose();
+    setIsEdit(false);
+    setOrderServices([]);
+    setSelectedSlots([]);
+    setCalendarServices([]);
   };
   const handleOkClick = () => {
     const both = agentChecked && vendorChecked;
@@ -144,12 +150,15 @@ export default function OrderDetailView({
       setShowAgentModal(true);
       setShowVendorModal(false);
       setShowNotification(true);
+      setShowConfirmation(false);
     } else if (vendorChecked) {
       setShowAgentModal(false);
       setShowVendorModal(true);
       setShowNotification(true);
+      setShowConfirmation(false);
     } else {
       // No notification selected, close the dialog
+      setShowConfirmation(false);
       onClose();
       setOrderServices([]);
       setSelectedSlots([]);
@@ -197,19 +206,49 @@ export default function OrderDetailView({
       
       if (currentOrder) {
         setOrderServices(currentOrder.services || []);
+
+        let notesArray: any[] = [];
+        if (Array.isArray(currentOrder.notes)) {
+          notesArray = currentOrder.notes;
+        } else if (typeof currentOrder.notes === "string") {
+          try {
+            notesArray = JSON.parse(currentOrder.notes);
+          } catch (e) {
+            console.error("Failed to parse notes:", e);
+            notesArray = [];
+          }
+        }
+
         setNotes(
-          (currentOrder.notes || []).map((n) => ({
+          (notesArray || []).map((n: any) => ({
             ...n,
-            date: n.date instanceof Date ? n.date.toISOString() : String(n.date),
+            date:
+              n.date instanceof Date
+                ? n.date.toISOString()
+                : String(n.date),
           })),
         );
-        setCoAgent(currentOrder.co_agents || []);
+        let coAgentsArray: any[] = [];
+        if (Array.isArray(currentOrder.co_agents)) {
+          coAgentsArray = currentOrder.co_agents;
+        } else if (typeof currentOrder.co_agents === "string") {
+          try {
+            coAgentsArray = JSON.parse(currentOrder.co_agents);
+          } catch (e) {
+            console.error("Failed to parse co_agents:", e);
+            coAgentsArray = [];
+          }
+        }
+        setCoAgent(coAgentsArray);
         setArea(currentOrder.areas || []);
       }
     }
   }, [open, orderId, currentOrder, setOrderServices]);
   const handleSubmitOrder = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
+    if (isLoading) return;
+
+    setIsLoading(true);
 
     // Check duration requirements before processing payload
     const allServices = [
@@ -261,6 +300,7 @@ export default function OrderDetailView({
     }
 
     if (hasInvalidDuration) {
+      setIsLoading(false);
       return false;
     }
 
@@ -317,26 +357,88 @@ export default function OrderDetailView({
       validServiceUuids.includes(slot.service_id),
     );
 
-    const slotsPayload = validSlots.map((slot) => {
-      return {
-        ...(slot.uuid && { uuid: slot.uuid }),
-        service_id: slot.service_id,
-        vendor_id:
+    const slotsPayload = (() => {
+      // Group slots by service_id, vendor_id, and date
+      const groupedSlots: Record<string, any[]> = {};
+
+      validSlots.forEach((slot) => {
+        const vendorId =
           slot.vendor && slot.vendor.uuid
             ? slot.vendor.uuid
-            : slot.vendor_id || "",
-        show_all_vendors: slot.show_all_vendors ? 1 : 0,
-        schedule_override: slot.schedule_override ? 1 : 0,
-        recommend_time: slot.recommend_time ? 1 : 0,
-        travel: slot.travel ?? undefined,
-        start_time: slot.start_time,
-        end_time: slot.end_time,
-        est_time: slot.est_time ?? null,
-        distance: slot.distance ?? null,
-        km_price: slot.km_price ?? null,
-        date: slot.date,
-      };
-    });
+            : slot.vendor_id || "";
+        const key = `${slot.service_id}_${vendorId}_${slot.date}`;
+        if (!groupedSlots[key]) {
+          groupedSlots[key] = [];
+        }
+        groupedSlots[key].push({ ...slot, vendorId });
+      });
+
+      // Merge consecutive slots for each group
+      const mergedSlots: any[] = [];
+
+      Object.values(groupedSlots).forEach((slots) => {
+        // Sort slots by start time
+        const sortedSlots = slots.sort((a, b) =>
+          a.start_time.localeCompare(b.start_time),
+        );
+
+        // Verify they are contiguous (sanity check)
+        let isContiguous = true;
+        for (let i = 0; i < sortedSlots.length - 1; i++) {
+          if (sortedSlots[i].end_time !== sortedSlots[i + 1].start_time) {
+            isContiguous = false;
+            console.warn(
+              "Non-contiguous slots detected for service:",
+              sortedSlots[i].service_id,
+            );
+            break;
+          }
+        }
+
+        if (!isContiguous) {
+          // If not contiguous, send slots individually (fallback)
+          sortedSlots.forEach((slot) => {
+            mergedSlots.push({
+              ...(slot.uuid && { uuid: slot.uuid }),
+              service_id: slot.service_id,
+              vendor_id: slot.vendorId,
+              show_all_vendors: slot.show_all_vendors ? 1 : 0,
+              schedule_override: slot.schedule_override ? 1 : 0,
+              recommend_time: slot.recommend_time ? 1 : 0,
+              travel: slot.travel ?? undefined,
+              start_time: slot.start_time,
+              end_time: slot.end_time,
+              est_time: slot.est_time ?? null,
+              distance: slot.distance ?? null,
+              km_price: slot.km_price ?? null,
+              date: slot.date,
+            });
+          });
+        } else {
+          // Merge into a single slot
+          const firstSlot = sortedSlots[0];
+          const lastSlot = sortedSlots[sortedSlots.length - 1];
+
+          mergedSlots.push({
+            ...(firstSlot.uuid && { uuid: firstSlot.uuid }),
+            service_id: firstSlot.service_id,
+            vendor_id: firstSlot.vendorId,
+            show_all_vendors: firstSlot.show_all_vendors ? 1 : 0,
+            schedule_override: firstSlot.schedule_override ? 1 : 0,
+            recommend_time: firstSlot.recommend_time ? 1 : 0,
+            travel: firstSlot.travel ?? undefined,
+            start_time: firstSlot.start_time,
+            end_time: lastSlot.end_time,
+            est_time: firstSlot.est_time ?? null,
+            distance: firstSlot.distance ?? null,
+            km_price: firstSlot.km_price ?? null,
+            date: firstSlot.date,
+          });
+        }
+      });
+
+      return mergedSlots;
+    })();
 
     try {
       const token = localStorage.getItem("token") || "";
@@ -399,6 +501,8 @@ export default function OrderDetailView({
         toast.error("Failed to submit order data");
       }
       return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -408,8 +512,20 @@ export default function OrderDetailView({
     }
   }, [isEdit, userType]);
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl px-[10px] h-[90vh] [&>button]:hidden font-alexandria font-[400] overflow-x-auto">
+    <>
+      <Dialog
+        open={open && !showConfirmation && !showNotification}
+        onOpenChange={(val) => {
+          if (!val) {
+            onClose();
+            setIsEdit(false);
+            setOrderServices([]);
+            setSelectedSlots([]);
+            setCalendarServices([]);
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl px-[10px] h-[90vh] [&>button]:hidden font-alexandria font-[400] overflow-x-auto">
         <DialogHeader>
           <div className="flex justify-between items-center">
             <DialogTitle
@@ -524,15 +640,16 @@ export default function OrderDetailView({
                 Close
               </Button>
               <Button
+                disabled={isLoading}
                 onClick={async (e) => {
                   const success = await handleSubmitOrder(e);
                   if (success) {
                     setShowConfirmation(true);
                   }
                 }}
-                className={`${userType}-bg ${userType}-border text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff]  w-[132px] h-[42px] hover:text-white hover-${userType}-bg hover:opacity-95`}
+                className={`${userType}-bg ${userType}-border text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff]  w-[132px] h-[42px] hover:text-white hover-${userType}-bg hover:opacity-95 disabled:opacity-50`}
               >
-                Save Changes
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Save Changes"}
               </Button>
             </div>
           )}
@@ -557,7 +674,16 @@ export default function OrderDetailView({
           )}
         </div>
       </DialogContent>
-      <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+    </Dialog>
+    <AlertDialog
+        open={showConfirmation}
+        onOpenChange={(val) => {
+          setShowConfirmation(val);
+          if (!val && !showNotification) {
+            handleClose();
+          }
+        }}
+      >
         <AlertDialogContent className="w-[320px] md:w-[565px] max-w-[565px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria">
           <AlertDialogHeader className="mb-2">
             <AlertDialogTitle
@@ -587,49 +713,46 @@ export default function OrderDetailView({
               <div className="">
                 <input
                   type="checkbox"
+                  id="notifyAgent"
                   checked={agentChecked}
                   onChange={() => setAgentChecked(!agentChecked)}
                   className={`w-5 h-5 ${userType}-accent mt-1 cursor-pointer`}
                 />
               </div>
 
-              <div className="flex flex-col gap-y-2">
+              <label
+                htmlFor="notifyAgent"
+                className="flex flex-col gap-y-2 cursor-pointer"
+              >
                 <p className="text-[16px] font-[400] text-[#666666]">
                   Notify Agent of Changes
                 </p>
-                <p className={`text-[16px] font-[400] ${userType}-text`}>
-                  Edit Notification
-                </p>
-              </div>
+              </label>
             </div>
             <div className="flex items-start gap-x-2.5">
               <div className="">
                 <input
                   type="checkbox"
+                  id="notifyVendor"
                   checked={vendorChecked}
                   onChange={() => setVendorChecked(!vendorChecked)}
                   className={`w-5 h-5 ${userType}-accent mt-1 cursor-pointer`}
                 />
               </div>
-              <div className="flex flex-col gap-y-2">
+              <label
+                htmlFor="notifyVendor"
+                className="flex flex-col gap-y-2 cursor-pointer"
+              >
                 <p className="text-[16px] font-[400] text-[#666666]">
                   Notify Vendor of Changes
                 </p>
-                <p className={`text-[16px] font-[400] ${userType}-text`}>
-                  Edit Notification
-                </p>
-              </div>
+              </label>
             </div>
           </div>
 
           <AlertDialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px]  mt-2 font-alexandria">
             <AlertDialogCancel
-              onClick={() => {
-                handleClose();
-                setOrderServices([]);
-                setSelectedSlots([]);
-                setCalendarServices([]);
-              }}
+              onClick={handleClose}
               className={`bg-white w-full md:w-[170px] h-[44px] text-[20px] font-[400] ${userType}-text ${userType}-border text-[#0078D4] hover-${userType}-bg hover:opacity-95 ${userType}-button`}
             >
               Cancel
@@ -642,23 +765,35 @@ export default function OrderDetailView({
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-        <NotificationModal
-          open={showNotification}
-          setOpen={setShowNotification}
-          showAgentModal={showAgentModal}
-          setShowAgentModal={setShowAgentModal}
-          showVendorModal={showVendorModal}
-          setShowVendorModal={setShowVendorModal}
-          setAgentChecked={setAgentChecked}
-          setVendorChecked={setVendorChecked}
-          vendorSelected={vendorSelected}
-          bothSelected={bothSelected}
-          order={currentOrder}
-          agent={currentOrder?.agent}
-          vendor={currentOrder?.vendor}
-          service={currentOrder?.services?.find((s: any) => s.service.id === serviceId)?.service}
-        />
       </AlertDialog>
-    </Dialog>
+      <NotificationModal
+        open={showNotification}
+        setOpen={(val) => {
+          setShowNotification(val);
+          if (!val) {
+            onClose();
+            setOrderServices([]);
+            setSelectedSlots([]);
+            setCalendarServices([]);
+            setIsEdit(false);
+          }
+        }}
+        showAgentModal={showAgentModal}
+        setShowAgentModal={setShowAgentModal}
+        showVendorModal={showVendorModal}
+        setShowVendorModal={setShowVendorModal}
+        setAgentChecked={setAgentChecked}
+        setVendorChecked={setVendorChecked}
+        vendorSelected={vendorSelected}
+        bothSelected={bothSelected}
+        order={currentOrder}
+        agent={currentOrder?.agent}
+        vendor={currentOrder?.vendor}
+        service={
+          currentOrder?.services?.find((s: any) => s.service.id === serviceId)
+            ?.service
+        }
+      />
+    </>
   );
 }

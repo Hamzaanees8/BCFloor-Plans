@@ -21,6 +21,8 @@ import Image from "next/image";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Order } from "../../orders/page";
 import { useAppContext } from "@/app/context/AppContext";
+import { Copy } from "lucide-react";
+import { toast } from "sonner";
 
 interface TourSettingProps {
     orderData: Order | null
@@ -60,7 +62,24 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
     useEffect(() => {
         if (orderData) {
             setAddress(orderData?.property_address)
-            setPropertyWebsite(orderData?.property?.property_website ?? '')
+            
+            // Generate Tour Link for prefilling property website
+            const slugify = (text: string) => {
+                return text
+                    .toString()
+                    .toLowerCase()
+                    .trim()
+                    .replace(/\s+/g, '-')     // Replace spaces with -
+                    .replace(/[^\w-]+/g, '')    // Remove all non-word chars
+                    .replace(/--+/g, '-')      // Replace multiple - with single -
+                    .replace(/^-+/, '')        // Trim - from start of text
+                    .replace(/-+$/, '');       // Trim - from end of text
+            };
+
+            const mainUrl = window.location.origin;
+            const tourUrl = `${mainUrl}/tour/${slugify(orderData?.property_address || "")}-${slugify(orderData?.property_location || "")}/${orderData?.uuid}`;
+
+            setPropertyWebsite(orderData?.property?.property_website || tourUrl)
             setMlsProperty(orderData?.property?.mls_property ?? '')
             setprice(Number(orderData?.property?.listing_price))
             setPropertySize(Number(orderData?.property?.square_footage))
@@ -158,12 +177,22 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
                                                 <div className="relative w-full ">
                                                     <Input
                                                         value={propertyWebsite}
-                                                        // onChange={(e) => setPropertyWebsite(e.target.value)}
+                                                        disabled
                                                         type="text"
                                                         placeholder="company.bcfp.com/vendor/id=88392"
-                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] pr-10"
                                                     />
-
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(propertyWebsite);
+                                                            toast.success("Link copied to clipboard");
+                                                        }}
+                                                        className="absolute right-3 top-1/2 translate-y-[20%] text-[#8E8E8E] hover:text-[#424242] transition-colors"
+                                                        title="Copy to clipboard"
+                                                    >
+                                                        <Copy size={18} />
+                                                    </button>
                                                 </div>
                                             </div>
                                             <div className="col-span-2">

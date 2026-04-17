@@ -445,7 +445,7 @@ const Page = () => {
                         className={`cursor-pointer ml-[5px]`}
                         style={{ color: roleSettings.pageTabColor }}
                         onClick={() => {
-                            const canView = userType !== "admin" || (hasPermission(PERMISSIONS.VIEW_ORDERS) || hasPermission(PERMISSIONS.VIEW_APPOINTMENTS));
+                            const canView = userType !== "admin" || (hasPermission(PERMISSIONS.VIEW_APPOINTMENTS));
 
                             if (!canView) {
                                 toast.error("You do not have permission to view orders");
@@ -564,10 +564,7 @@ const Page = () => {
             id: "actions",
             enableHiding: false,
             cell: ({ row }: { row: Row<Order> }) => {
-                const canEdit = userType !== "vendor" && (
-                    userType !== "admin" ||
-                    (hasPermission(PERMISSIONS.EDIT_ORDERS) || hasPermission(PERMISSIONS.BOOK_APPOINTMENTS))
-                );
+                const canEdit = (hasPermission(PERMISSIONS.EDIT_APPOINTMENTS));
 
                 const options = [
                     ...(canEdit ? [{
@@ -583,7 +580,7 @@ const Page = () => {
                     {
                         label: "Quick View",
                         onClick: () => {
-                            const canView = userType !== "admin" || (hasPermission(PERMISSIONS.VIEW_ORDERS) || hasPermission(PERMISSIONS.VIEW_APPOINTMENTS));
+                            const canView = userType !== "admin" || (hasPermission(PERMISSIONS.VIEW_APPOINTMENTS));
 
                             if (!canView) {
                                 toast.error("You do not have permission to view orders");
@@ -635,7 +632,7 @@ const Page = () => {
     // Admin can create if they have CREATE_ORDERS or BOOK_APPOINTMENTS
     const canCreateOrder = userType !== 'vendor' && (
         userType !== 'admin' ||
-        (hasPermission(PERMISSIONS.CREATE_ORDERS) || hasPermission(PERMISSIONS.BOOK_APPOINTMENTS))
+        (hasPermission(PERMISSIONS.BOOK_APPOINTMENTS))
     );
 
 

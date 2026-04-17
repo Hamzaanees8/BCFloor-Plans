@@ -130,6 +130,8 @@ interface ServiceForVendor {
 
 interface TravelCost {
     orderId: number;
+    serviceUuid: string;
+    date: string;
     distance: number;
     estimatedTime: number;
     travelCost: number;
@@ -202,7 +204,7 @@ const Page = () => {
     const [expandedRow, setExpandedRow] = useState<number | null>(null);
     const [processingBulkPayments, setProcessingBulkPayments] = useState<Set<string>>(new Set());
     const [currentPage, setCurrentPage] = useState(1);
-    const [travelCosts, setTravelCosts] = useState<Map<number, TravelCost>>(new Map());
+    const [travelCosts, setTravelCosts] = useState<Map<string, TravelCost>>(new Map());
     const [vendorLocationData, setVendorLocationData] = useState<Map<string | number, VendorLocationData>>(new Map());
     const [loadingTravelCosts, setLoadingTravelCosts] = useState<Set<string | number>>(new Set());
     const [vendorPricesMap, setVendorPricesMap] = useState<Map<string, Record<number, number>>>(new Map());
@@ -342,7 +344,6 @@ const Page = () => {
             // Get vendor's order slots which have complete order information
             const vendorOrderSlots = vendor?.order_slots || [];
 
-
             if (!vendorOrderSlots || vendorOrderSlots.length === 0) {
                 console.warn("No order slots found for vendor");
                 return;
@@ -358,111 +359,113 @@ const Page = () => {
                 }
             });
 
-            // Calculate travel costs for each order
+            // Calculate travel costs for each service
             const newTravelCosts = new Map(travelCosts);
 
+            interface ServiceTripUnit {
+                orderId: number;
+                serviceUuid: string;
+                serviceName: string;
+                isTravelRequired: boolean;
+                slotDate: string;
+                slotTime: string;
+                propertyAddress: string;
+                propertyLocation: string;
+            }
 
-            // Sort orders by actual appointment date and time
-            const getEarliestSlot = (order: VendorOrder) => {
-                const allSlots = order.services.flatMap(s => s.slots || []);
-                if (allSlots.length === 0) return { date: order.created_at.split('T')[0], time: "23:59:59" };
+            const getServiceUnits = (order: VendorOrder): ServiceTripUnit[] => {
+                return order.services.map(svc => {
+                    const allSlots = svc.slots || [];
+                    // Find earliest slot for this specific service
+                    let slotDate = order.created_at.split('T')[0];
+                    let slotTime = "23:59:59";
 
-                // Find earliest date
-                const sortedByDate = allSlots.sort((a, b) => a.date.localeCompare(b.date));
-                const earliestDate = sortedByDate[0].date;
+                    if (allSlots.length > 0) {
+                        const sortedSlots = [...allSlots].sort((a, b) => {
+                            if (a.date !== b.date) return a.date.localeCompare(b.date);
+                            return a.start_time.localeCompare(b.start_time);
+                        });
+                        slotDate = sortedSlots[0].date;
+                        slotTime = sortedSlots[0].start_time;
+                    }
 
-                // Find earliest time on that date
-                const timesOnEarliestDate = allSlots
-                    .filter(s => s.date === earliestDate)
-                    .map(s => s.start_time)
-                    .sort();
+                    const vendorSlot = orderSlotMap.get(order.orderId);
+                    const propertyAddress = vendorSlot?.order?.property_address || "";
+                    const propertyLocation = vendorSlot?.order?.property_location || "";
 
-                return { date: earliestDate, time: timesOnEarliestDate[0] };
+                    return {
+                        orderId: order.orderId,
+                        serviceUuid: (svc as any).uuid || "",
+                        serviceName: svc.serviceName,
+                        isTravelRequired: svc.is_travel_required === true || svc.is_travel_required === 1,
+                        slotDate,
+                        slotTime,
+                        propertyAddress,
+                        propertyLocation
+                    };
+                });
             };
 
-            const sortedOrders = [...orders].sort((a, b) => {
-                const slotA = getEarliestSlot(a);
-                const slotB = getEarliestSlot(b);
+            const allServiceUnits: ServiceTripUnit[] = orders.flatMap(getServiceUnits);
 
-                if (slotA.date !== slotB.date) {
-                    return slotA.date.localeCompare(slotB.date);
-                }
-                return slotA.time.localeCompare(slotB.time);
+            // Group service units by date for daily round-trip logic
+            const unitsByDate = new Map<string, ServiceTripUnit[]>();
+            allServiceUnits.forEach(unit => {
+                const date = unit.slotDate;
+                if (!unitsByDate.has(date)) unitsByDate.set(date, []);
+                unitsByDate.get(date)?.push(unit);
             });
 
-            // Group sorted orders by date for daily round-trip logic
-            const ordersByDate = new Map<string, VendorOrder[]>();
-            sortedOrders.forEach(order => {
-                const { date } = getEarliestSlot(order);
-                if (!ordersByDate.has(date)) ordersByDate.set(date, []);
-                ordersByDate.get(date)?.push(order);
-            });
+            // Process each day
+            for (const [date, dayUnits] of Array.from(unitsByDate.entries())) {
+                // Sort units by time on that date
+                const sortedDayUnits = [...dayUnits].sort((a, b) => a.slotTime.localeCompare(b.slotTime));
 
-            // BATCHED TRAVEL CALCULATION - Process each day in one API call!
-            for (const dayOrders of Array.from(ordersByDate.values())) {
-                // Filter orders that actually require travel
-                const travelOrdersForDay = dayOrders.filter(order =>
-                    order.services.some(svc => svc.is_travel_required === true || svc.is_travel_required === 1)
-                );
+                // Filter units that actually require travel
+                const travelUnitsForDay = sortedDayUnits.filter(u => u.isTravelRequired);
 
-                // First, add all non-travel orders with 0 cost
-                dayOrders.forEach(order => {
-                    if (!order.services.some(svc => svc.is_travel_required === true || svc.is_travel_required === 1)) {
-                        const vendorSlot = orderSlotMap.get(order.orderId);
-                        if (vendorSlot?.order) {
-                            const toAddressForDisplay = `${vendorSlot.order.property_address}, ${vendorSlot.order.property_location}`;
-                            newTravelCosts.set(order.orderId, {
-                                orderId: order.orderId,
-                                distance: 0,
-                                estimatedTime: 0,
-                                travelCost: 0,
-                                fromAddress: startLocationAddress,
-                                toAddress: toAddressForDisplay
-                            });
-                        }
+                // Add non-travel services with 0 cost
+                sortedDayUnits.forEach(unit => {
+                    if (!unit.isTravelRequired) {
+                        const toAddressForDisplay = `${unit.propertyAddress}, ${unit.propertyLocation}`;
+                        newTravelCosts.set(`${unit.orderId}-${unit.serviceUuid}`, {
+                            orderId: unit.orderId,
+                            serviceUuid: unit.serviceUuid,
+                            date: unit.slotDate,
+                            distance: 0,
+                            estimatedTime: 0,
+                            travelCost: 0,
+                            fromAddress: startLocationAddress,
+                            toAddress: toAddressForDisplay
+                        });
                     }
                 });
 
-                if (travelOrdersForDay.length === 0) continue;
+                if (travelUnitsForDay.length === 0) continue;
 
-                // Build trip chain legs for all travel orders in this day
-                const orderAddresses = travelOrdersForDay.map(order => {
-                    const vendorSlot = orderSlotMap.get(order.orderId);
-                    return vendorSlot?.order?.property_address || "";
-                }).filter(addr => addr);
+                // Build trip chain legs for all travel services in this day
+                const addresses = travelUnitsForDay.map(u => u.propertyAddress).filter(addr => addr);
+                if (addresses.length === 0) continue;
 
-                if (orderAddresses.length === 0) continue;
-
-                const tripLegs = buildTripChainLegs(startLocationAddress, orderAddresses);
-
-                console.log(`📍 Batching ${tripLegs.length} legs for ${dayOrders[0].created_at.split('T')[0]} in 1 API call`);
+                const tripLegs = buildTripChainLegs(startLocationAddress, addresses);
 
                 try {
-                    // SINGLE BATCH API CALL for all legs on this day!
+                    console.log(`📍 Batching ${tripLegs.length} legs for ${date} in 1 API call`);
                     const batchResult = await batchCalculateTravelCosts(tripLegs);
 
                     if (batchResult.status === "OK" || batchResult.status === "PARTIAL_FAILURE") {
-                        // Map results back to orders
+                        for (let i = 0; i < travelUnitsForDay.length; i++) {
+                            const unit = travelUnitsForDay[i];
+                            const toAddressForDisplay = `${unit.propertyAddress}, ${unit.propertyLocation}`;
 
-
-                        for (let i = 0; i < travelOrdersForDay.length; i++) {
-                            const order = travelOrdersForDay[i];
-                            const vendorSlot = orderSlotMap.get(order.orderId);
-
-                            if (!vendorSlot?.order) continue;
-
-                            const toAddressForDisplay = `${vendorSlot.order.property_address}, ${vendorSlot.order.property_location}`;
-
-                            // Get distance for this order (from trip leg)
                             const legResult = batchResult.legs.find(l => l.legIndex === i);
-
                             if (legResult) {
                                 let distance = parseFloat(legResult.distance.toFixed(2));
                                 let estimatedTime = Math.round(legResult.duration);
 
-                                // If this is the last order, include return trip
-                                if (i === travelOrdersForDay.length - 1) {
-                                    const returnLeg = batchResult.legs.find(l => l.legIndex === travelOrdersForDay.length);
+                                // If this is the last trip of the day, add return trip
+                                if (i === travelUnitsForDay.length - 1) {
+                                    const returnLeg = batchResult.legs.find(l => l.legIndex === travelUnitsForDay.length);
                                     if (returnLeg) {
                                         distance += parseFloat(returnLeg.distance.toFixed(2));
                                         estimatedTime += Math.round(returnLeg.duration);
@@ -471,19 +474,22 @@ const Page = () => {
 
                                 const travelCost = parseFloat((distance * paymentPerKm).toFixed(2));
 
-                                newTravelCosts.set(order.orderId, {
-                                    orderId: order.orderId,
+                                newTravelCosts.set(`${unit.orderId}-${unit.serviceUuid}`, {
+                                    orderId: unit.orderId,
+                                    serviceUuid: unit.serviceUuid,
+                                    date: unit.slotDate,
                                     distance,
                                     estimatedTime,
                                     travelCost,
-                                    fromAddress: i === 0 ? startLocationAddress : travelOrdersForDay[i - 1].created_at,
+                                    fromAddress: i === 0 ? startLocationAddress : travelUnitsForDay[i - 1].propertyAddress,
                                     toAddress: toAddressForDisplay
                                 });
-                            } else if (batchResult.failedLegs.length > 0) {
-                                // Handle failed calculation
-                                console.warn(`⚠️ Distance calculation failed for order ${order.orderId}`);
-                                newTravelCosts.set(order.orderId, {
-                                    orderId: order.orderId,
+                            } else {
+                                console.warn(`⚠️ Distance calculation failed for service ${unit.serviceUuid} in order ${unit.orderId}`);
+                                newTravelCosts.set(`${unit.orderId}-${unit.serviceUuid}`, {
+                                    orderId: unit.orderId,
+                                    serviceUuid: unit.serviceUuid,
+                                    date: unit.slotDate,
                                     distance: 0,
                                     estimatedTime: 0,
                                     travelCost: 0,
@@ -493,25 +499,23 @@ const Page = () => {
                             }
                         }
                     } else {
-                        // Batch failed completely
-                        console.error("❌ Batch travel calculation failed completely");
-                        travelOrdersForDay.forEach(order => {
-                            const vendorSlot = orderSlotMap.get(order.orderId);
-                            if (vendorSlot?.order) {
-                                const toAddressForDisplay = `${vendorSlot.order.property_address}, ${vendorSlot.order.property_location}`;
-                                newTravelCosts.set(order.orderId, {
-                                    orderId: order.orderId,
-                                    distance: 0,
-                                    estimatedTime: 0,
-                                    travelCost: 0,
-                                    fromAddress: startLocationAddress,
-                                    toAddress: toAddressForDisplay
-                                });
-                            }
-                        });
+                         console.error("❌ Batch travel calculation failed completely for date", date);
+                         travelUnitsForDay.forEach(unit => {
+                             const toAddressForDisplay = `${unit.propertyAddress}, ${unit.propertyLocation}`;
+                             newTravelCosts.set(`${unit.orderId}-${unit.serviceUuid}`, {
+                                 orderId: unit.orderId,
+                                 serviceUuid: unit.serviceUuid,
+                                 date: unit.slotDate,
+                                 distance: 0,
+                                 estimatedTime: 0,
+                                 travelCost: 0,
+                                 fromAddress: startLocationAddress,
+                                 toAddress: toAddressForDisplay
+                             });
+                         });
                     }
                 } catch (error) {
-                    console.error(`❌ Exception in batch travel calculation:`, error);
+                    console.error(`❌ Exception in batch travel calculation for ${date}:`, error);
                 }
             }
 
@@ -525,6 +529,14 @@ const Page = () => {
                 return newSet;
             });
         }
+    };
+
+    const getOrderTravelTotal = (orderId: number, services: ServiceForVendor[]): number => {
+        return services.reduce((sum, svc) => {
+            const key = `${orderId}-${svc.uuid}`;
+            const tc = travelCosts.get(key);
+            return sum + (tc?.travelCost ?? 0);
+        }, 0);
     };
 
     const vendorsGrouped: VendorGrouped[] = useMemo(() => {
@@ -1023,29 +1035,39 @@ const Page = () => {
                                                                         (total: number, svc: VendorService) => total + Number(svc.amount ?? 0),
                                                                         0
                                                                     );
-                                                                    const travelCost = travelCosts.get(order.orderId);
-
                                                                     return (
                                                                         <details
                                                                             key={order.orderId}
                                                                             className="group border rounded-lg shadow-sm overflow-hidden"
                                                                         >
                                                                             <summary className="cursor-pointer px-4 py-3 bg-white hover:bg-gray-100 flex items-center justify-between font-medium text-gray-800">
-                                                                                <span>
-                                                                                    Order #{order.orderId} — {order.services.length} service(s) — ${orderTotal.toFixed(2)}
-                                                                                </span>
-                                                                                <span className="text-gray-500 group-open:hidden">
-                                                                                    <ChevronDown className="h-5 w-5" />
-                                                                                </span>
-                                                                                <span className="text-gray-500 hidden group-open:inline">
-                                                                                    <ChevronUp className="h-5 w-5" />
-                                                                                </span>
+                                                                                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-6">
+                                                                                    <span>Order #{order.orderId}</span>
+                                                                                    <div className="flex items-center gap-3 text-sm text-gray-500 font-normal">
+                                                                                        <span>Services: ${orderTotal.toFixed(2)}</span>
+                                                                                        {getOrderTravelTotal(order.orderId, order.services) > 0 && (
+                                                                                            <>
+                                                                                                <span className="h-4 w-[1px] bg-gray-300"></span>
+                                                                                                <span className="text-orange-600">Travel: ${getOrderTravelTotal(order.orderId, order.services).toFixed(2)}</span>
+                                                                                            </>
+                                                                                        )}
+                                                                                        <span className="h-4 w-[1px] bg-gray-300"></span>
+                                                                                        <span className="font-semibold text-gray-700">Total: ${(orderTotal + getOrderTravelTotal(order.orderId, order.services)).toFixed(2)}</span>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-2 text-gray-500">
+                                                                                    <span className="group-open:hidden"><ChevronDown className="h-5 w-5" /></span>
+                                                                                    <span className="hidden group-open:inline"><ChevronUp className="h-5 w-5" /></span>
+                                                                                </div>
                                                                             </summary>
 
                                                                             <div className="bg-gray-50 p-4 space-y-4">
 
                                                                                 {order.services.map((svc: ServiceForVendor, idx: number) => {
                                                                                     const svcTime = computeCombinedTime(svc.slots || []);
+                                                                                    const svcTravel = travelCosts.get(`${order.orderId}-${svc.uuid}`);
+                                                                                    const vendorLocation = vendorLocationData.get(vg.vendorId);
+                                                                                    
                                                                                     return (
                                                                                         <div
                                                                                             key={idx}
@@ -1066,7 +1088,7 @@ const Page = () => {
 
                                                                                                 <div className="flex flex-col gap-2 items-end">
                                                                                                     {(() => {
-                                                                                                        const paymentKey = `${svc.uuid}-${svc.slots[0].vendor.uuid}`;
+                                                                                                        const paymentKey = `${svc.uuid}-${svc.slots?.[0]?.vendor?.uuid || 'unknown'}`;
                                                                                                         return (
                                                                                                             <button
                                                                                                                 disabled={svc.vendor_payment != null || processingPayments.has(paymentKey)}
@@ -1074,7 +1096,7 @@ const Page = () => {
                                                                                                                     e.stopPropagation();
                                                                                                                     triggerPaymentAction(() => {
                                                                                                                         handlePayVendor({
-                                                                                                                            vendor_uuid: svc.slots[0].vendor.uuid,
+                                                                                                                            vendor_uuid: svc.slots?.[0]?.vendor?.uuid || '',
                                                                                                                             order_service_uuids: [svc.uuid ?? ''],
                                                                                                                             amount: Number(svc.amount ?? 0)
                                                                                                                         });
@@ -1121,58 +1143,36 @@ const Page = () => {
                                                                                                     }
                                                                                                 </div>
                                                                                             </div>
+
+                                                                                            {svcTravel && svcTravel.travelCost > 0 && (
+                                                                                                <div className="mt-4 pt-4 border-t border-orange-100 bg-orange-50/30 rounded-b-md">
+                                                                                                    <div className="flex justify-between items-start">
+                                                                                                        <div className="space-y-1">
+                                                                                                            <p className="text-sm font-semibold text-orange-800 flex items-center gap-2">
+                                                                                                                <span className="px-2 py-0.5 bg-orange-100 rounded text-[10px] uppercase">Travel Trip</span>
+                                                                                                                ${svcTravel.travelCost.toFixed(2)}
+                                                                                                            </p>
+                                                                                                            <p className="text-[12px] text-gray-600">
+                                                                                                                {svcTravel.distance} km • {svcTravel.estimatedTime} min • {svcTravel.date}
+                                                                                                            </p>
+                                                                                                            <p className="text-[11px] text-gray-500 italic">
+                                                                                                                Rate: ${Number(vendorLocation?.paymentPerKm ?? 0).toFixed(2)}/km • From: {svcTravel.fromAddress.substring(0, 30)}...
+                                                                                                            </p>
+                                                                                                        </div>
+                                                                                                        <button
+                                                                                                            className="px-3 py-1 bg-orange-500 text-white text-[11px] rounded hover:bg-orange-600 transition shadow-sm"
+                                                                                                            onClick={(e) => e.stopPropagation()}
+                                                                                                        >
+                                                                                                            Pay Travel
+                                                                                                        </button>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            )}
                                                                                         </div>
                                                                                     );
                                                                                 })}
 
-                                                                                {travelCost && travelCost.travelCost > 0 && (
-                                                                                    <div className="border rounded-md bg-orange-50 p-4 shadow-sm hover:shadow-md transition">
-                                                                                        <div className="flex justify-between items-start gap-4">
-                                                                                            <div>
-                                                                                                <div className="flex justify-start items-center gap-[20px]">
-                                                                                                    <p className="font-semibold text-gray-800">
-                                                                                                        Travel Cost
-                                                                                                    </p>
-                                                                                                    <p className="text-sm font-semibold text-orange-700">
-                                                                                                        ${travelCost.travelCost.toFixed(2)}
-                                                                                                    </p>
-                                                                                                </div>
-                                                                                                <p className="text-sm text-gray-600">
-                                                                                                    Distance: {travelCost.distance} km
-                                                                                                </p>
-                                                                                                <p className="text-sm text-gray-600">
-                                                                                                    Est. Time: {travelCost.estimatedTime} min
-                                                                                                </p>
-                                                                                                <p className="text-sm text-gray-600">
-                                                                                                    Rate: ${Number(vendorLocationData.get(vg.vendorId)?.paymentPerKm ?? 0).toFixed(2)}/km
-                                                                                                </p>
-                                                                                                <p className="text-sm text-gray-600 mt-2">
-                                                                                                    <span className="font-medium">From:</span> {travelCost.fromAddress}
-                                                                                                </p>
-                                                                                                <p className="text-sm text-gray-600">
-                                                                                                    <span className="font-medium">To:</span> {travelCost.toAddress}
-                                                                                                </p>
-                                                                                            </div>
 
-                                                                                            <div className="flex flex-col gap-2 items-end">
-                                                                                                <button
-                                                                                                    disabled={false}
-                                                                                                    onClick={(e) => {
-                                                                                                        e.stopPropagation();
-                                                                                                    }}
-                                                                                                    className="px-4 py-2 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] bg-orange-500 hover:bg-orange-600 cursor-pointer"
-                                                                                                >
-                                                                                                    Pay Now ${travelCost.travelCost.toFixed(2)}
-                                                                                                </button>
-                                                                                                {/* <div className="text-right">
-                                                                                                    <p className="text-sm font-semibold text-orange-700">
-                                                                                                        ${travelCost.travelCost.toFixed(2)}
-                                                                                                    </p>
-                                                                                                </div> */}
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
 
                                                                             </div>
                                                                         </details>
