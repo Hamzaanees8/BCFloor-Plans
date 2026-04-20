@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
   connectGoogleCalendar,
@@ -191,6 +192,7 @@ export type CurrentUser = {
     timezone: string;
     created_at: string;
     updated_at: string;
+    next_booking_slot_only?: boolean | number | string;
   };
   coordinates?: string[];
   additional_breaks: {
@@ -275,6 +277,7 @@ export interface WorkHoursData {
   googleSync: boolean;
   googleSyncEnabled: boolean;
   emailType: string;
+  next_booking_slot_only?: boolean;
 }
 
 export interface SelectedService {
@@ -980,6 +983,21 @@ const VendorWorkHours = ({
                     <Label htmlFor="repeat" className="">
                       Repeat every week
                     </Label>
+                  </div>
+                </div>
+                <div className="mb-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label htmlFor="next-booking-slot" className="font-medium text-[14px]">
+                        Only Allow Next Booking Slot
+                      </Label>
+                    </div>
+                    <Switch
+                      id="next-booking-slot"
+                      checked={workHours.next_booking_slot_only ?? false}
+                      onCheckedChange={(checked) => handleChange("next_booking_slot_only", checked)}
+                      className="data-[state=checked]:bg-[#4290E9]"
+                    />
                   </div>
                 </div>
 

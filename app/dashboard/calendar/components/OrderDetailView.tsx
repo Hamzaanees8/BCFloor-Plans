@@ -86,6 +86,7 @@ export interface OrderPayload {
   }[];
   areas: Area[];
   is_add_service?: number;
+  update_invoice?: number;
 }
 interface Notes {
   name: string;
@@ -121,6 +122,7 @@ export default function OrderDetailView({
   const [notes, setNotes] = useState<Notes[]>([]);
   const [coAgent, setCoAgent] = useState<CoAgent[]>([]);
   const [area, setArea] = useState<Area[]>([]);
+  const [updateInvoice, setUpdateInvoice] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [agentChecked, setAgentChecked] = useState(false);
   const [vendorChecked, setVendorChecked] = useState(false);
@@ -458,6 +460,7 @@ export default function OrderDetailView({
         slots: slotsPayload,
         areas: area,
         is_add_service: isAddServiceVal,
+        update_invoice: updateInvoice ? 1 : 0,
       };
 
       const updatedPayload = { ...payload, _method: "PUT" };
@@ -608,6 +611,8 @@ export default function OrderDetailView({
               setNotes={setNotes}
               coAgent={coAgent}
               setCoAgent={setCoAgent}
+              updateInvoice={updateInvoice}
+              setUpdateInvoice={setUpdateInvoice}
             />
           )}
 
@@ -619,6 +624,8 @@ export default function OrderDetailView({
               currentOrder={currentOrder}
               area={area}
               setArea={setArea}
+              updateInvoice={updateInvoice}
+              setUpdateInvoice={setUpdateInvoice}
             />
           )}
 

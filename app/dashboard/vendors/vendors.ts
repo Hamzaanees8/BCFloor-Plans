@@ -16,6 +16,7 @@ export interface VendorSettings {
   enable_service_area: number;
   force_service_area: number;
   is_kilometers: number;
+  next_booking_slot_only: number;
 }
 export interface VendorCompany {
   name: string;
@@ -49,6 +50,7 @@ export interface WorkHours {
   break_end?: string | null;
   commute_minutes?: number;
   timezone?: string;
+  next_booking_slot_only?: boolean | number | string;
 }
 
 export interface VendorPayload {

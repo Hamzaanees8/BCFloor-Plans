@@ -255,6 +255,7 @@ export default function PricingCard({
                         custom,
                         optionName,
                         payment_status: "UNPAID",
+                        category_name: service.category?.name,
                       },
                     ];
                   }

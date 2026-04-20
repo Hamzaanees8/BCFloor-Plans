@@ -9,7 +9,8 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover"
 import { Button } from '@/components/ui/button'
-import { CalendarIcon, Images } from 'lucide-react'
+import { CalendarIcon, Images, Info } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import VendorWorkCarousel from '@/app/dashboard/orders/components/VendorWorkCarousel'
@@ -371,7 +372,30 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
                                         <p className="text-[12px]">
                                             Select Service Time ({idx + 1} of {selectedServices?.length})
                                         </p>
-                                        <p className="text-[16px] font-[700] max-w-[200px]">{service.title}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-[16px] font-[700] max-w-[200px]">{service.title}</p>
+                                            {(() => {
+                                                const currentService = servicesData?.find((s: Services) => s.uuid === service.uuid);
+                                                if (currentService?.is_travel_required === false) {
+                                                    return (
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Info className="w-4 h-4 text-blue-500 cursor-help" />
+                                                                </TooltipTrigger>
+                                                                <TooltipContent className="max-w-[250px] bg-blue-50 border-blue-100 p-3">
+                                                                    <p className="text-[11px] text-blue-700 leading-relaxed text-left whitespace-normal">
+                                                                        <span className="font-semibold">This service does not require travel.</span>{' '}
+                                                                        You can book any available time slot on any day. Only slots already booked by other orders are unavailable.
+                                                                    </p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
+                                        </div>
                                         <p className="text-[12px]">
                                             Approx. Duration <br />
                                             <span className="text-[16px] font-[700] block min-h-[24px]">
@@ -657,6 +681,7 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                     externalSelectedSlots={selectedSlots}
                                                     externalBookedSlots={bookedSlots}
                                                     externalVendorsData={vendorsData}
+                                                    externalServicesData={servicesData}
                                                     onVendorSelected={handleVendorChange}
                                                 />
                                             );

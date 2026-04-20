@@ -251,6 +251,7 @@ const VendorForm = () => {
     googleSync: false,
     googleSyncEnabled: false,
     emailType: "",
+    next_booking_slot_only: false,
   });
   const [selectedServices, setSelectedServices] = useState<SelectedService[]>(
     []
@@ -565,6 +566,11 @@ const VendorForm = () => {
             googleSync: currentUser.sync_google ?? false,
             googleSyncEnabled: currentUser.sync_google_calendar ?? false,
             emailType: currentUser.sync_email || "",
+            next_booking_slot_only:
+              currentUser.settings?.next_booking_slot_only === 1 ||
+              currentUser.work_hours?.next_booking_slot_only === "1" ||
+              currentUser.work_hours?.next_booking_slot_only === "true" ||
+              currentUser.work_hours?.next_booking_slot_only === true,
           }));
         }
       }
@@ -817,6 +823,7 @@ const VendorForm = () => {
           timezone: workHours.timezone,
           commute_minutes: workHours.commuteTime,
           repeat_weekly: workHours.repeat ? "1" : "0",
+
         },
         payment_per_km: Number(paymentPerKm),
         is_kilometers: inkilometers ? 1 : 0,
@@ -826,6 +833,7 @@ const VendorForm = () => {
           enable_service_area: enableServiceArea ? 1 : 0,
           force_service_area: forceServiceArea ? 1 : 0,
           is_kilometers: inkilometers ? 1 : 0,
+          next_booking_slot_only: workHours.next_booking_slot_only ? 1 : 0,
         },
         portfolio_images:
           [...portfolioImages, ...galleryImages].length > 0
@@ -1424,22 +1432,22 @@ const VendorForm = () => {
                                 setCompanyProvince(components.province);
                               }, 100);
 
-                                // Auto-copy full address to Billing Address Line 1 if toggle is on
-                                if (useHeadquarterForBilling) {
-                                  setBillingAddress1(components.full_address);
-                                }
+                              // Auto-copy full address to Billing Address Line 1 if toggle is on
+                              if (useHeadquarterForBilling) {
+                                setBillingAddress1(components.full_address);
+                              }
 
-                                // Auto-fill Location Address fields if toggle is on
-                                if (useHeadquarterForStart) {
-                                  setBillingAddress(components.full_address);
-                                  setBillingCity(components.city);
-                                  setBillingCountry(components.country);
-                                  setBillingPostalCode(components.postal_code);
-                                  setTimeout(() => {
-                                    setBillingProvince(components.province);
-                                  }, 100);
-                                }
-                              }}
+                              // Auto-fill Location Address fields if toggle is on
+                              if (useHeadquarterForStart) {
+                                setBillingAddress(components.full_address);
+                                setBillingCity(components.city);
+                                setBillingCountry(components.country);
+                                setBillingPostalCode(components.postal_code);
+                                setTimeout(() => {
+                                  setBillingProvince(components.province);
+                                }, 100);
+                              }
+                            }}
                             className="h-[42px] mt-[12px]"
                             inputClassName={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] ${fieldErrors[`addresses.${1}.address_line_1`]
                               ? "border-red-500"

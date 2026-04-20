@@ -15,6 +15,7 @@ export interface SelectedService {
     option_id?: string;
     optionName: string;
     payment_status?: string;
+    category_name?: string;
 }
 
 export type Discount = {

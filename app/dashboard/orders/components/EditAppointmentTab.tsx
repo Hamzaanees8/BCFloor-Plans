@@ -3,6 +3,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Plus, Trash } from 'lucide-react';
 import React, { useEffect, useState } from 'react'
 import { Order } from '../../orders/page';
@@ -24,7 +25,8 @@ interface AppointmentTab {
     setNotes: React.Dispatch<React.SetStateAction<Notes[]>>
     coAgent: CoAgent[];
     setCoAgent: React.Dispatch<React.SetStateAction<CoAgent[]>>
-
+    updateInvoice?: boolean;
+    setUpdateInvoice?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 export interface CoAgent {
     name: string;
@@ -36,7 +38,7 @@ interface Notes {
     note: string;
     date: string
 }
-function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent, setCoAgent }: AppointmentTab) {
+function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent, setCoAgent, updateInvoice, setUpdateInvoice }: AppointmentTab) {
     const { userType } = useAppContext();
     const [agent, setAgent] = useState(currentOrder?.agent?.uuid ?? '');
     const [contactNumber, setContactNumber] = useState("");
@@ -120,6 +122,72 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentOrder, agentData, currentAgent])
+
+    const handleSquareFootageChange = (val: string) => {
+        setSquareFootage(val);
+        const sqFt = parseFloat(val);
+
+        if (!isNaN(sqFt)) {
+            setCalendarServices((prev) =>
+                prev.map((srv) => {
+                    const serviceInfo = servicesData.find(s => s.id === srv.serviceId);
+                    if (!serviceInfo) return srv;
+
+                    const nameLower = (serviceInfo.name || "").toLowerCase();
+                    // exclude photos, videos generic services just in case, include floor/3d tours
+                    const isMedia = nameLower.includes("photo") || nameLower.includes("video") || nameLower.includes("drone") || nameLower.includes("aerial");
+                    const isFloorOr3D = (nameLower.includes("floor") || nameLower.includes("3d") || nameLower.includes("matterport") || nameLower.includes("iguide") || nameLower.includes("tour"));
+                    const hasSqFtRangeOption = serviceInfo.product_options?.some((opt) => opt.sq_ft_range);
+
+                    if (!isMedia && (isFloorOr3D || hasSqFtRangeOption)) {
+                        let updatedOptionId = srv.optionId;
+                        let updatedPrice = srv.price;
+                        let selectedOption = serviceInfo.product_options?.find((opt) => opt.uuid === updatedOptionId);
+
+                        // Find the option with the matching sq_ft_range if applicable
+                        const optionWithRange = serviceInfo.product_options?.find((opt) => {
+                            if (opt.sq_ft_range) {
+                                const parts = opt.sq_ft_range.split('-');
+                                if (parts.length === 2) {
+                                    const min = parseInt(parts[0], 10);
+                                    if (parts[1] === '+') {
+                                        return sqFt >= min;
+                                    } else {
+                                        const max = parseInt(parts[1], 10);
+                                        return sqFt >= min && sqFt <= max;
+                                    }
+                                }
+                            }
+                            return false;
+                        });
+
+                        if (optionWithRange) {
+                            updatedOptionId = optionWithRange.uuid ?? null;
+                            selectedOption = optionWithRange;
+                        }
+
+                        // Recalculate price if sq_ft_rate exists
+                        if (selectedOption) {
+                            updatedPrice = selectedOption.amount?.toString() ?? '';
+                            if (selectedOption.sq_ft_rate && parseFloat(selectedOption.sq_ft_rate) > 0) {
+                                const calculated = parseFloat(selectedOption.sq_ft_rate) * sqFt;
+                                updatedPrice = (selectedOption.min_price ? Math.max(calculated, selectedOption.min_price) : calculated).toFixed(2);
+                            }
+                        }
+
+                        return {
+                            ...srv,
+                            optionId: updatedOptionId,
+                            price: updatedPrice
+                        };
+                    }
+
+                    return srv;
+                })
+            );
+        }
+    };
+
     const tabs =
         userType === 'admin'
             ? ['Notes', 'Internal Notes']
@@ -251,12 +319,19 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
                         <div className="col-span-1">
                             <Label className="text-[14px] text-[#424242] " htmlFor="">Square Footage</Label>
                             <Input
-                                readOnly
                                 value={squareFootage}
+                                onChange={(e) => handleSquareFootageChange(e.target.value)}
                                 className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
-                                type="text"
+                                type="number"
+                                min="0"
                             />
 
+                        </div>
+                        <div className="col-span-3 flex justify-end">
+                            <div className="flex items-center space-x-2">
+                                <Switch id="update-invoice-appointment" checked={updateInvoice} onCheckedChange={setUpdateInvoice} className="data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-[#E06D5E]" />
+                                <Label htmlFor="update-invoice-appointment" className="text-[14px] font-[500] text-[#424242]">Update Invoice</Label>
+                            </div>
                         </div>
                         {/* <div className='col-span-3 h-[50%] grid-rows-2 grid-cols-2 self-end justify-self-end flex items-center'>
                             <p

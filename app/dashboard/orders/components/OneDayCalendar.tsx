@@ -13,6 +13,7 @@ import { VendorData } from '../[id]/page';
 import { Order } from '../page';
 import { convertVendorWorkHoursToPropertyTimezone, fetchTwilightTime, TwilightResponse, formatTwilightTime, convertUTCToTimezone } from '../orders';
 import { toast } from 'sonner';
+import { Services } from '../../services/page';
 import {
   Tooltip,
   TooltipContent,
@@ -75,6 +76,7 @@ interface CalendarProps {
   externalSelectedSlots?: Slot[];
   externalBookedSlots?: Slot[];
   externalVendorsData?: VendorData[];
+  externalServicesData?: Services[];
   onVendorSelected?: (vendorId: string) => void;
 }
 
@@ -293,7 +295,7 @@ export function getDistanceColor(distance: number | undefined): string {
   return "#171484";
 }
 
-export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, serviceKey, vendorDistances, propertyTimezone, masterDate, externalSetSelectedSlots, externalSelectedSlots, externalBookedSlots, externalVendorsData, onVendorSelected }: CalendarProps) {
+export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, serviceKey, vendorDistances, propertyTimezone, masterDate, externalSetSelectedSlots, externalSelectedSlots, externalBookedSlots, externalVendorsData, externalServicesData, onVendorSelected }: CalendarProps) {
   const {
     selectedSlots: contextSelectedSlots,
     setSelectedSlots: contextSetSelectedSlots,
@@ -302,13 +304,14 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     ordersData,
     selectedCurrentListing,
     tempPropertyData,
-    servicesData,
+    servicesData: contextServicesData,
   } = useOrderContext();
 
   // Use external data if provided (for BookNow), otherwise use context
   const selectedSlots = externalSelectedSlots || contextSelectedSlots;
   const setSelectedSlots = externalSetSelectedSlots || contextSetSelectedSlots;
   const vendorsData = externalVendorsData || contextVendorsData;
+  const servicesData = externalServicesData || contextServicesData;
   const { id } = useParams();
 
   const existingSlot = selectedSlots.find((s: Slot) => s.service_id === service.uuid);
@@ -394,9 +397,13 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       s.service_id !== service.uuid && s.date === date
     );
 
+    // Check if this service does not require travel (full-day availability regardless of work hours)
+    const currentServiceDataForSlots = servicesData.find(s => s.uuid === service.uuid || String(s.id) === String(service.id));
+    const isNoTravelRequired = currentServiceDataForSlots?.is_travel_required === false;
+
     filteredVendors.forEach((vendor) => {
-      // IF SCHEDULE OVERRIDE IS ON, FORCE FULL DAY AVAILABILITY
-      if (scheduleOverrideMap[serviceKey] === 1) {
+      // IF SCHEDULE OVERRIDE IS ON OR THIS IS A NO-TRAVEL SERVICE, FORCE FULL DAY AVAILABILITY
+      if (scheduleOverrideMap[serviceKey] === 1 || isNoTravelRequired) {
         // Create 24h work hours
         const fullDayWorkHours: WorkHours = {
           start_time: '00:00:00',
@@ -423,8 +430,8 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           vendor.uuid ?? '',
           AllBookedSlots,
           otherServiceSlots,
-          [], // Ignore breaks/timeoffs when override is on
-          [], // Ignore calendar events when override is on
+          [], // Ignore breaks/timeoffs for no-travel / schedule override
+          [], // Ignore calendar events for no-travel / schedule override
           15
         );
 
@@ -641,12 +648,49 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           s.service_id !== service.uuid
         );
 
+        // Check if this is a no-travel service for next-day search
+        const serviceDataForSearch = servicesData.find(s => s.uuid === service.uuid || String(s.id) === String(service.id));
+        const isNoTravelSearch = serviceDataForSearch?.is_travel_required === false;
+
         for (let daysAhead = 1; daysAhead <= 30; daysAhead++) {
           const testDate = dayjs(currentDate).add(daysAhead, 'day').format('YYYY-MM-DD');
           const fullDaySlots = generateAllDaySlots(testDate, 15);
           const availableSlotMap = new Map<string, Slots>();
 
           filteredVendors.forEach((vendor) => {
+            if (isNoTravelSearch) {
+              // No-Travel: use full-day work hours, only booked slots are blocked
+              const fullDayWorkHours: WorkHours = {
+                start_time: '00:00:00',
+                end_time: '23:59:59',
+                timezone: propertyTimezone || 'America/Vancouver',
+                work_days: [{
+                  day: dayjs(testDate).format('ddd').toLowerCase(),
+                  start_time: '00:00:00',
+                  end_time: '23:59:59',
+                  is_off: 0,
+                  is_twilight: 0
+                }]
+              };
+
+              const vendorSlots = generateMarkedSlots(
+                testDate,
+                fullDayWorkHours,
+                vendor.uuid ?? '',
+                AllBookedSlots,
+                otherServiceSlots.filter(s => s.date === testDate),
+                [],
+                [],
+                15
+              );
+
+              vendorSlots.forEach((slot) => {
+                const key = `${slot.start}_${slot.end}`;
+                availableSlotMap.set(key, slot);
+              });
+              return;
+            }
+
             if (!vendor.work_hours) return;
 
             const vendorTimezone = vendor.work_hours.timezone || 'America/Vancouver';
@@ -699,7 +743,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
       searchForNextAvailableDay();
     }
-  }, [events, vendorsData, selectedVendors, currentDate, selectedSlots, service.uuid, AllBookedSlots, propertyTimezone, setSelectedDate]);
+  }, [events, vendorsData, selectedVendors, currentDate, selectedSlots, service.uuid, service.id, AllBookedSlots, propertyTimezone, setSelectedDate, servicesData]);
 
   const vendorsKey = JSON.stringify(selectedVendors);
   useEffect(() => {
@@ -958,9 +1002,50 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     // and that vendor is available for ALL the current slots, auto-assign them.
     const assignedVendorId = currentServiceSlots.length > 0 ? currentServiceSlots[0].vendor_id : null;
 
+    // Check if this is a no-travel service — if so, skip work-hours filtering
+    const currentServiceDataForClick = servicesData.find(s => s.uuid === service.uuid || String(s.id) === String(service.id));
+    const isNoTravelClick = currentServiceDataForClick?.is_travel_required === false;
+
     const matching = vendorsData.filter(vendor => {
       if (!vendor.uuid || !selectedVendors.includes(vendor.uuid)) {
         return false;
+      }
+
+      // For no-travel services, any vendor in the list is available for any slot
+      // (only already-booked slots are excluded, which was already handled during event generation)
+      if (isNoTravelClick) {
+        const fullDayWorkHours: WorkHours = {
+          start_time: '00:00:00',
+          end_time: '23:59:59',
+          timezone: propertyTimezone || 'America/Vancouver',
+          work_days: [
+            {
+              day: dayjs(selectedDate).format('ddd').toLowerCase(),
+              start_time: '00:00:00',
+              end_time: '23:59:59',
+              is_off: 0,
+              is_twilight: 0
+            }
+          ]
+        };
+
+        const vendorAvailableSlots = generateMarkedSlots(
+          selectedDate,
+          fullDayWorkHours,
+          vendor.uuid ?? '',
+          AllBookedSlots,
+          selectedSlots.filter((s: Slot) => s.service_id !== service.uuid && s.date === selectedDate),
+          [],
+          [],
+          15
+        );
+
+        return slotsToSelect.every(slotToSelect =>
+          vendorAvailableSlots.some(availableSlot =>
+            dayjs(availableSlot.start).isSame(slotToSelect.start) &&
+            dayjs(availableSlot.end).isSame(slotToSelect.end)
+          )
+        );
       }
 
       if (!vendor.work_hours) return false;

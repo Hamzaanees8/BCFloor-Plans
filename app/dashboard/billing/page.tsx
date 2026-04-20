@@ -59,6 +59,7 @@ const Page = () => {
     }
   }, []);
 
+
   const [billings, setBillings] = useState<BillingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -88,6 +89,18 @@ const Page = () => {
   } | null>(null);
   const [actionLoading, setActionLoading] = useState<{ id: string | number, action: "pay" | "view" } | null>(null);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setServiceInvoicePopup(null);
+      }
+    };
+    if (serviceInvoicePopup) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [serviceInvoicePopup]);
+
   const handleInvoiceAction = async (billing: BillingItem, action: "pay" | "view", serviceId?: string, serviceAmount?: number) => {
     try {
       setActionLoading({ id: serviceId || billing.order_id, action });
@@ -107,21 +120,21 @@ const Page = () => {
           );
         }
       } else {
-         if (action === "pay") {
-            const amount = serviceId ? (serviceAmount || 0) : billing.remaining_amount;
-            await handlePay(billing.order_id, billing.agent_uuid ?? "", amount, {
-                 paymentType: serviceId ? "service" : "full",
-                 serviceId
-            });
-         } else {
-             setActionLoading(null);
-             toast.error("Could not find invoice for this order.");
-         }
+        if (action === "pay") {
+          const amount = serviceId ? (serviceAmount || 0) : billing.remaining_amount;
+          await handlePay(billing.order_id, billing.agent_uuid ?? "", amount, {
+            paymentType: serviceId ? "service" : "full",
+            serviceId
+          });
+        } else {
+          setActionLoading(null);
+          toast.error("Could not find invoice for this order.");
+        }
       }
-    } catch(err) {
-       setActionLoading(null);
-       console.error(err);
-       toast.error("Failed to process invoice action.");
+    } catch (err) {
+      setActionLoading(null);
+      console.error(err);
+      toast.error("Failed to process invoice action.");
     }
   };
 
@@ -322,7 +335,7 @@ const Page = () => {
       });
       const res = await response.json();
       const invoice = Array.isArray(res.data) ? res.data[0] : res.data;
-      
+
       if (invoice) {
         setSelectedInvoice(invoice);
         setIsRefundModalOpen(true);
@@ -539,13 +552,13 @@ const Page = () => {
                         <label
                           className={`px-[7px] py-[1.5px] text-white rounded-[10px] leading-[100%] 
                                ${billing.status === "paid"
-                               ? "!bg-[#6BAE41]" // green
-                               : billing.status === "unpaid"
-                                 ? "!bg-[#E06D5E]" // red
-                                 : billing.status === "partial"
-                                   ? "!bg-[#DC9600]" // orange (partial)
-                                   : "!bg-[#E06D5E]"
-                             }`}
+                              ? "!bg-[#6BAE41]" // green
+                              : billing.status === "unpaid"
+                                ? "!bg-[#E06D5E]" // red
+                                : billing.status === "partial"
+                                  ? "!bg-[#DC9600]" // orange (partial)
+                                  : "!bg-[#E06D5E]"
+                            }`}
                         >
                           {billing.status}
                         </label>
@@ -657,7 +670,7 @@ const Page = () => {
                                             </Button>
                                           </>
                                         )}
-                                        <Button
+                                        {/* <Button
                                           variant="outline"
                                           onClick={() => {
                                             setSelectedOrderUuid(billing.order_uuid);
@@ -666,7 +679,7 @@ const Page = () => {
                                           className='px-6 py-4 border-gray-200 text-gray-700 rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-gray-50'
                                         >
                                           View Full Invoice
-                                        </Button>
+                                        </Button> */}
                                         {role === 'admin' && billing.status === 'paid' && (
                                           <Button
                                             variant="outline"
@@ -888,10 +901,10 @@ const Page = () => {
         toggleShowAgain={() => setShowAgain(!showAgain)}
       />
 
-      <InvoiceModal 
-        isOpen={isInvoiceModalOpen} 
-        onClose={() => setIsInvoiceModalOpen(false)} 
-        uuid={selectedOrderUuid} 
+      <InvoiceModal
+        isOpen={isInvoiceModalOpen}
+        onClose={() => setIsInvoiceModalOpen(false)}
+        uuid={selectedOrderUuid}
       />
 
       <RefundModal
@@ -930,48 +943,53 @@ const Page = () => {
 
       {/* Invoice Popup from Invoice Button */}
       {serviceInvoicePopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-4 sm:p-6 md:p-8"
+          onClick={() => setServiceInvoicePopup(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[95vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-center p-4 border-b">
               <h2 className="text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
                 Invoice #{serviceInvoicePopup.invoice.invoice_number || serviceInvoicePopup.invoice.id}
               </h2>
-              <button 
-                onClick={() => setServiceInvoicePopup(null)}
-                className="text-gray-500 hover:text-gray-700 p-2"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="overflow-y-auto p-4 flex-1">
-              <InvoiceDocument
-                invoice={serviceInvoicePopup.invoice}
-                editData={serviceInvoicePopup.invoice}
-                isEditing={false}
-                updateItem={() => {}}
-                addItem={() => {}}
-                removeItem={() => {}}
-                updateTaxRate={() => {}}
-                setEditData={() => {}}
-                roleSettings={roleSettings}
-              />
-              
-              {serviceInvoicePopup.invoice.status?.toUpperCase() !== 'PAID' && (
-                <div className="flex justify-end pt-6 mt-6 border-t border-gray-200">
-                  <Button 
+              <div className="flex items-center gap-4">
+                {serviceInvoicePopup.invoice.status?.toUpperCase() !== 'PAID' && (
+                  <Button
                     onClick={() => {
                       handleInvoiceAction(serviceInvoicePopup.billing, "pay", serviceInvoicePopup.serviceId);
                     }}
                     disabled={actionLoading !== null}
-                    className="px-8 h-[44px] text-[16px] font-semibold text-white hover:brightness-110 cursor-pointer"
+                    className="px-6 h-[36px] text-[14px] font-semibold text-white hover:brightness-110 cursor-pointer"
                     style={{ backgroundColor: roleSettings.pageTabColor }}
                   >
                     {actionLoading?.id === (serviceInvoicePopup.serviceId || serviceInvoicePopup.billing.order_id) && actionLoading?.action === "pay" ? (
                       <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
                     ) : "Pay Now"}
                   </Button>
-                </div>
-              )}
+                )}
+                <button
+                  onClick={() => setServiceInvoicePopup(null)}
+                  className="text-gray-500 hover:text-gray-700 p-2"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <div className="overflow-y-auto p-4 flex-1">
+              <InvoiceDocument
+                invoice={serviceInvoicePopup.invoice}
+                editData={serviceInvoicePopup.invoice}
+                isEditing={false}
+                updateItem={() => { }}
+                addItem={() => { }}
+                removeItem={() => { }}
+                updateTaxRate={() => { }}
+                setEditData={() => { }}
+                roleSettings={roleSettings}
+              />
             </div>
           </div>
         </div>

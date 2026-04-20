@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { X, Pencil, ChevronDown } from "lucide-react";
 import { Order } from '../../orders/page';
 import AddExtraDialog from './AddExtraDialog'; // We will reuse this for all sections now
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Area } from './OrderDetailView';
 import { SquareFootageTitles, defaultTitles } from './SquareFootageSettings';
 import { useAppContext } from '@/app/context/AppContext';
@@ -31,12 +33,14 @@ interface Field {
 interface SquareFootageProps {
   currentOrder: Order | undefined
   area: Area[];
-  setArea: React.Dispatch<React.SetStateAction<Area[]>>
+  setArea: React.Dispatch<React.SetStateAction<Area[]>>;
+  updateInvoice: boolean;
+  setUpdateInvoice: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 let uniqueId = 0;
 
-export default function EditSquareFootage({ currentOrder, setArea }: SquareFootageProps) {
+export default function EditSquareFootage({ currentOrder, setArea, updateInvoice, setUpdateInvoice }: SquareFootageProps) {
   const { userType } = useAppContext();
   const [titles, setTitles] = useState<SquareFootageTitles>(defaultTitles);
   const [finishedAreas, setFinishedAreas] = useState<Field[]>([]);
@@ -278,7 +282,13 @@ export default function EditSquareFootage({ currentOrder, setArea }: SquareFoota
 
   return (
     <div className="bg-[#F5F5F5] p-4 rounded border border-gray-300 text-[14px] text-[#666666] font-alexandria space-y-6">
-      <div className="text-[24px] font-[400]">{currentOrder?.property_address}, {currentOrder?.property_location}</div>
+      <div className="flex justify-between items-center">
+        <div className="text-[24px] font-[400]">{currentOrder?.property_address}, {currentOrder?.property_location}</div>
+        <div className="flex items-center space-x-2">
+          <Switch id="update-invoice-sqft" checked={updateInvoice} onCheckedChange={setUpdateInvoice} className="data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-[#E06D5E]" />
+          <Label htmlFor="update-invoice-sqft" className="text-[14px] font-[500] text-[#424242]">Update Invoice</Label>
+        </div>
+      </div>
 
       {renderSection('finished', finishedAreas, setFinishedAreas)}
       {renderSection('subtotal', subtotalAreas, setSubtotalAreas)}

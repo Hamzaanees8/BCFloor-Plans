@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pencil, Plus, Trash, X, Edit2, Eye, EyeOff } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import React, { useEffect, useState, useMemo } from 'react'
 import { Order } from '../../orders/page';
 import { Agent } from '@/lib/types';
@@ -33,7 +34,8 @@ interface AppointmentTab {
     setNotes: React.Dispatch<React.SetStateAction<Notes[]>>
     coAgent: CoAgent[];
     setCoAgent: React.Dispatch<React.SetStateAction<CoAgent[]>>
-
+    updateInvoice?: boolean;
+    setUpdateInvoice?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 export interface CoAgent {
     name: string;
@@ -46,7 +48,7 @@ interface Notes {
     date: string
     internal?: string
 }
-function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNotes, coAgent, setCoAgent }: AppointmentTab) {
+function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNotes, coAgent, setCoAgent, updateInvoice, setUpdateInvoice }: AppointmentTab) {
     const { userType } = useAppContext();
     const [agent, setAgent] = useState(currentOrder?.agent.uuid ?? '');
     const [contactNumber, setContactNumber] = useState("");
@@ -425,6 +427,12 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                 type="text"
                             />
 
+                        </div>
+                        <div className="col-span-3 flex justify-end">
+                            <div className="flex items-center space-x-2">
+                                <Switch id="update-invoice-appointment-calendar" checked={updateInvoice} onCheckedChange={setUpdateInvoice} className="data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-[#E06D5E]" />
+                                <Label htmlFor="update-invoice-appointment-calendar" className="text-[14px] font-[500] text-[#424242]">Update Invoice</Label>
+                            </div>
                         </div>
                         {/* <div className='col-span-3 h-[50%] grid-rows-2 grid-cols-2 self-end justify-self-end flex items-center'>
                             <p

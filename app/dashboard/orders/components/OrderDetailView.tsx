@@ -76,6 +76,7 @@ export interface OrderPayload {
     }[];
     areas: Area[];
     is_add_service?: number;
+    update_invoice?: number;
 }
 interface Notes {
     name: string;
@@ -100,6 +101,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
     const [notes, setNotes] = useState<Notes[]>([]);
     const [coAgent, setCoAgent] = useState<CoAgent[]>([]);
     const [area, setArea] = useState<Area[]>([]);
+    const [updateInvoice, setUpdateInvoice] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [agentChecked, setAgentChecked] = useState(false);
     const [vendorChecked, setVendorChecked] = useState(false);
@@ -275,7 +277,8 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                 services: servicesPayload,
                 slots: slotsPayload,
                 areas: area,
-                is_add_service: isAddServiceVal
+                is_add_service: isAddServiceVal,
+                update_invoice: updateInvoice ? 1 : 0
             };
 
             const updatedPayload = { ...payload, _method: 'PUT' };
@@ -369,11 +372,11 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                 <div className="p-4 overflow-y-auto max-h-[80vh] px-2">
                     {activeTab === 'appointment' && userType !== 'vendor' && (
                         <EditAppointmentTab
-                            currentOrder={currentOrder} serviceId={serviceId} agentData={agentData} notes={notes} setNotes={setNotes} coAgent={coAgent} setCoAgent={setCoAgent}
+                            currentOrder={currentOrder} serviceId={serviceId} agentData={agentData} notes={notes} setNotes={setNotes} coAgent={coAgent} setCoAgent={setCoAgent} updateInvoice={updateInvoice} setUpdateInvoice={setUpdateInvoice}
                         />
                     )}
                     {activeTab === 'square_footage' && (
-                        <EditSquareFootage currentOrder={currentOrder} area={area} setArea={setArea} />
+                        <EditSquareFootage currentOrder={currentOrder} area={area} setArea={setArea} updateInvoice={updateInvoice} setUpdateInvoice={setUpdateInvoice} />
 
                     )}
 
