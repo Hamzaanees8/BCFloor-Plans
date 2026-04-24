@@ -20,6 +20,7 @@ export interface UserPayload {
     company_banner?: File;
     roles?: number[];
     permissions?: number[];
+    _method?: string;
 }
 
 export interface FetchErrors {

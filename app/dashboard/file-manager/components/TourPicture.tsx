@@ -28,7 +28,7 @@ import { Label } from "@/components/ui/label";
 import { Order } from "../../orders/page";
 import { DownloadFile } from "../file-manager";
 import { useAppContext } from "@/app/context/AppContext";
-import { OptimizedImagePreview } from "./OptimizedPreview";
+import { OptimizedImagePreview, PdfPlaceholder } from "./OptimizedPreview";
 
 function TourPicture({ orderData }: { orderData: Order | null }) {
   const { userType } = useAppContext();
@@ -204,11 +204,30 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                         ) : (
                           <>
                             {/* eslint-disable @next/next/no-img-element */}
-                            <img
-                              src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
-                              alt="preview"
-                              className="absolute inset-0 w-full h-full object-cover"
-                            />
+                             {(file.file_path?.toLowerCase().endsWith('.pdf') || file.type === 'pdf' || file.type === 'application/pdf') ? (
+                               (!file.variant_urls || (Array.isArray(file.variant_urls) && file.variant_urls.length === 0) || Object.keys(file.variant_urls).length === 0) ? (
+                                 <PdfPlaceholder 
+                                   className="absolute inset-0 w-full h-full object-contain"
+                                   message="service is not paid yet"
+                                 />
+                               ) : (
+                                 <div className="relative w-full h-full overflow-hidden">
+                                   <iframe
+                                     src={`${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                                     className="w-full h-full pointer-events-none border-none"
+                                     tabIndex={-1}
+                                     scrolling="no"
+                                   />
+                                   <div className="absolute inset-0 bg-transparent" />
+                                 </div>
+                               )
+                             ) : (
+                               <img
+                                 src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
+                                 alt="preview"
+                                 className="absolute inset-0 w-full h-full object-cover"
+                               />
+                             )}
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span

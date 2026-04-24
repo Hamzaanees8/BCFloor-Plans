@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@radix-ui/react-dropdown-menu";
-import { X, Copy, Check } from "lucide-react";
+import { X, Check, ArrowUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/app/context/AppContext";
 import { SelectedFiles, useFileManagerContext } from "../FileManagerContext";
@@ -70,6 +70,7 @@ interface FileRowProps {
   userType: string;
   isComplimentary: boolean;
   onToggleComplimentary: (idx: number) => void;
+  onCopyFromAbove: (idx: number) => void;
 }
 
 const FileRow = React.memo(({
@@ -87,12 +88,12 @@ const FileRow = React.memo(({
   totalFiles,
   isComplimentary,
   onToggleComplimentary,
+  onCopyFromAbove,
 }: FileRowProps) => {
   const [isCopied, setIsCopied] = useState(false);
 
   const handleCopy = () => {
-    if (!mediaType) return;
-    navigator.clipboard.writeText(mediaType);
+    onCopyFromAbove(idx);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
@@ -126,13 +127,13 @@ const FileRow = React.memo(({
           <Label className="text-[#7d7d7d] text-[14px]">Media Name</Label>
           <div
             onClick={() => onToggleComplimentary(idx)}
-            className={`flex items-center gap-1 cursor-pointer transition-colors ${isComplimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
+            className={`flex items-center gap-1.5 cursor-pointer transition-colors ${isComplimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
             title="Mark as Complimentary"
           >
-            <div className={`border rounded flex items-center justify-center ${isComplimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`} style={{ width: '12px', height: '12px' }}>
-              {isComplimentary && <Check color="white" size={8} />}
+            <div className={`border-2 rounded flex items-center justify-center ${isComplimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`} style={{ width: '18px', height: '18px' }}>
+              {isComplimentary && <Check color="white" size={14} />}
             </div>
-            <span className="font-bold text-[12px] whitespace-nowrap">Complimentary</span>
+            <span className="font-medium text-[14px] whitespace-nowrap">Complimentary</span>
           </div>
         </div>
 
@@ -148,7 +149,7 @@ const FileRow = React.memo(({
               placeholder="Select or Type Media Name"
               className="w-full h-[42px] border text-[#696868] border-[#7d7d7d] pr-10"
             />
-            {mediaType && (
+            {idx > 0 && (
               <div className="absolute right-3 top-[21px] -translate-y-1/2 group">
                 <button
                   onClick={(e) => {
@@ -157,12 +158,12 @@ const FileRow = React.memo(({
                   }}
                   type="button"
                   className="text-gray-400 hover:text-gray-600 cursor-pointer p-1 rounded"
-                  aria-label="Copy name"
+                  aria-label="Copy from above"
                 >
-                  {isCopied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                  {isCopied ? <Check size={18} className="text-green-500" /> : <ArrowUp size={18} />}
                 </button>
                 <span className="pointer-events-none absolute bottom-full right-0 mb-2 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50">
-                  {isCopied ? 'Copied!' : 'Click to copy to clipboard'}
+                  {isCopied ? 'Copied from above!' : 'Copy from above'}
                 </span>
               </div>
             )}
@@ -284,6 +285,15 @@ export default function FilePreviewModal({
     setComplimentaryIndexes(prev => prev.filter(i => i !== index));
   }, []);
 
+  const handleCopyFromAbove = useCallback((index: number) => {
+    if (index > 0) {
+      const valueAbove = mediaTypes[index - 1];
+      if (valueAbove) {
+        setMediaTypes(prev => ({ ...prev, [index]: valueAbove }));
+      }
+    }
+  }, [mediaTypes]);
+
   const handleAdd = useCallback(() => {
     const existingServiceFilesCount = filesData?.files?.filter(f => f.service?.uuid === serviceUuid).length || 0;
 
@@ -374,6 +384,7 @@ export default function FilePreviewModal({
                   p.includes(i) ? p.filter(x => x !== i) : [...p, i]
                 )
               }
+              onCopyFromAbove={handleCopyFromAbove}
             />
           ))}
 

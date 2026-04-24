@@ -43,9 +43,12 @@ export default function OrderQuickViewCard({ data, onClose, vendorData, serviceD
         return order.uuid === data.order_id
     })
 
-    const notes = typeof CurrentOrder?.notes === 'string'
+    const allNotes = typeof CurrentOrder?.notes === 'string'
         ? JSON.parse(CurrentOrder.notes)
         : [];
+
+    const agentNotes = allNotes.filter((note: any) => note.internal === 'false' || note.is_internal === false || (!note.internal && !note.is_internal));
+    const internalNotes = allNotes.filter((note: any) => note.internal === 'true' || note.is_internal === true);
 
     const serviceOptions = CurrentOrder?.services.find((service) => {
         return service.service.uuid == CurrentService?.uuid
@@ -151,13 +154,29 @@ export default function OrderQuickViewCard({ data, onClose, vendorData, serviceD
                         <span className="text-[15px] font-[400] text-[#666666] leading-[32px]">{serviceOptions?.option?.title}</span>
 
                     </div>
-                    <div className="grid grid-cols-1 gap-y-[0px]">
-                        <span className="text-[#8E8E8E] text-[10px] font-[700]">Special Instructions</span>
-                        {notes.length > 0 && notes.map((note: { note: string }, idx: number) => {
-                            return <span key={idx} className="text-[15px] font-[400] text-[#666666] leading-[32px]">{note.note}</span>
-                        })}
-
-                    </div>
+                    {userType === 'admin' ? (
+                        <>
+                            <div className="grid grid-cols-1 gap-y-[0px]">
+                                <span className="text-[#8E8E8E] text-[10px] font-[700]">Notes viewable by agent</span>
+                                {agentNotes.length > 0 ? agentNotes.map((note: { note: string }, idx: number) => (
+                                    <span key={idx} className="text-[15px] font-[400] text-[#666666] leading-[32px]">{note.note}</span>
+                                )) : <span className="text-[15px] font-[400] text-[#8E8E8E] italic leading-[32px]">No agent notes</span>}
+                            </div>
+                            <div className="grid grid-cols-1 gap-y-[0px] mt-2">
+                                <span className="text-[#8E8E8E] text-[10px] font-[700]">Internal notes not viewable by agent</span>
+                                {internalNotes.length > 0 ? internalNotes.map((note: { note: string }, idx: number) => (
+                                    <span key={idx} className="text-[15px] font-[400] text-[#E06D5E] leading-[32px]">{note.note}</span>
+                                )) : <span className="text-[15px] font-[400] text-[#8E8E8E] italic leading-[32px]">No internal notes</span>}
+                            </div>
+                        </>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-y-[0px]">
+                            <span className="text-[#8E8E8E] text-[10px] font-[700]">Notes</span>
+                            {agentNotes.length > 0 ? agentNotes.map((note: { note: string }, idx: number) => (
+                                <span key={idx} className="text-[15px] font-[400] text-[#666666] leading-[32px]">{note.note}</span>
+                            )) : <span className="text-[15px] font-[400] text-[#8E8E8E] italic leading-[32px]">No notes</span>}
+                        </div>
+                    )}
 
 
                 </div>

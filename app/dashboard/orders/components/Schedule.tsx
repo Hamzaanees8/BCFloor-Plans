@@ -95,6 +95,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
     const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
     const [isCalculating, setIsCalculating] = useState(true);
     const [propertyLocation, setPropertyLocation] = useState<PropertyLocation | null>(null);
+    const [openTooltipIdx, setOpenTooltipIdx] = useState<number | null>(null);
 
     const {
         selectedCurrentListing,
@@ -104,6 +105,9 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
         tempPropertyData,
         selectedSlots,
     } = useOrderContext();
+
+    const servicesToSchedule = isEdit ? selectedServices : selectedServices.filter((s: any) => !s.service_uuid);
+    const serviceCount = servicesToSchedule?.length || 0;
 
     useEffect(() => {
         async function filterVendorsByService() {
@@ -261,6 +265,14 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
 
     return (
         <div className='font-alexandria'>
+            <div className="px-16 py-4 bg-white border-b border-[#EEEEEE]">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3 shadow-sm">
+                    <Info className="w-5 h-5 text-blue-600 shrink-0" />
+                    <p className="text-[14px] text-blue-800 leading-relaxed font-medium">
+                        {serviceCount === 1 ? "This service is" : "These services are"} currently held waiting for completion of booking. Your appointment is not confirmed until you complete all steps and receive a confirmation message. If you do not see the time you are hoping for please call or email the office.
+                    </p>
+                </div>
+            </div>
             <div className="flex justify-between items-center px-16 py-4 border-b border-[#EEEEEE] bg-white">
                 <div className="flex items-center gap-4">
                     <span className="text-[12px] text-[#7D7D7D]">Master Date Selection:</span>
@@ -348,9 +360,12 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                             <p className="text-[16px] font-[700] max-w-[200px]">{service.title}</p>
                                             {currentService?.is_travel_required === false && (
                                                 <TooltipProvider>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Info className="w-4 h-4 text-blue-500 cursor-help" />
+                                                    <Tooltip open={openTooltipIdx === idx} onOpenChange={(open) => setOpenTooltipIdx(open ? idx : null)}>
+                                                        <TooltipTrigger asChild onClick={(e) => {
+                                                            e.preventDefault();
+                                                            setOpenTooltipIdx(openTooltipIdx === idx ? null : idx);
+                                                        }}>
+                                                            <Info className="w-4 h-4 text-blue-500 cursor-pointer" />
                                                         </TooltipTrigger>
                                                         <TooltipContent className="max-w-[250px] bg-blue-50 border-blue-100 p-3">
                                                             <p className="text-[11px] text-blue-700 leading-relaxed text-left whitespace-normal">

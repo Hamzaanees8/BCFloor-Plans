@@ -47,7 +47,8 @@ import { SaveModal } from "./SaveModal";
 import DynamicMap from "./DYnamicMap";
 import { useRouter } from "next/navigation";
 import { useAppContext } from "@/app/context/AppContext";
-import { EditAgent, GetOne } from "@/app/dashboard/agents/agents";
+import { EditAgent, GetOne as GetOneAgent } from "@/app/dashboard/agents/agents";
+import { Edit as EditAdminUser, GetOne as GetOneAdmin } from "@/app/dashboard/admin/admin";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import AddCoAgentDialog from "./AddCoAgentDialog";
 import { useUnsaved } from "@/app/context/UnsavedContext";
@@ -59,6 +60,7 @@ import { useWhiteLabel } from "@/app/context/Whitelabel";
 import EmailTemplatesSettings from "./EmailTemplatesSettings";
 import OrganizationsSettings from "./OrganizationsSettings";
 import MediaJobsTable from "./MediaJobsTable";
+import PermissionsSettings from "./PermissionsSettings";
 
 interface CompanyData {
     id: number;
@@ -381,9 +383,10 @@ const GlobalSettings = () => {
         setLoading(true);
         setError(false);
         if (userType === "admin") {
-            GetCompany()
-                .then((res) => {
-                    const data = res.data;
+            Promise.all([GetCompany(), GetOneAdmin(userInfo.uuid)])
+                .then(([companyRes, adminRes]) => {
+                    const data = companyRes.data;
+                    const adminData = adminRes.data;
 
                     isPopulatingData.current = true;
 
@@ -416,6 +419,8 @@ const GlobalSettings = () => {
                     if (data.banner_url) setCompanyBannerUrl(data.banner_url);
                     if (data.logo_path) setCompanyLogoFileName(data.logo_path);
                     if (data.banner_path) setCompanyBannerFileName(data.banner_path);
+                    if (adminData.avatar_url) setAvatarUrl(adminData.avatar_url);
+                    if (adminData.avatar) setAvatarFileName(adminData.avatar);
                 })
                 .catch((err) => {
                     console.log(err.message);
@@ -432,7 +437,7 @@ const GlobalSettings = () => {
                     setIsDirty(false);
                 });
         } else if (userType === "agent") {
-            GetOne(userInfo.uuid)
+            GetOneAgent(userInfo.uuid)
                 .then((res) => {
                     const data = res.data;
 
@@ -612,6 +617,12 @@ const GlobalSettings = () => {
                 if (companyData) {
                     const updatedPayload = { ...payload, _method: "PUT" };
                     await UpdateCompany(updatedPayload, companyData.uuid);
+                    if (avatarFile) {
+                        await EditAdminUser(userInfo.uuid, {
+                            avatar: avatarFile,
+                            _method: "PUT",
+                        });
+                    }
                     setIsLoading(true);
                     setOpenSaveDialog(true);
                     router.push("/dashboard/global-settings");
@@ -619,6 +630,12 @@ const GlobalSettings = () => {
                     setIsDirty(false);
                 } else {
                     await CreateCompany(payload);
+                    if (avatarFile) {
+                        await EditAdminUser(userInfo.uuid, {
+                            avatar: avatarFile,
+                            _method: "PUT",
+                        });
+                    }
                     setIsLoading(true);
                     setOpenSaveDialog(true);
                     router.push("/dashboard/global-settings");
@@ -874,7 +891,7 @@ const GlobalSettings = () => {
 
     const tabs =
         userType === "admin"
-            ? ["Profile Settings", "Discounts", "Tour Settings", "Appearances", "Templates", "Organizations", "Media Processing"]
+            ? ["Profile Settings", "Permissions", "Discounts", "Tour Settings", "Appearances", "Templates", "Organizations", "Media Processing"]
             : [];
     const [activeTab, setActiveTab] = useState("Profile Settings");
 
@@ -1096,7 +1113,7 @@ const GlobalSettings = () => {
                     >
                         Save Settings
                     </Button>
-                ) : activeTab === "Organizations" || activeTab === "Templates" || activeTab === "Tour Settings" ? null : (
+                ) : activeTab === "Organizations" || activeTab === "Templates" || activeTab === "Tour Settings" || activeTab === "Permissions" ? null : (
                     <Button
                         type="button"
                         onClick={(e) => {
@@ -1161,6 +1178,9 @@ const GlobalSettings = () => {
                 )}
                 {activeTab === "Media Processing" && userType === "admin" && (
                     <MediaJobsTable userType={userType} />
+                )}
+                {activeTab === "Permissions" && userType === "admin" && (
+                    <PermissionsSettings />
                 )}
                 <Accordion
                     type="multiple"

@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/popover"
 import { ServiceCompletion, HideMediaFiles } from '../file-manager';
 
-function FileTab2({ currentService, orderData, isListing, currentBookedService }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, currentBookedService?: OrderService }) {
+function FileTab2({ currentService, orderData, isListing, currentBookedService, onOpenInvoice }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void }) {
     const { links, setLinks, setPreviewFiles, filesData, setFilesData, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [openPayment, setOpenPayment] = useState(false);
@@ -358,6 +358,11 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService }
                                     <p className='text-[#7D7D7D] text-[10px] leading-none'>1 Link</p>
                                 </div>
                                 <Button
+                                    onClick={() => {
+                                        if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
+                                            onOpenInvoice?.(currentService?.name);
+                                        }
+                                    }}
                                     className={`h-[32px] w-[100px] flex justify-center items-center 
                                         ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                             ? "bg-[#6BAE41] hover:bg-[#5fa43a]"

@@ -132,6 +132,7 @@ export function Pagination<TData>({
             </div>
             <div className="flex items-center gap-2">
                 <Button
+                    type="button"
                     variant="outline"
                     size="sm"
                     onClick={handlePrevious}
@@ -146,6 +147,7 @@ export function Pagination<TData>({
                             <span key={`ellipsis-${index}`} className="px-2 text-[#666666]">...</span>
                         ) : (
                             <Button
+                                type="button"
                                 key={page}
                                 variant={activePage === page ? "default" : "outline"}
                                 size="sm"
@@ -161,6 +163,7 @@ export function Pagination<TData>({
                     ))}
                 </div>
                 <Button
+                    type="button"
                     variant="outline"
                     size="sm"
                     onClick={handleNext}

@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { useFileManagerContext, Files } from '../FileManagerContext';
 import { Button } from '@/components/ui/button';
-import { Download, CheckCircle2, Loader2, PlayCircle } from 'lucide-react';
+import { Download, CheckCircle2, Loader2, PlayCircle, FileText } from 'lucide-react';
+import { PdfPlaceholder } from "./OptimizedPreview";
 import { toast } from 'sonner';
 import { useAppContext } from '@/app/context/AppContext';
 import BulkDownloadSizeModal, { DownloadSize } from './BulkDownloadSizeModal';
@@ -19,11 +20,12 @@ interface DownloadTabProps {
     orderData: Order | null;
     /** Booking-aware service groups passed from FileManager (key = service definition UUID) */
     groupedOrderServices?: Map<string, OrderServiceEntry[]>;
+    onOpenInvoice?: (serviceName?: string) => void;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
-const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServices }) => {
+const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServices, onOpenInvoice }) => {
     const { filesData } = useFileManagerContext();
     const { userType } = useAppContext();
     const { startDownload } = useGlobalDownload();
@@ -423,8 +425,14 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                         </h3>
                                         <div className="flex items-center gap-2">
                                             {/* Paid/Unpaid badge */}
-                                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                                                section.isPaid ? 'bg-[#6BAE41] text-white' : 'bg-[#DC9600] text-white'
+                                            <span 
+                                                onClick={() => {
+                                                    if (!section.isPaid) {
+                                                        onOpenInvoice?.(section.bookingEntry?.service.name);
+                                                    }
+                                                }}
+                                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                                section.isPaid ? 'bg-[#6BAE41] text-white' : 'bg-[#DC9600] text-white cursor-pointer hover:bg-[#eda304]'
                                             }`}>
                                                 {section.isPaid ? 'PAID' : 'UNPAID'}
                                             </span>
@@ -491,6 +499,23 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                                                     className={`absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
                                                                 />
                                                             )
+                                                        ) : (file.file_path?.toLowerCase().endsWith('.pdf') || file.type === 'pdf' || file.type === 'application/pdf') ? (
+                                                            (!file.variant_urls || (Array.isArray(file.variant_urls) && file.variant_urls.length === 0) || Object.keys(file.variant_urls).length === 0) ? (
+                                                                <PdfPlaceholder
+                                                                    className="w-full h-full object-contain"
+                                                                    message="service is not paid yet"
+                                                                />
+                                                            ) : (
+                                                                <div className="relative w-full h-full overflow-hidden">
+                                                                    <iframe
+                                                                        src={`${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                                                                        className="w-full h-full pointer-events-none border-none"
+                                                                        tabIndex={-1}
+                                                                        scrolling="no"
+                                                                    />
+                                                                    <div className="absolute inset-0 bg-transparent" />
+                                                                </div>
+                                                            )
                                                         ) : (
                                                             /* eslint-disable-next-line @next/next/no-img-element */
                                                             <img
@@ -507,7 +532,13 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                                         </div>
                                                     )}
                                                     {!section.isPaid && userType === 'agent' && (
-                                                        <div className="absolute top-2 right-2 z-10 bg-black/50 text-white text-[10px] px-2 py-1 rounded flex items-center gap-1">
+                                                        <div 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onOpenInvoice?.(section.bookingEntry?.service.name);
+                                                            }}
+                                                            className="absolute top-2 right-2 z-10 bg-black/50 text-white text-[10px] px-2 py-1 rounded flex items-center gap-1 cursor-pointer hover:bg-black/70"
+                                                        >
                                                             <Loader2 className="w-3 h-3 animate-pulse" />
                                                             Unpaid
                                                         </div>

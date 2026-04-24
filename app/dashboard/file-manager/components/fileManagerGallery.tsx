@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { DownloadIcon } from "@/components/Icons";
 import { useFileManagerContext } from "../FileManagerContext";
+import { PdfPlaceholder } from "./OptimizedPreview";
 
 interface FileManagerGalleryProps {
   onImageSelect: (imageUrl: string) => void;
@@ -63,6 +64,13 @@ export default function FileManagerGallery({
     }
   };
 
+  const isPDF = (file: any): boolean => {
+    if (!file) return false;
+    const path = file.file_path || "";
+    const type = file.type || "";
+    return path.toLowerCase().endsWith('.pdf') || type === 'pdf' || type === 'application/pdf';
+  };
+
   const files = (filesData?.files || []).filter(file => {
     // Date check
     const createdDate = new Date(file.created_at);
@@ -114,12 +122,31 @@ export default function FileManagerGallery({
                   <div className="relative">
                     <div className={`relative w-[280px] h-[175px] border bg-[#EEEEEE] overflow-hidden transition-all ${selected === idx ? 'border-[#4290E9] border-2' : 'border-[#A8A8A8]'
                       }`}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
-                        alt={file.name}
-                        className="object-cover w-full h-full"
-                      />
+                      {isPDF(file) ? (
+                        (!file.variant_urls || (Array.isArray(file.variant_urls) && file.variant_urls.length === 0) || Object.keys(file.variant_urls).length === 0) ? (
+                          <PdfPlaceholder
+                            className="w-full h-full object-contain"
+                            message="service is not paid yet"
+                          />
+                        ) : (
+                          <div className="relative w-full h-full overflow-hidden">
+                            <iframe
+                              src={`${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                              className="w-full h-full pointer-events-none border-none"
+                              tabIndex={-1}
+                              scrolling="no"
+                            />
+                            <div className="absolute inset-0 bg-transparent" />
+                          </div>
+                        )
+                      ) : (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
+                          alt={file.name}
+                          className="object-cover w-full h-full"
+                        />
+                      )}
                       {selected === idx && (
                         <span
                           className="cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]"

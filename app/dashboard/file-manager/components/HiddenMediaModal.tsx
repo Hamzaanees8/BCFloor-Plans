@@ -17,6 +17,7 @@ import { HideMediaFiles } from '../file-manager';
 import { toast } from 'sonner';
 import { useAppContext } from '@/app/context/AppContext';
 import NextImage from "next/image";
+import { PdfPlaceholder } from './OptimizedPreview';
 
 interface HiddenMediaModalProps {
     open: boolean;
@@ -140,6 +141,9 @@ export default function HiddenMediaModal({ open, onClose, currentService, mediaD
                             {/* Files */}
                             {hiddenItems.files.map((file) => {
                                 const isSelected = selectedUuids.has(file.uuid);
+                                const isPdf = file.file_path?.toLowerCase().endsWith('.pdf') || file.type === 'pdf' || file.type === 'application/pdf';
+                                const isUnpaid = !file.variant_urls || (Array.isArray(file.variant_urls) && file.variant_urls.length === 0) || Object.keys(file.variant_urls).length === 0;
+
                                 return (
                                     <div 
                                         key={file.uuid}
@@ -168,6 +172,23 @@ export default function HiddenMediaModal({ open, onClose, currentService, mediaD
                                                         <PlayCircle className="text-white drop-shadow-md fill-black/20" size={32} />
                                                     </div>
                                                 </div>
+                                            ) : isPdf ? (
+                                                isUnpaid ? (
+                                                    <PdfPlaceholder 
+                                                        className={`w-full h-full object-contain transition-all duration-300 ${isSelected ? 'grayscale-0 opacity-100' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}`}
+                                                        message="service is not paid yet"
+                                                    />
+                                                ) : (
+                                                    <div className="relative w-full h-full overflow-hidden">
+                                                        <iframe
+                                                            src={`${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                                                            className={`w-full h-full pointer-events-none border-none transition-all duration-300 ${isSelected ? 'grayscale-0 opacity-100' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}`}
+                                                            tabIndex={-1}
+                                                            scrolling="no"
+                                                        />
+                                                        <div className="absolute inset-0 bg-transparent" />
+                                                    </div>
+                                                )
                                             ) : (
                                                 <NextImage 
                                                     src={file.variant_urls?.thumb || file.thumbnail_url || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : '')} 

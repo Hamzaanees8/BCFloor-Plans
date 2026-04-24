@@ -71,12 +71,13 @@ interface PdfPlaceholderProps {
     className?: string;
     onClick?: () => void;
     isRestricted?: boolean;
+    message?: string;
 }
 
 /**
  * Renders a consistent placeholder for PDF files
  */
-export function PdfPlaceholder({ className = '', onClick, isRestricted }: PdfPlaceholderProps) {
+export function PdfPlaceholder({ className = '', onClick, isRestricted, message }: PdfPlaceholderProps) {
     return (
         <div className={`flex items-center justify-center bg-gray-100 ${className}`} onClick={onClick}>
             <div className="flex flex-col items-center gap-2 p-4 text-center">
@@ -84,7 +85,7 @@ export function PdfPlaceholder({ className = '', onClick, isRestricted }: PdfPla
                     <FileText className="w-8 h-8 text-red-500" />
                 </div>
                 <span className="text-gray-500 text-xs font-bold font-alexandria">
-                    {isRestricted ? "PDF preview is disabled until the service is paid." : "PDF Document"}
+                    {message ? message : (isRestricted ? "PDF preview is disabled until the service is paid." : "PDF Document")}
                 </span>
             </div>
         </div>

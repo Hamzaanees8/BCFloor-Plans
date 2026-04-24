@@ -340,13 +340,25 @@ const FileManager = () => {
     activeServiceIndex
   );
 
+  const handleOpenInvoice = (serviceName?: string) => {
+    const serviceInv = invoices.find(inv => 
+      inv.items?.some((i: any) => i.description?.toLowerCase() === serviceName?.toLowerCase())
+    ) || invoices[0];
+    
+    if (serviceInv) {
+      setViewingInvoice(serviceInv);
+    } else {
+      setShowInvoicesModal(true);
+    }
+  };
+
   const renderContent = () => {
     if (activeTab === "tour") {
       return <TourTabs orderData={orderData} />;
     }
 
     if (activeTab === "download") {
-      return <DownloadTab orderData={orderData} groupedOrderServices={groupedServices} />;
+      return <DownloadTab orderData={orderData} groupedOrderServices={groupedServices} onOpenInvoice={handleOpenInvoice} />;
     }
 
     if (activeTab === "CreateFeatureSheet") {
@@ -366,6 +378,7 @@ const FileManager = () => {
               reviewFilesEnabled={reviewFilesEnabled}
               onSave={handleSave}
               mediaDateBoundary={mediaDateBoundary}
+              onOpenInvoice={handleOpenInvoice}
             />
           </div>
         );
@@ -379,6 +392,7 @@ const FileManager = () => {
             reviewFilesEnabled={reviewFilesEnabled}
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
+            onOpenInvoice={handleOpenInvoice}
           />
         );
       case "HDR Photos":
@@ -391,6 +405,7 @@ const FileManager = () => {
             reviewFilesEnabled={reviewFilesEnabled}
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
+            onOpenInvoice={handleOpenInvoice}
           />
         );
       case "3d rendering":
@@ -401,6 +416,7 @@ const FileManager = () => {
             currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
+            onOpenInvoice={handleOpenInvoice}
           />
         );
       case "drone":
@@ -413,6 +429,7 @@ const FileManager = () => {
             reviewFilesEnabled={reviewFilesEnabled}
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
+            onOpenInvoice={handleOpenInvoice}
           />
         );
       case "Staging":
@@ -423,6 +440,7 @@ const FileManager = () => {
             currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
+            onOpenInvoice={handleOpenInvoice}
           />
         );
       case "Standard Photos":
@@ -435,6 +453,7 @@ const FileManager = () => {
             reviewFilesEnabled={reviewFilesEnabled}
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
+            onOpenInvoice={handleOpenInvoice}
           />
         );
       case "Twilight Photos":
@@ -447,6 +466,7 @@ const FileManager = () => {
             reviewFilesEnabled={reviewFilesEnabled}
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
+            onOpenInvoice={handleOpenInvoice}
           />
         );
       case "3D Tour":
@@ -457,6 +477,7 @@ const FileManager = () => {
             currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
+            onOpenInvoice={handleOpenInvoice}
           />
         );
       default:
@@ -750,15 +771,7 @@ const FileManager = () => {
               )}
             </div>
 
-            <div className="p-4 md:p-6 border-t border-[#E4E4E4] flex justify-center bg-white">
-              <Button 
-                onClick={() => setShowInvoicesModal(false)}
-                className={`w-full md:w-[150px] h-[40px] text-[16px] font-[400] bg-white border rounded-[8px] ${userType}-text ${userType}-border hover:bg-gray-50`}
-                style={{ color: `var(--${userType}-page-tab-color)`, borderColor: `var(--${userType}-page-tab-color)` }}
-              >
-                Close
-              </Button>
-            </div>
+
           </DialogContent>
         </Dialog>
 
@@ -771,9 +784,27 @@ const FileManager = () => {
             <DialogHeader className="p-4 md:p-6 border-b border-[#E4E4E4] bg-white">
               <DialogTitle className="flex items-center justify-between text-[18px] font-[600] uppercase" style={{ color: `var(--${userType}-page-tab-color)` }}>
                 Invoice #{viewingInvoice?.invoice_number || viewingInvoice?.id}
-                <Button className="border-none !shadow-none bg-transparent hover:bg-transparent p-0" onClick={() => setViewingInvoice(null)}>
-                  <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                </Button>
+                <div className="flex items-center gap-4">
+                  {userType !== "vendor" &&
+                    viewingInvoice?.status?.toUpperCase() !== "PAID" &&
+                    viewingInvoice?.status?.toUpperCase() !== "VOID" && (
+                    <Button
+                      onClick={() => {
+                        handlePayInvoice(viewingInvoice);
+                        setViewingInvoice(null);
+                      }}
+                      className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-110 rounded-[6px] ${userType}-bg`}
+                      style={{
+                        backgroundColor: `var(--${userType}-page-tab-color, #4290E9)`,
+                      }}
+                    >
+                      Pay Now
+                    </Button>
+                  )}
+                  <Button className="border-none !shadow-none bg-transparent hover:bg-transparent p-0" onClick={() => setViewingInvoice(null)}>
+                    <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
+                  </Button>
+                </div>
               </DialogTitle>
             </DialogHeader>
 
@@ -798,31 +829,7 @@ const FileManager = () => {
               )}
             </div>
 
-            <div className="p-4 md:p-6 border-t border-[#E4E4E4] flex flex-col md:flex-row justify-end gap-3 bg-white">
-              <Button 
-                onClick={() => setViewingInvoice(null)}
-                className={`h-[40px] px-6 text-[16px] font-[400] bg-white border rounded-[8px] ${userType}-text ${userType}-border hover:bg-gray-50`}
-                style={{ color: `var(--${userType}-page-tab-color)`, borderColor: `var(--${userType}-page-tab-color)` }}
-              >
-                Close
-              </Button>
-              {userType !== "vendor" &&
-                viewingInvoice?.status?.toUpperCase() !== "PAID" &&
-                viewingInvoice?.status?.toUpperCase() !== "VOID" && (
-                  <Button
-                    onClick={() => {
-                      handlePayInvoice(viewingInvoice);
-                      setViewingInvoice(null);
-                    }}
-                    className={`h-[40px] px-8 text-[16px] font-semibold text-white hover:brightness-110 rounded-[8px] ${userType}-bg`}
-                    style={{
-                      backgroundColor: `var(--${userType}-page-tab-color, #4290E9)`,
-                    }}
-                  >
-                    Pay Now
-                  </Button>
-                )}
-            </div>
+
           </DialogContent>
         </Dialog>
         <div className="flex items-center gap-x-4">
@@ -1157,14 +1164,21 @@ const FileManager = () => {
 
                   {/* Status Badge */}
                   <div className="flex items-center gap-2">
-                    <span
-                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${isPaid
-                          ? "bg-[#6BAE41] text-white"
-                          : "bg-[#DC9600] text-white"
-                        }`}
-                    >
-                      {isPaid ? "PAID" : "UNPAID"}
-                    </span>
+                    {isPaid ? (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#6BAE41] text-white">
+                        PAID
+                      </span>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenInvoice(booking.service?.name);
+                        }}
+                        className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#DC9600] text-white hover:bg-[#b87d00] transition-colors"
+                      >
+                        UNPAID
+                      </button>
+                    )}
                   </div>
                 </div>
               );

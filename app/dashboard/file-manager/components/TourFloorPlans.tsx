@@ -12,13 +12,14 @@ import { toast } from "sonner";
 
 
 import { useAppContext } from "@/app/context/AppContext";
+import { PdfPlaceholder } from "./OptimizedPreview";
 
 
 
 function TourFloorPlans({ type = "" }) {
   const { userType } = useAppContext();
   const { droppedMarkers, setDroppedMarkers, filesData } = useFileManagerContext();
-  let currentTourFloorFiles = filesData?.files?.filter(file => (file?.service?.name === '2D Floor Plans' || file?.service?.name === '3D Floor Plans') && file.type === 'photo' && !file.file_path?.toLowerCase().endsWith('.pdf'));
+  let currentTourFloorFiles = filesData?.files?.filter(file => (file?.service?.name === '2D Floor Plans' || file?.service?.name === '3D Floor Plans') && file.type === 'photo');
   let currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === 'photo');
 
   if (userType === 'agent') {
@@ -28,7 +29,7 @@ function TourFloorPlans({ type = "" }) {
   // Filter only agent approved photos and sort by sort_order
   currentTourPhotos = currentTourPhotos?.filter(file => file.is_agent_approved)
     .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-  const [draggedFile, setDraggedFile] = useState<{ file?: File; file_path?: string; url?: string; thumbnail_url?: string } | null>(null);
+  const [draggedFile, setDraggedFile] = useState<{ file?: File; file_path?: string; url?: string; thumbnail_url?: string; variant_urls?: any } | null>(null);
 
   const [selectedImageId, setSelectedImageId] = useState<string | null>(() => {
     if ((currentTourFloorFiles?.length ?? 0) > 0) {
@@ -48,18 +49,17 @@ function TourFloorPlans({ type = "" }) {
     x: number;
     y: number;
   } | null>(null);
-  const [previewMarker, setPreviewMarker] = useState<DroppedMarker | null>(
-    null
-  );
+  const [previewMarker, setPreviewMarker] = useState<DroppedMarker | null>(null);
 
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
   // Utility function to check if a file is a PDF
-  const isPDF = (filePath: string): boolean => {
-    if (!filePath) return false;
-    return filePath.toLowerCase().endsWith('.pdf');
+  const isPDF = (file: any): boolean => {
+    if (!file) return false;
+    const isLocal = !!file.file;
+    return !isLocal && (file.file_path?.toLowerCase().endsWith('.pdf') || file.type === 'pdf' || file.type === 'application/pdf');
   };
 
 
@@ -105,10 +105,11 @@ function TourFloorPlans({ type = "" }) {
 
     if (draggedFile.file) {
       newMarker.file = draggedFile.file;
-    } else if (draggedFile.file_path) {
+    } else if (draggedFile.file_path || draggedFile.url || draggedFile.thumbnail_url) {
       newMarker.file_path = draggedFile.file_path;
       newMarker.url = draggedFile.url;
       newMarker.thumbnail_url = draggedFile.thumbnail_url;
+      newMarker.variant_urls = (draggedFile as any).variant_urls;
       newMarker.isApi = true;
     }
 
@@ -121,7 +122,7 @@ function TourFloorPlans({ type = "" }) {
       setSnapshotName('');
       setSnapshotDescription('');
       setTempMarkerPos({ x: xPercent, y: yPercent });
-
+      setPreviewMarker(newMarker);
       return newArr;
     });
 
@@ -136,6 +137,7 @@ function TourFloorPlans({ type = "" }) {
     if (!selectedImageId || !tempMarkerPos) return;
 
     const newMarker: DroppedMarker = {
+      ... (activeMarkerIndex !== null ? droppedMarkers[activeMarkerIndex] : {}),
       x: tempMarkerPos.x,
       y: tempMarkerPos.y,
       floorImageUrl: selectedImageId,
@@ -145,10 +147,12 @@ function TourFloorPlans({ type = "" }) {
 
     if (snapshotFile) {
       newMarker.file = snapshotFile;
-    } else if (previewMarker?.file_path) {
+    } else if (previewMarker?.file_path || previewMarker?.url || previewMarker?.thumbnail_url) {
       newMarker.file_path = previewMarker.file_path;
       newMarker.isApi = true;
       newMarker.thumbnail_url = previewMarker.thumbnail_url;
+      newMarker.url = previewMarker.url;
+      newMarker.variant_urls = previewMarker.variant_urls;
     } else if (previewMarker?.file) {
       newMarker.file = previewMarker.file;
     }
@@ -201,7 +205,7 @@ function TourFloorPlans({ type = "" }) {
     (f) => f.name === selectedImageId
   );
 
-  const isSelectedFilePDF = selectedApiFile ? isPDF(selectedApiFile.file_path) : false;
+  const isSelectedFilePDF = selectedApiFile ? isPDF(selectedApiFile) : false;
 
   if (!currentTourFloorFiles || currentTourFloorFiles?.length === 0) {
     return (
@@ -225,12 +229,18 @@ function TourFloorPlans({ type = "" }) {
               <p className="text-gray-500 font-medium text-sm">Processing...</p>
             </div>
           ) : isSelectedFilePDF && selectedApiFile ? (
-            // Render PDF in iframe
-            <iframe
-              src={`${selectedApiFile.variant_urls?.popup || selectedApiFile.url || (selectedApiFile.file_path ? `${API_URL}/${selectedApiFile.file_path}` : '')}#toolbar=0`}
-              className="w-full h-full border-0"
-              title="Floor Plan PDF"
-            />
+            (!selectedApiFile.variant_urls || (Array.isArray(selectedApiFile.variant_urls) && selectedApiFile.variant_urls.length === 0) || Object.keys(selectedApiFile.variant_urls).length === 0) ? (
+              <PdfPlaceholder
+                className="w-full h-full"
+                message="service is not paid yet"
+              />
+            ) : (
+              <iframe
+                src={`${selectedApiFile.variant_urls?.popup || selectedApiFile.url || (selectedApiFile.file_path ? `${API_URL}/${selectedApiFile.file_path}` : '')}#toolbar=0`}
+                className="w-full h-full border-0"
+                title="Floor Plan PDF"
+              />
+            )
           ) : (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
@@ -271,6 +281,7 @@ function TourFloorPlans({ type = "" }) {
                       description: marker.description ?? "",
                       isApi: true,
                       thumbnail_url: marker.thumbnail_url,
+                      variant_urls: (marker as any).variant_urls,
                     });
 
                     setSnapshotFile(null);
@@ -347,8 +358,8 @@ function TourFloorPlans({ type = "" }) {
                   src={
                     previewMarker.file
                       ? URL.createObjectURL(previewMarker.file)
-                      : previewMarker.url || (previewMarker.file_path
-                        ? `${API_URL}/${previewMarker.file_path}`
+                      : previewMarker.variant_urls?.popup || previewMarker.variant_urls?.landing || previewMarker.url || (previewMarker.file_path
+                        ? (previewMarker.file_path.startsWith('http') ? previewMarker.file_path : `${API_URL}/${previewMarker.file_path}`)
                         : "")
                   }
                   alt={previewMarker.name || "Snapshot"}
@@ -372,17 +383,16 @@ function TourFloorPlans({ type = "" }) {
           <div className="w-[30%] p-4 text-[#666666] border border-gray-400 rounded-[6px]">
             <p className="mb-[20px] text-[24px]">SnapShot</p>
             <div className="flex items-end gap-5">
-              <div className="h-[150px] w-[200px] bg-gray-200">
-
+              <div className="mt-4 border p-2 rounded relative w-[200px] h-[150px] bg-gray-100 overflow-hidden flex items-center justify-center">
                 {snapshotFile ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={URL.createObjectURL(snapshotFile)} alt="Snapshot Preview" />
-                ) : (previewMarker?.isApi || previewMarker?.isApi) ? (
+                  <img src={URL.createObjectURL(snapshotFile)} alt="Snapshot Preview" className="w-full h-full object-cover" />
+                ) : (previewMarker?.isApi) ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={previewMarker.thumbnail_url || previewMarker.file_path || previewMarker.url || `${API_URL}/${previewMarker.file_path}`} alt="Snapshot Preview" />
-                ) : null}
-
-
+                  <img src={previewMarker.variant_urls?.popup || previewMarker.variant_urls?.landing || previewMarker.url || previewMarker.thumbnail_url || (previewMarker.file_path?.startsWith('http') ? previewMarker.file_path : `${API_URL}/${previewMarker.file_path}`)} alt="Snapshot Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="text-gray-400 text-xs text-center">No snapshot selected</div>
+                )}
               </div>
               {/* <Button className="bg-[#4290E9] hover:bg-[#4898f3]">
                 Change Photo
@@ -432,7 +442,7 @@ function TourFloorPlans({ type = "" }) {
         <div className="w-[70%] h-full flex-wrap flex items-center gap-[20px] !overflow-x-auto overflow-y-hidden">
 
           {currentTourFloorFiles?.map((file, idx) => {
-            const isFilePDF = isPDF(file.file_path);
+            const isFilePDF = isPDF(file);
             return (
               <div
                 key={idx}
@@ -445,15 +455,22 @@ function TourFloorPlans({ type = "" }) {
                       <p className="text-gray-500 font-medium text-xs">Processing...</p>
                     </div>
                   ) : isFilePDF ? (
-                    <div className="relative w-full h-full overflow-hidden">
-                      <iframe
-                        src={`${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                        className="w-full h-full pointer-events-none border-none"
-                        tabIndex={-1}
-                        scrolling="no"
+                    (!file.variant_urls || (Array.isArray(file.variant_urls) && file.variant_urls.length === 0) || Object.keys(file.variant_urls).length === 0) ? (
+                      <PdfPlaceholder
+                        className="w-full h-full"
+                        message="service is not paid yet"
                       />
-                      <div className="absolute inset-0 bg-transparent" />
-                    </div>
+                    ) : (
+                      <div className="relative w-full h-full overflow-hidden">
+                        <iframe
+                          src={`${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                          className="w-full h-full pointer-events-none border-none"
+                          tabIndex={-1}
+                          scrolling="no"
+                        />
+                        <div className="absolute inset-0 bg-transparent" />
+                      </div>
+                    )
                   ) : (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={file.variant_urls?.thumb || file.thumbnail_url || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : '')} alt="preview" className="max-w-full max-h-full" />
@@ -468,7 +485,7 @@ function TourFloorPlans({ type = "" }) {
       </div>
 
       {type !== "confirm" && (
-        <div>
+        <div className="mt-8">
           <p className="text-[#666666] text-[24px] px-3">Photos</p>
 
           {(currentTourPhotos || [])?.length > 0 && (
@@ -476,11 +493,16 @@ function TourFloorPlans({ type = "" }) {
               {currentTourPhotos?.map((file, idx) => (
                 <div key={idx} className="bg-[#BBBBBB] h-auto relative">
                   <div className="relative w-full h-[160px]">
-                    {/* eslint-disable @next/next/no-img-element */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       draggable
-                      onDragStart={() => {
-                        setDraggedFile({ file_path: file.file_path, url: file.url, thumbnail_url: file.variant_urls?.thumb || file.thumbnail_url || file.url });
+                        onDragStart={() => {
+                        setDraggedFile({ 
+                          file_path: file.file_path || (file as any).variants?.thumb || (file as any).variants?.landing || (file as any).variants?.popup, 
+                          url: file.url || file.variant_urls?.landing || file.variant_urls?.popup || file.variant_urls?.thumb, 
+                          thumbnail_url: file.variant_urls?.thumb || file.thumbnail_url || file.url,
+                          variant_urls: file.variant_urls
+                        });
                         imageContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                       }}
                       src={file.variant_urls?.thumb || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : '')}

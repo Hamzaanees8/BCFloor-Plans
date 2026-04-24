@@ -161,7 +161,7 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
   const total = (list: Field[]) =>
     list.reduce((sum, item) => sum + (item.value > 0 ? item.value : 0), 0);
 
-  const grandTotal = total(finishedAreas) + total(subtotalAreas) + total(otherAreas);
+  const grandTotal = total(finishedAreas) + total(subtotalAreas);
 
   const handleAddExtra = (label: string, sqft: number, category: "Finished" | "Subtotal" | "Other", customLabel?: string) => {
     const newField: Field = {

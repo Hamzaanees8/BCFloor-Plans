@@ -41,8 +41,9 @@ type Props = {
     reviewFilesEnabled?: boolean;
     mediaDateBoundary?: MediaDateBoundary;
     currentBookedService?: OrderService;
+    onOpenInvoice?: (serviceName?: string) => void;
 };
-const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, currentService, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService }) => {
+const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, currentService, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice }) => {
     const { floorFiles, setFloorFiles, filesData, setFilesData, setChangedFileUuids, setSelectionChangedUuids, area, setArea, fileManagerMode, setFileManagerMode, imagesPerRow, isSaving, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
     const [replacingFile, setReplacingFile] = useState<File | null>(null);
     const [openPreview, setOpenPreview] = useState(false);
@@ -355,8 +356,8 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
         const isLocal = item.status === 'local';
         const file = item.originalData;
 
-        const isProcessing = !isLocal && file.is_processing;
-        const isPdf = !isLocal && file.file_path?.toLowerCase().endsWith('.pdf');
+        const isPdf = !isLocal && (file.file_path?.toLowerCase().endsWith('.pdf') || file.type === 'pdf' || file.type === 'application/pdf');
+        const isVariantUrlsEmpty = !file.variant_urls || (Array.isArray(file.variant_urls) && file.variant_urls.length === 0) || Object.keys(file.variant_urls).length === 0;
 
         let displayType = '2D Floor Plan';
         if (isLocal) {
@@ -419,12 +420,24 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                     </div>
                                 )}
                             </div>
-                        ) : isProcessing ? (
+                        ) : file.is_processing ? (
                             <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                                 <p className="text-gray-500 font-medium text-sm">Processing...</p>
                             </div>
                         ) : isPdf ? (
-                            (userType === 'agent' && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
+                            isVariantUrlsEmpty ? (
+                                <PdfPlaceholder
+                                    className="w-full h-full object-contain cursor-pointer"
+                                    message="service is not paid yet"
+                                    onClick={() => {
+                                        if (isHidingMode && file.uuid) {
+                                            setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
+                                        } else if (!isHidingMode) {
+                                            onOpenInvoice?.(currentService?.name);
+                                        }
+                                    }}
+                                />
+                            ) : (userType === 'agent' && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
                                 <PdfPlaceholder
                                     className="w-full h-full object-contain cursor-pointer"
                                     isRestricted={true}
@@ -432,7 +445,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                         if (isHidingMode && file.uuid) {
                                             setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
                                         } else if (!isHidingMode) {
-                                            handleImageClick(file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`, file);
+                                            onOpenInvoice?.(currentService?.name);
                                         }
                                     }}
                                 />
@@ -770,6 +783,11 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                         <p className='text-[#7D7D7D] text-[10px] leading-none'>{bookingToUse?.option?.quantity || 1} Files</p>
                                     </div>
                                     <Button
+                                        onClick={() => {
+                                            if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
+                                                onOpenInvoice?.(currentService?.name);
+                                            }
+                                        }}
                                         className={`h-[32px] w-[100px] flex justify-center items-center 
                                             ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                                 ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
@@ -781,10 +799,15 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                             ) : (
                                 <div className='flex items-center gap-[10px] mr-2'>
                                     <Button
-                                        className={`h-[32px] w-[100px] flex justify-center items-center pointer-events-none font-bold text-white
+                                        onClick={() => {
+                                            if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
+                                                onOpenInvoice?.(currentService?.name);
+                                            }
+                                        }}
+                                        className={`h-[32px] w-[100px] flex justify-center items-center font-bold text-white
                                             ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
-                                                ? "bg-[#6BAE41]"
-                                                : "bg-[#DC9600]"}`}
+                                                ? "bg-[#6BAE41] pointer-events-none"
+                                                : "bg-[#DC9600] hover:bg-[#eda304] cursor-pointer"}`}
                                     >
                                         {bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'PAID' : 'UNPAID'}
                                     </Button>

@@ -31,7 +31,7 @@ function SquareFootage({ currentOrder }: SquareFootageProps) {
     const finishedTotal = calculateTotal(finishedAreas);
     const subtotalTotal = calculateTotal(subtotalAreas);
     const otherTotal = calculateTotal(otherAreas);
-    const grandTotal = finishedTotal + subtotalTotal + otherTotal;
+    const grandTotal = finishedTotal + subtotalTotal;
 
     const renderSection = (title: string, items: Area[], totalSqft: number) => (
         <div className="space-y-1">

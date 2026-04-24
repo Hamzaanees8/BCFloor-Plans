@@ -87,6 +87,7 @@ export interface VendorData {
   portfolio_images?: VendorPortfolioImage[];
   settings?: {
     force_service_area: number | boolean;
+    next_booking_slot_only?: number | boolean | string;
   };
   additional_breaks?: {
     id?: number;
@@ -987,7 +988,7 @@ function Page() {
                     >
                       Go To File Manager
                     </Button>
-                    {(userType === "admin" || userType === "agent") && (
+                    {userType === "admin" && (
                       <div
                         className="grid grid-cols-2 gap-[16px] font-[400] text-[14px] justify-items-end"
                         style={{ color: roleSettings.pageText }}

@@ -31,7 +31,7 @@ import { MediaDateBoundary } from './FileManager';
 
 
 
-function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService }) {
+function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void }) {
     const [files, setFiles] = useState<File[]>([]);
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [open, setOpen] = useState(false);
@@ -770,6 +770,11 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                 <p className='text-[#7D7D7D] text-[10px] leading-none'>{bookingToUse?.option?.quantity || 0} Files</p>
                             </div>
                             <Button
+                                onClick={() => {
+                                    if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
+                                        onOpenInvoice?.(currentService?.name);
+                                    }
+                                }}
                                 className={`h-[32px] w-[100px] flex justify-center items-center 
                                     ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                         ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
@@ -781,10 +786,15 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                     ) : (
                         <div className='flex items-center gap-[10px] mr-2'>
                             <Button
-                                className={`h-[32px] w-[100px] flex justify-center items-center pointer-events-none font-bold text-white
+                                onClick={() => {
+                                    if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
+                                        onOpenInvoice?.(currentService?.name);
+                                    }
+                                }}
+                                className={`h-[32px] w-[100px] flex justify-center items-center font-bold text-white
                                     ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
-                                        ? "bg-[#6BAE41]"
-                                        : "bg-[#DC9600]"}`}
+                                        ? "bg-[#6BAE41] pointer-events-none"
+                                        : "bg-[#DC9600] hover:bg-[#eda304] cursor-pointer"}`}
                             >
                                 {bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'PAID' : 'UNPAID'}
                             </Button>

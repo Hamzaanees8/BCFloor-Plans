@@ -807,11 +807,12 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                     <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Agent <span className="text-red-500">*</span></p>
                     <div className='flex items-start justify-between'>
                         <div className='flex items-center gap-4'>
-                            <Popover open={openAgent} onOpenChange={setOpenAgent}>
+                            <Popover open={userType === 'agent' ? false : openAgent} onOpenChange={(open) => userType !== 'agent' && setOpenAgent(open)}>
                                 <PopoverTrigger asChild>
                                     <button
                                         className={cn(
                                             "w-[432px] h-[42px] border-[1px] border-[#BBBBBB] px-3 flex items-center justify-between rounded-md",
+                                            userType === 'agent' ? "cursor-default" : "cursor-pointer",
                                             !selectedAgent && "text-muted-foreground"
                                         )}
                                         style={{ backgroundColor: fieldBg }}
@@ -871,16 +872,18 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                     </Command>
                                 </PopoverContent>
                             </Popover>
-                            <div
-                                className={`cursor-pointer ${!selectedAgentId ? 'pointer-events-none opacity-50' : ''}`}
-                                onClick={() => {
-                                    if (!selectedAgentId) return;
-                                    setIsEditingAgent(true);
-                                    setOpenAddAgentDialog(true);
-                                }}
-                            >
-                                <EditIcon3 />
-                            </div>
+                            {userType === 'admin' && (
+                                <div
+                                    className={`cursor-pointer ${!selectedAgentId ? 'pointer-events-none opacity-50' : ''}`}
+                                    onClick={() => {
+                                        if (!selectedAgentId) return;
+                                        setIsEditingAgent(true);
+                                        setOpenAddAgentDialog(true);
+                                    }}
+                                >
+                                    <EditIcon3 />
+                                </div>
+                            )}
                         </div>
                         <button
                             className={`${userType == 'admin' ? 'flex' : 'hidden'} items-center gap-2 px-3 py-2 rounded-md border transition-colors`}
@@ -1123,18 +1126,24 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                             <div className='col-span-1'>
                                                                 <label htmlFor="">Connected Agents</label>
                                                                 <div className="mt-[12px]">
-                                                                    <SearchableSelect
-                                                                        options={agentOptions}
-                                                                        value={connectedAgent}
-                                                                        onChange={(val) => {
-                                                                            setConnectedAgent(val);
-                                                                            setSelectedAgentId(val);
-                                                                        }}
-                                                                        placeholder="Select Agent"
-                                                                        searchPlaceholder="Search agent..."
-                                                                        className="h-[42px]"
-                                                                        disabled={userType !== 'admin'}
-                                                                    />
+                                                                    {userType === 'agent' ? (
+                                                                        <div className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] px-3 flex items-center rounded-md cursor-default text-base font-normal" style={{ backgroundColor: fieldBg }}>
+                                                                            {agentOptions.find(opt => opt.value === connectedAgent)?.label || "Select Agent"}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <SearchableSelect
+                                                                            options={agentOptions}
+                                                                            value={connectedAgent}
+                                                                            onChange={(val) => {
+                                                                                setConnectedAgent(val);
+                                                                                setSelectedAgentId(val);
+                                                                            }}
+                                                                            placeholder="Select Agent"
+                                                                            searchPlaceholder="Search agent..."
+                                                                            className="h-[42px]"
+                                                                            disabled={userType !== 'admin'}
+                                                                        />
+                                                                    )}
                                                                 </div>
                                                                 {fieldErrors.agent_id && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.agent_id[0]}</p>}
                                                             </div>

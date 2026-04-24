@@ -148,24 +148,28 @@ export default function QuickViewCard({
     <>
       <Card
         style={{
-          maxHeight: "calc(100vh)",
-          minHeight: "calc(100vh)",
+          maxHeight: "100vh",
+          minHeight: "100vh",
           backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
         }}
-        className="w-full sm:w-[405px] overflow-y-scroll custom-scroll  flex flex-col justify-between   font-alexandria p-4 border-[1px] border-[#BBBBBB] rounded-none space-y-4 fixed top-[0px] right-0 z-[100]"
+        className="w-full sm:w-[405px] flex flex-col font-alexandria border-[1px] border-[#BBBBBB] rounded-none fixed top-[0px] right-0 z-[100]"
       >
-        <CardContent className="flex flex-col gap-[12px] p-0">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-[24px] font-[400] text-[#666666] leading-8">
-              {typeToLabelMap[type]}
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+        {/* Fixed Header */}
+        <div className="flex justify-between items-center p-4 border-b border-[#CCCCCC] shrink-0">
+          <h2 className="text-[24px] font-[400] text-[#666666] leading-8">
+            {typeToLabelMap[type]}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Scrollable Content Container */}
+        <div className="flex-1 overflow-y-auto custom-scroll p-4 space-y-4 flex flex-col justify-between relative">
+          <CardContent className="flex flex-col gap-[12px] p-0 shrink-0">
           {userType === "agent" ||
             (type === "listing" && (
               <div className="">
@@ -909,6 +913,41 @@ export default function QuickViewCard({
                       </span>
                     </div>
 
+                    <div className="bg-white p-3 border rounded-md mb-2">
+                      <div className="text-[12px] text-[#8E8E8E] uppercase font-[700] mb-2">
+                        Agent Details
+                      </div>
+                      <div className="grid grid-cols-1 gap-y-1">
+                        {data.order?.agent?.company_name && (
+                          <div className="text-[15px] font-[400] text-[#666666]">
+                            <span className="font-bold">Company:</span>{" "}
+                            {data.order.agent.company_name}
+                          </div>
+                        )}
+                        <div className="flex items-center space-x-[12px]">
+                          <Mail className="w-[18px] text-[#666666]" strokeWidth={1} />
+                          <span className={`text-[15px] font-[400] ${userType}-text`}>
+                            {data.order?.agent?.email || "N/A"}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-[12px]">
+                          <Smartphone className="w-[18px] text-[#666666]" strokeWidth={1} />
+                          <span className="text-[15px] font-[400] text-[#666666]">
+                            {data.order?.agent?.primary_phone || "N/A"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {data.order?.created_at && (
+                      <div className="bg-white p-3 border rounded-md mb-2">
+                        <div className="text-[15px] font-[400] text-[#666666]">
+                          <span className="font-bold">Order Created:</span>{" "}
+                          {format(new Date(data.order.created_at), "MMM dd, yyyy h:mm a")}
+                        </div>
+                      </div>
+                    )}
+
                     {data.diff_data?.amount && (
                       <div className="bg-white p-3 border rounded-md">
                         <div className="text-[12px] text-[#8E8E8E] uppercase font-[700] mb-1">
@@ -939,83 +978,54 @@ export default function QuickViewCard({
                       </div>
                     )}
 
-                    {/* {data.diff_data?.slots && (() => {
-                      const groupedSlots = Object.entries(data.diff_data.slots).reduce((acc, [uuid, change]: [string, any]) => {
-                        const serviceId = change.after?.service_id || change.before?.service_id;
-                        if (!serviceId) return acc;
-                        if (!acc[serviceId]) acc[serviceId] = [];
-                        acc[serviceId].push({ uuid, change });
-                        return acc;
-                      }, {} as Record<string, { uuid: string; change: any }[]>);
-
-                      return Object.entries(groupedSlots).map(([serviceId, slots]) => {
-                        const serviceName = (data as NotificationData).order_details?.services?.find(s => s.service_id == serviceId)?.service?.name || "Service";
-                        const addedSlots = slots.filter(s => !s.change.before && s.change.after);
-                        const modifiedSlots = slots.filter(s => s.change.before && s.change.after);
-                        const removedSlots = slots.filter(s => s.change.before && !s.change.after);
-
-                        const safeFormatTime = (start: string, end: string) => {
-                          try {
-                            return formatTimeRange(start, end);
-                          } catch {
-                            return `${start} - ${end}`;
-                          }
-                        };
-
-                        return (
-                          <div key={serviceId} className="mb-4">
-                            <div className="text-[10px] text-[#8E8E8E] uppercase font-[700] mb-1">
-                              {serviceName}
-                            </div>
-
-                            {addedSlots.length > 0 && (
-                              <div className="mb-2">
-                                <div className="text-[15px] font-[500] text-[#666666]">
-                                  Slots: {addedSlots.length} Added
+                    {data.order?.services && data.order.services.length > 0 && (
+                      <div className="bg-white p-3 border rounded-md">
+                        <div className="text-[12px] text-[#8E8E8E] uppercase font-[700] mb-3">
+                          Services & Slots
+                        </div>
+                        <div className="space-y-4">
+                          {data.order.services.map((service, idx) => {
+                            const currentserviceSlot = data.order?.slots?.find(
+                              (slot) => slot.service_id == service.service_id,
+                            );
+                            return (
+                              <div key={idx} className="border-b last:border-b-0 pb-3 last:pb-0">
+                                <div className="text-[15px] font-[500] text-[#666666] flex justify-between">
+                                  <span>{service.service?.name}</span>
+                                  <span>${Number(service.amount).toFixed(2)}</span>
                                 </div>
-                                <div className="pl-0 text-[15px] text-[#666666] leading-relaxed">
-                                  {addedSlots.map(({ uuid, change }) => (
-                                    <div key={uuid}>
-                                      {safeFormatTime(change.after.start_time, change.after.end_time)}
+                                {service.option?.title && (
+                                  <div className="text-[13px] text-[#8E8E8E] mb-1">
+                                    Option: {service.option.title}
+                                  </div>
+                                )}
+                                {currentserviceSlot ? (
+                                  <div className="text-[14px] text-[#666666] mt-2 pl-2 border-l-2 border-[#E4E4E4]">
+                                    <div>
+                                      <span className="font-medium">Vendor:</span> {currentserviceSlot.vendor?.first_name} {currentserviceSlot.vendor?.last_name}
                                     </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {modifiedSlots.length > 0 && (
-                              <div className="mb-2">
-                                <div className="text-[15px] font-[500] text-[#666666]">
-                                  Slots: {modifiedSlots.length} Changed
-                                </div>
-                                <div className="pl-0 text-[15px] text-[#666666] leading-relaxed">
-                                  {modifiedSlots.map(({ uuid, change }) => (
-                                    <div key={uuid} className="flex gap-2">
-                                      <span className="line-through text-gray-400">
-                                        {safeFormatTime(change.before.start_time, change.before.end_time)}
-                                      </span>
-                                      <span>→</span>
-                                      <span className={`${userType}-text`}>
-                                        {safeFormatTime(change.after.start_time, change.after.end_time)}
-                                      </span>
+                                    <div>
+                                      <span className="font-medium">Date:</span> {currentserviceSlot.date}
                                     </div>
-                                  ))}
-                                </div>
+                                    <div>
+                                      <span className="font-medium">Time:</span>{" "}
+                                      {formatTimeRange(
+                                        currentserviceSlot.start_time ?? "",
+                                        currentserviceSlot.end_time ?? "",
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="text-[13px] text-[#8E8E8E] italic mt-1 pl-2">
+                                    No slot scheduled yet.
+                                  </div>
+                                )}
                               </div>
-                            )}
-
-                            {removedSlots.length > 0 && (
-                              <div className="mb-2">
-                                <div className="text-[15px] font-[500] text-[#666666]">
-                                  Slots: {removedSlots.length} Removed
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      });
-                    })()
-                    } */}
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-y-[12px]">
@@ -1230,6 +1240,7 @@ export default function QuickViewCard({
               </Link>
             )}
         </CardFooter>
+        </div>
       </Card>
       <NotificationDialog
         open={showDialog}

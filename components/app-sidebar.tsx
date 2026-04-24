@@ -210,92 +210,107 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     .map((group) => ({
       ...group,
       title:
-        userType === "agent" && group.title === "GENERAL"
+        (userType === "agent" || userType === "vendor") && group.title === "GENERAL"
           ? "SETTINGS"
           : group.title,
-      items: group.items.filter((item) => {
-        // Matterport is admin only
-        if (item.url === "/dashboard/matterport" && userType !== "admin") {
-          return false;
-        }
-
-        // Customer billing (Admin/Agent)
-        if (item.url === "/dashboard/billing" && userType !== "admin" && userType !== "agent") {
-          return false;
-        }
-
-        // Vendor Billing (Admin only)
-        if (item.url === "/dashboard/vendor-billing" && userType !== "admin") {
-          return false;
-        }
-
-        // Print Requests (Admin only)
-        if (item.url === "/dashboard/admin/print-requests" && userType !== "admin") {
-          return false;
-        }
-
-        // Permission based filtering for Admins
-        if (userType === "admin") {
-          if (
-            item.url === "/dashboard/vendor-billing" &&
-            !hasPermission(PERMISSIONS.ACCESS_BILLING)
-          ) {
+      items: group.items
+        .filter((item) => {
+          // Matterport is admin only
+          if (item.url === "/dashboard/matterport" && userType !== "admin") {
             return false;
           }
 
+          // Customer billing (Admin/Agent)
           if (
             item.url === "/dashboard/billing" &&
-            !hasPermission(PERMISSIONS.ACCESS_BILLING)
+            userType !== "admin" &&
+            userType !== "agent"
           ) {
             return false;
           }
 
+          // Vendor Billing (Admin only)
+          if (item.url === "/dashboard/vendor-billing" && userType !== "admin") {
+            return false;
+          }
+
+          // Print Requests (Admin only)
           if (
-            item.url === "/dashboard/notifications" &&
-            !hasPermission(PERMISSIONS.RECEIVE_NOTIFICATIONS)
+            item.url === "/dashboard/admin/print-requests" &&
+            userType !== "admin"
           ) {
             return false;
           }
 
+          // Permission based filtering for Admins
+          if (userType === "admin") {
+            if (
+              item.url === "/dashboard/vendor-billing" &&
+              !hasPermission(PERMISSIONS.ACCESS_BILLING)
+            ) {
+              return false;
+            }
+
+            if (
+              item.url === "/dashboard/billing" &&
+              !hasPermission(PERMISSIONS.ACCESS_BILLING)
+            ) {
+              return false;
+            }
+
+            if (
+              item.url === "/dashboard/notifications" &&
+              !hasPermission(PERMISSIONS.RECEIVE_NOTIFICATIONS)
+            ) {
+              return false;
+            }
+
+            if (
+              item.url === "/dashboard/services" &&
+              !hasPermission(PERMISSIONS.CREATE_SERVICES)
+            ) {
+              return false;
+            }
+
+            if (
+              item.url === "/dashboard/admin" &&
+              !hasPermission(PERMISSIONS.VIEW_ADMIN)
+            ) {
+              return false;
+            }
+          }
+
+          // Restricted sections for agents
+          if (userType === "agent") {
+            const restrictedUrls = [
+              "/dashboard/admin",
+              "/dashboard/services",
+              "/dashboard/agents",
+              "/dashboard/vendors",
+            ];
+            return !restrictedUrls.includes(item.url);
+          }
+
+          // Restricted sections for vendors
+          if (userType === "vendor") {
+            const restrictedUrls = ["/dashboard/admin", "/dashboard/vendors"];
+            if (restrictedUrls.includes(item.url)) {
+              return false;
+            }
+          }
+
+          return true;
+        })
+        .map((item) => {
+          // Rename Global Settings to Settings for agents and vendors
           if (
-            item.url === "/dashboard/services" &&
-            !hasPermission(PERMISSIONS.CREATE_SERVICES)
+            (userType === "agent" || userType === "vendor") &&
+            item.url === "/dashboard/global-settings"
           ) {
-            return false;
+            return { ...item, title: "Settings" };
           }
-
-          if (
-            item.url === "/dashboard/admin" &&
-            !hasPermission(PERMISSIONS.VIEW_ADMIN)
-          ) {
-            return false;
-          }
-        }
-
-        // Restricted sections for agents
-        if (userType === "agent") {
-          const restrictedUrls = [
-            "/dashboard/admin",
-            "/dashboard/services",
-            "/dashboard/agents",
-            "/dashboard/vendors",
-          ];
-          return !restrictedUrls.includes(item.url);
-        }
-
-        // Restricted sections for vendors
-        if (userType === "vendor") {
-          const restrictedUrls = ["/dashboard/admin", "/dashboard/vendors"];
-          if (restrictedUrls.includes(item.url)) {
-            return false;
-          }
-          if (item.url === "/dashboard/global-settings") {
-            item.title = "Settings";
-          }
-        }
-
-        return true;
-      }),
+          return item;
+        }),
     }));
   return (
     <Sidebar

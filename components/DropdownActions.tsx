@@ -101,7 +101,7 @@ const DropdownActions: React.FC<Props> = ({ options, data }) => {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-8 w-8 p-0">
+          <Button type="button" variant="ghost" className="h-8 w-8 p-0">
             <MoreHorizontal className="w-4 h-4" />
           </Button>
         </DropdownMenuTrigger>

@@ -611,6 +611,7 @@ export default function OrderDetailView({
               setNotes={setNotes}
               coAgent={coAgent}
               setCoAgent={setCoAgent}
+              area={area}
               updateInvoice={updateInvoice}
               setUpdateInvoice={setUpdateInvoice}
             />

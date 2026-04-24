@@ -260,6 +260,7 @@ export interface NotificationData {
             email: string;
             primary_phone: string;
             secondary_phone: string;
+            company_name: string;
         };
         property_address: string;
         property_location: string;
@@ -267,6 +268,9 @@ export interface NotificationData {
             service_id: string | number;
             service: {
                 name: string;
+            };
+            option?: {
+                title: string;
             };
             amount: string | number;
         }>;

@@ -48,7 +48,7 @@ export interface PaymentData {
 }
 
 
-function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService }) {
+function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void }) {
     const [files, setFiles] = useState<File[]>([]);
     const [sortBy, setSortBy] = useState<'order' | 'name' | 'date'>('order');
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
@@ -489,8 +489,20 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                                     <p className="text-gray-500 font-medium text-sm">Processing...</p>
                                 </div>
-                            ) : file.file_path?.toLowerCase().endsWith('.pdf') ? (
-                                (userType === 'agent' && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
+                            ) : (file.file_path?.toLowerCase().endsWith('.pdf') || file.type === 'pdf' || file.type === 'application/pdf') ? (
+                                (!file.variant_urls || (Array.isArray(file.variant_urls) && file.variant_urls.length === 0) || Object.keys(file.variant_urls).length === 0) ? (
+                                    <PdfPlaceholder
+                                        className="w-full h-full object-contain cursor-pointer"
+                                        message="service is not paid yet"
+                                        onClick={() => {
+                                            if (isHidingMode && file.uuid) {
+                                                setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
+                                            } else if (!isHidingMode) {
+                                                onOpenInvoice?.(currentService?.name);
+                                            }
+                                        }}
+                                    />
+                                ) : (userType === 'agent' && bookingToUse?.payment_status !== 'PAID' && orderData?.payment_status !== 'PAID') ? (
                                     <PdfPlaceholder
                                         className="w-full h-full object-contain cursor-pointer"
                                         isRestricted={true}
@@ -498,7 +510,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                             if (isHidingMode && file.uuid) {
                                                 setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
                                             } else if (!isHidingMode) {
-                                                handleImageClick(file.variant_urls?.popup || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : ''), file);
+                                                onOpenInvoice?.(currentService?.name);
                                             }
                                         }}
                                     />
@@ -759,15 +771,15 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         return f;
                                     }));
                                 }}
-                                className={`flex items-center gap-1 cursor-pointer transition-colors ${file.is_complimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
+                                className={`flex items-center gap-1.5 cursor-pointer transition-colors ${file.is_complimentary ? 'text-[#6BAE41]' : 'text-gray-400 hover:text-[#6BAE41]'}`}
                                 title="Mark as Complimentary"
                             >
-                                <div className={`border rounded flex items-center justify-center ${file.is_complimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`}
-                                    style={{ width: imagesPerRow >= 6 ? '12px' : '16px', height: imagesPerRow >= 6 ? '12px' : '16px' }}
+                                <div className={`border-2 rounded flex items-center justify-center ${file.is_complimentary ? 'bg-[#6BAE41] border-[#6BAE41]' : 'border-gray-400'}`}
+                                    style={{ width: imagesPerRow >= 6 ? '14px' : '18px', height: imagesPerRow >= 6 ? '14px' : '18px' }}
                                 >
-                                    {file.is_complimentary && <Check color="white" size={imagesPerRow >= 6 ? 8 : 10} />}
+                                    {file.is_complimentary && <Check color="white" size={imagesPerRow >= 6 ? 10 : 14} />}
                                 </div>
-                                {imagesPerRow < 8 && <span style={{ fontSize: imagesPerRow >= 6 ? '7px' : '9px' }} className="font-bold whitespace-nowrap">Complimentary</span>}
+                                {imagesPerRow < 8 && <span style={{ fontSize: imagesPerRow >= 6 ? '10px' : '12px' }} className="font-medium whitespace-nowrap">Complimentary</span>}
                             </div>
                         ) : (
                             (userType === 'admin' || userType === 'vendor' || (userType === 'agent' && (bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID"))) ? (
@@ -1037,10 +1049,15 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         {userType !== 'agent' && (
                             <div className='flex items-center gap-[10px]'>
                                 <Button
-                                    className={`h-[32px] w-[100px] flex justify-center items-center pointer-events-none font-bold text-white
+                                    onClick={() => {
+                                        if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
+                                            onOpenInvoice?.(currentService?.name);
+                                        }
+                                    }}
+                                    className={`h-[32px] w-[100px] flex justify-center items-center 
                                         ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
-                                            ? "bg-[#6BAE41]"
-                                            : "bg-[#DC9600]"}`}
+                                            ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
+                                            : "bg-[#DC9600] hover:bg-[#eda304]"}`}
                                 >
                                     {bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'PAID' : 'UNPAID'}
                                 </Button>

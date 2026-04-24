@@ -1075,29 +1075,33 @@ const AgentForm = () => {
 
 
                                                 </div>
-                                                <div className="col-span-2">
-                                                    <label htmlFor="">
-                                                        Agent Notes (Not visible to Agent)
-                                                    </label>
-                                                    <textarea
-                                                        className="h-[200px] w-full p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                        value={agentNotes}
-                                                        onChange={(e) => setAgentNotes(e.target.value)}
-                                                        placeholder='Write Notes Here...'
-                                                    />
-                                                    {fieldErrors.iframe_code && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.iframe_code[0]}</p>}
-                                                </div>
-                                                <div className='col-span-2'>
-                                                    <div className='flex items-center justify-between'>
-                                                        <p >Require payment before releasing materials</p>
-                                                        <Switch checked={isPaymentRequired}
-                                                            onCheckedChange={(val) => {
-                                                                setIsPaymentRequired(val);
-                                                                if (hasInitiallyRendered.current) setIsDirty(true);
-                                                            }} className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41] float-end" />
-                                                        {fieldErrors.review_files && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.review_files[0]}</p>}
+                                                {userType === "admin" && (
+                                                    <div className="col-span-2">
+                                                        <label htmlFor="">
+                                                            Agent Notes (Not visible to Agent)
+                                                        </label>
+                                                        <textarea
+                                                            className="h-[200px] w-full p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                            value={agentNotes}
+                                                            onChange={(e) => setAgentNotes(e.target.value)}
+                                                            placeholder='Write Notes Here...'
+                                                        />
+                                                        {fieldErrors.iframe_code && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.iframe_code[0]}</p>}
                                                     </div>
-                                                </div>
+                                                )}
+                                                {userType === "admin" && (
+                                                    <div className='col-span-2'>
+                                                        <div className='flex items-center justify-between'>
+                                                            <p >Require payment before releasing materials</p>
+                                                            <Switch checked={isPaymentRequired}
+                                                                onCheckedChange={(val) => {
+                                                                    setIsPaymentRequired(val);
+                                                                    if (hasInitiallyRendered.current) setIsDirty(true);
+                                                                }} className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41] float-end" />
+                                                            {fieldErrors.review_files && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.review_files[0]}</p>}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

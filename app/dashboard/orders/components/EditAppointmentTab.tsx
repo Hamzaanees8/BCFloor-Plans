@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Trash } from 'lucide-react';
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { Order } from '../../orders/page';
 import { Agent } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { AddCoAgentDialog } from '../../calendar/components/AddCoAgnets';
 import AddNotesDialog from '../../calendar/components/AddNotesDialog';
 import { useOrderContext } from '../context/OrderContext';
 import Schedule from '../../calendar/components/Schedule';
+import { Area } from '../../calendar/components/OrderDetailView';
 
 interface AppointmentTab {
     currentOrder?: Order;
@@ -27,6 +28,7 @@ interface AppointmentTab {
     setCoAgent: React.Dispatch<React.SetStateAction<CoAgent[]>>
     updateInvoice?: boolean;
     setUpdateInvoice?: React.Dispatch<React.SetStateAction<boolean>>;
+    area: Area[];
 }
 export interface CoAgent {
     name: string;
@@ -38,7 +40,7 @@ interface Notes {
     note: string;
     date: string
 }
-function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent, setCoAgent, updateInvoice, setUpdateInvoice }: AppointmentTab) {
+function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent, setCoAgent, updateInvoice, setUpdateInvoice, area }: AppointmentTab) {
     const { userType } = useAppContext();
     const [agent, setAgent] = useState(currentOrder?.agent?.uuid ?? '');
     const [contactNumber, setContactNumber] = useState("");
@@ -123,7 +125,7 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentOrder, agentData, currentAgent])
 
-    const handleSquareFootageChange = (val: string) => {
+    const handleSquareFootageChange = useCallback((val: string) => {
         setSquareFootage(val);
         const sqFt = parseFloat(val);
 
@@ -186,7 +188,19 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
                 })
             );
         }
-    };
+    }, [servicesData, setCalendarServices, setSquareFootage]);
+
+    useEffect(() => {
+        if (area && area.length > 0) {
+            const calculatedSqFt = area
+                .filter(a => a.category === "Finished" || a.category === "Subtotal" || a.type === "Finished" || a.type === "Subtotal")
+                .reduce((sum, a) => sum + (a.footage || 0), 0);
+            
+            if (calculatedSqFt > 0) {
+                handleSquareFootageChange(String(calculatedSqFt));
+            }
+        }
+    }, [area, handleSquareFootageChange]);
 
     const tabs =
         userType === 'admin'
@@ -210,21 +224,27 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
 
                                 <div className='col-span-2'>
                                     <label htmlFor="">Agent Name</label>
-                                    <Select
-                                        value={agent || ''}
-                                        onValueChange={(value) => setAgent(value)}
-                                    >
-                                        <SelectTrigger className="w-full  h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
-                                            <SelectValue placeholder="Select Agent" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {agentData && agentData.map((agent, idx) =>
+                                    {userType === 'agent' ? (
+                                        <div className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] px-3 flex items-center rounded-md cursor-default text-sm font-normal">
+                                            {currentAgent?.first_name} {currentAgent?.last_name}
+                                        </div>
+                                    ) : (
+                                        <Select
+                                            value={agent || ''}
+                                            onValueChange={(value) => setAgent(value)}
+                                        >
+                                            <SelectTrigger className="w-full  h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
+                                                <SelectValue placeholder="Select Agent" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {agentData && agentData.map((agent, idx) =>
 
-                                                <SelectItem key={idx} value={agent?.uuid || ''}>{agent.first_name} {agent.last_name}</SelectItem>
-                                            )}
+                                                    <SelectItem key={idx} value={agent?.uuid || ''}>{agent.first_name} {agent.last_name}</SelectItem>
+                                                )}
 
-                                        </SelectContent>
-                                    </Select>
+                                            </SelectContent>
+                                        </Select>
+                                    )}
                                 </div>
                                 <div className='col-span-1'>
                                     <label htmlFor="">Contact Number</label>

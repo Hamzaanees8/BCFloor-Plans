@@ -585,39 +585,41 @@ const Contact = () => {
                                         </div>
 
                                         {/* Internal Notes Section */}
-                                        <div className="flex flex-col relative group">
-                                            <div className="flex justify-between items-center bg-[#4290E9] text-white rounded-[6px] px-4 py-1.5 w-max mb-2">
-                                                <span className="font-bold text-[13px]">Internal AGENT Notes</span>
+                                        {userType === 'admin' && (
+                                            <div className="flex flex-col relative group">
+                                                <div className="flex justify-between items-center bg-[#4290E9] text-white rounded-[6px] px-4 py-1.5 w-max mb-2">
+                                                    <span className="font-bold text-[13px]">Internal AGENT Notes</span>
+                                                </div>
+                                                <p className="text-[#E06D5E] text-[12px] mb-2 font-bold">
+                                                    These notes will NOT be viewable to AGENT
+                                                </p>
+                                                <div className="relative">
+                                                    <textarea
+                                                        className={`w-full min-h-[150px] p-3 rounded-[6px] border border-[#BBBBBB] resize-none overflow-y-auto ${isEditingInternal ? "bg-white" : "bg-[#E4E4E4]"}`}
+                                                        placeholder={isEditingInternal ? "Type internal note here..." : ""}
+                                                        value={internalText}
+                                                        onChange={(e) => setInternalText(e.target.value)}
+                                                        readOnly={!isEditingInternal}
+                                                    />
+                                                </div>
+                                                <div className="flex justify-end mt-2">
+                                                    <button
+                                                        className="text-[#4290E9] font-bold text-[12px] uppercase"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            if (isEditingInternal) {
+                                                                handleSaveNotes('internal');
+                                                            } else {
+                                                                setIsEditingInternal(true);
+                                                                handleEditClick('internal');
+                                                            }
+                                                        }}
+                                                    >
+                                                        {isEditingInternal ? 'SAVE' : 'EDIT'}
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <p className="text-[#E06D5E] text-[12px] mb-2 font-bold">
-                                                These notes will NOT be viewable to AGENT
-                                            </p>
-                                            <div className="relative">
-                                                <textarea
-                                                    className={`w-full min-h-[150px] p-3 rounded-[6px] border border-[#BBBBBB] resize-none overflow-y-auto ${isEditingInternal ? "bg-white" : "bg-[#E4E4E4]"}`}
-                                                    placeholder={isEditingInternal ? "Type internal note here..." : ""}
-                                                    value={internalText}
-                                                    onChange={(e) => setInternalText(e.target.value)}
-                                                    readOnly={!isEditingInternal}
-                                                />
-                                            </div>
-                                            <div className="flex justify-end mt-2">
-                                                <button
-                                                    className="text-[#4290E9] font-bold text-[12px] uppercase"
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        if (isEditingInternal) {
-                                                            handleSaveNotes('internal');
-                                                        } else {
-                                                            setIsEditingInternal(true);
-                                                            handleEditClick('internal');
-                                                        }
-                                                    }}
-                                                >
-                                                    {isEditingInternal ? 'SAVE' : 'EDIT'}
-                                                </button>
-                                            </div>
-                                        </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
