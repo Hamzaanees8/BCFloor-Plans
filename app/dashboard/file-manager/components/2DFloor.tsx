@@ -246,7 +246,9 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
     }, [contextualLocal, currentServiceFiles]);
 
     // Use passed currentBookedService
-    const bookingToUse = currentBookedService || orderData?.services.find((service) => service.service.uuid === currentService?.uuid)
+    const bookingToUse = useMemo(() => {
+        return currentBookedService || orderData?.services.find((service) => service.service.uuid === currentService?.uuid)
+    }, [currentBookedService, orderData?.services, currentService?.uuid]);
     const currentSlot = orderData?.slots?.find((slot) => slot.service_id === currentService?.id);
     const vendor = currentSlot?.vendor || orderData?.vendor;
     const vendorName = vendor ? `${vendor.first_name} ${vendor.last_name}` : "Taylor Tayburn";
@@ -350,7 +352,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
             }
         };
         checkServiceCompletion();
-    }, [currentServiceFiles, currentService, currentBookedService, orderData])
+    }, [currentServiceFiles, currentService, currentBookedService, orderData, bookingToUse?.is_completed, bookingToUse?.option?.quantity, bookingToUse?.uuid])
 
     const renderFileItem = useCallback((item: FileItem, isDragging?: boolean) => {
         const isLocal = item.status === 'local';
@@ -682,7 +684,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
             </div>
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [API_URL, bookingToUse?.payment_status, orderData?.payment_status, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setFloorFiles, vendorName, bookingToUse?.option?.title, bookingToUse?.uuid, currentService?.uuid, handleImageClick, orderData?.uuid, reviewFilesEnabled, userType, imagesPerRow, filesToHide, isHidingMode, setFilesToHide]);
+    }, [API_URL, bookingToUse?.payment_status, orderData?.payment_status, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setFloorFiles, vendorName, bookingToUse?.option?.title, bookingToUse?.uuid, currentService?.uuid, handleImageClick, orderData?.uuid, reviewFilesEnabled, userType, imagesPerRow, filesToHide, isHidingMode, setFilesToHide, onOpenInvoice, currentService?.name]);
 
     return (
         <div>

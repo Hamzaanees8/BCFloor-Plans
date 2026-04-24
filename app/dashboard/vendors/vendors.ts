@@ -472,3 +472,13 @@ export const VerifyGoogleCalendar = async (body: {
     return error;
   }
 };
+
+export async function GetVendorEarnings(vendorId: string, params?: { period?: string, start_date?: string, end_date?: string }) {
+  const response = await api.get(`/admin/vendors/${vendorId}/earnings`, { params });
+  return response.data;
+}
+
+export async function GetMyEarnings(params?: { period?: string, start_date?: string, end_date?: string }) {
+  const response = await api.get(`/vendor/earnings`, { params });
+  return response.data;
+}

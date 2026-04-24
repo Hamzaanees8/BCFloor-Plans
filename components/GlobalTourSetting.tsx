@@ -10,7 +10,7 @@ import { Plus } from "lucide-react";
 import { useAppContext } from "@/app/context/AppContext";
 import AddAreaPopup, { AreaData } from "./AddAreaPopup";
 import { Input } from "./ui/input";
-import { CreateMediaSettings, SaveTourSettings, UpdateTourSetting, DeleteTourSetting, GetMediaSettings, GetTourSettings } from "@/app/dashboard/global-settings/global-settings";
+import { CreateMediaSettings, SaveTourSettings, UpdateTourSetting, DeleteTourSetting, GetMediaSettings, GetTourSettings, GetTourDefaultSettings, SaveTourDefaultSettings } from "@/app/dashboard/global-settings/global-settings";
 import { toast } from "sonner";
 import { DataTable } from "@/components/DataTable";
 import { ColumnDef, Row } from "@tanstack/react-table";
@@ -145,14 +145,20 @@ export default function GlobalTourSetting() {
             const mediaData = await GetMediaSettings();
 
             if (mediaData && mediaData.value) {
-                const mediaSettings = mediaData.value
+                const mediaSettings = mediaData.value;
                 if (mediaSettings.photos) setPhotoSizes(mediaSettings.photos);
                 if (mediaSettings.videos) setVideoSizes(mediaSettings.videos);
-                if (mediaSettings.tour_defaults) setTourDefaults(mediaSettings.tour_defaults);
+                // Note: tour_defaults might still be in media_settings for legacy reasons, 
+                // but we prefer the dedicated GetTourDefaultSettings call below.
+            }
+
+            const tourDefaultData = await GetTourDefaultSettings();
+            if (tourDefaultData && tourDefaultData.value) {
+                setTourDefaults(tourDefaultData.value);
             }
 
         } catch (error) {
-            console.error('Failed to fetch media settings:', error);
+            console.error('Failed to fetch settings:', error);
         }
     };
 
@@ -273,16 +279,19 @@ export default function GlobalTourSetting() {
         }
 
         try {
+            // Save photo and video sizes
             await CreateMediaSettings({
                 photos: photoSizes,
-                videos: videoSizes,
-                tour_defaults: tourDefaults
+                videos: videoSizes
             });
 
-            toast.success('Media settings saved successfully');
+            // Save tour defaults separately
+            await SaveTourDefaultSettings(tourDefaults);
+
+            toast.success('Settings saved successfully');
         } catch (error) {
-            console.error('Failed to save media settings:', error);
-            toast.error('Failed to save media settings. Please try again.');
+            console.error('Failed to save settings:', error);
+            toast.error('Failed to save settings. Please try again.');
         }
     };
 
@@ -583,6 +592,16 @@ export default function GlobalTourSetting() {
                                     />
                                 </div>
                             </div>
+                        </div>
+                        {/* Save Button for Defaults */}
+                        <div className="w-full flex justify-end mt-6 mb-4 px-4">
+                            <button
+                                type="button"
+                                onClick={handleSaveMediaSettings}
+                                className={`w-[200px] h-[44px] ${userType}-bg text-white rounded-[6px] font-[600] text-[16px] hover:opacity-90 transition-opacity`}
+                            >
+                                Save Changes
+                            </button>
                         </div>
                     </AccordionContent>
                 </AccordionItem>

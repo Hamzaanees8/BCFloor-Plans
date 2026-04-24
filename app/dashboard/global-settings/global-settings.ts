@@ -414,6 +414,17 @@ export async function GetMediaSettings() {
   }
 }
 
+export async function GetTourDefaultSettings() {
+  try {
+    const response = await api.get(`/settings/tour_settings`);
+    const data = await response.data;
+    return data;
+  } catch (error) {
+    console.error("Failed to fetch Tour Default Settings:", error);
+    throw error;
+  }
+}
+
 export async function GetTourSettings() {
 
   try {
@@ -510,7 +521,7 @@ export interface MediaSettingsPayload {
     require_payment_before_download: boolean;
   };
 }
-export async function CreateMediaSettings(payload: MediaSettingsPayload) {
+export async function CreateMediaSettings(payload: Omit<MediaSettingsPayload, 'tour_defaults'>) {
 
   const response = await api.post(
     "/settings/media_settings",
@@ -522,6 +533,12 @@ export async function CreateMediaSettings(payload: MediaSettingsPayload) {
   const data = await response.data;
 
 
+  return data;
+}
+
+export async function SaveTourDefaultSettings(payload: MediaSettingsPayload['tour_defaults']) {
+  const response = await api.post(`/settings/tour_settings`, { value: payload });
+  const data = await response.data;
   return data;
 }
 

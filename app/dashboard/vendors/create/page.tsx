@@ -42,6 +42,7 @@ import {
 import { Plus, X, Loader2 } from "lucide-react";
 import { PaymentCard } from "@/components/GlobalSettings";
 import TravelTable from "@/components/TravelTable";
+import VendorEarningsHistory from "@/components/VendorEarningsHistory";
 import { useAppContext } from "@/app/context/AppContext";
 import PaymentDialog from "@/components/PaymentDialog";
 import {
@@ -1171,6 +1172,18 @@ const VendorForm = () => {
                   }`}
               >
                 TRAVEL
+              </button>
+            )}
+            {currentUser?.uuid && (
+              <button
+                onClick={() => setActive("history")}
+                className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
+                                    ${active === "history"
+                    ? `text-white ${userType}-bg`
+                    : "bg-[#F2F2F2] text-[#666666]"
+                  }`}
+              >
+                HISTORY
               </button>
             )}
           </div>
@@ -2455,6 +2468,7 @@ const VendorForm = () => {
           </form>
         )}
         {active === "travel" && <TravelTable userId={currentUser?.uuid} />}
+        {active === "history" && <VendorEarningsHistory vendorId={currentUser?.uuid} />}
         {active === "work hours" && (
           <VendorWorkHours
             currentUser={

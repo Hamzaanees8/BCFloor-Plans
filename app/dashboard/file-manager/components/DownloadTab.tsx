@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { useFileManagerContext, Files } from '../FileManagerContext';
 import { Button } from '@/components/ui/button';
-import { Download, CheckCircle2, Loader2, PlayCircle, FileText } from 'lucide-react';
+import { Download, CheckCircle2, Loader2, PlayCircle } from 'lucide-react';
 import { PdfPlaceholder } from "./OptimizedPreview";
 import { toast } from 'sonner';
 import { useAppContext } from '@/app/context/AppContext';

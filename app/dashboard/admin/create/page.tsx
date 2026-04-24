@@ -34,6 +34,29 @@ import { SaveModal } from "@/components/SaveModal";
 import DynamicMap from "@/components/DYnamicMap";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
+const ROLE_PERMISSION_NAMES = {
+  super_admin: null, // means ALL
+  admin: [
+    "Book Appointments",
+    "Edit Appointments",
+    "View Appointments",
+    "Access Billing",
+    "Create Agent",
+    "View Agent",
+    "Set Discounts",
+    "Create Services",
+    "View Services",
+  ],
+  booking_agent: [
+    "Book Appointments",
+    "Edit Appointments",
+    "View Appointments",
+    "Access Billing",
+    "Create Agent",
+    "View Agent",
+  ],
+};
+
 const AdminForm = () => {
   type CurrentUser = {
     first_name?: string;
@@ -73,6 +96,28 @@ const AdminForm = () => {
   const [country, setCountry] = useState("CA");
   const [password, setPassword] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<number[]>([]);
+  const [activeRolePreset, setActiveRolePreset] = useState<
+    "super_admin" | "admin" | "booking_agent" | null
+  >(null);
+
+  const applyRolePreset = (preset: "super_admin" | "admin" | "booking_agent") => {
+    if (activeRolePreset === preset) {
+      setActiveRolePreset(null);
+      setSelectedPermissions([]);
+      return;
+    }
+
+    setActiveRolePreset(preset);
+    if (preset === "super_admin") {
+      setSelectedPermissions(permissions.map((p) => Number(p.id)));
+    } else {
+      const targetNames = ROLE_PERMISSION_NAMES[preset];
+      const targetIds = permissions
+        .filter((p) => targetNames.includes(p.name))
+        .map((p) => Number(p.id));
+      setSelectedPermissions(targetIds);
+    }
+  };
 
   // const CompanyLogofileInputRef = useRef(null);
   // const [CompanyLogofileName, setCompanyLogoFileName] = useState("");
@@ -95,6 +140,48 @@ const AdminForm = () => {
     { name: string; isoCode: string }[]
   >([]);
   const [states, setStates] = useState<{ name: string; isoCode: string }[]>([]);
+
+  useEffect(() => {
+    if (permissions.length === 0 || selectedPermissions.length === 0) {
+      setActiveRolePreset(null);
+      return;
+    }
+
+    // Check for Super Admin
+    if (selectedPermissions.length === permissions.length) {
+      const allSelected = permissions.every((p) =>
+        selectedPermissions.includes(Number(p.id))
+      );
+      if (allSelected) {
+        setActiveRolePreset("super_admin");
+        return;
+      }
+    }
+
+    // Check for Admin and Booking Agent
+    const presets: ("admin" | "booking_agent")[] = ["admin", "booking_agent"];
+    for (const presetKey of presets) {
+      const targetNames = ROLE_PERMISSION_NAMES[presetKey];
+      const targetIds = permissions
+        .filter((p) => targetNames.includes(p.name))
+        .map((p) => Number(p.id));
+
+      if (
+        targetIds.length > 0 &&
+        targetIds.length === selectedPermissions.length
+      ) {
+        const isMatch = targetIds.every((id) =>
+          selectedPermissions.includes(id)
+        );
+        if (isMatch) {
+          setActiveRolePreset(presetKey);
+          return;
+        }
+      }
+    }
+
+    setActiveRolePreset(null);
+  }, [permissions, selectedPermissions]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -255,21 +342,21 @@ const AdminForm = () => {
   //   }
   // };
 
-  const togglePermission = (id: number, checked: boolean) => {
-    setSelectedPermissions((prev) => {
-      const newPermissions = checked
-        ? [...prev, id]
-        : prev.filter((pid) => pid !== id);
-      if (fieldErrors.permissions && newPermissions.length > 0) {
-        setFieldErrors((prevErrors) => {
-          const newErrors = { ...prevErrors };
-          delete newErrors.permissions;
-          return newErrors;
-        });
-      }
-      return newPermissions;
-    });
-  };
+  // const togglePermission = (id: number, checked: boolean) => {
+  //   setSelectedPermissions((prev) => {
+  //     const newPermissions = checked
+  //       ? [...prev, id]
+  //       : prev.filter((pid) => pid !== id);
+  //     if (fieldErrors.permissions && newPermissions.length > 0) {
+  //       setFieldErrors((prevErrors) => {
+  //         const newErrors = { ...prevErrors };
+  //         delete newErrors.permissions;
+  //         return newErrors;
+  //       });
+  //     }
+  //     return newPermissions;
+  //   });
+  // };
 
   useEffect(() => {
     if (userId) {
@@ -843,52 +930,105 @@ const AdminForm = () => {
               <AccordionContent className="grid gap-4">
                 <div className="w-full flex flex-col items-center">
                   <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
-                    {(() => {
-                      const allGroupedNames = [
-                        "Book Appointments", "View Appointments", "Edit Appointments",
-                        "Create Listing", "View Listing", "Create Tour Settings",
-                        "View Services", "Create Services",
-                        "Access Billing", "Access Vendor Billing", "Set Discounts",
-                        "Create Agent", "View Agent", "Create Vendor", "View Vendor",
-                        "Create Admin", "View Admin", "Receive Notifications", "Create Sub-Accounts"
-                      ];
-
-                      const excludedNames = [
-                        "Create Orders", "Edit Orders", "View All Orders",
-                        "View Only Orders For Co-Agent", "View Only Appointments For Co-Agent",
-                        "View All Appointments"
-                      ];
-
-                      const filteredPermissions = permissions?.filter(p => !excludedNames.includes(p.name)) || [];
-
-                      const sortedPermissions = [...filteredPermissions].sort((a, b) => {
-                        const indexA = allGroupedNames.indexOf(a.name);
-                        const indexB = allGroupedNames.indexOf(b.name);
-
-                        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-                        if (indexA !== -1) return -1; // a is in group, b is not, a comes first
-                        if (indexB !== -1) return 1;  // b is in group, a is not, b comes first
-                        return a.name.localeCompare(b.name); // neither are in group, sort alphabetically
-                      });
-
-                      return sortedPermissions.map((permission) => (
-                        <div
-                          key={permission.id}
-                          className="flex items-center justify-between"
-                        >
-                          <p>{permission.name}</p>
-                          <Switch
-                            checked={selectedPermissions.includes(
-                              Number(permission.id)
-                            )}
-                            onCheckedChange={(checked) =>
-                              togglePermission(Number(permission.id), checked)
-                            }
-                            className="bg-gray-300 data-[state=checked]:bg-[#6BAE41]"
-                          />
+                    {/* Role Presets */}
+                    <div className="space-y-4 mb-4">
+                      <div className="flex items-center justify-between p-3 bg-[#EEEEEE] border border-[#BBBBBB] rounded-md">
+                        <div>
+                          <p className="font-[500] text-[14px]">Super Admin</p>
+                          <p className="text-[12px] text-[#666]">All access</p>
                         </div>
-                      ));
-                    })()}
+                        <Switch
+                          checked={activeRolePreset === "super_admin"}
+                          onCheckedChange={() => applyRolePreset("super_admin")}
+                          className="bg-gray-300 data-[state=checked]:bg-[#6BAE41]"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 bg-[#EEEEEE] border border-[#BBBBBB] rounded-md">
+                        <div>
+                          <p className="font-[500] text-[14px]">Admin</p>
+                          <p className="text-[12px] text-[#666]">
+                            Orders · Billing · Agent · Discounts · Services
+                          </p>
+                        </div>
+                        <Switch
+                          checked={activeRolePreset === "admin"}
+                          onCheckedChange={() => applyRolePreset("admin")}
+                          className="bg-gray-300 data-[state=checked]:bg-[#6BAE41]"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 bg-[#EEEEEE] border border-[#BBBBBB] rounded-md">
+                        <div>
+                          <p className="font-[500] text-[14px]">Booking Agent</p>
+                          <p className="text-[12px] text-[#666]">
+                            Orders · Billing · Agent
+                          </p>
+                        </div>
+                        <Switch
+                          checked={activeRolePreset === "booking_agent"}
+                          onCheckedChange={() => applyRolePreset("booking_agent")}
+                          className="bg-gray-300 data-[state=checked]:bg-[#6BAE41]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Individual Permissions Accordion */}
+                    {/* <Accordion type="single" collapsible className="w-full">
+                      <AccordionItem value="individual-permissions" className="border-none">
+                        <AccordionTrigger className="text-[#4290E9] text-[14px] font-[500] py-2 hover:no-underline">
+                          Advanced Permissions
+                        </AccordionTrigger>
+                        <AccordionContent className="space-y-4 pt-4">
+                          {(() => {
+                            const allGroupedNames = [
+                              "Book Appointments", "View Appointments", "Edit Appointments",
+                              "Create Listing", "View Listing", "Create Tour Settings",
+                              "View Services", "Create Services",
+                              "Access Billing", "Access Vendor Billing", "Set Discounts",
+                              "Create Agent", "View Agent", "Create Vendor", "View Vendor",
+                              "Create Admin", "View Admin", "Receive Notifications", "Create Sub-Accounts"
+                            ];
+
+                            const excludedNames = [
+                              "Create Orders", "Edit Orders", "View All Orders",
+                              "View Only Orders For Co-Agent", "View Only Appointments For Co-Agent",
+                              "View All Appointments"
+                            ];
+
+                            const filteredPermissions = permissions?.filter(p => !excludedNames.includes(p.name)) || [];
+
+                            const sortedPermissions = [...filteredPermissions].sort((a, b) => {
+                              const indexA = allGroupedNames.indexOf(a.name);
+                              const indexB = allGroupedNames.indexOf(b.name);
+
+                              if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                              if (indexA !== -1) return -1; // a is in group, b is not, a comes first
+                              if (indexB !== -1) return 1;  // b is in group, a is not, b comes first
+                              return a.name.localeCompare(b.name); // neither are in group, sort alphabetically
+                            });
+
+                            return sortedPermissions.map((permission) => (
+                              <div
+                                key={permission.id}
+                                className="flex items-center justify-between"
+                              >
+                                <p>{permission.name}</p>
+                                <Switch
+                                  checked={selectedPermissions.includes(
+                                    Number(permission.id)
+                                  )}
+                                  onCheckedChange={(checked) =>
+                                    togglePermission(Number(permission.id), checked)
+                                  }
+                                  className="bg-gray-300 data-[state=checked]:bg-[#6BAE41]"
+                                />
+                              </div>
+                            ));
+                          })()}
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion> */}
 
                     {fieldErrors.permissions && (
                       <p className="text-red-500 text-[10px]">

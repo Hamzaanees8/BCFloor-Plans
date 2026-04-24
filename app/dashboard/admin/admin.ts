@@ -1,9 +1,9 @@
 import { api } from "@/lib/api";
 
 export interface UserPayload {
-    first_name: string;
-    last_name: string;
-    email: string;
+    first_name?: string;
+    last_name?: string;
+    email?: string;
     secondary_email?: string;
     primary_phone?: string;
     secondary_phone?: string;

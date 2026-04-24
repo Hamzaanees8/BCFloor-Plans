@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
     Accordion,
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Check, Plus, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { ColumnDef, Row } from "@tanstack/react-table";
 import { DataTable } from "@/components/DataTable";
@@ -60,7 +60,7 @@ import { useWhiteLabel } from "@/app/context/Whitelabel";
 import EmailTemplatesSettings from "./EmailTemplatesSettings";
 import OrganizationsSettings from "./OrganizationsSettings";
 import MediaJobsTable from "./MediaJobsTable";
-import PermissionsSettings from "./PermissionsSettings";
+
 
 interface CompanyData {
     id: number;
@@ -889,11 +889,41 @@ const GlobalSettings = () => {
         setCoAgents(updatedAgents);
     };
 
-    const tabs =
+    const tabs = useMemo(() =>
         userType === "admin"
-            ? ["Profile Settings", "Permissions", "Discounts", "Tour Settings", "Appearances", "Templates", "Organizations", "Media Processing"]
-            : [];
+            ? ["Profile Settings", "Discounts", "Tour Settings", "Appearances", "Templates", "Organizations", "Media Processing"]
+            : [], [userType]);
     const [activeTab, setActiveTab] = useState("Profile Settings");
+    const tabsRef = useRef<HTMLDivElement>(null);
+    const [showLeftArrow, setShowLeftArrow] = useState(false);
+    const [showRightArrow, setShowRightArrow] = useState(false);
+
+    const checkScroll = useCallback(() => {
+        if (tabsRef.current) {
+            const { scrollLeft, scrollWidth, clientWidth } = tabsRef.current;
+            setShowLeftArrow(scrollLeft > 5);
+            setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 5);
+        }
+    }, []);
+
+    useEffect(() => {
+        const timeoutId = setTimeout(checkScroll, 100);
+        window.addEventListener('resize', checkScroll);
+        return () => {
+            window.removeEventListener('resize', checkScroll);
+            clearTimeout(timeoutId);
+        };
+    }, [checkScroll, tabs]);
+
+    const scrollTabs = (direction: 'left' | 'right') => {
+        if (tabsRef.current) {
+            const scrollAmount = 300;
+            tabsRef.current.scrollBy({
+                left: direction === 'left' ? -scrollAmount : scrollAmount,
+                behavior: "smooth"
+            });
+        }
+    };
 
     const addDiscount = (discount: {
         discount_code?: string;
@@ -1087,7 +1117,7 @@ const GlobalSettings = () => {
     ];
 
     return (
-        <div className="font-alexandria">
+        <div className="font-alexandria w-full max-w-full overflow-x-hidden">
             <div
                 ref={headerRef}
                 className="w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
@@ -1113,7 +1143,7 @@ const GlobalSettings = () => {
                     >
                         Save Settings
                     </Button>
-                ) : activeTab === "Organizations" || activeTab === "Templates" || activeTab === "Tour Settings" || activeTab === "Permissions" ? null : (
+                ) : activeTab === "Organizations" || activeTab === "Templates" || activeTab === "Tour Settings" ? null : (
                     <Button
                         type="button"
                         onClick={(e) => {
@@ -1139,26 +1169,69 @@ const GlobalSettings = () => {
             /> */}
             {userType === "admin" && (
                 <div
-                    className="flex justify-center h-[60px] items-center sticky top-[80px] z-40 border-b-[1px] border-[#BBBBBB] px-4"
+                    className="h-[60px] sticky top-[80px] z-[40] border-b-[1px] border-[#BBBBBB] w-full overflow-hidden"
                     style={{
                         backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%)`,
                     }}
                 >
-                    <div className="w-full max-w-7xl overflow-x-auto scrollbar-hide flex border-gray-300 gap-[10px] items-center py-2 h-full">
-                        <div className="flex gap-[10px] min-w-max mx-auto">
-                            {tabs.map((tab) => (
-                                <button
-                                    key={tab}
-                                    type="button"
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`text-center px-6 py-2 text-[13px] whitespace-nowrap h-[32px] transition-all duration-200 cursor-pointer ${activeTab === tab
-                                        ? `${userType}-bg text-white rounded-[6px] font-[500] shadow-sm`
-                                        : "text-[#666666] hover:text-[#666666] hover:bg-black/5 rounded-[6px] font-[700]"
-                                        }`}
+                    <div className="mx-auto max-w-7xl h-full flex items-center justify-center px-4">
+                        <div className="w-full md:w-[85%] relative flex items-center group h-full">
+                            {showLeftArrow && (
+                                <div className="absolute left-0 z-[50] flex items-center justify-start w-16 h-full bg-gradient-to-r from-[#E4E4E4] via-[#E4E4E4]/80 to-transparent pointer-events-none"
+                                    style={{
+                                        backgroundImage: `linear-gradient(to right, color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%), transparent)`
+                                    }}
                                 >
-                                    {tab.toUpperCase()}
-                                </button>
-                            ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => scrollTabs('left')}
+                                        className="pointer-events-auto flex items-center justify-center w-10 h-10 bg-white shadow-xl border border-gray-200 rounded-full hover:scale-110 active:scale-95 transition-all duration-200"
+                                    >
+                                        <ChevronLeft className="w-6 h-6 text-gray-800" />
+                                    </button>
+                                </div>
+                            )}
+
+                            <div
+                                ref={tabsRef}
+                                onScroll={checkScroll}
+                                className="w-full overflow-x-auto scrollbar-hide flex items-center py-2 h-full scroll-smooth"
+                                style={{ scrollBehavior: 'smooth' }}
+                            >
+                                <div className="flex gap-[12px] min-w-max px-12">
+                                    {tabs.map((tab) => (
+                                        <button
+                                            key={tab}
+                                            type="button"
+                                            onClick={() => {
+                                                setActiveTab(tab);
+                                            }}
+                                            className={`text-center px-6 py-2 text-[13px] whitespace-nowrap h-[36px] transition-all duration-200 cursor-pointer ${activeTab === tab
+                                                ? `${userType}-bg text-white rounded-[8px] font-[600] shadow-md`
+                                                : "text-[#555555] hover:text-black hover:bg-black/5 rounded-[8px] font-[500]"
+                                                }`}
+                                        >
+                                            {tab.toUpperCase()}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {showRightArrow && (
+                                <div className="absolute right-0 z-[50] flex items-center justify-end w-16 h-full bg-gradient-to-l from-[#E4E4E4] via-[#E4E4E4]/80 to-transparent pointer-events-none"
+                                    style={{
+                                        backgroundImage: `linear-gradient(to left, color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%), transparent)`
+                                    }}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => scrollTabs('right')}
+                                        className="pointer-events-auto flex items-center justify-center w-10 h-10 bg-white shadow-xl border border-gray-200 rounded-full hover:scale-110 active:scale-95 transition-all duration-200"
+                                    >
+                                        <ChevronRight className="w-6 h-6 text-gray-800" />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1179,9 +1252,7 @@ const GlobalSettings = () => {
                 {activeTab === "Media Processing" && userType === "admin" && (
                     <MediaJobsTable userType={userType} />
                 )}
-                {activeTab === "Permissions" && userType === "admin" && (
-                    <PermissionsSettings />
-                )}
+
                 <Accordion
                     type="multiple"
                     defaultValue={[
