@@ -85,8 +85,18 @@ function AppointmentTab({ currentOrder, serviceId, disabled }: AppointmentTab) {
         setServiceOption(currentService?.option?.title ?? '')
         setListing(currentOrder?.property ? `${currentOrder?.property.address}, ${currentOrder?.property.city}, ${currentOrder?.property.province}` : '')
         setSquareFootage(String(currentOrder?.property?.square_footage))
-        // @ts-expect-error  error
-        setNotes(currentOrder?.notes ? JSON.parse(currentOrder?.notes) as Notes[] : []);
+        if (Array.isArray(currentOrder?.notes)) {
+            setNotes(currentOrder.notes as unknown as Notes[]);
+        } else if (typeof currentOrder?.notes === 'string') {
+            try {
+                setNotes(JSON.parse(currentOrder.notes) as Notes[]);
+            } catch (e) {
+                console.error("Failed to parse notes:", e);
+                setNotes([]);
+            }
+        } else {
+            setNotes([]);
+        }
 
         try {
             const raw = currentOrder?.co_agents;

@@ -4,6 +4,21 @@ export interface ListingsPayload {
     address?: string | null;
     mls_number?: string | null;
     mls_property?: string | null;
+    square_footage?: number | null;
+    listing_price?: number | null;
+    bedrooms?: number | null;
+    bathrooms?: number | null;
+    lot_size?: string | null;
+    year_constructed?: number | null;
+    parking_spots?: number | null;
+    property_type?: string | null;
+    property_status?: string | null;
+    heading?: string | null;
+    description?: string | null;
+    agent_id?: string | null;
+    city?: string | null;
+    province?: string | null;
+    country?: string | null;
 }
 
 export interface FetchErrors {

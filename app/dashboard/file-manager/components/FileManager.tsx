@@ -660,7 +660,7 @@ const FileManager = () => {
       >
         {/* Invoices List Modal */}
         <Dialog open={showInvoicesModal} onOpenChange={setShowInvoicesModal}>
-          <DialogContent className="max-w-3xl w-[95vw] md:w-[700px] rounded-[8px] p-0 font-alexandria overflow-hidden [&>button]:hidden">
+          <DialogContent className="max-w-4xl w-[95vw] md:w-[850px] rounded-[8px] p-0 font-alexandria overflow-hidden [&>button]:hidden">
             <DialogHeader className="p-4 md:p-6 border-b border-[#E4E4E4] bg-white">
               <DialogTitle className="flex items-center justify-between text-[18px] font-[600] uppercase" style={{ color: `var(--${userType}-page-tab-color)` }}>
                 Order Invoices
@@ -670,7 +670,7 @@ const FileManager = () => {
               </DialogTitle>
             </DialogHeader>
 
-            <div className="max-h-[60vh] overflow-y-auto p-4 md:p-6 bg-white">
+            <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden p-4 md:p-6 pb-10 bg-white">
               {invoicesLoading ? (
                 <div className="flex justify-center py-10">
                   <Loader2 className="h-8 w-8 animate-spin" style={{ color: `var(--${userType}-page-tab-color)` }} />
@@ -733,7 +733,7 @@ const FileManager = () => {
                               </span>
                             )}
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 flex-wrap justify-start md:justify-end">
                             <Button
                               variant="outline"
                               onClick={() => setViewingInvoice(invoice)}

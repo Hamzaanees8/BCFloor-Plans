@@ -245,8 +245,35 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           // Permission based filtering for Admins
           if (userType === "admin") {
             if (
+              item.url === "/dashboard/calendar"
+            ) {
+              return true;
+            }
+
+            if (
+              item.url === "/dashboard/listings" &&
+              !hasPermission(PERMISSIONS.VIEW_LISTING)
+            ) {
+              return false;
+            }
+
+            if (
+              item.url === "/dashboard/orders" &&
+              !hasPermission(PERMISSIONS.VIEW_APPOINTMENTS)
+            ) {
+              return false;
+            }
+
+            if (
+              item.url === "/dashboard/services" &&
+              !hasPermission(PERMISSIONS.VIEW_SERVICES)
+            ) {
+              return false;
+            }
+
+            if (
               item.url === "/dashboard/vendor-billing" &&
-              !hasPermission(PERMISSIONS.ACCESS_BILLING)
+              !hasPermission(PERMISSIONS.ACCESS_VENDOR_BILLING)
             ) {
               return false;
             }
@@ -259,22 +286,36 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             }
 
             if (
-              item.url === "/dashboard/notifications" &&
-              !hasPermission(PERMISSIONS.RECEIVE_NOTIFICATIONS)
-            ) {
-              return false;
-            }
-
-            if (
-              item.url === "/dashboard/services" &&
-              !hasPermission(PERMISSIONS.CREATE_SERVICES)
-            ) {
-              return false;
-            }
-
-            if (
               item.url === "/dashboard/admin" &&
               !hasPermission(PERMISSIONS.VIEW_ADMIN)
+            ) {
+              return false;
+            }
+
+            if (
+              item.url === "/dashboard/agents" &&
+              !hasPermission(PERMISSIONS.VIEW_AGENT)
+            ) {
+              return false;
+            }
+
+            if (
+              item.url === "/dashboard/vendors" &&
+              !hasPermission(PERMISSIONS.VIEW_VENDOR)
+            ) {
+              return false;
+            }
+
+            if (
+              item.url === "/dashboard/admin/print-requests" &&
+              !hasPermission(PERMISSIONS.PRINT_REQUESTS)
+            ) {
+              return false;
+            }
+
+            if (
+              item.url === "/dashboard/notifications" &&
+              !hasPermission(PERMISSIONS.RECEIVE_NOTIFICATIONS)
             ) {
               return false;
             }
@@ -293,7 +334,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
           // Restricted sections for vendors
           if (userType === "vendor") {
-            const restrictedUrls = ["/dashboard/admin", "/dashboard/vendors"];
+            const restrictedUrls = ["/dashboard/admin", "/dashboard/vendors", "/dashboard/services"];
             if (restrictedUrls.includes(item.url)) {
               return false;
             }

@@ -171,22 +171,40 @@ const Page = () => {
         {
             header: "ACCESS",
             cell: ({ row }) => {
+                const roles = row.original.roles || [];
                 const permissions = row.original.permissions || [];
                 const names = permissions.map(p => p.name);
-                const length = names.length;
 
-                let displayText = '';
+                // Try to find the most specific role
+                const superAdmin = roles.find(r => 
+                    r.name?.toLowerCase().includes("super") || 
+                    String(r.id) === "1"
+                );
+                
+                const bookingAgent = roles.find(r => 
+                    r.name?.toLowerCase().includes("book") || 
+                    r.name?.toLowerCase().includes("agent") ||
+                    String(r.id) === "3" || 
+                    String(r.id) === "4"
+                );
 
-                if (length === 7) {
-                    displayText = 'Full - ' + names.slice(0, 3).join(', ') + (length > 3 ? ', ...' : '');
-                } else if (length > 3) {
-                    displayText = 'Partial - ' + names.slice(0, 3).join(', ') + ', ...';
-                } else {
-                    displayText = names.join(', ');
+                let roleTitle = "Admin";
+                let sep = " - ";
+
+                if (superAdmin) {
+                    roleTitle = "Super Admin";
+                } else if (bookingAgent) {
+                    roleTitle = bookingAgent.name || "Booking Agent";
+                    sep = " = ";
+                } else if (roles.length > 0) {
+                    roleTitle = roles[0].name;
                 }
 
+                const displayText = (roleTitle === "Super Admin") 
+                    ? "Super Admin" 
+                    : `${roleTitle}${sep}${names.join(", ")}`;
                 return (
-                    <div className="text-[#666666]">
+                    <div className="text-[#666666] truncate max-w-[300px]" title={displayText}>
                         {displayText}
                     </div>
                 );

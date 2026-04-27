@@ -19,6 +19,7 @@ import { useOrderContext } from "../../orders/context/OrderContext";
 import { toast } from "sonner";
 import { EditOrder } from "../calendar";
 import { GetServices } from "../../orders/orders";
+import { EditListings } from "../../listings/listing";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -471,12 +472,45 @@ export default function OrderDetailView({
       );
 
       if (response?.success) {
+        // Calculate grand total of square footage
+        const finishedTotal = area
+          .filter((a) => a.category === "Finished" || a.type === "Finished")
+          .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
+        const subtotalTotal = area
+          .filter((a) => a.category === "Subtotal" || a.type === "Subtotal")
+          .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
+        const grandTotal = finishedTotal + subtotalTotal;
+
+        // Update property square footage
+        if (currentOrder?.property?.uuid) {
+          try {
+            await EditListings(currentOrder.property.uuid, {
+              square_footage: grandTotal,
+              agent_id: currentOrder?.agent?.uuid,
+              address: currentOrder?.property?.address,
+              city: currentOrder?.property?.city,
+              province: currentOrder?.property?.province,
+              country: currentOrder?.property?.country,
+              listing_price: Number(currentOrder?.property?.listing_price),
+              mls_number: currentOrder?.property?.mls_number,
+              bedrooms: Number(currentOrder?.property?.bedrooms),
+              bathrooms: Number(currentOrder?.property?.bathrooms),
+              lot_size: currentOrder?.property?.lot_size,
+              year_constructed: Number(currentOrder?.property?.year_constructed),
+              parking_spots: Number(currentOrder?.property?.parking_spots),
+              property_type: currentOrder?.property?.property_type,
+              property_status: currentOrder?.property?.property_status,
+              heading: currentOrder?.property?.heading,
+              description: currentOrder?.property?.description,
+            });
+            toast.success("Property square footage updated");
+          } catch (error) {
+            console.error("Failed to update property square footage:", error);
+            // toast.error("Failed to update property square footage");
+          }
+        }
+
         toast.success("Order updated successfully");
-        // onClose();
-        // setOrderServices([]);
-        // setSelectedSlots([]);
-        // setCalendarServices([]);
-        // setIsEdit(false);
         return true;
       } else {
         toast.error("Something went wrong");

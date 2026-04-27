@@ -378,7 +378,7 @@ const Page = () => {
               + New Booking
             </Link>
           )}
-          {(userType !== "vendor" && userType !== "agent") && (
+          {/* {(userType !== "vendor" && userType !== "agent") && (
             <Link
               href={"/dashboard/listings/create"}
               className='w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] justify-center items-center hover:brightness-110'
@@ -386,7 +386,7 @@ const Page = () => {
             >
               + New Listing
             </Link>
-          )}
+          )} */}
         </div>
       </div>
 

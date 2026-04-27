@@ -60,6 +60,8 @@ import { useWhiteLabel } from "@/app/context/Whitelabel";
 import EmailTemplatesSettings from "./EmailTemplatesSettings";
 import OrganizationsSettings from "./OrganizationsSettings";
 import MediaJobsTable from "./MediaJobsTable";
+import { usePermissions } from "@/app/hooks/usePermissions";
+import { PERMISSIONS } from "@/lib/permissions";
 
 
 interface CompanyData {
@@ -319,6 +321,8 @@ const GlobalSettings = () => {
     const [openDiscount, setOpenDiscount] = useState(false);
 
     const { saveSettings } = useWhiteLabel();
+
+    const { hasPermission } = usePermissions();
 
     const { isDirty, setIsDirty } = useUnsaved();
     useUnsavedChangesWarning(isDirty);
@@ -889,10 +893,23 @@ const GlobalSettings = () => {
         setCoAgents(updatedAgents);
     };
 
-    const tabs = useMemo(() =>
-        userType === "admin"
-            ? ["Profile Settings", "Discounts", "Tour Settings", "Appearances", "Templates", "Organizations", "Media Processing"]
-            : [], [userType]);
+    const tabs = useMemo(() => {
+        if (userType !== "admin") return [];
+
+        const allTabs = [
+            { name: "Profile Settings", permission: null },
+            { name: "Discounts", permission: PERMISSIONS.SET_DISCOUNTS },
+            { name: "Tour Settings", permission: PERMISSIONS.CREATE_TOUR_SETTINGS },
+            { name: "Appearances", permission: PERMISSIONS.VIEW_ADMIN },
+            { name: "Templates", permission: PERMISSIONS.VIEW_ADMIN },
+            { name: "Organizations", permission: PERMISSIONS.VIEW_ADMIN },
+            { name: "Media Processing", permission: PERMISSIONS.VIEW_ADMIN }
+        ];
+
+        return allTabs
+            .filter(tab => !tab.permission || hasPermission(tab.permission))
+            .map(tab => tab.name);
+    }, [userType, hasPermission]);
     const [activeTab, setActiveTab] = useState("Profile Settings");
     const tabsRef = useRef<HTMLDivElement>(null);
     const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -914,6 +931,12 @@ const GlobalSettings = () => {
             clearTimeout(timeoutId);
         };
     }, [checkScroll, tabs]);
+
+    useEffect(() => {
+        if (tabs.length > 0 && !tabs.includes(activeTab)) {
+            setActiveTab(tabs[0]);
+        }
+    }, [tabs, activeTab]);
 
     const scrollTabs = (direction: 'left' | 'right') => {
         if (tabsRef.current) {

@@ -13,6 +13,20 @@ export const PERMISSIONS = {
     VIEW_ORDERS: "View Orders",
     VIEW_APPOINTMENTS: "View Appointments",
     EDIT_APPOINTMENTS: "Edit Appointments",
+    SET_DISCOUNTS: "Set Discounts",
+    CREATE_LISTING: "Create Listing",
+    VIEW_LISTING: "View Listing",
+    VIEW_SERVICES: "View Services",
+    CREATE_TOUR_SETTINGS: "Create Tour Settings",
+    ACCESS_VENDOR_BILLING: "Access Vendor Billing",
+    VIEW_VENDOR: "View Vendor",
+    VIEW_AGENT: "View Agent",
+    VIEW_ALL_ORDERS: "View All Orders",
+    VIEW_ONLY_ORDERS_FOR_CO_AGENT: "View Only Orders For Co-Agent",
+    CREATE_SUB_ACCOUNTS: "Create Sub-Accounts",
+    VIEW_ALL_APPOINTMENTS: "View All Appointments",
+    VIEW_ONLY_APPOINTMENTS_FOR_CO_AGENT: "View Only Appointments For Co-Agent",
+    PRINT_REQUESTS: "Print Requests",
 } as const;
 
 export type Permission = {

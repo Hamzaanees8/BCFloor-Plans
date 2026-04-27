@@ -1161,15 +1161,39 @@ export default function QuickViewCard({
                   Access
                 </div>
                 <p className="text-[15px] font-[400] text-[#666666]">
-                  {data.permissions?.length === 7
-                    ? "FULL"
-                    : data.permissions?.map((perm, index) => (
-                      <span key={index}>
-                        {perm.name}
-                        {index !== (data.permissions?.length ?? 0) - 1 &&
-                          ", "}
-                      </span>
-                    ))}
+                  {(() => {
+                    const roles = (data as AdminData).roles || [];
+                    const perms = (data as AdminData).permissions || [];
+                    const names = perms.map(p => (p as any).name);
+                    
+                    const superAdmin = roles.find(r => 
+                        r.name?.toLowerCase().includes("super") || 
+                        String((r as any).id) === "1"
+                    );
+                    
+                    const bookingAgent = roles.find(r => 
+                        r.name?.toLowerCase().includes("book") || 
+                        r.name?.toLowerCase().includes("agent") ||
+                        String((r as any).id) === "3" || 
+                        String((r as any).id) === "4"
+                    );
+
+                    let roleTitle = "Admin";
+                    let sep = " - ";
+
+                    if (superAdmin) {
+                        roleTitle = "Super Admin";
+                    } else if (bookingAgent) {
+                        roleTitle = bookingAgent.name || "Booking Agent";
+                        sep = " = ";
+                    } else if (roles.length > 0) {
+                        roleTitle = roles[0]?.name || "Admin";
+                    }
+
+                    return (roleTitle === "Super Admin") 
+                        ? "Super Admin" 
+                        : `${roleTitle}${sep}${names.join(", ")}`;
+                  })()}
                 </p>
               </div>
             )}

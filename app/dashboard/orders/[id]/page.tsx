@@ -1278,7 +1278,7 @@ function Page() {
       </Accordion>
 
       <Dialog open={showInvoicesModal} onOpenChange={setShowInvoicesModal}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle
               className="text-xl font-bold uppercase"
@@ -1303,7 +1303,7 @@ function Page() {
                 No invoices found for this order.
               </p>
             ) : (
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 pb-10">
                 {invoices.map((invoice) => {
                   const status = (invoice.status || "unpaid").toUpperCase();
                   let badgeBg = "#E06D5E"; // Unpaid
@@ -1371,7 +1371,7 @@ function Page() {
                             </span>
                           )}
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap justify-start md:justify-end">
                           <Button
                             variant="outline"
                             onClick={() => {
