@@ -1,10 +1,19 @@
 import { api } from "@/lib/api";
 
+export interface Area {
+    type: string;
+    footage: number;
+    custom_title?: string;
+    uuid?: string;
+    category?: "Finished" | "Subtotal" | "Other";
+}
+
 export interface ListingsPayload {
     address?: string | null;
     mls_number?: string | null;
     mls_property?: string | null;
     square_footage?: number | null;
+    areas?: Area[] | null;
     listing_price?: number | null;
     bedrooms?: number | null;
     bathrooms?: number | null;
@@ -84,6 +93,16 @@ export async function EditListings(userId: string, payload: ListingsPayload) {
 
 
     return data;
+}
+
+export async function UpdatePropertySquareFootage(propertyId: string, squareFootage: number, areas: Area[], propertyDetails: ListingsPayload) {
+    const payload: ListingsPayload = {
+        ...propertyDetails,
+        square_footage: squareFootage,
+        areas: areas
+    };
+
+    return await EditListings(propertyId, payload);
 }
 export async function GetOneListing(userId: string) {
 

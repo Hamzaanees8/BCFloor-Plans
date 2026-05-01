@@ -1,0 +1,94 @@
+# Implementation Plan - Multi-Tenant Routing & Whitelabel System
+
+This plan outlines the steps to implement a subdomain-based routing system for the BC Floorplans frontend (Next.js), including dynamic whitelabeling for specific organizations.
+
+## Goals
+- Map specific subdomains to internal application routes (`/dashboard`, `/agent`, `/vendor`).
+- Handle dynamic subdomains (e.g., `testrealtor.bcfloorplans.com`) as whitelabel organizations.
+- Apply whitelabel branding (logo, colors) before login based on the subdomain.
+
+## Proposed Changes
+
+### 1. Middleware Configuration
+We will use Next.js Middleware to intercept incoming requests and rewrite the URL internally based on the `host` header.
+
+#### [NEW] `middleware.ts`
+- Implement hostname detection.
+- Define mapping for `teams-new`, `booking-new`, and `vendore-new`.
+- Implement a catch-all rewrite for whitelabel subdomains to a dynamic route like `/whitelabel/[org_slug]`.
+
+### 2. Whitelabel Route Structure
+We need a dynamic route that will handle the whitelabeled "Agent" portal.
+
+#### [NEW] `app/whitelabel/[org_slug]/layout.tsx`
+- Server-side fetch to get organization settings (logo, primary/secondary colors).
+- Inject CSS variables into the layout to brand the application.
+- Example CSS Variables:
+  ```css
+  :root {
+    --primary-color: #dynamic-hex;
+    --secondary-color: #dynamic-hex;
+    --org-logo: url('dynamic-url');
+  }
+  ```
+
+#### [NEW] `app/whitelabel/[org_slug]/page.tsx`
+- This will likely mirror the `app/agent/page.tsx` or redirect to the login/booking flow within the whitelabel context.
+
+### 3. Theming & Appearance
+Update existing components to use the CSS variables defined in the Whitelabel layout.
+
+#### [MODIFY] `app/globals.css`
+- Define default values for theme variables.
+- Ensure Tailwind classes (if used) or Vanilla CSS reference these variables.
+
+### 4. Backend Integration
+The backend needs to provide an endpoint for public whitelabel information.
+
+- **Endpoint**: `GET /api/v1/organizations/whitelabel-info?slug=testrealtor`
+- **Response**: `{ name: string, logo: string, primary_color: string, secondary_color: string, is_whitelabel: boolean }`
+
+## Instructions for Frontend Team
+
+### Step 1: Middleware Implementation
+Add a `middleware.ts` file in the root directory. This will handle the routing without changing the URL in the browser address bar.
+
+> [!IMPORTANT]
+> Ensure that `middleware.ts` excludes static assets and API routes to avoid performance overhead and infinite loops.
+
+### Step 2: Theme Provider / CSS Variables
+Create a `WhitelabelThemeProvider` component that takes the organization's settings and applies them.
+
+```tsx
+// Example Theme Injection
+export default function WhitelabelLayout({ children, params }) {
+  const orgData = await fetchOrgData(params.org_slug);
+  
+  return (
+    <div style={{
+      '--primary-color': orgData.primary_color,
+      '--logo-url': `url(${orgData.logo})`
+    } as React.CSSProperties}>
+      {children}
+    </div>
+  );
+}
+```
+
+### Step 3: Deployment Configuration
+In AWS Amplify, ensure that "Redirects and Rewrites" are configured to let Next.js handle the routing, or use a "Wildcard subdomain" configuration if Amplify supports it for your domain.
+
+## Verification Plan
+
+### Automated Tests
+- Mock different `host` headers in middleware unit tests.
+- Verify that `teams-new` rewrites to `/dashboard`.
+- Verify that a custom subdomain rewrites to `/whitelabel/[subdomain]`.
+
+### Manual Verification
+- Test locally by modifying the `hosts` file:
+  ```
+  127.0.0.1 teams-new.bcfloorplans.local
+  127.0.0.1 testrealtor.bcfloorplans.local
+  ```
+- Verify the logo and colors change before logging in on the `testrealtor` domain.

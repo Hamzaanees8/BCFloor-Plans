@@ -69,75 +69,54 @@ export function GlobalFileUploadProvider({ children }: { children: ReactNode }) 
                 status: 'pending' as const,
             }));
             setUploadStates(initialStates);
-
-            // Start simulated progress
-            progressIntervalsRef.current = [];
-            allFiles.forEach((_, index) => {
-                const interval = setInterval(() => {
-                    setUploadStates(prev => {
-                        const newStates = [...prev];
-                        if (newStates[index] && newStates[index].status === 'uploading' && newStates[index].progress < 95) {
-                            const currentProgress = newStates[index].progress;
-                            const increment = currentProgress < 50 ? 3 : currentProgress < 80 ? 2 : 1;
-                            newStates[index] = {
-                                ...newStates[index],
-                                progress: Math.min(95, currentProgress + increment),
-                            };
-                        }
-                        return newStates;
-                    });
-                }, 500);
-                progressIntervalsRef.current.push(interval);
-            });
-
-            // Mark as uploading
-            setUploadStates(prev => prev.map(state => ({
-                ...state,
-                status: 'uploading' as const,
-            })));
         }
 
         try {
             let response;
+            const progressCallback = (index: number, progress: number, status: 'pending' | 'uploading' | 'confirming' | 'complete' | 'error') => {
+                setUploadStates(prev => {
+                    const newStates = [...prev];
+                    if (newStates[index]) {
+                        newStates[index] = {
+                            ...newStates[index],
+                            progress,
+                            status,
+                        };
+                    }
+                    return newStates;
+                });
+            };
+
             if (isUpdate && filesDataUuid) {
                 response = await UpdateFilesData(
                     token,
                     filesDataUuid,
-                    files,
+                    allFiles, // Use filtered files for consistent indexing
                     links,
                     droppedMarkers,
                     delay,
                     transition,
                     selectedAudioTrack || "none",
-                    changedFiles
+                    changedFiles,
+                    progressCallback
                 );
             } else if (orderUuid) {
                 response = await UploadFilesData(
                     token,
                     orderUuid,
-                    files,
+                    allFiles, // Use filtered files for consistent indexing
                     links,
                     droppedMarkers,
                     delay,
                     transition,
                     selectedAudioTrack || "none",
-                    (index, progress, status) => {
-                        // Real progress update if supported by UploadFilesData (it has a callback now)
-                        // However, for consistency with existing logic, we might rely on simulation + final completion
-                        // If we want real progress, we need to map the index correctly.
-                        // The simulation logic above is what was in FileManager.tsx, so preserving it.
-                        // We can update the state here if needed, but let's stick to the simulation for now as per the request to "make it global" (not necessarily rewrite logic).
-                    }
+                    progressCallback
                 );
             } else {
                 throw new Error("Missing orderUuid or filesDataUuid");
             }
 
-            // Clear intervals
-            progressIntervalsRef.current.forEach(interval => clearInterval(interval));
-            progressIntervalsRef.current = [];
-
-            // Complete
+            // Complete all
             setUploadStates(prev => prev.map(state => ({
                 ...state,
                 progress: 100,
@@ -149,9 +128,6 @@ export function GlobalFileUploadProvider({ children }: { children: ReactNode }) 
             toast.success("All changes saved successfully!");
             return response;
         } catch (error) {
-            progressIntervalsRef.current.forEach(interval => clearInterval(interval));
-            progressIntervalsRef.current = [];
-
             setUploadStates(prev => prev.map(state => ({
                 ...state,
                 status: 'error' as const,

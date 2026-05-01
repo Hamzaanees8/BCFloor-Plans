@@ -28,6 +28,7 @@ import {
   ResetPassword,
   UserPayload,
 } from "../admin";
+import { GetOrganizations, Organization } from "../../global-settings/global-settings";
 import { useParams, useRouter } from "next/navigation";
 import { Country, State } from "country-state-city";
 import { SaveModal } from "@/components/SaveModal";
@@ -99,6 +100,8 @@ const AdminForm = () => {
   const [activeRolePreset, setActiveRolePreset] = useState<
     "super_admin" | "admin" | "booking_agent" | null
   >(null);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [organizationId, setOrganizationId] = useState<string>("");
 
   const applyRolePreset = (preset: "super_admin" | "admin" | "booking_agent") => {
     if (activeRolePreset === preset) {
@@ -225,6 +228,10 @@ const AdminForm = () => {
     GetRole()
       .then((data) => setRoles(Array.isArray(data.data) ? data.data : []))
       .catch((err) => console.log(err.message));
+
+    GetOrganizations()
+      .then((res) => setOrganizations(Array.isArray(res.data) ? res.data : []))
+      .catch((err) => console.log("Failed to fetch organizations", err));
   }, []);
 
   useEffect(() => {
@@ -280,6 +287,7 @@ const AdminForm = () => {
       setSelectedPermissions(
         currentUser.permissions?.map((p) => Number(p.id)) || []
       );
+      setOrganizationId(currentUser.organization_id ? String(currentUser.organization_id) : "");
 
       // if (currentUser.avatar_url) setAvatarUrl(currentUser.avatar_url);
       // if (currentUser.company_logo_url)
@@ -499,6 +507,7 @@ const AdminForm = () => {
         // company_banner: companyBannerFile || undefined,
         roles: role ? [Number(role)] : undefined,
         permissions: selectedPermissions || [],
+        organization_id: organizationId && organizationId !== "none" ? Number(organizationId) : undefined,
       };
 
       if (userId) {
@@ -699,6 +708,32 @@ const AdminForm = () => {
                             {fieldErrors.roles[0]}
                           </p>
                         )}
+                      </div>
+                      <div className="col-span-2">
+                        <label htmlFor="">Organization</label>
+                        <Select
+                          value={organizationId}
+                          onValueChange={(val) => {
+                            setOrganizationId(val);
+                            if (hasInitiallyRendered.current) {
+                              setIsDirty(true);
+                            }
+                          }}
+                        >
+                          <SelectTrigger
+                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                          >
+                            <SelectValue placeholder="Select an organization" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None (Global Admin)</SelectItem>
+                            {organizations?.map((org) => (
+                              <SelectItem key={org.id} value={String(org.id)}>
+                                {org.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="col-span-2">
                         <label htmlFor="">

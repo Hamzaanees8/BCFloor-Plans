@@ -69,6 +69,11 @@
     --sidebar-border: 220 13% 91%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Whitelabel Variables */
+    --primary-color: #6BAE41; /* Default to agent green */
+    --secondary-color: #ffffff;
+    --logo-url: none;
   }
 
   .dark {
@@ -376,11 +381,11 @@ input[type="date"]::-moz-calendar-picker-indicator {
 }
 
 .agent-bg {
-  background-color: var(--agent-bg-color, #6BAE41);
+  background-color: var(--primary-color, var(--agent-bg-color, #6BAE41));
 }
 
 .hover-agent-bg:hover {
-  background-color: var(--agent-bg-color, #6BAE41) !important;
+  background-color: var(--primary-color, var(--agent-bg-color, #6BAE41)) !important;
 }
 
 .vendor-bg {
@@ -397,7 +402,7 @@ input[type="date"]::-moz-calendar-picker-indicator {
 }
 
 .agent-text {
-  color: var(--agent-text-color, #6BAE41) !important;
+  color: var(--primary-color, var(--agent-text-color, #6BAE41)) !important;
 }
 
 .vendor-text {
@@ -409,7 +414,7 @@ input[type="date"]::-moz-calendar-picker-indicator {
 }
 
 .agent-border {
-  border: 1px solid var(--agent-bg-color, #6BAE41) !important;
+  border: 1px solid var(--primary-color, var(--agent-bg-color, #6BAE41)) !important;
 }
 
 .vendor-border {
@@ -422,7 +427,7 @@ input[type="date"]::-moz-calendar-picker-indicator {
 }
 
 .agent-accent {
-  accent-color: var(--agent-bg-color, #6BAE41) !important;
+  accent-color: var(--primary-color, var(--agent-bg-color, #6BAE41)) !important;
   color: #fff !important;
 }
 
@@ -436,7 +441,7 @@ input[type="date"]::-moz-calendar-picker-indicator {
 }
 
 .agent-text-svg>svg {
-  color: var(--agent-text-color, #6bae41);
+  color: var(--primary-color, var(--agent-text-color, #6bae41));
 }
 
 .vendor-text-svg>svg {

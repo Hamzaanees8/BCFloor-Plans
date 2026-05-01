@@ -20,6 +20,7 @@ export interface UserPayload {
     company_banner?: File;
     roles?: number[];
     permissions?: number[];
+    organization_id?: number;
     _method?: string;
 }
 

@@ -1,7 +1,7 @@
 'use client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import Image from 'next/image'
+import WhitelabelLogo from '@/components/WhitelabelLogo'
 import Link from 'next/link'
 import React, { useState } from 'react'
 import { login } from './login'
@@ -58,17 +58,10 @@ function LoginUser() {
             setIsLoading(false)
         }
     };
-
-
     return (
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
             <form onSubmit={handleLogin} className='w-[400px] flex flex-col gap-[25px]'>
-                <Image
-                    src="/bcfloor.png"
-                    alt="logo"
-                    width={180}
-                    height={100}
-                    className="mx-auto" />
+                <WhitelabelLogo width={180} height={100} />
                 <Link href={'#'} className='hidden flex justify-center items-center bg-[#4290E9] hover:bg-[#357AD1] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.email ? 'text-red-500' : ''}`} htmlFor="email">Email Address</label>

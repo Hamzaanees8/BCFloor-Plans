@@ -36,6 +36,7 @@ interface AppointmentTab {
     setCoAgent: React.Dispatch<React.SetStateAction<CoAgent[]>>
     updateInvoice?: boolean;
     setUpdateInvoice?: React.Dispatch<React.SetStateAction<boolean>>;
+    totalSquareFootage?: number;
 }
 export interface CoAgent {
     name: string;
@@ -48,7 +49,7 @@ interface Notes {
     date: string
     internal?: string
 }
-function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNotes, coAgent, setCoAgent, updateInvoice, setUpdateInvoice }: AppointmentTab) {
+function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNotes, coAgent, setCoAgent, updateInvoice, setUpdateInvoice, totalSquareFootage }: AppointmentTab) {
     const { userType } = useAppContext();
     const [agent, setAgent] = useState(currentOrder?.agent.uuid ?? '');
     const [contactNumber, setContactNumber] = useState("");
@@ -94,7 +95,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
         setContactNumber(currentAgent?.primary_phone ?? '')
         setContactEmail(currentAgent?.email ?? '')
         setListing(currentOrder?.property ? `${currentOrder?.property.address}, ${currentOrder?.property.city}, ${currentOrder?.property.province}` : '')
-        setSquareFootage(String(currentOrder?.property?.square_footage))
+        setSquareFootage(String(totalSquareFootage ?? currentOrder?.property?.square_footage ?? ''))
         if (Array.isArray(currentOrder?.notes)) {
             setNotes(currentOrder.notes as unknown as Notes[]);
         } else if (typeof currentOrder?.notes === 'string') {
@@ -130,7 +131,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentOrder, serviceId, agentData, currentAgent])
+    }, [currentOrder, serviceId, agentData, currentAgent, totalSquareFootage])
     const handleDeleteOrderService = (serviceUuid: string | undefined) => {
         if (!serviceUuid) return;
         setOrderServices(prev => prev.filter(s => s.service?.uuid !== serviceUuid));
@@ -230,9 +231,19 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
             const serviceSlots = selectedSlots.filter((slot) => slot.service_id === srv.uuid);
             const allocatedDuration = serviceSlots.length * 15;
 
+            // Check if service has any slots in the past
+            const hasPastSlots = serviceSlots.some((slot) => {
+                try {
+                    const slotDate = new Date(`${slot.date} ${slot.start_time}`);
+                    return slotDate < new Date();
+                } catch (e) {
+                    return false;
+                }
+            });
+
             // Only mark invalid if there's > 0 required duration and we haven't met it.
-            // When calendarService is just added, selectedSlots is empty, length * 15 = 0
-            if (requiredDuration > 0 && allocatedDuration < requiredDuration) {
+            // Skip check if service has past slots (historical data)
+            if (requiredDuration > 0 && allocatedDuration < requiredDuration && !hasPastSlots) {
                 newInvalidServices.push(srv.uuid);
             }
         }

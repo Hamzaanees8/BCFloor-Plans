@@ -96,14 +96,16 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   }, [propCurrentIndex]);
 
   useEffect(() => {
-    if (isPlaying) {
+    if (isPlaying && allImages.length > 0) {
       intervalRef.current = setInterval(() => {
-        setCurrentIndex((prev) => {
-          setLastIndex(prev);
-          const nextIndex = (prev + 1) % allImages.length;
-          if (onSlideChange) onSlideChange(nextIndex);
-          return nextIndex;
-        });
+        const nextIndex = (currentIndex + 1) % allImages.length;
+        setLastIndex(currentIndex);
+        setCurrentIndex(nextIndex);
+        
+        if (onSlideChange) {
+          onSlideChange(nextIndex);
+        }
+        
         if (!transition) {
           setTransitionIndex((prev) => (prev + 1) % transitionClasses.length);
         }
@@ -113,7 +115,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isPlaying, allImages.length, delay, transition, onSlideChange]);
+  }, [isPlaying, allImages.length, delay, transition, onSlideChange, currentIndex]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {

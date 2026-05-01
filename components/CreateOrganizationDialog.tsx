@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
     Dialog,
     DialogContent,
@@ -20,6 +20,21 @@ import {
     CreateOrganization,
     UpdateOrganization,
 } from "@/app/dashboard/global-settings/global-settings";
+import {
+    AgentAudio,
+    GetOrganizationAudios,
+    DeleteOrganizationAudio,
+} from "@/app/dashboard/agents/agent-audio";
+import { uploadAudioFile } from "@/lib/upload/audio-upload";
+
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Upload } from "lucide-react";
 
 interface Props {
     open: boolean;
@@ -50,6 +65,10 @@ const emptyForm = (): OrganizationPayload => ({
     postal_code: "",
     is_active: true,
     trial_ends_at: null,
+    primary_color: "#6BAE41",
+    secondary_color: "#DC9600",
+    logo: "",
+    portal_type: "agent",
 });
 
 const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialData }) => {
@@ -59,6 +78,10 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
     const [form, setForm] = useState<OrganizationPayload>(emptyForm());
     const [errors, setErrors] = useState<FormErrors>({});
     const [isLoading, setIsLoading] = useState(false);
+
+    const [orgAudios, setOrgAudios] = useState<AgentAudio[]>([]);
+    const [audioUploading, setAudioUploading] = useState(false);
+    const orgAudioRef = useRef<HTMLInputElement>(null);
 
     // Populate form on open/edit
     useEffect(() => {
@@ -78,6 +101,10 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                     postal_code: initialData.postal_code || "",
                     is_active: initialData.is_active ?? true,
                     trial_ends_at: initialData.trial_ends_at || null,
+                    primary_color: initialData.primary_color || "#6BAE41",
+                    secondary_color: initialData.secondary_color || "#DC9600",
+                    logo: initialData.logo || "",
+                    portal_type: initialData.portal_type || "agent",
                 });
             } else {
                 setForm(emptyForm());
@@ -85,6 +112,16 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
             setErrors({});
         }
     }, [open, initialData]);
+
+    // Fetch audio files on open (edit mode only)
+    useEffect(() => {
+        if (open && isEdit && initialData?.uuid) {
+            GetOrganizationAudios(initialData.uuid)
+                .then(res => setOrgAudios(Array.isArray(res.data) ? res.data : []))
+                .catch(() => setOrgAudios([]));
+        }
+        if (!open) setOrgAudios([]);
+    }, [open, isEdit, initialData?.uuid]);
 
     const setField = (key: keyof OrganizationPayload, value: string | boolean | null) => {
         setForm((prev) => ({ ...prev, [key]: value }));
@@ -140,6 +177,10 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                 country: form.country?.trim() || undefined,
                 postal_code: form.postal_code?.trim() || undefined,
                 trial_ends_at: form.trial_ends_at || null,
+                primary_color: form.primary_color,
+                secondary_color: form.secondary_color,
+                logo: form.logo,
+                portal_type: form.portal_type,
             };
 
             if (isEdit && initialData) {
@@ -168,6 +209,48 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
             }
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleOrgAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !initialData?.uuid) return;
+        
+        if (file.size > 20 * 1024 * 1024) {
+            toast.error("File exceeds the 20 MB size limit");
+            return;
+        }
+        
+        setAudioUploading(true);
+        try {
+            const result = await uploadAudioFile({
+                entityType: 'organization-audio',
+                entityId: initialData.uuid,
+                file: file
+            });
+            
+            if (result.success) {
+                toast.success("Audio uploaded successfully.");
+                const fresh = await GetOrganizationAudios(initialData.uuid);
+                setOrgAudios(Array.isArray(fresh.data) ? fresh.data : []);
+            } else {
+                toast.error(result.error || "Failed to upload audio.");
+            }
+        } catch (err) {
+            toast.error("Failed to upload audio.");
+        } finally {
+            setAudioUploading(false);
+            if (orgAudioRef.current) orgAudioRef.current.value = "";
+        }
+    };
+
+    const handleOrgAudioDelete = async (uuid: string) => {
+        try {
+            await DeleteOrganizationAudio(uuid);
+            setOrgAudios(prev => prev.filter(a => a.uuid !== uuid));
+            toast.success("Audio removed successfully.");
+        } catch {
+            toast.error("Failed to remove audio.");
         }
     };
 
@@ -409,6 +492,130 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                             </div>
                         </div>
                     </div>
+
+                    <hr className="border-[#BBBBBB]" />
+
+                    {/* ── Whitelabel Branding ── */}
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-[#999] mb-3">Whitelabel Branding</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {/* Portal Type */}
+                            <div>
+                                <Label>Default Portal Type</Label>
+                                <Select 
+                                    value={form.portal_type || "agent"} 
+                                    onValueChange={(val: 'agent' | 'vendor') => setField("portal_type", val)}
+                                >
+                                    <SelectTrigger className={inputCls()} style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>
+                                        <SelectValue placeholder="Select Portal" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="agent">Agent Portal</SelectItem>
+                                        <SelectItem value="vendor">Vendor Portal</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Logo URL */}
+                            <div>
+                                <Label>Logo URL</Label>
+                                <Input
+                                    id="org-logo"
+                                    type="text"
+                                    placeholder="https://example.com/logo.png"
+                                    value={form.logo ?? ""}
+                                    onChange={(e) => setField("logo", e.target.value)}
+                                    className={inputCls()}
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                />
+                            </div>
+
+                            {/* Primary Color */}
+                            <div>
+                                <Label>Primary Color</Label>
+                                <div className="flex gap-2 items-center">
+                                    <Input
+                                        type="text"
+                                        value={form.primary_color ?? ""}
+                                        onChange={(e) => setField("primary_color", e.target.value)}
+                                        className={inputCls()}
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                    />
+                                    <input
+                                        type="color"
+                                        value={form.primary_color || "#6BAE41"}
+                                        onChange={(e) => setField("primary_color", e.target.value)}
+                                        className="w-10 h-10 p-1 rounded border border-[#BBBBBB] cursor-pointer mt-[6px]"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Secondary Color */}
+                            <div>
+                                <Label>Secondary Color</Label>
+                                <div className="flex gap-2 items-center">
+                                    <Input
+                                        type="text"
+                                        value={form.secondary_color ?? ""}
+                                        onChange={(e) => setField("secondary_color", e.target.value)}
+                                        className={inputCls()}
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                    />
+                                    <input
+                                        type="color"
+                                        value={form.secondary_color || "#DC9600"}
+                                        onChange={(e) => setField("secondary_color", e.target.value)}
+                                        className="w-10 h-10 p-1 rounded border border-[#BBBBBB] cursor-pointer mt-[6px]"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {isEdit && (
+                        <>
+                            <hr className="border-[#BBBBBB]" />
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wider text-[#999] mb-3">Audio Files</p>
+                                <div className="flex items-center gap-3 mb-3">
+                                    <Button
+                                        type="button"
+                                        onClick={() => orgAudioRef.current?.click()}
+                                        disabled={audioUploading}
+                                        className="h-[36px] px-4 text-sm font-medium text-white admin-bg hover:opacity-90"
+                                    >
+                                        {audioUploading ? "Uploading..." : "+ Upload Audio"}
+                                    </Button>
+                                    <span className="text-xs text-[#999]">MP3 / WAV · max 20 MB</span>
+                                    <input
+                                        ref={orgAudioRef}
+                                        type="file"
+                                        accept="audio/*"
+                                        className="hidden"
+                                        onChange={handleOrgAudioUpload}
+                                    />
+                                </div>
+                                {orgAudios.length > 0 ? (
+                                    <div className="border border-[#BBBBBB] rounded-[6px] overflow-hidden divide-y divide-[#BBBBBB]">
+                                        {orgAudios.map(audio => (
+                                            <div key={audio.uuid} className="flex items-center justify-between px-3 py-2 hover:bg-[#F9F9F9]">
+                                                <span className="text-xs text-[#666] truncate flex-1">{audio.name}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleOrgAudioDelete(audio.uuid)}
+                                                    className="ml-2 text-red-500 hover:text-red-700"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-[#999] italic">No audio files uploaded yet.</p>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* Footer */}

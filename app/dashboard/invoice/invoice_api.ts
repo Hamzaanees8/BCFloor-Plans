@@ -20,10 +20,15 @@ export async function DeleteInvoice(uuid: string) {
     return response.data;
 }
 
-export async function MarkPaid(uuid: string, amount: string | number) {
-    const response = await api.post(`/invoices/${uuid}/markPaid`, {
+export async function MarkPaid(uuid: string, amount: string | number, paymentMode?: 'on_behalf' | 'self', payerUuid?: string) {
+    const body: any = {
         amount: amount,
-    });
+    };
+    if (paymentMode) {
+        body.payment_mode = paymentMode;
+        body.payer_uuid = payerUuid;
+    }
+    const response = await api.post(`/invoices/${uuid}/markPaid`, body);
     return response.data;
 }
 
@@ -48,9 +53,16 @@ export async function GetInvoicesByOrder(orderUuid: string) {
     return response.data;
 }
 
-export async function PayInvoiceWithStripe(invoice: any, order: any, redirectUrl: string, serviceId?: string) {
-    const body = {
-        agent_uuid: order.agent?.uuid || order.agent_uuid, // allow fallback
+export async function PayInvoiceWithStripe(
+    invoice: any, 
+    order: any, 
+    redirectUrl: string, 
+    serviceId?: string,
+    paymentMode?: 'on_behalf' | 'self',
+    payerUuid?: string
+) {
+    const body: any = {
+        agent_uuid: invoice.agent?.uuid || order.agent?.uuid || order.agent_uuid, // allow fallback
         url: redirectUrl,
         amount: invoice.total,
         currency: 'cad', // default, could use invoice.currency if needed
@@ -60,6 +72,12 @@ export async function PayInvoiceWithStripe(invoice: any, order: any, redirectUrl
         payment_type: serviceId ? 'service' : 'full',
         service_id: serviceId || null,
     };
+
+    if (paymentMode) {
+        body.payment_mode = paymentMode;
+        body.payer_uuid = payerUuid;
+    }
+
     const response = await api.post('/agent/pay/create-session', body);
     if (response.data?.success && response.data?.url) {
         window.location.href = response.data.url;

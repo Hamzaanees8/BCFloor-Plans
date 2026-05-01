@@ -1,12 +1,13 @@
 'use client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import WhitelabelLogo from '@/components/WhitelabelLogo'
+import { AgentLoginIcon } from '@/components/Icons'
 import Link from 'next/link'
 import React, { useState } from 'react'
 import { login } from './login'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
-import { AgentLoginIcon } from '@/components/Icons'
 import { useAppContext } from '@/app/context/AppContext'
 import { Eye, EyeOff } from 'lucide-react'
 
@@ -58,11 +59,10 @@ function LoginUser() {
             setIsLoading(false)
         }
     };
-
-
     return (
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
             <form onSubmit={handleLogin} className='w-[400px] flex flex-col gap-[25px]'>
+                <WhitelabelLogo width={180} height={100} />
                 <div className='flex justify-center'>
                     <AgentLoginIcon width='110px' height='110px' />
                 </div>

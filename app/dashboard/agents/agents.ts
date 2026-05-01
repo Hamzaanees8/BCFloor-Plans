@@ -45,6 +45,7 @@ export interface AgentPayload {
     minimum_spend?: number;
     is_active?: 1 | 0;
   } | null;
+  organization_id?: number;
   _method?: string;
 }
 

@@ -82,6 +82,7 @@ export interface VendorPayload {
   portfolio_images?: (File | string)[];
   pay_outside: number;
   stripe_connect: number;
+  organization_id?: number;
 }
 
 export interface FetchErrors {

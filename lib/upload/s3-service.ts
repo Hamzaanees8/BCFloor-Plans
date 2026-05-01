@@ -16,6 +16,10 @@ import {
  * 2. Upload files directly to S3
  * 3. Confirm uploads with backend
  */
+
+export const PRESIGNED_BATCH_SIZE = 5;
+export const S3_CONCURRENT_UPLOADS = 3;
+
 export class S3UploadService {
     /**
      * Step 1: Request presigned URLs from the backend

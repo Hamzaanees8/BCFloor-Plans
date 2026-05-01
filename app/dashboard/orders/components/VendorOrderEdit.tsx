@@ -105,13 +105,15 @@ function VendorOrderEdit({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="w-[730px] max-w-[70%] max-h-[90vh] overflow-y-auto font-alexandria">
+            <DialogContent className="w-[730px] max-w-[70%] h-[90vh] flex flex-col p-0 font-alexandria overflow-hidden">
+                <div className="p-6 pb-0">
                 <DialogHeader>
                     <DialogTitle className={`${userType}-text text-xl font-semibold`}>
 
                     </DialogTitle>
                 </DialogHeader>
-
+                </div>
+                <div className="flex-1 overflow-y-auto p-6 pt-0">
                 <Accordion
                     type="multiple"
                     defaultValue={["property", "additional", "statistics", "Notes"]}
@@ -362,17 +364,20 @@ function VendorOrderEdit({
                         </AccordionContent>
                     </AccordionItem>
                 </Accordion>
-                <DialogFooter>
-                    <Button
-                        className={`${userType}-text bg-transparent ${userType}-border hover-${userType}-bg ${userType}-button`}>
-                        Close
-                    </Button>
-                    <Button
-                        className={`${userType}-bg ${userType}-border hover-${userType}-bg ${userType}-button`}
-                        onClick={handleSubmitServices}>
-                        Save and Exit
-                    </Button>
-                </DialogFooter>
+                </div>
+                <div className="p-6 pt-4 border-t">
+                    <DialogFooter>
+                        <Button
+                            className={`${userType}-text bg-transparent ${userType}-border hover-${userType}-bg ${userType}-button`}>
+                            Close
+                        </Button>
+                        <Button
+                            className={`${userType}-bg ${userType}-border hover-${userType}-bg ${userType}-button`}
+                            onClick={handleSubmitServices}>
+                            Save and Exit
+                        </Button>
+                    </DialogFooter>
+                </div>
             </DialogContent>
         </Dialog>
     );

@@ -580,6 +580,11 @@ export interface Organization {
   owner_user_id: number | null;
   created_at: string;
   updated_at: string;
+  // Whitelabel fields
+  primary_color: string | null;
+  secondary_color: string | null;
+  logo: string | null;
+  portal_type: 'agent' | 'vendor' | null;
 }
 
 export interface OrganizationPayload {
@@ -597,6 +602,11 @@ export interface OrganizationPayload {
   is_active?: boolean;
   trial_ends_at?: string | null;
   owner_user_id?: number | null;
+  // Whitelabel fields
+  primary_color?: string;
+  secondary_color?: string;
+  logo?: string;
+  portal_type?: 'agent' | 'vendor';
 }
 
 export async function GetOrganizations(): Promise<{ status: boolean; data: Organization[] }> {

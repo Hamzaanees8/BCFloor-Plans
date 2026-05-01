@@ -8,6 +8,7 @@ import { Switch } from './ui/switch'
 import ToggleButtons from './ui/toogle'
 import { Label } from './ui/label'
 import { Create, GetPermissions, GetRole } from '@/app/dashboard/admin/admin'
+import { GetOrganizations, Organization } from '@/app/dashboard/global-settings/global-settings'
 import { toast } from 'sonner'
 import { useAppContext } from '@/app/context/AppContext'
 
@@ -30,6 +31,8 @@ const AdminForm = () => {
     const [country, setCountry] = useState("");
     const [password, setPassword] = useState("");
     const [selectedPermissions, setSelectedPermissions] = useState<number[]>([]);
+    const [organizations, setOrganizations] = useState<Organization[]>([]);
+    const [organizationId, setOrganizationId] = useState<string>("");
 
     const CompanyLogofileInputRef = useRef(null)
     const [CompanyLogofileName, setCompanyLogoFileName] = useState('')
@@ -177,6 +180,11 @@ const AdminForm = () => {
         GetPermissions()
             .then(data => setPermissions(Array.isArray(data.data) ? data.data : []))
             .catch(err => console.log(err.message));
+
+        // Fetch Organizations
+        GetOrganizations()
+            .then(res => setOrganizations(Array.isArray(res.data) ? res.data : []))
+            .catch(err => console.log('Failed to fetch organizations', err));
     }, []);
 
 
@@ -204,6 +212,7 @@ const AdminForm = () => {
                 permissions: Array.isArray(selectedPermissions)
                     ? selectedPermissions.map(Number).filter(n => !isNaN(n))
                     : [],
+                organization_id: organizationId ? Number(organizationId) : undefined,
                 ...(password ? {
                     password,
                     password_confirmation: password,
@@ -289,6 +298,28 @@ const AdminForm = () => {
                                                         {roles?.map((role) => (
                                                             <SelectItem key={role.id} value={String(role.id)}>
                                                                 {role.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className='col-span-2'>
+                                                <label htmlFor="">Organization</label>
+                                                <Select
+                                                    value={organizationId}
+                                                    onValueChange={(val) => setOrganizationId(val)}
+                                                >
+                                                    <SelectTrigger
+                                                        className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    >
+                                                        <SelectValue placeholder="Select an organization" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="none">None (Global Admin)</SelectItem>
+                                                        {organizations?.map((org) => (
+                                                            <SelectItem key={org.id} value={String(org.id)}>
+                                                                {org.name}
                                                             </SelectItem>
                                                         ))}
                                                     </SelectContent>

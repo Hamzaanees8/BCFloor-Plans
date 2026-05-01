@@ -10,6 +10,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import EditSquareFootage from '../../calendar/components/EditSquareFootage';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { UpdatePropertySquareFootage } from '../../listings/listing';
 
 
 type Props = {
@@ -71,6 +72,42 @@ const HouseSheetModal: React.FC<Props> = ({
             const response = await EditOrder(orderData?.uuid ?? "", updatedPayload, token);
 
             if (response?.success) {
+                // Calculate grand total of square footage
+                const finishedTotal = tempArea
+                    .filter((a) => a.category === "Finished" || a.type === "Finished")
+                    .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
+                const subtotalTotal = tempArea
+                    .filter((a) => a.category === "Subtotal" || a.type === "Subtotal")
+                    .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
+                const grandTotal = finishedTotal + subtotalTotal;
+
+                // Update property square footage
+                if (orderData?.property?.uuid) {
+                    try {
+                        await UpdatePropertySquareFootage(orderData.property.uuid, grandTotal, tempArea, {
+                            agent_id: orderData?.agent?.uuid,
+                            address: orderData?.property?.address,
+                            city: orderData?.property?.city,
+                            province: orderData?.property?.province,
+                            country: orderData?.property?.country,
+                            listing_price: Number(orderData?.property?.listing_price),
+                            mls_number: orderData?.property?.mls_number,
+                            bedrooms: Number(orderData?.property?.bedrooms),
+                            bathrooms: Number(orderData?.property?.bathrooms),
+                            lot_size: orderData?.property?.lot_size,
+                            year_constructed: Number(orderData?.property?.year_constructed),
+                            parking_spots: Number(orderData?.property?.parking_spots),
+                            property_type: orderData?.property?.property_type,
+                            property_status: orderData?.property?.property_status,
+                            heading: orderData?.property?.heading,
+                            description: orderData?.property?.description,
+                        });
+                        toast.success("Property square footage updated");
+                    } catch (error) {
+                        console.error("Failed to update property square footage:", error);
+                    }
+                }
+
                 toast.success('Order updated successfully');
                 setArea(response.data.areas ?? []);
                 setOpen(false)

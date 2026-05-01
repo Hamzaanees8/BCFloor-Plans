@@ -8,7 +8,7 @@ import {
 } from '@/lib/upload/types';
 
 interface UseS3UploadOptions {
-    entityType: 'tour' | 'order' | 'listing';
+    entityType: 'tour' | 'order' | 'listing' | 'agent';
     entityId: string;
     tourId?: string;
     serviceId?: string;
@@ -16,7 +16,7 @@ interface UseS3UploadOptions {
 }
 
 interface UseS3UploadReturn {
-    uploadFiles: (files: File[] | { file: File; is_featured?: boolean; is_admin_approved?: boolean; is_agent_approved?: boolean; is_show?: boolean }[]) => Promise<S3UploadResult>;
+    uploadFiles: (files: File[] | { file: File; slot?: string; type?: string; is_featured?: boolean; is_admin_approved?: boolean; is_agent_approved?: boolean; is_show?: boolean }[], overrideEntityId?: string) => Promise<S3UploadResult>;
     uploadStates: FileUploadState[];
     isUploading: boolean;
     overallProgress: number;
@@ -48,7 +48,7 @@ export function useS3Upload(options: UseS3UploadOptions): UseS3UploadReturn {
     }, []);
 
     const uploadFiles = useCallback(
-        async (files: File[] | { file: File; is_featured?: boolean; is_admin_approved?: boolean; is_agent_approved?: boolean; is_show?: boolean }[]): Promise<S3UploadResult> => {
+        async (files: File[] | { file: File; slot?: string; type?: string; is_featured?: boolean; is_admin_approved?: boolean; is_agent_approved?: boolean; is_show?: boolean }[], overrideEntityId?: string): Promise<S3UploadResult> => {
             const filesToProcess = files.map(f => f instanceof File ? { file: f } : f);
 
             if (filesToProcess.length === 0) {
@@ -65,129 +65,146 @@ export function useS3Upload(options: UseS3UploadOptions): UseS3UploadReturn {
             }));
             setUploadStates(initialStates);
 
+            const allConfirmedFiles: any[] = [];
+
             try {
-                // Step 1: Request presigned URLs
-                const presignedRequest: PresignedUrlRequest = {
-                    entity_type: options.entityType,
-                    entity_id: options.entityId,
-                    files: filesToProcess.map((f) => ({
-                        filename: f.file.name,
-                        content_type: f.file.type,
-                        size: f.file.size,
-                    })),
-                };
+                // Import constants from service
+                const { PRESIGNED_BATCH_SIZE, S3_CONCURRENT_UPLOADS } = require('@/lib/upload/s3-service');
 
-                const presignedResponse = await S3UploadService.getPresignedUrls(
-                    presignedRequest
-                );
+                // Process in batches
+                for (let i = 0; i < filesToProcess.length; i += PRESIGNED_BATCH_SIZE) {
+                    const batch = filesToProcess.slice(i, i + PRESIGNED_BATCH_SIZE);
 
-                if (!presignedResponse.success || !presignedResponse.data.uploads) {
-                    throw new Error('Failed to get presigned URLs');
-                }
+                    // Step 1: Request presigned URLs for this batch
+                    const presignedRequest: PresignedUrlRequest = {
+                        entity_type: options.entityType,
+                        entity_id: overrideEntityId || options.entityId,
+                        files: batch.map((f) => ({
+                            filename: f.file.name,
+                            content_type: f.file.type,
+                            size: f.file.size,
+                        })),
+                    };
 
-                const uploads = presignedResponse.data.uploads;
+                    const presignedResponse = await S3UploadService.getPresignedUrls(
+                        presignedRequest
+                    );
 
-                // Step 2: Upload files to S3 concurrently
-                const uploadPromises = filesToProcess.map(async (f, index) => {
-                    const upload = uploads[index];
-                    const file = f.file;
-                    if (!upload) {
-                        throw new Error(`No presigned URL for file: ${file.name}`);
+                    if (!presignedResponse.success || !presignedResponse.data.uploads) {
+                        throw new Error('Failed to get presigned URLs');
                     }
 
-                    // Update state: uploading
+                    const uploads = presignedResponse.data.uploads;
+
+                    // Step 2: Upload files in this batch to S3 (with internal concurrency)
+                    const batchUploadedFiles: any[] = [];
+
+                    for (let j = 0; j < batch.length; j += S3_CONCURRENT_UPLOADS) {
+                        const s3Batch = batch.slice(j, j + S3_CONCURRENT_UPLOADS);
+                        const s3BatchUploads = uploads.slice(j, j + S3_CONCURRENT_UPLOADS);
+
+                        const results = await Promise.all(s3Batch.map(async (f, s3Index) => {
+                            const upload = s3BatchUploads[s3Index];
+                            const file = f.file;
+                            const globalIndex = i + j + s3Index;
+
+                            // Update state: uploading
+                            setUploadStates((prev) =>
+                                prev.map((state, k) =>
+                                    k === globalIndex
+                                        ? {
+                                            ...state,
+                                            uploadId: upload.upload_id,
+                                            s3Key: upload.s3_key,
+                                            status: 'uploading',
+                                        }
+                                        : state
+                                )
+                            );
+
+                            try {
+                                await S3UploadService.uploadToS3(
+                                    upload.presigned_url,
+                                    file,
+                                    upload.content_type,
+                                    (progress) => {
+                                        setUploadStates((prev) =>
+                                            prev.map((state, k) =>
+                                                k === globalIndex ? { ...state, progress } : state
+                                            )
+                                        );
+                                    }
+                                );
+
+                                // Update state: upload complete, waiting for confirmation
+                                setUploadStates((prev) =>
+                                    prev.map((state, k) =>
+                                        k === globalIndex
+                                            ? { ...state, progress: 100, status: 'confirming' }
+                                            : state
+                                    )
+                                );
+
+                                return {
+                                    upload_id: upload.upload_id,
+                                    s3_key: upload.s3_key,
+                                    original_filename: upload.original_filename,
+                                    content_type: upload.content_type,
+                                    group: f.type || options.group,
+                                    slot: f.slot,
+                                    service_id: options.serviceId,
+                                    is_featured: f.is_featured,
+                                    is_admin_approved: f.is_admin_approved,
+                                    is_agent_approved: f.is_agent_approved,
+                                    is_show: f.is_show,
+                                };
+                            } catch (error) {
+                                setUploadStates((prev) =>
+                                    prev.map((state, k) =>
+                                        k === globalIndex
+                                            ? {
+                                                ...state,
+                                                status: 'error',
+                                                error: error instanceof Error ? error.message : 'Upload failed',
+                                            }
+                                            : state
+                                    )
+                                );
+                                throw error;
+                            }
+                        }));
+                        batchUploadedFiles.push(...results);
+                    }
+
+                    // Step 3: Confirm this batch of uploads
+                    const confirmResponse = await S3UploadService.confirmUpload({
+                        entity_type: options.entityType,
+                        entity_id: overrideEntityId || options.entityId,
+                        tour_id: options.tourId,
+                        uploads: batchUploadedFiles,
+                    });
+
+                    if (!confirmResponse.success) {
+                        throw new Error('Failed to confirm uploads for batch');
+                    }
+
+                    // Update states for this batch to complete
+                    const batchStart = i;
+                    const batchEnd = i + batch.length;
                     setUploadStates((prev) =>
-                        prev.map((state, i) =>
-                            i === index
-                                ? {
-                                    ...state,
-                                    uploadId: upload.upload_id,
-                                    s3Key: upload.s3_key,
-                                    status: 'uploading',
-                                }
-                                : state
+                        prev.map((state, k) =>
+                            k >= batchStart && k < batchEnd ? { ...state, status: 'complete' } : state
                         )
                     );
 
-                    try {
-                        await S3UploadService.uploadToS3(
-                            upload.presigned_url,
-                            file,
-                            upload.content_type,
-                            (progress) => {
-                                setUploadStates((prev) =>
-                                    prev.map((state, i) =>
-                                        i === index ? { ...state, progress } : state
-                                    )
-                                );
-                            }
-                        );
-
-                        // Update state: upload complete, waiting for confirmation
-                        setUploadStates((prev) =>
-                            prev.map((state, i) =>
-                                i === index
-                                    ? { ...state, progress: 100, status: 'confirming' }
-                                    : state
-                            )
-                        );
-
-                        return {
-                            upload_id: upload.upload_id,
-                            s3_key: upload.s3_key,
-                            original_filename: upload.original_filename,
-                            content_type: upload.content_type,
-                            group: options.group,
-                            service_id: options.serviceId,
-                            is_featured: f.is_featured,
-                            is_admin_approved: f.is_admin_approved,
-                            is_agent_approved: f.is_agent_approved,
-                            is_show: f.is_show,
-                        };
-                    } catch (error) {
-                        // Update state: error
-                        setUploadStates((prev) =>
-                            prev.map((state, i) =>
-                                i === index
-                                    ? {
-                                        ...state,
-                                        status: 'error',
-                                        error:
-                                            error instanceof Error
-                                                ? error.message
-                                                : 'Upload failed',
-                                    }
-                                    : state
-                            )
-                        );
-                        throw error;
-                    }
-                });
-
-                const uploadedFiles = await Promise.all(uploadPromises);
-
-                // Step 3: Confirm uploads with backend
-                const confirmResponse = await S3UploadService.confirmUpload({
-                    entity_type: options.entityType,
-                    entity_id: options.entityId,
-                    tour_id: options.tourId,
-                    uploads: uploadedFiles,
-                });
-
-                if (!confirmResponse.success) {
-                    throw new Error('Failed to confirm uploads');
+                    allConfirmedFiles.push(...confirmResponse.data.files);
                 }
-
-                // Update all states to complete
-                setUploadStates((prev) =>
-                    prev.map((state) => ({ ...state, status: 'complete' }))
-                );
 
                 setIsUploading(false);
 
                 return {
                     success: true,
-                    files: confirmResponse.data.files,
+                    files: allConfirmedFiles,
                 };
             } catch (error) {
                 setIsUploading(false);

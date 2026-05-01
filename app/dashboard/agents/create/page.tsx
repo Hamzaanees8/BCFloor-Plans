@@ -10,7 +10,9 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
 import { AgentPayload, CreateAgent, EditAgent, GetOne, GetRole } from '../agents'
-import { GetAgentAudios, UploadAgentAudio, DeleteAgentAudio, AgentAudio } from '../agent-audio'
+import { GetOrganizations, Organization } from '../../global-settings/global-settings'
+import { GetAgentAudios, DeleteAgentAudio, AgentAudio } from '../agent-audio'
+import { uploadAudioFile } from '@/lib/upload/audio-upload'
 import { useParams, useRouter } from 'next/navigation'
 import { Pencil, Plus, X } from 'lucide-react'
 //import PaymentDialog from '@/components/PaymentDialog'
@@ -28,6 +30,7 @@ import AgentDiscount from '@/components/AgentDiscount'
 import SubAccountsTable from '../components/SubAccountsTable'
 import { Listings } from '@/lib/types'
 import Link from 'next/link'
+import { useS3Upload } from '@/hooks/useS3Upload'
 // interface PaymentCard {
 //     uuid: string;
 //     type: 'visa' | 'mastercard' | 'amex';
@@ -74,6 +77,13 @@ type CurrentAgent = {
         file_name: string;
         type: string;
     }[];
+    company_logos_urls?: {
+        path: string;
+        url: string;
+        type?: string;
+        file_name?: string;
+        uuid?: string;
+    }[];
     status: boolean;
     payment_status: string;
     requires_payment: boolean;
@@ -117,6 +127,9 @@ const SERVICE_LOGO_TYPES = [
 ];
 
 const AgentForm = () => {
+    const params = useParams();
+    const userId = params?.id as string;
+    const router = useRouter();
     const { userType } = useAppContext();
     const [currentUser, setCurrentUser] = useState<CurrentAgent | null>(null);
     const headerRef = useRef<HTMLDivElement>(null);
@@ -180,11 +193,18 @@ const AgentForm = () => {
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [companyBannerFile, setCompanyBannerFile] = useState<File | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+    const [organizations, setOrganizations] = useState<Organization[]>([]);
+    const [organizationId, setOrganizationId] = useState<string>("");
     const [isTourMediaEnabled, setIsTourMediaEnabled] = useState<boolean>(true);
     const [mp3File, setMp3File] = useState<File | null>(null);
     const [selectedMp3, setSelectedMp3] = useState<string>(""); // Now stores UUID for custom audios
     const mp3FileInputRef = useRef<HTMLInputElement>(null);
     const [agentAudios, setAgentAudios] = useState<AgentAudio[]>([]);
+    
+    const { uploadFiles } = useS3Upload({
+        entityType: 'agent',
+        entityId: userId || '', // Will be updated dynamically for new agents
+    });
 
     const [availableMp3s, setAvailableMp3s] = useState<{ id: string; name: string; url: string }[]>([
         { id: 'tell-me-what', name: 'Tell-me-what', url: '/audio/tell-me-what.mp3' },
@@ -298,9 +318,6 @@ const AgentForm = () => {
         setPassword("");
     };
 
-    const params = useParams();
-    const userId = params?.id as string;
-    const router = useRouter()
     useEffect(() => {
         const token = localStorage.getItem("token");
 
@@ -338,6 +355,9 @@ const AgentForm = () => {
                 })
                 .catch(err => console.log(err.message));
 
+            GetOrganizations()
+                .then(res => setOrganizations(Array.isArray(res.data) ? res.data : []))
+                .catch(err => console.log('Failed to fetch organizations', err));
         }
     }, [userType]);
 
@@ -374,12 +394,22 @@ const AgentForm = () => {
             setIsPaymentRequired(currentUser.requires_payment)
             setAvatarFileName(currentUser.avatar || "")
             setCompanyBannerFileName(currentUser.company_banner || "")
-            if (currentUser.avatar_url) setAvatarUrl(currentUser.avatar_url);
-            if (currentUser.company_logos_data && Array.isArray(currentUser.company_logos_data)) {
-                setCompanyLogos(currentUser.company_logos_data.map(logo => ({
+            if (currentUser.company_logo_url) {
+                setAvatarUrl(currentUser.company_logo_url);
+            } else if (currentUser.avatar_url) {
+                setAvatarUrl(currentUser.avatar_url);
+            }
+            
+            // Prioritize company_logos_urls for the gallery/list as it handles S3 URL generation and fallback logic
+            const logosSource = currentUser.company_logos_urls && currentUser.company_logos_urls.length > 0 
+                ? currentUser.company_logos_urls 
+                : currentUser.company_logos_data;
+                
+            if (logosSource && Array.isArray(logosSource)) {
+                setCompanyLogos(logosSource.map((logo: any) => ({
                     uuid: logo.uuid,
-                    url: logo.file_url,
-                    fileName: logo.file_name,
+                    url: logo.url || logo.file_url,
+                    fileName: logo.file_name || 'Logo',
                     type: logo.type || 'General'
                 })));
             }
@@ -404,6 +434,9 @@ const AgentForm = () => {
                 });
             }
             setAgentNotes(currentUser.notes || "")
+            if (currentUser.organization_id) {
+                setOrganizationId(String(currentUser.organization_id));
+            }
 
             // Use setTimeout to ensure all state updates and DOM updates complete.
             // 300ms covers cascading async effects triggered by state changes above.
@@ -503,7 +536,13 @@ const AgentForm = () => {
 
         if (idToUse) {
             GetOne(idToUse)
-                .then(data => setCurrentUser(data.data))
+                .then(data => {
+                    setCurrentUser(data.data);
+                    // Pre-select organization from logged in user if not in edit mode
+                    if (!userId && data.data?.organization_id) {
+                        setOrganizationId(String(data.data.organization_id));
+                    }
+                })
                 .catch(err => console.log(err.message));
         } else {
             console.log('Agent ID is undefined.');
@@ -595,13 +634,12 @@ const AgentForm = () => {
                 company_name: companyName || undefined,
                 website: formattedWebsite || undefined,
                 password: userId ? undefined : (password || undefined),
-                avatar: avatarFile || undefined,
+                // Pass existing logos to maintain their state (deletions, type changes).
+                // Files are handled via S3 upload after agent creation/update.
                 company_logos: companyLogos.map(logo => ({
-                    file: logo.file,
                     type: logo.type,
                     uuid: logo.uuid
                 })),
-                company_banner: companyBannerFile || undefined,
                 role_id: role ? Number(role) : undefined,
                 notes: agentNotes,
                 headquarter_address: headquarterAddress,
@@ -610,6 +648,7 @@ const AgentForm = () => {
                 co_agents: sanitizedCoAgents,
                 requires_payment: isPaymentRequired ? 1 : 0,
                 agent_discount: agentDiscount || null,
+                organization_id: organizationId && organizationId !== "none" ? Number(organizationId) : undefined,
             };
 
             let agentUuid: string | null = null;
@@ -626,18 +665,57 @@ const AgentForm = () => {
                 toast.success('Agent created successfully');
             }
 
+            // S3 direct upload for logos and banners
+            if (agentUuid) {
+                const filesToUpload: { file: File; slot: string; type?: string }[] = [];
+                
+                // Add avatar
+                if (avatarFile) {
+                    filesToUpload.push({ file: avatarFile, slot: 'company_logo' });
+                }
+                
+                // Add banner
+                if (companyBannerFile) {
+                    filesToUpload.push({ file: companyBannerFile, slot: 'company_banner' });
+                }
+                
+                // Add company logos
+                // Only upload files that have a valid File object (newly added ones)
+                companyLogos.forEach(logo => {
+                    if (logo.file) {
+                        filesToUpload.push({ file: logo.file, slot: 'company_logos', type: logo.type });
+                    }
+                });
+
+                if (filesToUpload.length > 0) {
+                    try {
+                        await uploadFiles(filesToUpload, agentUuid);
+                        toast.success('Logos uploaded successfully');
+                    } catch (error) {
+                        console.error('Failed to upload logos:', error);
+                        toast.error('Agent saved but logo upload failed');
+                    }
+                }
+            }
+
             // Upload audio file if selected and agent UUID is available
             console.log('Audio upload check:', { mp3File, agentUuid, selectedMp3 });
             if (mp3File && agentUuid) {
                 console.log('Attempting to upload audio...');
                 try {
-                    const uploadResult = await UploadAgentAudio({
-                        agent_id: agentUuid,
-                        audio: mp3File,
-                        name: mp3File.name
+                    const uploadResult = await uploadAudioFile({
+                        entityType: 'agent-audio',
+                        entityId: agentUuid,
+                        file: mp3File
                     });
-                    console.log('Audio upload result:', uploadResult);
-                    toast.success('Audio uploaded successfully');
+                    
+                    if (uploadResult.success) {
+                        console.log('Audio upload result:', uploadResult);
+                        toast.success('Audio uploaded successfully');
+                    } else {
+                        console.error('Failed to upload audio:', uploadResult.error);
+                        toast.error(uploadResult.error || 'Agent saved but audio upload failed');
+                    }
                 } catch (audioError) {
                     console.error('Failed to upload audio:', audioError);
                     toast.error('Agent saved but audio upload failed');
@@ -863,34 +941,63 @@ const AgentForm = () => {
                                                     {fieldErrors.last_name && <p className='text-red-500 text-[10px]'>{fieldErrors.last_name[0]}</p>}
                                                 </div>
                                                 {userType !== 'agent' && (
-                                                    <div className='col-span-2 hidden'>
-                                                        <label htmlFor="">Role <span className="text-red-500">*</span></label>
-                                                        <Select
-                                                            value={String(role)}
-                                                            onValueChange={(val) => {
-                                                                setRole(val);
-                                                                if (hasInitiallyRendered.current) setIsDirty(true);
-                                                                if (fieldErrors.role_id) {
-                                                                    const newErrors = { ...fieldErrors };
-                                                                    delete newErrors.role_id;
-                                                                    setFieldErrors(newErrors);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <SelectTrigger className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.role_id ? 'border-red-500' : 'border-[#BBBBBB]'}`}>
-                                                                <SelectValue placeholder="Select a role" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {roles?.map((role) => (
-                                                                    <SelectItem key={role.id} value={String(role.id)}>
-                                                                        {role.name}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-
-                                                        {fieldErrors.role_id && <p className='text-red-500 text-[10px]'>{fieldErrors.role_id[0]}</p>}
-                                                    </div>
+                                                    <>
+                                                        <div className='col-span-2'>
+                                                            <label htmlFor="">Role <span className="text-red-500">*</span></label>
+                                                            <Select
+                                                                value={String(role)}
+                                                                onValueChange={(val) => {
+                                                                    setRole(val);
+                                                                    if (hasInitiallyRendered.current) setIsDirty(true);
+                                                                    if (fieldErrors.role_id) {
+                                                                        const newErrors = { ...fieldErrors };
+                                                                        delete newErrors.role_id;
+                                                                        setFieldErrors(newErrors);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <SelectTrigger className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.role_id ? 'border-red-500' : 'border-[#BBBBBB]'}`}>
+                                                                    <SelectValue placeholder="Select a role" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {roles?.map((role) => (
+                                                                        <SelectItem key={role.id} value={String(role.id)}>
+                                                                            {role.name}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            {fieldErrors.role_id && (
+                                                                <p className='text-red-500 text-[10px]'>{fieldErrors.role_id[0]}</p>
+                                                            )}
+                                                        </div>
+                                                        <div className='col-span-2'>
+                                                            <label htmlFor="">Organization</label>
+                                                            <Select
+                                                                value={organizationId}
+                                                                onValueChange={(val) => {
+                                                                    setOrganizationId(val);
+                                                                    if (hasInitiallyRendered.current) {
+                                                                        setIsDirty(true);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <SelectTrigger
+                                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                                >
+                                                                    <SelectValue placeholder="Select an organization" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="none">None (Global)</SelectItem>
+                                                                    {organizations?.map((org) => (
+                                                                        <SelectItem key={org.id} value={String(org.id)}>
+                                                                            {org.name}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    </>
                                                 )}
                                                 <div className='col-span-2'>
                                                     <label htmlFor="">Email <span className="text-red-500">*</span></label>
@@ -917,7 +1024,7 @@ const AgentForm = () => {
 
                                                     {fieldErrors.email_cc && <p className='text-red-500 text-[10px]'>{fieldErrors.email_cc[0]}</p>}
                                                 </div>
-                                                {!currentUser && (
+                                                {!userId && (
                                                     <div className='col-span-2'>
                                                         <label htmlFor="">Password <span className="text-red-500">*</span></label>
                                                         <Input

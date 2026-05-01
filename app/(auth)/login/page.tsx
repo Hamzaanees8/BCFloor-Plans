@@ -1,5 +1,5 @@
 
-import Image from 'next/image'
+import WhitelabelLogo from '@/components/WhitelabelLogo'
 import Link from 'next/link'
 import React from 'react'
 
@@ -7,12 +7,7 @@ function page() {
     return (
         <div className='px-[40px] md:px-0 w-full flex justify-center items-start pt-[80px]'>
             <div className='w-[410px] flex flex-col gap-[25px]'>
-                <Image
-                    src="/bcfloor.png"
-                    alt="logo"
-                    width={180}
-                    height={100}
-                    className="mx-auto" />
+                <WhitelabelLogo width={180} height={100} />
 
                 <Link href={'#'} className='hidden flex justify-center items-center bg-[#4290E9] hover:bg-[#357AD1] rounded-[6px] h-[44px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <Link href={'/login-user'} className='flex justify-center items-center bg-[#fff] hover:bg-[#4290E9] hover:text-[#fff]  border-[1px] border-[#4290E9] text-[#4290E9] rounded-[6px] h-[44px] font-[600] text-[20px]'>Continue with Email</Link>

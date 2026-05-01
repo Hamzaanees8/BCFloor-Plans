@@ -564,7 +564,7 @@ const Page = () => {
             id: "actions",
             enableHiding: false,
             cell: ({ row }: { row: Row<Order> }) => {
-                const canEdit = (hasPermission(PERMISSIONS.EDIT_APPOINTMENTS));
+                const canEdit = userType === "agent" || (hasPermission(PERMISSIONS.EDIT_APPOINTMENTS) || hasPermission(PERMISSIONS.EDIT_ORDERS));
 
                 const options = [
                     ...(canEdit ? [{

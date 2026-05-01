@@ -23,7 +23,8 @@ import { useOrderContext } from "../context/OrderContext";
 import EditAppointmentTab from "../../calendar/components/EditAppointmentTab";
 import EditSquareFootage from "../../calendar/components/EditSquareFootage";
 import { Services } from "../../services/page";
-import { getEffectiveServiceDuration } from "../utils/serviceTimeUtils";
+import { getEffectiveServiceDuration, splitSlotInto15MinChunks } from "../utils/serviceTimeUtils";
+import { UpdatePropertySquareFootage } from "../../listings/listing";
 
 interface OrderDetailViewProps {
     open: boolean;
@@ -158,13 +159,184 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
     useEffect(() => {
         if (open && currentOrder) {
             setOrderServices(currentOrder.services || []);
+            setArea(currentOrder.areas || []);
+
+            const allSlots = (currentOrder.slots || []).flatMap((slot: any) => {
+                const chunks = splitSlotInto15MinChunks(slot.start_time, slot.end_time);
+                return chunks.map(chunk => ({
+                    ...slot,
+                    start_time: chunk.start_time,
+                    end_time: chunk.end_time,
+                }));
+            });
+            setSelectedSlots(allSlots);
         }
-    }, [open, currentOrder, setOrderServices]);
+    }, [open, currentOrder, setOrderServices, setSelectedSlots]);
+
+    // Sync service options with square footage when area changes
+    useEffect(() => {
+        if (area.length === 0) return;
+
+        const finishedTotal = area
+            .filter((a) => a.category === "Finished" || a.type === "Finished")
+            .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
+        const subtotalTotal = area
+            .filter((a) => a.category === "Subtotal" || a.type === "Subtotal")
+            .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
+        const grandTotal = finishedTotal + subtotalTotal;
+
+        if (grandTotal === 0) return;
+
+        const calculatePrice = (option: any, sqFt: number) => {
+            if (option?.sq_ft_rate && parseFloat(String(option.sq_ft_rate)) > 0) {
+                const calculated = parseFloat(String(option.sq_ft_rate)) * sqFt;
+                return option.min_price
+                    ? Math.max(calculated, parseFloat(String(option.min_price)))
+                    : calculated;
+            }
+            return parseFloat(String(option?.amount || 0));
+        };
+
+        // Update OrderServices
+        setOrderServices((prev) => {
+            let changed = false;
+            const updated = prev.map((os) => {
+                const service = contextServicesData.find((s) => s.uuid === os.service?.uuid);
+                if (!service) return os;
+
+                const name = service.name?.toLowerCase() || '';
+                const cat = service.category?.name?.toLowerCase() || '';
+                const keywords = ['photo', 'twilight', 'hdr', 'still', 'drone', 'video', 'pano', 'matterport'];
+                const isPhotoService = keywords.some(k => name.includes(k) || cat.includes(k));
+
+                // Skip switching if it's a photo service or custom option,
+                // but still update price if it uses sq_ft_rate
+                const currentOption = os.option;
+                if (isPhotoService || os.option_id === "custom") {
+                    const newPrice = calculatePrice(currentOption, grandTotal).toFixed(2);
+                    if (os.amount !== newPrice) {
+                        changed = true;
+                        return { ...os, amount: newPrice };
+                    }
+                    return os;
+                }
+
+                let isCurrentValid = true;
+                if (currentOption?.sq_ft_range) {
+                    const [minStr, maxStr] = currentOption.sq_ft_range.split("-").map((s) => s.trim());
+                    const min = parseInt(minStr, 10);
+                    const max = parseInt(maxStr, 10);
+                    if (!isNaN(min) && !isNaN(max)) {
+                        isCurrentValid = grandTotal >= min && grandTotal <= max;
+                    }
+                }
+
+                if (isCurrentValid) {
+                    const newPrice = calculatePrice(currentOption, grandTotal).toFixed(2);
+                    if (os.amount !== newPrice) {
+                        changed = true;
+                        return { ...os, amount: newPrice };
+                    }
+                    return os;
+                }
+
+                const correctOption = service.product_options?.find((opt) => {
+                    if (!opt.sq_ft_range) return false;
+                    const [minStr, maxStr] = opt.sq_ft_range.split("-").map((s) => s.trim());
+                    const min = parseInt(minStr, 10);
+                    const max = parseInt(maxStr, 10);
+                    return !isNaN(min) && !isNaN(max) && grandTotal >= min && grandTotal <= max;
+                });
+
+                if (correctOption) {
+                    changed = true;
+                    return {
+                        ...os,
+                        option_id: correctOption.uuid,
+                        option: correctOption,
+                        amount: calculatePrice(correctOption, grandTotal).toFixed(2),
+                        optionName: correctOption.title
+                    };
+                }
+                return os;
+            });
+            return changed ? updated : prev;
+        });
+
+        // Update calendarServices
+        setCalendarServices((prev) => {
+            let changed = false;
+            const updated = prev.map((cs) => {
+                const service = contextServicesData.find((s) => s.id === cs.serviceId);
+                if (!service) return cs;
+
+                const name = service.name?.toLowerCase() || '';
+                const cat = service.category?.name?.toLowerCase() || '';
+                const keywords = ['photo', 'twilight', 'hdr', 'still', 'drone', 'video', 'pano', 'matterport'];
+                const isPhotoService = keywords.some(k => name.includes(k) || cat.includes(k));
+
+                const currentOption = service.product_options?.find((opt) => opt.uuid === cs.optionId);
+
+                if (isPhotoService || cs.optionId === "custom") {
+                    const newPrice = calculatePrice(currentOption, grandTotal).toFixed(2);
+                    if (cs.price !== newPrice) {
+                        changed = true;
+                        return { ...cs, price: newPrice };
+                    }
+                    return cs;
+                }
+
+                let isCurrentValid = true;
+                if (currentOption?.sq_ft_range) {
+                    const [minStr, maxStr] = currentOption.sq_ft_range.split("-").map((s) => s.trim());
+                    const min = parseInt(minStr, 10);
+                    const max = parseInt(maxStr, 10);
+                    if (!isNaN(min) && !isNaN(max)) {
+                        isCurrentValid = grandTotal >= min && grandTotal <= max;
+                    }
+                }
+
+                if (isCurrentValid) {
+                    const newPrice = calculatePrice(currentOption, grandTotal).toFixed(2);
+                    if (cs.price !== newPrice) {
+                        changed = true;
+                        return { ...cs, price: newPrice };
+                    }
+                    return cs;
+                }
+
+                const correctOption = service.product_options?.find((opt) => {
+                    if (!opt.sq_ft_range) return false;
+                    const [minStr, maxStr] = opt.sq_ft_range.split("-").map((s) => s.trim());
+                    const min = parseInt(minStr, 10);
+                    const max = parseInt(maxStr, 10);
+                    return !isNaN(min) && !isNaN(max) && grandTotal >= min && grandTotal <= max;
+                });
+
+                if (correctOption) {
+                    changed = true;
+                    return {
+                        ...cs,
+                        optionId: correctOption.uuid,
+                        price: calculatePrice(correctOption, grandTotal).toFixed(2)
+                    };
+                }
+                return cs;
+            });
+            return changed ? updated : prev;
+        });
+    }, [area, contextServicesData, setOrderServices, setCalendarServices]);
     const handleSubmitOrder = async (e: React.MouseEvent<HTMLButtonElement>) => {
         setIsLoading(true);
         e.preventDefault()
 
-        const sqFt = currentOrder?.property?.square_footage;
+        const finishedTotal = area
+            .filter((a) => a.category === "Finished" || a.type === "Finished")
+            .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
+        const subtotalTotal = area
+            .filter((a) => a.category === "Subtotal" || a.type === "Subtotal")
+            .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
+        const sqFt = finishedTotal + subtotalTotal || currentOrder?.property?.square_footage;
         const hasValidSqFt = sqFt !== undefined;
 
         const allServicesForValidation = [
@@ -193,7 +365,20 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
             const serviceSlots = selectedSlots.filter((slot) => slot.service_id === srv.uuid);
             const allocatedDuration = serviceSlots.length * 15;
 
+            // Check if service has any slots in the past
+            const hasPastSlots = serviceSlots.some((slot) => {
+                try {
+                    const slotDate = new Date(`${slot.date} ${slot.start_time}`);
+                    return slotDate < new Date();
+                } catch (e) {
+                    return false;
+                }
+            });
+
             if (requiredDuration > 0 && allocatedDuration < requiredDuration) {
+                if (hasPastSlots) {
+                    continue;
+                }
                 const slotsNeeded = Math.ceil((requiredDuration - allocatedDuration) / 15);
                 toast.error(`Please add ${slotsNeeded} more slot(s) for "${srv.title}". Required: ${requiredDuration} min, Selected: ${allocatedDuration} min`);
                 setIsLoading(false);
@@ -286,6 +471,42 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
 
 
             if (response?.success) {
+                // Calculate grand total of square footage
+                const finishedTotal = area
+                    .filter((a) => a.category === "Finished" || a.type === "Finished")
+                    .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
+                const subtotalTotal = area
+                    .filter((a) => a.category === "Subtotal" || a.type === "Subtotal")
+                    .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
+                const grandTotal = finishedTotal + subtotalTotal;
+
+                // Update property square footage
+                if (currentOrder?.property?.uuid) {
+                    try {
+                        await UpdatePropertySquareFootage(currentOrder.property.uuid, grandTotal, area, {
+                            agent_id: currentOrder?.agent?.uuid,
+                            address: currentOrder?.property?.address,
+                            city: currentOrder?.property?.city,
+                            province: currentOrder?.property?.province,
+                            country: currentOrder?.property?.country,
+                            listing_price: Number(currentOrder?.property?.listing_price),
+                            mls_number: currentOrder?.property?.mls_number,
+                            bedrooms: Number(currentOrder?.property?.bedrooms),
+                            bathrooms: Number(currentOrder?.property?.bathrooms),
+                            lot_size: currentOrder?.property?.lot_size,
+                            year_constructed: Number(currentOrder?.property?.year_constructed),
+                            parking_spots: Number(currentOrder?.property?.parking_spots),
+                            property_type: currentOrder?.property?.property_type,
+                            property_status: currentOrder?.property?.property_status,
+                            heading: currentOrder?.property?.heading,
+                            description: currentOrder?.property?.description,
+                        });
+                        toast.success("Property square footage updated");
+                    } catch (error) {
+                        console.error("Failed to update property square footage:", error);
+                    }
+                }
+
                 toast.success('Order updated successfully');
                 // onClose()
                 // setOrderServices([])
@@ -322,57 +543,76 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="max-w-3xl px-[10px] h-[90vh] [&>button]:hidden font-alexandria font-[400] overflow-x-auto">
-                <DialogHeader>
-                    <div className="flex justify-between items-center">
-                        <DialogTitle className={`${userType}-text text-[24px] font-alexandria font-[400]`}>{currentOrder?.property_address}, {currentOrder?.property_location}&nbsp;&nbsp;&nbsp;›&nbsp;&nbsp;&nbsp;Order #{currentOrder?.id}</DialogTitle>
+            <DialogContent className="max-w-3xl h-[95vh] flex flex-col p-0 [&>button]:hidden font-alexandria font-[400] overflow-hidden">
+                <div className="px-6 pt-6">
+                    <DialogHeader>
+                        <div className="flex justify-between items-center">
+                            <DialogTitle className={`${userType}-text text-[24px] font-alexandria font-[400]`}>{currentOrder?.property_address}, {currentOrder?.property_location}&nbsp;&nbsp;&nbsp;›&nbsp;&nbsp;&nbsp;Order #{currentOrder?.id}</DialogTitle>
 
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                                onClose()
-                                setOrderServices([])
-                                setSelectedSlots([])
-                                setCalendarServices([])
-                            }}
-                            className="hover:bg-transparent text-gray-500 hover:text-black"
-                        >
-                            <X className="h-5 w-5" />
-                        </Button>
-                    </div>
-                    <div>
-                        <div className="flex gap-4 pb-[20px] border-b-[1px] border-b-[#BBBBBB] mt-4 text-[#666666]">
                             <Button
-                                variant={activeTab === 'appointment' ? 'default' : 'outline'}
-                                onClick={() => setActiveTab('appointment')}
-                                className={`${activeTab === 'appointment' ? `${userType}-bg text-white` : 'bg-[#E4E4E4]'} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                    onClose()
+                                    setOrderServices([])
+                                    setSelectedSlots([])
+                                    setCalendarServices([])
+                                }}
+                                className="hover:bg-transparent text-gray-500 hover:text-black"
                             >
-                                Appointment
-                            </Button>
-                            <Button
-                                variant={activeTab === 'square_footage' ? 'default' : 'outline'}
-                                onClick={() => setActiveTab('square_footage')}
-                                className={`${activeTab === 'square_footage' ? `${userType}-bg text-white` : 'bg-[#E4E4E4]'} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
-                            >
-                                Square Footage
-                            </Button>
-                            <Button
-                                variant={activeTab === 'history' ? 'default' : 'outline'}
-                                onClick={() => setActiveTab('history')}
-                                className={`${activeTab === 'history' ? `${userType}-bg text-white` : 'bg-[#E4E4E4]'} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
-
-                            >
-                                History
+                                <X className="h-5 w-5" />
                             </Button>
                         </div>
+                        <div>
+                            <div className="flex gap-4 pb-[20px] border-b-[1px] border-b-[#BBBBBB] mt-4 text-[#666666]">
+                                <Button
+                                    variant={activeTab === 'appointment' ? 'default' : 'outline'}
+                                    onClick={() => setActiveTab('appointment')}
+                                    className={`${activeTab === 'appointment' ? `${userType}-bg text-white` : 'bg-[#E4E4E4]'} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
+                                >
+                                    Appointment
+                                </Button>
+                                <Button
+                                    variant={activeTab === 'square_footage' ? 'default' : 'outline'}
+                                    onClick={() => setActiveTab('square_footage')}
+                                    className={`${activeTab === 'square_footage' ? `${userType}-bg text-white` : 'bg-[#E4E4E4]'} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
+                                >
+                                    Square Footage
+                                </Button>
+                                <Button
+                                    variant={activeTab === 'history' ? 'default' : 'outline'}
+                                    onClick={() => setActiveTab('history')}
+                                    className={`${activeTab === 'history' ? `${userType}-bg text-white` : 'bg-[#E4E4E4]'} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
 
-                    </div>
-                </DialogHeader>
-                <div className="p-4 overflow-y-auto max-h-[80vh] px-2">
+                                >
+                                    History
+                                </Button>
+                            </div>
+
+                        </div>
+                    </DialogHeader>
+                </div>
+                <div className="flex-1 overflow-y-auto px-6 py-4">
                     {activeTab === 'appointment' && userType !== 'vendor' && (
                         <EditAppointmentTab
-                            currentOrder={currentOrder} serviceId={serviceId} agentData={agentData} notes={notes} setNotes={setNotes} coAgent={coAgent} setCoAgent={setCoAgent} updateInvoice={updateInvoice} setUpdateInvoice={setUpdateInvoice}
+                            currentOrder={currentOrder}
+                            serviceId={serviceId}
+                            agentData={agentData}
+                            notes={notes}
+                            setNotes={setNotes}
+                            coAgent={coAgent}
+                            setCoAgent={setCoAgent}
+                            updateInvoice={updateInvoice}
+                            setUpdateInvoice={setUpdateInvoice}
+                            totalSquareFootage={(() => {
+                                const finishedTotal = area
+                                    .filter((a) => a.category === "Finished" || a.type === "Finished")
+                                    .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
+                                const subtotalTotal = area
+                                    .filter((a) => a.category === "Subtotal" || a.type === "Subtotal")
+                                    .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
+                                return finishedTotal + subtotalTotal || currentOrder?.property?.square_footage;
+                            })()}
                         />
                     )}
                     {activeTab === 'square_footage' && (
@@ -383,32 +623,30 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                     {activeTab === 'history' && (
                         <HistoryTab currentOrder={currentOrder} servicesData={contextServicesData} />
                     )}
-                    <div className="w-full flex justify-end gap-[10px] mt-[40px]">
-                        <Button
-                            onClick={() => {
-                                onClose()
-                            }}
-                            className={`bg-transparent border-[1px] text-[14px] flex justify-center items-center ${userType}-border ${userType}-text  w-[132px] h-[42px] ${userType}-button hover-${userType}-bg`}
+                </div>
+                <div className="p-6 pt-4 border-t flex justify-end gap-[10px]">
+                    <Button
+                        onClick={() => {
+                            onClose()
+                        }}
+                        className={`bg-transparent border-[1px] text-[14px] flex justify-center items-center ${userType}-border ${userType}-text  w-[132px] h-[42px] ${userType}-button hover-${userType}-bg`}
 
-                        >
+                    >
 
-                            Close
-                        </Button>
-                        <Button
-                            onClick={async (e) => {
-                                const success = await handleSubmitOrder(e);
-                                if (success) {
-                                    setShowConfirmation(true);
-                                }
-                            }}
-                            className={`${userType}-bg ${userType}-border text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff]  w-[132px] h-[42px] hover:text-white hover-${userType}-bg hover:opacity-95`}
+                        Close
+                    </Button>
+                    <Button
+                        onClick={async (e) => {
+                            const success = await handleSubmitOrder(e);
+                            if (success) {
+                                setShowConfirmation(true);
+                            }
+                        }}
+                        className={`${userType}-bg ${userType}-border text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff]  w-[132px] h-[42px] hover:text-white hover-${userType}-bg hover:opacity-95`}
 
-                        >
-                            {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Save Changes"}
-                        </Button>
-                    </div>
-
-
+                    >
+                        {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Save Changes"}
+                    </Button>
                 </div>
             </DialogContent>
             <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>

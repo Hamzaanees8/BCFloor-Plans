@@ -34,11 +34,51 @@ export const metadata: Metadata = {
   description: "BC Floor",
 };
 
-export default function RootLayout({
+import { headers } from "next/headers";
+
+interface WhitelabelInfo {
+  name: string;
+  logo: string;
+  primary_color: string;
+  secondary_color: string;
+  is_whitelabel: boolean;
+}
+
+async function getWhitelabelInfo(slug: string): Promise<WhitelabelInfo | null> {
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com';
+    const res = await fetch(`${apiUrl}/api/v1/organizations/whitelabel-info?slug=${slug}`, {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch (error) {
+    return null;
+  }
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headersList = await headers();
+  const host = headersList.get("host") || "";
+  const subdomain = host.split(".")[0];
+  
+  const reservedSubdomains = ['dev', 'stage', 'admin', 'teams-new', 'booking-new', 'vendore-new', 'localhost:3000', 'localhost'];
+  let whitelabelData: WhitelabelInfo | null = null;
+  
+  if (subdomain && !reservedSubdomains.includes(subdomain)) {
+    whitelabelData = await getWhitelabelInfo(subdomain);
+  }
+
+  const brandedStyle = whitelabelData?.is_whitelabel ? {
+    '--primary-color': whitelabelData.primary_color || '#6BAE41',
+    '--secondary-color': whitelabelData.secondary_color || '#DC9600',
+    '--logo-url': whitelabelData.logo ? `url(${whitelabelData.logo})` : 'none',
+  } as React.CSSProperties : {};
+
   return (
     <html lang="en">
       <head>
@@ -53,21 +93,23 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${alexandria.variable} ${raleway.variable} antialiased`}
         suppressHydrationWarning
       >
-        <GlobalFileUploadProvider>
-          <GlobalDownloadProvider>
-            <UploadQueueProvider>
-              <OrderProvider>
-                <AppProvider>
-                  {children}
-                  <UploadProgressToast />
-                  <GlobalUploadProgressOverlay />
-                  <GlobalDownloadProgressOverlay />
-                  <Toaster position="bottom-right" />
-                </AppProvider>
-              </OrderProvider>
-            </UploadQueueProvider>
-          </GlobalDownloadProvider>
-        </GlobalFileUploadProvider>
+        <div id="global-whitelabel-root" style={brandedStyle}>
+          <GlobalFileUploadProvider>
+            <GlobalDownloadProvider>
+              <UploadQueueProvider>
+                <OrderProvider>
+                  <AppProvider>
+                    {children}
+                    <UploadProgressToast />
+                    <GlobalUploadProgressOverlay />
+                    <GlobalDownloadProgressOverlay />
+                    <Toaster position="bottom-right" />
+                  </AppProvider>
+                </OrderProvider>
+              </UploadQueueProvider>
+            </GlobalDownloadProvider>
+          </GlobalFileUploadProvider>
+        </div>
       </body>
     </html>
   );

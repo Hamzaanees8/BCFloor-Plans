@@ -64,7 +64,7 @@ function PublicTourFloorPlans({
 
 }: PublicTourFloorPlansProps) {
     // Filter out PDF files
-    const filteredFloorPlanFiles = floorPlanFiles.filter(file => file.type !== 'pdf' && !file.file_path.toLowerCase().endsWith('.pdf'));
+    const filteredFloorPlanFiles = floorPlanFiles.filter(file => file.type !== 'pdf' && !file.file_path?.toLowerCase().endsWith('.pdf'));
 
     const [selectedImageId, setSelectedImageId] = useState<string | null>(() => {
         if (filteredFloorPlanFiles?.length > 0) {
@@ -82,7 +82,7 @@ function PublicTourFloorPlans({
     // Utility function to check if a file is a PDF
     const isPDF = (filePath: string): boolean => {
         if (!filePath) return false;
-        return filePath.toLowerCase().endsWith('.pdf');
+        return filePath?.toLowerCase().endsWith('.pdf');
     };
 
     const normalizeName = (filename: string) => {

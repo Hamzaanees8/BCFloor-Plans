@@ -38,6 +38,7 @@ import {
   VerifyGoogleCalendar,
   WorkHours,
 } from "../vendors";
+import { GetOrganizations, Organization } from "../../global-settings/global-settings";
 
 import { Plus, X, Loader2 } from "lucide-react";
 import { PaymentCard } from "@/components/GlobalSettings";
@@ -275,6 +276,8 @@ const VendorForm = () => {
   const [allowConnectStripe, setAllowConnectStripe] = useState<boolean>(true);
   const [payOutsidePlatform, setPayOutsidePlatform] = useState<boolean>(true);
   const [inkilometers, setInKilometers] = useState<boolean>(true);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [organizationId, setOrganizationId] = useState<string>("");
   // const [inmiles, setInMiles] = useState<boolean>(false);
   const router = useRouter();
   const params = useParams();
@@ -387,10 +390,11 @@ const VendorForm = () => {
     }
 
     GetServices()
-      .then((data) => {
-        setServicesData(Array.isArray(data.data) ? data.data : []);
-      })
       .catch((err) => console.log(err.message));
+
+    GetOrganizations()
+      .then((res) => setOrganizations(Array.isArray(res.data) ? res.data : []))
+      .catch((err) => console.log("Failed to fetch organizations", err));
   }, []);
 
   let idToUse: string = "";
@@ -427,6 +431,10 @@ const VendorForm = () => {
       GetOne(idToUse)
         .then((data) => {
           setCurrentUser(data.data);
+          // Pre-select organization from logged in user if not in edit mode
+          if (!userId && data.data?.organization_id) {
+            setOrganizationId(String(data.data.organization_id));
+          }
         })
         .catch((err) => console.log(err.message));
     } else {
@@ -500,6 +508,9 @@ const VendorForm = () => {
         setCompanyLogoFileName(currentUser.company.company_logo || "");
         setCompanyName(currentUser.company.company_name || "");
         setCompanyWebsite(currentUser.company.company_website || "");
+      }
+      if (currentUser.organization_id) {
+        setOrganizationId(String(currentUser.organization_id));
       }
       if (currentUser.portfolio_images) {
         setPortfolioImagesUrl(currentUser.portfolio_images);
@@ -842,6 +853,7 @@ const VendorForm = () => {
             : undefined,
         pay_outside: payOutsidePlatform ? 1 : 0,
         stripe_connect: allowConnectStripe ? 1 : 0,
+        organization_id: organizationId && organizationId !== "none" ? Number(organizationId) : undefined,
       };
       let idToUse: string = "";
 
@@ -1298,6 +1310,34 @@ const VendorForm = () => {
                             </p>
                           )}
                         </div>
+                        {userType !== "vendor" && (
+                          <div className="col-span-2">
+                            <label htmlFor="">Organization</label>
+                            <Select
+                              value={organizationId}
+                              onValueChange={(val) => {
+                                setOrganizationId(val);
+                                if (hasInitiallyRendered.current) {
+                                  setIsDirty(true);
+                                }
+                              }}
+                            >
+                              <SelectTrigger
+                                className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                              >
+                                <SelectValue placeholder="Select an organization" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">None (Global)</SelectItem>
+                                {organizations?.map((org) => (
+                                  <SelectItem key={org.id} value={String(org.id)}>
+                                    {org.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                         <div className="col-span-2">
                           <div className="flex-1">
                             <Label>
