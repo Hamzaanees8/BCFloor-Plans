@@ -69,6 +69,7 @@ export default async function RootLayout({
     'teams-new.bcfloorplans.com',
     'booking-new.bcfloorplans.com',
     'vendor-new.bcfloorplans.com',
+    'main.d1wkf3elpe9tnb.amplifyapp.com',
     'bcfloorplans.com',
     'tujoco.com',
     'localhost:3000',
