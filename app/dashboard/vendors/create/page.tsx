@@ -129,6 +129,7 @@ type CurrentUser = {
   google_refresh_token?: string;
   pay_outside?: boolean;
   stripe_connect?: boolean;
+  organization_id?: number | string;
   // add other fields as needed
 };
 export interface VendorPortfolioImage {
@@ -390,6 +391,7 @@ const VendorForm = () => {
     }
 
     GetServices()
+      .then((res) => setServicesData(res.data))
       .catch((err) => console.log(err.message));
 
     GetOrganizations()

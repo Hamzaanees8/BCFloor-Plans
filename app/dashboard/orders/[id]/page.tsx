@@ -1315,7 +1315,7 @@ function Page() {
                                     borderColor: roleSettings.pageTabColor,
                                   }}
                                 >
-                                  Co-agent's Payment
+                                  Co-agent&apos;s Payment
                                 </Button>
                               )}
                             </>

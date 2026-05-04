@@ -94,6 +94,7 @@ export interface Area {
     type: string;
     footage: number;
     custom_title?: string;
+    category?: "Finished" | "Subtotal" | "Other";
     uuid?: string;
 }
 export default function OrderDetailView({ open, onClose, orderId, serviceId, orderData, agentData }: OrderDetailViewProps) {
@@ -253,9 +254,9 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                     return {
                         ...os,
                         option_id: correctOption.uuid,
-                        option: correctOption,
+                        option: correctOption as any,
                         amount: calculatePrice(correctOption, grandTotal).toFixed(2),
-                        optionName: correctOption.title
+                        optionName: correctOption.title || ""
                     };
                 }
                 return os;
@@ -317,7 +318,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                     changed = true;
                     return {
                         ...cs,
-                        optionId: correctOption.uuid,
+                        optionId: correctOption.uuid || null,
                         price: calculatePrice(correctOption, grandTotal).toFixed(2)
                     };
                 }
@@ -370,7 +371,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                 try {
                     const slotDate = new Date(`${slot.date} ${slot.start_time}`);
                     return slotDate < new Date();
-                } catch (e) {
+                } catch {
                     return false;
                 }
             });

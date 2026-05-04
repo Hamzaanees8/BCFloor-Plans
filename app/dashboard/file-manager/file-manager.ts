@@ -2,6 +2,7 @@ export interface Area {
   type: string;
   footage: number;
   custom_title?: string;
+  category?: "Finished" | "Subtotal" | "Other";
   uuid?: string;
 }
 export interface OrderPayload {
@@ -1269,7 +1270,7 @@ export async function UploadTourToS3(
       throw new Error(error.message || "Failed to save tour metadata");
     }
 
-    return confirmResponse;
+    return await metadataResponse.json();
   } catch (error) {
     console.error("S3 tour upload error:", error);
     throw error;

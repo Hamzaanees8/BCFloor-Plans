@@ -236,7 +236,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                 try {
                     const slotDate = new Date(`${slot.date} ${slot.start_time}`);
                     return slotDate < new Date();
-                } catch (e) {
+                } catch {
                     return false;
                 }
             });

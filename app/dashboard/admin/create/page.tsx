@@ -79,6 +79,7 @@ const AdminForm = () => {
     avatar_url?: string;
     company_logo_url?: string;
     company_banner_url?: string;
+    organization_id?: number | string;
   };
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [firstName, setFirstName] = useState("");

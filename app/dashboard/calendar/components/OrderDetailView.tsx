@@ -339,9 +339,9 @@ export default function OrderDetailView({
           return {
             ...os,
             option_id: correctOption.uuid,
-            option: correctOption,
+            option: correctOption as any,
             amount: calculatePrice(correctOption, grandTotal).toFixed(2),
-            optionName: correctOption.title
+            optionName: correctOption.title || ""
           };
         }
         return os;
@@ -403,7 +403,7 @@ export default function OrderDetailView({
           changed = true;
           return {
             ...cs,
-            optionId: correctOption.uuid,
+            optionId: correctOption.uuid || null,
             price: calculatePrice(correctOption, grandTotal).toFixed(2)
           };
         }
@@ -445,7 +445,7 @@ export default function OrderDetailView({
       .filter((a) => a.category === "Subtotal" || a.type === "Subtotal")
       .reduce((sum, a) => sum + (Number(a.footage) || 0), 0);
     const sqFt = finishedTotal + subtotalTotal || currentOrder?.property?.square_footage;
-    let hasInvalidDuration = false;
+    const hasInvalidDuration = false;
 
     for (const srv of allServices) {
       if (!srv.uuid) continue;
@@ -470,7 +470,7 @@ export default function OrderDetailView({
         try {
           const slotDate = new Date(`${slot.date} ${slot.start_time}`);
           return slotDate < new Date();
-        } catch (e) {
+        } catch {
           return false;
         }
       });

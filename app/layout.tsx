@@ -52,7 +52,7 @@ async function getWhitelabelInfo(slug: string): Promise<WhitelabelInfo | null> {
     });
     if (!res.ok) return null;
     return res.json();
-  } catch (error) {
+  } catch {
     return null;
   }
 }

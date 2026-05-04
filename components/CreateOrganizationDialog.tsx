@@ -34,7 +34,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Upload } from "lucide-react";
+
 
 interface Props {
     open: boolean;
@@ -236,7 +236,7 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
             } else {
                 toast.error(result.error || "Failed to upload audio.");
             }
-        } catch (err) {
+        } catch {
             toast.error("Failed to upload audio.");
         } finally {
             setAudioUploading(false);
