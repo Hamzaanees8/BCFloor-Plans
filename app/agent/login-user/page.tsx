@@ -66,7 +66,7 @@ function LoginUser() {
                 <div className='flex justify-center'>
                     <AgentLoginIcon width='110px' height='110px' />
                 </div>
-                <Link href={'#'} className='hidden flex justify-center items-center bg-[#6BAE41] hover:bg-[#7ec652] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
+                <Link href={'#'} className='hidden flex justify-center items-center bg-[var(--primary-color)] hover:bg-[var(--secondary-color)] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.email ? 'text-red-500' : ''}`} htmlFor="email">Email Address</label>
                     <Input
@@ -118,7 +118,8 @@ function LoginUser() {
                 <Button
                     type='submit'
                     disabled={isLoading}
-                    className={`flex justify-center items-center ${isLoading ? 'bg-[#6BAE41]' : 'bg-[#fff]'}  hover:bg-[#6BAE41] hover:text-[#fff] border-[1px] border-[#6BAE41] text-[#6BAE41] rounded-[6px] h-[42px] font-[600] text-[20px]`}>
+                    className={`flex justify-center items-center ${isLoading ? 'bg-[var(--primary-color)]' : 'bg-[#fff]'}  hover:bg-[var(--primary-color)] hover:text-[#fff] border-[1px] border-[var(--primary-color)] text-[var(--primary-color)] rounded-[6px] h-[42px] font-[600] text-[20px]`}
+                    style={{ borderColor: 'var(--primary-color)', color: isLoading ? '#fff' : 'var(--primary-color)' }}>
                     {isLoading ? (
                         <div role="status">
                             <svg
@@ -144,7 +145,7 @@ function LoginUser() {
                     )}
                 </Button>
                 <div className='flex justify-center'>
-                    <Link href="/agent/forget-password" className='w-fit text-[#6BAE41] border-b-[1px] leading-[18px] border-[#6BAE41] text-[16px] font-[400] text-center'>Forgot Password</Link>
+                    <Link href="/agent/forget-password" className='w-fit text-[var(--primary-color)] border-b-[1px] leading-[18px] border-[var(--primary-color)] text-[16px] font-[400] text-center' style={{ borderColor: 'var(--primary-color)' }}>Forgot Password</Link>
                 </div>
                 <p className='text-[10px] text-[#666666] font-[400] mx-auto'>Powered by Tojuco Software {new Date().getFullYear()}</p>
             </form>

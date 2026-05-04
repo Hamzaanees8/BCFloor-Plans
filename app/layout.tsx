@@ -44,10 +44,10 @@ interface WhitelabelInfo {
   is_whitelabel: boolean;
 }
 
-async function getWhitelabelInfo(slug: string): Promise<WhitelabelInfo | null> {
+async function getWhitelabelInfo(domain: string): Promise<WhitelabelInfo | null> {
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com';
-    const res = await fetch(`${apiUrl}/api/v1/organizations/whitelabel-info?slug=${slug}`, {
+    const res = await fetch(`${apiUrl}/api/v1/domains/resolve?domain=${domain}`, {
       next: { revalidate: 3600 },
     });
     if (!res.ok) return null;
@@ -64,13 +64,21 @@ export default async function RootLayout({
 }>) {
   const headersList = await headers();
   const host = headersList.get("host") || "";
-  const subdomain = host.split(".")[0];
   
-  const reservedSubdomains = ['dev', 'stage', 'admin', 'teams-new', 'booking-new', 'vendore-new', 'localhost:3000', 'localhost'];
+  const SYSTEM_DOMAINS = [
+    'teams-new.bcfloorplans.com',
+    'booking-new.bcfloorplans.com',
+    'vendor-new.bcfloorplans.com',
+    'bcfloorplans.com',
+    'tujoco.com',
+    'localhost:3000',
+    'localhost'
+  ];
+  
   let whitelabelData: WhitelabelInfo | null = null;
   
-  if (subdomain && !reservedSubdomains.includes(subdomain)) {
-    whitelabelData = await getWhitelabelInfo(subdomain);
+  if (!SYSTEM_DOMAINS.includes(host)) {
+    whitelabelData = await getWhitelabelInfo(host);
   }
 
   const brandedStyle = whitelabelData?.is_whitelabel ? {

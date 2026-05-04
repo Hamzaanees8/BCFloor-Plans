@@ -20,7 +20,7 @@ export interface SelectedService {
     custom?: string;
     quantity?: number;
     option_id?: string;
-    optionName: string;
+    optionName?: string;
     payment_status?: string;
     is_completed?: boolean | number;
 }

@@ -105,7 +105,7 @@ type CurrentAgent = {
         minimum_spend?: number | string;
         is_active?: 1 | 0 | string;
     } | null;
-    organization_id?: number | string;
+    organization_id?: number | null;
 };
 
 type CompanyLogoState = {

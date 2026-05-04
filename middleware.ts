@@ -1,25 +1,27 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+const SYSTEM_DOMAINS = [
+  'teams-new.bcfloorplans.com',
+  'booking-new.bcfloorplans.com',
+  'vendor-new.bcfloorplans.com',
+  'bcfloorplans.com',
+  'tujoco.com',
+  'localhost:3000',
+  'localhost'
+];
+
+export async function middleware(request: NextRequest) {
   const url = request.nextUrl;
   const hostname = request.headers.get('host') || '';
 
-  // Define the base domain (can be an environment variable in the future)
-  const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'bcfloorplans.com';
-  
-  // Extract subdomain
-  let subdomain = '';
-  if (hostname.endsWith(`.${baseDomain}`)) {
-    subdomain = hostname.replace(`.${baseDomain}`, '');
-  } else if (hostname.endsWith('.localhost:3000')) {
-    subdomain = hostname.replace('.localhost:3000', '');
-  }
+  // 1. System Domains (Exact Match)
+  if (SYSTEM_DOMAINS.includes(hostname)) {
+    let subdomain = '';
+    if (hostname.startsWith('teams-new.')) subdomain = 'teams-new';
+    else if (hostname.startsWith('booking-new.')) subdomain = 'booking-new';
+    else if (hostname.startsWith('vendor-new.')) subdomain = 'vendor-new';
 
-  // If there's a subdomain, handle rewrites
-  if (subdomain && subdomain !== 'www' && subdomain !== 'api') {
-    
-    // 1. Specific Subdomain Mappings
     if (subdomain === 'teams-new') {
       const authRoutes = ['/login', '/login-user', '/forget-password', '/login-first-time', '/new-password'];
       if (authRoutes.includes(url.pathname) || url.pathname.startsWith('/dashboard') || url.pathname.startsWith('/agent') || url.pathname.startsWith('/vendor')) {
@@ -27,37 +29,55 @@ export function middleware(request: NextRequest) {
       }
       return NextResponse.rewrite(new URL(`/dashboard${url.pathname}${url.search}`, request.url));
     }
-    
+
     if (subdomain === 'booking-new') {
       if (url.pathname.startsWith('/agent') || url.pathname.startsWith('/dashboard') || url.pathname.startsWith('/vendor')) {
         return NextResponse.next();
       }
       return NextResponse.rewrite(new URL(`/agent${url.pathname}${url.search}`, request.url));
     }
-    
-    if (subdomain === 'vendore-new') {
+
+    if (subdomain === 'vendor-new') {
       if (url.pathname.startsWith('/vendor') || url.pathname.startsWith('/dashboard') || url.pathname.startsWith('/agent')) {
         return NextResponse.next();
       }
       return NextResponse.rewrite(new URL(`/vendor${url.pathname}${url.search}`, request.url));
     }
 
-    // 2. System Subdomains (Keep these rewrites)
-    if (['teams-new', 'booking-new', 'vendore-new'].includes(subdomain)) {
-      const prefix = subdomain.replace('-new', '');
-      const path = url.pathname.startsWith(`/${prefix}`) 
-        ? url.pathname 
-        : `/${prefix}${url.pathname}`;
-      
-      return NextResponse.rewrite(new URL(`${path}${url.search}`, request.url));
-    }
-
-    // 3. Whitelabel Subdomains (No rewrite needed anymore!)
-    // The root layout handles branding based on the host header.
+    // For base domains (bcfloorplans.com, tujoco.com, localhost), pass through
     return NextResponse.next();
   }
 
-  return NextResponse.next();
+  // 2. Whitelabel Domains (Custom Domains & Test Subdomains)
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com';
+    const res = await fetch(`${apiUrl}/api/v1/domains/resolve?domain=${hostname}`, {
+      next: { revalidate: 3600 }
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const portalType = data.portal_type; // 'admin', 'agent', or 'vendor'
+
+      if (url.pathname.startsWith('/agent') || url.pathname.startsWith('/dashboard') || url.pathname.startsWith('/vendor')) {
+        return NextResponse.next();
+      }
+
+      if (portalType === 'admin') {
+        return NextResponse.rewrite(new URL(`/dashboard${url.pathname}${url.search}`, request.url));
+      } else if (portalType === 'vendor') {
+        return NextResponse.rewrite(new URL(`/vendor${url.pathname}${url.search}`, request.url));
+      }
+    }
+  } catch (error) {
+    console.error('Domain resolution failed in middleware:', error);
+  }
+
+  // Fallback (or if portalType is 'agent'): default to agent portal for whitelabel
+  if (url.pathname.startsWith('/agent') || url.pathname.startsWith('/dashboard') || url.pathname.startsWith('/vendor')) {
+    return NextResponse.next();
+  }
+  return NextResponse.rewrite(new URL(`/agent${url.pathname}${url.search}`, request.url));
 }
 
 export const config = {

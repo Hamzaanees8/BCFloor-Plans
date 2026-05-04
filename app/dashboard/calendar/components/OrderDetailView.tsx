@@ -341,7 +341,7 @@ export default function OrderDetailView({
             option_id: correctOption.uuid,
             option: correctOption as any,
             amount: calculatePrice(correctOption, grandTotal).toFixed(2),
-            optionName: correctOption.title || ""
+            optionName: correctOption.title || ''
           };
         }
         return os;

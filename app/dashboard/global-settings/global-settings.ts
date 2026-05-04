@@ -560,6 +560,13 @@ export async function UpdateMediaSettings(payload: MediaSettingsPayload) {
 }
 
 // ─── Organizations ────────────────────────────────────────────────────────────
+ 
+export interface OrganizationDomain {
+  id?: number;
+  uuid?: string;
+  domain: string;
+  portal_type: 'admin' | 'agent' | 'vendor';
+}
 
 export interface Organization {
   id: number;
@@ -585,6 +592,11 @@ export interface Organization {
   secondary_color: string | null;
   logo: string | null;
   portal_type: 'agent' | 'vendor' | null;
+  is_whitelabel: boolean;
+  domain: string | null;
+  from_name: string | null;
+  from_email: string | null;
+  domains: OrganizationDomain[];
 }
 
 export interface OrganizationPayload {
@@ -607,6 +619,11 @@ export interface OrganizationPayload {
   secondary_color?: string;
   logo?: string;
   portal_type?: 'agent' | 'vendor';
+  is_whitelabel?: boolean;
+  domain?: string;
+  from_name?: string;
+  from_email?: string;
+  domains?: OrganizationDomain[];
 }
 
 export async function GetOrganizations(): Promise<{ status: boolean; data: Organization[] }> {

@@ -2,8 +2,8 @@ export interface Area {
   type: string;
   footage: number;
   custom_title?: string;
-  category?: "Finished" | "Subtotal" | "Other";
   uuid?: string;
+  category?: "Finished" | "Subtotal" | "Other";
 }
 export interface OrderPayload {
   areas: Area[];

@@ -92,6 +92,13 @@ const OrganizationsSettings = () => {
             ),
         },
         {
+            accessorKey: "domain",
+            header: "DOMAIN",
+            cell: ({ row }) => (
+                <div className="text-[#666666] text-xs">{row.getValue("domain") || "—"}</div>
+            ),
+        },
+        {
             accessorKey: "contact_email",
             header: "CONTACT EMAIL",
             cell: ({ row }) => (

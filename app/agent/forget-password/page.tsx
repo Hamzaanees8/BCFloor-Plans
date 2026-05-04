@@ -70,7 +70,7 @@ function ForgotPassword() {
                     )}
                     <Button
                         disabled={isLoading}
-                        onClick={handleSubmit} className='flex justify-center items-center bg-[#6BAE41] hover:bg-[#80c952] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'> {isLoading ? (
+                        onClick={handleSubmit} className='flex justify-center items-center bg-[var(--primary-color)] hover:bg-[var(--secondary-color)] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'> {isLoading ? (
                             <div role="status">
                                 <svg
                                     aria-hidden="true"
@@ -95,7 +95,7 @@ function ForgotPassword() {
                         )} </Button>
                 </form>
                 <div className='flex justify-center'>
-                    <Link href="agent/login-user" className='w-fit text-[#6BAE41] border-b-[1px] leading-[18px] border-[#6BAE41] text-[16px] font-[400] text-center'>Back to Login</Link>
+                    <Link href="agent/login-user" className='w-fit text-[var(--primary-color)] border-b-[1px] leading-[18px] border-[var(--primary-color)] text-[16px] font-[400] text-center' style={{ borderColor: 'var(--primary-color)' }}>Back to Login</Link>
                 </div>
                 <p className='text-[10px] text-[#666666] font-[400] mx-auto'>Powered by Tojuco Software {new Date().getFullYear()}</p>
             </div>

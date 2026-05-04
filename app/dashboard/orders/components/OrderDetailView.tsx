@@ -94,8 +94,8 @@ export interface Area {
     type: string;
     footage: number;
     custom_title?: string;
-    category?: "Finished" | "Subtotal" | "Other";
     uuid?: string;
+    category?: "Finished" | "Subtotal" | "Other";
 }
 export default function OrderDetailView({ open, onClose, orderId, serviceId, orderData, agentData }: OrderDetailViewProps) {
     const { userType } = useAppContext();
@@ -256,7 +256,7 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                         option_id: correctOption.uuid,
                         option: correctOption as any,
                         amount: calculatePrice(correctOption, grandTotal).toFixed(2),
-                        optionName: correctOption.title || ""
+                        optionName: correctOption.title || ''
                     };
                 }
                 return os;

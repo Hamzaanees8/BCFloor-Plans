@@ -65,7 +65,7 @@ interface SelectedService {
   custom?: string;
   quantity?: number;
   option_id?: string;
-  optionName: string;
+  optionName?: string;
   option?: {
     uuid?: string;
   };

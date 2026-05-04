@@ -208,6 +208,7 @@ export type CurrentUser = {
     end_date: string;
   }[];
   order_slots?: OrderSlot[];
+  organization_id?: number | string;
 };
 
 export interface OrderSlot {

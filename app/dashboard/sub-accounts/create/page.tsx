@@ -59,6 +59,7 @@ const OrdersForm = () => {
         avatar_url?: string;
         company_logo_url?: string;
         company_banner_url?: string;
+        organization_id?: number | string;
         // add other fields as needed
     };
     type Agent = { uuid: string; first_name: string; last_name: string; email: string; created_at: string };

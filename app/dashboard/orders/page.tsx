@@ -219,7 +219,7 @@ export type OrderService = {
     custom?: string;
     created_at: string;
     updated_at: string;
-    optionName: string;
+    optionName?: string;
     service_id: number;
     uuid: string;
     payment_status?: string;

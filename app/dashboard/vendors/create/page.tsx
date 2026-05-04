@@ -391,7 +391,7 @@ const VendorForm = () => {
     }
 
     GetServices()
-      .then((res) => setServicesData(res.data))
+      .then((res) => setServicesData(Array.isArray(res.data) ? res.data : []))
       .catch((err) => console.log(err.message));
 
     GetOrganizations()
