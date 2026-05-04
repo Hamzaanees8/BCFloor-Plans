@@ -85,6 +85,7 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
 
     const [orgAudios, setOrgAudios] = useState<AgentAudio[]>([]);
     const [audioUploading, setAudioUploading] = useState(false);
+    // const [audioUploadProgress, setAudioUploadProgress] = useState(0);
     const orgAudioRef = useRef<HTMLInputElement>(null);
 
     // Populate form on open/edit
@@ -239,24 +240,32 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
         }
         
         setAudioUploading(true);
+        // setAudioUploadProgress(0);
+        const toastId = toast.loading(`Uploading audio: ${file.name} (0%)`);
+
         try {
             const result = await uploadAudioFile({
                 entityType: 'organization-audio',
                 entityId: initialData.uuid,
-                file: file
+                file: file,
+                onProgress: (progress) => {
+                    // setAudioUploadProgress(progress);
+                    toast.loading(`Uploading audio: ${file.name} (${progress}%)`, { id: toastId });
+                }
             });
             
             if (result.success) {
-                toast.success("Audio uploaded successfully.");
+                toast.success("Audio uploaded successfully.", { id: toastId });
                 const fresh = await GetOrganizationAudios(initialData.uuid);
                 setOrgAudios(Array.isArray(fresh.data) ? fresh.data : []);
             } else {
-                toast.error(result.error || "Failed to upload audio.");
+                toast.error(result.error || "Failed to upload audio.", { id: toastId });
             }
         } catch {
-            toast.error("Failed to upload audio.");
+            toast.error("Failed to upload audio.", { id: toastId });
         } finally {
             setAudioUploading(false);
+            // setAudioUploadProgress(0);
             if (orgAudioRef.current) orgAudioRef.current.value = "";
         }
     };

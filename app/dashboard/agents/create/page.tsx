@@ -202,6 +202,8 @@ const AgentForm = () => {
     const mp3FileInputRef = useRef<HTMLInputElement>(null);
     const [agentAudios, setAgentAudios] = useState<AgentAudio[]>([]);
     
+    // const [audioUploadProgress, setAudioUploadProgress] = useState(0);
+    
     const { uploadFiles } = useS3Upload({
         entityType: 'agent',
         entityId: userId || '', // Will be updated dynamically for new agents
@@ -703,23 +705,45 @@ const AgentForm = () => {
             console.log('Audio upload check:', { mp3File, agentUuid, selectedMp3 });
             if (mp3File && agentUuid) {
                 console.log('Attempting to upload audio...');
+                // setAudioUploadProgress(0);
+                const toastId = toast.loading(`Uploading audio: ${mp3File.name} (0%)`);
+                
                 try {
                     const uploadResult = await uploadAudioFile({
                         entityType: 'agent-audio',
                         entityId: agentUuid,
-                        file: mp3File
+                        file: mp3File,
+                        onProgress: (progress) => {
+                            // setAudioUploadProgress(progress);
+                            toast.loading(`Uploading audio: ${mp3File.name} (${progress}%)`, { id: toastId });
+                        }
                     });
                     
                     if (uploadResult.success) {
                         console.log('Audio upload result:', uploadResult);
-                        toast.success('Audio uploaded successfully');
+                        toast.success('Audio uploaded successfully', { id: toastId });
+                        // Update local state if we're not redirecting (though we are)
+                        if (uploadResult.audio) {
+                            const newAudio: AgentAudio = {
+                                uuid: uploadResult.audio.uuid,
+                                name: uploadResult.audio.filename,
+                                file_path: uploadResult.audio.url || '',
+                                audio_url: uploadResult.audio.url,
+                                file_url: uploadResult.audio.url,
+                                created_at: new Date().toISOString(),
+                                updated_at: new Date().toISOString(),
+                            };
+                            setAgentAudios(prev => [newAudio, ...prev]);
+                        }
                     } else {
                         console.error('Failed to upload audio:', uploadResult.error);
-                        toast.error(uploadResult.error || 'Agent saved but audio upload failed');
+                        toast.error(uploadResult.error || 'Agent saved but audio upload failed', { id: toastId });
                     }
                 } catch (audioError) {
                     console.error('Failed to upload audio:', audioError);
-                    toast.error('Agent saved but audio upload failed');
+                    toast.error('Agent saved but audio upload failed', { id: toastId });
+                } finally {
+                    // setAudioUploadProgress(0);
                 }
             } else {
                 console.log('Skipping audio upload - conditions not met');
