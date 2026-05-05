@@ -46,8 +46,9 @@ interface WhitelabelInfo {
 
 async function getWhitelabelInfo(domain: string): Promise<WhitelabelInfo | null> {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com';
-    const res = await fetch(`${apiUrl}/api/v1/domains/resolve?domain=${domain}`, {
+    const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com';
+    const baseApiUrl = rawApiUrl.replace(/\/api$/, ''); 
+    const res = await fetch(`${baseApiUrl}/api/domains/resolve?domain=${domain}`, {
       next: { revalidate: 3600 },
     });
     if (!res.ok) return null;
