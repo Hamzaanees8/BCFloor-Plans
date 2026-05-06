@@ -26,6 +26,7 @@ import DynamicMap from '@/components/DYnamicMap'
 import { useAppContext } from '@/app/context/AppContext'
 import { useUnsaved } from '@/app/context/UnsavedContext'
 import useUnsavedChangesWarning from '@/app/hooks/useUnsavedChangesWarning'
+import { usePermissions } from '@/app/hooks/usePermissions'
 import AgentDiscount from '@/components/AgentDiscount'
 import SubAccountsTable from '../components/SubAccountsTable'
 import { Listings } from '@/lib/types'
@@ -132,6 +133,7 @@ const AgentForm = () => {
     const userId = params?.id as string;
     const router = useRouter();
     const { userType } = useAppContext();
+    const { isSuperAdmin } = usePermissions();
     const [currentUser, setCurrentUser] = useState<CurrentAgent | null>(null);
     const headerRef = useRef<HTMLDivElement>(null);
 
@@ -361,8 +363,24 @@ const AgentForm = () => {
             GetOrganizations()
                 .then(res => setOrganizations(Array.isArray(res.data) ? res.data : []))
                 .catch(err => console.log('Failed to fetch organizations', err));
+
+            // For non-super-admins, pre-fill org from their own userInfo on create mode
+            if (!isSuperAdmin && !userId) {
+                try {
+                    const userInfoStr = localStorage.getItem('userInfo');
+                    if (userInfoStr) {
+                        const parsedInfo = JSON.parse(userInfoStr);
+                        const orgId = parsedInfo?.organization_id ?? parsedInfo?.data?.organization_id;
+                        if (orgId) {
+                            setOrganizationId(String(orgId));
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to read userInfo for org prefill:', e);
+                }
+            }
         }
-    }, [userType]);
+    }, [userType, isSuperAdmin, userId]);
 
     // For create mode, mark as initially rendered after a short delay
     // This prevents browser autofill from triggering dirty state
@@ -970,6 +988,7 @@ const AgentForm = () => {
                                                         <div className='col-span-2'>
                                                             <label htmlFor="">Role <span className="text-red-500">*</span></label>
                                                             <Select
+                                                                disabled
                                                                 value={String(role)}
                                                                 onValueChange={(val) => {
                                                                     setRole(val);
@@ -998,29 +1017,37 @@ const AgentForm = () => {
                                                         </div>
                                                         <div className='col-span-2'>
                                                             <label htmlFor="">Organization</label>
-                                                            <Select
-                                                                value={organizationId}
-                                                                onValueChange={(val) => {
-                                                                    setOrganizationId(val);
-                                                                    if (hasInitiallyRendered.current) {
-                                                                        setIsDirty(true);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <SelectTrigger
-                                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                            {isSuperAdmin ? (
+                                                                <Select
+                                                                    value={organizationId}
+                                                                    onValueChange={(val) => {
+                                                                        setOrganizationId(val);
+                                                                        if (hasInitiallyRendered.current) {
+                                                                            setIsDirty(true);
+                                                                        }
+                                                                    }}
                                                                 >
-                                                                    <SelectValue placeholder="Select an organization" />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    <SelectItem value="none">None (Global)</SelectItem>
-                                                                    {organizations?.map((org) => (
-                                                                        <SelectItem key={org.id} value={String(org.id)}>
-                                                                            {org.name}
-                                                                        </SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
+                                                                    <SelectTrigger
+                                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                                    >
+                                                                        <SelectValue placeholder="Select an organization" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="none">None (Global)</SelectItem>
+                                                                        {organizations?.map((org) => (
+                                                                            <SelectItem key={org.id} value={String(org.id)}>
+                                                                                {org.name}
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            ) : (
+                                                                <div
+                                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] rounded-md px-3 flex items-center text-[14px] text-[#424242] cursor-not-allowed opacity-70"
+                                                                >
+                                                                    {organizations.find(o => String(o.id) === organizationId)?.name || organizationId || 'Your Organization'}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </>
                                                 )}
@@ -1039,15 +1066,6 @@ const AgentForm = () => {
                                                         className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.email ? 'border-red-500' : 'border-[#BBBBBB]'}`} type="email" />
 
                                                     {fieldErrors.email && <p className='text-red-500 text-[10px]'>{fieldErrors.email[0]}</p>}
-                                                </div>
-                                                <div className='col-span-2'>
-                                                    <label htmlFor="">Email CC</label>
-                                                    <Input value={emailCC}
-                                                        onChange={(e) => setEmailCC(e.target.value)}
-                                                        autoComplete="email"
-                                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="email" />
-
-                                                    {fieldErrors.email_cc && <p className='text-red-500 text-[10px]'>{fieldErrors.email_cc[0]}</p>}
                                                 </div>
                                                 {!userId && (
                                                     <div className='col-span-2'>
@@ -1069,6 +1087,46 @@ const AgentForm = () => {
                                                         {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
                                                     </div>
                                                 )}
+                                                {currentUser && (
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Password Change</label>
+                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
+                                                            <input
+                                                                type="password"
+                                                                id="password"
+                                                                value={password}
+                                                                disabled
+                                                                onChange={(e) => setPassword(e.target.value)}
+                                                                className="bg-[#EEEEEE] text-[16px] font-medium w-full h-full px-4 focus:outline-none"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    handleReset();
+                                                                    setOpenChangePasswordDialog(true);
+                                                                }}
+                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                            >
+                                                                Reset
+                                                            </button>
+                                                            <ChangePasswordDialog
+                                                                userId={currentUser.uuid}
+                                                                open={openChangePasswordDialog}
+                                                                setOpen={setOpenChangePasswordDialog}
+                                                                type="agents"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                <div className='col-span-2'>
+                                                    <label htmlFor="">Email CC</label>
+                                                    <Input value={emailCC}
+                                                        onChange={(e) => setEmailCC(e.target.value)}
+                                                        autoComplete="email"
+                                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="email" />
+
+                                                    {fieldErrors.email_cc && <p className='text-red-500 text-[10px]'>{fieldErrors.email_cc[0]}</p>}
+                                                </div>
                                                 <div>
                                                     <label htmlFor="">Primary Phone <span className="text-red-500">*</span></label>
                                                     <Input value={primaryPhone}
@@ -1830,67 +1888,6 @@ const AgentForm = () => {
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>}
-                            {currentUser && (
-                                <AccordionItem value="account" className='border-none'>
-                                    <AccordionTrigger
-                                        className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-                                    >ACCOUNT MANAGEMENT</AccordionTrigger>
-                                    <AccordionContent className="grid gap-4">
-                                        <div className='w-full flex flex-col items-center'>
-                                            <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                                <div className='grid grid-cols-2 gap-[16px]'>
-                                                    <div className='col-span-2'>
-                                                        <label htmlFor="">Password Change</label>
-                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
-                                                            <input
-                                                                type="password"
-                                                                id="password"
-                                                                value={password}
-                                                                disabled
-                                                                onChange={(e) => setPassword(e.target.value)}
-                                                                className="bg-[#EEEEEE] text-[16px] font-medium w-full h-full px-4 focus:outline-none"
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    handleReset();
-                                                                    setOpenChangePasswordDialog(true);
-                                                                }}
-                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                                                            >
-                                                                Reset
-                                                            </button>
-                                                            <ChangePasswordDialog
-                                                                userId={currentUser.uuid}
-                                                                open={openChangePasswordDialog}
-                                                                setOpen={setOpenChangePasswordDialog}
-                                                                type="agents"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <hr className='bg-[#666666] col-span-2' />
-                                                </div>
-                                                {/* <div className='flex items-center justify-center'>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setOpenCloseDialog(true)}
-                                                    className="px-4 font-raleway py-2 bg-white text-sm font-semibold h-full w-[130px] text-[#E06D5E] border border-[#E06D5E]"
-                                                >
-                                                    Close Account
-                                                </button>
-                                                <CloseDialog
-                                                    open={openCloseDialog}
-                                                    setOpen={setOpenCloseDialog}
-                                                    onConfirm={confirmAndExecute}
-                                                />
-                                            </div> */}
-                                            </div>
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            )
-                            }
                         </Accordion>
                     </form>
                 </div >

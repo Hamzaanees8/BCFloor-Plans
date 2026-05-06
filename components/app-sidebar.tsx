@@ -44,6 +44,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
+import { useOrganization } from "@/app/context/OrganizationContext";
 
 // This is sample data.
 const data = {
@@ -147,6 +148,7 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { userType, unreadNotificationCount } = useAppContext();
+  const { organization } = useOrganization();
   const pathname = usePathname();
   const router = useRouter();
   const pathSegments = pathname.split("/").filter(Boolean);
@@ -162,6 +164,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const roleSettings =
     appliedSettings[role as keyof typeof appliedSettings] ||
     appliedSettings["admin"];
+
+  // Use organization branding if available
+  const orgLogo = organization?.branding?.logo || roleSettings.logo;
+  const orgName = organization?.slug?.toUpperCase() || "BC Floor Plans";
+
+  // Extract primary color string from branding (API returns { value: "#..." } object)
+  const orgPrimaryColor = organization?.branding?.primary_color
+    ? (typeof organization.branding.primary_color === 'object'
+        ? (organization.branding.primary_color as { value: string }).value
+        : organization.branding.primary_color as string)
+    : null;
+
   const [isLogoutHovered, setIsLogoutHovered] = React.useState(false);
 
   async function logoutUser() {
@@ -372,11 +386,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       >
         <div className="flex flex-col p-4 w-full h-[80px]">
           <div className="flex items-center gap-x-2.5">
-            {roleSettings.logo ? (
+            {orgLogo ? (
               <Image
-                src={roleSettings.logo}
+                src={orgLogo}
                 alt="Logo"
-                width={Number(roleSettings.logoWidth)}
+                width={Number(roleSettings.logoWidth) || 120}
                 height={50}
                 style={{ width: `${roleSettings.logoWidth}px`, height: "auto" }}
                 className="shrink-0"
@@ -396,7 +410,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             {!isCollapsed && (
               <div className="overflow-hidden">
                 <p className="text-[14px] font-normal text-white font-alexandria leading-4 truncate">
-                  BC Floor Plans
+                  {orgName}
                 </p>
                 {userType !== "admin" && (
                   <p className="text-[14px] font-normal text-white font-alexandria leading-4 truncate">
@@ -491,7 +505,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 className={`text-[16px] font-normal !justify-items-center flex gap-2 role-sidebar-item`}
                                 style={{
                                   color: isActive
-                                    ? roleSettings.activeColor
+                                    ? (orgPrimaryColor || roleSettings.activeColor)
                                     : roleSettings.sidebarText,
                                   fontWeight: isActive ? "bold" : "normal",
                                   backgroundColor: isActive
@@ -504,16 +518,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                   className="flex items-center gap-2 w-full relative"
                                 >
                                   <div className="relative">
-                                    {subItem.icon && (
-                                      <subItem.icon
-                                        className={`h-4 w-4 shrink-0`}
-                                        style={{
-                                          color: isActive
-                                            ? roleSettings.activeColor
-                                            : roleSettings.sidebarText,
-                                        }}
-                                      />
-                                    )}
+                                      {subItem.icon && (
+                                        <subItem.icon
+                                          className={`h-4 w-4 shrink-0`}
+                                          style={{
+                                             color: isActive
+                                               ? (orgPrimaryColor || roleSettings.activeColor)
+                                               : roleSettings.sidebarText,
+                                           }}
+                                        />
+                                      )}
                                     {subItem.url ===
                                       "/dashboard/notifications" &&
                                       unreadNotificationCount > 0 && (
@@ -521,7 +535,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                           className="absolute -top-2 -right-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none"
                                           style={{
                                             backgroundColor:
-                                              roleSettings.activeColor,
+                                              (orgPrimaryColor || roleSettings.activeColor),
                                             color: "white",
                                           }}
                                         >

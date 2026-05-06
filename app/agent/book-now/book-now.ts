@@ -143,7 +143,7 @@ export async function fetchVendorForBookNow(token?: string | null) {
 }
 
 // Login for agents
-export async function agentLogin(email: string, password: string) {
+export async function agentLogin(email: string, password: string, organization_id?: number, domain?: string) {
     try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -155,7 +155,9 @@ export async function agentLogin(email: string, password: string) {
             body: JSON.stringify({
                 email,
                 password,
-                role: 'agent'
+                role: 'agent',
+                organization_id,
+                domain
             }),
         });
 

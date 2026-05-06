@@ -35,6 +35,7 @@ import { SaveModal } from "@/components/SaveModal";
 import DynamicMap from "@/components/DYnamicMap";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
+import { usePermissions } from "@/app/hooks/usePermissions";
 const ROLE_PERMISSION_NAMES = {
   super_admin: null, // means ALL
   admin: [
@@ -190,6 +191,7 @@ const AdminForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const router = useRouter();
+  const { isSuperAdmin } = usePermissions();
 
   const { isDirty, setIsDirty } = useUnsaved();
   useUnsavedChangesWarning(isDirty);
@@ -227,13 +229,45 @@ const AdminForm = () => {
 
   useEffect(() => {
     GetRole()
-      .then((data) => setRoles(Array.isArray(data.data) ? data.data : []))
+      .then((data) => {
+        const allRoles = Array.isArray(data.data) ? data.data : [];
+        setRoles(allRoles);
+
+        // If creating a new admin (no userId), set default role to 'admin' or 'adn'
+        if (!userId && allRoles.length > 0) {
+          const adminRole = allRoles.find(
+            (r: any) =>
+              r.name.toLowerCase() === "admin" ||
+              r.name.toLowerCase() === "adn" ||
+              r.name.toLowerCase() === "super admin"
+          );
+          if (adminRole) {
+            setRole(String(adminRole.id));
+          }
+        }
+      })
       .catch((err) => console.log(err.message));
 
     GetOrganizations()
       .then((res) => setOrganizations(Array.isArray(res.data) ? res.data : []))
       .catch((err) => console.log("Failed to fetch organizations", err));
-  }, []);
+
+    // For non-super-admins, pre-fill org from their own userInfo
+    if (!isSuperAdmin && !userId) {
+      try {
+        const userInfoStr = localStorage.getItem('userInfo');
+        if (userInfoStr) {
+          const userInfo = JSON.parse(userInfoStr);
+          const orgId = userInfo?.organization_id ?? userInfo?.data?.organization_id;
+          if (orgId) {
+            setOrganizationId(String(orgId));
+          }
+        }
+      } catch (e) {
+        console.error('Failed to read userInfo for org prefill:', e);
+      }
+    }
+  }, [userId, isSuperAdmin]);
 
   useEffect(() => {
     setCountries(Country.getAllCountries());
@@ -674,6 +708,7 @@ const AdminForm = () => {
                           Role <span className="text-red-500">*</span>
                         </label>
                         <Select
+                          disabled
                           value={String(role)}
                           onValueChange={(val) => {
                             setRole(val);
@@ -712,29 +747,37 @@ const AdminForm = () => {
                       </div>
                       <div className="col-span-2">
                         <label htmlFor="">Organization</label>
-                        <Select
-                          value={organizationId}
-                          onValueChange={(val) => {
-                            setOrganizationId(val);
-                            if (hasInitiallyRendered.current) {
-                              setIsDirty(true);
-                            }
-                          }}
-                        >
-                          <SelectTrigger
-                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                        {isSuperAdmin ? (
+                          <Select
+                            value={organizationId}
+                            onValueChange={(val) => {
+                              setOrganizationId(val);
+                              if (hasInitiallyRendered.current) {
+                                setIsDirty(true);
+                              }
+                            }}
                           >
-                            <SelectValue placeholder="Select an organization" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">None (Global Admin)</SelectItem>
-                            {organizations?.map((org) => (
-                              <SelectItem key={org.id} value={String(org.id)}>
-                                {org.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                            <SelectTrigger
+                              className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                            >
+                              <SelectValue placeholder="Select an organization" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None (Global Admin)</SelectItem>
+                              {organizations?.map((org) => (
+                                <SelectItem key={org.id} value={String(org.id)}>
+                                  {org.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <div
+                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] rounded-md px-3 flex items-center text-[14px] text-[#424242] cursor-not-allowed opacity-70"
+                          >
+                            {organizations.find(o => String(o.id) === organizationId)?.name || organizationId || 'Your Organization'}
+                          </div>
+                        )}
                       </div>
                       <div className="col-span-2">
                         <label htmlFor="">
@@ -764,6 +807,57 @@ const AdminForm = () => {
                           </p>
                         )}
                       </div>
+                      {!userId && (
+                        <div className="col-span-2">
+                          <label htmlFor="">
+                            Password <span className="text-red-500">*</span>
+                          </label>
+                          <Input
+                            value={password}
+                            autoComplete="new-password"
+                            onChange={(e) => {
+                              setPassword(e.target.value);
+                              if (fieldErrors.password) {
+                                setFieldErrors((prev) => {
+                                  const newErrors = { ...prev };
+                                  delete newErrors.password;
+                                  return newErrors;
+                                });
+                              }
+                            }}
+                            className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.password ? "border-red-500" : ""
+                              }`}
+                            type="password"
+                          />
+
+                          {fieldErrors.password && (
+                            <p className="text-red-500 text-[10px]">
+                              {fieldErrors.password[0]}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {userId && (
+                        <div className="col-span-2">
+                          <label htmlFor="">Password Change</label>
+                          <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
+                            <input
+                              type="password"
+                              disabled
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              className="bg-[#EEEEEE] text-[16px] font-medium w-full h-full px-4 focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handlePasswordReset(userId)}
+                              className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                            >
+                              Reset
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       <div className="col-span-2">
                         <label htmlFor="">Email Secondary</label>
                         <Input
@@ -784,22 +878,6 @@ const AdminForm = () => {
                           Notification Email
                         </p>
                       </div>
-                      {/* <div className="">
-                        <Select onValueChange={setEmailType}>
-                          <SelectTrigger className="w-full  h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
-                            <SelectValue placeholder="Both" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="primary">
-                              Primary Email
-                            </SelectItem>
-                            <SelectItem value="secondary">
-                              Secondary Email
-                            </SelectItem>
-                            <SelectItem value="both">Both</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div> */}
                       <div>
                         <label htmlFor="">Primary Phone</label>
                         <Input
@@ -901,16 +979,6 @@ const AdminForm = () => {
                         </Select>
                       </div>
                       <div className="col-span-2 h-[200px]">
-                        {/* <iframe
-                                                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2357.039223216655!2d-1.7544379236894128!3d53.788789441527214!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x487be1362e87f88b%3A0x55da5536b65b1607!2sNelson%20St%2C%20Bradford%2C%20UK!5e0!3m2!1sen!2s!4v1748978374452!5m2!1sen!2s"
-                                                    width="100%"
-                                                    height="100%"
-                                                    allowFullScreen
-                                                    loading="lazy"
-                                                    referrerPolicy="no-referrer-when-downgrade"
-                                                    className="border-0"
-                                                    title="Google Map - Burnaby, BC"
-                                                ></iframe> */}
                         <DynamicMap
                           address={address}
                           city={city}
@@ -918,41 +986,6 @@ const AdminForm = () => {
                           country={country}
                         />
                       </div>
-                      <div className="col-span-2">
-                        <label htmlFor="">
-                          Password <span className="text-red-500">*</span>
-                        </label>
-                        <Input
-                          value={password}
-                          autoComplete="new-password"
-                          onChange={(e) => {
-                            setPassword(e.target.value);
-                            if (fieldErrors.password) {
-                              setFieldErrors((prev) => {
-                                const newErrors = { ...prev };
-                                delete newErrors.password;
-                                return newErrors;
-                              });
-                            }
-                          }}
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.password ? "border-red-500" : ""
-                            }`}
-                          type="password"
-                        />
-
-                        {fieldErrors.password && (
-                          <p className="text-red-500 text-[10px]">
-                            {fieldErrors.password[0]}
-                          </p>
-                        )}
-                      </div>
-                      <p
-                        onClick={() => handlePasswordReset(userId)}
-                        className={`${userId ? "flex" : "hidden"
-                          } text-[16px] cursor-pointer hover:text-[#505050] font-normal text-[#666666]`}
-                      >
-                        Reset Password
-                      </p>
                     </div>
                   </div>
                 </div>

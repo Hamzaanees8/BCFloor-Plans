@@ -41,6 +41,7 @@ export default function WorkAreaMap({
 
   const parsedCoord = JSON.parse(JSON.stringify(coords));
   const { isLoaded, loadError } = useLoadScript({
+    id: 'google-map-script',
     googleMapsApiKey: process.env.NEXT_PUBLIC_PLACES_API_KEY || "",
     libraries: ["drawing"],
   });

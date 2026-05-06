@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { useAppContext } from '@/app/context/AppContext'
 import { Eye, EyeOff } from 'lucide-react'
+import { useOrganization } from '@/app/context/OrganizationContext'
 
 function LoginUser() {
     const [email, setEmail] = React.useState('')
@@ -21,6 +22,7 @@ function LoginUser() {
     const [showPassword, setShowPassword] = useState(false);
     const router = useRouter();
     const { setUserType } = useAppContext()
+    const { organization } = useOrganization()
 
     const handleLogin = async (e: React.FormEvent) => {
 
@@ -39,7 +41,13 @@ function LoginUser() {
         if (hasError) return
         setIsLoading(true)
         try {
-            const response = await login({ email, password, role: 'admin' });
+            const response = await login({ 
+                email, 
+                password, 
+                role: 'admin',
+                organization_id: (organization?.is_whitelabel || organization?.slug) ? organization?.org_id : undefined,
+                domain: (organization?.is_whitelabel || organization?.slug) && typeof window !== 'undefined' ? window.location.origin : undefined
+            });
 
             console.log('Login successful:', response);
             toast.success('Login successfully')

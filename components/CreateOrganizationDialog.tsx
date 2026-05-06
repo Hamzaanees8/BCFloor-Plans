@@ -26,6 +26,7 @@ import {
     DeleteOrganizationAudio,
 } from "@/app/dashboard/agents/agent-audio";
 import { uploadAudioFile } from "@/lib/upload/audio-upload";
+import { GetOrganizationBranding, UpdateOrganizationBranding } from '@/app/dashboard/global-settings/global-settings';
 
 import {
     Select,
@@ -48,6 +49,13 @@ interface FormErrors {
     contact_phone?: string;
     slug?: string;
     trial_ends_at?: string;
+    domain?: string;
+}
+
+// Accepts hostnames like: example.com, sub.example.com, my-brand.agent.bcfloorplans.com
+// Rejects: spaces, http://, paths, ports
+function isValidDomain(value: string): boolean {
+    return /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)+$/.test(value.trim());
 }
 
 const emptyForm = (): OrganizationPayload => ({
@@ -88,6 +96,9 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
     // const [audioUploadProgress, setAudioUploadProgress] = useState(0);
     const orgAudioRef = useRef<HTMLInputElement>(null);
 
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const orgLogoRef = useRef<HTMLInputElement>(null);
+
     // Populate form on open/edit
     useEffect(() => {
         if (open) {
@@ -120,6 +131,23 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                 setForm(emptyForm());
             }
             setErrors({});
+            setLogoFile(null); // Reset file selection
+
+            if (initialData?.uuid) {
+                // Fetch current branding to pre-fill colors and logo
+                GetOrganizationBranding(initialData.uuid)
+                    .then(res => {
+                        if (res?.data) {
+                            setForm(prev => ({
+                                ...prev,
+                                primary_color: res.data.primary_color || prev.primary_color,
+                                secondary_color: res.data.secondary_color || prev.secondary_color,
+                                logo: res.data.logo_url || res.data.logo || prev.logo
+                            }));
+                        }
+                    })
+                    .catch(err => console.error("Failed to load branding", err));
+            }
         }
     }, [open, initialData]);
 
@@ -168,6 +196,10 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
             newErrors.trial_ends_at = "Please enter a valid date.";
         }
 
+        if (form.domain && !isValidDomain(form.domain)) {
+            newErrors.domain = "Enter a valid domain (e.g. myportalmedia.com)";
+        }
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -203,9 +235,29 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
 
             if (isEdit && initialData) {
                 await UpdateOrganization(initialData.uuid, payload);
+                
+                // Update branding
+                if (logoFile || form.primary_color || form.secondary_color) {
+                    const formData = new FormData();
+                    if (form.primary_color) formData.append('primary_color', form.primary_color);
+                    if (form.secondary_color) formData.append('secondary_color', form.secondary_color);
+                    if (logoFile) formData.append('logo', logoFile);
+                    await UpdateOrganizationBranding(initialData.uuid, formData);
+                }
+                
                 toast.success("Organization updated successfully.");
             } else {
-                await CreateOrganization(payload);
+                const createdOrg = await CreateOrganization(payload);
+                
+                // Update branding for new org
+                if (createdOrg?.data?.uuid && (logoFile || form.primary_color || form.secondary_color)) {
+                    const formData = new FormData();
+                    if (form.primary_color) formData.append('primary_color', form.primary_color);
+                    if (form.secondary_color) formData.append('secondary_color', form.secondary_color);
+                    if (logoFile) formData.append('logo', logoFile);
+                    await UpdateOrganizationBranding(createdOrg.data.uuid, formData);
+                }
+                
                 toast.success("Organization created successfully.");
             }
 
@@ -285,6 +337,10 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
             toast.error("Please enter a domain.");
             return;
         }
+        if (!isValidDomain(newDomain)) {
+            toast.error("Enter a valid domain (e.g. media.commerx.com)");
+            return;
+        }
         const exists = form.domains?.some(d => d.domain.toLowerCase() === newDomain.trim().toLowerCase());
         if (exists) {
             toast.error("This domain is already added.");
@@ -346,25 +402,35 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                 {errors.name && <p className="text-red-500 text-[10px] mt-1">{errors.name}</p>}
                             </div>
 
-                            {/* Slug */}
-                            <div>
-                                <Label>
-                                    Slug{" "}
-                                    <span className="text-[#999] text-xs font-normal">(auto-generated if blank)</span>
-                                </Label>
-                                <Input
-                                    id="org-slug"
-                                    type="text"
-                                    placeholder="e.g. acme-realty"
-                                    value={form.slug ?? ""}
-                                    onChange={(e) =>
-                                        setField("slug", e.target.value.toLowerCase().replace(/\s+/g, "-"))
-                                    }
-                                    className={inputCls(errors.slug)}
-                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                />
-                                {errors.slug && <p className="text-red-500 text-[10px] mt-1">{errors.slug}</p>}
-                            </div>
+                            {/* Slug — only for whitelabel orgs */}
+                            {form.is_whitelabel && (
+                                <div>
+                                    <Label>
+                                        Slug{" "}
+                                        <span className="text-[#999] text-xs font-normal">(auto-generated if blank)</span>
+                                    </Label>
+                                    <Input
+                                        id="org-slug"
+                                        type="text"
+                                        placeholder="e.g. acme-realty"
+                                        value={form.slug ?? ""}
+                                        onChange={(e) =>
+                                            setField("slug", e.target.value.toLowerCase().replace(/\s+/g, "-"))
+                                        }
+                                        className={inputCls(errors.slug)}
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                    />
+                                    {errors.slug && <p className="text-red-500 text-[10px] mt-1">{errors.slug}</p>}
+                                    {form.slug && (
+                                        <p className="text-[10px] text-[#999] mt-1">
+                                            Portal URL preview:{' '}
+                                            <span className="font-mono text-[#4290E9]">
+                                                {form.slug}.agent.bcfloorplans.com
+                                            </span>
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -545,8 +611,9 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                     {/* ── Whitelabel Branding ── */}
                     <div>
                         <p className="text-xs font-semibold uppercase tracking-wider text-[#999] mb-3">Whitelabel Branding</p>
+
+                        {/* Portal Type + Whitelabel Toggle — always visible */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {/* Portal Type */}
                             <div>
                                 <Label>Default Portal Type</Label>
                                 <Select 
@@ -563,64 +630,8 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                 </Select>
                             </div>
 
-                            {/* Logo URL */}
-                            <div>
-                                <Label>Logo URL</Label>
-                                <Input
-                                    id="org-logo"
-                                    type="text"
-                                    placeholder="https://example.com/logo.png"
-                                    value={form.logo ?? ""}
-                                    onChange={(e) => setField("logo", e.target.value)}
-                                    className={inputCls()}
-                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                />
-                            </div>
-
-                            {/* Primary Color */}
-                            <div>
-                                <Label>Primary Color</Label>
-                                <div className="flex gap-2 items-center">
-                                    <Input
-                                        type="text"
-                                        value={form.primary_color ?? ""}
-                                        onChange={(e) => setField("primary_color", e.target.value)}
-                                        className={inputCls()}
-                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                    />
-                                    <input
-                                        type="color"
-                                        value={form.primary_color || "#6BAE41"}
-                                        onChange={(e) => setField("primary_color", e.target.value)}
-                                        className="w-10 h-10 p-1 rounded border border-[#BBBBBB] cursor-pointer mt-[6px]"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Secondary Color */}
-                            <div>
-                                <Label>Secondary Color</Label>
-                                <div className="flex gap-2 items-center">
-                                    <Input
-                                        type="text"
-                                        value={form.secondary_color ?? ""}
-                                        onChange={(e) => setField("secondary_color", e.target.value)}
-                                        className={inputCls()}
-                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                    />
-                                    <input
-                                        type="color"
-                                        value={form.secondary_color || "#DC9600"}
-                                        onChange={(e) => setField("secondary_color", e.target.value)}
-                                        className="w-10 h-10 p-1 rounded border border-[#BBBBBB] cursor-pointer mt-[6px]"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                             {/* Whitelabel Toggle */}
-                            <div className="flex items-center gap-3 pt-2">
+                            <div className="flex items-center gap-3 pt-5">
                                 <Switch
                                     id="org-whitelabel"
                                     checked={form.is_whitelabel ?? false}
@@ -635,137 +646,202 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                     Enable Whitelabeling
                                 </Label>
                             </div>
-
-                            {/* Custom Domain */}
-                            <div>
-                                <Label>Custom Domain</Label>
-                                <Input
-                                    id="org-domain"
-                                    type="text"
-                                    placeholder="e.g. mypropertymedia.com"
-                                    value={form.domain ?? ""}
-                                    onChange={(e) => setField("domain", e.target.value)}
-                                    className={inputCls()}
-                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                />
-                            </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                            {/* From Name */}
-                            <div>
-                                <Label>Email {"From"} Name</Label>
-                                <Input
-                                    id="org-from-name"
-                                    type="text"
-                                    placeholder="e.g. BC Floorplans Support"
-                                    value={form.from_name ?? ""}
-                                    onChange={(e) => setField("from_name", e.target.value)}
-                                    className={inputCls()}
-                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                />
-                            </div>
-
-                            {/* From Email */}
-                            <div>
-                                <Label>Email {"From"} Address</Label>
-                                <Input
-                                    id="org-from-email"
-                                    type="email"
-                                    placeholder="e.g. support@bcfloorplans.com"
-                                    value={form.from_email ?? ""}
-                                    onChange={(e) => setField("from_email", e.target.value)}
-                                    className={inputCls()}
-                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="mt-6 border-t border-[#BBBBBB] pt-5">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-[#999] mb-3">Custom Domain Mappings</p>
-                            
-                            {/* Add Domain Form */}
-                            <div className="flex flex-wrap items-end gap-3 mb-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                                <div className="flex-1 min-w-[200px]">
-                                    <Label className="text-[11px] text-slate-500">Domain Name</Label>
-                                    <Input
-                                        placeholder="e.g. media.myproperty.com"
-                                        value={newDomain}
-                                        onChange={(e) => setNewDomain(e.target.value)}
-                                        className="h-[36px] mt-1 bg-white"
-                                    />
-                                </div>
-                                <div className="w-[150px]">
-                                    <Label className="text-[11px] text-slate-500">Portal Type</Label>
-                                    <Select 
-                                        value={newPortalType} 
-                                        onValueChange={(val: any) => setNewPortalType(val)}
-                                    >
-                                        <SelectTrigger className="h-[36px] mt-1 bg-white">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="admin">Admin Portal</SelectItem>
-                                            <SelectItem value="agent">Agent Portal</SelectItem>
-                                            <SelectItem value="vendor">Vendor Portal</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <Button
-                                    type="button"
-                                    onClick={handleAddDomain}
-                                    className="h-[36px] px-4 text-xs bg-slate-600 hover:bg-slate-700 text-white"
-                                >
-                                    Add Mapping
-                                </Button>
-                            </div>
-
-                            {/* Domains List */}
-                            <div className="space-y-2">
-                                {form.domains && form.domains.length > 0 ? (
-                                    <div className="border border-slate-200 rounded-md overflow-hidden">
-                                        <table className="w-full text-left text-xs border-collapse">
-                                            <thead className="bg-slate-100 text-slate-600 font-semibold uppercase">
-                                                <tr>
-                                                    <th className="px-3 py-2 border-b">Domain</th>
-                                                    <th className="px-3 py-2 border-b">Target Portal</th>
-                                                    <th className="px-3 py-2 border-b w-[50px]"></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {form.domains.map((d, i) => (
-                                                    <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                                        <td className="px-3 py-2 font-mono text-[#4290E9]">{d.domain}</td>
-                                                        <td className="px-3 py-2">
-                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                                                d.portal_type === 'admin' ? 'bg-purple-100 text-purple-700' :
-                                                                d.portal_type === 'vendor' ? 'bg-orange-100 text-orange-700' :
-                                                                'bg-blue-100 text-blue-700'
-                                                            }`}>
-                                                                {d.portal_type}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-3 py-2 text-right">
-                                                            <button 
-                                                                type="button"
-                                                                onClick={() => handleRemoveDomain(i)}
-                                                                className="text-red-400 hover:text-red-600 transition-colors"
-                                                            >
-                                                                <X className="w-4 h-4" />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                        {/* Whitelabel-only fields */}
+                        {form.is_whitelabel ? (
+                            <>
+                                {/* Logo */}
+                                <div className="mt-4">
+                                    <Label>Organization Logo</Label>
+                                    {(logoFile || form.logo) && (
+                                        <div className="mt-2 mb-3">
+                                            <img 
+                                                src={logoFile ? URL.createObjectURL(logoFile) : form.logo} 
+                                                alt="Organization Logo" 
+                                                className="max-h-[60px] object-contain rounded border border-gray-200"
+                                            />
+                                        </div>
+                                    )}
+                                    <div className="flex gap-2 items-center mt-[6px]">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => orgLogoRef.current?.click()}
+                                            className="h-[42px] border-[#BBBBBB] flex-1 bg-white truncate px-3"
+                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                        >
+                                            {logoFile ? logoFile.name : (form.logo ? 'Change Logo' : 'Upload Logo')}
+                                        </Button>
+                                        <input
+                                            ref={orgLogoRef}
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) setLogoFile(file);
+                                            }}
+                                            className="hidden"
+                                        />
+                                        {(logoFile || form.logo) && (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setLogoFile(null);
+                                                    setField('logo', '');
+                                                    if (orgLogoRef.current) orgLogoRef.current.value = '';
+                                                }}
+                                                className="h-[42px] border-red-200 text-red-600 hover:bg-red-50 px-3 bg-white"
+                                            >
+                                                Remove
+                                            </Button>
+                                        )}
                                     </div>
-                                ) : (
-                                    <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 italic text-xs">
-                                        No custom domains mapped yet.
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                                    {/* Custom Domain */}
+                                    <div>
+                                        <Label>Custom Domain</Label>
+                                        <Input
+                                            id="org-domain"
+                                            type="text"
+                                            placeholder="e.g. mypropertymedia.com"
+                                            value={form.domain ?? ""}
+                                            onChange={(e) => setField("domain", e.target.value)}
+                                            className={inputCls(errors.domain)}
+                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                        />
+                                        {errors.domain && <p className="text-red-500 text-[10px] mt-1">{errors.domain}</p>}
                                     </div>
-                                )}
+
+                                    {/* From Name */}
+                                    <div>
+                                        <Label>Email {"From"} Name</Label>
+                                        <Input
+                                            id="org-from-name"
+                                            type="text"
+                                            placeholder="e.g. BC Floorplans Support"
+                                            value={form.from_name ?? ""}
+                                            onChange={(e) => setField("from_name", e.target.value)}
+                                            className={inputCls()}
+                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                                    {/* From Email */}
+                                    <div>
+                                        <Label>Email {"From"} Address</Label>
+                                        <Input
+                                            id="org-from-email"
+                                            type="email"
+                                            placeholder="e.g. support@bcfloorplans.com"
+                                            value={form.from_email ?? ""}
+                                            onChange={(e) => setField("from_email", e.target.value)}
+                                            className={inputCls()}
+                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Custom Domain Mappings */}
+                                <div className="mt-6 border-t border-[#BBBBBB] pt-5">
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-[#999] mb-3">Custom Domain Mappings</p>
+                                    <div className="flex flex-wrap items-end gap-3 mb-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                        <div className="flex-1 min-w-[200px]">
+                                            <Label className="text-[11px] text-slate-500">Domain Name</Label>
+                                            <Input
+                                                placeholder="e.g. media.myproperty.com"
+                                                value={newDomain}
+                                                onChange={(e) => setNewDomain(e.target.value)}
+                                                className="h-[36px] mt-1 bg-white"
+                                            />
+                                        </div>
+                                        <div className="w-[150px]">
+                                            <Label className="text-[11px] text-slate-500">Portal Type</Label>
+                                            <Select 
+                                                value={newPortalType} 
+                                                onValueChange={(val: any) => setNewPortalType(val)}
+                                            >
+                                                <SelectTrigger className="h-[36px] mt-1 bg-white">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="admin">Admin Portal</SelectItem>
+                                                    <SelectItem value="agent">Agent Portal</SelectItem>
+                                                    <SelectItem value="vendor">Vendor Portal</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            onClick={handleAddDomain}
+                                            className="h-[36px] px-4 text-xs bg-slate-600 hover:bg-slate-700 text-white"
+                                        >
+                                            Add Mapping
+                                        </Button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {form.domains && form.domains.length > 0 ? (
+                                            <div className="border border-slate-200 rounded-md overflow-hidden">
+                                                <table className="w-full text-left text-xs border-collapse">
+                                                    <thead className="bg-slate-100 text-slate-600 font-semibold uppercase">
+                                                        <tr>
+                                                            <th className="px-3 py-2 border-b">Domain</th>
+                                                            <th className="px-3 py-2 border-b">Target Portal</th>
+                                                            <th className="px-3 py-2 border-b w-[50px]"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-100">
+                                                        {form.domains.map((d, i) => (
+                                                            <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                                                <td className="px-3 py-2 font-mono text-[#4290E9]">{d.domain}</td>
+                                                                <td className="px-3 py-2">
+                                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                                                        d.portal_type === 'admin' ? 'bg-purple-100 text-purple-700' :
+                                                                        d.portal_type === 'vendor' ? 'bg-orange-100 text-orange-700' :
+                                                                        'bg-blue-100 text-blue-700'
+                                                                    }`}>
+                                                                        {d.portal_type}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-3 py-2 text-right">
+                                                                    <button 
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveDomain(i)}
+                                                                        className="text-red-400 hover:text-red-600 transition-colors"
+                                                                    >
+                                                                        <X className="w-4 h-4" />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 italic text-xs">
+                                                No custom domains mapped yet.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            /* No whitelabel permission banner */
+                            <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0 text-amber-500 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                <div>
+                                    <p className="text-sm font-semibold text-amber-700">Whitelabeling not enabled</p>
+                                    <p className="text-xs text-amber-600 mt-0.5">
+                                        This organization does not have whitelabel permission. Enable the toggle above to unlock slug, domain, logo, and custom domain mapping settings.
+                                    </p>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
 
                     {isEdit && (

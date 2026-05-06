@@ -1,6 +1,7 @@
 'use client'
 import { Button } from '@/components/ui/button'
 import Image from 'next/image'
+import WhitelabelLogo from '@/components/WhitelabelLogo'
 import { useRouter } from 'next/navigation';
 import React, { useEffect } from 'react'
 
@@ -19,12 +20,7 @@ function Page() {
     return (
         <div className='px-[40px] md:px-0 w-full flex justify-center items-start pt-[80px]'>
             <div className='w-[410px] flex flex-col gap-[25px]'>
-                <Image
-                    src="/tojuco.png"
-                    alt="logo"
-                    width={180}
-                    height={100}
-                    className="mx-auto" />
+                <WhitelabelLogo width={180} height={100} />
 
                     
                 <Image

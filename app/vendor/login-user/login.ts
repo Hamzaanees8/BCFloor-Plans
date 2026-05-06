@@ -3,7 +3,9 @@
 type LoginPayload = {
     email: string;
     password: string;
-    role:string
+    role: string;
+    organization_id?: number;
+    domain?: string;
 };
 
 type LoginResponse = {

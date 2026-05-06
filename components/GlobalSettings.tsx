@@ -330,26 +330,7 @@ const GlobalSettings = () => {
     const hasInitiallyRendered = useRef(false);
     const headerRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        const header = headerRef.current;
-        if (!header) return;
 
-        let ancestor = header.parentElement;
-        while (ancestor) {
-            const style = window.getComputedStyle(ancestor);
-            if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
-                ancestor.style.setProperty('overflow-x', 'visible', 'important');
-                ancestor.style.setProperty('overflow-y', 'visible', 'important');
-
-                const target = ancestor;
-                return () => {
-                    target.style.removeProperty('overflow-x');
-                    target.style.removeProperty('overflow-y');
-                };
-            }
-            ancestor = ancestor.parentElement;
-        }
-    }, []);
 
     const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const repeatOptions = [
@@ -1192,13 +1173,13 @@ const GlobalSettings = () => {
             /> */}
             {userType === "admin" && (
                 <div
-                    className="h-[60px] sticky top-[80px] z-[40] border-b-[1px] border-[#BBBBBB] w-full overflow-hidden"
+                    className="h-[60px] sticky top-[80px] z-[40] border-b-[1px] border-[#BBBBBB] w-full"
                     style={{
                         backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%)`,
                     }}
                 >
                     <div className="mx-auto max-w-7xl h-full flex items-center justify-center px-4">
-                        <div className="w-full md:w-[85%] relative flex items-center group h-full">
+                        <div className="w-full md:w-[90%] relative flex items-center group h-full">
                             {showLeftArrow && (
                                 <div className="absolute left-0 z-[50] flex items-center justify-start w-16 h-full bg-gradient-to-r from-[#E4E4E4] via-[#E4E4E4]/80 to-transparent pointer-events-none"
                                     style={{
@@ -1347,7 +1328,7 @@ const GlobalSettings = () => {
                     )}
 
                     {activeTab === "Profile Settings" && (
-                        <form
+                        <div
                             onChange={() => {
                                 if (!isPopulatingData.current) {
                                     setIsDirty(true);
@@ -1441,6 +1422,41 @@ const GlobalSettings = () => {
                                                                 {fieldErrors.email[0]}
                                                             </p>
                                                         )}
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <label htmlFor="">Password Change</label>
+                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
+                                                            <input
+                                                                type="password"
+                                                                id="password"
+                                                                value={password}
+                                                                disabled
+                                                                onChange={(e) => setPassword(e.target.value)}
+                                                                className="text-[16px] font-medium w-full h-full px-4 focus:outline-none"
+                                                                style={{
+                                                                    backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                                                                }}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    handleReset();
+                                                                    setOpenChangePasswordDialog(true);
+                                                                }}
+                                                                className="px-4 text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                                style={{
+                                                                    backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+                                                                }}
+                                                            >
+                                                                Reset
+                                                            </button>
+                                                            <ChangePasswordDialog
+                                                                userId={userInfo?.uuid}
+                                                                open={openChangePasswordDialog}
+                                                                setOpen={setOpenChangePasswordDialog}
+                                                                type="agents"
+                                                            />
+                                                        </div>
                                                     </div>
                                                     <div>
                                                         <label htmlFor="">
@@ -1709,6 +1725,41 @@ const GlobalSettings = () => {
                                                             type="text"
                                                             placeholder="name@email.com"
                                                         />
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <label htmlFor="">Password Change</label>
+                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
+                                                            <input
+                                                                type="password"
+                                                                id="password"
+                                                                value={password}
+                                                                disabled
+                                                                onChange={(e) => setPassword(e.target.value)}
+                                                                className="text-[16px] font-medium w-full h-full px-4 focus:outline-none"
+                                                                style={{
+                                                                    backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                                                                }}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    handleReset();
+                                                                    setOpenChangePasswordDialog(true);
+                                                                }}
+                                                                className="px-4 text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                                style={{
+                                                                    backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+                                                                }}
+                                                            >
+                                                                Reset
+                                                            </button>
+                                                            <ChangePasswordDialog
+                                                                userId={userInfo?.uuid}
+                                                                open={openChangePasswordDialog}
+                                                                setOpen={setOpenChangePasswordDialog}
+                                                                type="agents"
+                                                            />
+                                                        </div>
                                                     </div>
 
                                                     <div>
@@ -2754,76 +2805,7 @@ const GlobalSettings = () => {
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
-
-                            <AccordionItem value="account" className="border-none">
-                                <AccordionTrigger
-                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === "admin"
-                                        ? "[&>svg]:text-[#4290E9]"
-                                        : "[&>svg]:text-[#6BAE41]"
-                                        } [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                    style={{
-                                        backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
-                                    }}
-                                >
-                                    ACCOUNT MANAGEMENT
-                                </AccordionTrigger>
-                                <AccordionContent className="grid gap-4">
-                                    <div className="w-full flex flex-col items-center">
-                                        <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
-                                            <div className="col-span-2">
-                                                <label htmlFor="">Password Change</label>
-                                                <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
-                                                    <input
-                                                        type="password"
-                                                        id="password"
-                                                        value={password}
-                                                        disabled
-                                                        onChange={(e) => setPassword(e.target.value)}
-                                                        className="text-[16px] font-medium w-full h-full px-4 focus:outline-none"
-                                                        style={{
-                                                            backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
-                                                        }}
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            handleReset();
-                                                            setOpenChangePasswordDialog(true);
-                                                        }}
-                                                        className="px-4 text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                                                        style={{
-                                                            backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
-                                                        }}
-                                                    >
-                                                        Reset
-                                                    </button>
-                                                    <ChangePasswordDialog
-                                                        userId={userInfo?.uuid}
-                                                        open={openChangePasswordDialog}
-                                                        setOpen={setOpenChangePasswordDialog}
-                                                        type="agents"
-                                                    />
-                                                </div>
-                                            </div>
-                                            {/* <div className='flex items-center justify-center'>
-                                        <button
-                                            type="button"
-                                            onClick={() => setOpenCloseDialog(true)}
-                                            className="px-4 font-raleway py-2 bg-white text-sm font-semibold h-full w-[130px] text-[#E06D5E] border border-[#E06D5E]"
-                                        >
-                                            Close Account
-                                        </button>
-                                        <CloseDialog
-                                            open={openCloseDialog}
-                                            setOpen={setOpenCloseDialog}
-                                            onConfirm={confirmAndExecute}
-                                        />
-                                    </div> */}
-                                        </div>
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                        </form>
+                        </div>
                     )}
 
                     {activeTab === "Tour Settings" && userType === "admin" && (

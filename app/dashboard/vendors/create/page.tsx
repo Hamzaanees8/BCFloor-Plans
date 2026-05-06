@@ -53,6 +53,7 @@ import {
 import WorkAreaMap, { LatLng } from "@/components/WorkAreaMap";
 import GooglePlacesAutocomplete from "../../calendar/components/AutoCompleteInput";
 import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
+import { usePermissions } from "@/app/hooks/usePermissions";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import VendorWorkHours, {
   SelectedService,
@@ -288,6 +289,7 @@ const VendorForm = () => {
   const code = searchParams.get("code");
 
   const { userType } = useAppContext();
+  const { isSuperAdmin } = usePermissions();
   const { isDirty, setIsDirty } = useUnsaved();
   useUnsavedChangesWarning(isDirty);
   const isPopulatingData = useRef(false);
@@ -397,7 +399,23 @@ const VendorForm = () => {
     GetOrganizations()
       .then((res) => setOrganizations(Array.isArray(res.data) ? res.data : []))
       .catch((err) => console.log("Failed to fetch organizations", err));
-  }, []);
+
+    // For non-super-admins, pre-fill org from their own userInfo on create mode
+    if (!isSuperAdmin && !userId) {
+      try {
+        const userInfoStr = localStorage.getItem('userInfo');
+        if (userInfoStr) {
+          const parsedInfo = JSON.parse(userInfoStr);
+          const orgId = parsedInfo?.organization_id ?? parsedInfo?.data?.organization_id;
+          if (orgId) {
+            setOrganizationId(String(orgId));
+          }
+        }
+      } catch (e) {
+        console.error('Failed to read userInfo for org prefill:', e);
+      }
+    }
+  }, [isSuperAdmin, userId]);
 
   let idToUse: string = "";
 
@@ -1312,32 +1330,51 @@ const VendorForm = () => {
                             </p>
                           )}
                         </div>
+                        <div className='col-span-2'>
+                          <label htmlFor="">Role <span className="text-red-500">*</span></label>
+                          <Select disabled value="vendor">
+                            <SelectTrigger className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
+                              <SelectValue placeholder="Vendor" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="vendor">Vendor</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                         {userType !== "vendor" && (
                           <div className="col-span-2">
                             <label htmlFor="">Organization</label>
-                            <Select
-                              value={organizationId}
-                              onValueChange={(val) => {
-                                setOrganizationId(val);
-                                if (hasInitiallyRendered.current) {
-                                  setIsDirty(true);
-                                }
-                              }}
-                            >
-                              <SelectTrigger
-                                className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                            {isSuperAdmin ? (
+                              <Select
+                                value={organizationId}
+                                onValueChange={(val) => {
+                                  setOrganizationId(val);
+                                  if (hasInitiallyRendered.current) {
+                                    setIsDirty(true);
+                                  }
+                                }}
                               >
-                                <SelectValue placeholder="Select an organization" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">None (Global)</SelectItem>
-                                {organizations?.map((org) => (
-                                  <SelectItem key={org.id} value={String(org.id)}>
-                                    {org.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                                <SelectTrigger
+                                  className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                >
+                                  <SelectValue placeholder="Select an organization" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">None (Global)</SelectItem>
+                                  {organizations?.map((org) => (
+                                    <SelectItem key={org.id} value={String(org.id)}>
+                                      {org.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <div
+                                className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] rounded-md px-3 flex items-center text-[14px] text-[#424242] cursor-not-allowed opacity-70"
+                              >
+                                {organizations.find(o => String(o.id) === organizationId)?.name || organizationId || 'Your Organization'}
+                              </div>
+                            )}
                           </div>
                         )}
                         <div className="col-span-2">
@@ -1369,6 +1406,74 @@ const VendorForm = () => {
                             )}
                           </div>
                         </div>
+                        {!currentUser && (
+                          <div className="col-span-2">
+                            <div className="flex-1">
+                              <Label>
+                                Password{" "}
+                                {!userId && (
+                                  <span className="text-red-500">*</span>
+                                )}
+                              </Label>
+                              <div className="relative">
+                                <Input
+                                  placeholder="e.g. ************"
+                                  value={password}
+                                  autoComplete="new-password"
+                                  type="password"
+                                  onChange={(e) => {
+                                    setPassword(e.target.value);
+                                    if (fieldErrors.password) {
+                                      const newErrors = { ...fieldErrors };
+                                      delete newErrors.password;
+                                      setFieldErrors(newErrors);
+                                    }
+                                  }}
+                                  className={`h-[42px] mt-3 ${fieldErrors.password
+                                    ? "border-red-500"
+                                    : "bg-[#EEEEEE] border-[#BBBBBB]"
+                                    }`}
+                                />
+                                {fieldErrors.password && (
+                                  <p className="text-red-500 text-xs mt-1">
+                                    {fieldErrors.password[0]}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {currentUser && (
+                          <div className="col-span-2">
+                            <label htmlFor="">Password Change</label>
+                            <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
+                              <input
+                                type="password"
+                                id="password"
+                                value={password}
+                                disabled
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="bg-[#EEEEEE] text-[16px] font-medium w-full h-full px-4 focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleReset();
+                                  setOpenChangePasswordDialog(true);
+                                }}
+                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                              >
+                                Reset
+                              </button>
+                              <ChangePasswordDialog
+                                userId={currentUser.uuid}
+                                open={openChangePasswordDialog}
+                                setOpen={setOpenChangePasswordDialog}
+                                type="vendor"
+                              />
+                            </div>
+                          </div>
+                        )}
                         <div className="col-span-2">
                           <label htmlFor="">Email Secondary</label>
                           <Input
@@ -1595,51 +1700,6 @@ const VendorForm = () => {
                           )}
                         </div>
 
-                        {!currentUser && (
-                          <div className="col-span-2">
-                            <div className="flex-1">
-                              <Label>
-                                Password{" "}
-                                {!userId && (
-                                  <span className="text-red-500">*</span>
-                                )}
-                              </Label>
-                              <div className="relative">
-                                <Input
-                                  placeholder="e.g. ************"
-                                  value={password}
-                                  autoComplete="new-password"
-                                  type="password"
-                                  onChange={(e) => {
-                                    setPassword(e.target.value);
-                                    if (fieldErrors.password) {
-                                      const newErrors = { ...fieldErrors };
-                                      delete newErrors.password;
-                                      setFieldErrors(newErrors);
-                                    }
-                                  }}
-                                  className={`h-[42px] mt-3 ${fieldErrors.password
-                                    ? "border-red-500"
-                                    : "bg-[#EEEEEE] border-[#BBBBBB]"
-                                    }`}
-                                />
-                                {fieldErrors.password && (
-                                  <p className="text-red-500 text-xs mt-1">
-                                    {fieldErrors.password[0]}
-                                  </p>
-                                )}
-                                {/* <div className="absolute top-[25px] right-3">
-                                            <GeneratePassword />
-                                        </div> */}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        {currentUser && (
-                          <p className="text-[16px] font-normal text-[#666666]">
-                            Reset Password
-                          </p>
-                        )}
                         <div className="col-span-2">
                           <div className="flex items-center justify-between">
                             <p>Show Vendor Name When Booking</p>
@@ -2459,53 +2519,6 @@ const VendorForm = () => {
                   </div>
                 </AccordionContent>
               </AccordionItem>
-              {currentUser && (
-                <AccordionItem value="account" className="border-none">
-                  <AccordionTrigger
-                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                  >
-                    ACCOUNT MANAGEMENT
-                  </AccordionTrigger>
-                  <AccordionContent className="grid gap-4">
-                    <div className="w-full flex flex-col items-center">
-                      <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
-                        <div className="grid grid-cols-2 gap-[16px]">
-                          <div className="col-span-2">
-                            <label htmlFor="">Password Change</label>
-                            <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
-                              <input
-                                type="password"
-                                id="password"
-                                value={password}
-                                disabled
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="bg-[#EEEEEE] text-[16px] font-medium w-full h-full px-4 focus:outline-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleReset();
-                                  setOpenChangePasswordDialog(true);
-                                }}
-                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                              >
-                                Reset
-                              </button>
-                              <ChangePasswordDialog
-                                userId={currentUser.uuid}
-                                open={openChangePasswordDialog}
-                                setOpen={setOpenChangePasswordDialog}
-                                type="vendor"
-                              />
-                            </div>
-                          </div>
-                          <hr className="bg-[#666666] col-span-2" />
-                        </div>
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              )}
             </Accordion>
           </form>
         )}

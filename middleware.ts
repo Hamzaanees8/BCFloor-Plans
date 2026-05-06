@@ -1,128 +1,175 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const SYSTEM_DOMAINS = [
-  'teams-new.bcfloorplans.com',
-  'booking-new.bcfloorplans.com',
-  'agents-new.bcfloorplans.com',
-  'vendor-new.bcfloorplans.com',
-  'vendore-new.bcfloorplans.com',
-  'vendors-new.bcfloorplans.com',
-  'teams-new.localhost:3000',
-  'booking-new.localhost:3000',
-  'agents-new.localhost:3000',
-  'vendor-new.localhost:3000',
-  'vendore-new.localhost:3000',
-  'vendors-new.localhost:3000',
-  'teams-new.localhost',
-  'booking-new.localhost',
-  'agents-new.localhost',
-  'vendor-new.localhost',
-  'vendore-new.localhost',
-  'vendors-new.localhost',
-  'main.d1wkf3elpe9tnb.amplifyapp.com',
-  'bcfloorplans.com',
-  'tujoco.com',
-  'localhost:3000',
-  'localhost'
+// Auth routes that are always accessible (no rewrite needed)
+const AUTH_ROUTES = [
+  '/login',
+  '/login-user',
+  '/forget-password',
+  '/login-first-time',
+  '/new-password',
+  '/password-success',
 ];
 
-const AUTH_ROUTES = ['/login', '/login-user', '/forget-password', '/login-first-time', '/new-password'];
+// Emergency fallback: guess portal type from domain name
+// Only used if the API call fails completely
+function guessPortalTypeFromHostname(hostname: string): string {
+  const h = hostname.toLowerCase();
+  if (
+    h.includes('booking-new') ||
+    h.includes('agents-new') ||
+    h.includes('agents.')
+  )
+    return 'agent';
+  if (
+    h.includes('vendor-new') ||
+    h.includes('vendors-new') ||
+    h.includes('vendors.')
+  )
+    return 'vendor';
+  return 'admin';
+}
+
+// Core routing logic — same for all domains, driven only by portal_type
+function buildResponse(
+  portalType: string,
+  url: URL,
+  request: NextRequest
+): NextResponse {
+  const { pathname, search } = url;
+
+  const isAuthRoute = AUTH_ROUTES.some(
+    (r) => pathname === r || pathname.startsWith(r + '/')
+  );
+
+  if (portalType === 'agent') {
+    // Block vendor-specific pages
+    if (pathname.startsWith('/vendor')) {
+      return NextResponse.rewrite(new URL('/404', request.url));
+    }
+    // Allow agent auth pages, agent pages, and the shared dashboard
+    if (
+      pathname.startsWith('/agent') ||
+      pathname.startsWith('/dashboard') ||
+      isAuthRoute
+    ) {
+      return NextResponse.next();
+    }
+    // Rewrite bare paths to /agent prefix
+    return NextResponse.rewrite(
+      new URL(`/agent${pathname}${search}`, request.url)
+    );
+  }
+
+  if (portalType === 'vendor') {
+    // Block agent-specific pages
+    if (pathname.startsWith('/agent')) {
+      return NextResponse.rewrite(new URL('/404', request.url));
+    }
+    // Allow vendor auth pages, vendor pages, and the shared dashboard
+    if (
+      pathname.startsWith('/vendor') ||
+      pathname.startsWith('/dashboard') ||
+      isAuthRoute
+    ) {
+      return NextResponse.next();
+    }
+    // Rewrite bare paths to /vendor prefix
+    return NextResponse.rewrite(
+      new URL(`/vendor${pathname}${search}`, request.url)
+    );
+  }
+
+  // admin (default)
+  // Block portal-specific pages
+  if (pathname.startsWith('/agent') || pathname.startsWith('/vendor')) {
+    return NextResponse.rewrite(new URL('/404', request.url));
+  }
+  // Allow auth routes and dashboard
+  if (pathname.startsWith('/dashboard') || isAuthRoute) {
+    return NextResponse.next();
+  }
+  // Rewrite bare paths to /dashboard prefix
+  return NextResponse.rewrite(
+    new URL(`/dashboard${pathname}${search}`, request.url)
+  );
+}
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl;
   const hostname = request.headers.get('host') || '';
 
-  // 1. System Domains (Exact Match)
-  if (SYSTEM_DOMAINS.includes(hostname)) {
-    let subdomain = '';
-    if (hostname.startsWith('teams-new.')) subdomain = 'teams-new';
-    else if (hostname.startsWith('booking-new.') || hostname.startsWith('agents-new.')) subdomain = 'booking-new';
-    else if (hostname.startsWith('vendor-new.') || hostname.startsWith('vendore-new.') || hostname.startsWith('vendors-new.')) subdomain = 'vendor-new';
-    else if (hostname === 'main.d1wkf3elpe9tnb.amplifyapp.com') subdomain = 'teams-new'; 
+  console.log('>>> MIDDLEWARE HIT:', hostname, url.pathname);
 
-    if (subdomain === 'teams-new') {
-      if (AUTH_ROUTES.includes(url.pathname) || url.pathname.startsWith('/dashboard')) {
-        return NextResponse.next();
-      }
-      // Block other portals on teams-new
-      if (url.pathname.startsWith('/agent') || url.pathname.startsWith('/vendor')) {
-        return NextResponse.rewrite(new URL('/404', request.url));
-      }
-      return NextResponse.rewrite(new URL(`/dashboard${url.pathname}${url.search}`, request.url));
-    }
+  let portalType = 'admin';
+  let orgData: Record<string, unknown> | null = null;
 
-    if (subdomain === 'booking-new') {
-      if (url.pathname.startsWith('/agent')) {
-        return NextResponse.next();
-      }
-      // Block other portals on booking-new
-      if (url.pathname.startsWith('/dashboard') || url.pathname.startsWith('/vendor')) {
-        return NextResponse.rewrite(new URL('/404', request.url));
-      }
-      return NextResponse.rewrite(new URL(`/agent${url.pathname}${url.search}`, request.url));
-    }
+  const domainWithoutPort = hostname.split(':')[0];
+  const defaultDomains = [
+    "booking-new.bcfloorplans.com",
+    "teams-new.bcfloorplans.com",
+    "vendors-new.bcfloorplans.com",
+    "booking-new.localhost",
+    "teams-new.localhost",
+    "vendors-new.localhost",
+    "localhost",
+    "127.0.0.1"
+  ];
 
-    if (subdomain === 'vendor-new') {
-      if (url.pathname.startsWith('/vendor')) {
-        return NextResponse.next();
-      }
-      // Block other portals on vendor-new
-      if (url.pathname.startsWith('/dashboard') || url.pathname.startsWith('/agent')) {
-        return NextResponse.rewrite(new URL('/404', request.url));
-      }
-      return NextResponse.rewrite(new URL(`/vendor${url.pathname}${url.search}`, request.url));
-    }
+  const isDefaultDomain = defaultDomains.includes(domainWithoutPort);
 
-    // For base domains (bcfloorplans.com, tujoco.com, localhost), default to dashboard
-    if (AUTH_ROUTES.includes(url.pathname) || url.pathname.startsWith('/dashboard') || url.pathname.startsWith('/agent') || url.pathname.startsWith('/vendor')) {
-      return NextResponse.next();
+  if (!isDefaultDomain) {
+    // Always resolve the domain via the API — single source of truth for portal_type
+    try {
+      const baseApiUrl = (
+        process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com'
+      ).replace(/\/api\/?$/, '');
+      const resolveUrl = `${baseApiUrl}/api/domains/resolve?domain=${hostname}`;
+      console.log('Resolving domain:', resolveUrl);
+
+      const res = await fetch(resolveUrl, {
+        // 60s edge cache — avoids calling the API on every single request
+        next: { revalidate: 60 },
+      });
+
+      if (res.ok) {
+        orgData = await res.json();
+        portalType = (orgData?.portal_type as string) ?? 'admin';
+        console.log('Resolved portal_type:', portalType, 'for', hostname);
+      } else {
+        console.warn(
+          'Resolve API returned',
+          res.status,
+          '— using fallback for',
+          hostname
+        );
+        portalType = guessPortalTypeFromHostname(hostname);
+      }
+    } catch (err) {
+      console.error('Domain resolution error:', err);
+      portalType = guessPortalTypeFromHostname(hostname);
     }
-    return NextResponse.rewrite(new URL(`/dashboard${url.pathname}${url.search}`, request.url));
+  } else {
+    // For default domains, skip API and guess directly
+    portalType = guessPortalTypeFromHostname(hostname);
+    console.log('Default domain detected, guessing portal_type:', portalType, 'for', hostname);
   }
 
-  // 2. Whitelabel Domains (Custom Domains & Test Subdomains)
-  try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com';
-    const res = await fetch(`${apiUrl}/api/v1/domains/resolve?domain=${hostname}`, {
-      next: { revalidate: 3600 }
+  // Build the routing response based on portal_type
+  const response = buildResponse(portalType, url, request);
+
+  // Attach org data as a cookie so client-side OrganizationContext can read it
+  if (orgData) {
+    response.cookies.set('org_data', JSON.stringify(orgData), {
+      path: '/',
+      maxAge: 3600, // 1 hour
+      sameSite: 'lax',
     });
-
-    if (res.ok) {
-      const data = await res.json();
-      const portalType = data.portal_type; // 'admin', 'agent', or 'vendor'
-
-      if (portalType === 'admin') {
-        if (AUTH_ROUTES.includes(url.pathname) || url.pathname.startsWith('/dashboard')) {
-          return NextResponse.next();
-        }
-        if (url.pathname.startsWith('/agent') || url.pathname.startsWith('/vendor')) {
-          return NextResponse.rewrite(new URL('/404', request.url));
-        }
-        return NextResponse.rewrite(new URL(`/dashboard${url.pathname}${url.search}`, request.url));
-      } else if (portalType === 'vendor') {
-        if (url.pathname.startsWith('/vendor')) return NextResponse.next();
-        if (url.pathname.startsWith('/dashboard') || url.pathname.startsWith('/agent')) {
-          return NextResponse.rewrite(new URL('/404', request.url));
-        }
-        return NextResponse.rewrite(new URL(`/vendor${url.pathname}${url.search}`, request.url));
-      } else if (portalType === 'agent') {
-        if (url.pathname.startsWith('/agent')) return NextResponse.next();
-        if (url.pathname.startsWith('/dashboard') || url.pathname.startsWith('/vendor')) {
-          return NextResponse.rewrite(new URL('/404', request.url));
-        }
-        return NextResponse.rewrite(new URL(`/agent${url.pathname}${url.search}`, request.url));
-      }
-    }
-  } catch (error) {
-    console.error('Domain resolution failed in middleware:', error);
+  } else {
+    response.cookies.delete('org_data');
   }
 
-  // Fallback: default to admin portal (dashboard)
-  if (AUTH_ROUTES.includes(url.pathname) || url.pathname.startsWith('/agent') || url.pathname.startsWith('/dashboard') || url.pathname.startsWith('/vendor')) {
-    return NextResponse.next();
-  }
-  return NextResponse.rewrite(new URL(`/dashboard${url.pathname}${url.search}`, request.url));
+  return response;
 }
 
 export const config = {

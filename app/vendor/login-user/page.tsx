@@ -8,7 +8,9 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { VendorLoginIcon } from '@/components/Icons'
 import { useAppContext } from '@/app/context/AppContext'
+import { useOrganization } from '@/app/context/OrganizationContext'
 import { Eye, EyeOff } from 'lucide-react'
+import WhitelabelLogo from '@/components/WhitelabelLogo'
 
 function LoginUser() {
     const [email, setEmail] = React.useState('')
@@ -20,7 +22,10 @@ function LoginUser() {
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const { setUserType } = useAppContext();
+    const { organization } = useOrganization();
     const router = useRouter();
+
+    const hasCustomLogo = !!organization?.branding?.logo;
 
     const handleLogin = async (e: React.FormEvent) => {
 
@@ -39,7 +44,13 @@ function LoginUser() {
         if (hasError) return
         setIsLoading(true)
         try {
-            const response = await login({ email, password, role: 'vendor' });
+            const response = await login({ 
+                email, 
+                password, 
+                role: 'vendor',
+                organization_id: (organization?.is_whitelabel || organization?.slug) ? organization?.org_id : undefined,
+                domain: (organization?.is_whitelabel || organization?.slug) && typeof window !== 'undefined' ? window.location.origin : undefined
+            });
 
             console.log('Login successful:', response);
             toast.success('Login successfully')
@@ -63,9 +74,12 @@ function LoginUser() {
     return (
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
             <form onSubmit={handleLogin} className='w-[400px] flex flex-col gap-[25px]'>
-                <div className='flex justify-center'>
-                    <VendorLoginIcon width='110px' height='110px' />
-                </div>
+                <WhitelabelLogo width={180} height={100} />
+                {!hasCustomLogo && (
+                    <div className='flex justify-center'>
+                        <VendorLoginIcon width='110px' height='110px' />
+                    </div>
+                )}
                 <Link href={'#'} className='hidden flex justify-center items-center bg-[#DC9600] hover:bg-[#DC9600] hover:opacity-85 rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.email ? 'text-red-500' : ''}`} htmlFor="email">Email Address</label>

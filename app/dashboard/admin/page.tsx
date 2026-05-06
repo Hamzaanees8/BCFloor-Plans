@@ -179,7 +179,7 @@ const Page = () => {
                 const superAdmin = roles.find(r => 
                     r.name?.toLowerCase().includes("super") || 
                     String(r.id) === "1"
-                );
+                ) || row.original.organization_id == null || row.original.organization_id === "";
                 
                 const bookingAgent = roles.find(r => 
                     r.name?.toLowerCase().includes("book") || 

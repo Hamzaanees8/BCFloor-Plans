@@ -9,11 +9,15 @@ import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { newPassword } from "@/app/(auth)/new-password/new-password";
 import {  VendorLoginIcon } from "./Icons";
+import WhitelabelLogo from "./WhitelabelLogo";
+import { useOrganization } from "@/app/context/OrganizationContext";
 
 function AgentNewPasswordForm() {
     const [password, setPassword] = React.useState('');
     const [errors, setErrors] = React.useState<{ password: boolean }>({ password: false });
     const [isLoading, setIsLoading] = useState(false);
+    const { organization } = useOrganization();
+    const hasCustomLogo = !!organization?.branding?.logo;
 
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -69,9 +73,12 @@ function AgentNewPasswordForm() {
     return (
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
             <div className='w-[400px] flex flex-col gap-[25px]'>
-                 <div className='flex justify-center'>
-                                    <VendorLoginIcon width='110px' height='110px' />
-                                </div>
+                 <WhitelabelLogo width={180} height={100} />
+                 {!hasCustomLogo && (
+                     <div className='flex justify-center'>
+                         <VendorLoginIcon width='110px' height='110px' />
+                     </div>
+                 )}
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.password ? 'text-red-500' : ''}`} htmlFor="password">Enter New Password</label>
                     <Input
