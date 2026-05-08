@@ -41,6 +41,13 @@ export class WhiteLabelStyles {
     }
 }
 
+// Helper: extract color string from either a plain string or a { value: "..." } object
+function extractColorValue(color: any, fallback: string): string {
+    if (!color) return fallback;
+    if (typeof color === 'object') return color.value || fallback;
+    return color || fallback;
+}
+
 export const WhiteLabelProvider = ({ children }: { children: ReactNode }) => {
     const [activeTab, setActiveTab] = useState<Role>('admin')
     const [settings, setSettings] = useState<Record<Role, WhiteLabelSettings>>(brandingDefaults)
@@ -243,14 +250,33 @@ export const WhiteLabelProvider = ({ children }: { children: ReactNode }) => {
             const loadOrgBranding = async () => {
                 let stylesToUse = org && org.white_label_styles ? { ...org.white_label_styles } : { ...brandingDefaults };
                 
+                // Pre-fill from org object if JSON styles are missing
+                if (org && !org.white_label_styles) {
+                    const primary = extractColorValue(org.primary_color, '');
+                    const secondary = extractColorValue(org.secondary_color, '');
+                    if (primary || secondary) {
+                        const next = { ...stylesToUse };
+                        (Object.keys(next) as Role[]).forEach(role => {
+                            if (primary) next[role] = { ...next[role], pageTabColor: primary };
+                            if (secondary) next[role] = { ...next[role], activeColor: secondary };
+                        });
+                        stylesToUse = next;
+                    }
+                }
+
                 try {
                     const res = await GetOrganizationBranding(selectedOrgUuid);
                     if (res?.data) {
                         const logo = res.data.logo_url || res.data.logo;
-                        if (logo) {
+                        const primary = extractColorValue(res.data.primary_color, '');
+                        const secondary = extractColorValue(res.data.secondary_color, '');
+                        
+                        if (logo || primary || secondary) {
                             const newStyles = { ...stylesToUse };
                             (Object.keys(newStyles) as Role[]).forEach(role => {
-                                newStyles[role] = { ...newStyles[role], logo };
+                                if (logo) newStyles[role] = { ...newStyles[role], logo };
+                                if (primary) newStyles[role] = { ...newStyles[role], pageTabColor: primary };
+                                if (secondary) newStyles[role] = { ...newStyles[role], activeColor: secondary };
                             });
                             stylesToUse = newStyles;
                         }

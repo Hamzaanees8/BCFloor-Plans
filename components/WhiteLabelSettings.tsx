@@ -2,8 +2,8 @@
 
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { useAppContext } from '@/app/context/AppContext'
-import React, { useState, useRef, useEffect } from 'react'
-import { usePermissions } from '@/app/hooks/usePermissions'
+import React, { useState, useRef } from 'react'
+
 
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -24,7 +24,6 @@ import { UpdateOrganizationBranding } from "@/app/dashboard/global-settings/glob
 
 const Settings = () => {
     const { userType } = useAppContext()
-    const { isSuperAdmin } = usePermissions()
     // State for visual customization
     const { 
         activeTab, 
@@ -36,28 +35,12 @@ const Settings = () => {
         settings,
         selectedOrgUuid,
         setSelectedOrgUuid,
-        organizations
+        organizations,
+        saveSettings
     } = useWhiteLabel()
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
 
-    // For non-super-admins: auto-select their org and lock it
-    useEffect(() => {
-        if (!isSuperAdmin) {
-            try {
-                const userInfoStr = localStorage.getItem('userInfo');
-                if (userInfoStr) {
-                    const userInfo = JSON.parse(userInfoStr);
-                    const orgUuid = userInfo?.organization?.uuid ?? userInfo?.data?.organization?.uuid;
-                    if (orgUuid && selectedOrgUuid !== orgUuid) {
-                        setSelectedOrgUuid(orgUuid);
-                    }
-                }
-            } catch (e) {
-                console.error('Failed to read userInfo for org prefill:', e);
-            }
-        }
-    }, [isSuperAdmin, setSelectedOrgUuid, selectedOrgUuid]);
 
     // Determine if the selected org has whitelabel permission.
     // null/global => unrestricted (global defaults).
@@ -116,6 +99,11 @@ const Settings = () => {
             }
             
             await UpdateOrganizationBranding(selectedOrgUuid, formData);
+            
+            // Also sync the full styles object to the organization's white_label_styles column
+            // and update local context state
+            await saveSettings();
+            
             toast.success("Branding updated successfully!");
         } catch (error) {
             toast.error("Failed to update branding.");
@@ -162,28 +150,22 @@ const Settings = () => {
 
                     <div className="grid gap-2">
                         <Label htmlFor="org-select">Select Organization</Label>
-                        {isSuperAdmin ? (
-                            <Select
-                                value={selectedOrgUuid || "global"}
-                                onValueChange={(val) => setSelectedOrgUuid(val === "global" ? null : val)}
-                            >
-                                <SelectTrigger id="org-select" className="w-full h-[42px] border-[#BBBBBB]">
-                                    <SelectValue placeholder="Select Organization" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="global">Global Settings (Default)</SelectItem>
-                                    {organizations.map((org) => (
-                                        <SelectItem key={org.uuid} value={org.uuid}>
-                                            {org.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        ) : (
-                            <div className="h-[42px] border-[1px] border-[#BBBBBB] rounded-md px-3 flex items-center text-[14px] text-[#424242] cursor-not-allowed opacity-70 bg-gray-50">
-                                {organizations.find(o => o.uuid === selectedOrgUuid)?.name || 'Your Organization'}
-                            </div>
-                        )}
+                        <Select
+                            value={selectedOrgUuid || "global"}
+                            onValueChange={(val) => setSelectedOrgUuid(val === "global" ? null : val)}
+                        >
+                            <SelectTrigger id="org-select" className="w-full h-[42px] border-[#BBBBBB]">
+                                <SelectValue placeholder="Select Organization" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="global">Global Settings (Default)</SelectItem>
+                                {organizations.map((org) => (
+                                    <SelectItem key={org.uuid} value={org.uuid}>
+                                        {org.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                         <p className="text-[10px] text-gray-500 italic">
                             {selectedOrgUuid 
                                 ? "Changes will be saved specifically for this organization." 

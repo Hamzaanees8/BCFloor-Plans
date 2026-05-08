@@ -5,7 +5,7 @@ import { useOrganization } from '@/app/context/OrganizationContext'
 import Link from 'next/link'
 import React from 'react'
 
-function page() {
+function Page() {
     const { organization } = useOrganization();
     const hasCustomLogo = !!organization?.branding?.logo;
 
@@ -30,4 +30,4 @@ function page() {
     )
 }
 
-export default page
+export default Page

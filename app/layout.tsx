@@ -68,8 +68,10 @@ export default async function RootLayout({
     try {
       const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com')
         .replace(/\/api\/?$/, '');
-      const fetchUrl = `${apiUrl}/api/domains/resolve?domain=${host}`;
-      console.log('Layout: fetching branding for', host);
+      const protocol = headersList.get("x-forwarded-proto") || "http";
+      const fullBaseUrl = `${protocol}://${host}`;
+      const fetchUrl = `${apiUrl}/api/domains/resolve?domain=${fullBaseUrl}`;
+      console.log('Layout: fetching branding for', fullBaseUrl);
 
       const res = await fetch(fetchUrl, { next: { revalidate: 3600 } });
       if (res.ok) {

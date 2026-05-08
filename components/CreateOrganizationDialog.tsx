@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { X } from "lucide-react";
+import { X, Edit2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
 import {
@@ -55,7 +55,12 @@ interface FormErrors {
 // Accepts hostnames like: example.com, sub.example.com, my-brand.agent.bcfloorplans.com
 // Rejects: spaces, http://, paths, ports
 function isValidDomain(value: string): boolean {
-    return /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)+$/.test(value.trim());
+    const val = value.trim().toLowerCase();
+    // Allow localhost with optional protocol and port for testing
+    if (val.includes("localhost")) return true;
+    
+    // Standard domain regex
+    return /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)+$/.test(val);
 }
 
 const emptyForm = (): OrganizationPayload => ({
@@ -132,6 +137,9 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
             }
             setErrors({});
             setLogoFile(null); // Reset file selection
+            setIsDomainsManuallyEdited(false);
+            setEditIndex(null);
+            setNewDomain("");
 
             if (initialData?.uuid) {
                 // Fetch current branding to pre-fill colors and logo
@@ -158,11 +166,36 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                 .then(res => setOrgAudios(Array.isArray(res.data) ? res.data : []))
                 .catch(() => setOrgAudios([]));
         }
-        if (!open) setOrgAudios([]);
-    }, [open, isEdit, initialData?.uuid]);
+            if (!open) setOrgAudios([]);
+        }, [open, isEdit, initialData?.uuid]);
 
     const [newDomain, setNewDomain] = useState("");
     const [newPortalType, setNewPortalType] = useState<'admin' | 'agent' | 'vendor'>('agent');
+    const [isDomainsManuallyEdited, setIsDomainsManuallyEdited] = useState(false);
+    const [editIndex, setEditIndex] = useState<number | null>(null);
+
+    // Auto-populate default domains based on slug and custom domain
+    useEffect(() => {
+        if (!open || !form.is_whitelabel || !form.slug || isEdit || isDomainsManuallyEdited) return;
+
+        const slug = form.slug.trim();
+        const customDomain = form.domain?.trim();
+
+        const defaultMappings = customDomain 
+            ? [
+                { domain: `booking-new.${customDomain}`, portal_type: 'agent' },
+                { domain: `vendors-new.${customDomain}`, portal_type: 'vendor' },
+                { domain: `admins-new.${customDomain}`, portal_type: 'admin' },
+              ]
+            : [
+                { domain: `${slug}.booking-new.bcfloorplans.com`, portal_type: 'agent' },
+                { domain: `${slug}.vendors-new.bcfloorplans.com`, portal_type: 'vendor' },
+                { domain: `${slug}.admins-new.bcfloorplans.com`, portal_type: 'admin' },
+              ];
+
+        setField("domains", defaultMappings);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [form.slug, form.domain, form.is_whitelabel, open, isEdit, isDomainsManuallyEdited]);
 
     const setField = (key: keyof OrganizationPayload, value: any) => {
         setForm((prev) => ({ ...prev, [key]: value }));
@@ -341,20 +374,57 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
             toast.error("Enter a valid domain (e.g. media.commerx.com)");
             return;
         }
-        const exists = form.domains?.some(d => d.domain.toLowerCase() === newDomain.trim().toLowerCase());
-        if (exists) {
+
+        const trimmedDomain = newDomain.trim().toLowerCase();
+        const domains = [...(form.domains || [])];
+
+        // Check for duplicate domain (excluding current item if editing)
+        const domainExists = domains.some((d, idx) => d.domain.toLowerCase() === trimmedDomain && idx !== editIndex);
+        if (domainExists) {
             toast.error("This domain is already added.");
             return;
         }
-        const domains = [...(form.domains || []), { domain: newDomain.trim(), portal_type: newPortalType }];
+
+        // Check for duplicate portal type (excluding current item if editing)
+        const typeExists = domains.some((d, idx) => d.portal_type === newPortalType && idx !== editIndex);
+        if (typeExists) {
+            toast.error(`A domain is already mapped to the ${newPortalType} portal. Only one domain per portal is allowed.`);
+            return;
+        }
+
+        if (editIndex !== null) {
+            domains[editIndex] = { domain: trimmedDomain, portal_type: newPortalType };
+            toast.success("Domain mapping updated.");
+        } else {
+            domains.push({ domain: trimmedDomain, portal_type: newPortalType });
+            toast.success("Domain mapping added.");
+        }
+
         setField("domains", domains);
         setNewDomain("");
+        setEditIndex(null);
+        setIsDomainsManuallyEdited(true);
+    };
+
+    const handleEditDomain = (index: number) => {
+        const item = (form.domains || [])[index];
+        if (!item) return;
+        setNewDomain(item.domain);
+        setNewPortalType(item.portal_type);
+        setEditIndex(index);
     };
 
     const handleRemoveDomain = (index: number) => {
         const domains = [...(form.domains || [])];
         domains.splice(index, 1);
         setField("domains", domains);
+        setIsDomainsManuallyEdited(true);
+        if (editIndex === index) {
+            setEditIndex(null);
+            setNewDomain("");
+        } else if (editIndex !== null && index < editIndex) {
+            setEditIndex(editIndex - 1);
+        }
     };
 
     const inputCls = (err?: string) =>
@@ -402,35 +472,6 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                 {errors.name && <p className="text-red-500 text-[10px] mt-1">{errors.name}</p>}
                             </div>
 
-                            {/* Slug — only for whitelabel orgs */}
-                            {form.is_whitelabel && (
-                                <div>
-                                    <Label>
-                                        Slug{" "}
-                                        <span className="text-[#999] text-xs font-normal">(auto-generated if blank)</span>
-                                    </Label>
-                                    <Input
-                                        id="org-slug"
-                                        type="text"
-                                        placeholder="e.g. acme-realty"
-                                        value={form.slug ?? ""}
-                                        onChange={(e) =>
-                                            setField("slug", e.target.value.toLowerCase().replace(/\s+/g, "-"))
-                                        }
-                                        className={inputCls(errors.slug)}
-                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                    />
-                                    {errors.slug && <p className="text-red-500 text-[10px] mt-1">{errors.slug}</p>}
-                                    {form.slug && (
-                                        <p className="text-[10px] text-[#999] mt-1">
-                                            Portal URL preview:{' '}
-                                            <span className="font-mono text-[#4290E9]">
-                                                {form.slug}.agent.bcfloorplans.com
-                                            </span>
-                                        </p>
-                                    )}
-                                </div>
-                            )}
                         </div>
                     </div>
 
@@ -651,11 +692,57 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                         {/* Whitelabel-only fields */}
                         {form.is_whitelabel ? (
                             <>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                                    {/* Slug */}
+                                    <div>
+                                        <Label>
+                                            Slug{" "}
+                                            <span className="text-[#999] text-xs font-normal">(auto-generated if blank)</span>
+                                        </Label>
+                                        <Input
+                                            id="org-slug"
+                                            type="text"
+                                            placeholder="e.g. acme-realty"
+                                            value={form.slug ?? ""}
+                                            onChange={(e) =>
+                                                setField("slug", e.target.value.toLowerCase().replace(/\s+/g, "-"))
+                                            }
+                                            className={inputCls(errors.slug)}
+                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                        />
+                                        {errors.slug && <p className="text-red-500 text-[10px] mt-1">{errors.slug}</p>}
+                                        {form.slug && (
+                                            <p className="text-[10px] text-[#999] mt-1">
+                                                Portal URL preview:{' '}
+                                                <span className="font-mono text-[#4290E9]">
+                                                    {form.slug}.booking-new.bcfloorplans.com
+                                                </span>
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Custom Domain */}
+                                    <div>
+                                        <Label>Custom Domain</Label>
+                                        <Input
+                                            id="org-domain"
+                                            type="text"
+                                            placeholder="e.g. mypropertymedia.com"
+                                            value={form.domain ?? ""}
+                                            onChange={(e) => setField("domain", e.target.value)}
+                                            className={inputCls(errors.domain)}
+                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                        />
+                                        {errors.domain && <p className="text-red-500 text-[10px] mt-1">{errors.domain}</p>}
+                                    </div>
+                                </div>
+
                                 {/* Logo */}
                                 <div className="mt-4">
                                     <Label>Organization Logo</Label>
                                     {(logoFile || form.logo) && (
                                         <div className="mt-2 mb-3">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
                                             <img 
                                                 src={logoFile ? URL.createObjectURL(logoFile) : form.logo} 
                                                 alt="Organization Logo" 
@@ -699,22 +786,7 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                         )}
                                     </div>
                                 </div>
-
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                                    {/* Custom Domain */}
-                                    <div>
-                                        <Label>Custom Domain</Label>
-                                        <Input
-                                            id="org-domain"
-                                            type="text"
-                                            placeholder="e.g. mypropertymedia.com"
-                                            value={form.domain ?? ""}
-                                            onChange={(e) => setField("domain", e.target.value)}
-                                            className={inputCls(errors.domain)}
-                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                        />
-                                        {errors.domain && <p className="text-red-500 text-[10px] mt-1">{errors.domain}</p>}
-                                    </div>
 
                                     {/* From Name */}
                                     <div>
@@ -729,9 +801,6 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                             style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                         />
                                     </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                                     {/* From Email */}
                                     <div>
                                         <Label>Email {"From"} Address</Label>
@@ -776,13 +845,28 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        <Button
-                                            type="button"
-                                            onClick={handleAddDomain}
-                                            className="h-[36px] px-4 text-xs bg-slate-600 hover:bg-slate-700 text-white"
-                                        >
-                                            Add Mapping
-                                        </Button>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                type="button"
+                                                onClick={handleAddDomain}
+                                                className={`h-[36px] px-4 text-xs text-white ${editIndex !== null ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-600 hover:bg-slate-700'}`}
+                                            >
+                                                {editIndex !== null ? 'Update' : 'Add Mapping'}
+                                            </Button>
+                                            {editIndex !== null && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    onClick={() => {
+                                                        setEditIndex(null);
+                                                        setNewDomain("");
+                                                    }}
+                                                    className="h-[36px] px-3 text-xs text-slate-500"
+                                                >
+                                                    Cancel
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="space-y-2">
                                         {form.domains && form.domains.length > 0 ? (
@@ -809,13 +893,24 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                                                     </span>
                                                                 </td>
                                                                 <td className="px-3 py-2 text-right">
-                                                                    <button 
-                                                                        type="button"
-                                                                        onClick={() => handleRemoveDomain(i)}
-                                                                        className="text-red-400 hover:text-red-600 transition-colors"
-                                                                    >
-                                                                        <X className="w-4 h-4" />
-                                                                    </button>
+                                                                    <div className="flex justify-end gap-2">
+                                                                        <button 
+                                                                            type="button"
+                                                                            onClick={() => handleEditDomain(i)}
+                                                                            className={`${editIndex === i ? 'text-amber-500' : 'text-slate-400 hover:text-slate-600'} transition-colors`}
+                                                                            title="Edit"
+                                                                        >
+                                                                            <Edit2 className="w-4 h-4" />
+                                                                        </button>
+                                                                        <button 
+                                                                            type="button"
+                                                                            onClick={() => handleRemoveDomain(i)}
+                                                                            className="text-slate-400 hover:text-red-500 transition-colors"
+                                                                            title="Remove"
+                                                                        >
+                                                                            <Trash2 className="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
                                                                 </td>
                                                             </tr>
                                                         ))}

@@ -43,8 +43,8 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
   const [isOrganizationLoaded, setIsOrganizationLoaded] = useState(false);
 
   useEffect(() => {
-    const hostname = typeof window !== 'undefined' ? window.location.host : '';
-    console.log("OrganizationProvider: resolving for hostname:", hostname);
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    console.log("OrganizationProvider: resolving for origin:", origin);
 
     const getCookie = (name: string) => {
       if (typeof document === "undefined") return null;
@@ -74,8 +74,9 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    const resolveDomain = async (domain: string) => {
-      const domainWithoutPort = domain.split(':')[0];
+    const resolveDomain = async (fullUrl: string) => {
+      const hostname = fullUrl.replace(/^https?:\/\//, '').split(':')[0];
+      const domainWithoutPort = hostname.split(':')[0];
       const defaultDomains = [
         "booking-new.bcfloorplans.com",
         "teams-new.bcfloorplans.com",
@@ -86,14 +87,14 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
       ];
       
       if (defaultDomains.includes(domainWithoutPort)) {
-         console.log("OrganizationProvider: skipping resolution for default domain:", domain);
+         console.log("OrganizationProvider: skipping resolution for default domain:", domainWithoutPort);
          return;
       }
 
       try {
-        console.log("OrganizationProvider: fetching resolution for:", domain);
+        console.log("OrganizationProvider: fetching resolution for:", fullUrl);
         const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com').replace(/\/api\/?$/, '');
-        const res = await fetch(`${baseUrl}/api/domains/resolve?domain=${domain}`);
+        const res = await fetch(`${baseUrl}/api/domains/resolve?domain=${fullUrl}`);
         if (res.ok) {
           const data = await res.json();
           console.log("OrganizationProvider: resolved:", data.slug, data.portal_type);
@@ -116,11 +117,11 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
         applyBranding(parsedData);
       } catch (e) {
         console.error("OrganizationProvider: failed to parse org_data cookie:", e);
-        resolveDomain(hostname);
+        resolveDomain(origin);
       }
     } else {
       console.warn("OrganizationProvider: no org_data cookie found — resolving directly.");
-      resolveDomain(hostname);
+      resolveDomain(origin);
     }
 
     setIsOrganizationLoaded(true);

@@ -76,8 +76,8 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
             const response = await agentLogin(
                 email,
                 password,
-                (organization?.is_whitelabel || organization?.slug) ? organization?.org_id : undefined,
-                (organization?.is_whitelabel || organization?.slug) && typeof window !== 'undefined' ? window.location.origin : undefined
+                organization?.org_id,
+                typeof window !== 'undefined' ? window.location.origin : undefined
             );
             const token = response?.data?.token || response?.token;
             let user = response?.data?.user || response?.user;

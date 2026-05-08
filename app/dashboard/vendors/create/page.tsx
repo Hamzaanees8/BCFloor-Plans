@@ -584,27 +584,25 @@ const VendorForm = () => {
           ...prev,
           work_days: transformedWorkDays,
         }));
+      }
 
-        if (currentUser?.work_hours) {
-          setWorkHours((prev) => ({
-            ...prev,
-            timezone: currentUser.work_hours?.timezone || "America/Edmonton",
-            break_start: currentUser.work_hours?.break_start || "",
-            break_end: currentUser.work_hours?.break_end || "",
-            commuteTime: currentUser.work_hours?.commute_minutes || 0,
-            repeat:
-              currentUser.work_hours?.repeat_weekly === "1" ||
-              currentUser.work_hours?.repeat_weekly === "true",
-            googleSync: currentUser.sync_google ?? false,
-            googleSyncEnabled: currentUser.sync_google_calendar ?? false,
-            emailType: currentUser.sync_email || "",
-            next_booking_slot_only:
-              currentUser.settings?.next_booking_slot_only === 1 ||
-              currentUser.work_hours?.next_booking_slot_only === "1" ||
-              currentUser.work_hours?.next_booking_slot_only === "true" ||
-              currentUser.work_hours?.next_booking_slot_only === true,
-          }));
-        }
+      if (currentUser?.work_hours || currentUser?.settings) {
+        setWorkHours((prev) => ({
+          ...prev,
+          timezone: currentUser.work_hours?.timezone || "America/Edmonton",
+          break_start: currentUser.work_hours?.break_start || "",
+          break_end: currentUser.work_hours?.break_end || "",
+          commuteTime: currentUser.work_hours?.commute_minutes || 0,
+          repeat:
+            currentUser.work_hours?.repeat_weekly === "1" ||
+            currentUser.work_hours?.repeat_weekly === "true",
+          googleSync: currentUser.sync_google ?? false,
+          googleSyncEnabled: currentUser.sync_google_calendar ?? false,
+          emailType: currentUser.sync_email || "",
+          next_booking_slot_only:
+            [1, "1", true, "true"].includes(currentUser.settings?.next_booking_slot_only as any) ||
+            [1, "1", true, "true"].includes(currentUser.work_hours?.next_booking_slot_only as any),
+        }));
       }
       setPayOutsidePlatform(
         currentUser.pay_outside || !currentUser.stripe_account_id ? true : false

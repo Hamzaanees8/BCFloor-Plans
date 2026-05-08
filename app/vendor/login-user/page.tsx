@@ -48,8 +48,8 @@ function LoginUser() {
                 email, 
                 password, 
                 role: 'vendor',
-                organization_id: (organization?.is_whitelabel || organization?.slug) ? organization?.org_id : undefined,
-                domain: (organization?.is_whitelabel || organization?.slug) && typeof window !== 'undefined' ? window.location.origin : undefined
+                organization_id: organization?.org_id,
+                domain: typeof window !== 'undefined' ? window.location.origin : undefined
             });
 
             console.log('Login successful:', response);

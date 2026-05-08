@@ -997,7 +997,7 @@ const VendorWorkHours = ({
                       id="next-booking-slot"
                       checked={workHours.next_booking_slot_only ?? false}
                       onCheckedChange={(checked) => handleChange("next_booking_slot_only", checked)}
-                      className="data-[state=checked]:bg-[#4290E9]"
+                      className="data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-red-500"
                     />
                   </div>
                 </div>
