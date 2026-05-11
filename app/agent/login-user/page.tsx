@@ -9,6 +9,7 @@ import { login } from './login'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { useAppContext } from '@/app/context/AppContext'
+import { useOrganization } from '@/app/context/OrganizationContext'
 import { Eye, EyeOff } from 'lucide-react'
 
 function LoginUser() {
@@ -21,7 +22,10 @@ function LoginUser() {
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const { setUserType } = useAppContext();
+    const { organization } = useOrganization();
     const router = useRouter();
+
+    const hasCustomLogo = !!organization?.branding?.logo;
 
     const handleLogin = async (e: React.FormEvent) => {
 
@@ -40,7 +44,13 @@ function LoginUser() {
         if (hasError) return
         setIsLoading(true)
         try {
-            const response = await login({ email, password, role: 'agent' });
+            const response = await login({ 
+                email, 
+                password, 
+                role: 'agent',
+                organization_id: organization?.org_id,
+                domain: typeof window !== 'undefined' ? window.location.origin : undefined
+            });
 
             console.log('Login successful:', response);
             toast.success('Login successfully')
@@ -63,9 +73,11 @@ function LoginUser() {
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
             <form onSubmit={handleLogin} className='w-[400px] flex flex-col gap-[25px]'>
                 <WhitelabelLogo width={180} height={100} />
-                <div className='flex justify-center'>
-                    <AgentLoginIcon width='110px' height='110px' />
-                </div>
+                {!hasCustomLogo && (
+                    <div className='flex justify-center'>
+                        <AgentLoginIcon width='110px' height='110px' />
+                    </div>
+                )}
                 <Link href={'#'} className='hidden flex justify-center items-center bg-[var(--primary-color)] hover:bg-[var(--secondary-color)] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.email ? 'text-red-500' : ''}`} htmlFor="email">Email Address</label>

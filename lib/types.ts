@@ -11,6 +11,7 @@ export type Admin = {
     secondary_phone?: string;
     avatar_url?: string;
     first_name?: string;
+    organization_id?: number | string | null;
 };
 
 export type Agent = {

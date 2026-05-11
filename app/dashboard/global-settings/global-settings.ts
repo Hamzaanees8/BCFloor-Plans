@@ -560,7 +560,7 @@ export async function UpdateMediaSettings(payload: MediaSettingsPayload) {
 }
 
 // ─── Organizations ────────────────────────────────────────────────────────────
- 
+
 export interface OrganizationDomain {
   id?: number;
   uuid?: string;
@@ -568,6 +568,10 @@ export interface OrganizationDomain {
   portal_type: 'admin' | 'agent' | 'vendor';
 }
 
+// Domain resolution precedence (backend):
+// 1. `domains[]` array — each entry maps a full hostname to a specific portal_type
+// 2. `domain` (single) — legacy fallback, treated as the default portal_type for the org
+// When both exist, `domains[]` takes precedence.
 export interface Organization {
   id: number;
   uuid: string;
@@ -596,6 +600,7 @@ export interface Organization {
   domain: string | null;
   from_name: string | null;
   from_email: string | null;
+  white_label_styles?: any;
   domains: OrganizationDomain[];
 }
 
@@ -623,6 +628,7 @@ export interface OrganizationPayload {
   domain?: string;
   from_name?: string;
   from_email?: string;
+  white_label_styles?: any;
   domains?: OrganizationDomain[];
 }
 
@@ -699,4 +705,32 @@ export async function RetryMediaJob(payload: { uuid: string; type: string }): Pr
     console.error('Failed to retry media job:', error);
     throw error;
   }
+}
+
+// ─── Branding API ─────────────────────────────────────────────────────────────
+
+export async function GetOrganizationBranding(uuid: string) {
+  try {
+    const response = await api.get(`organizations/${uuid}/branding`);
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch branding:', error);
+    throw error;
+  }
+}
+
+export async function UpdateOrganizationBranding(uuid: string, payload: FormData) {
+  const response = await api.post(`organizations/${uuid}/branding`, payload, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+
+  const data = response.data;
+
+  // if (data.status !== true) {
+  //   throw new Error(data.message || 'Failed to update branding');
+  // }
+
+  return data;
 }

@@ -4,6 +4,7 @@ import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { useAppContext } from '@/app/context/AppContext'
 import React, { useState, useRef } from 'react'
 
+
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -11,18 +12,51 @@ import { Calendar, House, File, Settings as SettingsIcon, UserCheck, Sliders, Lo
 import ResetConfirmationDialog from './ResetConfirmationDialog'
 import { toast } from "sonner"
 import Image from "next/image"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { UpdateOrganizationBranding } from "@/app/dashboard/global-settings/global-settings";
+
 
 const Settings = () => {
     const { userType } = useAppContext()
     // State for visual customization
-    const { activeTab, setActiveTab, updateSetting, currentSettings, resetDefaults, appliedSettings, settings } = useWhiteLabel()
+    const { 
+        activeTab, 
+        setActiveTab, 
+        updateSetting, 
+        currentSettings, 
+        resetDefaults, 
+        appliedSettings, 
+        settings,
+        selectedOrgUuid,
+        setSelectedOrgUuid,
+        organizations,
+        saveSettings
+    } = useWhiteLabel()
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+
+
+    // Determine if the selected org has whitelabel permission.
+    // null/global => unrestricted (global defaults).
+    const selectedOrgIsWhitelabel: boolean = (() => {
+        if (!selectedOrgUuid || selectedOrgUuid === 'global') return true;
+        const org = organizations.find(o => o.uuid === selectedOrgUuid);
+        return org ? (org.is_whitelabel ?? false) : true;
+    })();
 
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [hoveredItem, setHoveredItem] = useState<string | null>(null)
     const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
     const [isLogoutHovered, setIsLogoutHovered] = useState(false)
+
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
     const pageBgRef = useRef<HTMLInputElement>(null)
     const pageTextRef = useRef<HTMLInputElement>(null)
@@ -37,6 +71,7 @@ const Settings = () => {
     const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (file) {
+            setLogoFile(file);
             const reader = new FileReader()
             reader.onloadend = () => {
                 updateSetting('logo', reader.result as string)
@@ -44,6 +79,39 @@ const Settings = () => {
             reader.readAsDataURL(file)
         }
     }
+
+    const handleSaveChanges = async () => {
+        if (!selectedOrgUuid || selectedOrgUuid === 'global') {
+            toast.error("Please select an organization to save branding settings.");
+            return;
+        }
+        
+        setIsSaving(true);
+        try {
+            const formData = new FormData();
+            formData.append('primary_color', currentSettings.pageTabColor || '#6BAE41');
+            formData.append('secondary_color', currentSettings.activeColor || '#DC9600');
+            // Include all settings as a JSON string just in case the backend uses it to populate colors
+            formData.append('settings', JSON.stringify(currentSettings));
+            
+            if (logoFile) {
+                formData.append('logo', logoFile);
+            }
+            
+            await UpdateOrganizationBranding(selectedOrgUuid, formData);
+            
+            // Also sync the full styles object to the organization's white_label_styles column
+            // and update local context state
+            await saveSettings();
+            
+            toast.success("Branding updated successfully!");
+        } catch (error) {
+            toast.error("Failed to update branding.");
+            console.error(error);
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const handleReset = () => {
         resetDefaults()
@@ -58,7 +126,7 @@ const Settings = () => {
             style={{ backgroundColor: roleSettings.pageBg }}
         >
             {/* Left Column: Settings Configuration */}
-            <div className="w-full lg:w-1/3 flex flex-col gap-6 bg-white p-6 rounded-lg border border-[#BBBBBB]">
+            <div className="w-full lg:w-1/3 flex flex-col gap-6 bg-white p-6 rounded-lg border border-[#BBBBBB] relative">
                 <div className="space-y-4">
                     {/* Role Tabs */}
                     <div className="flex gap-2 mb-6 bg-gray-100 p-1 rounded-lg">
@@ -79,6 +147,31 @@ const Settings = () => {
                     </div>
 
                     <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Appearance Settings</h3>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="org-select">Select Organization</Label>
+                        <Select
+                            value={selectedOrgUuid || "global"}
+                            onValueChange={(val) => setSelectedOrgUuid(val === "global" ? null : val)}
+                        >
+                            <SelectTrigger id="org-select" className="w-full h-[42px] border-[#BBBBBB]">
+                                <SelectValue placeholder="Select Organization" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="global">Global Settings (Default)</SelectItem>
+                                {organizations.map((org) => (
+                                    <SelectItem key={org.uuid} value={org.uuid}>
+                                        {org.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-[10px] text-gray-500 italic">
+                            {selectedOrgUuid 
+                                ? "Changes will be saved specifically for this organization." 
+                                : "Changes will be saved as the default system-wide theme."}
+                        </p>
+                    </div>
 
                     <div className="grid gap-2">
                         <Label htmlFor="page-bg">Page Background</Label>
@@ -304,6 +397,26 @@ const Settings = () => {
                         />
                     </div>
                 </div>
+
+                {/* No-whitelabel overlay — covers the entire left column */}
+                {!selectedOrgIsWhitelabel && (
+                    <div className="absolute inset-0 rounded-lg bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center gap-4 z-10 p-6">
+                        <div className="flex flex-col items-center gap-3 text-center max-w-[260px]">
+                            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                                </svg>
+                            </div>
+                            <p className="text-sm font-semibold text-gray-700">No Whitelabel Permission</p>
+                            <p className="text-xs text-gray-500 leading-relaxed">
+                                This organization does not have whitelabel access. Appearance and branding customization is disabled.
+                                <br />
+                                Enable <span className="font-semibold text-amber-600">Whitelabeling</span> in the organization settings to unlock these controls.
+                            </p>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Right Column: Live Preview */}
@@ -339,9 +452,9 @@ const Settings = () => {
                                     <Image
                                         src={currentSettings.logo}
                                         alt="Logo"
-                                        width={Number(currentSettings.logoWidth)}
+                                        width={Number(currentSettings.logoWidth) || 180}
                                         height={50}
-                                        style={{ width: `${currentSettings.logoWidth}px`, height: 'auto' }}
+                                        style={{ width: `${currentSettings.logoWidth || 180}px`, height: 'auto' }}
                                         className="shrink-0"
                                     />
                                 ) : (
@@ -352,7 +465,11 @@ const Settings = () => {
 
                                 {!isCollapsed && (
                                     <div className="overflow-hidden text-white">
-                                        <p className="text-[14px] font-normal leading-4 truncate">BC Floor Plans</p>
+                                        <p className="text-[14px] font-normal leading-4 truncate">
+                                            {selectedOrgUuid && selectedOrgUuid !== 'global'
+                                                ? organizations.find(o => o.uuid === selectedOrgUuid)?.name || "BC Floor Plans"
+                                                : "BC Floor Plans"}
+                                        </p>
                                         <p className="text-[12px] font-normal leading-4 truncate">Admin User</p>
                                     </div>
                                 )}
@@ -472,10 +589,12 @@ const Settings = () => {
                         <div className="w-full h-[80px] border-b border-[#BBBBBB] z-[8] relative flex justify-between px-[20px] items-center" style={{ backgroundColor: currentSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }}>
                             <p className="text-[16px] md:text-[24px] font-[400]" style={{ color: currentSettings.pageTabColor }}>Company Profile</p>
                             <Button
+                                onClick={handleSaveChanges}
+                                disabled={isSaving}
                                 className="w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:brightness-110"
                                 style={{ backgroundColor: currentSettings.pageTabColor, borderColor: currentSettings.pageTabColor }}
                             >
-                                Save Changes
+                                {isSaving ? "Saving..." : "Save Changes"}
                             </Button>
                         </div>
 

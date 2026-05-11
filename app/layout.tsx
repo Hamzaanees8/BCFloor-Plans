@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Alexandria, Geist, Geist_Mono, Raleway } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
-import Script from "next/script";
+
 import { AppProvider } from "./context/AppContext";
 import { OrderProvider } from "./dashboard/orders/context/OrderContext";
 import { UploadQueueProvider } from '@/context/UploadQueueContext';
@@ -57,6 +57,7 @@ async function getWhitelabelInfo(domain: string): Promise<WhitelabelInfo | null>
     return null;
   }
 }
+import { OrganizationProvider } from "./context/OrganizationContext";
 
 export default async function RootLayout({
   children,
@@ -66,61 +67,85 @@ export default async function RootLayout({
   const headersList = await headers();
   const host = headersList.get("host") || "";
   
-  const SYSTEM_DOMAINS = [
-    'teams-new.bcfloorplans.com',
-    'booking-new.bcfloorplans.com',
-    'vendor-new.bcfloorplans.com',
-    'main.d1wkf3elpe9tnb.amplifyapp.com',
-    'bcfloorplans.com',
-    'tujoco.com',
-    'localhost:3000',
-    'localhost'
+  
+  let whitelabelData: any = null;
+
+  // Fetch branding for any host that isn't bare localhost or a default system domain
+  const domainWithoutPort = host.split(':')[0];
+  const defaultDomains = [
+    "booking-new.bcfloorplans.com",
+    "teams-new.bcfloorplans.com",
+    "vendors-new.bcfloorplans.com",
+    "booking-new.localhost",
+    "teams-new.localhost",
+    "vendors-new.localhost",
+    "localhost",
+    "127.0.0.1"
   ];
-  
-  let whitelabelData: WhitelabelInfo | null = null;
-  
-  if (!SYSTEM_DOMAINS.includes(host)) {
-    whitelabelData = await getWhitelabelInfo(host);
+
+  const isDefaultDomain = defaultDomains.includes(domainWithoutPort);
+
+  if (!isDefaultDomain) {
+    try {
+      const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com')
+        .replace(/\/api\/?$/, '');
+      const protocol = headersList.get("x-forwarded-proto") || "http";
+      const fullBaseUrl = `${protocol}://${host}`;
+      const fetchUrl = `${apiUrl}/api/domains/resolve?domain=${fullBaseUrl}`;
+      console.log('Layout: fetching branding for', fullBaseUrl);
+
+      const res = await fetch(fetchUrl, { next: { revalidate: 3600 } });
+      if (res.ok) {
+        whitelabelData = await res.json();
+      }
+    } catch (e) {
+      console.error('Failed to fetch branding in layout:', e);
+    }
   }
 
-  const brandedStyle = whitelabelData?.is_whitelabel ? {
-    '--primary-color': whitelabelData.primary_color || '#6BAE41',
-    '--secondary-color': whitelabelData.secondary_color || '#DC9600',
-    '--logo-url': whitelabelData.logo ? `url(${whitelabelData.logo})` : 'none',
+  // API returns colors as { value: "#..." } objects — extract the plain string
+  const extractColor = (c: any, fallback: string) =>
+    (typeof c === 'object' ? c?.value : c) || fallback;
+
+  const brandedStyle = whitelabelData?.branding ? {
+    '--org-primary': extractColor(whitelabelData.branding.primary_color, '#6BAE41'),
+    '--org-secondary': extractColor(whitelabelData.branding.secondary_color, '#DC9600'),
+    '--org-logo': whitelabelData.branding.logo ? `url(${whitelabelData.branding.logo})` : 'none',
+    // Maintain legacy variables for compatibility
+    '--primary-color': extractColor(whitelabelData.branding.primary_color, '#6BAE41'),
+    '--secondary-color': extractColor(whitelabelData.branding.secondary_color, '#DC9600'),
+    '--logo-url': whitelabelData.branding.logo ? `url(${whitelabelData.branding.logo})` : 'none',
   } as React.CSSProperties : {};
 
   return (
     <html lang="en">
       <head>
-        <Script
-          src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_PLACES_API_KEY}&libraries=places`}
-          strategy="afterInteractive"
-          async
-          defer
-        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${alexandria.variable} ${raleway.variable} antialiased`}
         suppressHydrationWarning
       >
-        <div id="global-whitelabel-root" style={brandedStyle}>
-          <GlobalFileUploadProvider>
-            <GlobalDownloadProvider>
-              <UploadQueueProvider>
-                <OrderProvider>
-                  <AppProvider>
-                    {children}
-                    <UploadProgressToast />
-                    <GlobalUploadProgressOverlay />
-                    <GlobalDownloadProgressOverlay />
-                    <Toaster position="bottom-right" />
-                  </AppProvider>
-                </OrderProvider>
-              </UploadQueueProvider>
-            </GlobalDownloadProvider>
-          </GlobalFileUploadProvider>
-        </div>
+        <OrganizationProvider>
+          <div id="global-whitelabel-root" style={brandedStyle}>
+            <GlobalFileUploadProvider>
+              <GlobalDownloadProvider>
+                <UploadQueueProvider>
+                  <OrderProvider>
+                    <AppProvider>
+                      {children}
+                      <UploadProgressToast />
+                      <GlobalUploadProgressOverlay />
+                      <GlobalDownloadProgressOverlay />
+                      <Toaster position="bottom-right" />
+                    </AppProvider>
+                  </OrderProvider>
+                </UploadQueueProvider>
+              </GlobalDownloadProvider>
+            </GlobalFileUploadProvider>
+          </div>
+        </OrganizationProvider>
       </body>
     </html>
   );
 }
+

@@ -1,5 +1,7 @@
 'use client'
 import { AgentLoginIcon } from '@/components/Icons';
+import WhitelabelLogo from '@/components/WhitelabelLogo';
+import { useOrganization } from '@/app/context/OrganizationContext';
 import { Button } from '@/components/ui/button'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation';
@@ -8,6 +10,8 @@ import React, { useEffect } from 'react'
 function Page() {
 
     const router = useRouter();
+    const { organization } = useOrganization();
+    const hasCustomLogo = !!organization?.branding?.logo;
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -20,9 +24,12 @@ function Page() {
     return (
         <div className='px-[40px] md:px-0 w-full flex justify-center items-start pt-[80px]'>
             <div className='w-[410px] flex flex-col gap-[25px]'>
-                <div className='flex justify-center'>
-                    <AgentLoginIcon width='110px' height='110px' />
-                </div>
+                <WhitelabelLogo width={180} height={100} />
+                {!hasCustomLogo && (
+                    <div className='flex justify-center'>
+                        <AgentLoginIcon width='110px' height='110px' />
+                    </div>
+                )}
 
 
                 <Image

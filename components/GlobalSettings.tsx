@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Check, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { Check, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { ColumnDef, Row } from "@tanstack/react-table";
 import { DataTable } from "@/components/DataTable";
@@ -29,14 +29,11 @@ import { ArrowDown, ArrowUp, DropDownArrow } from "./Icons";
 import PaymentDialog from "./PaymentDialog";
 import AddDiscountDialog from "./AddDiscountDialog";
 import {
-    CreateCompany,
     DeleteCard,
-    GetCompany,
     GetDiscount,
     GetPaymentMethod,
     GetQuickBookStatus,
     QuickBookConnection,
-    UpdateCompany,
 } from "@/app/dashboard/global-settings/global-settings";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Button } from "./ui/button";
@@ -65,36 +62,8 @@ import { usePermissions } from "@/app/hooks/usePermissions";
 import { PERMISSIONS } from "@/lib/permissions";
 
 
-interface CompanyData {
-    id: number;
-    uuid: string;
-    name: string;
-    website: string;
-    email: string;
-    primary_phone: string;
-    secondary_phone: string | null;
-    street: string;
-    city: string;
-    province: string;
-    country: string;
-    billing_street_1: string;
-    billing_street_2: string | null;
-    review_files: boolean;
-    logo_path: string | null;
-    banner_path: string | null;
-    start_time: string;
-    end_time: string;
-    work_days: string[];
-    repeat_weekly: string;
-    timezone: string;
-    commute_minutes: number;
-    enable_breaks: boolean;
-    sync_google: boolean;
-    sync_email: string;
-    payment_per_km: string;
-    order_form_url: string | null;
-    iframe_code: string | null;
-}
+// CompanyData type reserved for future use
+// interface CompanyData { ... }
 type TimeZoneOption = {
     label: string;
     value: string;
@@ -241,7 +210,6 @@ interface SelectedDiscount {
 }
 
 const GlobalSettings = () => {
-    const [companyData, setCompanyData] = useState<CompanyData | null>(null);
     const [openSaveDialog, setOpenSaveDialog] = useState(false);
     const [selectedDiscount, setSelectedDiscount] = useState<SelectedDiscount | null>(null);
     const [companyName, setCompanyName] = useState("");
@@ -253,9 +221,7 @@ const GlobalSettings = () => {
     const [city, setCity] = useState("");
     const [province, setProvince] = useState("");
     const [country, setCountry] = useState("CA");
-    const [billingAddress1, setBillingAddress1] = useState("");
-    const [billingAddress2, setBillingAddress2] = useState("");
-    const [adminReviewRequired, setAdminReviewRequired] = useState(false);
+
     const [paymentPerKm, setPaymentPerKm] = useState("");
     const [password, setPassword] = useState("");
     const [orderLink, setOrderLink] = useState("");
@@ -317,6 +283,8 @@ const GlobalSettings = () => {
         minimum_orders?: number;
         minimum_spend?: number;
     }[]>([])
+    const [secondaryEmail, setSecondaryEmail] = useState("");
+    const [notificationEmail, setNotificationEmail] = useState("");
     const [quickBookStatus, setQuickBookStatus] = useState(false);
 
     const [openDiscount, setOpenDiscount] = useState(false);
@@ -331,26 +299,7 @@ const GlobalSettings = () => {
     const hasInitiallyRendered = useRef(false);
     const headerRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        const header = headerRef.current;
-        if (!header) return;
 
-        let ancestor = header.parentElement;
-        while (ancestor) {
-            const style = window.getComputedStyle(ancestor);
-            if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
-                ancestor.style.setProperty('overflow-x', 'visible', 'important');
-                ancestor.style.setProperty('overflow-y', 'visible', 'important');
-
-                const target = ancestor;
-                return () => {
-                    target.style.removeProperty('overflow-x');
-                    target.style.removeProperty('overflow-y');
-                };
-            }
-            ancestor = ancestor.parentElement;
-        }
-    }, []);
 
     const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const repeatOptions = [
@@ -388,42 +337,26 @@ const GlobalSettings = () => {
         setLoading(true);
         setError(false);
         if (userType === "admin") {
-            Promise.all([GetCompany(), GetOneAdmin(userInfo.uuid)])
-                .then(([companyRes, adminRes]) => {
-                    const data = companyRes.data;
+            GetOneAdmin(userInfo.uuid)
+                .then((adminRes) => {
                     const adminData = adminRes.data;
 
                     isPopulatingData.current = true;
 
-                    setCompanyData(data);
-                    setCompanyName(data.name);
-                    setCompanyWebsite(data.website);
-                    setEmail(data.email);
-                    setPrimaryPhone(data.primary_phone);
-                    setSecondaryPhone(data.secondary_phone || "");
-                    setHeadquarterAddress(data.street);
-                    setCity(data.city);
-                    //setProvince(data.province);
-                    setCountry(data.country);
-                    setBillingAddress1(data.billing_street_1);
-                    setBillingAddress2(data.billing_street_2 || "");
-                    setAdminReviewRequired(data.review_files);
-                    setPaymentPerKm(data.payment_per_km);
-                    setOrderLink(data.order_form_url || "");
-                    setIframeCode(data.iframe_code || "");
-                    setWorkWeek(data.work_days);
-                    setRepeat(data.repeat_weekly);
-                    setCommuteTime(`${data.commute_minutes} Minutes`);
-                    setIsReoccuringBreak(data.enable_breaks);
-                    setIsSyncToGoogle(data.sync_google);
-                    setSyncEmailType(data.sync_email);
-                    setStartTime(formatTime(data.start_time));
-                    setTimeZone(data.timezone);
-                    setEndTime(formatTime(data.end_time));
-                    if (data.logo_url) setCompanyLogoUrl(data.logo_url);
-                    if (data.banner_url) setCompanyBannerUrl(data.banner_url);
-                    if (data.logo_path) setCompanyLogoFileName(data.logo_path);
-                    if (data.banner_path) setCompanyBannerFileName(data.banner_path);
+                    setFirstName(adminData.first_name || "");
+                    setLastName(adminData.last_name || "");
+                    setEmail(adminData.email || "");
+                    setSecondaryEmail(adminData.secondary_email || "");
+                    setNotificationEmail(adminData.notification_email || "");
+                    setPrimaryPhone(adminData.primary_phone || "");
+                    setSecondaryPhone(adminData.secondary_phone || "");
+                    setCompanyName(adminData.company_name || "");
+                    setCompanyWebsite(adminData.website || "");
+                    setHeadquarterAddress(adminData.address || "");
+                    setCity(adminData.city || "");
+                    setProvince(adminData.province || "");
+                    setCountry(adminData.country || "CA");
+
                     if (adminData.avatar_url) setAvatarUrl(adminData.avatar_url);
                     if (adminData.avatar) setAvatarFileName(adminData.avatar);
                 })
@@ -433,7 +366,6 @@ const GlobalSettings = () => {
                 })
                 .finally(() => {
                     setLoading(false);
-                    // Use setTimeout to ensure all state updates and DOM updates complete
                     setTimeout(() => {
                         isPopulatingData.current = false;
                         hasInitiallyRendered.current = true;
@@ -513,17 +445,11 @@ const GlobalSettings = () => {
     }, []);
 
     useEffect(() => {
-        if (states.length && companyData?.province) {
-            const match = states.find((s) => s.isoCode === companyData.province);
-            if (match) {
-                setProvince(match.isoCode);
-            }
-        }
-    }, [states, companyData]);
-    useEffect(() => {
         if (country) {
             setStates(State.getStatesOfCountry(country));
-            setProvince("");
+            if (!isPopulatingData.current) {
+                setProvince("");
+            }
         }
     }, [country]);
     const removeCard = (uuid: string) => {
@@ -588,65 +514,34 @@ const GlobalSettings = () => {
         e.preventDefault();
         const token = localStorage.getItem("token");
         if (!token) return;
-        const payload = {
-            name: companyName,
-            website: companyWebsite,
-            email: email,
-            primary_phone: primaryPhone,
-            secondary_phone: secondaryPhone || null,
-            street: headquarterAddress,
-            city: city,
-            province: province,
-            country: country,
-            billing_street_1: billingAddress1,
-            billing_street_2: billingAddress2 || null,
-            review_files: adminReviewRequired ? 1 : 0,
-            logo_path: companyLogoFile ?? undefined,
-            banner_path: companyBannerFile ?? undefined,
-            start_time: convertTo24HourFormat(startTime),
-            end_time: convertTo24HourFormat(endTime),
-            work_days: workWeek,
-            repeat_weekly: repeat,
-            timezone: timeZone,
-            commute_minutes: parseInt(commuteTime),
-            enable_breaks: isReoccuringBreak ? 1 : 0,
-            sync_google: isSyncToGoogle ? 1 : 0,
-            sync_email: syncEmailType,
-            payment_per_km: paymentPerKm,
-            order_form_url: orderLink || null,
-            iframe_code: iframeCode || null,
-        };
+        // Legacy company payload — kept for reference; user-specific payloads below handle submission.
 
         try {
             if (userType === "admin") {
-                if (companyData) {
-                    const updatedPayload = { ...payload, _method: "PUT" };
-                    await UpdateCompany(updatedPayload, companyData.uuid);
-                    if (avatarFile) {
-                        await EditAdminUser(userInfo.uuid, {
-                            avatar: avatarFile,
-                            _method: "PUT",
-                        });
-                    }
-                    setIsLoading(true);
-                    setOpenSaveDialog(true);
-                    router.push("/dashboard/global-settings");
-                    setIsLoading(false);
-                    setIsDirty(false);
-                } else {
-                    await CreateCompany(payload);
-                    if (avatarFile) {
-                        await EditAdminUser(userInfo.uuid, {
-                            avatar: avatarFile,
-                            _method: "PUT",
-                        });
-                    }
-                    setIsLoading(true);
-                    setOpenSaveDialog(true);
-                    router.push("/dashboard/global-settings");
-                    setIsLoading(false);
-                    setIsDirty(false);
-                }
+                const adminPayload = {
+                    first_name: firstName,
+                    last_name: lastName,
+                    email: email,
+                    secondary_email: secondaryEmail || undefined,
+                    notification_email: notificationEmail || undefined,
+                    primary_phone: primaryPhone || undefined,
+                    secondary_phone: secondaryPhone || undefined,
+                    company_name: companyName || undefined,
+                    website: companyWebsite || undefined,
+                    address: headquarterAddress || undefined,
+                    city: city || undefined,
+                    province: province || undefined,
+                    country: country || undefined,
+                    avatar: avatarFile || undefined,
+                    _method: "PUT",
+                };
+
+                await EditAdminUser(userInfo.uuid, adminPayload);
+                setIsLoading(true);
+                setOpenSaveDialog(true);
+                router.push("/dashboard/global-settings");
+                setIsLoading(false);
+                setIsDirty(false);
             } else if (userType === "agent") {
                 const payload = {
                     first_name: firstName,
@@ -834,32 +729,8 @@ const GlobalSettings = () => {
         const newMinutes = timeToMinutes(endTime) - 1;
         setEndTime(minutesToTime(newMinutes));
     };
-    const formatTime = (timeStr: string) => {
-        const [hours, minutes] = timeStr.split(":");
-        const hour = parseInt(hours, 10);
-        const period = hour >= 12 ? "PM" : "AM";
-        const hour12 = hour % 12 || 12;
-        return `${hour12}:${minutes} ${period}`;
-    };
-    const convertTo24HourFormat = (time12h: string): string => {
-        const [time, modifier] = time12h.trim().split(" "); // e.g. "2:09", "PM"
-        const [rawHours, rawMinutes] = time.split(":");
 
-        let hours = parseInt(rawHours, 10);
-        const minutes = parseInt(rawMinutes, 10);
 
-        if (modifier === "PM" && hours < 12) {
-            hours += 12;
-        }
-        if (modifier === "AM" && hours === 12) {
-            hours = 0;
-        }
-
-        return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-            2,
-            "0"
-        )}`;
-    };
     useEffect(() => {
         // Get all time zones from Intl API
         const zones = Intl.supportedValuesOf("timeZone");
@@ -913,42 +784,13 @@ const GlobalSettings = () => {
             .map(tab => tab.name);
     }, [userType, hasPermission]);
     const [activeTab, setActiveTab] = useState("Profile Settings");
-    const tabsRef = useRef<HTMLDivElement>(null);
-    const [showLeftArrow, setShowLeftArrow] = useState(false);
-    const [showRightArrow, setShowRightArrow] = useState(false);
-
-    const checkScroll = useCallback(() => {
-        if (tabsRef.current) {
-            const { scrollLeft, scrollWidth, clientWidth } = tabsRef.current;
-            setShowLeftArrow(scrollLeft > 5);
-            setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 5);
-        }
-    }, []);
-
-    useEffect(() => {
-        const timeoutId = setTimeout(checkScroll, 100);
-        window.addEventListener('resize', checkScroll);
-        return () => {
-            window.removeEventListener('resize', checkScroll);
-            clearTimeout(timeoutId);
-        };
-    }, [checkScroll, tabs]);
-
     useEffect(() => {
         if (tabs.length > 0 && !tabs.includes(activeTab)) {
             setActiveTab(tabs[0]);
         }
     }, [tabs, activeTab]);
 
-    const scrollTabs = (direction: 'left' | 'right') => {
-        if (tabsRef.current) {
-            const scrollAmount = 300;
-            tabsRef.current.scrollBy({
-                left: direction === 'left' ? -scrollAmount : scrollAmount,
-                behavior: "smooth"
-            });
-        }
-    };
+
 
     const addDiscount = (discount: {
         discount_code?: string;
@@ -1352,7 +1194,7 @@ const GlobalSettings = () => {
                     )}
 
                     {activeTab === "Profile Settings" && (
-                        <form
+                        <div
                             onChange={() => {
                                 if (!isPopulatingData.current) {
                                     setIsDirty(true);
@@ -1370,62 +1212,44 @@ const GlobalSettings = () => {
                                             backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
                                         }}
                                     >
-                                        COMPANY PROFILE
+                                        PROFILE
                                     </AccordionTrigger>
                                     <AccordionContent className="grid gap-4">
                                         <div className="w-full flex flex-col items-center">
                                             <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
                                                 <div className="grid grid-cols-2 gap-[16px] text-sm font-normal ">
-                                                    <div className="col-span-2">
-                                                        <p>
-                                                            Explanation of where these assets are used and
-                                                            leveraged, recommended/specify dimensions, color
-                                                            variations, etc.
-                                                        </p>
-                                                    </div>
-                                                    <div className="col-span-2">
+                                                    <div>
                                                         <label htmlFor="">
-                                                            Company Name{" "}
-                                                            <span className="text-red-500">*</span>
+                                                            First Name <span className="text-red-500">*</span>
                                                         </label>
                                                         <Input
-                                                            value={companyName}
-                                                            onChange={(e) => setCompanyName(e.target.value)}
+                                                            value={firstName}
+                                                            onChange={(e) => setFirstName(e.target.value)}
                                                             className="h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]"
                                                             style={{
                                                                 backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
                                                             }}
                                                             type="text"
-                                                            placeholder="BC Floor Plans Media Co"
+                                                            placeholder="First Name"
                                                         />
-                                                        {fieldErrors.name && (
+                                                        {fieldErrors.first_name && (
                                                             <p className="text-red-500 text-[10px] mt-1">
-                                                                {fieldErrors.name[0]}
+                                                                {fieldErrors.first_name[0]}
                                                             </p>
                                                         )}
                                                     </div>
-                                                    <div className="col-span-2">
-                                                        <label htmlFor="">
-                                                            Company Website{" "}
-                                                            <span className="text-red-500">*</span>
-                                                        </label>
+                                                    <div>
+                                                        <label htmlFor="">Last Name</label>
                                                         <Input
-                                                            value={companyWebsite}
-                                                            onChange={(e) =>
-                                                                setCompanyWebsite(e.target.value)
-                                                            }
-                                                            className="h-[42px] placeholder:text-[#9ca3af] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                            value={lastName}
+                                                            onChange={(e) => setLastName(e.target.value)}
+                                                            className="h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]"
                                                             style={{
                                                                 backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
                                                             }}
                                                             type="text"
-                                                            placeholder="www.bcfloorplans.com"
+                                                            placeholder="Last Name"
                                                         />
-                                                        {fieldErrors.website && (
-                                                            <p className="text-red-500 text-[10px] mt-1">
-                                                                {fieldErrors.website[0]}
-                                                            </p>
-                                                        )}
                                                     </div>
                                                     <div className="col-span-2">
                                                         <label htmlFor="">
@@ -1446,6 +1270,77 @@ const GlobalSettings = () => {
                                                                 {fieldErrors.email[0]}
                                                             </p>
                                                         )}
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <label htmlFor="">Secondary Email</label>
+                                                        <Input
+                                                            value={secondaryEmail}
+                                                            onChange={(e) => setSecondaryEmail(e.target.value)}
+                                                            className="h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]"
+                                                            style={{
+                                                                backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                                                            }}
+                                                            type="text"
+                                                            placeholder="secondary@email.com"
+                                                        />
+                                                        {fieldErrors.secondary_email && (
+                                                            <p className="text-red-500 text-[10px] mt-1">
+                                                                {fieldErrors.secondary_email[0]}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <label htmlFor="">Notification Email</label>
+                                                        <Input
+                                                            value={notificationEmail}
+                                                            onChange={(e) => setNotificationEmail(e.target.value)}
+                                                            className="h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]"
+                                                            style={{
+                                                                backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                                                            }}
+                                                            type="text"
+                                                            placeholder="notifications@email.com"
+                                                        />
+                                                        {fieldErrors.notification_email && (
+                                                            <p className="text-red-500 text-[10px] mt-1">
+                                                                {fieldErrors.notification_email[0]}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <label htmlFor="">Password Change</label>
+                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
+                                                            <input
+                                                                type="password"
+                                                                id="password"
+                                                                value={password}
+                                                                disabled
+                                                                onChange={(e) => setPassword(e.target.value)}
+                                                                className="text-[16px] font-medium w-full h-full px-4 focus:outline-none"
+                                                                style={{
+                                                                    backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                                                                }}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    handleReset();
+                                                                    setOpenChangePasswordDialog(true);
+                                                                }}
+                                                                className="px-4 text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                                style={{
+                                                                    backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+                                                                }}
+                                                            >
+                                                                Reset
+                                                            </button>
+                                                            <ChangePasswordDialog
+                                                                userId={userInfo?.uuid}
+                                                                open={openChangePasswordDialog}
+                                                                setOpen={setOpenChangePasswordDialog}
+                                                                type="agents"
+                                                            />
+                                                        </div>
                                                     </div>
                                                     <div>
                                                         <label htmlFor="">
@@ -1487,9 +1382,47 @@ const GlobalSettings = () => {
                                                             </p>
                                                         )}
                                                     </div>
+                                                    <div className="col-span-2 hidden">
+                                                        <label htmlFor="">Company Name</label>
+                                                        <Input
+                                                            value={companyName}
+                                                            onChange={(e) => setCompanyName(e.target.value)}
+                                                            className="h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]"
+                                                            style={{
+                                                                backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                                                            }}
+                                                            type="text"
+                                                            placeholder="BC Floor Plans Media Co"
+                                                        />
+                                                        {fieldErrors.company_name && (
+                                                            <p className="text-red-500 text-[10px] mt-1">
+                                                                {fieldErrors.company_name[0]}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="col-span-2 hidden">
+                                                        <label htmlFor="">Company Website</label>
+                                                        <Input
+                                                            value={companyWebsite}
+                                                            onChange={(e) =>
+                                                                setCompanyWebsite(e.target.value)
+                                                            }
+                                                            className="h-[42px] placeholder:text-[#9ca3af] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                            style={{
+                                                                backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                                                            }}
+                                                            type="text"
+                                                            placeholder="www.bcfloorplans.com"
+                                                        />
+                                                        {fieldErrors.website && (
+                                                            <p className="text-red-500 text-[10px] mt-1">
+                                                                {fieldErrors.website[0]}
+                                                            </p>
+                                                        )}
+                                                    </div>
                                                     <div className="col-span-2">
                                                         <label htmlFor="">
-                                                            Headquarter Address{" "}
+                                                            Address{" "}
                                                             <span className="text-red-500">*</span>
                                                         </label>
                                                         <Input
@@ -1504,9 +1437,9 @@ const GlobalSettings = () => {
                                                             type="text"
                                                             placeholder="7458 Burrard Street"
                                                         />
-                                                        {fieldErrors.street && (
+                                                        {fieldErrors.address && (
                                                             <p className="text-red-500 text-[10px] mt-1">
-                                                                {fieldErrors.street[0]}
+                                                                {fieldErrors.address[0]}
                                                             </p>
                                                         )}
                                                     </div>
@@ -1591,66 +1524,6 @@ const GlobalSettings = () => {
                                                             </p>
                                                         )}
                                                     </div>
-                                                    <div className="col-span-2">
-                                                        <label htmlFor="">
-                                                            Billing Address Line 1{" "}
-                                                            <span className="text-red-500">*</span>
-                                                        </label>
-                                                        <Input
-                                                            value={billingAddress1}
-                                                            onChange={(e) =>
-                                                                setBillingAddress1(e.target.value)
-                                                            }
-                                                            className="h-[42px] border-[1px] placeholder:text-[#9ca3af] border-[#BBBBBB] mt-[12px]"
-                                                            style={{
-                                                                backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
-                                                            }}
-                                                            type="text"
-                                                            placeholder="7458 Burrard Street"
-                                                        />
-                                                        {fieldErrors.billing_street_1 && (
-                                                            <p className="text-red-500 text-[10px] mt-1">
-                                                                {fieldErrors.billing_street_1[0]}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                    <div className="col-span-2">
-                                                        <label htmlFor="">Billing Address Line 2</label>
-                                                        <Input
-                                                            value={billingAddress2}
-                                                            onChange={(e) =>
-                                                                setBillingAddress2(e.target.value)
-                                                            }
-                                                            className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                            style={{
-                                                                backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
-                                                            }}
-                                                            type="text"
-                                                        />
-                                                        {fieldErrors.billing_street_2 && (
-                                                            <p className="text-red-500 text-[10px] mt-1">
-                                                                {fieldErrors.billing_street_2[0]}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                    <div className="col-span-2">
-                                                        <div className="flex items-center justify-between">
-                                                            <p>
-                                                                Vendor files must be reviewed by admin before
-                                                                sending to client
-                                                            </p>
-                                                            <Switch
-                                                                checked={adminReviewRequired}
-                                                                onCheckedChange={setAdminReviewRequired}
-                                                                className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41] float-end"
-                                                            />
-                                                            {fieldErrors.review_files && (
-                                                                <p className="text-red-500 text-[10px] mt-1">
-                                                                    {fieldErrors.review_files[0]}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -1714,6 +1587,41 @@ const GlobalSettings = () => {
                                                             type="text"
                                                             placeholder="name@email.com"
                                                         />
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <label htmlFor="">Password Change</label>
+                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
+                                                            <input
+                                                                type="password"
+                                                                id="password"
+                                                                value={password}
+                                                                disabled
+                                                                onChange={(e) => setPassword(e.target.value)}
+                                                                className="text-[16px] font-medium w-full h-full px-4 focus:outline-none"
+                                                                style={{
+                                                                    backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                                                                }}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    handleReset();
+                                                                    setOpenChangePasswordDialog(true);
+                                                                }}
+                                                                className="px-4 text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                                style={{
+                                                                    backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+                                                                }}
+                                                            >
+                                                                Reset
+                                                            </button>
+                                                            <ChangePasswordDialog
+                                                                userId={userInfo?.uuid}
+                                                                open={openChangePasswordDialog}
+                                                                setOpen={setOpenChangePasswordDialog}
+                                                                type="agents"
+                                                            />
+                                                        </div>
                                                     </div>
 
                                                     <div>
@@ -2077,7 +1985,7 @@ const GlobalSettings = () => {
                             </AccordionItem>
 
                             {userType === "admin" && (
-                                <AccordionItem value="hours" className="border-none">
+                                <AccordionItem value="hours" className="border-none hidden">
                                     <AccordionTrigger
                                         className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                         style={{
@@ -2294,7 +2202,7 @@ const GlobalSettings = () => {
                                                             )}
                                                         </Select>
                                                     </div>
-                                                    <div className="col-span-2">
+                                                    <div className="col-span-2 hidden">
                                                         <label htmlFor="">Commute Time Baseline</label>
                                                         <Select
                                                             value={commuteTime}
@@ -2326,7 +2234,7 @@ const GlobalSettings = () => {
                                                             </p>
                                                         )}
                                                     </div>
-                                                    <div className="col-span-2">
+                                                    <div className="col-span-2 hidden">
                                                         <label htmlFor="">Reoccuring break</label>
                                                         <div className="flex items-center gap-[10px]">
                                                             <Input
@@ -2350,7 +2258,7 @@ const GlobalSettings = () => {
                                                             </p>
                                                         )}
                                                     </div>
-                                                    <div className="flex items-center gap-[10px]">
+                                                    <div className=" items-center gap-[10px] hidden">
                                                         <Input
                                                             checked={isSyncToGoogle}
                                                             onChange={(e) =>
@@ -2371,7 +2279,7 @@ const GlobalSettings = () => {
                                                             </p>
                                                         )}
                                                     </div>
-                                                    <div className="">
+                                                    <div className="hidden">
                                                         <Select
                                                             onValueChange={(value) => setSyncEmailType(value)}
                                                             value={syncEmailType}
@@ -2410,7 +2318,7 @@ const GlobalSettings = () => {
                             )}
 
                             {userType === "admin" && (
-                                <AccordionItem value="vendor" className="border-none">
+                                <AccordionItem value="vendor" className="border-none hidden">
                                     <AccordionTrigger
                                         className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                         style={{
@@ -2458,7 +2366,7 @@ const GlobalSettings = () => {
                             )}
 
                             {userType === "admin" && (
-                                <AccordionItem value="service" className="border-none">
+                                <AccordionItem value="service" className="border-none hidden">
                                     <AccordionTrigger
                                         className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                         style={{
@@ -2471,16 +2379,7 @@ const GlobalSettings = () => {
                                         <div className="w-full flex flex-col items-center">
                                             <div className="w-full flex justify-center flex-col">
                                                 <div className="w-full h-[200px] md:h-[560px]">
-                                                    {/* <iframe
-                                            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d83357.52320128103!2d-123.04024198044628!3d49.23995664757976!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x548677a8219c8373%3A0xdd0a72738752b169!2sBurnaby%2C%20BC%2C%20Canada!5e0!3m2!1sen!2s!4v1748548645299!5m2!1sen!2s"
-                                            width="100%"
-                                            height="100%"
-                                            allowFullScreen
-                                            loading="lazy"
-                                            referrerPolicy="no-referrer-when-downgrade"
-                                            className="border-0"
-                                            title="Google Map - Burnaby, BC"
-                                        ></iframe> */}
+
                                                     <DynamicMap
                                                         address={headquarterAddress}
                                                         city={city}
@@ -2495,7 +2394,7 @@ const GlobalSettings = () => {
                             )}
 
                             {userType === "admin" && (
-                                <AccordionItem value="order" className="border-none">
+                                <AccordionItem value="order" className="border-none hidden">
                                     <AccordionTrigger
                                         className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                         style={{
@@ -2585,7 +2484,7 @@ const GlobalSettings = () => {
                                 </AccordionItem>
                             )}
 
-                            <AccordionItem value="payment" className="border-none">
+                            <AccordionItem value="payment" className="border-none hidden">
                                 <AccordionTrigger
                                     className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === "admin"
                                         ? "[&>svg]:text-[#4290E9]"
@@ -2759,76 +2658,7 @@ const GlobalSettings = () => {
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
-
-                            <AccordionItem value="account" className="border-none">
-                                <AccordionTrigger
-                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === "admin"
-                                        ? "[&>svg]:text-[#4290E9]"
-                                        : "[&>svg]:text-[#6BAE41]"
-                                        } [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                    style={{
-                                        backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
-                                    }}
-                                >
-                                    ACCOUNT MANAGEMENT
-                                </AccordionTrigger>
-                                <AccordionContent className="grid gap-4">
-                                    <div className="w-full flex flex-col items-center">
-                                        <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
-                                            <div className="col-span-2">
-                                                <label htmlFor="">Password Change</label>
-                                                <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
-                                                    <input
-                                                        type="password"
-                                                        id="password"
-                                                        value={password}
-                                                        disabled
-                                                        onChange={(e) => setPassword(e.target.value)}
-                                                        className="text-[16px] font-medium w-full h-full px-4 focus:outline-none"
-                                                        style={{
-                                                            backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
-                                                        }}
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            handleReset();
-                                                            setOpenChangePasswordDialog(true);
-                                                        }}
-                                                        className="px-4 text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                                                        style={{
-                                                            backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
-                                                        }}
-                                                    >
-                                                        Reset
-                                                    </button>
-                                                    <ChangePasswordDialog
-                                                        userId={userInfo?.uuid}
-                                                        open={openChangePasswordDialog}
-                                                        setOpen={setOpenChangePasswordDialog}
-                                                        type="agents"
-                                                    />
-                                                </div>
-                                            </div>
-                                            {/* <div className='flex items-center justify-center'>
-                                        <button
-                                            type="button"
-                                            onClick={() => setOpenCloseDialog(true)}
-                                            className="px-4 font-raleway py-2 bg-white text-sm font-semibold h-full w-[130px] text-[#E06D5E] border border-[#E06D5E]"
-                                        >
-                                            Close Account
-                                        </button>
-                                        <CloseDialog
-                                            open={openCloseDialog}
-                                            setOpen={setOpenCloseDialog}
-                                            onConfirm={confirmAndExecute}
-                                        />
-                                    </div> */}
-                                        </div>
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                        </form>
+                        </div>
                     )}
 
                     {activeTab === "Tour Settings" && userType === "admin" && (

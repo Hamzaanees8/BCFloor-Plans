@@ -1,5 +1,7 @@
 'use client'
-import {  VendorLoginIcon } from '@/components/Icons'
+import { VendorLoginIcon } from '@/components/Icons'
+import WhitelabelLogo from '@/components/WhitelabelLogo'
+import { useOrganization } from '@/app/context/OrganizationContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import React from 'react'
@@ -7,13 +9,19 @@ import React from 'react'
 function Login() {
     const [email, setEmail] = React.useState('')
     const [password, setPassword] = React.useState('')
+    const { organization } = useOrganization();
+    
+    const hasCustomLogo = !!organization?.branding?.logo;
 
     return (
         <div className='px-[40px] md:px-0 w-full flex justify-center items-start pt-[80px]'>
             <div className='w-[400px] flex flex-col gap-[25px]'>
-                <div className='flex justify-center'>
-                    <VendorLoginIcon width='110px' height='110px' />
-                </div>
+                <WhitelabelLogo width={180} height={100} />
+                {!hasCustomLogo && (
+                    <div className='flex justify-center'>
+                        <VendorLoginIcon width='110px' height='110px' />
+                    </div>
+                )}
                 <div className='flex flex-col gap-[10px]'>
                     <label className='text-[14px] font-[500]' htmlFor="email">Email Address</label>
                     <Input

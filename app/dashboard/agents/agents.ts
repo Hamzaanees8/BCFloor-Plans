@@ -347,3 +347,35 @@ export async function ResetPasswordAgent(
   return data;
 }
 
+export async function ConnectCalendar() {
+  const response = await api.get(`/agent/calendar/connect`);
+  return response.data;
+}
+
+export async function DisconnectCalendar(agentUuid: string) {
+  const response = await api.post(`/agent/calendar/disconnect`, { agent_uuid: agentUuid });
+  return response.data;
+}
+
+export async function ListCalendars(agentUuid: string) {
+  const response = await api.get(`/agent/calendar/list`, {
+    params: { agent_uuid: agentUuid }
+  });
+  return response.data;
+}
+
+export async function SetCalendar(agentUuid: string, calendarId: string) {
+  const response = await api.post(`/agent/calendar/set`, {
+    agent_uuid: agentUuid,
+    calendar_id: calendarId
+  });
+  return response.data;
+}
+
+export async function VerifyCalendar(code: string, state: string) {
+  const response = await api.post(`/auth/google/callback`, {
+    code,
+    state
+  });
+  return response.data;
+}

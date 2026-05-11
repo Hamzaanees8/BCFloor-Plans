@@ -1,73 +1,175 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const SYSTEM_DOMAINS = [
-  'teams-new.bcfloorplans.com',
-  'booking-new.bcfloorplans.com',
-  'vendor-new.bcfloorplans.com',
-  'main.d1wkf3elpe9tnb.amplifyapp.com',
-  'bcfloorplans.com',
-  'tujoco.com',
-  'localhost:3000',
-  'localhost'
+// Auth routes that are always accessible (no rewrite needed)
+const AUTH_ROUTES = [
+  '/login',
+  '/login-user',
+  '/forget-password',
+  '/login-first-time',
+  '/new-password',
+  '/password-success',
 ];
+
+// Emergency fallback: guess portal type from domain name
+// Only used if the API call fails completely
+function guessPortalTypeFromHostname(hostname: string): string {
+  const h = hostname.toLowerCase();
+  if (
+    h.includes('booking-new') ||
+    h.includes('agents-new') ||
+    h.includes('agents.')
+  )
+    return 'agent';
+  if (
+    h.includes('vendor-new') ||
+    h.includes('vendors-new') ||
+    h.includes('vendors.')
+  )
+    return 'vendor';
+  return 'admin';
+}
+
+// Core routing logic — same for all domains, driven only by portal_type
+function buildResponse(
+  portalType: string,
+  url: URL,
+  request: NextRequest
+): NextResponse {
+  const { pathname, search } = url;
+
+  const isAuthRoute = AUTH_ROUTES.some(
+    (r) => pathname === r || pathname.startsWith(r + '/')
+  );
+
+  if (portalType === 'agent') {
+    // Block vendor-specific pages
+    if (pathname.startsWith('/vendor')) {
+      return NextResponse.rewrite(new URL('/404', request.url));
+    }
+    // Allow agent auth pages, agent pages, and the shared dashboard
+    if (
+      pathname.startsWith('/agent') ||
+      pathname.startsWith('/dashboard') ||
+      isAuthRoute
+    ) {
+      return NextResponse.next();
+    }
+    // Rewrite bare paths to /agent prefix
+    return NextResponse.rewrite(
+      new URL(`/agent${pathname}${search}`, request.url)
+    );
+  }
+
+  if (portalType === 'vendor') {
+    // Block agent-specific pages
+    if (pathname.startsWith('/agent')) {
+      return NextResponse.rewrite(new URL('/404', request.url));
+    }
+    // Allow vendor auth pages, vendor pages, and the shared dashboard
+    if (
+      pathname.startsWith('/vendor') ||
+      pathname.startsWith('/dashboard') ||
+      isAuthRoute
+    ) {
+      return NextResponse.next();
+    }
+    // Rewrite bare paths to /vendor prefix
+    return NextResponse.rewrite(
+      new URL(`/vendor${pathname}${search}`, request.url)
+    );
+  }
+
+  // admin (default)
+  // Block portal-specific pages
+  if (pathname.startsWith('/agent') || pathname.startsWith('/vendor')) {
+    return NextResponse.rewrite(new URL('/404', request.url));
+  }
+  // Allow auth routes and dashboard
+  if (pathname.startsWith('/dashboard') || isAuthRoute) {
+    return NextResponse.next();
+  }
+  // Rewrite bare paths to /dashboard prefix
+  return NextResponse.rewrite(
+    new URL(`/dashboard${pathname}${search}`, request.url)
+  );
+}
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl;
-  const hostname = (request.headers.get('host') || '').split(':')[0]; // Ignore port
-  const pathname = url.pathname;
+  const hostname = request.headers.get('host') || '';
 
-  const isSystem = SYSTEM_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`)) || 
-                   hostname.includes('amplifyapp.com') || 
-                   hostname.includes('localhost');
+  console.log('>>> MIDDLEWARE HIT:', hostname, url.pathname);
 
-  const authRoutes = ['/login', '/login-user', '/forget-password', '/login-first-time', '/new-password', '/logout'];
-  const portalRoutes = ['/dashboard', '/agent', '/vendor', '/whitelabel', '/tour'];
+  let portalType = 'admin';
+  let orgData: Record<string, unknown> | null = null;
 
-  // 1. System Domains & Fallback for unknown domains
-  if (isSystem) {
-    let portal = 'dashboard'; // Default to admin
-    if (hostname.includes('booking-new')) portal = 'agent';
-    else if (hostname.includes('vendor-new')) portal = 'vendor';
-    
-    if (authRoutes.includes(pathname) || portalRoutes.some(p => pathname.startsWith(p))) {
-      return NextResponse.next();
-    }
+  const domainWithoutPort = hostname.split(':')[0];
+  const defaultDomains = [
+    "booking-new.bcfloorplans.com",
+    "teams-new.bcfloorplans.com",
+    "vendors-new.bcfloorplans.com",
+    "booking-new.localhost",
+    "teams-new.localhost",
+    "vendors-new.localhost",
+    "localhost",
+    "127.0.0.1"
+  ];
 
-    // Default route for this portal
-    return NextResponse.rewrite(new URL(`/${portal}${pathname}${url.search}`, request.url));
-  }
+  const isDefaultDomain = defaultDomains.includes(domainWithoutPort);
 
-  // 2. Whitelabel Domains (Custom Domains)
-  try {
-    // Clean API URL - user provides it with /api suffix, but we add /api/v1
-    const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com';
-    const baseApiUrl = rawApiUrl.replace(/\/api$/, ''); 
-    
-    const res = await fetch(`${baseApiUrl}/api/domains/resolve?domain=${hostname}`, {
-      next: { revalidate: 3600 }
-    });
+  if (!isDefaultDomain) {
+    // Always resolve the domain via the API — single source of truth for portal_type
+    try {
+      const baseApiUrl = (
+        process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com'
+      ).replace(/\/api\/?$/, '');
+      const resolveUrl = `${baseApiUrl}/api/domains/resolve?domain=${hostname}`;
+      console.log('Resolving domain:', resolveUrl);
 
-    if (res.ok) {
-      const data = await res.json();
-      const portalType = data.portal_type; // 'admin', 'agent', or 'vendor'
-      const portal = portalType === 'vendor' ? 'vendor' : (portalType === 'agent' ? 'agent' : 'dashboard');
+      const res = await fetch(resolveUrl, {
+        // 60s edge cache — avoids calling the API on every single request
+        next: { revalidate: 60 },
+      });
 
-      if (authRoutes.includes(pathname) || portalRoutes.some(p => pathname.startsWith(p))) {
-        return NextResponse.next();
+      if (res.ok) {
+        orgData = await res.json();
+        portalType = (orgData?.portal_type as string) ?? 'admin';
+        console.log('Resolved portal_type:', portalType, 'for', hostname);
+      } else {
+        console.warn(
+          'Resolve API returned',
+          res.status,
+          '— using fallback for',
+          hostname
+        );
+        portalType = guessPortalTypeFromHostname(hostname);
       }
-
-      return NextResponse.rewrite(new URL(`/${portal}${pathname}${url.search}`, request.url));
+    } catch (err) {
+      console.error('Domain resolution error:', err);
+      portalType = guessPortalTypeFromHostname(hostname);
     }
-  } catch (error) {
-    console.error('Domain resolution failed in middleware:', error);
+  } else {
+    // For default domains, skip API and guess directly
+    portalType = guessPortalTypeFromHostname(hostname);
+    console.log('Default domain detected, guessing portal_type:', portalType, 'for', hostname);
   }
 
-  // Final Fallback: default to admin portal (dashboard)
-  if (authRoutes.includes(pathname) || portalRoutes.some(p => pathname.startsWith(p))) {
-    return NextResponse.next();
+  // Build the routing response based on portal_type
+  const response = buildResponse(portalType, url, request);
+
+  // Attach org data as a cookie so client-side OrganizationContext can read it
+  if (orgData) {
+    response.cookies.set('org_data', JSON.stringify(orgData), {
+      path: '/',
+      maxAge: 3600, // 1 hour
+      sameSite: 'lax',
+    });
+  } else {
+    response.cookies.delete('org_data');
   }
-  return NextResponse.rewrite(new URL(`/dashboard${pathname}${url.search}`, request.url));
+
+  return response;
 }
 
 export const config = {

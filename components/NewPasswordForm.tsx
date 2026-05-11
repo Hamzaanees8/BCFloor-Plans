@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import Image from 'next/image';
+import WhitelabelLogo from './WhitelabelLogo';
 import Link from 'next/link';
 import React from 'react';
 import { toast } from "sonner";
@@ -69,7 +69,7 @@ function NewPasswordForm() {
     return (
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
             <div className='w-[400px] flex flex-col gap-[25px]'>
-                <Image src="/tojuco.png" alt="logo" width={180} height={100} className="mx-auto" />
+                <WhitelabelLogo width={180} height={100} />
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.password ? 'text-red-500' : ''}`} htmlFor="password">Enter New Password</label>
                     <Input

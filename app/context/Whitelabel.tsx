@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import { Role, WhiteLabelSettings, brandingDefaults } from './whiteLabelConfig'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
+import { Organization, GetOrganizations, UpdateOrganization, GetOrganizationBranding } from '@/app/dashboard/global-settings/global-settings'
 
 interface WhiteLabelContextType {
     activeTab: Role
@@ -15,6 +16,9 @@ interface WhiteLabelContextType {
     currentAppliedSettings: WhiteLabelSettings // Current applied settings for active role
     resetDefaults: () => void
     saveSettings: (role?: Role) => void
+    selectedOrgUuid: string | null
+    setSelectedOrgUuid: (uuid: string | null) => void
+    organizations: Organization[]
 }
 
 const WhiteLabelContext = createContext<WhiteLabelContextType | undefined>(undefined)
@@ -37,28 +41,54 @@ export class WhiteLabelStyles {
     }
 }
 
+// Helper: extract color string from either a plain string or a { value: "..." } object
+function extractColorValue(color: any, fallback: string): string {
+    if (!color) return fallback;
+    if (typeof color === 'object') return color.value || fallback;
+    return color || fallback;
+}
+
 export const WhiteLabelProvider = ({ children }: { children: ReactNode }) => {
     const [activeTab, setActiveTab] = useState<Role>('admin')
     const [settings, setSettings] = useState<Record<Role, WhiteLabelSettings>>(brandingDefaults)
     const [appliedSettings, setAppliedSettings] = useState<Record<Role, WhiteLabelSettings>>(brandingDefaults)
+    const [selectedOrgUuid, setSelectedOrgUuid] = useState<string | null>(null)
+    const [organizations, setOrganizations] = useState<Organization[]>([])
 
-    // Apply styles whenever APPLIED settings change
+    // Apply styles whenever APPLIED settings change (Global only)
     useEffect(() => {
-        WhiteLabelStyles.apply(appliedSettings);
-    }, [appliedSettings]);
+        if (!selectedOrgUuid) {
+            WhiteLabelStyles.apply(appliedSettings);
+        }
+    }, [appliedSettings, selectedOrgUuid]);
 
     const syncSettings = async (nextApplied: Record<Role, WhiteLabelSettings>) => {
-        // Apply to local state and localStorage
+        // Apply to local state
         setAppliedSettings(nextApplied);
-        localStorage.setItem('whiteLabelSettings', JSON.stringify(nextApplied));
 
-        // Sync to API
-        try {
-            await api.post('/settings/white_label_styles', { value: nextApplied });
-            console.log('Successfully synced settings to API');
-        } catch (error) {
-            console.error('Failed to sync settings to API:', error);
-            toast.error("Failed to save settings to server. Please try again.");
+        if (selectedOrgUuid) {
+            // Sync to Organization
+            try {
+                await UpdateOrganization(selectedOrgUuid, { white_label_styles: nextApplied });
+                // Update local organizations state to keep it in sync
+                setOrganizations(prev => prev.map(org => 
+                    org.uuid === selectedOrgUuid ? { ...org, white_label_styles: nextApplied } : org
+                ));
+                console.log('Successfully synced settings to Organization');
+            } catch (error) {
+                console.error('Failed to sync settings to Organization:', error);
+                toast.error("Failed to save settings to organization. Please try again.");
+            }
+        } else {
+            // Sync to Global API and localStorage
+            localStorage.setItem('whiteLabelSettings', JSON.stringify(nextApplied));
+            try {
+                await api.post('/settings/white_label_styles', { value: nextApplied });
+                console.log('Successfully synced settings to Global API');
+            } catch (error) {
+                console.error('Failed to sync settings to Global API:', error);
+                toast.error("Failed to save settings to server. Please try again.");
+            }
         }
     }
 
@@ -149,12 +179,18 @@ export const WhiteLabelProvider = ({ children }: { children: ReactNode }) => {
         await syncSettings(nextApplied);
     }
 
-    // Load from API on mount
+    // Load organizations and global settings on mount
     useEffect(() => {
-        const fetchSettings = async () => {
+        const init = async () => {
+            try {
+                const orgsRes = await GetOrganizations();
+                setOrganizations(Array.isArray(orgsRes.data) ? orgsRes.data : []);
+            } catch (error) {
+                console.error('Failed to fetch organizations', error);
+            }
+
             try {
                 const response = await api.get('/settings/white_label_styles');
-                // The API structure is expected to be { value: { admin: ..., vendor: ..., agent: ... } }
                 const remoteSettings = response.data?.value;
 
                 if (remoteSettings && typeof remoteSettings === 'object') {
@@ -162,7 +198,6 @@ export const WhiteLabelProvider = ({ children }: { children: ReactNode }) => {
                     setAppliedSettings(remoteSettings);
                     WhiteLabelStyles.apply(remoteSettings);
                 } else {
-                    // Fallback to localStorage if API is empty or malformed
                     const saved = localStorage.getItem('whiteLabelSettings');
                     if (saved) {
                         const parsed = JSON.parse(saved);
@@ -173,7 +208,6 @@ export const WhiteLabelProvider = ({ children }: { children: ReactNode }) => {
                 }
             } catch (error) {
                 console.error('Failed to fetch settings from API', error);
-                // Fallback to localStorage on error
                 const saved = localStorage.getItem('whiteLabelSettings');
                 if (saved) {
                     const parsed = JSON.parse(saved);
@@ -184,8 +218,80 @@ export const WhiteLabelProvider = ({ children }: { children: ReactNode }) => {
             }
         };
 
-        fetchSettings();
+        init();
     }, [])
+
+    // Switch between Global and Organization settings
+    useEffect(() => {
+        if (!selectedOrgUuid) {
+            // Load Global from API/localStorage
+            const loadGlobal = async () => {
+                try {
+                    const response = await api.get('/settings/white_label_styles');
+                    const remoteSettings = response.data?.value;
+                    if (remoteSettings) {
+                        setSettings(remoteSettings);
+                        setAppliedSettings(remoteSettings);
+                    }
+                } catch {
+                    const saved = localStorage.getItem('whiteLabelSettings');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        setSettings(parsed);
+                        setAppliedSettings(parsed);
+                    }
+                }
+            };
+            loadGlobal();
+        } else {
+            // Load Organization settings
+            const org = organizations.find(o => o.uuid === selectedOrgUuid);
+            
+            const loadOrgBranding = async () => {
+                let stylesToUse = org && org.white_label_styles ? { ...org.white_label_styles } : { ...brandingDefaults };
+                
+                // Pre-fill from org object if JSON styles are missing
+                if (org && !org.white_label_styles) {
+                    const primary = extractColorValue(org.primary_color, '');
+                    const secondary = extractColorValue(org.secondary_color, '');
+                    if (primary || secondary) {
+                        const next = { ...stylesToUse };
+                        (Object.keys(next) as Role[]).forEach(role => {
+                            if (primary) next[role] = { ...next[role], pageTabColor: primary };
+                            if (secondary) next[role] = { ...next[role], activeColor: secondary };
+                        });
+                        stylesToUse = next;
+                    }
+                }
+
+                try {
+                    const res = await GetOrganizationBranding(selectedOrgUuid);
+                    if (res?.data) {
+                        const logo = res.data.logo_url || res.data.logo;
+                        const primary = extractColorValue(res.data.primary_color, '');
+                        const secondary = extractColorValue(res.data.secondary_color, '');
+                        
+                        if (logo || primary || secondary) {
+                            const newStyles = { ...stylesToUse };
+                            (Object.keys(newStyles) as Role[]).forEach(role => {
+                                if (logo) newStyles[role] = { ...newStyles[role], logo };
+                                if (primary) newStyles[role] = { ...newStyles[role], pageTabColor: primary };
+                                if (secondary) newStyles[role] = { ...newStyles[role], activeColor: secondary };
+                            });
+                            stylesToUse = newStyles;
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to load branding in context", err);
+                }
+                
+                setSettings(stylesToUse);
+                setAppliedSettings(stylesToUse);
+            };
+            
+            loadOrgBranding();
+        }
+    }, [selectedOrgUuid, organizations]);
 
     const currentSettings = settings[activeTab]
     const currentAppliedSettings = appliedSettings[activeTab]
@@ -200,7 +306,10 @@ export const WhiteLabelProvider = ({ children }: { children: ReactNode }) => {
             currentSettings,
             currentAppliedSettings,
             resetDefaults,
-            saveSettings
+            saveSettings,
+            selectedOrgUuid,
+            setSelectedOrgUuid,
+            organizations
         }}>
             {children}
         </WhiteLabelContext.Provider>

@@ -18,6 +18,7 @@ export default function MapsPolygonEditor() {
   const polygonRef = useRef<google.maps.Polygon | null>(null);
 
   const { isLoaded, loadError } = useLoadScript({
+    id: 'google-map-script',
     googleMapsApiKey: process.env.NEXT_PUBLIC_PLACES_API_KEY || "",
     libraries: ["drawing"],
   });

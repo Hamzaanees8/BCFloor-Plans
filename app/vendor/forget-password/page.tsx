@@ -6,6 +6,8 @@ import React, { useState } from 'react'
 import { forgetPassword } from './forget-password'
 import { toast } from 'sonner'
 import { VendorLoginIcon } from '@/components/Icons'
+import WhitelabelLogo from '@/components/WhitelabelLogo'
+import { useOrganization } from '@/app/context/OrganizationContext'
 
 function ForgotPassword() {
     const [email, setEmail] = React.useState('')
@@ -13,6 +15,9 @@ function ForgotPassword() {
         email: false,
     })
     const [isLoading, setIsLoading] = useState(false);
+    const { organization } = useOrganization();
+    
+    const hasCustomLogo = !!organization?.branding?.logo;
 
     const handleSubmit = async (e: React.FormEvent) => {
 
@@ -48,9 +53,12 @@ function ForgotPassword() {
     return (
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
             <div className='w-[400px] flex flex-col gap-[25px]'>
-                <div className='flex justify-center'>
-                    <VendorLoginIcon width='110px' height='110px' />
-                </div>
+                <WhitelabelLogo width={180} height={100} />
+                {!hasCustomLogo && (
+                    <div className='flex justify-center'>
+                        <VendorLoginIcon width='110px' height='110px' />
+                    </div>
+                )}
                 <form className='flex flex-col gap-[10px]' onSubmit={(e) => handleSubmit(e)}>
                     <label className={`text-[14px] font-[500] ${errors.email ? 'text-red-500' : ''}`} htmlFor="email">Email Address</label>
                     <Input

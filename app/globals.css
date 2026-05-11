@@ -74,6 +74,11 @@
     --primary-color: #6BAE41; /* Default to agent green */
     --secondary-color: #ffffff;
     --logo-url: none;
+
+    /* Organization Specific Branding */
+    --org-primary: #6BAE41;
+    --org-secondary: #DC9600;
+    --org-logo: none;
   }
 
   .dark {

@@ -53,13 +53,13 @@ function FileRow({ state, isActiveBatch }: { state: FileUploadState; isActiveBat
 
     return (
         <div
-            className={`rounded-lg p-2.5 border transition-all duration-300 ${isComplete
-                    ? 'bg-green-50/50 border-green-100'
-                    : isError
-                        ? 'bg-red-50 border-red-100'
-                        : isAnimating
-                            ? 'bg-blue-50/50 border-blue-100 shadow-sm'
-                            : 'bg-white border-gray-100'
+            className={`rounded-lg p-2.5 border transition-all duration-300 pb-2 ${isComplete
+                ? 'bg-green-50/50 border-green-100'
+                : isError
+                    ? 'bg-red-50 border-red-100'
+                    : isAnimating
+                        ? 'bg-blue-50/50 border-blue-100 shadow-sm'
+                        : 'bg-white border-gray-100'
                 }`}
         >
             <div className="flex items-center justify-between mb-2">

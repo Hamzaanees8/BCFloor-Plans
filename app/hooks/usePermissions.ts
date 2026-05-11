@@ -86,6 +86,26 @@ export function usePermissions() {
         return true;
     });
 
+    const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(() => {
+        if (typeof window === "undefined") return false;
+        try {
+            const userType = localStorage.getItem("userType");
+            if (userType !== "admin") return false;
+
+            const userInfoStr = localStorage.getItem("userInfo");
+            if (userInfoStr) {
+                const userInfo = JSON.parse(userInfoStr);
+                const orgId = userInfo?.organization_id ?? userInfo?.data?.organization_id;
+                if (orgId === null || orgId === undefined || orgId === "") {
+                    return true;
+                }
+            }
+        } catch (e) {
+            console.error("Failed to parse userInfo for isSuperAdmin:", e);
+        }
+        return false;
+    });
+
     const [error, setError] = useState<Error | null>(null);
 
     useEffect(() => {
@@ -101,6 +121,15 @@ export function usePermissions() {
                     const userInfo = JSON.parse(userInfoStr);
                     const userUuid = userInfo?.data?.uuid || userInfo?.uuid;
                     const storedPermissions = userInfo?.permissions || userInfo?.data?.permissions;
+                    const orgId = userInfo?.organization_id ?? userInfo?.data?.organization_id;
+
+                    if (isMounted) {
+                        if (orgId === null || orgId === undefined || orgId === "") {
+                            setIsSuperAdmin(true);
+                        } else {
+                            setIsSuperAdmin(false);
+                        }
+                    }
 
                     // If we already have permissions in state, or if they are in localStorage, skip fetch
                     if (storedPermissions && Array.isArray(storedPermissions) && storedPermissions.length > 0) {
@@ -127,6 +156,13 @@ export function usePermissions() {
                     if (isMounted) {
                         const userPermissions = userData.permissions || [];
                         setPermissions(userPermissions);
+                        
+                        const fetchedOrgId = userData.organization_id;
+                        if (fetchedOrgId === null || fetchedOrgId === undefined || fetchedOrgId === "") {
+                            setIsSuperAdmin(true);
+                        } else {
+                            setIsSuperAdmin(false);
+                        }
 
                         // Update localStorage with fresh user data (which includes permissions)
                         localStorage.setItem("userInfo", JSON.stringify(userData));
@@ -174,23 +210,26 @@ export function usePermissions() {
     // Memoized permission check functions
     const hasPermission = useCallback(
         (permissionName: string): boolean => {
+            if (isSuperAdmin) return true;
             return hasPermissionCheck(permissions, permissionName);
         },
-        [permissions]
+        [permissions, isSuperAdmin]
     );
 
     const hasAnyPermission = useCallback(
         (permissionNames: string[]): boolean => {
+            if (isSuperAdmin) return true;
             return hasAnyPermissionCheck(permissions, permissionNames);
         },
-        [permissions]
+        [permissions, isSuperAdmin]
     );
 
     const hasAllPermissions = useCallback(
         (permissionNames: string[]): boolean => {
+            if (isSuperAdmin) return true;
             return hasAllPermissionsCheck(permissions, permissionNames);
         },
-        [permissions]
+        [permissions, isSuperAdmin]
     );
 
     return useMemo(
@@ -198,10 +237,11 @@ export function usePermissions() {
             permissions,
             isLoading,
             error,
+            isSuperAdmin,
             hasPermission,
             hasAnyPermission,
             hasAllPermissions,
         }),
-        [permissions, isLoading, error, hasPermission, hasAnyPermission, hasAllPermissions]
+        [permissions, isLoading, error, isSuperAdmin, hasPermission, hasAnyPermission, hasAllPermissions]
     );
 }

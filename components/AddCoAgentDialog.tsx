@@ -80,7 +80,7 @@ const AddCoAgentDialog: React.FC<Props> = ({
                     <div className="flex flex-col gap-y-4 " >
                         <hr className="w-full h-[1px] text-[#BBBBBB]" />
                         <div>
-                            <form >
+                            <div >
                                 <div className='grid grid-cols-2 gap-[16px]' >
                                     <div className="col-span-2">
                                         <label htmlFor="" className='text-[16px] font-normal text-[#424242]'>Name <span className="text-red-500">*</span></label>
@@ -216,7 +216,7 @@ const AddCoAgentDialog: React.FC<Props> = ({
                                     </Button>
 
                                 </DialogFooter>
-                            </form>
+                            </div>
                         </div>
 
                     </div>

@@ -9,11 +9,11 @@ import { Button } from '@/components/ui/button'
 //import ToggleButtons from '@/components/ui/toogle'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
-import { AgentPayload, CreateAgent, EditAgent, GetOne, GetRole } from '../agents'
+import { AgentPayload, CreateAgent, EditAgent, GetOne, GetRole, ConnectCalendar, DisconnectCalendar, ListCalendars, SetCalendar, VerifyCalendar } from '../agents'
 import { GetOrganizations, Organization } from '../../global-settings/global-settings'
 import { GetAgentAudios, DeleteAgentAudio, AgentAudio } from '../agent-audio'
 import { uploadAudioFile } from '@/lib/upload/audio-upload'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Pencil, Plus, X } from 'lucide-react'
 //import PaymentDialog from '@/components/PaymentDialog'
 //import CloseDialog from '@/components/CloseDialog'
@@ -26,8 +26,10 @@ import DynamicMap from '@/components/DYnamicMap'
 import { useAppContext } from '@/app/context/AppContext'
 import { useUnsaved } from '@/app/context/UnsavedContext'
 import useUnsavedChangesWarning from '@/app/hooks/useUnsavedChangesWarning'
+import { usePermissions } from '@/app/hooks/usePermissions'
 import AgentDiscount from '@/components/AgentDiscount'
 import SubAccountsTable from '../components/SubAccountsTable'
+import { AudioLibrary } from '../components/AudioLibrary'
 import { Listings } from '@/lib/types'
 import Link from 'next/link'
 import { useS3Upload } from '@/hooks/useS3Upload'
@@ -106,6 +108,9 @@ type CurrentAgent = {
         is_active?: 1 | 0 | string;
     } | null;
     organization_id?: number | null;
+    calendar_connected?: boolean;
+    calendar_id?: string;
+    calendar_email?: string;
 };
 
 type CompanyLogoState = {
@@ -129,9 +134,15 @@ const SERVICE_LOGO_TYPES = [
 
 const AgentForm = () => {
     const params = useParams();
-    const userId = params?.id as string;
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const userId = params?.id as string;
+    const code = searchParams.get('code');
+    const state = searchParams.get('state');
+
     const { userType } = useAppContext();
+
+    const { isSuperAdmin } = usePermissions();
     const [currentUser, setCurrentUser] = useState<CurrentAgent | null>(null);
     const headerRef = useRef<HTMLDivElement>(null);
 
@@ -197,22 +208,62 @@ const AgentForm = () => {
     const [organizations, setOrganizations] = useState<Organization[]>([]);
     const [organizationId, setOrganizationId] = useState<string>("");
     const [isTourMediaEnabled, setIsTourMediaEnabled] = useState<boolean>(true);
-    const [mp3File, setMp3File] = useState<File | null>(null);
+    const [pendingMp3Files, setPendingMp3Files] = useState<File[]>([]);
     const [selectedMp3, setSelectedMp3] = useState<string>(""); // Now stores UUID for custom audios
     const mp3FileInputRef = useRef<HTMLInputElement>(null);
     const [agentAudios, setAgentAudios] = useState<AgentAudio[]>([]);
-    
+    const [isCalendarConnected, setIsCalendarConnected] = useState(false);
+    const [availableCalendars, setAvailableCalendars] = useState<{ id: string; summary: string; primary: boolean }[]>([]);
+    const [selectedCalendarId, setSelectedCalendarId] = useState("");
+    const [isCalendarLoading, setIsCalendarLoading] = useState(false);
+    const [calendarEmail, setCalendarEmail] = useState("");
+
+    useEffect(() => {
+        const handleVerify = async () => {
+            if (code && state) {
+                // Clear search params to avoid repeated verification
+                const url = new URL(window.location.href);
+                url.searchParams.delete('code');
+                url.searchParams.delete('state');
+                window.history.replaceState({}, '', url.toString());
+
+                setIsCalendarLoading(true);
+                try {
+                    const res = await VerifyCalendar(code, state);
+                    if (res.success) {
+                        toast.success("Google Calendar connected successfully!");
+                        setIsCalendarConnected(true);
+                        // Fetch calendars now
+                        const userIdToUse = userId || currentUser?.uuid;
+                        if (userIdToUse) {
+                            const calRes = await ListCalendars(userIdToUse);
+                            if (calRes.success && Array.isArray(calRes.data)) {
+                                setAvailableCalendars(calRes.data);
+                            }
+                        }
+                    } else {
+                        toast.error(res.message || "Verification failed");
+                    }
+                } catch (error) {
+                    console.error("Verification error:", error);
+                    toast.error("Failed to verify Google Calendar connection");
+                } finally {
+                    setIsCalendarLoading(false);
+                }
+            }
+        };
+
+        handleVerify();
+    }, [code, state, userId, currentUser?.uuid]);
+
+    // const [audioUploadProgress, setAudioUploadProgress] = useState(0);
+
     const { uploadFiles } = useS3Upload({
         entityType: 'agent',
         entityId: userId || '', // Will be updated dynamically for new agents
     });
 
-    const [availableMp3s, setAvailableMp3s] = useState<{ id: string; name: string; url: string }[]>([
-        { id: 'tell-me-what', name: 'Tell-me-what', url: '/audio/tell-me-what.mp3' },
-        { id: 'embrace', name: 'Embrace', url: '/audio/embrace.mp3' },
-        { id: 'sandbreaker', name: 'Sandbreaker', url: '/audio/sandbreaker.mp3' },
-        { id: 'showreel', name: 'Showreel', url: '/audio/showreel.mp3' },
-    ]);
+    const [availableMp3s, setAvailableMp3s] = useState<{ id: string; name: string; url: string }[]>([]);
 
     // Fetch agent audios when editing an existing agent
     useEffect(() => {
@@ -239,39 +290,52 @@ const AgentForm = () => {
     }, [currentUser?.uuid]);
 
     const handleMp3Upload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            // Validate file size (20MB limit as per backend)
-            if (file.size > 20 * 1024 * 1024) {
-                toast.error("File size exceeds 20MB limit");
-                return;
-            }
-            // Validate file type
-            const validTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3'];
-            if (!validTypes.includes(file.type) && !file.type.startsWith('audio/')) {
-                toast.error("Please upload a valid audio file (MP3, WAV)");
-                return;
-            }
-            setMp3File(file);
+        const files = Array.from(e.target.files || []);
+        if (files.length > 0) {
+            const validFiles: File[] = [];
 
-            // Create a temporary preview option
-            const newId = `pending-${Date.now()}`;
-            const newOption = {
-                id: newId,
-                name: file.name,
-                url: URL.createObjectURL(file)
-            };
+            files.forEach(file => {
+                // Validate file size (20MB limit as per backend)
+                if (file.size > 20 * 1024 * 1024) {
+                    toast.error(`${file.name} exceeds 20MB limit`);
+                    return;
+                }
 
-            setAvailableMp3s(prev => {
-                // Remove any previous pending uploads
-                const filtered = prev.filter(mp3 => !mp3.id.startsWith('pending-'));
-                return [...filtered, newOption];
+                // Strict format validation - prevent video files like .webm or .mp4
+                const isVideo = file.type.startsWith('video/') ||
+                    file.name.toLowerCase().endsWith('.webm') ||
+                    file.name.toLowerCase().endsWith('.mp4');
+
+                const isAudio = file.type.startsWith('audio/') ||
+                    ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/x-m4a', 'audio/ogg'].includes(file.type);
+
+                if (isVideo || !isAudio) {
+                    toast.error(`${file.name} is not a supported audio format (MP3, WAV only)`);
+                    return;
+                }
+
+                validFiles.push(file);
             });
 
-            // Select the new file
-            setTimeout(() => {
-                setSelectedMp3(newId);
-            }, 0);
+            if (validFiles.length === 0) return;
+
+            setPendingMp3Files(prev => [...prev, ...validFiles]);
+
+            const newOptions = validFiles.map(file => {
+                const newId = `pending-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                return {
+                    id: newId,
+                    name: file.name,
+                    url: URL.createObjectURL(file)
+                };
+            });
+
+            setAvailableMp3s(prev => [...prev, ...newOptions]);
+
+            // Select the first new file if none is selected
+            if (!selectedMp3 && newOptions.length > 0) {
+                setSelectedMp3(newOptions[0].id);
+            }
 
             // Reset input
             if (mp3FileInputRef.current) {
@@ -359,8 +423,24 @@ const AgentForm = () => {
             GetOrganizations()
                 .then(res => setOrganizations(Array.isArray(res.data) ? res.data : []))
                 .catch(err => console.log('Failed to fetch organizations', err));
+
+            // For non-super-admins, pre-fill org from their own userInfo on create mode
+            if (!isSuperAdmin && !userId) {
+                try {
+                    const userInfoStr = localStorage.getItem('userInfo');
+                    if (userInfoStr) {
+                        const parsedInfo = JSON.parse(userInfoStr);
+                        const orgId = parsedInfo?.organization_id ?? parsedInfo?.data?.organization_id;
+                        if (orgId) {
+                            setOrganizationId(String(orgId));
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to read userInfo for org prefill:', e);
+                }
+            }
         }
-    }, [userType]);
+    }, [userType, isSuperAdmin, userId]);
 
     // For create mode, mark as initially rendered after a short delay
     // This prevents browser autofill from triggering dirty state
@@ -400,12 +480,12 @@ const AgentForm = () => {
             } else if (currentUser.avatar_url) {
                 setAvatarUrl(currentUser.avatar_url);
             }
-            
+
             // Prioritize company_logos_urls for the gallery/list as it handles S3 URL generation and fallback logic
-            const logosSource = currentUser.company_logos_urls && currentUser.company_logos_urls.length > 0 
-                ? currentUser.company_logos_urls 
+            const logosSource = currentUser.company_logos_urls && currentUser.company_logos_urls.length > 0
+                ? currentUser.company_logos_urls
                 : currentUser.company_logos_data;
-                
+
             if (logosSource && Array.isArray(logosSource)) {
                 setCompanyLogos(logosSource.map((logo: any) => ({
                     uuid: logo.uuid,
@@ -437,6 +517,19 @@ const AgentForm = () => {
             setAgentNotes(currentUser.notes || "")
             if (currentUser.organization_id) {
                 setOrganizationId(String(currentUser.organization_id));
+            }
+            setIsCalendarConnected(!!currentUser.calendar_connected);
+            setSelectedCalendarId(currentUser.calendar_id || "");
+            setCalendarEmail(currentUser.calendar_email || "");
+
+            if (currentUser.calendar_connected && currentUser.uuid) {
+                ListCalendars(currentUser.uuid)
+                    .then(res => {
+                        if (res.success && Array.isArray(res.data)) {
+                            setAvailableCalendars(res.data);
+                        }
+                    })
+                    .catch(err => console.error('Failed to fetch calendars:', err));
             }
 
             // Use setTimeout to ensure all state updates and DOM updates complete.
@@ -669,17 +762,17 @@ const AgentForm = () => {
             // S3 direct upload for logos and banners
             if (agentUuid) {
                 const filesToUpload: { file: File; slot: string; type?: string }[] = [];
-                
+
                 // Add avatar
                 if (avatarFile) {
                     filesToUpload.push({ file: avatarFile, slot: 'company_logo' });
                 }
-                
+
                 // Add banner
                 if (companyBannerFile) {
                     filesToUpload.push({ file: companyBannerFile, slot: 'company_banner' });
                 }
-                
+
                 // Add company logos
                 // Only upload files that have a valid File object (newly added ones)
                 companyLogos.forEach(logo => {
@@ -699,30 +792,32 @@ const AgentForm = () => {
                 }
             }
 
-            // Upload audio file if selected and agent UUID is available
-            console.log('Audio upload check:', { mp3File, agentUuid, selectedMp3 });
-            if (mp3File && agentUuid) {
-                console.log('Attempting to upload audio...');
-                try {
-                    const uploadResult = await uploadAudioFile({
-                        entityType: 'agent-audio',
-                        entityId: agentUuid,
-                        file: mp3File
-                    });
-                    
-                    if (uploadResult.success) {
-                        console.log('Audio upload result:', uploadResult);
-                        toast.success('Audio uploaded successfully');
-                    } else {
-                        console.error('Failed to upload audio:', uploadResult.error);
-                        toast.error(uploadResult.error || 'Agent saved but audio upload failed');
+            // Upload audio files if selected and agent UUID is available
+            if (pendingMp3Files.length > 0 && agentUuid) {
+                console.log(`Attempting to upload ${pendingMp3Files.length} audio(s)...`);
+
+                for (const file of pendingMp3Files) {
+                    const toastId = toast.loading(`Uploading audio: ${file.name} (0%)`);
+                    try {
+                        const uploadResult = await uploadAudioFile({
+                            entityType: 'agent-audio',
+                            entityId: agentUuid,
+                            file: file,
+                            onProgress: (progress) => {
+                                toast.loading(`Uploading audio: ${file.name} (${progress}%)`, { id: toastId });
+                            }
+                        });
+
+                        if (uploadResult.success) {
+                            toast.success(`Audio ${file.name} uploaded successfully`, { id: toastId });
+                        } else {
+                            toast.error(uploadResult.error || `Upload failed for ${file.name}`, { id: toastId });
+                        }
+                    } catch (audioError) {
+                        console.error(`Failed to upload audio ${file.name}:`, audioError);
+                        toast.error(`Failed to upload ${file.name}`, { id: toastId });
                     }
-                } catch (audioError) {
-                    console.error('Failed to upload audio:', audioError);
-                    toast.error('Agent saved but audio upload failed');
                 }
-            } else {
-                console.log('Skipping audio upload - conditions not met');
             }
 
             setIsLoading(true)
@@ -834,6 +929,64 @@ const AgentForm = () => {
         setAgentDiscount(null);
         if (hasInitiallyRendered.current) setIsDirty(true);
     };
+
+    const handleCalendarConnect = async () => {
+        if (!userId && !currentUser?.uuid) {
+            toast.error("Please save the agent first.");
+            return;
+        }
+        setIsCalendarLoading(true);
+        try {
+            const res = await ConnectCalendar();
+            if (res.success && res.auth_url) {
+                window.location.href = res.auth_url;
+            } else {
+                toast.error(res.message || "Failed to get connection URL");
+            }
+        } catch (error) {
+            console.error("Calendar connect error:", error);
+            toast.error("Failed to connect calendar");
+        } finally {
+            setIsCalendarLoading(false);
+        }
+    };
+
+    const handleCalendarDisconnect = async () => {
+        if (!confirm("Are you sure you want to disconnect Google Calendar?")) return;
+        setIsCalendarLoading(true);
+        try {
+            const res = await DisconnectCalendar((userId || currentUser?.uuid) as string);
+            if (res.success) {
+                setIsCalendarConnected(false);
+                setAvailableCalendars([]);
+                setSelectedCalendarId("");
+                setCalendarEmail("");
+                toast.success("Calendar disconnected");
+            } else {
+                toast.error(res.message || "Failed to disconnect");
+            }
+        } catch (error) {
+            console.error("Calendar disconnect error:", error);
+            toast.error("Failed to disconnect calendar");
+        } finally {
+            setIsCalendarLoading(false);
+        }
+    };
+
+    const handleCalendarSet = async (calendarId: string) => {
+        setSelectedCalendarId(calendarId);
+        try {
+            const res = await SetCalendar((userId || currentUser?.uuid) as string, calendarId);
+            if (res.success) {
+                toast.success("Calendar updated");
+            } else {
+                toast.error(res.message || "Failed to set calendar");
+            }
+        } catch (error) {
+            console.error("Calendar set error:", error);
+            toast.error("Failed to update calendar");
+        }
+    };
     console.log("currentUser", currentUser)
     return (
         <div className='font-alexandria'>
@@ -900,7 +1053,7 @@ const AgentForm = () => {
                             }
                         }}
                     >
-                        <Accordion type="multiple" defaultValue={["profile", "branding", "payment", "account", 'tours']} className="w-full space-y-4">
+                        <Accordion type="multiple" defaultValue={["profile", "branding", "payment", "account", 'tours', 'calendar']} className="w-full space-y-4">
                             <AccordionItem value="profile">
                                 <AccordionTrigger
                                     className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
@@ -946,6 +1099,7 @@ const AgentForm = () => {
                                                         <div className='col-span-2'>
                                                             <label htmlFor="">Role <span className="text-red-500">*</span></label>
                                                             <Select
+                                                                disabled
                                                                 value={String(role)}
                                                                 onValueChange={(val) => {
                                                                     setRole(val);
@@ -974,29 +1128,37 @@ const AgentForm = () => {
                                                         </div>
                                                         <div className='col-span-2'>
                                                             <label htmlFor="">Organization</label>
-                                                            <Select
-                                                                value={organizationId}
-                                                                onValueChange={(val) => {
-                                                                    setOrganizationId(val);
-                                                                    if (hasInitiallyRendered.current) {
-                                                                        setIsDirty(true);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <SelectTrigger
-                                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                            {isSuperAdmin ? (
+                                                                <Select
+                                                                    value={organizationId}
+                                                                    onValueChange={(val) => {
+                                                                        setOrganizationId(val);
+                                                                        if (hasInitiallyRendered.current) {
+                                                                            setIsDirty(true);
+                                                                        }
+                                                                    }}
                                                                 >
-                                                                    <SelectValue placeholder="Select an organization" />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    <SelectItem value="none">None (Global)</SelectItem>
-                                                                    {organizations?.map((org) => (
-                                                                        <SelectItem key={org.id} value={String(org.id)}>
-                                                                            {org.name}
-                                                                        </SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
+                                                                    <SelectTrigger
+                                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                                    >
+                                                                        <SelectValue placeholder="Select an organization" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="none">None (Global)</SelectItem>
+                                                                        {organizations?.map((org) => (
+                                                                            <SelectItem key={org.id} value={String(org.id)}>
+                                                                                {org.name}
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            ) : (
+                                                                <div
+                                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] rounded-md px-3 flex items-center text-[14px] text-[#424242] cursor-not-allowed opacity-70"
+                                                                >
+                                                                    {organizations.find(o => String(o.id) === organizationId)?.name || organizationId || 'Your Organization'}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </>
                                                 )}
@@ -1015,15 +1177,6 @@ const AgentForm = () => {
                                                         className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.email ? 'border-red-500' : 'border-[#BBBBBB]'}`} type="email" />
 
                                                     {fieldErrors.email && <p className='text-red-500 text-[10px]'>{fieldErrors.email[0]}</p>}
-                                                </div>
-                                                <div className='col-span-2'>
-                                                    <label htmlFor="">Email CC</label>
-                                                    <Input value={emailCC}
-                                                        onChange={(e) => setEmailCC(e.target.value)}
-                                                        autoComplete="email"
-                                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="email" />
-
-                                                    {fieldErrors.email_cc && <p className='text-red-500 text-[10px]'>{fieldErrors.email_cc[0]}</p>}
                                                 </div>
                                                 {!userId && (
                                                     <div className='col-span-2'>
@@ -1045,6 +1198,46 @@ const AgentForm = () => {
                                                         {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
                                                     </div>
                                                 )}
+                                                {currentUser && (
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Password Change</label>
+                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
+                                                            <input
+                                                                type="password"
+                                                                id="password"
+                                                                value={password}
+                                                                disabled
+                                                                onChange={(e) => setPassword(e.target.value)}
+                                                                className="bg-[#EEEEEE] text-[16px] font-medium w-full h-full px-4 focus:outline-none"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    handleReset();
+                                                                    setOpenChangePasswordDialog(true);
+                                                                }}
+                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                            >
+                                                                Reset
+                                                            </button>
+                                                            <ChangePasswordDialog
+                                                                userId={currentUser.uuid}
+                                                                open={openChangePasswordDialog}
+                                                                setOpen={setOpenChangePasswordDialog}
+                                                                type="agents"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                <div className='col-span-2'>
+                                                    <label htmlFor="">Email CC</label>
+                                                    <Input value={emailCC}
+                                                        onChange={(e) => setEmailCC(e.target.value)}
+                                                        autoComplete="email"
+                                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="email" />
+
+                                                    {fieldErrors.email_cc && <p className='text-red-500 text-[10px]'>{fieldErrors.email_cc[0]}</p>}
+                                                </div>
                                                 <div>
                                                     <label htmlFor="">Primary Phone <span className="text-red-500">*</span></label>
                                                     <Input value={primaryPhone}
@@ -1215,6 +1408,72 @@ const AgentForm = () => {
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
+                            <AccordionItem value="calendar">
+                                <AccordionTrigger
+                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+                                >GOOGLE CALENDAR</AccordionTrigger>
+                                <AccordionContent className="grid gap-4">
+                                    <div className='w-full flex flex-col items-center'>
+                                        <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
+                                            {!(userId || currentUser?.uuid) ? (
+                                                <div className="flex flex-col gap-4 items-center">
+                                                    <p className="text-center text-gray-600">Please save the agent first to enable Google Calendar synchronization.</p>
+                                                </div>
+                                            ) : !isCalendarConnected ? (
+                                                <div className="flex flex-col gap-4 items-center">
+                                                    <p className="text-center text-gray-600">Connect your Google Calendar to sync your bookings.</p>
+                                                    <Button
+                                                        type="button"
+                                                        disabled={isCalendarLoading}
+                                                        onClick={handleCalendarConnect}
+                                                        className={`w-full h-[44px] ${userType}-bg text-white`}
+                                                    >
+                                                        {isCalendarLoading ? "Connecting..." : "Connect Google Calendar"}
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col gap-6">
+                                                    <div className="flex flex-col gap-2 p-4 bg-green-50 border border-green-200 rounded-md">
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-green-700 font-semibold">Connected</span>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                disabled={isCalendarLoading}
+                                                                onClick={handleCalendarDisconnect}
+                                                                className="text-red-500 hover:text-red-700 h-auto p-0"
+                                                            >
+                                                                Disconnect
+                                                            </Button>
+                                                        </div>
+                                                        {calendarEmail && <p className="text-sm text-green-600">{calendarEmail}</p>}
+                                                    </div>
+
+                                                    <div className="flex flex-col gap-2">
+                                                        <label className="text-sm font-medium text-gray-700">Select Calendar for Sync</label>
+                                                        <Select
+                                                            value={selectedCalendarId}
+                                                            onValueChange={handleCalendarSet}
+                                                        >
+                                                            <SelectTrigger className="h-[42px] bg-[#EEEEEE] border-[#BBBBBB]">
+                                                                  <SelectValue placeholder="Select a calendar" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {availableCalendars.map((cal) => (
+                                                                    <SelectItem key={cal.id} value={cal.id}>
+                                                                        {cal.summary} {cal.primary ? "(Primary)" : ""}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
                             <AccordionItem value="tours">
                                 <AccordionTrigger
                                     className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
@@ -1234,69 +1493,49 @@ const AgentForm = () => {
                                                 }} className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41] float-end" />
                                         </div>
                                         {isTourMediaEnabled && (
-                                            <div className="md:w-[410px] pb-[32px] px-[10px] items-center md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
-                                                <Label className="text-[#666666] self-start block">Default Music</Label>
-                                                <div className="flex flex-col gap-4 items-center w-full max-w-[450px]">
-                                                    <div className="w-full">
-                                                        <Select
-                                                            value={selectedMp3}
-                                                            onValueChange={(value) => {
-                                                                if (value === 'upload_new') {
-                                                                    mp3FileInputRef.current?.click();
-                                                                    return;
-                                                                }
-                                                                setSelectedMp3(value);
-                                                                if (hasInitiallyRendered.current) setIsDirty(true);
-                                                                // Clear file if selecting a non-pending audio
-                                                                if (!value.startsWith('pending-')) {
-                                                                    setMp3File(null);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[#BBBBBB]">
-                                                                <SelectValue placeholder="Select music" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {availableMp3s.map((mp3) => (
-                                                                    <SelectItem key={mp3.id} value={mp3.id}>
-                                                                        {mp3.name}
-                                                                    </SelectItem>
-                                                                ))}
-                                                                <SelectItem value="upload_new" className="font-semibold text-[#6BAE41] cursor-pointer">
-                                                                    + Upload New Audio
-                                                                </SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-
-                                                    {/* Display list of custom audios with delete option */}
-                                                    {agentAudios.length > 0 && (
-                                                        <div className="w-full border border-[#BBBBBB] rounded-[6px] overflow-hidden">
-                                                            <div className="bg-[#F2F2F2] px-3 py-2 text-xs font-semibold text-[#666666]">
-                                                                Uploaded Audios
-                                                            </div>
-                                                            <div className="divide-y divide-[#BBBBBB]">
-                                                                {agentAudios.map((audio) => (
-                                                                    <div key={audio.uuid} className="flex items-center justify-between px-3 py-2 hover:bg-[#F9F9F9]">
-                                                                        <span className="text-xs text-[#666666] truncate flex-1">{audio.name}</span>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handleDeleteAudio(audio.uuid)}
-                                                                            className="ml-2 text-red-500 hover:text-red-700"
-                                                                        >
-                                                                            <X className="w-4 h-4" />
-                                                                        </button>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
+                                            <div className="w-full max-w-[800px] pb-[32px] px-[10px] md:px-0 flex flex-col gap-[16px]">
+                                                <div className="flex flex-col gap-4 w-full">
+                                                    <AudioLibrary
+                                                        audios={[
+                                                            ...agentAudios,
+                                                            ...availableMp3s
+                                                                .filter(m => m.id.startsWith('pending-'))
+                                                                .map(m => ({
+                                                                    uuid: m.id,
+                                                                    name: m.name,
+                                                                    audio_url: m.url,
+                                                                    file_url: m.url,
+                                                                    file_path: "",
+                                                                    created_at: new Date().toISOString(),
+                                                                    updated_at: new Date().toISOString(),
+                                                                    is_active: true
+                                                                } as AgentAudio))
+                                                        ]}
+                                                        selectedAudioId={selectedMp3}
+                                                        onSelect={(id) => {
+                                                            setSelectedMp3(id);
+                                                            if (hasInitiallyRendered.current) setIsDirty(true);
+                                                        }}
+                                                        onDelete={(id) => {
+                                                            if (id.startsWith('pending-')) {
+                                                                const audioToDelete = availableMp3s.find(m => m.id === id);
+                                                                setAvailableMp3s(prev => prev.filter(m => m.id !== id));
+                                                                setPendingMp3Files(prev => prev.filter(f => f.name !== audioToDelete?.name));
+                                                                if (selectedMp3 === id) setSelectedMp3('');
+                                                            } else {
+                                                                handleDeleteAudio(id);
+                                                            }
+                                                        }}
+                                                        onUploadClick={() => mp3FileInputRef.current?.click()}
+                                                        userType={userType}
+                                                    />
 
                                                     <input
                                                         type="file"
                                                         ref={mp3FileInputRef}
                                                         className="hidden"
                                                         accept="audio/*"
+                                                        multiple
                                                         onChange={handleMp3Upload}
                                                     />
                                                 </div>
@@ -1806,67 +2045,6 @@ const AgentForm = () => {
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>}
-                            {currentUser && (
-                                <AccordionItem value="account" className='border-none'>
-                                    <AccordionTrigger
-                                        className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-                                    >ACCOUNT MANAGEMENT</AccordionTrigger>
-                                    <AccordionContent className="grid gap-4">
-                                        <div className='w-full flex flex-col items-center'>
-                                            <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                                <div className='grid grid-cols-2 gap-[16px]'>
-                                                    <div className='col-span-2'>
-                                                        <label htmlFor="">Password Change</label>
-                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
-                                                            <input
-                                                                type="password"
-                                                                id="password"
-                                                                value={password}
-                                                                disabled
-                                                                onChange={(e) => setPassword(e.target.value)}
-                                                                className="bg-[#EEEEEE] text-[16px] font-medium w-full h-full px-4 focus:outline-none"
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    handleReset();
-                                                                    setOpenChangePasswordDialog(true);
-                                                                }}
-                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                                                            >
-                                                                Reset
-                                                            </button>
-                                                            <ChangePasswordDialog
-                                                                userId={currentUser.uuid}
-                                                                open={openChangePasswordDialog}
-                                                                setOpen={setOpenChangePasswordDialog}
-                                                                type="agents"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <hr className='bg-[#666666] col-span-2' />
-                                                </div>
-                                                {/* <div className='flex items-center justify-center'>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setOpenCloseDialog(true)}
-                                                    className="px-4 font-raleway py-2 bg-white text-sm font-semibold h-full w-[130px] text-[#E06D5E] border border-[#E06D5E]"
-                                                >
-                                                    Close Account
-                                                </button>
-                                                <CloseDialog
-                                                    open={openCloseDialog}
-                                                    setOpen={setOpenCloseDialog}
-                                                    onConfirm={confirmAndExecute}
-                                                />
-                                            </div> */}
-                                            </div>
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            )
-                            }
                         </Accordion>
                     </form>
                 </div >

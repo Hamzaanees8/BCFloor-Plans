@@ -68,12 +68,12 @@ export function GlobalDownloadProgressOverlay() {
                 </div>
                 <div className="overflow-y-auto sidebar-scroll p-4 flex flex-col gap-3">
                     {sortedJobs.map(job => (
-                        <DownloadJobItem 
-                            key={job.id} 
-                            job={job} 
-                            userType={userType} 
-                            onClose={() => closeJob(job.id)} 
-                            onDownload={(url) => triggerBrowserDownload(url)} 
+                        <DownloadJobItem
+                            key={job.id}
+                            job={job}
+                            userType={userType}
+                            onClose={() => closeJob(job.id)}
+                            onDownload={(url) => triggerBrowserDownload(url)}
                         />
                     ))}
                 </div>
@@ -82,16 +82,16 @@ export function GlobalDownloadProgressOverlay() {
     );
 }
 
-function DownloadJobItem({ 
-    job, 
-    userType, 
-    onClose, 
-    onDownload 
-}: { 
-    job: DownloadJobState; 
-    userType: string; 
-    onClose: () => void; 
-    onDownload: (url: string) => void; 
+function DownloadJobItem({
+    job,
+    userType,
+    onClose,
+    onDownload
+}: {
+    job: DownloadJobState;
+    userType: string;
+    onClose: () => void;
+    onDownload: (url: string) => void;
 }) {
     const { progress, error, statusText, completedFiles } = job;
     const isComplete = progress === 100 && !error;

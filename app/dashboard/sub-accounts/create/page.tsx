@@ -727,6 +727,59 @@ const OrdersForm = () => {
 
                                                     {fieldErrors.primary_email && <p className='text-red-500 text-[10px]'>{fieldErrors.primary_email[0]}</p>}
                                                 </div>
+                                                {!currentUser && (
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Password <span className="text-red-500">*</span></label>
+                                                        <Input
+                                                            value={password}
+                                                            onChange={(e) => {
+                                                                setPassword(e.target.value);
+                                                                if (fieldErrors.password) {
+                                                                    setFieldErrors(prev => {
+                                                                        const newErrors = { ...prev };
+                                                                        delete newErrors.password;
+                                                                        return newErrors;
+                                                                    });
+                                                                }
+                                                            }}
+                                                            className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.password ? 'border-red-500' : ''}`}
+                                                            autoComplete="new-password"
+                                                            type="password"
+                                                        />
+                                                        {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
+                                                    </div>
+                                                )}
+                                                {currentUser && (
+                                                    <div className='col-span-2'>
+                                                        <label htmlFor="">Password Change</label>
+                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
+                                                            <input
+                                                                type="password"
+                                                                id="password"
+                                                                value={password}
+                                                                disabled
+                                                                onChange={(e) => setPassword(e.target.value)}
+                                                                className="bg-[#EEEEEE] text-[16px] font-medium w-full h-full px-4 focus:outline-none"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    handleReset();
+                                                                    setOpenChangePasswordDialog(true);
+                                                                }}
+                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                            >
+                                                                Reset
+                                                            </button>
+                                                            <ChangePasswordDialog
+                                                                userId={currentUser.uuid}
+                                                                open={openChangePasswordDialog}
+                                                                setOpen={setOpenChangePasswordDialog}
+                                                                type="subaccount"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 <div className='col-span-2'>
                                                     <label htmlFor="">Email Secondary</label>
                                                     <Input value={secondaryEmail}
@@ -871,29 +924,6 @@ const OrdersForm = () => {
                                                         country={country}
                                                     />
                                                 </div>
-                                                {!currentUser && (
-                                                    <div className='col-span-2'>
-                                                        <label htmlFor="">Password <span className="text-red-500">*</span></label>
-                                                        <Input
-                                                            value={password}
-                                                            onChange={(e) => {
-                                                                setPassword(e.target.value);
-                                                                if (fieldErrors.password) {
-                                                                    setFieldErrors(prev => {
-                                                                        const newErrors = { ...prev };
-                                                                        delete newErrors.password;
-                                                                        return newErrors;
-                                                                    });
-                                                                }
-                                                            }}
-                                                            className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.password ? 'border-red-500' : ''}`}
-                                                            autoComplete="new-password"
-                                                            type="password"
-                                                        />
-                                                        {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
-                                                    </div>
-                                                )}
-                                                {currentUser && (<p className='text-[16px] font-normal text-[#666666]'>Reset Password</p>)}
 
                                             </div>
                                         </div>
@@ -1083,77 +1113,15 @@ const OrdersForm = () => {
                                                         <hr />
                                                     </div>
                                                 ))}
-
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </AccordionContent>
-                        </AccordionItem> */}
-
-                            {currentUser && (
-                                <AccordionItem value="account" className='border-none'>
-                                    <AccordionTrigger
-                                        className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9]' : '[&>svg]:text-[#4290E9]'} [&>svg]:text-[#6BAE41]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
-                                        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-                                    >ACCOUNT MANAGEMENT</AccordionTrigger>
-                                    <AccordionContent className="grid gap-4">
-                                        <div className='w-full flex flex-col items-center'>
-                                            <div className='w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                                                <div className='grid grid-cols-2 gap-[16px]'>
-                                                    <div className='col-span-2'>
-                                                        <label htmlFor="">Password Change</label>
-                                                        <div className="flex items-center bg-gray-100 border border-[#A8A8A8] rounded-[8px] shadow-inner w-full h-10 overflow-hidden mt-[12px]">
-                                                            <input
-                                                                type="password"
-                                                                id="password"
-                                                                value={password}
-                                                                disabled
-                                                                onChange={(e) => setPassword(e.target.value)}
-                                                                className="bg-[#EEEEEE] text-[16px] font-medium w-full h-full px-4 focus:outline-none"
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    handleReset();
-                                                                    setOpenChangePasswordDialog(true);
-                                                                }}
-                                                                className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
-                                                            >
-                                                                Reset
-                                                            </button>
-                                                            <ChangePasswordDialog
-                                                                userId={currentUser.uuid}
-                                                                open={openChangePasswordDialog}
-                                                                setOpen={setOpenChangePasswordDialog}
-                                                                type="subaccount"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <hr className='bg-[#666666] col-span-2' />
-                                                </div>
-                                                {/* <div className='flex items-center justify-center'>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setOpenCloseDialog(true)}
-                                                    className="px-4 font-raleway py-2 bg-white text-sm font-semibold h-full w-[130px] text-[#E06D5E] border border-[#E06D5E]"
-                                                >
-                                                    Close Account
-                                                </button>
-                                                <CloseDialog
-                                                    open={openCloseDialog}
-                                                    setOpen={setOpenCloseDialog}
-                                                    onConfirm={confirmAndExecute}
-                                                />
-                                            </div> */}
-                                            </div>
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            )
-                            }
-                        </Accordion>
-                    )}
+                        </AccordionItem>
+                    */}
+                    </Accordion>
+                )}
 
                     {activeTab === "permissions" && (
                         <Accordion type="multiple" defaultValue={["permissions"]} className="w-full space-y-4">

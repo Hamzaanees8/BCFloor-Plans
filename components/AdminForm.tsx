@@ -11,9 +11,11 @@ import { Create, GetPermissions, GetRole } from '@/app/dashboard/admin/admin'
 import { GetOrganizations, Organization } from '@/app/dashboard/global-settings/global-settings'
 import { toast } from 'sonner'
 import { useAppContext } from '@/app/context/AppContext'
+import { usePermissions } from '@/app/hooks/usePermissions'
 
 const AdminForm = () => {
     const { userType } = useAppContext();
+    const { isSuperAdmin } = usePermissions();
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [role, setRole] = useState("");
@@ -181,11 +183,27 @@ const AdminForm = () => {
             .then(data => setPermissions(Array.isArray(data.data) ? data.data : []))
             .catch(err => console.log(err.message));
 
-        // Fetch Organizations
+        // Fetch Organizations (only needed for super admin to show full list)
         GetOrganizations()
             .then(res => setOrganizations(Array.isArray(res.data) ? res.data : []))
             .catch(err => console.log('Failed to fetch organizations', err));
-    }, []);
+
+        // For non-super-admins, pre-fill org from their own userInfo
+        if (!isSuperAdmin) {
+            try {
+                const userInfoStr = localStorage.getItem('userInfo');
+                if (userInfoStr) {
+                    const userInfo = JSON.parse(userInfoStr);
+                    const orgId = userInfo?.organization_id ?? userInfo?.data?.organization_id;
+                    if (orgId) {
+                        setOrganizationId(String(orgId));
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to read userInfo for org prefill:', e);
+            }
+        }
+    }, [isSuperAdmin]);
 
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -305,25 +323,34 @@ const AdminForm = () => {
                                             </div>
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Organization</label>
-                                                <Select
-                                                    value={organizationId}
-                                                    onValueChange={(val) => setOrganizationId(val)}
-                                                >
-                                                    <SelectTrigger
-                                                        className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                {isSuperAdmin ? (
+                                                    <Select
+                                                        value={organizationId}
+                                                        onValueChange={(val) => setOrganizationId(val)}
+                                                    >
+                                                        <SelectTrigger
+                                                            className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                        >
+                                                            <SelectValue placeholder="Select an organization" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="none">None (Global Admin)</SelectItem>
+                                                            {organizations?.map((org) => (
+                                                                <SelectItem key={org.id} value={String(org.id)}>
+                                                                    {org.name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                ) : (
+                                                    <div
+                                                        className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px] rounded-md px-3 flex items-center text-[14px] text-[#424242] cursor-not-allowed opacity-70'
                                                         style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                     >
-                                                        <SelectValue placeholder="Select an organization" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="none">None (Global Admin)</SelectItem>
-                                                        {organizations?.map((org) => (
-                                                            <SelectItem key={org.id} value={String(org.id)}>
-                                                                {org.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                        {organizations.find(o => String(o.id) === organizationId)?.name || organizationId || 'Your Organization'}
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Email</label>
@@ -333,6 +360,15 @@ const AdminForm = () => {
                                                     style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                     type="text" />
                                             </div>
+                                            <div className='col-span-2'>
+                                                <label htmlFor="">Password</label>
+                                                <Input value={password}
+                                                    onChange={(e) => setPassword(e.target.value)}
+                                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                                    type="password" />
+                                            </div>
+                                            <p className='text-[16px] font-normal text-[#666666]'>Reset Password</p>
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Email Secondary</label>
                                                 <Input value={secondaryEmail}
@@ -444,15 +480,6 @@ const AdminForm = () => {
                                                     title="Google Map - Burnaby, BC"
                                                 ></iframe>
                                             </div>
-                                            <div className='col-span-2'>
-                                                <label htmlFor="">Password</label>
-                                                <Input value={password}
-                                                    onChange={(e) => setPassword(e.target.value)}
-                                                    className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
-                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                                    type="password" />
-                                            </div>
-                                            <p className='text-[16px] font-normal text-[#666666]'>Reset Password</p>
                                         </div>
                                     </div>
                                 </div>

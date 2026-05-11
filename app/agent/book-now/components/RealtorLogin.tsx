@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/app/context/AppContext";
+import { useOrganization } from "@/app/context/OrganizationContext";
 import { agentLogin, agentSignup } from "../book-now";
 import { Eye, EyeOff, X } from "lucide-react";
 
@@ -42,6 +43,7 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
     // Shared States
     const [isLoading, setIsLoading] = React.useState(false);
     const { setUserType } = useAppContext();
+    const { organization } = useOrganization();
 
     // Login/Signup States
     const [email, setEmail] = React.useState("");
@@ -71,7 +73,12 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
 
         setIsLoading(true);
         try {
-            const response = await agentLogin(email, password);
+            const response = await agentLogin(
+                email,
+                password,
+                organization?.org_id,
+                typeof window !== 'undefined' ? window.location.origin : undefined
+            );
             const token = response?.data?.token || response?.token;
             let user = response?.data?.user || response?.user;
 
