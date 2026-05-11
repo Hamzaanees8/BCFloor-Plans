@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Check, Plus, X } from "lucide-react";
+import { Check, Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { ColumnDef, Row } from "@tanstack/react-table";
 import { DataTable } from "@/components/DataTable";
@@ -790,7 +790,35 @@ const GlobalSettings = () => {
         }
     }, [tabs, activeTab]);
 
+    const tabsRef = useRef<HTMLDivElement>(null);
+    const [showLeftArrow, setShowLeftArrow] = useState(false);
+    const [showRightArrow, setShowRightArrow] = useState(false);
 
+    const checkScroll = () => {
+        if (tabsRef.current) {
+            const { scrollLeft, scrollWidth, clientWidth } = tabsRef.current;
+            setShowLeftArrow(scrollLeft > 0);
+            setShowRightArrow(scrollLeft + clientWidth < scrollWidth);
+        }
+    };
+
+    const scrollTabs = (direction: 'left' | 'right') => {
+        if (tabsRef.current) {
+            const scrollAmount = 300;
+            if (direction === 'left') {
+                tabsRef.current.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+            } else {
+                tabsRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+            }
+            setTimeout(checkScroll, 300);
+        }
+    };
+
+    useEffect(() => {
+        checkScroll();
+        window.addEventListener('resize', checkScroll);
+        return () => window.removeEventListener('resize', checkScroll);
+    }, [tabs]);
 
     const addDiscount = (discount: {
         discount_code?: string;
