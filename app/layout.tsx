@@ -36,6 +36,27 @@ export const metadata: Metadata = {
 
 import { headers } from "next/headers";
 
+interface WhitelabelInfo {
+  name: string;
+  logo: string;
+  primary_color: string;
+  secondary_color: string;
+  is_whitelabel: boolean;
+}
+
+async function getWhitelabelInfo(domain: string): Promise<WhitelabelInfo | null> {
+  try {
+    const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com';
+    const baseApiUrl = rawApiUrl.replace(/\/api$/, ''); 
+    const res = await fetch(`${baseApiUrl}/api/domains/resolve?domain=${domain}`, {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
 import { OrganizationProvider } from "./context/OrganizationContext";
 
 export default async function RootLayout({

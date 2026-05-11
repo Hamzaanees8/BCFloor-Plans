@@ -57,6 +57,7 @@ import { useWhiteLabel } from "@/app/context/Whitelabel";
 import EmailTemplatesSettings from "./EmailTemplatesSettings";
 import OrganizationsSettings from "./OrganizationsSettings";
 import MediaJobsTable from "./MediaJobsTable";
+import EmailLogsSettings from "./EmailLogsSettings";
 import { usePermissions } from "@/app/hooks/usePermissions";
 import { PERMISSIONS } from "@/lib/permissions";
 
@@ -774,7 +775,8 @@ const GlobalSettings = () => {
             { name: "Appearances", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Templates", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Organizations", permission: PERMISSIONS.VIEW_ADMIN },
-            { name: "Media Processing", permission: PERMISSIONS.VIEW_ADMIN }
+            { name: "Media Processing", permission: PERMISSIONS.VIEW_ADMIN },
+            { name: "Email Logs", permission: PERMISSIONS.VIEW_ADMIN }
         ];
 
         return allTabs
@@ -983,77 +985,41 @@ const GlobalSettings = () => {
 
     return (
         <div className="font-alexandria w-full max-w-full overflow-x-hidden">
-            <div className="sticky top-0 z-50 w-full">
-                <div
-                    ref={headerRef}
-                    className="w-full h-[80px] border-b-[1px] border-[#BBBBBB] font-alexandria flex justify-between px-[20px] items-center"
-                    style={{
-                        backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%)`,
-                        boxShadow: "0px 4px 4px #0000001F",
-                    }}
+            <div
+                ref={headerRef}
+                className="w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
+                style={{
+                    backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%)`,
+                    boxShadow: "0px 4px 4px #0000001F",
+                }}
+            >
+                <p
+                    className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}
                 >
-                    <p
-                        className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}
-                    >
-                        Global Settings
-                    </p>
-                    {activeTab === "Appearances" ? (
-                        <Button
-                            type="button"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                saveSettings();
-                                toast.success("Appearance settings saved successfully");
-                            }}
-                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg `}
-                        >
-                            Save Settings
-                        </Button>
-                    ) : activeTab === "Organizations" || activeTab === "Templates" || activeTab === "Tour Settings" ? null : (
-                        <Button
-                            type="button"
-                            onClick={(e) => {
-                                handleSubmit(e);
-                            }}
-                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg `}
-                        >
-                            Save Changes
-                        </Button>
-                    )}
-                </div>
-                {userType === "admin" && (
-                    <div
-                        className="h-[60px] border-b-[1px] border-[#BBBBBB] w-full"
-                        style={{
-                            backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%)`,
+                    Global Settings
+                </p>
+                {activeTab === "Appearances" ? (
+                    <Button
+                        type="button"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            saveSettings();
+                            toast.success("Appearance settings saved successfully");
                         }}
+                        className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg `}
                     >
-                        <div className="mx-auto max-w-7xl h-full flex items-center justify-center px-4">
-                            <div className="w-full md:w-[90%] relative flex items-center group h-full">
-                                <div
-                                    className="w-full flex items-center py-2 h-full"
-                                >
-                                    <div className="flex justify-between w-full px-4">
-                                        {tabs.map((tab) => (
-                                            <button
-                                                key={tab}
-                                                type="button"
-                                                onClick={() => {
-                                                    setActiveTab(tab);
-                                                }}
-                                                className={`text-center px-2 py-2 text-[13px] whitespace-nowrap h-[36px] transition-all duration-200 cursor-pointer ${activeTab === tab
-                                                    ? `${userType}-bg text-white rounded-[8px] font-[600] shadow-md`
-                                                    : "text-[#555555] hover:text-black hover:bg-black/5 rounded-[8px] font-[500]"
-                                                    }`}
-                                            >
-                                                {tab.toUpperCase()}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                        Save Settings
+                    </Button>
+                ) : activeTab === "Organizations" || activeTab === "Templates" || activeTab === "Tour Settings" || activeTab === "Email Logs" ? null : (
+                    <Button
+                        type="button"
+                        onClick={(e) => {
+                            handleSubmit(e);
+                        }}
+                        className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg `}
+                    >
+                        Save Changes
+                    </Button>
                 )}
             </div>
             <SaveModal
@@ -1068,6 +1034,75 @@ const GlobalSettings = () => {
                 open={openSaveDialog}
                 setOpen={setOpenSaveDialog}
             /> */}
+            {userType === "admin" && (
+                <div
+                    className="h-[60px] sticky top-[80px] z-[40] border-b-[1px] border-[#BBBBBB] w-full overflow-hidden"
+                    style={{
+                        backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%)`,
+                    }}
+                >
+                    <div className="mx-auto max-w-7xl h-full flex items-center justify-center px-4">
+                        <div className="w-full md:w-[85%] relative flex items-center group h-full">
+                            {showLeftArrow && (
+                                <div className="absolute left-0 z-[50] flex items-center justify-start w-16 h-full bg-gradient-to-r from-[#E4E4E4] via-[#E4E4E4]/80 to-transparent pointer-events-none"
+                                    style={{
+                                        backgroundImage: `linear-gradient(to right, color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%), transparent)`
+                                    }}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => scrollTabs('left')}
+                                        className="pointer-events-auto flex items-center justify-center w-10 h-10 bg-white shadow-xl border border-gray-200 rounded-full hover:scale-110 active:scale-95 transition-all duration-200"
+                                    >
+                                        <ChevronLeft className="w-6 h-6 text-gray-800" />
+                                    </button>
+                                </div>
+                            )}
+
+                            <div
+                                ref={tabsRef}
+                                onScroll={checkScroll}
+                                className="w-full overflow-x-auto scrollbar-hide flex items-center py-2 h-full scroll-smooth"
+                                style={{ scrollBehavior: 'smooth' }}
+                            >
+                                <div className="flex gap-[12px] min-w-max px-12">
+                                    {tabs.map((tab) => (
+                                        <button
+                                            key={tab}
+                                            type="button"
+                                            onClick={() => {
+                                                setActiveTab(tab);
+                                            }}
+                                            className={`text-center px-6 py-2 text-[13px] whitespace-nowrap h-[36px] transition-all duration-200 cursor-pointer ${activeTab === tab
+                                                ? `${userType}-bg text-white rounded-[8px] font-[600] shadow-md`
+                                                : "text-[#555555] hover:text-black hover:bg-black/5 rounded-[8px] font-[500]"
+                                                }`}
+                                        >
+                                            {tab.toUpperCase()}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {showRightArrow && (
+                                <div className="absolute right-0 z-[50] flex items-center justify-end w-16 h-full bg-gradient-to-l from-[#E4E4E4] via-[#E4E4E4]/80 to-transparent pointer-events-none"
+                                    style={{
+                                        backgroundImage: `linear-gradient(to left, color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%), transparent)`
+                                    }}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => scrollTabs('right')}
+                                        className="pointer-events-auto flex items-center justify-center w-10 h-10 bg-white shadow-xl border border-gray-200 rounded-full hover:scale-110 active:scale-95 transition-all duration-200"
+                                    >
+                                        <ChevronRight className="w-6 h-6 text-gray-800" />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
             <form
                 onChange={() => {
                     // Only mark as dirty if:
@@ -1083,6 +1118,9 @@ const GlobalSettings = () => {
                 )}
                 {activeTab === "Media Processing" && userType === "admin" && (
                     <MediaJobsTable userType={userType} />
+                )}
+                {activeTab === "Email Logs" && userType === "admin" && (
+                    <EmailLogsSettings />
                 )}
 
                 <Accordion
