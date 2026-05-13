@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { useAppContext } from '@/app/context/AppContext'
 import { Eye, EyeOff } from 'lucide-react'
 import { useOrganization } from '@/app/context/OrganizationContext'
+import { isDefaultDomain } from '@/lib/config/domains'
 
 function LoginUser() {
     const [email, setEmail] = React.useState('')
@@ -41,12 +42,15 @@ function LoginUser() {
         if (hasError) return
         setIsLoading(true)
         try {
+            const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
+            const isDefault = isDefaultDomain(currentHostname);
+
             const response = await login({ 
                 email, 
                 password, 
                 role: 'admin',
                 organization_id: organization?.org_id,
-                domain: typeof window !== 'undefined' ? window.location.origin : undefined
+                domain: !isDefault ? (typeof window !== 'undefined' ? window.location.origin : undefined) : undefined
             });
 
             console.log('Login successful:', response);

@@ -81,7 +81,7 @@ const SubAccountsTable = ({ agentId }: { agentId: string }) => {
                 <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}>Sub Accounts ({lengthFiltered})</p>
                 <Link href={`/dashboard/sub-accounts/create?agentId=${agentId}`} onClick={() => {
                     setShowHeader(false)
-                }} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px]  justify-center rounded-[6px] border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] ${userType}-bg hover-${userType}-bg`}>+ Sub Accounts</Link>
+                }} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px]  justify-center rounded-[6px] border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] ${userType}-bg hover:opacity-95`}>+ Sub Accounts</Link>
             </div>
 
             <div className="w-full">

@@ -64,16 +64,36 @@
     background-color: rgba(0, 0, 0, 0.04) !important;
 }
 
+/* Month View Today */
+.my-vendor-calendar .rbc-month-view .rbc-day-bg.rbc-today,
+.my-vendor-calendar .rbc-month-view .rbc-date-cell.rbc-today {
+    background-color: color-mix(in srgb, var(--vendor-bg-color, #DC9600) 10%, transparent) !important;
+}
+
+.my-agent-calendar .rbc-month-view .rbc-day-bg.rbc-today,
+.my-agent-calendar .rbc-month-view .rbc-date-cell.rbc-today {
+    background-color: color-mix(in srgb, var(--agent-bg-color, var(--primary-color, #6BAE41)) 10%, transparent) !important;
+}
+
+.my-admin-calendar .rbc-month-view .rbc-day-bg.rbc-today,
+.my-admin-calendar .rbc-month-view .rbc-date-cell.rbc-today {
+    background-color: color-mix(in srgb, var(--admin-bg-color, #4290E9) 10%, transparent) !important;
+}
+
+/* Header Today Colors */
 .my-vendor-calendar .rbc-header.rbc-today {
-    background-color: #dc9600 !important;
+    background-color: var(--vendor-bg-color, #dc9600) !important;
+    color: white !important;
 }
 
 .my-agent-calendar .rbc-header.rbc-today {
-    background-color: #6BAE41 !important;
+    background-color: var(--agent-bg-color, var(--primary-color, #6BAE41)) !important;
+    color: white !important;
 }
 
 .my-admin-calendar .rbc-header.rbc-today {
-    background-color: #4290E9 !important;
+    background-color: var(--admin-bg-color, #4290E9) !important;
+    color: white !important;
 }
 
 .rbc-events-container {
@@ -163,19 +183,21 @@
 }
 
 .rbc-time-header-cell .rbc-today {
-    background-color: #4290E9 !important;
     margin-bottom: 0;
-    color: white;
+    color: white !important;
     border-radius: 6px;
-
 }
 
 .my-admin-calendar .rbc-time-header-cell .rbc-today {
-    background-color: #4290E9 !important;
+    background-color: var(--admin-bg-color, #4290E9) !important;
 }
 
 .my-agent-calendar .rbc-time-header-cell .rbc-today {
-    background-color: #6BAE41 !important;
+    background-color: var(--agent-bg-color, var(--primary-color, #6BAE41)) !important;
+}
+
+.my-vendor-calendar .rbc-time-header-cell .rbc-today {
+    background-color: var(--vendor-bg-color, #dc9600) !important;
 }
 
 .custom-scrollbar {

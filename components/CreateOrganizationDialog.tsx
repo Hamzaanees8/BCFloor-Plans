@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { X, Edit2, Trash2 } from "lucide-react";
+import { X, Edit2, Trash2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
 import {
@@ -27,6 +27,14 @@ import {
 } from "@/app/dashboard/agents/agent-audio";
 import { uploadAudioFile } from "@/lib/upload/audio-upload";
 import { GetOrganizationBranding, UpdateOrganizationBranding } from '@/app/dashboard/global-settings/global-settings';
+import {
+    isDefaultDomain,
+    isDomainMatchingSubdomain,
+    extractBaseDomain,
+    getDefaultDomainErrorMessage,
+    getSubdomainMismatchWarning,
+    getDefaultDomains,
+} from "@/lib/config/domains";
 
 import {
     Select,
@@ -50,6 +58,7 @@ interface FormErrors {
     slug?: string;
     trial_ends_at?: string;
     domain?: string;
+    customDomain?: string;
 }
 
 // Accepts hostnames like: example.com, sub.example.com, my-brand.agent.bcfloorplans.com
@@ -58,7 +67,7 @@ function isValidDomain(value: string): boolean {
     const val = value.trim().toLowerCase();
     // Allow localhost with optional protocol and port for testing
     if (val.includes("localhost")) return true;
-    
+
     // Standard domain regex
     return /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)+$/.test(val);
 }
@@ -95,6 +104,8 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
     const [form, setForm] = useState<OrganizationPayload>(emptyForm());
     const [errors, setErrors] = useState<FormErrors>({});
     const [isLoading, setIsLoading] = useState(false);
+    const [domainValidationError, setDomainValidationError] = useState<string | null>(null);
+    const [subdomainWarnings, setSubdomainWarnings] = useState<Map<number, string>>(new Map());
 
     const [orgAudios, setOrgAudios] = useState<AgentAudio[]>([]);
     const [audioUploading, setAudioUploading] = useState(false);
@@ -165,8 +176,8 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                 .then(res => setOrgAudios(Array.isArray(res.data) ? res.data : []))
                 .catch(() => setOrgAudios([]));
         }
-            if (!open) setOrgAudios([]);
-        }, [open, isEdit, initialData?.uuid]);
+        if (!open) setOrgAudios([]);
+    }, [open, isEdit, initialData?.uuid]);
 
     const [newDomain, setNewDomain] = useState("");
     const [newPortalType, setNewPortalType] = useState<'admin' | 'agent' | 'vendor'>('agent');
@@ -175,26 +186,65 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
 
     // Auto-populate default domains based on slug and custom domain
     useEffect(() => {
-        if (!open || !form.is_whitelabel || !form.slug || isEdit || isDomainsManuallyEdited) return;
+        // We need EITHER a slug or a custom domain to generate anything
+        if (!open || !form.is_whitelabel || (!form.slug && !form.domain) || isEdit || isDomainsManuallyEdited) return;
 
-        const slug = form.slug.trim();
+        const slug = form.slug?.trim() || "";
         const customDomain = form.domain?.trim();
+        const envDefaultDomains = getDefaultDomains();
 
-        const defaultMappings = customDomain 
+        const defaultMappings = customDomain
             ? [
                 { domain: `booking-new.${customDomain}`, portal_type: 'agent' },
-                { domain: `vendors-new.${customDomain}`, portal_type: 'vendor' },
-                { domain: `admins-new.${customDomain}`, portal_type: 'admin' },
-              ]
-            : [
-                { domain: `${slug}.booking-new.bcfloorplans.com`, portal_type: 'agent' },
-                { domain: `${slug}.vendors-new.bcfloorplans.com`, portal_type: 'vendor' },
-                { domain: `${slug}.admins-new.bcfloorplans.com`, portal_type: 'admin' },
-              ];
+                { domain: `vendor-new.${customDomain}`, portal_type: 'vendor' },
+                { domain: `teams-new.${customDomain}`, portal_type: 'admin' },
+            ]
+            : slug ? [
+                { domain: `${slug}.${envDefaultDomains[0] || 'teams-new.bcfloorplans.com'}`, portal_type: 'admin' },
+                { domain: `${slug}.${envDefaultDomains[1] || 'bookings-new.bcfloorplans.com'}`, portal_type: 'agent' },
+                { domain: `${slug}.${envDefaultDomains[2] || 'vendor-new.bcfloorplans.com'}`, portal_type: 'vendor' },
+            ] : [];
 
-        setField("domains", defaultMappings);
+        if (defaultMappings.length > 0) {
+            setField("domains", defaultMappings);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [form.slug, form.domain, form.is_whitelabel, open, isEdit, isDomainsManuallyEdited]);
+
+    // Validate custom domain for whitelabel orgs (check if it's a default domain)
+    useEffect(() => {
+        if (!form.is_whitelabel || !form.domain) {
+            setDomainValidationError(null);
+            return;
+        }
+
+        const customDomain = form.domain.trim();
+        if (isDefaultDomain(customDomain)) {
+            setDomainValidationError(getDefaultDomainErrorMessage(customDomain));
+        } else {
+            setDomainValidationError(null);
+        }
+    }, [form.domain, form.is_whitelabel]);
+
+    // Validate subdomains for whitelabel orgs (check if they match custom domain)
+    useEffect(() => {
+        if (!form.is_whitelabel || !form.domain || !form.domains || form.domains.length === 0) {
+            setSubdomainWarnings(new Map());
+            return;
+        }
+
+        const customDomain = form.domain.trim().toLowerCase();
+        const newWarnings = new Map<number, string>();
+
+        form.domains.forEach((domainObj, index) => {
+            if (domainObj.domain && !isDomainMatchingSubdomain(customDomain, domainObj.domain)) {
+                const subdomainBase = extractBaseDomain(domainObj.domain);
+                newWarnings.set(index, getSubdomainMismatchWarning(customDomain, subdomainBase));
+            }
+        });
+
+        setSubdomainWarnings(newWarnings);
+    }, [form.domains, form.domain, form.is_whitelabel]);
 
     const setField = (key: keyof OrganizationPayload, value: any) => {
         setForm((prev) => ({ ...prev, [key]: value }));
@@ -232,6 +282,11 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
             newErrors.domain = "Enter a valid domain (e.g. myportalmedia.com)";
         }
 
+        // Check for domain validation errors (default domain attempts) for whitelabel orgs
+        if (form.is_whitelabel && domainValidationError) {
+            newErrors.customDomain = domainValidationError;
+        }
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -267,7 +322,7 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
 
             if (isEdit && initialData) {
                 await UpdateOrganization(initialData.uuid, payload);
-                
+
                 // Update branding
                 if (logoFile || form.primary_color || form.secondary_color) {
                     const formData = new FormData();
@@ -276,11 +331,11 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                     if (logoFile) formData.append('logo', logoFile);
                     await UpdateOrganizationBranding(initialData.uuid, formData);
                 }
-                
+
                 toast.success("Organization updated successfully.");
             } else {
                 const createdOrg = await CreateOrganization(payload);
-                
+
                 // Update branding for new org
                 if (createdOrg?.data?.uuid && (logoFile || form.primary_color || form.secondary_color)) {
                     const formData = new FormData();
@@ -289,7 +344,7 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                     if (logoFile) formData.append('logo', logoFile);
                     await UpdateOrganizationBranding(createdOrg.data.uuid, formData);
                 }
-                
+
                 toast.success("Organization created successfully.");
             }
 
@@ -317,12 +372,12 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
     const handleOrgAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !initialData?.uuid) return;
-        
+
         if (file.size > 20 * 1024 * 1024) {
             toast.error("File exceeds the 20 MB size limit");
             return;
         }
-        
+
         setAudioUploading(true);
         try {
             const result = await uploadAudioFile({
@@ -330,7 +385,7 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                 entityId: initialData.uuid,
                 file: file
             });
-            
+
             if (result.success) {
                 toast.success("Audio uploaded successfully.");
                 const fresh = await GetOrganizationAudios(initialData.uuid);
@@ -648,8 +703,8 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <Label>Default Portal Type</Label>
-                                <Select 
-                                    value={form.portal_type || "agent"} 
+                                <Select
+                                    value={form.portal_type || "agent"}
                                     onValueChange={(val: 'agent' | 'vendor') => setField("portal_type", val)}
                                 >
                                     <SelectTrigger className={inputCls()} style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>
@@ -706,7 +761,7 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                             <p className="text-[10px] text-[#999] mt-1">
                                                 Portal URL preview:{' '}
                                                 <span className="font-mono text-[#4290E9]">
-                                                    {form.slug}.booking-new.bcfloorplans.com
+                                                    {`${form.slug}.${getDefaultDomains()[1] || 'bookings-new.bcfloorplans.com'}`}
                                                 </span>
                                             </p>
                                         )}
@@ -721,10 +776,16 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                             placeholder="e.g. mypropertymedia.com"
                                             value={form.domain ?? ""}
                                             onChange={(e) => setField("domain", e.target.value)}
-                                            className={inputCls(errors.domain)}
+                                            className={inputCls(errors.domain || domainValidationError ? "error" : "")}
                                             style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                         />
                                         {errors.domain && <p className="text-red-500 text-[10px] mt-1">{errors.domain}</p>}
+                                        {domainValidationError && (
+                                            <div className="flex gap-2 items-start mt-2 p-2 bg-red-50 rounded border border-red-200">
+                                                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                                                <p className="text-red-600 text-[10px]">{domainValidationError}</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -734,9 +795,9 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                     {(logoFile || form.logo) && (
                                         <div className="mt-2 mb-3">
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img 
-                                                src={logoFile ? URL.createObjectURL(logoFile) : form.logo} 
-                                                alt="Organization Logo" 
+                                            <img
+                                                src={logoFile ? URL.createObjectURL(logoFile) : form.logo}
+                                                alt="Organization Logo"
                                                 className="max-h-[60px] object-contain rounded border border-gray-200"
                                             />
                                         </div>
@@ -822,8 +883,8 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                         </div>
                                         <div className="w-[150px]">
                                             <Label className="text-[11px] text-slate-500">Portal Type</Label>
-                                            <Select 
-                                                value={newPortalType} 
+                                            <Select
+                                                value={newPortalType}
                                                 onValueChange={(val: any) => setNewPortalType(val)}
                                             >
                                                 <SelectTrigger className="h-[36px] mt-1 bg-white">
@@ -840,7 +901,9 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                             <Button
                                                 type="button"
                                                 onClick={handleAddDomain}
-                                                className={`h-[36px] px-4 text-xs text-white ${editIndex !== null ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-600 hover:bg-slate-700'}`}
+                                                disabled={domainValidationError !== null}
+                                                title={domainValidationError || undefined}
+                                                className={`h-[36px] px-4 text-xs text-white ${editIndex !== null ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-600 hover:bg-slate-700'} ${domainValidationError ? 'opacity-50 cursor-not-allowed' : ''}`}
                                             >
                                                 {editIndex !== null ? 'Update' : 'Add Mapping'}
                                             </Button>
@@ -872,38 +935,49 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-100">
                                                         {form.domains.map((d, i) => (
-                                                            <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                                                <td className="px-3 py-2 font-mono text-[#4290E9]">{d.domain}</td>
-                                                                <td className="px-3 py-2">
-                                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                                                        d.portal_type === 'admin' ? 'bg-purple-100 text-purple-700' :
-                                                                        d.portal_type === 'vendor' ? 'bg-orange-100 text-orange-700' :
-                                                                        'bg-blue-100 text-blue-700'
-                                                                    }`}>
-                                                                        {d.portal_type}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="px-3 py-2 text-right">
-                                                                    <div className="flex justify-end gap-2">
-                                                                        <button 
-                                                                            type="button"
-                                                                            onClick={() => handleEditDomain(i)}
-                                                                            className={`${editIndex === i ? 'text-amber-500' : 'text-slate-400 hover:text-slate-600'} transition-colors`}
-                                                                            title="Edit"
-                                                                        >
-                                                                            <Edit2 className="w-4 h-4" />
-                                                                        </button>
-                                                                        <button 
-                                                                            type="button"
-                                                                            onClick={() => handleRemoveDomain(i)}
-                                                                            className="text-slate-400 hover:text-red-500 transition-colors"
-                                                                            title="Remove"
-                                                                        >
-                                                                            <Trash2 className="w-4 h-4" />
-                                                                        </button>
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
+                                                            <React.Fragment key={i}>
+                                                                <tr className="hover:bg-slate-50 transition-colors">
+                                                                    <td className="px-3 py-2 font-mono text-[#4290E9]">{d.domain}</td>
+                                                                    <td className="px-3 py-2">
+                                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${d.portal_type === 'admin' ? 'bg-purple-100 text-purple-700' :
+                                                                                d.portal_type === 'vendor' ? 'bg-orange-100 text-orange-700' :
+                                                                                    'bg-blue-100 text-blue-700'
+                                                                            }`}>
+                                                                            {d.portal_type}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-right">
+                                                                        <div className="flex justify-end gap-2">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleEditDomain(i)}
+                                                                                className={`${editIndex === i ? 'text-amber-500' : 'text-slate-400 hover:text-slate-600'} transition-colors`}
+                                                                                title="Edit"
+                                                                            >
+                                                                                <Edit2 className="w-4 h-4" />
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleRemoveDomain(i)}
+                                                                                className="text-slate-400 hover:text-red-500 transition-colors"
+                                                                                title="Remove"
+                                                                            >
+                                                                                <Trash2 className="w-4 h-4" />
+                                                                            </button>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                                {subdomainWarnings.has(i) && (
+                                                                    <tr className="bg-amber-50">
+                                                                        <td colSpan={3} className="px-3 py-2">
+                                                                            <div className="flex gap-2 items-start text-amber-700 text-[10px]">
+                                                                                <AlertCircle className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                                                                                <span>{subdomainWarnings.get(i)}</span>
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                )}
+                                                            </React.Fragment>
                                                         ))}
                                                     </tbody>
                                                 </table>
@@ -919,7 +993,7 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                         ) : (
                             /* No whitelabel permission banner */
                             <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0 text-amber-500 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0 text-amber-500 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                                 <div>
                                     <p className="text-sm font-semibold text-amber-700">Whitelabeling not enabled</p>
                                     <p className="text-xs text-amber-600 mt-0.5">
@@ -930,76 +1004,76 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                         )}
                     </div>
 
-                    {isEdit && (
-                        <>
-                            <hr className="border-[#BBBBBB]" />
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wider text-[#999] mb-3">Audio Files</p>
-                                <div className="flex items-center gap-3 mb-3">
-                                    <Button
-                                        type="button"
-                                        onClick={() => orgAudioRef.current?.click()}
-                                        disabled={audioUploading}
-                                        className="h-[36px] px-4 text-sm font-medium text-white admin-bg hover:opacity-90"
-                                    >
-                                        {audioUploading ? "Uploading..." : "+ Upload Audio"}
-                                    </Button>
-                                    <span className="text-xs text-[#999]">MP3 / WAV · max 20 MB</span>
-                                    <input
-                                        ref={orgAudioRef}
-                                        type="file"
-                                        accept="audio/*"
-                                        className="hidden"
-                                        onChange={handleOrgAudioUpload}
-                                    />
-                                </div>
-                                {orgAudios.length > 0 ? (
-                                    <div className="border border-[#BBBBBB] rounded-[6px] overflow-hidden divide-y divide-[#BBBBBB]">
-                                        {orgAudios.map(audio => (
-                                            <div key={audio.uuid} className="flex items-center justify-between px-3 py-2 hover:bg-[#F9F9F9]">
-                                                <span className="text-xs text-[#666] truncate flex-1">{audio.name}</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleOrgAudioDelete(audio.uuid)}
-                                                    className="ml-2 text-red-500 hover:text-red-700"
-                                                >
-                                                    <X className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        ))}
+                        {isEdit && (
+                            <>
+                                <hr className="border-[#BBBBBB]" />
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-[#999] mb-3">Audio Files</p>
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <Button
+                                            type="button"
+                                            onClick={() => orgAudioRef.current?.click()}
+                                            disabled={audioUploading}
+                                            className="h-[36px] px-4 text-sm font-medium text-white admin-bg hover:opacity-90"
+                                        >
+                                            {audioUploading ? "Uploading..." : "+ Upload Audio"}
+                                        </Button>
+                                        <span className="text-xs text-[#999]">MP3 / WAV · max 20 MB</span>
+                                        <input
+                                            ref={orgAudioRef}
+                                            type="file"
+                                            accept="audio/*"
+                                            className="hidden"
+                                            onChange={handleOrgAudioUpload}
+                                        />
                                     </div>
-                                ) : (
-                                    <p className="text-xs text-[#999] italic">No audio files uploaded yet.</p>
-                                )}
-                            </div>
-                        </>
-                    )}
-                </div>
+                                    {orgAudios.length > 0 ? (
+                                        <div className="border border-[#BBBBBB] rounded-[6px] overflow-hidden divide-y divide-[#BBBBBB]">
+                                            {orgAudios.map(audio => (
+                                                <div key={audio.uuid} className="flex items-center justify-between px-3 py-2 hover:bg-[#F9F9F9]">
+                                                    <span className="text-xs text-[#666] truncate flex-1">{audio.name}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOrgAudioDelete(audio.uuid)}
+                                                        className="ml-2 text-red-500 hover:text-red-700"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-[#999] italic">No audio files uploaded yet.</p>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </div>
 
-                {/* Footer */}
-                <div
-                    className="px-6 py-4 border-t border-[#BBBBBB] flex justify-end gap-3 flex-shrink-0"
-                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                >
-                    <Button
-                        type="button"
-                        onClick={() => setOpen(false)}
-                        className="bg-white w-[140px] h-[44px] text-[16px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]"
+                    {/* Footer */}
+                    <div
+                        className="px-6 py-4 border-t border-[#BBBBBB] flex justify-end gap-3 flex-shrink-0"
+                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                     >
-                        Cancel
-                    </Button>
-                    <Button
-                        type="button"
-                        onClick={handleSubmit}
-                        disabled={isLoading}
-                        className={`w-[180px] h-[44px] text-[16px] font-[400] text-white ${userType}-bg hover:opacity-90 transition-opacity`}
-                    >
-                        {isLoading
-                            ? isEdit ? "Saving..." : "Creating..."
-                            : isEdit ? "Save Changes" : "Create Organization"
-                        }
-                    </Button>
-                </div>
+                        <Button
+                            type="button"
+                            onClick={() => setOpen(false)}
+                            className="bg-white w-[140px] h-[44px] text-[16px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleSubmit}
+                            disabled={isLoading}
+                            className={`w-[180px] h-[44px] text-[16px] font-[400] text-white ${userType}-bg hover:opacity-90 transition-opacity`}
+                        >
+                            {isLoading
+                                ? isEdit ? "Saving..." : "Creating..."
+                                : isEdit ? "Save Changes" : "Create Organization"
+                            }
+                        </Button>
+                    </div>
             </DialogContent>
         </Dialog>
     );

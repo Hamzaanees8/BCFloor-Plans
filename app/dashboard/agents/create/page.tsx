@@ -667,9 +667,9 @@ const AgentForm = () => {
         if (emailCC && !emailRegex.test(emailCC)) {
             validationErrors.email_cc = ['Invalid email address'];
         }
-        if (!userId && !password.trim()) {
+        if (!userId && userType !== 'agent' && !password.trim()) {
             validationErrors.password = ['Password is required'];
-        } else if ((!userId && password.length < 8) || (userId && password && password.length < 8)) {
+        } else if ((!userId && userType !== 'agent' && password.length < 8) || ((userId || userType === 'agent') && password && password.length < 8)) {
             validationErrors.password = ['Password must be at least 8 characters'];
         }
         if (!primaryPhone.trim()) {
@@ -745,21 +745,17 @@ const AgentForm = () => {
                 organization_id: organizationId && organizationId !== "none" ? Number(organizationId) : undefined,
             };
 
-            let agentUuid: string | null = null;
+            const idToUpdate = userId || currentUser?.uuid;
+            let agentUuid: string | null = idToUpdate || null;
+            const isNewAgent = !agentUuid;
 
-            if (userId) {
-                // Add _method: 'PUT' to payload for method override
-                const updatedPayload = { ...payload, _method: 'PUT' };
-                const response = await EditAgent(userId, updatedPayload);
-                agentUuid = response.data?.uuid || currentUser?.uuid || null;
-                toast.success('Agent updated successfully');
-            } else {
+            // Step 1: If creating a new agent, we must send the Create request first to get an agent ID for S3
+            if (isNewAgent) {
                 const response = await CreateAgent(payload);
                 agentUuid = response.data?.uuid || null;
-                toast.success('Agent created successfully');
             }
 
-            // S3 direct upload for logos and banners
+            // Step 2: S3 direct upload for logos and banners
             if (agentUuid) {
                 const filesToUpload: { file: File; slot: string; type?: string }[] = [];
 
@@ -774,7 +770,6 @@ const AgentForm = () => {
                 }
 
                 // Add company logos
-                // Only upload files that have a valid File object (newly added ones)
                 companyLogos.forEach(logo => {
                     if (logo.file) {
                         filesToUpload.push({ file: logo.file, slot: 'company_logos', type: logo.type });
@@ -787,12 +782,12 @@ const AgentForm = () => {
                         toast.success('Logos uploaded successfully');
                     } catch (error) {
                         console.error('Failed to upload logos:', error);
-                        toast.error('Agent saved but logo upload failed');
+                        toast.error('Logo upload failed, proceeding to save agent data');
                     }
                 }
             }
 
-            // Upload audio files if selected and agent UUID is available
+            // Step 3: Upload audio files if selected and agent UUID is available
             if (pendingMp3Files.length > 0 && agentUuid) {
                 console.log(`Attempting to upload ${pendingMp3Files.length} audio(s)...`);
 
@@ -818,6 +813,15 @@ const AgentForm = () => {
                         toast.error(`Failed to upload ${file.name}`, { id: toastId });
                     }
                 }
+            }
+
+            // Step 4: Send the Edit request (for existing agents) AFTER files are uploaded
+            if (!isNewAgent && agentUuid) {
+                const updatedPayload = { ...payload, _method: 'PUT' };
+                await EditAgent(agentUuid, updatedPayload);
+                toast.success('Agent updated successfully');
+            } else if (isNewAgent) {
+                toast.success('Agent created successfully');
             }
 
             setIsLoading(true)
@@ -1025,7 +1029,7 @@ const AgentForm = () => {
                         >
                             DETAILS
                         </button>
-                        {userId && (
+                        {(userId || userType === 'agent') && (
                             <button
                                 onClick={() => setActiveTab("sub_accounts")}
                                 className={`px-4 py-2 rounded-[6px] text-sm font-bold w-[110px] md:w-[180px] h-[35px]
@@ -1178,7 +1182,7 @@ const AgentForm = () => {
 
                                                     {fieldErrors.email && <p className='text-red-500 text-[10px]'>{fieldErrors.email[0]}</p>}
                                                 </div>
-                                                {!userId && (
+                                                {!userId && userType !== 'agent' && (
                                                     <div className='col-span-2'>
                                                         <label htmlFor="">Password <span className="text-red-500">*</span></label>
                                                         <Input
@@ -2052,7 +2056,7 @@ const AgentForm = () => {
             }
             {
                 activeTab === 'sub_accounts' && (
-                    <SubAccountsTable agentId={userId ?? idToUse} />
+                    <SubAccountsTable agentId={userId ?? currentUser?.uuid ?? ''} />
                 )
             }
         </div >

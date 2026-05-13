@@ -290,7 +290,7 @@ function AppointmentTab({ currentOrder, serviceId, disabled }: AppointmentTab) {
                 />
 
             </div>
-            <div className="col-span-1">
+            <div className={userType === 'agent' ? "col-span-2" : "col-span-1"}>
                 <Label className="text-[14px] text-[#424242] " htmlFor="">Listing</Label>
                 <Input
                     readOnly
@@ -301,17 +301,19 @@ function AppointmentTab({ currentOrder, serviceId, disabled }: AppointmentTab) {
                 />
 
             </div>
-            <div className="col-span-1">
-                <Label className="text-[14px] text-[#424242] " htmlFor="">Square Footage</Label>
-                <Input
-                    readOnly
-                    value={squareFootage}
-                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
-                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                    type="text"
-                />
+            {userType !== 'agent' && (
+                <div className="col-span-1">
+                    <Label className="text-[14px] text-[#424242] " htmlFor="">Square Footage</Label>
+                    <Input
+                        readOnly
+                        value={squareFootage}
+                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                        type="text"
+                    />
 
-            </div>
+                </div>
+            )}
             <div className="w-full h-[300px] col-span-2">
                 <DynamicMap
                     address={currentOrder?.property.address}
@@ -360,7 +362,7 @@ function AppointmentTab({ currentOrder, serviceId, disabled }: AppointmentTab) {
                     className='mt-[40px]'>
                     <Link
                         href={`/dashboard/file-manager/${currentOrder?.uuid}?listingId=${currentOrder?.property?.uuid}`}
-                        className="bg-[#4290E9] rounded-[6px] border-[1px] text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff] w-[110px] h-[37px] hover:text-white hover:bg-[#4e9af1]"
+                        className={`${userType}-bg rounded-[6px] border-[1px] text-[14px] flex justify-center items-center ${userType}-border text-[#fff] w-[110px] h-[37px] hover:text-white hover:brightness-110`}
                     >Media</Link>
 
                 </div>

@@ -577,7 +577,7 @@ const OrdersForm = () => {
             <div ref={headerRef} className='w-full h-[80px] font-alexandria z-50 sticky top-0 flex justify-between px-[20px] items-center' style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className={`text-[16px] md:text-[24px] font-[400]  ${userType}-text`}> Sub Account
                     {currentUser ? ` › ${currentUser.first_name} ${currentUser.last_name}` : ' › Create'}</p>
-                <Button onClick={(e) => { handleSubmit(e) }} disabled={isLoading} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>
+                <Button onClick={(e) => { handleSubmit(e) }} disabled={isLoading} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:opacity-95`}>
                     {isLoading ? <Loader2 className="animate-spin w-5 h-5" /> : "Save Changes"}
                 </Button>
             </div>
@@ -639,7 +639,7 @@ const OrdersForm = () => {
                         <Accordion type="multiple" defaultValue={["profile", "branding", "account"]} className="w-full space-y-4">
                             <AccordionItem value="profile">
                                 <AccordionTrigger
-                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                     style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
                                 > PROFILE</AccordionTrigger>
                                 <AccordionContent className="grid gap-4">
@@ -933,7 +933,7 @@ const OrdersForm = () => {
 
                             <AccordionItem value="branding">
                                 <AccordionTrigger
-                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                     style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
                                 >Branding Assets</AccordionTrigger>
                                 <AccordionContent className="grid gap-4">
@@ -1127,7 +1127,7 @@ const OrdersForm = () => {
                         <Accordion type="multiple" defaultValue={["permissions"]} className="w-full space-y-4">
                             <AccordionItem value="permissions">
                                 <AccordionTrigger
-                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType === 'admin' ? '[&>svg]:text-[#4290E9] ' : userType === 'agent' ? '[&>svg]:text-[#6BAE41] ' : '[&>svg]:text-[#4290E9] '}  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] uppercase ${userType}-text-svg [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                     style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
                                 >PERMISSION ACCESS</AccordionTrigger>
                                 <AccordionContent className="grid gap-4">

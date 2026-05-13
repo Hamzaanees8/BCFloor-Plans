@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Alexandria, Geist, Geist_Mono, Raleway } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
+import { getDefaultDomains } from "@/lib/config/domains";
 
 import { AppProvider } from "./context/AppContext";
 import { OrderProvider } from "./dashboard/orders/context/OrderContext";
@@ -72,10 +73,9 @@ export default async function RootLayout({
 
   // Fetch branding for any host that isn't bare localhost or a default system domain
   const domainWithoutPort = host.split(':')[0];
+  const envDefaultDomains = getDefaultDomains();
   const defaultDomains = [
-    "booking-new.bcfloorplans.com",
-    "teams-new.bcfloorplans.com",
-    "vendors-new.bcfloorplans.com",
+    ...envDefaultDomains,
     "booking-new.localhost",
     "teams-new.localhost",
     "vendors-new.localhost",

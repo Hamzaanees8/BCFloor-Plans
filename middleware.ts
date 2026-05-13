@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getDefaultDomains } from '@/lib/config/domains';
 
 // Auth routes that are always accessible (no rewrite needed)
 const AUTH_ROUTES = [
@@ -12,19 +13,29 @@ const AUTH_ROUTES = [
 ];
 
 // Emergency fallback: guess portal type from domain name
-// Only used if the API call fails completely
+// Only used if the API call fails completely or for default domains
 function guessPortalTypeFromHostname(hostname: string): string {
   const h = hostname.toLowerCase();
+  const defaultDomains = getDefaultDomains();
+  const [teams, bookings, vendors] = defaultDomains.map(d => d.toLowerCase());
+
+  // 1. Check for exact matches with default domains
+  if (h === bookings) return 'agent';
+  if (h === vendors) return 'vendor';
+  if (h === teams) return 'admin';
+
+  // 2. Fallback to keyword matching (useful for localhost or custom subdomains if API fails)
   if (
+    h.includes('booking') ||
+    h.includes('agent') ||
     h.includes('booking-new') ||
-    h.includes('agents-new') ||
-    h.includes('agents.')
+    h.includes('agents-new')
   )
     return 'agent';
   if (
     h.includes('vendor-new') ||
     h.includes('vendors-new') ||
-    h.includes('vendors.')
+    h.includes('vendor')
   )
     return 'vendor';
   return 'admin';
@@ -50,8 +61,7 @@ function buildResponse(
     // Allow agent auth pages, agent pages, and the shared dashboard
     if (
       pathname.startsWith('/agent') ||
-      pathname.startsWith('/dashboard') ||
-      isAuthRoute
+      pathname.startsWith('/dashboard')
     ) {
       return NextResponse.next();
     }
@@ -69,8 +79,7 @@ function buildResponse(
     // Allow vendor auth pages, vendor pages, and the shared dashboard
     if (
       pathname.startsWith('/vendor') ||
-      pathname.startsWith('/dashboard') ||
-      isAuthRoute
+      pathname.startsWith('/dashboard')
     ) {
       return NextResponse.next();
     }
@@ -105,10 +114,9 @@ export async function middleware(request: NextRequest) {
   let orgData: Record<string, unknown> | null = null;
 
   const domainWithoutPort = hostname.split(':')[0];
+  const envDefaultDomains = getDefaultDomains();
   const defaultDomains = [
-    "booking-new.bcfloorplans.com",
-    "teams-new.bcfloorplans.com",
-    "vendors-new.bcfloorplans.com",
+    ...envDefaultDomains,
     "booking-new.localhost",
     "teams-new.localhost",
     "vendors-new.localhost",
@@ -136,6 +144,11 @@ export async function middleware(request: NextRequest) {
         orgData = await res.json();
         portalType = (orgData?.portal_type as string) ?? 'admin';
         console.log('Resolved portal_type:', portalType, 'for', hostname);
+      } else if (res.status === 404) {
+        // If the domain is not found in our database, it's invalid.
+        // We should not guess the portal type here.
+        console.warn('Domain not found in database:', hostname);
+        return NextResponse.rewrite(new URL('/404', request.url));
       } else {
         console.warn(
           'Resolve API returned',
@@ -143,15 +156,15 @@ export async function middleware(request: NextRequest) {
           '— using fallback for',
           hostname
         );
-        portalType = guessPortalTypeFromHostname(hostname);
+        portalType = guessPortalTypeFromHostname(domainWithoutPort);
       }
     } catch (err) {
       console.error('Domain resolution error:', err);
-      portalType = guessPortalTypeFromHostname(hostname);
+      portalType = guessPortalTypeFromHostname(domainWithoutPort);
     }
   } else {
     // For default domains, skip API and guess directly
-    portalType = guessPortalTypeFromHostname(hostname);
+    portalType = guessPortalTypeFromHostname(domainWithoutPort);
     console.log('Default domain detected, guessing portal_type:', portalType, 'for', hostname);
   }
 

@@ -319,7 +319,7 @@ export default function QuickViewCard({
                 </div>
               )}
               {type === "subaccount" && (
-                <div className="text-[24px] font-[400] ${userType}-text font-alexandria">
+                <div className={`text-[24px] font-[400] ${userType}-text font-alexandria`}>
                   {(data as SubAccountData).first_name}{" "}
                   {(data as SubAccountData).last_name}
                 </div>

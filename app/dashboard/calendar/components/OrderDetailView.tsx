@@ -791,19 +791,21 @@ export default function OrderDetailView({
                   >
                     Appointment
                   </Button>
-                  <Button
-                    variant={activeTab === "square_footage" ? "default" : "outline"}
-                    onClick={() => setActiveTab("square_footage")}
-                    className={`${activeTab === "square_footage" ? `${userType}-bg text-white` : ""} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
-                    style={{
-                      backgroundColor:
-                        activeTab !== "square_footage"
-                          ? `var(--${userType}-page-bg, #E4E4E4)`
-                          : undefined,
-                    }}
-                  >
-                    Square Footage
-                  </Button>
+                  {userType !== "agent" && (userType === "vendor" || !isEdit) && (
+                    <Button
+                      variant={activeTab === "square_footage" ? "default" : "outline"}
+                      onClick={() => setActiveTab("square_footage")}
+                      className={`${activeTab === "square_footage" ? `${userType}-bg text-white` : ""} hover-${userType}-bg hover:opacity-95 hover:text-white min-w-[120px]`}
+                      style={{
+                        backgroundColor:
+                          activeTab !== "square_footage"
+                            ? `var(--${userType}-page-bg, #E4E4E4)`
+                            : undefined,
+                      }}
+                    >
+                      Square Footage
+                    </Button>
+                  )}
                   <Button
                     variant={activeTab === "history" ? "default" : "outline"}
                     onClick={() => setActiveTab("history")}
@@ -887,7 +889,7 @@ export default function OrderDetailView({
                       setShowConfirmation(true);
                     }
                   }}
-                  className={`${userType}-bg ${userType}-border text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff]  w-[132px] h-[42px] hover:text-white hover-${userType}-bg hover:opacity-95 disabled:opacity-50`}
+                  className={`${userType}-bg ${userType}-border text-[14px] flex justify-center items-center text-[#fff]  w-[132px] h-[42px] hover:text-white hover-${userType}-bg hover:opacity-95 disabled:opacity-50`}
                 >
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Save Changes"}
                 </Button>

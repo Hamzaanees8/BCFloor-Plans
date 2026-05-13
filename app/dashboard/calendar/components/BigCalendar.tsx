@@ -728,26 +728,28 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
         return (
             <div className='flex justify-between mb-4'>
                 <div className='flex gap-[10px]'>
-                    <button onClick={() => onNavigate('TODAY')} className='ml-1 h-[30px] px-3 flex justify-center items-center hover:bg-gray-300 rounded-md text-sm font-medium text-gray-600 bg-white border border-gray-200 shadow-sm'>
+                    <button onClick={() => onNavigate('TODAY')} className={`ml-1 h-[30px] px-3 flex justify-center items-center text-white ${userType}-bg rounded-md text-sm font-medium shadow-sm hover:brightness-110`}>
                         Today
                     </button>
-                    <button onClick={() => onNavigate('PREV')} className='w-[30px] h-[30px] flex justify-center items-center hover:bg-gray-300 rounded-full'>
-                        <ChevronLeft color='#7D7D7D' />
+                    <button onClick={() => onNavigate('PREV')} className={`w-[30px] h-[30px] flex justify-center items-center hover:bg-gray-100 rounded-full ${userType}-text`}>
+                        <ChevronLeft className="w-5 h-5" />
                     </button>
 
-                    <button onClick={() => onNavigate('NEXT')} className='w-[30px] h-[30px] flex justify-center items-center hover:bg-gray-300 rounded-full'>
-                        <ChevronRight color='#7D7D7D' />
+                    <button onClick={() => onNavigate('NEXT')} className={`w-[30px] h-[30px] flex justify-center items-center hover:bg-gray-100 rounded-full ${userType}-text`}>
+                        <ChevronRight className="w-5 h-5" />
                     </button>
                 </div>
 
-                <div className='flex items-center gap-2'>
-                    <Switch
-                        checked={showBreaks}
-                        onCheckedChange={setShowBreaks}
-                        className='data-[state=checked]:bg-blue-600'
-                    />
-                    <span className='text-sm font-medium text-gray-700'>Show Breaks</span>
-                </div>
+                {userType !== 'agent' && (
+                    <div className='flex items-center gap-2'>
+                        <Switch
+                            checked={showBreaks}
+                            onCheckedChange={setShowBreaks}
+                            className="bg-gray-300 data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-red-500"
+                        />
+                        <span className='text-sm font-medium text-gray-700'>Show Breaks</span>
+                    </div>
+                )}
 
                 <div className="flex bg-gray-100 rounded-lg p-1">
                     {Days.map((button) => (
@@ -764,21 +766,19 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     ))}
                 </div>
                 <div className='flex gap-[16px] items-center'>
-
-
                     {(userType === 'admin' || userType === 'vendor') &&
                         <Button
                             onClick={() => {
                                 setOpen(true)
                                 setPopupType('break')
                             }}
-                            className={`font-raleway text-[14px] font-[600] bg-[#4290E9] hover-${userType}-bg flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>
+                            className={`font-raleway text-[14px] font-[600] hover-${userType}-bg flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>
                             Add Time Off
                         </Button>
                     }
 
                     {(userType !== 'vendor') &&
-                        <Link href={'/dashboard/orders/create?from=calendar'} className={`font-raleway text-[14px] font-[600] bg-[#4290E9] hover-${userType}-bg rounded-[6px] text-[#fff] flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>
+                        <Link href={'/dashboard/orders/create?from=calendar'} className={`font-raleway text-[14px] font-[600] hover-${userType}-bg rounded-[6px] text-[#fff] flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>
                             Create New Booking
                         </Link>
                     }
@@ -827,15 +827,15 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
         return (
             <div className='flex justify-between mb-4'>
                 <div className='flex gap-[10px]'>
-                    <button onClick={() => onNavigate('TODAY')} className='ml-1 h-[30px] px-3 flex justify-center items-center hover:bg-gray-300 rounded-md text-sm font-medium text-gray-600 bg-white border border-gray-200 shadow-sm'>
+                    <button onClick={() => onNavigate('TODAY')} className={`ml-1 h-[30px] px-3 flex justify-center items-center text-white ${userType}-bg rounded-md text-sm font-medium shadow-sm hover:brightness-110`}>
                         Today
                     </button>
-                    <button onClick={() => onNavigate('PREV')} className='w-[30px] h-[30px] flex justify-center items-center hover:bg-gray-300 rounded-full'>
-                        <ChevronLeft color='#7D7D7D' />
+                    <button onClick={() => onNavigate('PREV')} className={`w-[30px] h-[30px] flex justify-center items-center hover:bg-gray-100 rounded-full ${userType}-text`}>
+                        <ChevronLeft className="w-5 h-5" />
                     </button>
 
-                    <button onClick={() => onNavigate('NEXT')} className='w-[30px] h-[30px] flex justify-center items-center hover:bg-gray-300 rounded-full'>
-                        <ChevronRight color='#7D7D7D' />
+                    <button onClick={() => onNavigate('NEXT')} className={`w-[30px] h-[30px] flex justify-center items-center hover:bg-gray-100 rounded-full ${userType}-text`}>
+                        <ChevronRight className="w-5 h-5" />
                     </button>
                 </div>
 
@@ -846,6 +846,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         size="sm"
                         onClick={handlePrevResources}
                         disabled={resourcePage === 0}
+                        className={`${userType}-text ${userType}-border hover:bg-gray-100`}
                     >
                         <ChevronLeft className="h-4 w-4" /> Vendors
                     </Button>
@@ -857,19 +858,22 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         size="sm"
                         onClick={handleNextResources}
                         disabled={(resourcePage + 1) * RESOURCES_PER_PAGE >= resources.length}
+                        className={`${userType}-text ${userType}-border hover:bg-gray-100`}
                     >
                         Vendors <ChevronRight className="h-4 w-4" />
                     </Button>
                 </div>
 
-                <div className='flex items-center gap-2'>
-                    <Switch
-                        checked={showBreaks}
-                        onCheckedChange={setShowBreaks}
-                        className='data-[state=checked]:bg-blue-600'
-                    />
-                    <span className='text-sm font-medium text-gray-700'>Show Breaks</span>
-                </div>
+                {userType !== 'agent' && (
+                    <div className='flex items-center gap-2'>
+                        <Switch
+                            checked={showBreaks}
+                            onCheckedChange={setShowBreaks}
+                            className="bg-gray-300 data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-red-500"
+                        />
+                        <span className='text-sm font-medium text-gray-700'>Show Breaks</span>
+                    </div>
+                )}
 
                 <div className="flex bg-gray-100 rounded-lg p-1">
                     {Days.map((button) => (
@@ -895,13 +899,13 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                 setOpen(true)
                                 setPopupType('break')
                             }}
-                            className={`font-raleway text-[14px] font-[600] bg-[#4290E9] hover-${userType}-bg flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>
+                            className={`font-raleway text-[14px] font-[600] hover-${userType}-bg flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>
                             Add Time Off
                         </Button>
                     }
 
                     {(userType !== 'vendor') &&
-                        <Link href={'/dashboard/orders/create?from=calendar'} className={`font-raleway text-[14px] font-[600] bg-[#4290E9] hover-${userType}-bg rounded-[6px] text-[#fff] flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>
+                        <Link href={'/dashboard/orders/create?from=calendar'} className={`font-raleway text-[14px] font-[600] hover-${userType}-bg rounded-[6px] text-[#fff] flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>
                             Create New Booking
                         </Link>
                     }
@@ -955,7 +959,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
             year: dayjs(newDate).format('YYYY'),
         });
     };
-    //('vendorData', vendorData);
+
 
     const deleteVendorBreakFromUI = (breakUuid: string) => {
         if (!setVendorData || !breakUuid) return;
@@ -1326,6 +1330,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                         }}
                                         popup
                                         showMultiDayTimes
+                                        className={`my-${userType}-calendar`}
                                     />
                                 </div>
                             );

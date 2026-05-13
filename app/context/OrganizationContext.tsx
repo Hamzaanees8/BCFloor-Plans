@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { getDefaultDomains } from "@/lib/config/domains";
 
 interface ColorValue {
   value: string;
@@ -77,10 +78,9 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
     const resolveDomain = async (fullUrl: string) => {
       const hostname = fullUrl.replace(/^https?:\/\//, '').split(':')[0];
       const domainWithoutPort = hostname.split(':')[0];
+      const envDefaultDomains = getDefaultDomains();
       const defaultDomains = [
-        "booking-new.bcfloorplans.com",
-        "teams-new.bcfloorplans.com",
-        "vendors-new.bcfloorplans.com",
+        ...envDefaultDomains,
         "booking-new.localhost",
         "teams-new.localhost",
         "vendors-new.localhost"
