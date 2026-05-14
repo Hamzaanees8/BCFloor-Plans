@@ -9,7 +9,7 @@ import { Listings } from '@/lib/types';
 import { GetListing } from '@/app/dashboard/listings/listing';
 import { Country, State } from "country-state-city";
 import { GetOneListing, fetchMlsData } from "../../listings/listing"
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 //import AddListingDialog from './AddListingDialog';
 import { useOrderContext } from '../context/OrderContext';
 import { toast } from 'sonner';
@@ -101,6 +101,9 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         coAgents,
     } = useOrderContext();
     const { userType } = useAppContext()
+    const searchParams = useSearchParams();
+    const isEdit = searchParams.get('isEdit') === 'true';
+    const isAgentEdit = userType === 'agent' && isEdit;
     const { appliedSettings } = useWhiteLabel();
     const role = (userType as string)?.toLowerCase() || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
@@ -967,9 +970,10 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                         </div>
                                     )}
                                     <Accordion
+                                        className={cn('w-full', isAgentEdit && 'pointer-events-none opacity-50')}
                                         type="single"
                                         collapsible
-                                        value={openAddListingDialog ? "create-new-booking" : ""}
+                                        value={isAgentEdit ? "" : (openAddListingDialog ? "create-new-booking" : "")}
                                         onValueChange={(val) => {
                                             if (val === "create-new-booking") {
                                                 if (selectedListingId !== null) {
@@ -981,7 +985,6 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                 setOpenAddListingDialog(false);
                                             }
                                         }}
-                                        className='w-full'
                                     >
                                         <AccordionItem
                                             value="create-new-booking"
@@ -1401,12 +1404,13 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                         <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Listing <span className="text-red-500">*</span></p>
                                         <div className='flex items-start justify-between'>
                                             <div className='flex items-center gap-4'>
-                                                <Popover open={openListing} onOpenChange={setOpenListing}>
+                                                <Popover open={isAgentEdit ? false : openListing} onOpenChange={(open) => !isAgentEdit && setOpenListing(open)}>
                                                     <PopoverTrigger asChild>
                                                         <button
                                                             className={cn(
                                                                 "w-[432px] h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] px-3 flex items-center justify-between rounded-md",
-                                                                !selectedListing && "text-muted-foreground"
+                                                                !selectedListing && "text-muted-foreground",
+                                                                isAgentEdit && "pointer-events-none opacity-50"
                                                             )}
                                                         >
                                                             {selectedListing ? (
@@ -1464,7 +1468,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
 
 
                                                 <div
-                                                    className={`cursor-pointer ${!selectedListingId ? 'pointer-events-none opacity-50' : ''}`}
+                                                    className={`cursor-pointer ${(isAgentEdit || !selectedListingId) ? 'pointer-events-none opacity-50' : ''}`}
                                                     onClick={() => {
                                                         if (!selectedListingId) return;
                                                         setOpenAddListingDialog(true);
@@ -1482,7 +1486,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                         <div className="w-[30px] h-[1px] bg-[#BBBBBB]"></div>
                                                     </div>
                                                     <button
-                                                        className='flex items-center gap-2 px-3 py-2 rounded-md border transition-colors'
+                                                        className={cn('flex items-center gap-2 px-3 py-2 rounded-md border transition-colors', isAgentEdit && 'pointer-events-none opacity-50')}
                                                         style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}
                                                         onClick={() => handleListingSelect('NEW')}
                                                     >

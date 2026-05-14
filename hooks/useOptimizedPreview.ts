@@ -12,7 +12,7 @@ interface OptimizedPreviewResult {
  * - Videos: Extracts first frame as thumbnail
  * - Manages object URL lifecycle automatically
  */
-export function useOptimizedPreview(file: File | null): OptimizedPreviewResult {
+export function useOptimizedPreview(file: File | null, width: number = 300, height: number = 300): OptimizedPreviewResult {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(false);
@@ -128,8 +128,8 @@ export function useOptimizedPreview(file: File | null): OptimizedPreviewResult {
                 try {
                     // Create downscaled bitmap
                     const bitmap = await createImageBitmap(file, {
-                        resizeWidth: 300,
-                        resizeHeight: 300,
+                        resizeWidth: width,
+                        resizeHeight: height,
                         resizeQuality: 'low',
                     });
 
@@ -185,7 +185,7 @@ export function useOptimizedPreview(file: File | null): OptimizedPreviewResult {
                 urlRef.current = null;
             }
         };
-    }, [file]);
+    }, [file, width, height]);
 
     return { previewUrl, isLoading, error };
 }

@@ -170,19 +170,15 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
 
         // If Agent, show only approved files for download + obey service quantity limit
         if (userType === 'agent') {
-            files = files?.filter(file => file.is_show !== false && file.is_agent_approved === true);
+            // Allow agents to see all visible files so they can select them.
+            files = files?.filter(file => file.is_show !== false);
 
             if (reviewFilesEnabled) {
                 files = files?.filter(file => file.is_admin_approved === true);
             }
 
-            const targetQuantity = bookingToUse?.option?.quantity ?? 0;
-            if (targetQuantity > 0) {
-                files = files?.slice(0, targetQuantity);
-            }
-
-            // additional guard: canDownloadFile ensures complete pay / approval rules
-            files = files?.filter(file => canDownloadFile({ file, currentService: bookingToUse, orderData, userType: 'agent' }));
+            // Quantity limit and download permissions are enforced at the UI level 
+            // (e.g. disabling download buttons) rather than hiding files from the selection gallery.
         }
 
         return files || [];
@@ -1076,6 +1072,11 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     <p className='text-[#7D7D7D] text-[10px] leading-none'>{bookingToUse?.option?.quantity || 0} Photos</p>
                                 </div>
                                 <Button
+                                    onClick={() => {
+                                        if (!(paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
+                                            onOpenInvoice?.(currentService?.name);
+                                        }
+                                    }}
                                     className={`h-[32px] w-[100px] flex justify-center items-center 
                                         ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                             ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
@@ -1189,7 +1190,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         <Button
                                             variant="outline"
                                             onClick={() => setOpenUpgrade(true)}
-                                            className="bg-[#6BAE41] text-white hover:bg-[#5fa43a] h-[36px] px-6 rounded transition-colors font-medium border-none mb-2"
+                                            className={`${userType}-bg text-white hover:brightness-110 h-[36px] px-6 rounded transition-colors font-medium border-none mb-2`}
                                         >
                                             Upgrade Plan
                                         </Button>

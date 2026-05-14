@@ -1,6 +1,8 @@
 'use client'
 import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import { useOrderContext } from '../context/OrderContext';
+import { useWhiteLabel } from '@/app/context/Whitelabel';
+import { Role } from '@/app/context/whiteLabelConfig';
 import ConfirmationCard from './ConfirmationCard';
 import { Slot } from '../context/OrderContext';
 import { SelectedService } from './Services';
@@ -72,6 +74,9 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     const { userType } = useAppContext()
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { appliedSettings } = useWhiteLabel();
+    const role = (userType as string)?.toLowerCase() || 'admin';
+    const roleSettings = appliedSettings[role as Role] || appliedSettings['admin'];
 
     const handleDone = () => {
         const from = searchParams.get('from');
@@ -338,19 +343,9 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             }
         });
 
-        if (activePackage && activePackage.uuid && activePackage.discount && activePackage.discount > 0) {
-            const rawShopTotal = selectedServices.reduce((sum, s) => {
-                return sum + getOriginalPrice(s);
-            }, 0);
-            const pkgDiscountAmount = calculatePackageDiscount(rawShopTotal);
-
-            // Add package discount as a separate discount entry for auditing payload
-            discountPayload.push({
-                discount_id: activePackage.uuid,
-                type: 'package',
-                value: Number(pkgDiscountAmount.toFixed(2)),
-            });
-        }
+        // Note: Package discounts are handled automatically by the backend's PackageDetectionService.
+        // Sending them here as 'package' type causes validation errors because the backend 
+        // expects only 'code', 'quantity', or 'manual' types in the discounts array.
 
         return discountPayload;
     };
@@ -551,8 +546,8 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                 <div className='flex flex-col gap-[10px]'>
                                     <div className='flex justify-between gap-[12px]'>
                                         <div className='flex gap-[12px] items-center'>
-                                            <File className='text-[#4290E9] h-[24px]w-[30px]  md:h-[36px] md:w-[40px]' />
-                                            <p className='text-[#4290E9] text-[24px] md:text-[36px] font-[400]'>Order {orderData?.id}</p>
+                                            <File style={{ color: roleSettings.pageTabColor }} className='h-[24px] w-[30px] md:h-[36px] md:w-[40px]' />
+                                            <p style={{ color: roleSettings.pageTabColor }} className='text-[24px] md:text-[36px] font-[700]'>Order {orderData?.id}</p>
                                         </div>
                                         <div className='items-center gap-[12px] hidden'>
                                             <Switch className=' data-[state=checked]:bg-[#6BAE41] ' />
@@ -583,7 +578,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                     </div>
                                 </div>
                                 <div className='flex flex-col gap-[18px] text-[#666666] text-[16px]'>
-                                    <p className='text-[20px] text-[#666666] font-[700]'>Order Details</p>
+                                    <p style={{ color: roleSettings.pageTabColor }} className='text-[20px] font-[700]'>Order Details</p>
 
                                     {/* Package amount - this should show the sum of all services */}
                                     <p className='grid grid-cols-4 gap-[15px]'>
@@ -726,7 +721,8 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
 
                                     <Button
                                         onClick={handleDone}
-                                        className="col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px] bg-[#4290E9] text-[14px] md:text-[14px] font-[600] text-white flex gap-[5px] justify-center items-center hover:bg-[#005fb8] font-raleway"
+                                        style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+                                        className="col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px] text-[14px] md:text-[14px] font-[600] text-white flex gap-[5px] justify-center items-center font-raleway"
                                     >
                                         Done
                                     </Button>

@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { RealtorSignInModal } from '@/app/agent/book-now/components/RealtorLogin';
 import { SearchableSelect } from './SearchableSelect';
 import { useOrderContext } from '../context/OrderContext';
+import { useWhiteLabel } from '@/app/context/Whitelabel';
 import {
     Table,
     TableBody,
@@ -38,6 +39,9 @@ const Contact = () => {
         agentsData
     } = useOrderContext();
     const { userType } = useAppContext()
+    const { appliedSettings } = useWhiteLabel();
+    const role = (userType as string)?.toLowerCase() || 'admin';
+    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
 
     const selectedAgent = useMemo(() => {
         return agentsData.find((agent) => agent.uuid === selectedAgentId) || null;
@@ -227,7 +231,7 @@ const Contact = () => {
 
     useEffect(() => {
         if (selectedAgent) {
-            // setCoAgents(selectedAgent.co_agents || []);
+            setCoAgents(selectedAgent.co_agents || []);
 
             // Check if agent has notes and if they haven't been added yet (simple duplicate check)
             if (selectedAgent.notes) {
@@ -551,7 +555,7 @@ const Contact = () => {
                                     <div className="flex flex-col gap-6 mt-[12px]">
                                         {/* Appointment Notes Section */}
                                         <div className="flex flex-col relative group">
-                                            <div className="flex justify-between items-center bg-[#4290E9] text-white rounded-[6px] px-4 py-1.5 w-max mb-2">
+                                            <div className="flex justify-between items-center text-white rounded-[6px] px-4 py-1.5 w-max mb-2" style={{ backgroundColor: roleSettings.pageTabColor }}>
                                                 <span className="font-bold text-[13px]">Appointment Notes</span>
                                             </div>
                                             <p className="text-[#E06D5E] text-[12px] mb-2">
@@ -568,7 +572,8 @@ const Contact = () => {
                                             </div>
                                             <div className="flex justify-end mt-2">
                                                 <button
-                                                    className="text-[#4290E9] font-bold text-[12px] uppercase"
+                                                    className="font-bold text-[12px] uppercase"
+                                                    style={{ color: roleSettings.pageTabColor }}
                                                     onClick={(e) => {
                                                         e.preventDefault();
                                                         if (isEditingAppointment) {
@@ -587,7 +592,7 @@ const Contact = () => {
                                         {/* Internal Notes Section */}
                                         {userType === 'admin' && (
                                             <div className="flex flex-col relative group">
-                                                <div className="flex justify-between items-center bg-[#4290E9] text-white rounded-[6px] px-4 py-1.5 w-max mb-2">
+                                                <div className="flex justify-between items-center text-white rounded-[6px] px-4 py-1.5 w-max mb-2" style={{ backgroundColor: roleSettings.pageTabColor }}>
                                                     <span className="font-bold text-[13px]">Internal AGENT Notes</span>
                                                 </div>
                                                 <p className="text-[#E06D5E] text-[12px] mb-2 font-bold">
@@ -604,7 +609,8 @@ const Contact = () => {
                                                 </div>
                                                 <div className="flex justify-end mt-2">
                                                     <button
-                                                        className="text-[#4290E9] font-bold text-[12px] uppercase"
+                                                        className="font-bold text-[12px] uppercase"
+                                                        style={{ color: roleSettings.pageTabColor }}
                                                         onClick={(e) => {
                                                             e.preventDefault();
                                                             if (isEditingInternal) {

@@ -29,6 +29,7 @@ import { Order } from "../../orders/page";
 import { DownloadFile } from "../file-manager";
 import { useAppContext } from "@/app/context/AppContext";
 import { OptimizedImagePreview, PdfPlaceholder } from "./OptimizedPreview";
+import { GetAgentAudios, AgentAudio } from "../../agents/agent-audio";
 
 function TourPicture({ orderData }: { orderData: Order | null }) {
   const { userType } = useAppContext();
@@ -47,6 +48,51 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
   } = useFileManagerContext();
   const [autoPlay, setAutoPlay] = useState<boolean>(true);
   const [branding, setBranding] = useState<string>("none");
+  const [agentAudios, setAgentAudios] = useState<AgentAudio[]>([]);
+  const [loadingAudios, setLoadingAudios] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    const fetchAgentAudios = async () => {
+      if (!orderData?.agent?.uuid) return;
+      setLoadingAudios(true);
+      try {
+        const response = await GetAgentAudios(orderData.agent.uuid);
+        if (response.status && Array.isArray(response.data)) {
+          setAgentAudios(response.data);
+        }
+      } catch (error) {
+        console.error("Error fetching agent audios:", error);
+      } finally {
+        setLoadingAudios(false);
+      }
+    };
+
+    fetchAgentAudios();
+  }, [orderData?.agent?.uuid]);
+
+  React.useEffect(() => {
+    if (selectedAudioTrack && selectedAudioTrack !== "none" && !audioUrl) {
+      if (selectedAudioTrack.startsWith("http")) {
+        setAudioUrl(selectedAudioTrack);
+      } else {
+        // For legacy tracks, we need to fetch them to get a blob URL
+        // (This maintains consistency with handleAudioTrackChange)
+        const loadLegacyAudio = async () => {
+          try {
+            const response = await fetch(`/audio/${selectedAudioTrack}.mp3`);
+            if (response.ok) {
+              const blob = await response.blob();
+              const blobUrl = URL.createObjectURL(blob);
+              setAudioUrl(blobUrl);
+            }
+          } catch (error) {
+            console.error("Error loading initial legacy audio:", error);
+          }
+        };
+        loadLegacyAudio();
+      }
+    }
+  }, [selectedAudioTrack, audioUrl, setAudioUrl]);
 
 
   let currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === "photo");
@@ -65,6 +111,13 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
       return;
     }
 
+    // Check if the track is a URL (agent audio)
+    if (track.startsWith("http")) {
+      setAudioUrl(track);
+      return;
+    }
+
+    // Legacy public audios fallback
     try {
       const response = await fetch(`/audio/${track}.mp3`);
       const blob = await response.blob();
@@ -174,22 +227,10 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                           </TooltipContent>
                         </Tooltip>
                       </div>
-                      <div className="grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 bg-[#BBBBBB] text-[14px]">
-                        <p className="col-span-2 text-[#8E8E8E] mt-1 truncate !text-[14px]">
-                          {file.file.name}
+                      <div className="flex items-center justify-between px-2 py-1 bg-[#BBBBBB] text-[14px]">
+                        <p className="text-[#8E8E8E] mt-1 flex items-center gap-1">
+                          <CopyableFileName name={file.type || "Exterior"} /> ({idx + 1} of {selectedFiles.length})
                         </p>
-                        <div className="col-span-2 flex items-center justify-between">
-                          <p className="text-[#8E8E8E] mt-1 flex items-center gap-1">
-                            <CopyableFileName name={file.type || "Exterior"} /> ({idx + 1} of {selectedFiles.length})
-                          </p>
-                          <span className="flex w-[24px] h-[24px] cursor-pointer">
-                            <DownloadIcon
-                              width="24px"
-                              height="24px"
-                              fill="#6BAE41"
-                            />
-                          </span>
-                        </div>
                       </div>
                     </div>
                   ))}
@@ -248,35 +289,10 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                           </>
                         )}
                       </div>
-                      <div className="grid grid-cols-4 gap-2 justify-between items-center px-2 py-1 bg-[#BBBBBB] text-[14px]">
-                        <p className="col-span-2 text-[#8E8E8E] mt-1 truncate !text-[14px]">
-                          {file.name}
+                      <div className="flex items-center justify-between px-2 py-1 bg-[#BBBBBB] text-[14px]">
+                        <p className="text-[#8E8E8E] mt-1 flex items-center gap-1">
+                          <CopyableFileName name={file.group || "Exterior"} /> ({idx + 1} of {currentTourPhotos?.length || 0})
                         </p>
-                        <div className="col-span-2 flex items-center justify-between">
-                          <p className="text-[#8E8E8E] mt-1 flex items-center gap-1">
-                            <CopyableFileName name={file.group || "Exterior"} /> ({idx + 1} of {currentTourPhotos?.length || 0})
-                          </p>
-                          {(userType === 'admin' || (userType === 'agent' && orderData?.payment_status === 'PAID')) ? (
-                            <span
-                              onClick={() => handledownloadFile(file.uuid, file.name)}
-                              className="flex w-[24px] h-[24px] cursor-pointer">
-                              <DownloadIcon
-                                width="24px"
-                                height="24px"
-                                fill="#6BAE41"
-                              />
-                            </span>
-                          ) : (
-                            <span
-                              className="flex w-[24px] h-[24px] cursor-not-allowed opacity-50">
-                              <DownloadIcon
-                                width="24px"
-                                height="24px"
-                                fill="#6BAE41"
-                              />
-                            </span>
-                          )}
-                        </div>
                       </div>
                     </div>
                   ))}
@@ -304,16 +320,24 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                       onValueChange={handleAudioTrackChange}
                     >
                       <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] mt-[12px] border border-[#BBBBBB]">
-                        <SelectValue placeholder="Select Audio Track" />
+                        <SelectValue placeholder={loadingAudios ? "Loading Audios..." : "Select Audio Track"} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">No Audio</SelectItem>
-                        <SelectItem value="tell-me-what">
-                          Tell-me-what
-                        </SelectItem>
-                        <SelectItem value="embrace">Embrace</SelectItem>
-                        <SelectItem value="sandbreaker">Sandbreaker</SelectItem>
-                        <SelectItem value="showreel">Showreel</SelectItem>
+                        {agentAudios.map((audio) => (
+                          <SelectItem key={audio.uuid} value={audio.audio_url || audio.file_url || ""}>
+                            {audio.name}
+                          </SelectItem>
+                        ))}
+                        {/* Legacy fallbacks or section divider could go here if needed */}
+                        {agentAudios.length === 0 && !loadingAudios && (
+                          <>
+                            <SelectItem value="tell-me-what">Tell-me-what (Default)</SelectItem>
+                            <SelectItem value="embrace">Embrace (Default)</SelectItem>
+                            <SelectItem value="sandbreaker">Sandbreaker (Default)</SelectItem>
+                            <SelectItem value="showreel">Showreel (Default)</SelectItem>
+                          </>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>

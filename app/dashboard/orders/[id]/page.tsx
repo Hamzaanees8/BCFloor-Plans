@@ -148,6 +148,7 @@ function Page() {
   const [openEditPopup, setOpenEditPopup] = useState<boolean>(false);
   const { userType } = useAppContext();
   const { appliedSettings } = useWhiteLabel();
+  const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
   const role = (userType as string)?.toLowerCase() || "admin";
   const roleSettings =
     appliedSettings[role as keyof typeof appliedSettings] ||
@@ -606,7 +607,11 @@ function Page() {
         <div
           className="absolute inset-0 bg-center bg-cover"
           style={{
-            backgroundImage: `url('${filesData?.files?.find(f => f.is_featured)?.url || filesData?.files?.[0]?.url || "/ordersBgImg.png"}')`,
+            backgroundImage: `url('${(() => {
+              const featured = filesData?.files?.find(f => f.is_featured) || filesData?.files?.[0];
+              if (!featured) return "/ordersBgImg.png";
+              return featured.variant_urls?.landing || featured.variant_urls?.popup || featured.url || (featured.file_path ? (featured.file_path.startsWith('http') ? featured.file_path : `${API_URL}/${featured.file_path}`) : "/ordersBgImg.png");
+            })()}')`,
           }}
         ></div>
 

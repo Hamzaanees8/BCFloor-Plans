@@ -274,6 +274,8 @@ type FileManagerContextType = {
     setFilesToHide: Dispatch<SetStateAction<Set<string>>>;
     includeHidden: boolean;
     setIncludeHidden: Dispatch<SetStateAction<boolean>>;
+    deletedSnapshotUuids: Set<string>;
+    setDeletedSnapshotUuids: Dispatch<SetStateAction<Set<string>>>;
 };
 
 const FileManagerContext = createContext<FileManagerContextType | undefined>(undefined);
@@ -399,6 +401,7 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
     const [isHidingMode, setIsHidingMode] = useState<boolean>(false);
     const [filesToHide, setFilesToHide] = useState<Set<string>>(new Set());
     const [includeHidden, setIncludeHidden] = useState<boolean>(false);
+    const [deletedSnapshotUuids, setDeletedSnapshotUuids] = useState<Set<string>>(new Set());
 
 
     const [formData, setFormData] = useState<FormData>(initialFormData);
@@ -461,13 +464,15 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
         filesToHide,
         setFilesToHide,
         includeHidden,
-        setIncludeHidden
+        setIncludeHidden,
+        deletedSnapshotUuids,
+        setDeletedSnapshotUuids
     }), [
         files, floorFiles, selectedFiles, links, brandedSelected, unBrandedSelected,
         previewFiles, selectedVideoFiles, droppedMarkers, delay, transition,
         audioUrl, selectedAudioTrack, formData, updateFormData, filesData,
         featureSheets, changedFileUuids, selectionChangedUuids, area, fileManagerMode, imagesPerRow,
-        isSaving, isHidingMode, filesToHide, includeHidden
+        isSaving, isHidingMode, filesToHide, includeHidden, deletedSnapshotUuids
     ]);
 
     return (

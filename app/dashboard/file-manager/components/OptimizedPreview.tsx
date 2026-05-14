@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { useOptimizedPreview } from '@/hooks/useOptimizedPreview';
 import { Play, FileText } from 'lucide-react';
 
@@ -7,65 +7,75 @@ interface OptimizedImagePreviewProps {
     alt?: string;
     className?: string;
     onClick?: () => void;
+    onDragStart?: (e: React.DragEvent) => void;
+    onDragEnd?: (e: React.DragEvent) => void;
     draggable?: boolean;
     isRestricted?: boolean;
+    width?: number;
+    height?: number;
 }
 
 /**
  * Renders an optimized image preview with loading state
  * Prevents UI freezing with large files
  */
-export function OptimizedImagePreview({ file, alt = 'preview', className = '', onClick, draggable, isRestricted }: OptimizedImagePreviewProps) {
-    const { previewUrl, isLoading, error } = useOptimizedPreview(file);
+export const OptimizedImagePreview = forwardRef<HTMLImageElement, OptimizedImagePreviewProps>(
+    ({ file, alt = 'preview', className = '', onClick, onDragStart, onDragEnd, draggable, isRestricted, width = 300, height = 300 }, ref) => {
+        const { previewUrl, isLoading, error } = useOptimizedPreview(file, width, height);
 
-    // Show loading placeholder
-    if (isLoading) {
-        return (
-            <div className={`flex items-center justify-center bg-gray-200 ${className}`}>
-                <div className="animate-pulse text-gray-400 text-sm">Loading...</div>
-            </div>
-        );
-    }
-
-    // Show error placeholder
-    if (error || !previewUrl) {
-        return (
-            <div className={`flex items-center justify-center bg-gray-200 ${className}`}>
-                <div className="text-gray-400 text-sm">Preview unavailable</div>
-            </div>
-        );
-    }
-
-    // If it's a PDF, show the PDF itself using an iframe, unless restricted
-    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-        if (isRestricted) {
-            return <PdfPlaceholder className={className} onClick={onClick} isRestricted={isRestricted} />;
+        // Show loading placeholder
+        if (isLoading) {
+            return (
+                <div className={`flex items-center justify-center bg-gray-200 ${className}`}>
+                    <div className="animate-pulse text-gray-400 text-sm">Loading...</div>
+                </div>
+            );
         }
+
+        // Show error placeholder
+        if (error || !previewUrl) {
+            return (
+                <div className={`flex items-center justify-center bg-gray-200 ${className}`}>
+                    <div className="text-gray-400 text-sm">Preview unavailable</div>
+                </div>
+            );
+        }
+
+        // If it's a PDF, show the PDF itself using an iframe, unless restricted
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+            if (isRestricted) {
+                return <PdfPlaceholder className={className} onClick={onClick} isRestricted={isRestricted} />;
+            }
+            return (
+                <div className={`relative overflow-hidden cursor-pointer w-full h-full ${className}`} onClick={onClick}>
+                    <iframe
+                        src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                        className="w-full h-full pointer-events-none border-none object-cover scale-[1.14] origin-top"
+                        tabIndex={-1}
+                        scrolling="no"
+                    />
+                    <div className="absolute inset-0 bg-transparent" />
+                </div>
+            );
+        }
+
+        // Render optimized preview
         return (
-            <div className={`relative overflow-hidden cursor-pointer w-full h-full ${className}`} onClick={onClick}>
-                <iframe
-                    src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                    className="w-full h-full pointer-events-none border-none object-cover scale-[1.14] origin-top"
-                    tabIndex={-1}
-                    scrolling="no"
-                />
-                <div className="absolute inset-0 bg-transparent" />
-            </div>
+            <img
+                ref={ref}
+                src={previewUrl}
+                alt={alt}
+                className={className}
+                draggable={draggable}
+                onClick={onClick}
+                onDragStart={onDragStart}
+                onDragEnd={onDragEnd}
+            />
         );
     }
+);
 
-    // Render optimized preview
-    return (
-        /* eslint-disable @next/next/no-img-element */
-        <img
-            src={previewUrl}
-            alt={alt}
-            className={className}
-            draggable={draggable}
-            onClick={onClick}
-        />
-    );
-}
+OptimizedImagePreview.displayName = 'OptimizedImagePreview';
 
 interface PdfPlaceholderProps {
     className?: string;

@@ -61,16 +61,16 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
   const allImages = React.useMemo(() => {
-    const localImages = (images || []).map((img) => ({
+    const localImages = (images || []).map((img, idx) => ({
       src: URL.createObjectURL(img.file),
       isLocal: true,
-      id: img.file.name + img.file.size
+      id: `local-${img.file.name}-${img.file.size}-${idx}`
     }));
 
-    const remoteImages = (api_images || []).map((img) => ({
+    const remoteImages = (api_images || []).map((img, idx) => ({
       src: img.url || img.variant_urls?.popup || img.variant_urls?.slider || `${API_URL}/${img.file_path}`,
       isLocal: false,
-      id: img.uuid || img.file_path
+      id: `remote-${img.uuid || img.file_path}-${idx}`
     }));
 
     return [...localImages, ...remoteImages];

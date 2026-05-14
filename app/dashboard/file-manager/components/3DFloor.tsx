@@ -345,6 +345,23 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService, 
                                 }}
                                 className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Send for Approval'} </Button>
                         }
+                        {userType !== 'agent' && (
+                            <div className='flex items-center gap-[10px] mr-2'>
+                                <Button
+                                    onClick={() => {
+                                        if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
+                                            onOpenInvoice?.(currentService?.name);
+                                        }
+                                    }}
+                                    className={`h-[32px] w-[100px] flex justify-center items-center 
+                                        ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
+                                            ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
+                                            : "bg-[#DC9600] hover:bg-[#eda304]"}`}
+                                >
+                                    {bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'PAID' : 'UNPAID'}
+                                </Button>
+                            </div>
+                        )}
                         <AgentNotificationModal
                             open={showConfirmation}
                             onClose={() => setShowConfirmation(false)}
@@ -424,7 +441,11 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService, 
                             <Button
                                 variant="outline"
                                 onClick={() => setOpenUpgrade(true)}
-                                className="border border-[#6BAE41] text-[#6BAE41] hover:bg-[#6BAE41] hover:text-white h-[36px] px-6 rounded transition-colors font-medium ml-2"
+                                className={`border h-[36px] px-6 rounded transition-colors font-medium ml-2 ${userType}-button`}
+                                style={{ 
+                                    borderColor: `var(--${userType}-page-tab-color)`, 
+                                    color: `var(--${userType}-page-tab-color)` 
+                                }}
                             >
                                 Upgrade Plan
                             </Button>

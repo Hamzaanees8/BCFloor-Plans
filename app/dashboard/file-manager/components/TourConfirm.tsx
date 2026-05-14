@@ -194,13 +194,6 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
 
   return (
     <div className="w-full font-alexandria">
-      <ConfirmationDialog
-        open={showConfirmModal}
-        setOpen={setShowConfirmModal}
-        onConfirm={handlePostTour}
-        showAgain={showAgain}
-        toggleShowAgain={() => setShowAgain(!showAgain)}
-      />
       {/* Tour Link Input */}
       {tourUuid && (
         <div className="flex  items-center justify-center py-4">
@@ -222,7 +215,7 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
             </div>
             <div className="flex items-center gap-x-3">
               <Button
-                onClick={() => setShowConfirmModal(true)}
+                onClick={handlePostTour}
                 disabled={isPublishing}
                 className={`w-[185px] transition-all duration-300 ${isPublished ? `${userType}-bg hover:bg-blue-500` : "bg-[#6BAE41]"}`}
               >

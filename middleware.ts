@@ -12,6 +12,12 @@ const AUTH_ROUTES = [
   '/password-success',
 ];
 
+// Routes that are shared across all portals and should not be rewritten
+const SHARED_ROUTES = [
+  '/tour',
+  '/whitelabel',
+];
+
 // Emergency fallback: guess portal type from domain name
 // Only used if the API call fails completely or for default domains
 function guessPortalTypeFromHostname(hostname: string): string {
@@ -52,6 +58,15 @@ function buildResponse(
   const isAuthRoute = AUTH_ROUTES.some(
     (r) => pathname === r || pathname.startsWith(r + '/')
   );
+
+  const isSharedRoute = SHARED_ROUTES.some(
+    (r) => pathname === r || pathname.startsWith(r + '/')
+  );
+
+  // Shared routes are always served as-is
+  if (isSharedRoute) {
+    return NextResponse.next();
+  }
 
   if (portalType === 'agent') {
     // Block vendor-specific pages

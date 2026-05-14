@@ -10,9 +10,9 @@ export function GlobalDownloadProgressOverlay() {
     const { jobs, closeJob, triggerBrowserDownload } = useGlobalDownload();
     const { userType } = useAppContext();
 
-    const { sortedJobs, activeJobsCount, averageProgress } = useMemo(() => {
+    const { sortedJobs, activeJobsCount, averageProgress, allFinished } = useMemo(() => {
         if (jobs.length === 0) {
-            return { sortedJobs: [], activeJobsCount: 0, averageProgress: 0 };
+            return { sortedJobs: [], activeJobsCount: 0, averageProgress: 0, allFinished: false };
         }
 
         // Calculate average progress of ALL jobs
@@ -27,17 +27,24 @@ export function GlobalDownloadProgressOverlay() {
             if (aIsActive && !bIsActive) return -1;
             if (!aIsActive && bIsActive) return 1;
 
-            // Both have same active state; sort by newest first (assuming ID contains Date.now() or is sequential, we just reverse order of array since new ones are appended to the end)
-            // Because our jobs array naturally appends to the end, higher index = newer.
             const indexA = jobs.indexOf(a);
             const indexB = jobs.indexOf(b);
             return indexB - indexA; // Newest first
         });
 
         const activeJobsCount = jobs.filter(j => j.progress < 100 && !j.error).length;
+        const allFinished = activeJobsCount === 0;
 
-        return { sortedJobs, activeJobsCount, averageProgress };
+        return { sortedJobs, activeJobsCount, averageProgress, allFinished };
     }, [jobs]);
+
+    const closeAllFinished = () => {
+        jobs.forEach(job => {
+            if (job.progress === 100 || job.error) {
+                closeJob(job.id);
+            }
+        });
+    };
 
     if (jobs.length === 0) {
         return null;
@@ -48,14 +55,34 @@ export function GlobalDownloadProgressOverlay() {
             <div className="w-full bg-white rounded-xl shadow-2xl border border-gray-200 pointer-events-auto flex flex-col max-h-[60vh] overflow-hidden">
                 <div className="p-4 border-b border-gray-100 bg-gray-50 flex flex-col gap-2 shrink-0">
                     <div className="flex items-center justify-between">
-                        <h2 className="font-semibold text-gray-800 text-sm">
-                            Downloads ({jobs.length})
-                        </h2>
-                        {activeJobsCount > 0 && (
-                            <span className={`text-xs font-semibold ${userType}-text`}>
-                                {averageProgress}% Total
-                            </span>
-                        )}
+                        <div className="flex flex-col">
+                            <h2 className="font-semibold text-gray-800 text-sm">
+                                Downloads ({jobs.length})
+                            </h2>
+                            {activeJobsCount > 0 ? (
+                                <span className={`text-[10px] font-semibold ${userType}-text animate-pulse uppercase tracking-wider`}>
+                                    Processing ZIP...
+                                </span>
+                            ) : (
+                                <span className="text-[10px] font-semibold text-green-600 uppercase tracking-wider">
+                                    All Ready
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {activeJobsCount > 0 && (
+                                <span className={`text-xs font-bold ${userType}-text tabular-nums`}>
+                                    {averageProgress}%
+                                </span>
+                            )}
+                            <button
+                                onClick={closeAllFinished}
+                                className="p-1.5 hover:bg-gray-200 rounded-full transition-colors text-gray-400 hover:text-gray-600"
+                                title="Clear finished downloads"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
                     {activeJobsCount > 0 && (
                         <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
@@ -113,10 +140,10 @@ function DownloadJobItem({
                 {(isComplete || isError) && (
                     <button
                         onClick={onClose}
-                        className="p-1 hover:bg-gray-100 rounded-full transition-colors shrink-0"
+                        className="p-1.5 hover:bg-gray-100 rounded-full transition-colors shrink-0 text-gray-400 hover:text-gray-600"
                         aria-label="Close"
                     >
-                        <X className="w-3 h-3 text-gray-400" />
+                        <X className="w-4 h-4" />
                     </button>
                 )}
             </div>

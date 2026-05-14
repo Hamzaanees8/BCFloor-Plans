@@ -42,6 +42,7 @@ export interface Marker {
 interface PublicTourFloorPlansProps {
     floorPlanFiles?: FloorPlanFile[];
     snapshots?: Snapshoots[];
+    tourPhotos?: any[];
 }
 
 // PDF Placeholder component
@@ -73,6 +74,9 @@ function PublicTourFloorPlans({
         return null;
     });
 
+    const [draggedFile, setDraggedFile] = useState<any | null>(null);
+    const [localMarkers, setLocalMarkers] = useState<any[]>([]);
+
     const [previewMarker, setPreviewMarker] = useState<Marker | null>(null);
     const imageContainerRef = useRef<HTMLDivElement>(null);
     const imgRef = useRef<HTMLImageElement | null>(null);
@@ -99,6 +103,8 @@ function PublicTourFloorPlans({
     };
 
     const filteredSnapshots = getFilteredSnapshots();
+    const currentLocalSnapshots = localMarkers.filter(m => normalizeName(m.floorImageUrl) === normalizeName(selectedImageId || ""));
+
     const selectedFile = filteredFloorPlanFiles?.find((f) => f.name === selectedImageId);
     const isSelectedFilePDF = selectedFile ? isPDF(selectedFile.file_path) : false;
 
@@ -110,11 +116,42 @@ function PublicTourFloorPlans({
         );
     }
 
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        if (!draggedFile || !imgRef.current || !selectedImageId) return;
+
+        const img = imgRef.current;
+        const imgRect = img.getBoundingClientRect();
+
+        const relX = e.clientX - imgRect.left;
+        const relY = e.clientY - imgRect.top;
+
+        const xPercent = (relX / imgRect.width) * 100;
+        const yPercent = (relY / imgRect.height) * 100;
+
+        const newMarker = {
+            x: xPercent,
+            y: yPercent,
+            floorImageUrl: selectedImageId,
+            name: draggedFile.name || 'New Snapshot',
+            description: '',
+            file_path: draggedFile.variant_urls?.popup || draggedFile.variant_urls?.landing || draggedFile.url || (draggedFile.file_path ? `${API_URL}/${draggedFile.file_path}` : ''),
+            variant_urls: draggedFile.variant_urls,
+            isApi: true
+        };
+
+        setLocalMarkers(prev => [...prev, newMarker]);
+        setPreviewMarker(newMarker as any);
+        setDraggedFile(null);
+    };
+
     return (
         <div className="w-full h-auto font-alexandria bg-gray-100 py-6 pl-0 mt-[75px] pt-0">
             <div className="w-full h-[550px] flex gap-[30px] bg-white">
                 <div
                     ref={imageContainerRef}
+                    onDrop={handleDrop}
+                    onDragOver={(e) => e.preventDefault()}
                     className="relative w-[70%] h-full bg-white overflow-visible m-auto"
                 >
                     {selectedFile && (
@@ -135,13 +172,14 @@ function PublicTourFloorPlans({
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img
                                         ref={imgRef}
-                                        src={selectedFile.variant_urls?.popup || selectedFile.url || `${API_URL}/${selectedFile.file_path}`}
+                                        loading="lazy"
+                                        src={selectedFile.variant_urls?.landing || selectedFile.variant_urls?.popup || selectedFile.url || `${API_URL}/${selectedFile.file_path}`}
                                         alt="Selected Floor Plan"
                                         className="object-contain max-h-full max-w-full w-full h-full"
                                     />
 
                                     {/* Render markers for this floor plan (only for images, not PDFs) */}
-                                    {filteredSnapshots.map((snapshot, idx) => (
+                                    {[...filteredSnapshots, ...currentLocalSnapshots].map((snapshot, idx) => (
                                         <div
                                             key={idx}
                                             className="absolute cursor-pointer hover:scale-110 transition-transform z-10"
@@ -163,13 +201,14 @@ function PublicTourFloorPlans({
                                             }}
                                             onMouseEnter={() => {
                                                 setPreviewMarker({
-                                                    x: Number(snapshot.x_axis),
-                                                    y: Number(snapshot.y_axis),
+                                                    x: Number('x_axis' in snapshot ? snapshot.x_axis : snapshot.x),
+                                                    y: Number('y_axis' in snapshot ? snapshot.y_axis : snapshot.y),
                                                     file_path: snapshot.file_path,
-                                                    floorImageUrl: snapshot.file_name,
+                                                    floorImageUrl: 'file_name' in snapshot ? snapshot.file_name : snapshot.floorImageUrl,
                                                     name: snapshot.name,
                                                     description: snapshot.description,
                                                     isApi: true,
+                                                    variant_urls: (snapshot as any).variant_urls
                                                 });
                                             }}
                                         >
@@ -197,7 +236,8 @@ function PublicTourFloorPlans({
                                             {previewMarker.file_path && (
                                                 // eslint-disable-next-line @next/next/no-img-element
                                                 <img
-                                                    src={previewMarker.file_path}
+                                                    loading="lazy"
+                                                    src={previewMarker.variant_urls?.popup || previewMarker.variant_urls?.landing || previewMarker.file_path}
                                                     alt={previewMarker.name || "Snapshot"}
                                                     className="w-[95%] h-[65%] object-cover mx-auto mt-3 rounded"
                                                 />
@@ -243,10 +283,8 @@ function PublicTourFloorPlans({
                                             <p className="text-gray-500 font-medium text-xs">Processing...</p>
                                         </div>
                                     ) : isFilePDF ? (
-                                        // Show PDF placeholder for PDF files
                                         <PdfPlaceholder className="w-full h-full" />
                                     ) : (
-                                        // Show image thumbnail for image files
                                         <>
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
                                             <img
@@ -265,6 +303,30 @@ function PublicTourFloorPlans({
                             </div>
                         );
                     })}
+                </div>
+            </div>
+
+            <div className="w-full h-auto mt-10">
+                <p className="text-[#666666] text-[24px] px-10 mb-4 font-alexandria">Photos</p>
+                <div className="w-full grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 px-10 pb-10">
+                    {tourPhotos?.map((file, idx) => (
+                        <div key={`photo-${idx}`} className="aspect-square bg-gray-200 rounded-lg overflow-hidden group relative cursor-move">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                draggable
+                                onDragStart={(e) => {
+                                    e.dataTransfer.setData("text/plain", file.uuid || file.name);
+                                    setDraggedFile(file);
+                                    imageContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                }}
+                                loading="lazy"
+                                src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
+                                alt={file.name || `Photo ${idx}`}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>

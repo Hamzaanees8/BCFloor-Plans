@@ -14,7 +14,7 @@ import { GetOrganizations, Organization } from '../../global-settings/global-set
 import { GetAgentAudios, DeleteAgentAudio, AgentAudio } from '../agent-audio'
 import { uploadAudioFile } from '@/lib/upload/audio-upload'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { Pencil, Plus, X } from 'lucide-react'
+import { Loader2, Pencil, Plus, X } from 'lucide-react'
 //import PaymentDialog from '@/components/PaymentDialog'
 //import CloseDialog from '@/components/CloseDialog'
 //import SaveDialog from '@/components/SaveDialog'
@@ -22,6 +22,7 @@ import ChangePasswordDialog from '@/components/ChangePasswordDialog'
 import { Switch } from '@/components/ui/switch'
 import AddCoAgentDialog from '@/components/AddCoAgentDialog'
 import { SaveModal } from '@/components/SaveModal'
+import ConfirmationDialog from '@/components/ConfirmationDialog'
 import DynamicMap from '@/components/DYnamicMap'
 import { useAppContext } from '@/app/context/AppContext'
 import { useUnsaved } from '@/app/context/UnsavedContext'
@@ -217,6 +218,16 @@ const AgentForm = () => {
     const [selectedCalendarId, setSelectedCalendarId] = useState("");
     const [isCalendarLoading, setIsCalendarLoading] = useState(false);
     const [calendarEmail, setCalendarEmail] = useState("");
+    const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+    const [audioToDelete, setAudioToDelete] = useState<string | null>(null);
+    const [showAgain, setShowAgain] = useState(true);
+
+    useEffect(() => {
+        const storedShowAgain = localStorage.getItem('confirmation_dialog_delete_show_again');
+        if (storedShowAgain !== null) {
+            setShowAgain(JSON.parse(storedShowAgain));
+        }
+    }, []);
 
     useEffect(() => {
         const handleVerify = async () => {
@@ -344,11 +355,7 @@ const AgentForm = () => {
         }
     };
 
-    const handleDeleteAudio = async (audioUuid: string) => {
-        if (!confirm('Are you sure you want to delete this audio?')) {
-            return;
-        }
-
+    const performDeleteAudio = async (audioUuid: string) => {
         try {
             await DeleteAgentAudio(audioUuid);
             toast.success('Audio deleted successfully');
@@ -365,6 +372,19 @@ const AgentForm = () => {
             console.error('Failed to delete audio:', error);
             toast.error('Failed to delete audio');
         }
+    };
+
+    const handleDeleteAudio = (audioUuid: string) => {
+        const storedShowAgain = localStorage.getItem('confirmation_dialog_delete_show_again');
+        const isShowAgain = storedShowAgain !== 'false';
+
+        if (!isShowAgain) {
+            performDeleteAudio(audioUuid);
+            return;
+        }
+
+        setAudioToDelete(audioUuid);
+        setOpenDeleteDialog(true);
     };
 
     //const [cards, setCards] = useState<PaymentCard[]>([]);
@@ -645,6 +665,7 @@ const AgentForm = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsLoading(true);
 
         // Client-side validation for required fields
         const validationErrors: Record<string, string[]> = {};
@@ -698,6 +719,7 @@ const AgentForm = () => {
 
         // If there are validation errors, show them and don't submit
         if (Object.keys(validationErrors).length > 0) {
+            setIsLoading(false);
             setFieldErrors(validationErrors);
             const firstError = Object.values(validationErrors).flat()[0];
             toast.error(firstError || 'Please fill all required fields');
@@ -819,14 +841,54 @@ const AgentForm = () => {
             if (!isNewAgent && agentUuid) {
                 const updatedPayload = { ...payload, _method: 'PUT' };
                 await EditAgent(agentUuid, updatedPayload);
-                toast.success('Agent updated successfully');
+                if (userType === 'agent') {
+                    toast.success('Settings updated successfully');
+                } else {
+                    toast.success('Agent updated successfully');
+                }
             } else if (isNewAgent) {
                 toast.success('Agent created successfully');
             }
 
-            setIsLoading(true)
-            setOpen(true)
-            router.push('/dashboard/agents')
+            if (userType !== 'agent') {
+                setIsLoading(true)
+                setOpen(true)
+                router.push('/dashboard/agents')
+            } else {
+                // Clear local file states to prevent re-uploading
+                setAvatarFile(null);
+                setCompanyBannerFile(null);
+                setPendingMp3Files([]);
+                
+                // Clean up availableMp3s - remove temporary blobs
+                setAvailableMp3s(prev => prev.filter(mp3 => !mp3.id.startsWith('pending-')));
+
+                // Refresh data from server
+                if (agentUuid) {
+                    try {
+                        const updatedData = await GetOne(agentUuid);
+                        setCurrentUser(updatedData.data);
+                        
+                        // Refresh audios
+                        const audioData = await GetAgentAudios(agentUuid);
+                        if (audioData.data && Array.isArray(audioData.data)) {
+                            setAgentAudios(audioData.data);
+                            // Update availableMp3s with fresh custom audios
+                            const customAudios = audioData.data.map((audio: AgentAudio) => ({
+                                id: audio.uuid,
+                                name: audio.name,
+                                url: audio.file_url
+                            }));
+                            setAvailableMp3s(prev => {
+                                const defaultAudios = prev.filter(mp3 => !mp3.id.startsWith('custom-') && !mp3.id.startsWith('pending-'));
+                                return [...defaultAudios, ...customAudios];
+                            });
+                        }
+                    } catch (refreshError) {
+                        console.error('Failed to refresh agent data:', refreshError);
+                    }
+                }
+            }
             setIsLoading(false)
             setIsDirty(false)
 
@@ -999,15 +1061,30 @@ const AgentForm = () => {
                     Agents
                     {currentUser ? ` › ${currentUser.first_name} ${currentUser.last_name}` : ' › Create'}
                 </p>
-                <Button onClick={(e) => { handleSubmit(e) }} className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg hover:opacity-95`}>Save Changes</Button>
+                <Button 
+                    onClick={(e) => { handleSubmit(e) }} 
+                    disabled={isLoading}
+                    className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg hover:opacity-95`}
+                >
+                    {isLoading ? <Loader2 className="animate-spin w-5 h-5" /> : "Save Changes"}
+                </Button>
             </div>
             <SaveModal
                 isOpen={open}
                 onClose={() => setOpen(false)}
                 isLoading={isLoading}
                 isSuccess={true}
-                backLink="/dashboard/agents"
-                title={'Agents'}
+                backLink={userType === 'agent' ? '/dashboard/global-settings' : '/dashboard/agents'}
+                title={userType === 'agent' ? 'Settings' : 'Agents'}
+            />
+            <ConfirmationDialog
+                open={openDeleteDialog}
+                setOpen={setOpenDeleteDialog}
+                onConfirm={() => audioToDelete && performDeleteAudio(audioToDelete)}
+                showAgain={showAgain}
+                toggleShowAgain={() => setShowAgain(!showAgain)}
+                title="DELETE AUDIO"
+                description="Are you sure you want to delete the audio?"
             />
             {/* <SaveDialog
                 open={openSaveDialog}

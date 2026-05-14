@@ -179,7 +179,9 @@ function getRestrictedDisplaySlots(
   allBookedSlots: MinimalSlot[],
   vendorAvailableSlots: Slots[],
   requiredSlotsCount: number,
-  shouldEnforceRule: boolean
+  shouldEnforceRule: boolean,
+  currentServiceUuid?: string,
+  selectedSlots?: Slot[]
 ): Slots[] {
   if (!shouldEnforceRule || !isNextBookingSlotOnlyEnabled(vendor) || vendorAvailableSlots.length === 0) {
     return vendorAvailableSlots;
@@ -190,23 +192,34 @@ function getRestrictedDisplaySlots(
     return vendorAvailableSlots;
   }
 
-  const startIndex = vendorAvailableSlots.findIndex(slot => dayjs(slot.start).isSame(requiredSlotStart));
-  if (startIndex === -1) {
-    return [];
-  }
+  // Find currently selected slots for this vendor/service/date to ensure they're shown during edit
+  const selectedSlotStarts = selectedSlots?.filter(s =>
+    (s.vendor_id === vendor.uuid || s.vendor?.uuid === vendor.uuid) &&
+    s.service_id === currentServiceUuid &&
+    s.date === date
+  ).map(s => dayjs(`${s.date}T${s.start_time}`).toISOString()) || [];
 
-  const restrictedSlots: Slots[] = [vendorAvailableSlots[startIndex]];
-  for (let i = startIndex + 1; i < vendorAvailableSlots.length && restrictedSlots.length < requiredSlotsCount; i++) {
-    const previous = restrictedSlots[restrictedSlots.length - 1];
-    const current = vendorAvailableSlots[i];
-    if (dayjs(current.start).isSame(dayjs(previous.end))) {
-      restrictedSlots.push(current);
-    } else {
-      break;
+  const startIndex = vendorAvailableSlots.findIndex(slot => dayjs(slot.start).isSame(requiredSlotStart));
+
+  let restrictedSlots: Slots[] = [];
+  if (startIndex !== -1) {
+    restrictedSlots.push(vendorAvailableSlots[startIndex]);
+    for (let i = startIndex + 1; i < vendorAvailableSlots.length && restrictedSlots.length < requiredSlotsCount; i++) {
+      const previous = restrictedSlots[restrictedSlots.length - 1];
+      const current = vendorAvailableSlots[i];
+      if (dayjs(current.start).isSame(dayjs(previous.end))) {
+        restrictedSlots.push(current);
+      } else {
+        break;
+      }
     }
   }
 
-  return restrictedSlots;
+  // Include the restricted "next" slots PLUS any already "selected" slots for this order
+  return vendorAvailableSlots.filter(slot =>
+    restrictedSlots.some(rs => rs.start === slot.start) ||
+    selectedSlotStarts.includes(slot.start)
+  );
 }
 
 function generateMarkedSlots(
@@ -543,7 +556,9 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           AllBookedSlots,
           vendorSlots,
           requiredSlotsCountForService,
-          shouldEnforceNextBookingRule
+          shouldEnforceNextBookingRule,
+          service.uuid,
+          selectedSlots
         );
 
         slotsToExpose.forEach((slot) => {
@@ -585,7 +600,9 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           AllBookedSlots,
           vendorSlots,
           requiredSlotsCountForService,
-          shouldEnforceNextBookingRule
+          shouldEnforceNextBookingRule,
+          service.uuid,
+          selectedSlots
         );
 
         slotsToExpose.forEach((slot) => {
@@ -619,6 +636,43 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         }
       }
 
+      // Check if this slot is already selected for the current service/order
+      const matchingSelected = selectedSlots.find(s => {
+        const sidMatch = s.service_id === service.uuid || String(s.service_id) === String(service.id);
+        const dateMatch = s.date === date;
+        const sStart = dayjs(`${s.date} ${s.start_time}`);
+        const sEnd = dayjs(`${s.date} ${s.end_time}`);
+        const slotStart = dayjs(slot.start);
+        const slotEnd = dayjs(slot.end);
+        
+        return sidMatch && dateMatch && 
+               sStart.isSame(slotStart, 'minute') && 
+               sEnd.isSame(slotEnd, 'minute');
+      });
+
+      if (matchingSelected) {
+        const vendorId = matchingSelected.vendor?.uuid || matchingSelected.vendor_id;
+        const matchedVendor = vendorsData.find(v => v.uuid === vendorId);
+        const vendorName = matchedVendor ? `${matchedVendor.first_name} ${matchedVendor.last_name}` : 'Unknown';
+        
+        // Even for selected slots, we check if it happens to be in a recommended window
+        const isTwilightService = currentServiceData?.category?.name === "Twilight Photos" || service?.title?.includes("Twilight");
+        let isRecommended = false;
+        if (isTwilightService || recommendTimeMap[serviceKey] === 1) {
+           isRecommended = availableVendorIds.length > 0 && !isTwilightRestricted;
+        }
+
+        return {
+          ...slot,
+          title: `${vendorName}\n${service.title}`,
+          className: `slot-selected vendor-${vendorId}${isRecommended ? ' slot-recommended' : ''}`,
+          extendedProps: { 
+            availableVendorIds: [], 
+            twilightRecommended: isTwilightService && isRecommended 
+          },
+        };
+      }
+
       if (availableVendorIds.length > 0 && !isTwilightRestricted) {
         let isRecommended = false;
         const isTwilightService = currentServiceData?.category?.name === "Twilight Photos" || service?.title?.includes("Twilight");
@@ -640,27 +694,6 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         if (availableSlotsCount < maxRecommended && (recommendTimeMap[serviceKey] === 1 || isTwilightService)) {
           isRecommended = true;
           availableSlotsCount++;
-        }
-
-        const matchingSelected = selectedSlots.find(
-          (s: Slot) =>
-            s.service_id === service.uuid &&
-            dayjs(`${s.date}T${s.start_time}`).toISOString() === slot.start &&
-            dayjs(`${s.date}T${s.end_time}`).toISOString() === slot.end
-        );
-
-        if (matchingSelected) {
-          return {
-            ...slot,
-            title: vendorsData.find(v => v.uuid === matchingSelected.vendor_id)?.first_name + ' ' +
-              vendorsData.find(v => v.uuid === matchingSelected.vendor_id)?.last_name + '\n' +
-              service.title,
-            className: `slot-selected vendor-${matchingSelected.vendor_id}${isRecommended ? ' slot-recommended' : ''}`,
-            extendedProps: {
-              availableVendorIds: [],
-              twilightRecommended: isTwilightService && isRecommended
-            }
-          };
         }
 
         if (isRecommended) {

@@ -858,7 +858,11 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                         <Button
                             variant="outline"
                             onClick={() => setOpenUpgrade(true)}
-                            className="border border-[#6BAE41] text-[#6BAE41] hover:bg-[#6BAE41] hover:text-white h-[36px] px-6 rounded transition-colors font-medium ml-2"
+                            className={`border h-[36px] px-6 rounded transition-colors font-medium ml-2 ${userType}-button`}
+                            style={{ 
+                                borderColor: `var(--${userType}-page-tab-color)`, 
+                                color: `var(--${userType}-page-tab-color)` 
+                            }}
                         >
                             Upgrade Plan
                         </Button>

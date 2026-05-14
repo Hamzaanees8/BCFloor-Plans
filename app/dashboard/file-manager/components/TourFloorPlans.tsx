@@ -12,28 +12,48 @@ import { toast } from "sonner";
 
 
 import { useAppContext } from "@/app/context/AppContext";
-import { PdfPlaceholder } from "./OptimizedPreview";
+import { OptimizedImagePreview, PdfPlaceholder } from "./OptimizedPreview";
 
 
 
 function TourFloorPlans({ type = "" }) {
   const { userType } = useAppContext();
-  const { droppedMarkers, setDroppedMarkers, filesData } = useFileManagerContext();
-  let currentTourFloorFiles = filesData?.files?.filter(file => (file?.service?.name === '2D Floor Plans' || file?.service?.name === '3D Floor Plans') && file.type === 'photo');
-  let currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === 'photo');
+  const { droppedMarkers, setDroppedMarkers, filesData, selectedFiles, floorFiles, deletedSnapshotUuids, setDeletedSnapshotUuids } = useFileManagerContext();
+  
+  const currentTourFloorFiles = [
+    ...(filesData?.files?.filter(file => {
+      const isFloorPlan = 
+        file?.service?.category?.name === "Floor Plan" || 
+        file?.service?.name?.toLowerCase().includes("floor plan");
+      return file.type === 'photo' && isFloorPlan;
+    }) || []),
+    ...floorFiles.filter(f => !f.is_deleted)
+  ];
+  
+  let photosList = [
+    ...(filesData?.files?.filter(file => {
+      const isFloorPlan = 
+        file?.service?.category?.name === "Floor Plan" || 
+        file?.service?.name?.toLowerCase().includes("floor plan");
+      return file.type === 'photo' && !isFloorPlan;
+    }) || []),
+    ...selectedFiles.filter(f => !f.is_deleted && f.upload !== false)
+  ];
+
+  let filteredFloorFiles = currentTourFloorFiles;
 
   if (userType === 'agent') {
-    currentTourFloorFiles = currentTourFloorFiles?.filter(file => file.is_admin_approved);
+    photosList = photosList.filter(file => 'uuid' in file ? file.is_agent_approved : true);
+    filteredFloorFiles = filteredFloorFiles.filter(file => 'uuid' in file ? file.is_admin_approved : true);
   }
 
-  // Filter only agent approved photos and sort by sort_order
-  currentTourPhotos = currentTourPhotos?.filter(file => file.is_agent_approved)
-    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  const currentTourPhotos = photosList.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   const [draggedFile, setDraggedFile] = useState<{ file?: File; file_path?: string; url?: string; thumbnail_url?: string; variant_urls?: any } | null>(null);
 
   const [selectedImageId, setSelectedImageId] = useState<string | null>(() => {
-    if ((currentTourFloorFiles?.length ?? 0) > 0) {
-      return currentTourFloorFiles?.[0]?.name || null;
+    if ((filteredFloorFiles?.length ?? 0) > 0) {
+      const firstFile = filteredFloorFiles[0];
+      return 'uuid' in firstFile ? firstFile.name : (firstFile as any).file.name;
     }
     return null;
   });
@@ -45,6 +65,7 @@ function TourFloorPlans({ type = "" }) {
   const [activeMarkerIndex, setActiveMarkerIndex] = useState<number | null>(
     null
   );
+  const [activeApiSnapshotUuid, setActiveApiSnapshotUuid] = useState<string | null>(null);
   const [tempMarkerPos, setTempMarkerPos] = useState<{
     x: number;
     y: number;
@@ -59,7 +80,10 @@ function TourFloorPlans({ type = "" }) {
   const isPDF = (file: any): boolean => {
     if (!file) return false;
     const isLocal = !!file.file;
-    return !isLocal && (file.file_path?.toLowerCase().endsWith('.pdf') || file.type === 'pdf' || file.type === 'application/pdf');
+    if (isLocal) {
+      return file.file.type === 'application/pdf' || file.file.name.toLowerCase().endsWith('.pdf');
+    }
+    return file.file_path?.toLowerCase().endsWith('.pdf') || file.type === 'pdf' || file.type === 'application/pdf';
   };
 
 
@@ -74,7 +98,7 @@ function TourFloorPlans({ type = "" }) {
 
 
   const apiSnapshots = (filesData?.snapshots || []).filter((snap) =>
-    normalizeName(snap.file_name) === normalizeName(selectedImageId || "")
+    normalizeName(snap.file_name) === normalizeName(selectedImageId || "") && !deletedSnapshotUuids.has(snap.uuid)
   );
 
 
@@ -129,6 +153,67 @@ function TourFloorPlans({ type = "" }) {
     setDraggedFile(null);
   };
 
+  const handlePhotoClick = (file: any) => {
+    // Only handle replacement if a snapshot is currently selected for editing
+    if (activeMarkerIndex === null && !activeApiSnapshotUuid) return;
+
+    if ('uuid' in file) {
+      // Server file
+      setSnapshotFile(null);
+      if (previewMarker) {
+        setPreviewMarker({ 
+          ...previewMarker, 
+          file: undefined,
+          isApi: true, 
+          file_path: file.file_path, 
+          url: file.url || file.variant_urls?.landing || file.variant_urls?.popup || file.variant_urls?.thumb, 
+          thumbnail_url: file.variant_urls?.thumb || file.thumbnail_url || file.url,
+          variant_urls: file.variant_urls 
+        });
+      }
+    } else {
+      // Local file
+      setSnapshotFile(file.file);
+      if (previewMarker) {
+        setPreviewMarker({ 
+          ...previewMarker, 
+          file: file.file, 
+          isApi: false, 
+          url: undefined, 
+          file_path: undefined 
+        });
+      }
+    }
+    toast.info("Snapshot image replaced. Click Update to save.");
+  };
+
+  const handleSnapshotImageDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (!draggedFile) return;
+
+    if (draggedFile.file) {
+      setSnapshotFile(draggedFile.file);
+      if (previewMarker) {
+        setPreviewMarker({ ...previewMarker, file: draggedFile.file, isApi: false, url: undefined, file_path: undefined });
+      }
+    } else {
+      setSnapshotFile(null);
+      if (previewMarker) {
+        setPreviewMarker({ 
+          ...previewMarker, 
+          file: undefined,
+          isApi: true, 
+          file_path: draggedFile.file_path, 
+          url: draggedFile.url, 
+          thumbnail_url: draggedFile.thumbnail_url,
+          variant_urls: draggedFile.variant_urls 
+        });
+      }
+    }
+    setDraggedFile(null);
+    toast.info("Snapshot image updated");
+  };
+
 
 
 
@@ -137,7 +222,7 @@ function TourFloorPlans({ type = "" }) {
     if (!selectedImageId || !tempMarkerPos) return;
 
     const newMarker: DroppedMarker = {
-      ... (activeMarkerIndex !== null ? droppedMarkers[activeMarkerIndex] : {}),
+      ...(activeMarkerIndex !== null ? droppedMarkers[activeMarkerIndex] : (previewMarker || {})),
       x: tempMarkerPos.x,
       y: tempMarkerPos.y,
       floorImageUrl: selectedImageId,
@@ -147,67 +232,92 @@ function TourFloorPlans({ type = "" }) {
 
     if (snapshotFile) {
       newMarker.file = snapshotFile;
+      newMarker.isApi = false;
+      newMarker.file_path = undefined;
     } else if (previewMarker?.file_path || previewMarker?.url || previewMarker?.thumbnail_url) {
       newMarker.file_path = previewMarker.file_path;
       newMarker.isApi = true;
       newMarker.thumbnail_url = previewMarker.thumbnail_url;
       newMarker.url = previewMarker.url;
       newMarker.variant_urls = previewMarker.variant_urls;
-    } else if (previewMarker?.file) {
-      newMarker.file = previewMarker.file;
     }
 
-    setDroppedMarkers(prev => {
-      if (activeMarkerIndex !== null && prev[activeMarkerIndex]) {
-        const updated = [...prev];
-        updated[activeMarkerIndex] = {
-          ...updated[activeMarkerIndex],
-          ...newMarker,
-        };
+    if (activeApiSnapshotUuid) {
+      // Migrate API snapshot to local droppedMarkers and mark original as deleted
+      setDeletedSnapshotUuids(prev => {
+        const next = new Set(prev);
+        next.add(activeApiSnapshotUuid);
+        return next;
+      });
+      
+      setDroppedMarkers(prev => {
+        const updated = [...prev, newMarker];
+        setActiveMarkerIndex(updated.length - 1);
         return updated;
-      } else {
-        return [...prev, newMarker];
-      }
-    });
+      });
+      
+      setActiveApiSnapshotUuid(null);
+      toast.success('Existing snapshot updated');
+    } else {
+      setDroppedMarkers(prev => {
+        if (activeMarkerIndex !== null && prev[activeMarkerIndex]) {
+          const updated = [...prev];
+          updated[activeMarkerIndex] = {
+            ...updated[activeMarkerIndex],
+            ...newMarker,
+          };
+          return updated;
+        } else {
+          return [...prev, newMarker];
+        }
+      });
+      toast.success('Snapshot saved successfully');
+    }
 
     setPreviewMarker(prev => prev ? { ...prev, ...newMarker } : prev);
-    // setSnapshotName('')
-    // setSnapshotDescription('')
-    toast.success('Snapshot saved successfully');
   };
 
 
 
   const handleDeleteSnapshot = () => {
-    if (activeMarkerIndex === null) {
+    if (activeMarkerIndex === null && !activeApiSnapshotUuid) {
       toast.error("No snapshot selected to delete");
       return;
     }
 
-    setDroppedMarkers(prev => {
-      const newMarkers = prev.filter((_, i) => i !== activeMarkerIndex);
-      return newMarkers;
-    });
+    if (activeApiSnapshotUuid) {
+      setDeletedSnapshotUuids(prev => {
+        const next = new Set(prev);
+        next.add(activeApiSnapshotUuid);
+        return next;
+      });
+      toast.success('Snapshot marked for deletion');
+    } else if (activeMarkerIndex !== null) {
+      setDroppedMarkers(prev => {
+        const newMarkers = prev.filter((_, i) => i !== activeMarkerIndex);
+        return newMarkers;
+      });
+      toast.success('Snapshot removed');
+    }
 
     setActiveMarkerIndex(null);
+    setActiveApiSnapshotUuid(null);
     setSnapshotFile(null);
     setSnapshotName('');
     setSnapshotDescription('');
     setTempMarkerPos(null);
     setPreviewMarker(null);
-
-    toast.success('Snapshot deleted successfully');
   };
 
 
 
-  const selectedApiFile = currentTourFloorFiles?.find(
-    (f) => f.name === selectedImageId
+  const selectedFile = filteredFloorFiles?.find(
+    (f) => ('uuid' in f ? f.name : (f as any).file.name) === selectedImageId
   );
 
-  const isSelectedFilePDF = selectedApiFile ? isPDF(selectedApiFile) : false;
+  const isSelectedFilePDF = selectedFile ? isPDF(selectedFile) : false;
 
-  if (!currentTourFloorFiles || currentTourFloorFiles?.length === 0) {
+  if (!filteredFloorFiles || filteredFloorFiles?.length === 0) {
     return (
       <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
         <p>No Floor Photo found — please add Floor Photos or select a Floor Plan service.</p>
@@ -224,36 +334,53 @@ function TourFloorPlans({ type = "" }) {
           onDragOver={(e) => e.preventDefault()}
           className={`relative w-[70%]  h-full bg-white overflow-visible ${type === "confirm" ? "m-auto" : ""}`}
         >
-          {selectedApiFile?.is_processing ? (
+          {selectedFile && 'uuid' in selectedFile && selectedFile.is_processing ? (
             <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
               <p className="text-gray-500 font-medium text-sm">Processing...</p>
             </div>
-          ) : isSelectedFilePDF && selectedApiFile ? (
-            (!selectedApiFile.variant_urls || (Array.isArray(selectedApiFile.variant_urls) && selectedApiFile.variant_urls.length === 0) || Object.keys(selectedApiFile.variant_urls).length === 0) ? (
+          ) : isSelectedFilePDF && selectedFile ? (
+            ('uuid' in selectedFile && (!selectedFile.variant_urls || (Array.isArray(selectedFile.variant_urls) && selectedFile.variant_urls.length === 0) || Object.keys(selectedFile.variant_urls).length === 0)) ? (
               <PdfPlaceholder
                 className="w-full h-full"
                 message="service is not paid yet"
               />
             ) : (
               <iframe
-                src={`${selectedApiFile.variant_urls?.popup || selectedApiFile.url || (selectedApiFile.file_path ? `${API_URL}/${selectedApiFile.file_path}` : '')}#toolbar=0`}
+                src={
+                  'uuid' in selectedFile 
+                    ? `${selectedFile.variant_urls?.popup || selectedFile.url || (selectedFile.file_path ? `${API_URL}/${selectedFile.file_path}` : '')}#toolbar=0`
+                    : URL.createObjectURL((selectedFile as any).file)
+                }
                 className="w-full h-full border-0"
                 title="Floor Plan PDF"
               />
             )
           ) : (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              draggable={false}
-              ref={imgRef}
-              src={
-                selectedApiFile
-                  ? selectedApiFile.variant_urls?.popup || selectedApiFile.url || (selectedApiFile.file_path ? `${API_URL}/${selectedApiFile.file_path}` : '')
-                  : ""
-              }
-              alt="Selected Floor"
-              className="object-contain max-h-full max-w-full w-full h-full"
-            />
+            selectedFile && !('uuid' in selectedFile) ? (
+              <OptimizedImagePreview
+                file={(selectedFile as any).file}
+                width={1200}
+                height={1200}
+                draggable={false}
+                ref={imgRef as any}
+                className="object-contain max-h-full max-w-full w-full h-full"
+              />
+            ) : (
+              <img
+                draggable={false}
+                ref={imgRef}
+                src={
+                  selectedFile
+                    ? ('uuid' in selectedFile 
+                        ? selectedFile.variant_urls?.popup || selectedFile.url || (selectedFile.file_path ? `${API_URL}/${selectedFile.file_path}` : '')
+                        : URL.createObjectURL((selectedFile as any).file))
+                    : ""
+                }
+                alt="Selected Floor"
+                className="object-contain max-h-full max-w-full w-full h-full"
+              />
+            )
           )}
           {[...localSnapshots, ...apiSnapshots].map((marker, idx) => {
             const isApiSnapshot = 'x_axis' in marker;
@@ -289,9 +416,11 @@ function TourFloorPlans({ type = "" }) {
                     setSnapshotDescription(marker.description ?? "");
                     setTempMarkerPos({ x: Number(marker.x_axis), y: Number(marker.y_axis) });
                     setActiveMarkerIndex(null);
+                    setActiveApiSnapshotUuid(marker.uuid);
                   } else {
                     const originalIndex = droppedMarkers.findIndex((m) => m === marker);
                     setActiveMarkerIndex(originalIndex);
+                    setActiveApiSnapshotUuid(null);
                     setSnapshotFile(marker.file ?? null);
                     setSnapshotName(marker.name ?? "");
                     setSnapshotDescription(marker.description ?? "");
@@ -318,9 +447,11 @@ function TourFloorPlans({ type = "" }) {
                     setSnapshotDescription(marker.description ?? "");
                     setTempMarkerPos({ x: Number(marker.x_axis), y: Number(marker.y_axis) });
                     setActiveMarkerIndex(null);
+                    setActiveApiSnapshotUuid(marker.uuid);
                   } else {
                     const originalIndex = droppedMarkers.findIndex((m) => m === marker);
                     setActiveMarkerIndex(originalIndex);
+                    setActiveApiSnapshotUuid(null);
                     setSnapshotFile(marker.file ?? null);
                     setSnapshotName(marker.name ?? "");
                     setSnapshotDescription(marker.description ?? "");
@@ -383,20 +514,24 @@ function TourFloorPlans({ type = "" }) {
           <div className="w-[30%] p-4 text-[#666666] border border-gray-400 rounded-[6px]">
             <p className="mb-[20px] text-[24px]">SnapShot</p>
             <div className="flex items-end gap-5">
-              <div className="mt-4 border p-2 rounded relative w-[200px] h-[150px] bg-gray-100 overflow-hidden flex items-center justify-center">
+              <div 
+                onDrop={handleSnapshotImageDrop}
+                onDragOver={(e) => e.preventDefault()}
+                className="mt-4 border p-2 rounded relative w-[200px] h-[150px] bg-gray-100 overflow-hidden flex items-center justify-center cursor-pointer group"
+              >
                 {snapshotFile ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={URL.createObjectURL(snapshotFile)} alt="Snapshot Preview" className="w-full h-full object-cover" />
-                ) : (previewMarker?.isApi) ? (
+                ) : (previewMarker) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={previewMarker.variant_urls?.popup || previewMarker.variant_urls?.landing || previewMarker.url || previewMarker.thumbnail_url || (previewMarker.file_path?.startsWith('http') ? previewMarker.file_path : `${API_URL}/${previewMarker.file_path}`)} alt="Snapshot Preview" className="w-full h-full object-cover" />
                 ) : (
                   <div className="text-gray-400 text-xs text-center">No snapshot selected</div>
                 )}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                  <p className="text-white text-[10px] font-bold">Drop photo to update</p>
+                </div>
               </div>
-              {/* <Button className="bg-[#4290E9] hover:bg-[#4898f3]">
-                Change Photo
-              </Button> */}
             </div>
             <div className="mt-[20px]">
               <Label>Name</Label>
@@ -426,7 +561,7 @@ function TourFloorPlans({ type = "" }) {
                 onClick={handleAddSnapshot}
                 className="bg-[#4290E9] hover:bg-[#4898f3]"
               >
-                {activeMarkerIndex !== null ? "Update" : "Add"}
+                {(activeMarkerIndex !== null || activeApiSnapshotUuid) ? "Update" : "Add"}
               </Button>
               <Button
                 onClick={handleDeleteSnapshot}
@@ -441,21 +576,22 @@ function TourFloorPlans({ type = "" }) {
       <div className="w-full h-auto my-[20px]">
         <div className="w-[70%] h-full flex-wrap flex items-center gap-[20px] !overflow-x-auto overflow-y-hidden">
 
-          {currentTourFloorFiles?.map((file, idx) => {
+          {filteredFloorFiles?.map((file, idx) => {
             const isFilePDF = isPDF(file);
+            const fileName = 'uuid' in file ? file.name : (file as any).file.name;
             return (
               <div
                 key={idx}
-                onClick={() => setSelectedImageId(file.name)}
-                className={`w-[200px] h-[100px] flex items-center rounded-[6px] justify-center cursor-pointer ${selectedImageId === file.name ? "border-2 border-[#4290E9]" : ""}`}
+                onClick={() => setSelectedImageId(fileName)}
+                className={`w-[200px] h-[100px] flex items-center rounded-[6px] justify-center cursor-pointer ${selectedImageId === fileName ? "border-2 border-[#4290E9]" : ""}`}
               >
                 <div className="relative border border-gray-200 rounded-[6px] w-full h-full flex items-center justify-center">
-                  {file.is_processing ? (
+                  {'uuid' in file && file.is_processing ? (
                     <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
                       <p className="text-gray-500 font-medium text-xs">Processing...</p>
                     </div>
                   ) : isFilePDF ? (
-                    (!file.variant_urls || (Array.isArray(file.variant_urls) && file.variant_urls.length === 0) || Object.keys(file.variant_urls).length === 0) ? (
+                    ('uuid' in file && (!file.variant_urls || (Array.isArray(file.variant_urls) && file.variant_urls.length === 0) || Object.keys(file.variant_urls).length === 0)) ? (
                       <PdfPlaceholder
                         className="w-full h-full"
                         message="service is not paid yet"
@@ -463,7 +599,11 @@ function TourFloorPlans({ type = "" }) {
                     ) : (
                       <div className="relative w-full h-full overflow-hidden">
                         <iframe
-                          src={`${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                          src={
+                            'uuid' in file
+                              ? `${file.variant_urls?.popup || file.url || `${API_URL}/${file.file_path}`}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`
+                              : URL.createObjectURL((file as any).file)
+                          }
                           className="w-full h-full pointer-events-none border-none"
                           tabIndex={-1}
                           scrolling="no"
@@ -473,7 +613,22 @@ function TourFloorPlans({ type = "" }) {
                     )
                   ) : (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={file.variant_urls?.thumb || file.thumbnail_url || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : '')} alt="preview" className="max-w-full max-h-full" />
+                    !('uuid' in file) ? (
+                      <OptimizedImagePreview
+                        file={(file as any).file}
+                        className="max-w-full max-h-full"
+                      />
+                    ) : (
+                      <img 
+                        src={
+                          'uuid' in file 
+                            ? file.variant_urls?.thumb || file.thumbnail_url || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : '')
+                            : URL.createObjectURL((file as any).file)
+                        } 
+                        alt="preview" 
+                        className="max-w-full max-h-full" 
+                      />
+                    )
                   )}
                 </div>
               </div>
@@ -490,28 +645,64 @@ function TourFloorPlans({ type = "" }) {
 
           {(currentTourPhotos || [])?.length > 0 && (
             <div className="mt-4 w-full grid grid-cols-6 gap-2 p-3">
-              {currentTourPhotos?.map((file, idx) => (
-                <div key={idx} className="bg-[#BBBBBB] h-auto relative">
-                  <div className="relative w-full h-[160px]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      draggable
-                        onDragStart={() => {
-                        setDraggedFile({ 
-                          file_path: file.file_path || (file as any).variants?.thumb || (file as any).variants?.landing || (file as any).variants?.popup, 
-                          url: file.url || file.variant_urls?.landing || file.variant_urls?.popup || file.variant_urls?.thumb, 
-                          thumbnail_url: file.variant_urls?.thumb || file.thumbnail_url || file.url,
-                          variant_urls: file.variant_urls
-                        });
-                        imageContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }}
-                      src={file.variant_urls?.thumb || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : '')}
-                      alt="preview"
-                      className="w-full h-full object-cover"
-                    />
+              {currentTourPhotos?.map((file, idx) => {
+                const isEditing = activeMarkerIndex !== null || !!activeApiSnapshotUuid;
+                return (
+                  <div 
+                    key={idx} 
+                    className={`bg-[#BBBBBB] h-auto relative transition-all duration-200 ${
+                      isEditing 
+                        ? "cursor-pointer ring-2 ring-transparent hover:ring-[#4290E9] scale-[0.98] hover:scale-100" 
+                        : "cursor-grab active:cursor-grabbing"
+                    }`}
+                    onClick={() => handlePhotoClick(file)}
+                  >
+                    <div className="relative w-full h-[160px]">
+                      {!('uuid' in file) ? (
+                        <OptimizedImagePreview
+                          file={(file as any).file}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData("text/plain", (file as any).file.name);
+                            setDraggedFile({
+                              file: (file as any).file,
+                              thumbnail_url: URL.createObjectURL((file as any).file),
+                              url: URL.createObjectURL((file as any).file)
+                            });
+                            imageContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          }}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <img
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData("text/plain", file.uuid);
+                            setDraggedFile({ 
+                              file_path: file.file_path || (file as any).variants?.thumb || (file as any).variants?.landing || (file as any).variants?.popup, 
+                              url: file.url || file.variant_urls?.landing || file.variant_urls?.popup || file.variant_urls?.thumb, 
+                              thumbnail_url: file.variant_urls?.thumb || file.thumbnail_url || file.url,
+                              variant_urls: file.variant_urls
+                            });
+                            imageContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          }}
+                          src={
+                            file.variant_urls?.thumb || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : '')
+                          }
+                          alt="preview"
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                      
+                      {isEditing && (
+                        <div className="absolute inset-0 bg-[#4290E9]/30 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity pointer-events-none">
+                          <span className="text-white text-[12px] font-bold bg-[#4290E9] px-3 py-1 rounded shadow-lg">CLICK TO USE</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

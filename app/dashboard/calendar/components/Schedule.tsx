@@ -160,7 +160,10 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
         const newServiceDates: Record<number, Date | undefined> = {};
 
         mergedServices.forEach((service: OrderService, idx: number) => {
-            const slot = selectedSlots.find((s: Slot) => s.service_id === service.service.uuid);
+            const slot = selectedSlots.find((s: Slot) => 
+                String(s.service_id) === String(service.service?.uuid) || 
+                String(s.service_id) === String(service.service?.id)
+            );
             if (slot && slot.date) {
                 // Create date objects for the picker using local time values from the date string
                 // assuming slot.date is YYYY-MM-DD

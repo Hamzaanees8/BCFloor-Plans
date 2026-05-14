@@ -31,6 +31,12 @@ export interface Snapshoots {
     name?: string;
     description?: string;
     isApi?: boolean;
+    variant_urls?: {
+        thumb?: string;
+        popup?: string;
+        slider?: string;
+        landing?: string;
+    };
 }
 
 const getVisitorId = () => {
@@ -163,6 +169,13 @@ const PublicTour = () => {
                 return;
             }
 
+            // Check if the background_audio is a full URL (agent-scoped audio)
+            if (audioFileName.startsWith("http")) {
+                if (active) setAudioUrl(audioFileName);
+                return;
+            }
+
+            // Legacy logic for public audio tracks
             try {
                 const response = await fetch(`/audio/${audioFileName}.mp3`);
                 if (!response.ok) {
@@ -525,6 +538,7 @@ const PublicTour = () => {
                         <PublicTourFloorPlans
                             floorPlanFiles={floorPlanFiles}
                             snapshots={orderData?.tours?.[0]?.snapshots}
+                            tourPhotos={tourPhotos as any}
                         />
                     </div>
                 )

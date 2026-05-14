@@ -88,7 +88,10 @@ const FileManager = () => {
     isSaving,
     setIsSaving,
     includeHidden,
-    setIncludeHidden
+    setIncludeHidden,
+    deletedSnapshotUuids,
+    setDeletedSnapshotUuids,
+    setDroppedMarkers
   } = useFileManagerContext();
   const [isHiddenMediaModalOpen, setIsHiddenMediaModalOpen] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -548,13 +551,27 @@ const FileManager = () => {
       );
     }
 
+    // Merge existing snapshots (excluding those marked for deletion) with new ones
+    const activeSnapshots = [
+      ...(filesData?.snapshots || [])
+        .filter(snap => !deletedSnapshotUuids.has(snap.uuid))
+        .map(snap => ({
+          ...snap,
+          x: Number(snap.x_axis),
+          y: Number(snap.y_axis),
+          floorImageUrl: snap.file_name,
+          isApi: true
+        })),
+      ...droppedMarkers
+    ];
+
     const response = await startUpload({
       token,
       orderUuid: orderData?.uuid,
       filesDataUuid: filesData?.uuid,
       files: allFiles,
       links,
-      droppedMarkers,
+      droppedMarkers: activeSnapshots,
       delay,
       transition,
       selectedAudioTrack: selectedAudioTrack || "none",
@@ -589,6 +606,8 @@ const FileManager = () => {
         setSelectedVideoFiles([]);
         setChangedFileUuids(new Set());
         setSelectionChangedUuids(new Set());
+        setDeletedSnapshotUuids(new Set());
+        setDroppedMarkers([]);
 
       } catch (err) {
         console.error("Error fetching fresh data:", err);
@@ -902,7 +921,11 @@ const FileManager = () => {
       <div
         className={`w-full h-[160px] ${userType}-bg flex flex-col md:flex-row justify-between items-start py-[32px] px-[25px] relative overflow-hidden`}
         style={{
-          backgroundImage: `url('${filesData?.files.find(f => f.is_featured)?.url || filesData?.files[0]?.url || ""}')`,
+          backgroundImage: `url('${(() => {
+            const featured = filesData?.files.find(f => f.is_featured) || filesData?.files[0];
+            if (!featured) return "";
+            return featured.variant_urls?.landing || featured.variant_urls?.popup || featured.url || (featured.file_path ? (featured.file_path.startsWith('http') ? featured.file_path : `${API_URL}/${featured.file_path}`) : "");
+          })()}')`,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",

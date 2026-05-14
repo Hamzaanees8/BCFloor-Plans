@@ -228,7 +228,10 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
             const productOption = serviceData?.product_options?.find((opt) => opt.uuid === srv.optionId);
 
             const requiredDuration = getEffectiveServiceDuration(productOption?.service_duration, hasValidSqFt ? sqFt : undefined);
-            const serviceSlots = selectedSlots.filter((slot) => slot.service_id === srv.uuid);
+            const serviceSlots = selectedSlots.filter((slot) => 
+                String(slot.service_id) === String(srv.uuid) || 
+                (srv.id && String(slot.service_id) === String(srv.id))
+            );
             const allocatedDuration = serviceSlots.length * 15;
 
             // Check if service has any slots in the past
