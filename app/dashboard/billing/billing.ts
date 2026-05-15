@@ -56,6 +56,8 @@ export interface BillingItem {
   invoices: OrderInvoice[]; // Added this field
   last_payment_date?: string | null;
   session_created_at?: string | null;
+  property_address?: string;
+  property_location?: string;
   created_at: string;
 }
 

@@ -325,7 +325,6 @@ function Page() {
       return;
     }
     try {
-      const redirectUrl = window.location.origin + window.location.pathname;
 
       // Split invoice logic
       const isSplit = !!invoice.split_details;
@@ -349,7 +348,7 @@ function Page() {
       await PayInvoiceWithStripe(
         invoice,
         orderData,
-        redirectUrl,
+        window.location.href,
         undefined,
         isSplit ? paymentMode : undefined,
         isSplit ? payerUuid : undefined,
@@ -441,7 +440,7 @@ function Page() {
       // Get the current page URL for the redirect
       const currentUrl =
         typeof window !== "undefined"
-          ? window.location.pathname.substring(1)
+          ? window.location.href
           : "";
 
       // Call createPayment function which will redirect to Stripe
@@ -1088,8 +1087,14 @@ function Page() {
                 <div className="flex flex-col gap-[10px]">
                   <div className="flex justify-between gap-[12px]">
                     <div className="flex gap-[12px] items-center">
-                      <File className="text-[#4290E9] h-[24px]w-[30px]  md:h-[36px] md:w-[40px]" />
-                      <p className="text-[#4290E9] text-[24px] md:text-[36px] font-[400]">
+                      <File 
+                        className="h-[24px] w-[30px] md:h-[36px] md:w-[40px]" 
+                        style={{ color: roleSettings.pageTabColor }}
+                      />
+                      <p 
+                        className="text-[24px] md:text-[36px] font-[400]"
+                        style={{ color: roleSettings.pageTabColor }}
+                      >
                         Order {orderData?.id}
                       </p>
                     </div>
@@ -1367,7 +1372,7 @@ function Page() {
       </Accordion>
 
       <Dialog open={showInvoicesModal} onOpenChange={setShowInvoicesModal}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto overflow-x-hidden">
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle
               className="text-xl font-bold uppercase"
@@ -1488,55 +1493,57 @@ function Page() {
                             >
                               View Document
                             </Button>
-                                  {currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid) ? (
-                                    <Button
-                                      onClick={() => {
-                                        setShowInvoicesModal(false);
-                                        handlePayInvoice(invoice);
-                                      }}
-                                      className="h-[32px] text-[12px] px-3 font-semibold text-white hover:opacity-90"
-                                      style={{
-                                        backgroundColor: roleSettings.pageTabColor,
-                                        borderColor: roleSettings.pageTabColor,
-                                      }}
-                                    >
-                                      Pay Now
-                                    </Button>
-                                  ) : (
-                                    <div className="flex gap-2">
-                                      {/* Admins always pay on behalf. Agents pay on behalf for co-agents. */}
-                                      {(userType === "admin" || (invoice.agent_type === "co-agent" && invoice.split_details)) && (
-                                        <Button
-                                          onClick={() => {
-                                            setShowInvoicesModal(false);
-                                            handlePayInvoice(invoice, "on_behalf");
-                                          }}
-                                          className="h-[32px] text-[12px] px-3 font-semibold text-white hover:opacity-90"
-                                          style={{
-                                            backgroundColor: roleSettings.pageTabColor,
-                                            borderColor: roleSettings.pageTabColor,
-                                          }}
-                                        >
-                                          Pay on Behalf
-                                        </Button>
-                                      )}
-                                      {/* Agents can pay self (take ownership) for any invoice. Admins cannot. */}
-                                      {userType !== "admin" && (
-                                        <Button
-                                          onClick={() => {
-                                            setShowInvoicesModal(false);
-                                            handlePayInvoice(invoice, "self");
-                                          }}
-                                          className="h-[32px] text-[12px] px-3 font-semibold text-white hover:opacity-90"
-                                          style={{
-                                            backgroundColor: roleSettings.pageTabColor,
-                                            borderColor: roleSettings.pageTabColor,
-                                          }}
-                                        >
-                                          Pay Self
-                                        </Button>
-                                      )}
-                                    </div>
+                                  {status !== "PAID" && status !== "VOID" && (
+                                    currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid) ? (
+                                      <Button
+                                        onClick={() => {
+                                          setShowInvoicesModal(false);
+                                          handlePayInvoice(invoice);
+                                        }}
+                                        className="h-[32px] text-[12px] px-3 font-semibold text-white hover:opacity-90"
+                                        style={{
+                                          backgroundColor: roleSettings.pageTabColor,
+                                          borderColor: roleSettings.pageTabColor,
+                                        }}
+                                      >
+                                        Pay Now
+                                      </Button>
+                                    ) : (
+                                      <div className="flex gap-2">
+                                        {/* Admins always pay on behalf. Agents pay on behalf for co-agents. */}
+                                        {(userType === "admin" || (invoice.agent_type === "co-agent" && invoice.split_details)) && (
+                                          <Button
+                                            onClick={() => {
+                                              setShowInvoicesModal(false);
+                                              handlePayInvoice(invoice, "on_behalf");
+                                            }}
+                                            className="h-[32px] text-[12px] px-3 font-semibold text-white hover:opacity-90"
+                                            style={{
+                                              backgroundColor: roleSettings.pageTabColor,
+                                              borderColor: roleSettings.pageTabColor,
+                                            }}
+                                          >
+                                            Pay on Behalf
+                                          </Button>
+                                        )}
+                                        {/* Agents can pay self (take ownership) for any invoice. Admins cannot. */}
+                                        {userType !== "admin" && (
+                                          <Button
+                                            onClick={() => {
+                                              setShowInvoicesModal(false);
+                                              handlePayInvoice(invoice, "self");
+                                            }}
+                                            className="h-[32px] text-[12px] px-3 font-semibold text-white hover:opacity-90"
+                                            style={{
+                                              backgroundColor: roleSettings.pageTabColor,
+                                              borderColor: roleSettings.pageTabColor,
+                                            }}
+                                          >
+                                            Pay Self
+                                          </Button>
+                                        )}
+                                      </div>
+                                    )
                                   )}
                           </div>
                         </div>
@@ -1550,7 +1557,7 @@ function Page() {
       </Dialog>
 
       <Dialog open={!!viewingInvoice} onOpenChange={(open) => !open && setViewingInvoice(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto px-4 sm:px-8">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto px-4 sm:px-8">
           <DialogHeader className="border-b pb-4 mb-4">
             <DialogTitle
               className="text-2xl font-bold"
@@ -1561,7 +1568,7 @@ function Page() {
           </DialogHeader>
 
           {viewingInvoice && (
-            <div className="flex flex-col">
+            <div className="flex flex-col pb-10">
               <InvoiceDocument
                 invoice={viewingInvoice}
                 editData={viewingInvoice}

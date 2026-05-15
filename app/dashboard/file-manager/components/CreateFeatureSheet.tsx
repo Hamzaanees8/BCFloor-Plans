@@ -23,8 +23,9 @@ import { toast } from "sonner";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
-import { HexColorPicker } from "react-colorful";
 import { Order } from "../../orders/page";
+import { HexColorPicker } from "react-colorful";
+
 import { useFileManagerContext, initialFormData } from "../FileManagerContext";
 import BcfpStandard from "./BcfpStandard";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
@@ -64,13 +65,14 @@ import {
 import CopyStylePopup from "./CopyStylePopup";
 import PrintRequestModal from "./PrintRequestModal";
 import { Printer } from "lucide-react";
+import InvoicePaymentDialog from "./invoicePaymentDialog";
 
 interface FeatureSheetComponentRef {
   exportToPayload: () => Promise<FeatureSheetPayload>;
   importFromPayload: (payload: FeatureSheetResponse) => void;
 }
 
-interface TourSettingProps {
+interface CreateFeatureSheetProps {
   orderData: Order | null;
 }
 
@@ -78,7 +80,7 @@ export interface CreateFeatureSheetRef {
   handleSave: () => Promise<void>;
 }
 
-const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
+const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetProps>(
   function CreateFeatureSheet({ orderData }, ref) {
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
     const logoInputRef = useRef<HTMLInputElement | null>(null);
@@ -132,6 +134,8 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
     const [sheetToDelete, setSheetToDelete] = useState<string | null>(null);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [showAgain, setShowAgain] = useState(true);
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+
 
     const STORAGE_KEY_DELETE = 'confirmation_dialog_delete_show_again';
 
@@ -198,6 +202,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
     };
 
     const templateImages = [
+      // { id: "BCFPStandard", type: "listing", url: "BcfpStandard" },
       { id: "BCFPStandard2", type: "tabloid", url: "BcfpStandard2" },
       { id: "BCFPStandard3", type: "tabloid", url: "BcfpStandard3" },
       { id: "BCFPStandard4", type: "tabloid", url: "BcfpStandard4" },
@@ -221,6 +226,22 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
       { id: "BCFPStandard23", type: "listing", url: "BcfpStandard23" },
       { id: "BCFPStandard24", type: "listing", url: "BcfpStandard24" },
     ];
+
+    // Helper to get thumbnail URL with fallback
+    const getThumbnailUrl = (templateKey: string) => {
+      // Special case for the base template which doesn't have a BcfpStandard.png
+      if (templateKey === "BCFPStandard") {
+        return "/featuresheetimage1.png";
+      }
+
+      const template = templateImages.find((t) => t.id === templateKey);
+      if (template?.url) {
+        return `/${template.url}.png`;
+      }
+      // Fallback: convert BCFPStandardX to BcfpStandardX.png
+      const normalizedKey = templateKey.replace("BCFP", "Bcfp");
+      return `/${normalizedKey}.png`;
+    };
 
     const triggerRealtorInput = () => {
       realtorInputRef.current?.click();
@@ -684,22 +705,8 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                 Feature Sheets
               </div>
             </div>
-            <div className="flex gap-3">
-              <div className="text-center">
-                <div
-                  className={`text-[24px] font-alexandria font-normal leading-[18px] ${userType}-text`}
-                >
-                  $155.00
-                </div>
-                <div className="text-[12px] font-alexandria font-normal text-[#7D7D7D]">
-                  25 Printed Copies
-                </div>
-              </div>
-              <button
-                className={`text-center px-4 py-2 text-[13px] w-[133px] h-[32px] transition-colors ${userType}-bg text-white  rounded-[6px] font-[500]`}
-              >
-                Paid
-              </button>
+            <div className="flex gap-3 items-center">
+              {/* Service integration removed */}
             </div>
           </div>
 
@@ -767,15 +774,14 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                   </div>
                   {featureSheets
                     .filter((sheet) => {
+                      if (activeTab === "my_sheets") return true;
                       const template = templateImages.find(
                         (t) => t.id === sheet.template_key,
                       );
+                      if (!template) return activeTab === "listing";
                       return template?.type === activeTab;
                     })
                     .map((sheet) => {
-                      const template = templateImages.find(
-                        (t) => t.id === sheet.template_key,
-                      );
                       return (
                         <div key={sheet.uuid} className="flex flex-col gap-2">
                           <div className="text-start">
@@ -831,7 +837,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                             <div
                               className="w-full h-[400px] bg-center bg-no-repeat relative"
                               style={{
-                                backgroundImage: `url(/${template?.url || sheet.template_key}.png)`,
+                                backgroundImage: `url(${getThumbnailUrl(sheet.template_key)})`,
                                 backgroundSize: "contain",
                               }}
                             >
@@ -877,7 +883,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                     </div>
                   ) : (
                     agentSheets.map((sheet) => {
-                      const templateImg = templateImages.find(t => t.id === sheet.template_key);
+
                       return (
                         <div key={sheet.uuid} className="flex flex-col gap-2">
                           <div className="text-start">
@@ -901,7 +907,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                             <div
                               className="w-full h-[300px] bg-center bg-no-repeat relative"
                               style={{
-                                backgroundImage: `url(/${templateImg?.url || sheet.template_key}.png)`,
+                                backgroundImage: `url(${getThumbnailUrl(sheet.template_key)})`,
                                 backgroundSize: "contain",
                               }}
                             >
@@ -949,7 +955,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                       <div
                         className="w-full h-[400px] bg-center bg-no-repeat relative"
                         style={{
-                          backgroundImage: `url(/${template.url}.png)`,
+                          backgroundImage: `url(${getThumbnailUrl(template.id)})`,
                           backgroundSize: "contain",
                         }}
                       >
@@ -990,7 +996,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
                           Upgrade Plan
                         </button>
                       </div>
-                      <div className="grid grid-cols-3 gap-6 !hidden">
+                      <div className=" grid-cols-3 gap-6 !hidden">
                         <div className="">
                           <div ref={wrapperRef} className="relative w-full">
                             <label
@@ -1510,7 +1516,20 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, TourSettingProps>(
           agentId={orderData?.agent?.uuid || (userType === "agent" ? userInfo?.uuid : undefined)}
           propertyId={listingId || orderData?.property?.uuid}
           tourId={filesData?.uuid}
+          orderUuid={orderData?.uuid}
         />
+
+        {isPaymentModalOpen && (
+          <InvoicePaymentDialog
+            open={isPaymentModalOpen}
+            onClose={() => setIsPaymentModalOpen(false)}
+            orderData={orderData}
+            currentService={null}
+            activeTab="feature_sheets"
+            userType={userType}
+            url={typeof window !== "undefined" ? window.location.href : ""}
+          />
+        )}
       </>
     );
   });

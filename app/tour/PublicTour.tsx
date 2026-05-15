@@ -59,6 +59,9 @@ const PublicTour = () => {
     const [activeTab, setActiveTab] = useState("Home");
     const [mainVideo, setMainVideo] = useState<string | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | undefined>();
+    const [isAudioPlaying, setIsAudioPlaying] = useState(true);
+    const [isAudioMuted, setIsAudioMuted] = useState(false);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
     const [visitorId, setVisitorId] = useState<string>('');
     const viewedMediaRef = useRef<Set<string>>(new Set());
 
@@ -159,6 +162,7 @@ const PublicTour = () => {
 
     // Track audio
     const audioFileName = orderData?.tours?.[0]?.slide_show?.background_audio;
+    // Legacy logic for public audio tracks
     useEffect(() => {
         let active = true;
         let createdUrl: string | undefined;
@@ -169,13 +173,11 @@ const PublicTour = () => {
                 return;
             }
 
-            // Check if the background_audio is a full URL (agent-scoped audio)
             if (audioFileName.startsWith("http")) {
                 if (active) setAudioUrl(audioFileName);
                 return;
             }
 
-            // Legacy logic for public audio tracks
             try {
                 const response = await fetch(`/audio/${audioFileName}.mp3`);
                 if (!response.ok) {
@@ -201,6 +203,40 @@ const PublicTour = () => {
             }
         };
     }, [audioFileName]);
+
+    // Handle audio side-effects and autoplay unlocking
+    useEffect(() => {
+        const audioEl = audioRef.current;
+        if (!audioEl || !audioUrl) return;
+
+        const handleUnlock = () => {
+            if (!audioEl) return;
+            if (audioEl.paused && isAudioPlaying) {
+                audioEl.play().catch(() => { });
+            }
+            window.removeEventListener('click', handleUnlock);
+            window.removeEventListener('touchstart', handleUnlock);
+            window.removeEventListener('keydown', handleUnlock);
+        };
+
+        window.addEventListener('click', handleUnlock);
+        window.addEventListener('touchstart', handleUnlock);
+        window.addEventListener('keydown', handleUnlock);
+
+        if (isAudioPlaying) {
+            audioEl.play().catch(() => {
+                console.log("Autoplay blocked, waiting for interaction");
+            });
+        } else {
+            audioEl.pause();
+        }
+
+        return () => {
+            window.removeEventListener('click', handleUnlock);
+            window.removeEventListener('touchstart', handleUnlock);
+            window.removeEventListener('keydown', handleUnlock);
+        };
+    }, [audioUrl, isAudioPlaying]);
 
     const trackMediaView = (mediaUuid?: string) => {
         if (!mediaUuid || !orderData?.tours?.[0]?.uuid || !visitorId) return;
@@ -299,6 +335,11 @@ const PublicTour = () => {
                                     audioUrl={audioUrl || ''}
                                     api_images={tourPhotos}
                                     currentIndex={currentImageIndex}
+                                    externalAudioControl={true}
+                                    propIsPlaying={isAudioPlaying}
+                                    propIsMuted={isAudioMuted}
+                                    propSetIsPlaying={setIsAudioPlaying}
+                                    propSetIsMuted={setIsAudioMuted}
                                     onSlideChange={(index) => {
                                         setCurrentImageIndex(index);
                                         if (tourPhotos[index]) {
@@ -457,6 +498,11 @@ const PublicTour = () => {
                                 audioUrl={audioUrl || ''}
                                 api_images={tourPhotos}
                                 currentIndex={currentImageIndex}
+                                externalAudioControl={true}
+                                propIsPlaying={isAudioPlaying}
+                                propIsMuted={isAudioMuted}
+                                propSetIsPlaying={setIsAudioPlaying}
+                                propSetIsMuted={setIsAudioMuted}
                                 onSlideChange={(index) => {
                                     if (tourPhotos[index]) {
                                         trackMediaView(tourPhotos[index].uuid);
@@ -560,6 +606,15 @@ const PublicTour = () => {
 
             </div>
 
+            {audioUrl && (
+                <audio
+                    ref={audioRef}
+                    key={audioUrl}
+                    src={audioUrl}
+                    loop
+                    muted={isAudioMuted}
+                />
+            )}
         </div>
     );
 };

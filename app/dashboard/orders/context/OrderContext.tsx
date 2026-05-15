@@ -160,6 +160,8 @@ type OrderContextType = {
     setTempPropertyData: Dispatch<SetStateAction<TempPropertyData | null>>;
     isPropertyValid: boolean;
     setIsPropertyValid: Dispatch<SetStateAction<boolean>>;
+    lastPopulatedAgentId: string | null;
+    setLastPopulatedAgentId: (id: string | null) => void;
     resetOrderData: () => void;
     clearSelections: () => void;
 };
@@ -192,6 +194,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     const [selectedSlots, setSelectedSlots] = useState<Slot[]>([]);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [lastPopulatedAgentId, setLastPopulatedAgentId] = useState<string | null>(null);
 
     const [agentsData, setAgentsData] = useState<Agent[]>([]);
     const [listingsData, setListingsData] = useState<Listings[]>([]);
@@ -225,6 +228,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
         setActivePackage(null);
         setTempPropertyData(null);
         setIsPropertyValid(false);
+        setLastPopulatedAgentId(null);
     }, []);
 
     const clearSelections = useCallback(() => {
@@ -248,6 +252,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
         setActivePackage(null);
         setTempPropertyData(null);
         setIsPropertyValid(false);
+        setLastPopulatedAgentId(null);
     }, []);
 
     return (
@@ -313,6 +318,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
                 setTempPropertyData,
                 isPropertyValid,
                 setIsPropertyValid,
+                lastPopulatedAgentId,
+                setLastPopulatedAgentId,
                 resetOrderData,
                 clearSelections
             }}

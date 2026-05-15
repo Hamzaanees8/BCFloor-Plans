@@ -152,6 +152,24 @@ export async function ToggleFeatureSheetImage(token: string, image_uuid: string)
   return response.json();
 }
 
+export async function DeleteSnapshot(token: string, uuid: string) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  const response = await fetch(`${API_URL}/tours/snapshots/${uuid}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || `Failed to delete snapshot with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export async function UploadFilesData(
   token: string,
   orderUuid: string,

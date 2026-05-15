@@ -36,7 +36,9 @@ const Contact = () => {
         setCoAgents,
         isSplitInvoice,
         setIsSplitInvoice,
-        agentsData
+        agentsData,
+        lastPopulatedAgentId,
+        setLastPopulatedAgentId
     } = useOrderContext();
     const { userType } = useAppContext()
     const { appliedSettings } = useWhiteLabel();
@@ -230,8 +232,11 @@ const Contact = () => {
 
 
     useEffect(() => {
-        if (selectedAgent) {
-            setCoAgents(selectedAgent.co_agents || []);
+        if (selectedAgent && selectedAgent.uuid !== lastPopulatedAgentId) {
+            setCoAgents(prev => {
+                if (prev.length > 0) return prev;
+                return selectedAgent.co_agents || [];
+            });
 
             // Check if agent has notes and if they haven't been added yet (simple duplicate check)
             if (selectedAgent.notes) {
@@ -251,12 +256,9 @@ const Contact = () => {
                     return prev;
                 });
             }
-        } else {
-            setCoAgents([]);
-            // Optional: Clear notes when agent is deselected?
-            // setAgentNotes([]); 
+            setLastPopulatedAgentId(selectedAgent.uuid || null);
         }
-    }, [selectedAgent, setAgentNotes, setCoAgents]);
+    }, [selectedAgent, setAgentNotes, setCoAgents, lastPopulatedAgentId, setLastPopulatedAgentId]);
 
     useEffect(() => {
         // Initialize text areas from context ONCE on load

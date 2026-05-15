@@ -36,7 +36,6 @@ import { DualModeFileManager } from './dual-mode/DualModeFileManager';
 import { ModeToggle } from './dual-mode/ModeToggle';
 import { FileItem, DualMode } from './dual-mode/types';
 import { GridSizeToggle } from './dual-mode/GridSizeToggle';
-import { canDownloadFile } from '../utils/filePermissions';
 import { MediaDateBoundary } from '../components/FileManager';
 
 export interface PaymentData {
@@ -182,7 +181,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         }
 
         return files || [];
-    }, [filesData?.files, currentService?.uuid, userType, reviewFilesEnabled, sortBy, bookingToUse, orderData, mediaDateBoundary]);
+    }, [filesData?.files, currentService?.uuid, userType, reviewFilesEnabled, sortBy, mediaDateBoundary]);
 
     const filesForService = useMemo(() => selectedFiles.filter(f => f.service_id === currentService?.uuid), [selectedFiles, currentService?.uuid]);
 

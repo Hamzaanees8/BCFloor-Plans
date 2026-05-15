@@ -498,14 +498,14 @@ export const PriceTag = () => (
     <path
       d="M48.5432 31.2893L31.8132 48.0193C31.3798 48.4532 30.8651 48.7974 30.2986 49.0323C29.732 49.2671 29.1248 49.388 28.5115 49.388C27.8982 49.388 27.291 49.2671 26.7244 49.0323C26.1579 48.7974 25.6432 48.4532 25.2098 48.0193L5.1665 27.9993V4.66602H28.4998L48.5432 24.7093C49.4123 25.5837 49.9002 26.7665 49.9002 27.9993C49.9002 29.2322 49.4123 30.415 48.5432 31.2893Z"
       stroke="#1E6FCC"
-      stroke-linecap="round"
-      stroke-linejoin="round"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
     <path
       d="M16.8335 16.334H16.8568"
       stroke="#1E6FCC"
-      stroke-linecap="round"
-      stroke-linejoin="round"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
   </svg>
 );
@@ -521,12 +521,12 @@ export const BedIcon = ({ className = "" }) => (
     <path
       d="M1.20605 46.8828H71.7944V53.9416H1.20605V46.8828Z"
       stroke="#1E6FCC"
-      stroke-linejoin="round"
+      strokeLinejoin="round"
     />
     <path
       d="M1.20605 30.2363C1.20605 29.684 1.65377 29.2363 2.20605 29.2363H70.7944C71.3467 29.2363 71.7944 29.684 71.7944 30.2363V46.8834H1.20605V30.2363Z"
       stroke="#1E6FCC"
-      stroke-linejoin="round"
+      strokeLinejoin="round"
     />
     <rect
       x="32.9697"
@@ -536,7 +536,7 @@ export const BedIcon = ({ className = "" }) => (
       rx="1"
       transform="rotate(90 32.9697 15.1172)"
       stroke="#1E6FCC"
-      stroke-linejoin="round"
+      strokeLinejoin="round"
     />
     <rect
       x="61.2061"
@@ -546,22 +546,22 @@ export const BedIcon = ({ className = "" }) => (
       rx="1"
       transform="rotate(90 61.2061 15.1172)"
       stroke="#1E6FCC"
-      stroke-linejoin="round"
+      strokeLinejoin="round"
     />
     <path
       d="M67.2651 1C67.8174 1 68.2651 1.44772 68.2651 2L68.2651 29.2353L4.73561 29.2353L4.73561 2C4.73561 1.44771 5.18332 0.999997 5.73561 0.999997L67.2651 1Z"
       stroke="#1E6FCC"
-      stroke-linejoin="round"
+      strokeLinejoin="round"
     />
     <path
       d="M61.2061 53.9414H68.2649V61.0002H64.7355L61.2061 53.9414Z"
       stroke="#1E6FCC"
-      stroke-linejoin="round"
+      strokeLinejoin="round"
     />
     <path
       d="M4.73535 53.9414H11.7942L8.26477 61.0002H4.73535V53.9414Z"
       stroke="#1E6FCC"
-      stroke-linejoin="round"
+      strokeLinejoin="round"
     />
   </svg>
 );
@@ -578,12 +578,12 @@ export const BathIcon = ({ className = "" }) => (
     <path
       d="M39.3502 7C36.0917 7 33.4502 9.68629 33.4502 13H45.2502C45.2502 9.68629 42.6087 7 39.3502 7Z"
       stroke="currentColor"
-      stroke-linejoin="round"
+      strokeLinejoin="round"
     />
     <path
       d="M54.0996 34V8.375C54.0996 4.3019 50.7977 1 46.7246 1H46.2246C42.4277 1 39.3496 4.07804 39.3496 7.875V7.875"
       stroke="currentColor"
-      stroke-linejoin="round"
+      strokeLinejoin="round"
     />
     <rect
       x="15.75"
@@ -591,13 +591,13 @@ export const BathIcon = ({ className = "" }) => (
       width="11.8"
       height="15"
       stroke="currentColor"
-      stroke-linejoin="round"
+      strokeLinejoin="round"
     />
     <path
       d="M15.75 41.5H27.55"
       stroke="currentColor"
-      stroke-linecap="round"
-      stroke-linejoin="round"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
     <path
       d="M27.55 34H59C59.5523 34 60 34.4477 60 35V37.5C60 38.0523 59.5523 38.5 59 38.5H27.55M15.75 38.5H2C1.44771 38.5 1 38.0523 1 37.5V35C1 34.4477 1.44772 34 2 34H15.75"
@@ -606,8 +606,8 @@ export const BathIcon = ({ className = "" }) => (
     <path
       d="M57.0418 40C57.1134 46 57.0418 58 42.9882 58C30.496 58 21.1269 58 18.0039 58C7.07745 58 3.9502 47.5 3.9502 40"
       stroke="currentColor"
-      stroke-linecap="round"
-      stroke-linejoin="round"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
     <path
       d="M18.7 58V60C18.7 60.5523 18.2523 61 17.7 61H16.75C16.1977 61 15.75 60.5523 15.75 60V58"
@@ -631,14 +631,14 @@ export const HomeIcon = () => (
     <path
       d="M5 24.1671L34.5 1.22266L64 24.1671V60.2227C64 61.9613 63.3093 63.6287 62.0799 64.8581C60.8505 66.0875 59.1831 66.7782 57.4444 66.7782H11.5556C9.81691 66.7782 8.14948 66.0875 6.92008 64.8581C5.69067 63.6287 5 61.9613 5 60.2227V24.1671Z"
       stroke="#1E6FCC"
-      stroke-linecap="round"
-      stroke-linejoin="round"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
     <path
       d="M28 67V42H42V67"
       stroke="#1E6FCC"
-      stroke-linecap="round"
-      stroke-linejoin="round"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
   </svg>
 );
@@ -654,17 +654,17 @@ export const LotIcon = () => (
     <path
       d="M0.730469 11.7692L6.88432 1L13.0382 11.7692V61H0.730469V11.7692Z"
       stroke="#1E6FCC"
-      stroke-linejoin="round"
+      strokeLinejoin="round"
     />
     <path
       d="M25.3457 11.7692L31.4995 1L37.6534 11.7692V61H25.3457V11.7692Z"
       stroke="#1E6FCC"
-      stroke-linejoin="round"
+      strokeLinejoin="round"
     />
     <path
       d="M49.9609 11.7692L56.1148 1L62.2686 11.7692V61H49.9609V11.7692Z"
       stroke="#1E6FCC"
-      stroke-linejoin="round"
+      strokeLinejoin="round"
     />
     <rect
       x="13.0371"
@@ -750,21 +750,21 @@ export const HelpIcon = () => (
     <path
       d="M30.5 55C44.3071 55 55.5 43.8071 55.5 30C55.5 16.1929 44.3071 5 30.5 5C16.6929 5 5.5 16.1929 5.5 30C5.5 43.8071 16.6929 55 30.5 55Z"
       stroke="#1E6FCC"
-      stroke-linecap="round"
-      stroke-linejoin="round"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
     <path
       d="M23.2246 22.4995C23.8124 20.8286 24.9725 19.4197 26.4995 18.5223C28.0265 17.6249 29.8218 17.2968 31.5675 17.5963C33.3133 17.8957 34.8966 18.8033 36.0373 20.1583C37.178 21.5133 37.8022 23.2283 37.7996 24.9995C37.7996 29.9995 30.2996 32.4995 30.2996 32.4995"
       stroke="#1E6FCC"
-      stroke-linecap="round"
-      stroke-linejoin="round"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
     <path
       d="M30.5 42.5H30.525"
       stroke="#1E6FCC"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
   </svg>
 );
@@ -780,8 +780,8 @@ export const TypoeIcon = () => (
     <path
       d="M5 24.1671L34.5 1.22266L64 24.1671V60.2227C64 61.9613 63.3093 63.6287 62.0799 64.8581C60.8505 66.0875 59.1831 66.7782 57.4444 66.7782H11.5556C9.81691 66.7782 8.14948 66.0875 6.92008 64.8581C5.69067 63.6287 5 61.9613 5 60.2227V24.1671Z"
       stroke="#1E6FCC"
-      stroke-linecap="round"
-      stroke-linejoin="round"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
   </svg>
 );
@@ -802,7 +802,7 @@ export const ReltorIcon = ({ className = "" }) => (
       height="96"
       rx="14"
       stroke="#F2F2F2"
-      stroke-width="4"
+      strokeWidth="4"
     />
     <path
       d="M53.1722 20H57.6765V54.9129L66.0764 47.289H72.9698L63.5808 55.689L73.5633 65.2454H66.8069L60.1265 58.7781L57.6765 60.9693V65.2454H53.1722V20Z"
@@ -989,7 +989,7 @@ export const AgentLoginIcon = ({
       height="96"
       rx="14"
       stroke="var(--primary-color, #6BAE41)"
-      stroke-width="4"
+      strokeWidth="4"
     />
     <path
       d="M53.1722 20H57.6765V54.9129L66.0764 47.289H72.9698L63.5808 55.689L73.5633 65.2454H66.8069L60.1265 58.7781L57.6765 60.9693V65.2454H53.1722V20Z"
@@ -1048,7 +1048,7 @@ export const VendorLoginIcon = ({
       height="96"
       rx="14"
       stroke="#DC9600"
-      stroke-width="4"
+      strokeWidth="4"
     />
     <path
       d="M53.1722 20H57.6765V54.9129L66.0764 47.289H72.9698L63.5808 55.689L73.5633 65.2454H66.8069L60.1265 58.7781L57.6765 60.9693V65.2454H53.1722V20Z"
@@ -1112,7 +1112,7 @@ export const BCFLogo = () => (
       cy="42.8168"
       r="38.5073"
       stroke="#F2F2F2"
-      stroke-width="2.15425"
+      strokeWidth="2.15425"
     />
     <path
       d="M66.0023 23.9753C65.7526 23.043 65.1504 22.7048 64.196 22.9605L62.3316 23.4601L64.4102 31.2175L66.2746 30.7179C67.229 30.4622 67.5814 29.8682 67.3316 28.936L66.0023 23.9753ZM56.1445 20.479L63.6689 18.4629C65.4667 17.9811 66.9921 18.0363 68.2451 18.6283C69.5202 19.2145 70.3838 20.3509 70.8358 22.0378L72.4862 28.1971C72.9382 29.884 72.7586 31.3 71.9473 32.4452C71.1582 33.5844 69.8648 34.3949 68.0669 34.8766L65.5699 35.5457L67.3541 42.2044L62.3268 43.5515L56.1445 20.479Z"

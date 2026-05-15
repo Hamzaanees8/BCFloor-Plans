@@ -14,6 +14,11 @@ interface CustomSlideshowProps {
   watermarkUrl?: string;
   onSlideChange?: (index: number) => void;
   currentIndex?: number;
+  externalAudioControl?: boolean;
+  propIsPlaying?: boolean;
+  propIsMuted?: boolean;
+  propSetIsPlaying?: (playing: boolean) => void;
+  propSetIsMuted?: (muted: boolean) => void;
 }
 
 const transitionClasses = [
@@ -44,13 +49,24 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   api_images,
   watermarkUrl,
   onSlideChange,
-  currentIndex: propCurrentIndex
+  currentIndex: propCurrentIndex,
+  externalAudioControl,
+  propIsPlaying,
+  propIsMuted,
+  propSetIsPlaying,
+  propSetIsMuted
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lastIndex, setLastIndex] = useState<number | null>(null);
   const [transitionIndex, setTransitionIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
+  const [internalIsPlaying, setInternalIsPlaying] = useState(true);
+  const [internalIsMuted, setInternalIsMuted] = useState(false);
+
+  const isPlaying = propIsPlaying !== undefined ? propIsPlaying : internalIsPlaying;
+  const isMuted = propIsMuted !== undefined ? propIsMuted : internalIsMuted;
+  const setIsPlaying = propSetIsPlaying || setInternalIsPlaying;
+  const setIsMuted = propSetIsMuted || setInternalIsMuted;
+
   const [showControls, setShowControls] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -139,19 +155,11 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   };
 
   const togglePlayback = () => {
-    const audioEl = audioRef.current;
-    if (audioUrl && audioEl) {
-      if (isPlaying) {
-        audioEl.pause();
-      } else {
-        audioEl.play();
-      }
-    }
-    setIsPlaying((prev) => !prev);
+    setIsPlaying(!isPlaying);
   };
 
   const toggleMute = () => {
-    setIsMuted((prev) => !prev);
+    setIsMuted(!isMuted);
   }
 
   const handleMouseMove = () => {
@@ -172,6 +180,34 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     };
   }, []);
 
+  // Handle autoplay and interaction-based play
+  useEffect(() => {
+    const audioEl = audioRef.current;
+    if (!audioEl || !audioUrl) return;
+
+    if (isPlaying) {
+      const attemptPlay = () => {
+        audioEl.play().catch((error) => {
+          if (error.name === 'NotAllowedError' || error.name === 'NotSupportedError') {
+            // Autoplay blocked - wait for user interaction
+            const unlock = () => {
+              audioEl.play().catch(() => { });
+              window.removeEventListener('click', unlock);
+              window.removeEventListener('touchstart', unlock);
+              window.removeEventListener('keydown', unlock);
+            };
+            window.addEventListener('click', unlock, { once: true });
+            window.addEventListener('touchstart', unlock, { once: true });
+            window.addEventListener('keydown', unlock, { once: true });
+          }
+        });
+      };
+      attemptPlay();
+    } else {
+      audioEl.pause();
+    }
+  }, [audioUrl, isPlaying]);
+
 
 
 
@@ -181,9 +217,9 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
       onMouseMove={handleMouseMove}
       className="relative w-full h-[100vh] overflow-hidden bg-black group"
     >
-      {/* Audio */}
-      {audioUrl && (
-        <audio ref={audioRef} key={audioUrl} autoPlay loop muted={isMuted}>
+      {/* Audio - only if not externally controlled */}
+      {audioUrl && !externalAudioControl && (
+        <audio ref={audioRef} key={audioUrl} loop muted={isMuted}>
           <source src={audioUrl} type="audio/mpeg" />
           Your browser does not support the audio element.
         </audio>

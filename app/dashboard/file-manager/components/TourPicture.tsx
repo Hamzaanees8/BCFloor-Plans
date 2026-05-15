@@ -14,7 +14,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { DownloadIcon } from "@/components/Icons";
 import {
   Select,
   SelectContent,
@@ -26,7 +25,6 @@ import { Switch } from "@/components/ui/switch";
 import CustomSlideshow from "./CustomPreview";
 import { Label } from "@/components/ui/label";
 import { Order } from "../../orders/page";
-import { DownloadFile } from "../file-manager";
 import { useAppContext } from "@/app/context/AppContext";
 import { OptimizedImagePreview, PdfPlaceholder } from "./OptimizedPreview";
 import { GetAgentAudios, AgentAudio } from "../../agents/agent-audio";
@@ -141,32 +139,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
     );
   }
 
-  const handledownloadFile = async (fileUuid: string, fileName: string) => {
-    try {
-      const token = localStorage.getItem('token') ?? "";
 
-      const response = await DownloadFile(token, fileUuid);
-
-      if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
-
-      // Convert the response directly to blob
-      const blob = await response.blob();
-
-      // Create a temporary URL and trigger download
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-    } catch (err) {
-      console.error('Download error:', err);
-      alert('Download failed. Please try again.');
-    }
-  };
   return (
     <div>
       <Accordion

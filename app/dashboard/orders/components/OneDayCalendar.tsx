@@ -201,7 +201,7 @@ function getRestrictedDisplaySlots(
 
   const startIndex = vendorAvailableSlots.findIndex(slot => dayjs(slot.start).isSame(requiredSlotStart));
 
-  let restrictedSlots: Slots[] = [];
+  const restrictedSlots: Slots[] = [];
   if (startIndex !== -1) {
     restrictedSlots.push(vendorAvailableSlots[startIndex]);
     for (let i = startIndex + 1; i < vendorAvailableSlots.length && restrictedSlots.length < requiredSlotsCount; i++) {

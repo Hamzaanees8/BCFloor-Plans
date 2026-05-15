@@ -5,7 +5,7 @@ import dayjs from "dayjs";
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { GetOneListing } from '../../listings/listing';
-import { useOrderContext } from '../../orders/context/OrderContext';
+import { useOrderContext, Slot } from '../../orders/context/OrderContext';
 import { VendorData } from '../../orders/[id]/page';
 import {
   Get,
@@ -19,6 +19,7 @@ import {
 import { useAppContext } from '@/app/context/AppContext';
 import { Order } from '../../orders/page';
 import { toast } from 'sonner';
+import { Services } from '../../services/page';
 import { getEffectiveServiceDuration } from '../../orders/utils/serviceTimeUtils';
 import { getDistanceColor } from './Schedule';
 import {
@@ -224,7 +225,7 @@ function getRestrictedDisplaySlots(
 
   const startIndex = vendorAvailableSlots.findIndex(slot => dayjs(slot.start).isSame(requiredSlotStart));
 
-  let restrictedSlots: Slots[] = [];
+  const restrictedSlots: Slots[] = [];
   if (startIndex !== -1) {
     restrictedSlots.push(vendorAvailableSlots[startIndex]);
     for (let i = startIndex + 1; i < vendorAvailableSlots.length && restrictedSlots.length < requiredSlotsCount; i++) {

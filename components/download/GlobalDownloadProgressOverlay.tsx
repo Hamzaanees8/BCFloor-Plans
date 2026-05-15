@@ -10,9 +10,9 @@ export function GlobalDownloadProgressOverlay() {
     const { jobs, closeJob, triggerBrowserDownload } = useGlobalDownload();
     const { userType } = useAppContext();
 
-    const { sortedJobs, activeJobsCount, averageProgress, allFinished } = useMemo(() => {
+    const { sortedJobs, activeJobsCount, averageProgress } = useMemo(() => {
         if (jobs.length === 0) {
-            return { sortedJobs: [], activeJobsCount: 0, averageProgress: 0, allFinished: false };
+            return { sortedJobs: [], activeJobsCount: 0, averageProgress: 0 };
         }
 
         // Calculate average progress of ALL jobs
@@ -33,9 +33,8 @@ export function GlobalDownloadProgressOverlay() {
         });
 
         const activeJobsCount = jobs.filter(j => j.progress < 100 && !j.error).length;
-        const allFinished = activeJobsCount === 0;
 
-        return { sortedJobs, activeJobsCount, averageProgress, allFinished };
+        return { sortedJobs, activeJobsCount, averageProgress };
     }, [jobs]);
 
     const closeAllFinished = () => {

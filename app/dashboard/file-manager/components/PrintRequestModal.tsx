@@ -25,14 +25,16 @@ interface PrintRequestModalProps {
   agentId?: string;
   propertyId?: string;
   tourId?: string;
+  orderUuid?: string;
 }
 
-export default function PrintRequestModal({ open, onClose, featureSheetUuid, agentId, propertyId, tourId }: PrintRequestModalProps) {
+export default function PrintRequestModal({ open, onClose, featureSheetUuid, agentId, propertyId, tourId, orderUuid }: PrintRequestModalProps) {
   const { userType } = useAppContext();
   const [copies, setCopies] = useState<number>(25);
   const [withBleed, setWithBleed] = useState<boolean>(false);
   const [additionalInfo, setAdditionalInfo] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
 
   const handleSubmit = async () => {
     if (!featureSheetUuid) {
@@ -40,17 +42,19 @@ export default function PrintRequestModal({ open, onClose, featureSheetUuid, age
       return;
     }
 
-    if (!agentId || !propertyId || !tourId) {
+    if (!agentId || !propertyId || !tourId || !orderUuid) {
       const missing = [];
       if (!agentId) missing.push("Agent ID");
       if (!propertyId) missing.push("Property ID");
       if (!tourId) missing.push("Tour ID");
+      if (!orderUuid) missing.push("Order ID");
       toast.error(`Missing associated order information: ${missing.join(", ")}`);
       return;
     }
 
     setIsSubmitting(true);
     try {
+      // 1. Send print request
       await featureSheetService.requestPrint(featureSheetUuid, {
         copies,
         with_bleed: withBleed,
@@ -59,6 +63,7 @@ export default function PrintRequestModal({ open, onClose, featureSheetUuid, age
         property_id: propertyId,
         tour_id: tourId,
       });
+
       toast.success("Print request sent successfully!");
       onClose();
     } catch (error) {

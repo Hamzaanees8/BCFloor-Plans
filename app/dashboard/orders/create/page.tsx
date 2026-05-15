@@ -99,6 +99,7 @@ const OrderForm = () => {
         servicesData,
         tempPropertyData,
         selectedCurrentListing,
+        setLastPopulatedAgentId,
         resetOrderData
     } = useOrderContext();
     const { setIsDirty } = useUnsaved();
@@ -253,11 +254,12 @@ const OrderForm = () => {
                 return Array.isArray(currentUser.co_agents) ? currentUser.co_agents : [];
             });
             setIsSplitInvoice(currentUser.split_invoice || false);
+            setLastPopulatedAgentId(currentUser.agent?.uuid || "");
             setTimeout(() => {
                 setInitComplete(true);
             }, 50);
         }
-    }, [currentUser, setSelectedAgentId, setSelectedListingId, setSelectedServices, setAgentNotes, setCoAgents, setIsSplitInvoice, setSelectedSlots, setSelectedOptions, setInitComplete, setCustomServiceNames, setCustomPrices]);
+    }, [currentUser, setSelectedAgentId, setSelectedListingId, setSelectedServices, setAgentNotes, setCoAgents, setIsSplitInvoice, setSelectedSlots, setSelectedOptions, setInitComplete, setCustomServiceNames, setCustomPrices, setLastPopulatedAgentId]);
     useEffect(() => {
         const token = localStorage.getItem("token");
 

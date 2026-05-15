@@ -53,7 +53,7 @@ export type Files = {
     thumbnail_url?: string;
     group: string | null;
     service_id: number | null;
-    service?: { id: number; uuid: string, name: string };
+    service?: { id: number; uuid: string, name: string, category?: { name: string } };
     sort_order: number;
     created_at: string;
     updated_at: string;

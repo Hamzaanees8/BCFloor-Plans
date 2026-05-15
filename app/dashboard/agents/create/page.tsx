@@ -859,7 +859,7 @@ const AgentForm = () => {
                 setAvatarFile(null);
                 setCompanyBannerFile(null);
                 setPendingMp3Files([]);
-                
+
                 // Clean up availableMp3s - remove temporary blobs
                 setAvailableMp3s(prev => prev.filter(mp3 => !mp3.id.startsWith('pending-')));
 
@@ -868,7 +868,7 @@ const AgentForm = () => {
                     try {
                         const updatedData = await GetOne(agentUuid);
                         setCurrentUser(updatedData.data);
-                        
+
                         // Refresh audios
                         const audioData = await GetAgentAudios(agentUuid);
                         if (audioData.data && Array.isArray(audioData.data)) {
@@ -1061,8 +1061,8 @@ const AgentForm = () => {
                     Agents
                     {currentUser ? ` › ${currentUser.first_name} ${currentUser.last_name}` : ' › Create'}
                 </p>
-                <Button 
-                    onClick={(e) => { handleSubmit(e) }} 
+                <Button
+                    onClick={(e) => { handleSubmit(e) }}
                     disabled={isLoading}
                     className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg hover:opacity-95`}
                 >
@@ -1538,7 +1538,7 @@ const AgentForm = () => {
                                                             onValueChange={handleCalendarSet}
                                                         >
                                                             <SelectTrigger className="h-[42px] bg-[#EEEEEE] border-[#BBBBBB]">
-                                                                  <SelectValue placeholder="Select a calendar" />
+                                                                <SelectValue placeholder="Select a calendar" />
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 {availableCalendars.map((cal) => (
@@ -2025,7 +2025,7 @@ const AgentForm = () => {
                                                     Add multiple logos for different services (Video, 2D Floor Plan, etc.). Recommended 512 x 512, PNG or JPG.
                                                 </p>
                                             </div>
-                                            <div className='flex flex-col gap-y-[6px]'>
+                                            <div className=' flex-col gap-y-[6px] hidden'>
                                                 <div className='flex items-end gap-x-[6px] flex-1'>
                                                     {CompanyBannerUrl ?
                                                         <Image

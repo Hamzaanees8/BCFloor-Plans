@@ -56,6 +56,7 @@ export type MediaDateBoundary = {
 
 const FileManager = () => {
   const router = useRouter();
+  const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
   const [servicesData, setServicesData] = React.useState<Services[]>([]);
   // services is set by useEffect (used by setServices) but the value is consumed via groupedServices
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -221,10 +222,7 @@ const FileManager = () => {
   const handlePayInvoice = async (invoice: any) => {
     if (!orderData) return;
     try {
-      const redirectUrl =
-        window.location.origin +
-        window.location.pathname +
-        (window.location.search ? window.location.search : "");
+      const redirectUrl = window.location.href;
       await PayInvoiceWithStripe(invoice, orderData, redirectUrl);
     } catch (err) {
       console.error(err);
@@ -556,11 +554,16 @@ const FileManager = () => {
       ...(filesData?.snapshots || [])
         .filter(snap => !deletedSnapshotUuids.has(snap.uuid))
         .map(snap => ({
-          ...snap,
           x: Number(snap.x_axis),
           y: Number(snap.y_axis),
           floorImageUrl: snap.file_name,
-          isApi: true
+          isApi: true,
+          name: snap.name ?? undefined,
+          description: snap.description ?? undefined,
+          file_path: snap.file_path,
+          url: snap.url,
+          thumbnail_url: snap.thumbnail_url,
+          variant_urls: snap.variant_urls
         })),
       ...droppedMarkers
     ];
@@ -756,11 +759,10 @@ const FileManager = () => {
                             <Button
                               variant="outline"
                               onClick={() => setViewingInvoice(invoice)}
-                              className={`h-[35px] text-[13px] px-4 font-semibold hover:opacity-80 border rounded-[6px] ${userType}-button`}
+                              className={`h-[35px] text-[13px] px-4 font-semibold border rounded-[6px] ${userType}-button hover-${userType}-bg hover:!text-white transition-all`}
                               style={{
                                 borderColor: `var(--${userType}-page-tab-color)`,
                                 color: `var(--${userType}-page-tab-color)`,
-                                backgroundColor: 'transparent'
                               }}
                             >
                               View
@@ -1188,9 +1190,15 @@ const FileManager = () => {
                   {/* Status Badge */}
                   <div className="flex items-center gap-2">
                     {isPaid ? (
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#6BAE41] text-white">
-                        PAID
-                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenInvoice(booking.service?.name);
+                        }}
+                        className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border-2 ${userType}-border ${userType}-text bg-white hover-${userType}-bg hover:!text-white transition-all`}
+                      >
+                        View
+                      </button>
                     ) : (
                       <button
                         onClick={(e) => {

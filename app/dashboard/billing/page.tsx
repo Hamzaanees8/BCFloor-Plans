@@ -115,7 +115,7 @@ const Page = () => {
           await PayInvoiceWithStripe(
             invoice,
             { agent: { uuid: billing.agent_uuid }, id: billing.order_id },
-            typeof window !== "undefined" ? window.location.pathname.substring(1) : "dashboard/billing",
+            typeof window !== "undefined" ? window.location.href : "dashboard/billing",
             serviceId
           );
         }
@@ -241,12 +241,16 @@ const Page = () => {
     // Address/Order ID filter - search in both address and order_id
     if (addressFilter) {
       const searchTerm = addressFilter.toLowerCase();
+      const propertyAddr = (billing.property_address || "").toLowerCase();
+      const propertyLoc = (billing.property_location || "").toLowerCase();
+      const matchesProperty = propertyAddr.includes(searchTerm) || propertyLoc.includes(searchTerm);
+      
       const matchesAddress = billing.slots.some((slot) =>
         `${slot.address} ${slot.location}`.toLowerCase().includes(searchTerm)
       );
       const matchesOrderId = billing.order_id?.toString().includes(addressFilter);
 
-      if (!matchesAddress && !matchesOrderId) {
+      if (!matchesProperty && !matchesAddress && !matchesOrderId) {
         return false;
       }
     }
@@ -310,7 +314,7 @@ const Page = () => {
     }
   ) => {
     try {
-      const url = "/dashboard/billing";
+      const url = typeof window !== "undefined" ? window.location.href : "/dashboard/billing";
       await createQuickBilling(
         order_uuid,
         url,
@@ -508,9 +512,11 @@ const Page = () => {
             ) : (
               paginatedBillings.map((billing, index) => {
                 const orderInvoiceUrl = getOrderInvoiceUrl(billing);
-                const address = billing.slots[0]
-                  ? `${billing.slots[0].address}, ${billing.slots[0].location} `
-                  : "N/A";
+                const address = billing.property_address
+                  ? `${billing.property_address}, ${billing.property_location || ""} `
+                  : billing.slots[0]
+                    ? `${billing.slots[0].address}, ${billing.slots[0].location} `
+                    : "N/A";
 
                 return (
                   <React.Fragment key={billing.order_uuid}>
@@ -643,33 +649,32 @@ const Page = () => {
                                         </a>
                                       )}
                                       <div className="flex gap-2 items-center">
-                                        {billing.remaining_amount > 0 && (
-                                          <>
+                                        <Button
+                                          onClick={() => handleInvoiceAction(billing, "view")}
+                                          disabled={actionLoading !== null}
+                                          className="px-6 py-4 border-gray-200 text-gray-700 bg-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-gray-50"
+                                        >
+                                          {actionLoading?.id === billing.order_id && actionLoading?.action === "view" ? (
+                                            <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
+                                          ) : (
+                                            "Invoice"
+                                          )}
+                                        </Button>
+
+                                          {billing.remaining_amount > 0 && (
                                             <Button
-                                              onClick={() =>
-                                                handleInvoiceAction(billing, "view")
-                                              }
+                                              onClick={() => handleInvoiceAction(billing, "pay")}
                                               disabled={actionLoading !== null}
-                                              className='px-6 py-4 border-gray-200 text-gray-700 bg-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-gray-50'
-                                            >
-                                              {actionLoading?.id === billing.order_id && actionLoading?.action === "view" ? (
-                                                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
-                                              ) : "Invoice"}
-                                            </Button>
-                                            <Button
-                                              onClick={() =>
-                                                handleInvoiceAction(billing, "pay")
-                                              }
-                                              disabled={actionLoading !== null}
-                                              className='px-6 py-4 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110'
+                                              className="px-6 py-4 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110"
                                               style={{ backgroundColor: roleSettings.pageTabColor }}
                                             >
                                               {actionLoading?.id === billing.order_id && actionLoading?.action === "pay" ? (
                                                 <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
-                                              ) : "Pay All"}
+                                              ) : (
+                                                "Pay All"
+                                              )}
                                             </Button>
-                                          </>
-                                        )}
+                                          )}
                                         {/* <Button
                                           variant="outline"
                                           onClick={() => {
@@ -742,41 +747,41 @@ const Page = () => {
                                               {service.status}
                                             </span>
                                           </div>
-                                          {service.status !== "paid" && billing.status !== "paid" && (
-                                            <div className="flex gap-2">
+                                          <div className="flex gap-2">
+                                            <Button
+                                              onClick={() => handleInvoiceAction(billing, "view", service.order_service_uuid, service.amount)}
+                                              disabled={actionLoading !== null}
+                                              className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-gray-50"
+                                            >
+                                              {actionLoading?.id === service.order_service_uuid && actionLoading?.action === "view" ? (
+                                                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
+                                              ) : (
+                                                "Invoice"
+                                              )}
+                                            </Button>
+                                            {service.status !== "paid" && billing.status !== "paid" && (
                                               <Button
-                                                onClick={() =>
-                                                  handleInvoiceAction(billing, "view", service.order_service_uuid, service.amount)
-                                                }
+                                                onClick={() => handleInvoiceAction(billing, "pay", service.order_service_uuid, service.amount)}
                                                 disabled={actionLoading !== null}
-                                                className='px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-gray-50'
-                                              >
-                                                {actionLoading?.id === service.order_service_uuid && actionLoading?.action === "view" ? (
-                                                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
-                                                ) : "Invoice"}
-                                              </Button>
-                                              <Button
-                                                onClick={() =>
-                                                  handleInvoiceAction(billing, "pay", service.order_service_uuid, service.amount)
-                                                }
-                                                disabled={actionLoading !== null}
-                                                className='px-4 py-2 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110'
+                                                className="px-4 py-2 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110"
                                                 style={{ backgroundColor: roleSettings.pageTabColor }}
                                               >
                                                 {actionLoading?.id === service.order_service_uuid && actionLoading?.action === "pay" ? (
                                                   <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
-                                                ) : "Pay Now"}
+                                                ) : (
+                                                  "Pay Now"
+                                                )}
                                               </Button>
-                                            </div>
-                                          )}
-                                          {(service.status === "paid" || billing.status === "paid") && (
-                                            <Button
-                                              disabled
-                                              className={`px-4 py-2 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] bg-green-500 cursor-pointer hover:bg-green-600`}
-                                            >
-                                              Paid
-                                            </Button>
-                                          )}
+                                            )}
+                                            {(service.status === "paid" || billing.status === "paid") && (
+                                              <Button
+                                                disabled
+                                                className="px-4 py-2 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] bg-green-500 cursor-pointer hover:bg-green-600"
+                                              >
+                                                Paid
+                                              </Button>
+                                            )}
+                                          </div>
                                         </div>
                                         <p className="text-sm text-gray-600">
                                           Amount:{" "}

@@ -37,12 +37,17 @@ export interface Marker {
     name?: string;
     description?: string;
     isApi?: boolean;
+    variant_urls?: {
+        thumb?: string;
+        popup?: string;
+        slider?: string;
+        landing?: string;
+    };
 }
 
 interface PublicTourFloorPlansProps {
     floorPlanFiles?: FloorPlanFile[];
     snapshots?: Snapshoots[];
-    tourPhotos?: any[];
 }
 
 // PDF Placeholder component
@@ -62,7 +67,6 @@ function PdfPlaceholder({ className = '', onClick }: { className?: string; onCli
 function PublicTourFloorPlans({
     floorPlanFiles = [],
     snapshots = [],
-
 }: PublicTourFloorPlansProps) {
     // Filter out PDF files
     const filteredFloorPlanFiles = floorPlanFiles.filter(file => file.type !== 'pdf' && !file.file_path?.toLowerCase().endsWith('.pdf'));
@@ -306,29 +310,7 @@ function PublicTourFloorPlans({
                 </div>
             </div>
 
-            <div className="w-full h-auto mt-10">
-                <p className="text-[#666666] text-[24px] px-10 mb-4 font-alexandria">Photos</p>
-                <div className="w-full grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 px-10 pb-10">
-                    {tourPhotos?.map((file, idx) => (
-                        <div key={`photo-${idx}`} className="aspect-square bg-gray-200 rounded-lg overflow-hidden group relative cursor-move">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                                draggable
-                                onDragStart={(e) => {
-                                    e.dataTransfer.setData("text/plain", file.uuid || file.name);
-                                    setDraggedFile(file);
-                                    imageContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                }}
-                                loading="lazy"
-                                src={file.variant_urls?.thumb || file.thumbnail_url || file.url || `${API_URL}/${file.file_path}`}
-                                alt={file.name || `Photo ${idx}`}
-                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
-                        </div>
-                    ))}
-                </div>
-            </div>
+            {/* Removed Photos section */}
         </div>
     );
 }

@@ -35,7 +35,7 @@ const InvoiceDocument = ({
     const settings = roleSettings || { pageTabColor: '#000', pageBg: '#fff' };
 
     return (
-        <div id="invoice-download-content" className="relative bg-white p-12 rounded-lg border-2 border-gray-100 shadow-2xl mx-auto w-full max-w-[800px]  flex flex-col">
+        <div id="invoice-download-content" className="relative bg-white p-12 rounded-lg border-2 border-gray-100 shadow-2xl mx-auto w-full max-w-[950px]  flex flex-col">
             {/* Header Section */}
             <div className="flex justify-between items-start mb-12">
                 <div>

@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CameraIcon } from "@/components/Icons";
 import { X } from "lucide-react";
 import { toast } from "sonner";
+import { DeleteSnapshot } from "../file-manager";
 
 
 
@@ -18,7 +19,7 @@ import { OptimizedImagePreview, PdfPlaceholder } from "./OptimizedPreview";
 
 function TourFloorPlans({ type = "" }) {
   const { userType } = useAppContext();
-  const { droppedMarkers, setDroppedMarkers, filesData, selectedFiles, floorFiles, deletedSnapshotUuids, setDeletedSnapshotUuids } = useFileManagerContext();
+  const { droppedMarkers, setDroppedMarkers, filesData, setFilesData, selectedFiles, floorFiles, deletedSnapshotUuids, setDeletedSnapshotUuids } = useFileManagerContext();
   
   const currentTourFloorFiles = [
     ...(filesData?.files?.filter(file => {
@@ -279,19 +280,32 @@ function TourFloorPlans({ type = "" }) {
 
 
 
-  const handleDeleteSnapshot = () => {
+  const handleDeleteSnapshot = async () => {
     if (activeMarkerIndex === null && !activeApiSnapshotUuid) {
       toast.error("No snapshot selected to delete");
       return;
     }
 
-    if (activeApiSnapshotUuid) {
-      setDeletedSnapshotUuids(prev => {
-        const next = new Set(prev);
-        next.add(activeApiSnapshotUuid);
-        return next;
-      });
-      toast.success('Snapshot marked for deletion');
+    const token = localStorage.getItem("token");
+
+    if (activeApiSnapshotUuid && token) {
+      try {
+        await DeleteSnapshot(token, activeApiSnapshotUuid);
+        
+        // Remove from local state immediately
+        if (filesData) {
+          setFilesData({
+            ...filesData,
+            snapshots: filesData.snapshots.filter(s => s.uuid !== activeApiSnapshotUuid)
+          });
+        }
+        
+        toast.success('Snapshot deleted successfully');
+      } catch (error) {
+        console.error("Error deleting snapshot:", error);
+        toast.error("Failed to delete snapshot");
+        return; // Don't clear fields if API fails
+      }
     } else if (activeMarkerIndex !== null) {
       setDroppedMarkers(prev => {
         const newMarkers = prev.filter((_, i) => i !== activeMarkerIndex);

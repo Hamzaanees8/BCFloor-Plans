@@ -39,7 +39,6 @@ interface TourConfimation {
 import { useAppContext } from "@/app/context/AppContext";
 import { PublishTour } from "../file-manager";
 import { toast } from "sonner";
-import ConfirmationDialog from "@/components/ConfirmationDialog";
 
 const TourConfirm = ({ orderData }: TourConfimation) => {
   const { userType } = useAppContext();
@@ -54,8 +53,6 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
   const [open, setOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [showAgain, setShowAgain] = useState(true);
 
   useEffect(() => {
     if (filesData) {
