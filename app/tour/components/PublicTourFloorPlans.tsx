@@ -48,6 +48,7 @@ export interface Marker {
 interface PublicTourFloorPlansProps {
     floorPlanFiles?: FloorPlanFile[];
     snapshots?: Snapshoots[];
+    tourPhotos?: any[];
 }
 
 // PDF Placeholder component
