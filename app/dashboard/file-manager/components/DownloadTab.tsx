@@ -425,17 +425,19 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                         </h3>
                                         <div className="flex items-center gap-2">
                                             {/* Paid/Unpaid badge */}
-                                            <span 
-                                                onClick={() => {
-                                                    if (!section.isPaid) {
-                                                        onOpenInvoice?.(section.bookingEntry?.service.name);
-                                                    }
-                                                }}
-                                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                                                section.isPaid ? 'bg-[#6BAE41] text-white' : 'bg-[#DC9600] text-white cursor-pointer hover:bg-[#eda304]'
-                                            }`}>
-                                                {section.isPaid ? 'PAID' : 'UNPAID'}
-                                            </span>
+                                            {userType !== 'vendor' && (
+                                                <span 
+                                                    onClick={() => {
+                                                        if (!section.isPaid) {
+                                                            onOpenInvoice?.(section.bookingEntry?.service.name);
+                                                        }
+                                                    }}
+                                                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                                    section.isPaid ? 'bg-[#6BAE41] text-white' : 'bg-[#DC9600] text-white cursor-pointer hover:bg-[#eda304]'
+                                                }`}>
+                                                    {section.isPaid ? 'PAID' : 'UNPAID'}
+                                                </span>
+                                            )}
                                             {/* Per-section download buttons */}
                                             {sectionPhotos.length > 0 && (
                                                 <Button

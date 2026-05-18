@@ -309,13 +309,13 @@ function Page() {
   }, [orderId]);
 
   useEffect(() => {
-    if (!orderData?.uuid) return;
+    if (!orderData?.uuid || userType === "vendor") return;
     setInvoicesLoading(true);
     GetInvoicesByOrder(orderData.uuid)
       .then((res) => setInvoices(Array.isArray(res.data) ? res.data : []))
       .catch(() => console.log("Failed to load invoices"))
       .finally(() => setInvoicesLoading(false));
-  }, [orderData?.uuid]);
+  }, [orderData?.uuid, userType]);
 
   const handlePayInvoice = async (invoice: any, mode?: "on_behalf" | "self") => {
     if (!orderData) return;

@@ -24,6 +24,8 @@ function guessPortalTypeFromHostname(hostname: string): string {
   const h = hostname.toLowerCase();
   const defaultDomains = getDefaultDomains();
   const [teams, bookings, vendors] = defaultDomains.map(d => d.toLowerCase());
+  console.log(teams, bookings, vendors, "teams, bookings, vendors");
+  console.log(h, "h");
 
   // 1. Check for exact matches with default domains
   if (h === bookings) return 'agent';
@@ -39,9 +41,7 @@ function guessPortalTypeFromHostname(hostname: string): string {
   )
     return 'agent';
   if (
-    h.includes('vendor-new') ||
-    h.includes('vendors-new') ||
-    h.includes('vendor')
+    h.includes('vendors-new')
   )
     return 'vendor';
   return 'admin';

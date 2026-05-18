@@ -223,13 +223,13 @@ const FileManager = () => {
   }, [searchParams, router]);
 
   useEffect(() => {
-    if (!orderData?.uuid) return;
+    if (!orderData?.uuid || userType === "vendor") return;
     setInvoicesLoading(true);
     GetInvoicesByOrder(orderData.uuid)
       .then((res) => setInvoices(Array.isArray(res.data) ? res.data : []))
       .catch(() => console.log("Failed to load invoices"))
       .finally(() => setInvoicesLoading(false));
-  }, [orderData?.uuid]);
+  }, [orderData?.uuid, userType]);
 
   const handlePayInvoice = async (invoice: any, mode?: "on_behalf" | "self") => {
     if (!orderData) return;
@@ -383,12 +383,22 @@ const FileManager = () => {
   );
 
   const handleOpenInvoice = (serviceName?: string) => {
-    const serviceInv = invoices.find(inv => 
-      inv.items?.some((i: any) => i.description?.toLowerCase() === serviceName?.toLowerCase())
-    ) || invoices[0];
+    const serviceInv = serviceName
+      ? invoices.find(inv => {
+          const isConsolidated = inv.notes?.toLowerCase().includes("consolidated");
+          if (isConsolidated) return false;
+          return inv.items?.some((i: any) => {
+            const desc = i.description?.toLowerCase() || "";
+            const sName = serviceName.toLowerCase();
+            return desc.includes(sName) || sName.includes(desc);
+          });
+        })
+      : undefined;
+
+    const finalInv = serviceInv || invoices[0];
     
-    if (serviceInv) {
-      setViewingInvoice(serviceInv);
+    if (finalInv) {
+      setViewingInvoice(finalInv);
     } else {
       setShowInvoicesModal(true);
     }
@@ -739,25 +749,12 @@ const FileManager = () => {
                   <Loader2 className="h-8 w-8 animate-spin" style={{ color: `var(--${userType}-page-tab-color)` }} />
                 </div>
               ) : (() => {
-                const activeService = servicesData?.find((srv) => srv.uuid === activeTab);
-                const activeServiceName = activeService?.name;
-
-                let filteredList = activeServiceName
-                  ? invoices.filter(inv => {
-                      const isConsolidated = inv.notes?.toLowerCase().includes("consolidated");
-                      if (isConsolidated) return false;
-                      return inv.items?.some((i: any) => i.description?.toLowerCase().includes(activeServiceName.toLowerCase()));
-                    })
-                  : invoices.filter(inv => inv.notes?.toLowerCase().includes("consolidated"));
-
-                if (!activeServiceName && filteredList.length === 0) {
-                  filteredList = invoices;
-                }
+                const filteredList = invoices;
 
                 if (filteredList.length === 0) {
                   return (
                     <div className="text-center py-10 italic text-[#666666]">
-                      No invoices found for this {activeServiceName ? "service" : "order"}.
+                      No invoices found for this order.
                     </div>
                   );
                 }
@@ -906,32 +903,19 @@ const FileManager = () => {
           onOpenChange={(open) => !open && setViewingInvoice(null)}
         >
           <DialogContent className="max-w-4xl w-[95vw] rounded-[8px] p-0 font-alexandria overflow-hidden [&>button]:hidden">
-            <DialogHeader className="p-4 md:p-6 border-b border-[#E4E4E4] bg-white">
-              <DialogTitle className="flex items-center justify-between text-[18px] font-[600] uppercase" style={{ color: `var(--${userType}-page-tab-color)` }}>
-                Invoice #{viewingInvoice?.invoice_number || viewingInvoice?.id}
-                <div className="flex items-center gap-4">
-                  {userType !== "vendor" &&
-                    viewingInvoice?.status?.toUpperCase() !== "PAID" &&
-                    viewingInvoice?.status?.toUpperCase() !== "VOID" && (
-                      currentUser?.uuid === (viewingInvoice.agent?.uuid || viewingInvoice.agent_uuid) ? (
-                        <Button
-                          onClick={() => {
-                            handlePayInvoice(viewingInvoice);
-                            setViewingInvoice(null);
-                          }}
-                          className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-110 rounded-[6px] ${userType}-bg`}
-                          style={{
-                            backgroundColor: `var(--${userType}-page-tab-color, #4290E9)`,
-                          }}
-                        >
-                          Pay Now
-                        </Button>
-                      ) : (
-                        <div className="flex gap-2">
-                          {(userType === "admin" || (viewingInvoice.agent_type === "co-agent" && viewingInvoice.split_details)) && (
+            {viewingInvoice && (
+              <>
+                <DialogHeader className="p-4 md:p-6 border-b border-[#E4E4E4] bg-white">
+                  <DialogTitle className="flex items-center justify-between text-[18px] font-[600] uppercase" style={{ color: `var(--${userType}-page-tab-color)` }}>
+                    Invoice #{viewingInvoice.invoice_number || viewingInvoice.id}
+                    <div className="flex items-center gap-4">
+                      {userType !== "vendor" &&
+                        viewingInvoice.status?.toUpperCase() !== "PAID" &&
+                        viewingInvoice.status?.toUpperCase() !== "VOID" && (
+                          currentUser?.uuid === (viewingInvoice.agent?.uuid || viewingInvoice.agent_uuid) ? (
                             <Button
                               onClick={() => {
-                                handlePayInvoice(viewingInvoice, "on_behalf");
+                                handlePayInvoice(viewingInvoice);
                                 setViewingInvoice(null);
                               }}
                               className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-110 rounded-[6px] ${userType}-bg`}
@@ -939,55 +923,68 @@ const FileManager = () => {
                                 backgroundColor: `var(--${userType}-page-tab-color, #4290E9)`,
                               }}
                             >
-                              Pay on Behalf
+                              Pay Now
                             </Button>
-                          )}
-                          {userType !== "admin" && (
-                            <Button
-                              onClick={() => {
-                                handlePayInvoice(viewingInvoice, "self");
-                                setViewingInvoice(null);
-                              }}
-                              className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-110 rounded-[6px] ${userType}-bg`}
-                              style={{
-                                backgroundColor: `var(--${userType}-page-tab-color, #4290E9)`,
-                              }}
-                            >
-                              Pay Self
-                            </Button>
-                          )}
-                        </div>
-                      )
-                    )}
-                  <Button className="border-none !shadow-none bg-transparent hover:bg-transparent p-0" onClick={() => setViewingInvoice(null)}>
-                    <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                  </Button>
+                          ) : (
+                            <div className="flex gap-2">
+                              {(userType === "admin" || (viewingInvoice.agent_type === "co-agent" && viewingInvoice.split_details)) && (
+                                <Button
+                                  onClick={() => {
+                                    handlePayInvoice(viewingInvoice, "on_behalf");
+                                    setViewingInvoice(null);
+                                  }}
+                                  className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-110 rounded-[6px] ${userType}-bg`}
+                                  style={{
+                                    backgroundColor: `var(--${userType}-page-tab-color, #4290E9)`,
+                                  }}
+                                >
+                                  Pay on Behalf
+                                </Button>
+                              )}
+                              {userType !== "admin" && (
+                                <Button
+                                  onClick={() => {
+                                    handlePayInvoice(viewingInvoice, "self");
+                                    setViewingInvoice(null);
+                                  }}
+                                  className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-110 rounded-[6px] ${userType}-bg`}
+                                  style={{
+                                    backgroundColor: `var(--${userType}-page-tab-color, #4290E9)`,
+                                  }}
+                                >
+                                  Pay Self
+                                </Button>
+                              )}
+                            </div>
+                          )
+                        )}
+                      <Button className="border-none !shadow-none bg-transparent hover:bg-transparent p-0" onClick={() => setViewingInvoice(null)}>
+                        <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
+                      </Button>
+                    </div>
+                  </DialogTitle>
+                </DialogHeader>
+
+                <div className="max-h-[70vh] overflow-y-auto p-4 md:p-8 bg-[#F9F9F9]">
+                  <div className="flex flex-col items-center">
+                    <InvoiceDocument
+                      invoice={viewingInvoice}
+                      editData={viewingInvoice}
+                      isEditing={false}
+                      updateItem={() => {}}
+                      addItem={() => {}}
+                      removeItem={() => {}}
+                      updateTaxRate={() => {}}
+                      setEditData={() => {}}
+                      roleSettings={{
+                        pageTabColor: `var(--${userType}-page-tab-color, #4290E9)`,
+                        pageBg: `var(--${userType}-page-bg, #FFFFFF)`,
+                      }}
+                    />
+                  </div>
                 </div>
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="max-h-[70vh] overflow-y-auto p-4 md:p-8 bg-[#F9F9F9]">
-              {viewingInvoice && (
-                <div className="flex flex-col items-center">
-                  <InvoiceDocument
-                    invoice={viewingInvoice}
-                    editData={viewingInvoice}
-                    isEditing={false}
-                    updateItem={() => {}}
-                    addItem={() => {}}
-                    removeItem={() => {}}
-                    updateTaxRate={() => {}}
-                    setEditData={() => {}}
-                    roleSettings={{
-                      pageTabColor: `var(--${userType}-page-tab-color, #4290E9)`,
-                      pageBg: `var(--${userType}-page-bg, #FFFFFF)`,
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-
-
+              </>
+            )}
           </DialogContent>
         </Dialog>
         <div className="flex items-center gap-x-4">
@@ -1039,13 +1036,15 @@ const FileManager = () => {
               "Save Changes"
             )}
           </Button>
-          <Button
-            onClick={() => setShowInvoicesModal(true)}
-            className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[400] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button`}
-            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-          >
-            Invoice
-          </Button>
+          {userType !== "vendor" && (
+            <Button
+              onClick={() => setShowInvoicesModal(true)}
+              className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[400] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button`}
+              style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+            >
+              Invoice
+            </Button>
+          )}
 
 
           {/* <Link
@@ -1325,29 +1324,31 @@ const FileManager = () => {
                   </div>
 
                   {/* Status Badge */}
-                  <div className="flex items-center gap-2">
-                    {isPaid ? (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenInvoice(booking.service?.name);
-                        }}
-                        className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border-2 ${userType}-border ${userType}-text bg-white hover-${userType}-bg hover:!text-white transition-all`}
-                      >
-                        View
-                      </button>
-                    ) : (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenInvoice(booking.service?.name);
-                        }}
-                        className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#DC9600] text-white hover:bg-[#b87d00] transition-colors"
-                      >
-                        UNPAID
-                      </button>
-                    )}
-                  </div>
+                  {userType !== "vendor" && (
+                    <div className="flex items-center gap-2">
+                      {isPaid ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenInvoice(booking.service?.name);
+                          }}
+                          className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border-2 ${userType}-border ${userType}-text bg-white hover-${userType}-bg hover:!text-white transition-all`}
+                        >
+                          View
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenInvoice(booking.service?.name);
+                          }}
+                          className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#DC9600] text-white hover:bg-[#b87d00] transition-colors"
+                        >
+                          UNPAID
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
