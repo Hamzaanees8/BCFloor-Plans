@@ -61,6 +61,7 @@ export const OptimizedImagePreview = forwardRef<HTMLImageElement, OptimizedImage
 
         // Render optimized preview
         return (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
                 ref={ref}
                 src={previewUrl}

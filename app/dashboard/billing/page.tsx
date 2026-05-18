@@ -21,7 +21,7 @@ import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { BillingItem, createQuickBilling } from "./billing";
 import { getBillings } from "./billing";
-import { ChevronDown, ChevronUp, ExternalLink, FileText, Loader2, Plus, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, FileText, Loader2, Plus, RotateCcw, X } from "lucide-react";
 import { OrderSlots } from "./billing";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -30,6 +30,12 @@ import InvoiceModal from "../invoice/components/InvoiceModal";
 import RefundModal from "../invoice/components/RefundModal";
 import { GetInvoicesByOrder, PayInvoiceWithStripe } from "../invoice/invoice_api";
 import InvoiceDocument from "../invoice/components/InvoiceDocument";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const Page = () => {
   const { userType } = useAppContext();
@@ -89,6 +95,25 @@ const Page = () => {
   } | null>(null);
   const [actionLoading, setActionLoading] = useState<{ id: string | number, action: "pay" | "view" } | null>(null);
 
+  const [showInvoicesModal, setShowInvoicesModal] = useState(false);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [viewingInvoice, setViewingInvoice] = useState<any | null>(null);
+  const [selectedBilling, setSelectedBilling] = useState<BillingItem | null>(null);
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    const info = localStorage.getItem("userInfo");
+    if (info) {
+      try {
+        setCurrentUser(JSON.parse(info));
+      } catch (e) {
+        console.error("Failed to parse userInfo", e);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -101,11 +126,60 @@ const Page = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [serviceInvoicePopup]);
 
+  const handlePayInvoice = async (invoice: any, billing: BillingItem, mode?: "on_behalf" | "self") => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Not authenticated");
+      return;
+    }
+    try {
+      const isSplit = !!invoice.split_details;
+      const payerUuid = currentUser?.uuid;
+      const isOwner = currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid);
+      
+      let paymentMode: "on_behalf" | "self" | undefined = mode;
+
+      if (isSplit && !paymentMode) {
+        if (isOwner) {
+          paymentMode = "self";
+        } else {
+          paymentMode = (invoice.agent_type === "primary" && userType !== "admin") ? "self" : "on_behalf";
+        }
+      }
+
+      await PayInvoiceWithStripe(
+        invoice,
+        { agent: { uuid: billing.agent_uuid }, id: billing.order_id },
+        typeof window !== "undefined" ? window.location.href : "dashboard/billing",
+        undefined,
+        isSplit ? paymentMode : undefined,
+        isSplit ? payerUuid : undefined,
+      );
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to initiate payment.");
+    }
+  };
+
   const handleInvoiceAction = async (billing: BillingItem, action: "pay" | "view", serviceId?: string, serviceAmount?: number) => {
     try {
+      setInvoicesLoading(true);
       setActionLoading({ id: serviceId || billing.order_id, action });
       const res = await GetInvoicesByOrder(billing.order_uuid);
-      const invoice = Array.isArray(res.data) ? res.data[0] : res.data;
+      const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
+
+      if (invoicesList.length > 1) {
+        setActionLoading(null);
+        setInvoices(invoicesList);
+        setSelectedBilling(billing);
+        setSelectedOrderUuid(billing.order_uuid);
+        setSelectedServiceId(serviceId || null);
+        setShowInvoicesModal(true);
+        setInvoicesLoading(false);
+        return;
+      }
+
+      const invoice = invoicesList[0];
 
       if (invoice) {
         if (action === "view") {
@@ -131,8 +205,10 @@ const Page = () => {
           toast.error("Could not find invoice for this order.");
         }
       }
+      setInvoicesLoading(false);
     } catch (err) {
       setActionLoading(null);
+      setInvoicesLoading(false);
       console.error(err);
       toast.error("Failed to process invoice action.");
     }
@@ -244,7 +320,7 @@ const Page = () => {
       const propertyAddr = (billing.property_address || "").toLowerCase();
       const propertyLoc = (billing.property_location || "").toLowerCase();
       const matchesProperty = propertyAddr.includes(searchTerm) || propertyLoc.includes(searchTerm);
-      
+
       const matchesAddress = billing.slots.some((slot) =>
         `${slot.address} ${slot.location}`.toLowerCase().includes(searchTerm)
       );
@@ -464,9 +540,9 @@ const Page = () => {
               <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
                 Agent
               </TableHead>
-              <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
+              {/* <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
                 Address
-              </TableHead>
+              </TableHead> */}
               <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
                 Total Amount
               </TableHead>
@@ -533,7 +609,7 @@ const Page = () => {
                       >
                         {billing.agent_name || "N/A"}
                       </TableCell>
-                      <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">
+                      <TableCell className="text-[15px] py-[19px] font-[400] hidden text-[#7D7D7D]">
                         {address}
                       </TableCell>
                       <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">
@@ -661,20 +737,20 @@ const Page = () => {
                                           )}
                                         </Button>
 
-                                          {billing.remaining_amount > 0 && (
-                                            <Button
-                                              onClick={() => handleInvoiceAction(billing, "pay")}
-                                              disabled={actionLoading !== null}
-                                              className="px-6 py-4 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110"
-                                              style={{ backgroundColor: roleSettings.pageTabColor }}
-                                            >
-                                              {actionLoading?.id === billing.order_id && actionLoading?.action === "pay" ? (
-                                                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
-                                              ) : (
-                                                "Pay All"
-                                              )}
-                                            </Button>
-                                          )}
+                                        {billing.remaining_amount > 0 && (
+                                          <Button
+                                            onClick={() => handleInvoiceAction(billing, "pay")}
+                                            disabled={actionLoading !== null}
+                                            className="px-6 py-4 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110"
+                                            style={{ backgroundColor: roleSettings.pageTabColor }}
+                                          >
+                                            {actionLoading?.id === billing.order_id && actionLoading?.action === "pay" ? (
+                                              <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
+                                            ) : (
+                                              "Pay All"
+                                            )}
+                                          </Button>
+                                        )}
                                         {/* <Button
                                           variant="outline"
                                           onClick={() => {
@@ -911,6 +987,236 @@ const Page = () => {
         onClose={() => setIsInvoiceModalOpen(false)}
         uuid={selectedOrderUuid}
       />
+
+      {/* Multiple Invoices Modal for Split Invoices */}
+      <Dialog open={showInvoicesModal} onOpenChange={setShowInvoicesModal}>
+        <DialogContent className="max-w-4xl w-[95vw] md:w-[850px] rounded-[12px] p-0 font-alexandria overflow-hidden border border-gray-100 shadow-2xl bg-white/95 backdrop-blur-md [&>button]:hidden">
+          <DialogHeader className="p-6 border-b border-gray-100 bg-white">
+            <DialogTitle className="flex items-center justify-between text-lg font-bold tracking-tight uppercase" style={{ color: roleSettings.pageTabColor }}>
+              <span>Order Split Invoices</span>
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-gray-100 rounded-full animate-none" onClick={() => setShowInvoicesModal(false)}>
+                <X className="h-5 w-5 text-gray-500" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="max-h-[65vh] overflow-y-auto p-6 space-y-4 bg-gray-50/50">
+            {invoicesLoading ? (
+              <div className="flex flex-col justify-center items-center py-20 gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                <span className="text-sm text-gray-500 font-medium">Fetching split invoices...</span>
+              </div>
+            ) : (() => {
+              let filteredList = selectedServiceId
+                ? invoices.filter(inv => {
+                    const isConsolidated = inv.notes?.toLowerCase().includes("consolidated");
+                    if (isConsolidated) return false;
+                    return inv.items?.some((i: any) => i.order_service?.uuid === selectedServiceId || i.order_service_id?.toString() === selectedServiceId);
+                  })
+                : invoices.filter(inv => inv.notes?.toLowerCase().includes("consolidated"));
+
+              if (!selectedServiceId && filteredList.length === 0) {
+                filteredList = invoices;
+              }
+
+              if (filteredList.length === 0) {
+                return (
+                  <div className="text-center py-16 italic text-gray-500 font-medium">
+                    No matching split invoices found for this {selectedServiceId ? "service" : "order"}.
+                  </div>
+                );
+              }
+
+              return (
+                <div className="flex flex-col gap-4">
+                  {filteredList.map((invoice) => {
+                    const status = (invoice.status || "unpaid").toUpperCase();
+                    let badgeBg = "#E06D5E"; // Unpaid
+                    let badgeText = "Unpaid";
+                    if (status === "PAID") {
+                      badgeBg = "#6BAE41";
+                      badgeText = "Paid";
+                    } else if (status === "ISSUED") {
+                      badgeBg = "#4A90E2";
+                      badgeText = "Issued";
+                    } else if (status === "VOID") {
+                      badgeBg = "#A0A0A0";
+                      badgeText = "Void";
+                    } else if (status === "PARTIAL_PAID" || status === "PARTIALLY_PAID" || status === "PARTIAL") {
+                      badgeBg = "#DC9600";
+                      badgeText = "Partial";
+                    } else if (status === "REFUNDED") {
+                      badgeBg = "#D0021B";
+                      badgeText = "Refunded";
+                    }
+
+                    const isOwner = currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid);
+                    const splitPercentage = invoice.split_details?.splits?.find((s: any) => s.email === invoice.agent?.email || s.agent_id === invoice.agent_id)?.percentage || null;
+
+                    return (
+                      <div
+                        key={invoice.uuid}
+                        className="group flex flex-col md:flex-row justify-between items-start md:items-center p-5 rounded-xl border border-gray-200/80 bg-white shadow-sm hover:shadow-md hover:border-gray-300/80 transition-all duration-300 gap-4"
+                      >
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <span className="font-bold text-[16px] text-gray-800 tracking-tight">
+                              Invoice #{invoice.invoice_number || invoice.id}
+                            </span>
+                            <span
+                              className="text-white px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase leading-none"
+                              style={{ backgroundColor: badgeBg }}
+                            >
+                              {badgeText}
+                            </span>
+                            {invoice.agent_type && (
+                              <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">
+                                {invoice.agent_type} {splitPercentage ? `(${splitPercentage}%)` : ""}
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="flex flex-col gap-1 text-[13px] text-gray-500">
+                            <span className="font-medium text-gray-700">
+                              Agent: {invoice.agent?.first_name} {invoice.agent?.last_name} ({invoice.agent?.email})
+                            </span>
+                            <span>
+                              Issued: {new Date(invoice.issued_at).toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' })}
+                            </span>
+                          </div>
+
+                          {invoice.items && invoice.items.length > 0 && (
+                            <div className="text-[12px] font-medium text-gray-400 line-clamp-1">
+                              Services: {invoice.items.map((i: any) => i.description || "Service Item").join(", ")}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col md:items-end gap-3 min-w-[200px]">
+                          <div className="flex flex-col md:items-end">
+                            <span className="text-[20px] font-bold text-gray-800">
+                              ${parseFloat(invoice.total).toFixed(2)}
+                            </span>
+                            {parseFloat(invoice.paid_amount) > 0 && (
+                              <span className="text-[12px] text-[#6BAE41] font-semibold">
+                                Paid: ${parseFloat(invoice.paid_amount).toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex gap-2 flex-wrap w-full md:justify-end">
+                            <Button
+                              variant="outline"
+                              onClick={() => setViewingInvoice(invoice)}
+                              className="h-[34px] text-[13px] px-4 font-semibold border-gray-200 hover:bg-gray-50 text-gray-700 rounded-lg shadow-sm"
+                            >
+                              View Invoice
+                            </Button>
+
+                            {status !== "PAID" && status !== "VOID" && selectedBilling && (
+                              isOwner ? (
+                                <Button
+                                  onClick={() => {
+                                    setShowInvoicesModal(false);
+                                    handlePayInvoice(invoice, selectedBilling);
+                                  }}
+                                  className="h-[34px] text-[13px] px-4 font-semibold text-white hover:brightness-110 rounded-lg shadow-sm"
+                                  style={{ backgroundColor: roleSettings.pageTabColor }}
+                                >
+                                  Pay Now
+                                </Button>
+                              ) : (
+                                <div className="flex gap-2">
+                                  {(userType === "admin" || (invoice.agent_type === "co-agent" && invoice.split_details)) && (
+                                    <Button
+                                      onClick={() => {
+                                        setShowInvoicesModal(false);
+                                        handlePayInvoice(invoice, selectedBilling, "on_behalf");
+                                      }}
+                                      className="h-[34px] text-[13px] px-4 font-semibold text-white hover:brightness-110 rounded-lg shadow-sm animate-none"
+                                      style={{ backgroundColor: roleSettings.pageTabColor }}
+                                    >
+                                      Pay on Behalf
+                                    </Button>
+                                  )}
+                                  {userType !== "admin" && (
+                                    <Button
+                                      onClick={() => {
+                                        setShowInvoicesModal(false);
+                                        handlePayInvoice(invoice, selectedBilling, "self");
+                                      }}
+                                      className="h-[34px] text-[13px] px-4 font-semibold text-white hover:brightness-110 rounded-lg shadow-sm animate-none"
+                                      style={{ backgroundColor: roleSettings.pageTabColor }}
+                                    >
+                                      Pay Self
+                                    </Button>
+                                  )}
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Secondary popup for viewing a single invoice document from the split list */}
+      {viewingInvoice && (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-4 sm:p-6 md:p-8"
+          onClick={() => setViewingInvoice(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[95vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
+                Invoice #{viewingInvoice.invoice_number || viewingInvoice.id}
+              </h2>
+              <div className="flex items-center gap-4">
+                {viewingInvoice.status?.toUpperCase() !== 'PAID' && selectedBilling && (
+                  <Button
+                    onClick={() => {
+                      setViewingInvoice(null);
+                      handlePayInvoice(viewingInvoice, selectedBilling);
+                    }}
+                    className="px-6 h-[36px] text-[14px] font-semibold text-white hover:brightness-110 cursor-pointer"
+                    style={{ backgroundColor: roleSettings.pageTabColor }}
+                  >
+                    Pay Now
+                  </Button>
+                )}
+                <button
+                  onClick={() => setViewingInvoice(null)}
+                  className="text-gray-500 hover:text-gray-700 p-2"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <div className="overflow-y-auto p-4 flex-1">
+              <InvoiceDocument
+                invoice={viewingInvoice}
+                editData={viewingInvoice}
+                isEditing={false}
+                updateItem={() => { }}
+                addItem={() => { }}
+                removeItem={() => { }}
+                updateTaxRate={() => { }}
+                setEditData={() => { }}
+                roleSettings={roleSettings}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <RefundModal
         isOpen={isRefundModalOpen}

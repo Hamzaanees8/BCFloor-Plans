@@ -113,6 +113,32 @@ export async function GetFilesData(token: string, orderUuid: string, includeHidd
   return response.json();
 }
 
+export async function CreateTour(token: string, orderUuid: string) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const formData = new FormData();
+  formData.append("order_id", orderUuid);
+  formData.append("slide_show[slide_delay]", "3000");
+  formData.append("slide_show[transitions]", "fade-in");
+  formData.append("slide_show[background_audio]", "none");
+  formData.append("slide_show[auto_play]", "0");
+  formData.append("slide_show[video_overlay]", "0");
+
+  const response = await fetch(`${API_URL}/tours`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `Tour creation failed with status ${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
 export async function HideMediaFiles(token: string, uuids: string[], is_hidden: boolean) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 

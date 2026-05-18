@@ -370,7 +370,6 @@ function TourFloorPlans({ type = "" }) {
               />
             )
           ) : (
-            /* eslint-disable-next-line @next/next/no-img-element */
             selectedFile && !('uuid' in selectedFile) ? (
               <OptimizedImagePreview
                 file={(selectedFile as any).file}
@@ -381,6 +380,7 @@ function TourFloorPlans({ type = "" }) {
                 className="object-contain max-h-full max-w-full w-full h-full"
               />
             ) : (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 draggable={false}
                 ref={imgRef}
@@ -626,13 +626,13 @@ function TourFloorPlans({ type = "" }) {
                       </div>
                     )
                   ) : (
-                    /* eslint-disable-next-line @next/next/no-img-element */
                     !('uuid' in file) ? (
                       <OptimizedImagePreview
                         file={(file as any).file}
                         className="max-w-full max-h-full"
                       />
                     ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img 
                         src={
                           'uuid' in file 
@@ -688,6 +688,7 @@ function TourFloorPlans({ type = "" }) {
                           className="w-full h-full object-cover"
                         />
                       ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           draggable
                           onDragStart={(e) => {

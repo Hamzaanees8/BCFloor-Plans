@@ -165,7 +165,10 @@ const Services = ({ showAll }: { showAll: boolean }) => {
             return hasMatchingOption;
         });
 
-        const finalData = showAll ? fetched : filteredServices;
+        const finalData = (showAll ? fetched : filteredServices).filter((service: Services) => {
+            const name = service.name?.toLowerCase() || '';
+            return name !== 'feature sheets';
+        });
         setServicesData(finalData);
 
         const grouped = finalData.reduce((acc: Record<string, Services[]>, service: Services) => {

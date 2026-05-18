@@ -131,6 +131,18 @@ const FileManager = () => {
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null);
   const [currentListing, setCurrentListing] = useState<Listings | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    const info = localStorage.getItem("userInfo");
+    if (info) {
+      try {
+        setCurrentUser(JSON.parse(info));
+      } catch (e) {
+        console.error("Failed to parse userInfo", e);
+      }
+    }
+  }, []);
 
   const serviceIdFromURL = searchParams.get("serviceId");
 
@@ -219,11 +231,36 @@ const FileManager = () => {
       .finally(() => setInvoicesLoading(false));
   }, [orderData?.uuid]);
 
-  const handlePayInvoice = async (invoice: any) => {
+  const handlePayInvoice = async (invoice: any, mode?: "on_behalf" | "self") => {
     if (!orderData) return;
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Not authenticated");
+      return;
+    }
     try {
-      const redirectUrl = window.location.href;
-      await PayInvoiceWithStripe(invoice, orderData, redirectUrl);
+      const isSplit = !!invoice.split_details;
+      const payerUuid = currentUser?.uuid;
+      const isOwner = currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid);
+      
+      let paymentMode: "on_behalf" | "self" | undefined = mode;
+
+      if (isSplit && !paymentMode) {
+        if (isOwner) {
+          paymentMode = "self";
+        } else {
+          paymentMode = (invoice.agent_type === "primary" && userType !== "admin") ? "self" : "on_behalf";
+        }
+      }
+
+      await PayInvoiceWithStripe(
+        invoice,
+        orderData,
+        window.location.href,
+        undefined,
+        isSplit ? paymentMode : undefined,
+        isSplit ? payerUuid : undefined,
+      );
     } catch (err) {
       console.error(err);
       toast.error("Failed to initiate payment.");
@@ -306,6 +343,10 @@ const FileManager = () => {
   const groupedServices = React.useMemo(() => {
     const map = new Map<string, NonNullable<typeof orderData>["services"][0][]>();
     (orderData?.services ?? []).forEach((os) => {
+      const isFS = os.service?.name?.toLowerCase() === "feature sheets" ||
+                   (os.service as any)?.category?.name?.toLowerCase() === "feature sheets";
+      if (isFS) return;
+
       const key = os.service.uuid;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(os);
@@ -619,7 +660,7 @@ const FileManager = () => {
     } else {
       console.log("Upload finished but response is falsy:", response);
     }
-  }, [selectedFiles, floorFiles, selectedVideoFiles, filesData, changedFileUuids, startUpload, orderData?.uuid, links, droppedMarkers, delay, transition, selectedAudioTrack, setSelectedFiles, setFloorFiles, setSelectedVideoFiles, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setFileManagerMode]);
+  }, [selectedFiles, floorFiles, selectedVideoFiles, filesData, changedFileUuids, startUpload, orderData?.uuid, links, droppedMarkers, delay, transition, selectedAudioTrack, setSelectedFiles, setFloorFiles, setSelectedVideoFiles, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setFileManagerMode, deletedSnapshotUuids, setDeletedSnapshotUuids, setDroppedMarkers]);
 
   const handleSave = React.useCallback(async () => {
     setIsSaving(true);
@@ -697,99 +738,162 @@ const FileManager = () => {
                 <div className="flex justify-center py-10">
                   <Loader2 className="h-8 w-8 animate-spin" style={{ color: `var(--${userType}-page-tab-color)` }} />
                 </div>
-              ) : invoices.length === 0 ? (
-                <div className="text-center py-10 italic text-[#666666]">
-                  No invoices found for this order.
-                </div>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  {invoices.map((invoice) => {
-                    const status = (invoice.status || "unpaid").toUpperCase();
-                    let badgeBg = "#E06D5E";
-                    if (status === "PAID") badgeBg = "#6BAE41";
-                    else if (status === "ISSUED") badgeBg = "#4A90E2";
-                    else if (status === "VOID") badgeBg = "#A0A0A0";
-                    else if (
-                      status === "PARTIAL_PAID" ||
-                      status === "PARTIALLY_PAID" ||
-                      status === "PARTIAL"
-                    ) badgeBg = "#F5A623";
-                    else if (status === "REFUNDED") badgeBg = "#D0021B";
+              ) : (() => {
+                const activeService = servicesData?.find((srv) => srv.uuid === activeTab);
+                const activeServiceName = activeService?.name;
 
-                    return (
-                      <div
-                        key={invoice.uuid}
-                        className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 rounded-[6px] border border-[#E4E4E4] gap-4"
-                        style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EEEEEE), white 70%)` }}
-                      >
-                        <div className="flex flex-col gap-1 w-full md:w-1/2">
-                          <div className="flex items-center gap-3">
-                            <span className="font-[600] text-[16px] text-[#424242]">
-                              #{invoice.invoice_number || invoice.id}
-                            </span>
-                            <span
-                              className="text-white px-2 py-0.5 rounded-full text-[10px] font-bold uppercase"
-                              style={{ backgroundColor: badgeBg }}
-                            >
-                              {status}
-                            </span>
-                          </div>
-                          <span className="text-[12px] text-[#666666]">
-                            Issued: {new Date(invoice.issued_at).toLocaleDateString()}
-                          </span>
-                          {invoice.items && invoice.items.length > 0 && (
-                            <div className="mt-1 text-[12px] truncate text-[#7D7D7D]">
-                              Services: {invoice.items.map((i: any) => i.description || "Service Item").join(", ")}
-                            </div>
-                          )}
-                        </div>
+                let filteredList = activeServiceName
+                  ? invoices.filter(inv => {
+                      const isConsolidated = inv.notes?.toLowerCase().includes("consolidated");
+                      if (isConsolidated) return false;
+                      return inv.items?.some((i: any) => i.description?.toLowerCase().includes(activeServiceName.toLowerCase()));
+                    })
+                  : invoices.filter(inv => inv.notes?.toLowerCase().includes("consolidated"));
 
-                        <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full md:w-auto">
-                          <div className="flex flex-col md:items-end">
-                            <span className="text-[18px] font-bold text-[#424242]">
-                              ${parseFloat(invoice.total).toFixed(2)}
-                            </span>
-                            {parseFloat(invoice.paid_amount) > 0 && (
-                              <span className="text-[12px] text-[#6BAE41] font-medium">
-                                Paid: ${parseFloat(invoice.paid_amount).toFixed(2)}
+                if (!activeServiceName && filteredList.length === 0) {
+                  filteredList = invoices;
+                }
+
+                if (filteredList.length === 0) {
+                  return (
+                    <div className="text-center py-10 italic text-[#666666]">
+                      No invoices found for this {activeServiceName ? "service" : "order"}.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="flex flex-col gap-4">
+                    {filteredList.map((invoice) => {
+                      const status = (invoice.status || "unpaid").toUpperCase();
+                      let badgeBg = "#E06D5E";
+                      if (status === "PAID") badgeBg = "#6BAE41";
+                      else if (status === "ISSUED") badgeBg = "#4A90E2";
+                      else if (status === "VOID") badgeBg = "#A0A0A0";
+                      else if (
+                        status === "PARTIAL_PAID" ||
+                        status === "PARTIALLY_PAID" ||
+                        status === "PARTIAL"
+                      ) badgeBg = "#F5A623";
+                      else if (status === "REFUNDED") badgeBg = "#D0021B";
+
+                      return (
+                        <div
+                          key={invoice.uuid}
+                          className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 rounded-[6px] border border-[#E4E4E4] gap-4"
+                          style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EEEEEE), white 70%)` }}
+                        >
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-alexandria text-[16px] font-[500] text-[#1C1C1C]">
+                                Invoice #{invoice.invoice_number || invoice.id}
+                              </p>
+                              <span
+                                className="text-white px-[12px] py-[2px] rounded-[100px] text-[10px] font-bold"
+                                style={{ backgroundColor: badgeBg }}
+                              >
+                                {status}
                               </span>
+                              {invoice.agent_type && (
+                                <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">
+                                  {invoice.agent_type}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[13px] text-[#666666]">
+                              <p>
+                                Agent: {invoice.agent?.first_name} {invoice.agent?.last_name} ({invoice.agent?.email})
+                              </p>
+                              <p>
+                                Issued: {new Date(invoice.issued_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                            {invoice.items && invoice.items.length > 0 && (
+                              <p className="text-[12px] text-gray-400">
+                                Services: {invoice.items.map((i: any) => i.description || "Service Item").join(", ")}
+                              </p>
                             )}
                           </div>
-                          <div className="flex gap-2 flex-wrap justify-start md:justify-end">
-                            <Button
-                              variant="outline"
-                              onClick={() => setViewingInvoice(invoice)}
-                              className={`h-[35px] text-[13px] px-4 font-semibold border rounded-[6px] ${userType}-button hover-${userType}-bg hover:!text-white transition-all`}
-                              style={{
-                                borderColor: `var(--${userType}-page-tab-color)`,
-                                color: `var(--${userType}-page-tab-color)`,
-                              }}
-                            >
-                              View
-                            </Button>
-                            {userType !== "vendor" &&
-                              status !== "PAID" &&
-                              status !== "VOID" && (
-                                <Button
-                                  onClick={() => {
-                                    setShowInvoicesModal(false);
-                                    handlePayInvoice(invoice);
-                                  }}
-                                  className={`h-[35px] text-[13px] px-4 font-semibold text-white hover:opacity-90 rounded-[6px] ${userType}-bg`}
-                                  style={{
-                                    backgroundColor: `var(--${userType}-page-tab-color)`,
-                                  }}
-                                >
-                                  Pay Now
-                                </Button>
+                          <div className="flex flex-col md:items-end gap-2.5 min-w-[200px]">
+                            <div className="flex flex-col md:items-end">
+                              <p className="font-alexandria text-[20px] font-[500] text-[#1C1C1C]">
+                                ${parseFloat(invoice.total).toFixed(2)}
+                              </p>
+                              {parseFloat(invoice.paid_amount) > 0 && (
+                                <p className="text-[12px] text-[#6BAE41] font-[500]">
+                                  Paid: ${parseFloat(invoice.paid_amount).toFixed(2)}
+                                </p>
                               )}
+                            </div>
+                            <div className="flex gap-2 flex-wrap justify-start md:justify-end">
+                              <Button
+                                variant="outline"
+                                onClick={() => setViewingInvoice(invoice)}
+                                className={`h-[35px] text-[13px] px-4 font-semibold border rounded-[6px] ${userType}-button hover-${userType}-bg hover:!text-white transition-all`}
+                                style={{
+                                  borderColor: `var(--${userType}-page-tab-color)`,
+                                  color: `var(--${userType}-page-tab-color)`,
+                                }}
+                              >
+                                View
+                              </Button>
+                              {userType !== "vendor" &&
+                                status !== "PAID" &&
+                                status !== "VOID" && (
+                                  currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid) ? (
+                                    <Button
+                                      onClick={() => {
+                                        setShowInvoicesModal(false);
+                                        handlePayInvoice(invoice);
+                                      }}
+                                      className={`h-[35px] text-[13px] px-4 font-semibold text-white hover:opacity-90 rounded-[6px] ${userType}-bg`}
+                                      style={{
+                                        backgroundColor: `var(--${userType}-page-tab-color)`,
+                                      }}
+                                    >
+                                      Pay Now
+                                    </Button>
+                                  ) : (
+                                    <div className="flex gap-2">
+                                      {(userType === "admin" || (invoice.agent_type === "co-agent" && invoice.split_details)) && (
+                                        <Button
+                                          onClick={() => {
+                                            setShowInvoicesModal(false);
+                                            handlePayInvoice(invoice, "on_behalf");
+                                          }}
+                                          className={`h-[35px] text-[13px] px-4 font-semibold text-white hover:opacity-90 rounded-[6px] ${userType}-bg`}
+                                          style={{
+                                            backgroundColor: `var(--${userType}-page-tab-color)`,
+                                          }}
+                                        >
+                                          Pay on Behalf
+                                        </Button>
+                                      )}
+                                      {userType !== "admin" && (
+                                        <Button
+                                          onClick={() => {
+                                            setShowInvoicesModal(false);
+                                            handlePayInvoice(invoice, "self");
+                                          }}
+                                          className={`h-[35px] text-[13px] px-4 font-semibold text-white hover:opacity-90 rounded-[6px] ${userType}-bg`}
+                                          style={{
+                                            backgroundColor: `var(--${userType}-page-tab-color)`,
+                                          }}
+                                        >
+                                          Pay Self
+                                        </Button>
+                                      )}
+                                    </div>
+                                  )
+                                )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
 
 
@@ -809,19 +913,52 @@ const FileManager = () => {
                   {userType !== "vendor" &&
                     viewingInvoice?.status?.toUpperCase() !== "PAID" &&
                     viewingInvoice?.status?.toUpperCase() !== "VOID" && (
-                    <Button
-                      onClick={() => {
-                        handlePayInvoice(viewingInvoice);
-                        setViewingInvoice(null);
-                      }}
-                      className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-110 rounded-[6px] ${userType}-bg`}
-                      style={{
-                        backgroundColor: `var(--${userType}-page-tab-color, #4290E9)`,
-                      }}
-                    >
-                      Pay Now
-                    </Button>
-                  )}
+                      currentUser?.uuid === (viewingInvoice.agent?.uuid || viewingInvoice.agent_uuid) ? (
+                        <Button
+                          onClick={() => {
+                            handlePayInvoice(viewingInvoice);
+                            setViewingInvoice(null);
+                          }}
+                          className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-110 rounded-[6px] ${userType}-bg`}
+                          style={{
+                            backgroundColor: `var(--${userType}-page-tab-color, #4290E9)`,
+                          }}
+                        >
+                          Pay Now
+                        </Button>
+                      ) : (
+                        <div className="flex gap-2">
+                          {(userType === "admin" || (viewingInvoice.agent_type === "co-agent" && viewingInvoice.split_details)) && (
+                            <Button
+                              onClick={() => {
+                                handlePayInvoice(viewingInvoice, "on_behalf");
+                                setViewingInvoice(null);
+                              }}
+                              className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-110 rounded-[6px] ${userType}-bg`}
+                              style={{
+                                backgroundColor: `var(--${userType}-page-tab-color, #4290E9)`,
+                              }}
+                            >
+                              Pay on Behalf
+                            </Button>
+                          )}
+                          {userType !== "admin" && (
+                            <Button
+                              onClick={() => {
+                                handlePayInvoice(viewingInvoice, "self");
+                                setViewingInvoice(null);
+                              }}
+                              className={`h-[32px] px-6 text-[14px] font-semibold text-white hover:brightness-110 rounded-[6px] ${userType}-bg`}
+                              style={{
+                                backgroundColor: `var(--${userType}-page-tab-color, #4290E9)`,
+                              }}
+                            >
+                              Pay Self
+                            </Button>
+                          )}
+                        </div>
+                      )
+                    )}
                   <Button className="border-none !shadow-none bg-transparent hover:bg-transparent p-0" onClick={() => setViewingInvoice(null)}>
                     <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
                   </Button>

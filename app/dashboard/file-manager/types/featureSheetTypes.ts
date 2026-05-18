@@ -258,5 +258,5 @@ export interface PrintRequestData {
     additional_info?: string;
     agent_id: string;
     property_id: string;
-    tour_id: string;
+    tour_id?: string;
 }

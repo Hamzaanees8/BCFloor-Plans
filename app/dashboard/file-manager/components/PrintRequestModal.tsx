@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,14 +9,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { X, Printer, Loader2 } from "lucide-react";
 import { useAppContext } from "@/app/context/AppContext";
-import { featureSheetService } from "../file-manager";
+import { featureSheetService, CreateTour } from "../file-manager";
 import { toast } from "sonner";
+import { Order } from "../../orders/page";
+import { GetServices, UpdateOrderService, OrderServiceItem } from "../../orders/orders";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PrintRequestModalProps {
   open: boolean;
@@ -26,15 +28,83 @@ interface PrintRequestModalProps {
   propertyId?: string;
   tourId?: string;
   orderUuid?: string;
+  orderData?: Order | null;
+  onTourCreated?: (tourData: any) => void;
 }
 
-export default function PrintRequestModal({ open, onClose, featureSheetUuid, agentId, propertyId, tourId, orderUuid }: PrintRequestModalProps) {
+export default function PrintRequestModal({
+  open,
+  onClose,
+  featureSheetUuid,
+  agentId,
+  propertyId,
+  tourId,
+  orderUuid,
+  orderData,
+  onTourCreated
+}: PrintRequestModalProps) {
   const { userType } = useAppContext();
   const [copies, setCopies] = useState<number>(25);
   const [withBleed, setWithBleed] = useState<boolean>(false);
   const [additionalInfo, setAdditionalInfo] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [loadingServices, setLoadingServices] = useState<boolean>(false);
+  const [featureSheetsService, setFeatureSheetsService] = useState<any | null>(null);
+  const [selectedOptionUuid, setSelectedOptionUuid] = useState<string>("");
+
+  useEffect(() => {
+    if (open) {
+      const fetchServices = async () => {
+        setLoadingServices(true);
+        try {
+          const token = localStorage.getItem("token") || "";
+          const response = await GetServices(token);
+          const servicesList = Array.isArray(response.data) ? response.data : (Array.isArray(response) ? response : []);
+
+          // Find service with name "Feature Sheets" or category name "Feature Sheets"
+          const fsService = servicesList.find(
+            (s: any) => s.name?.toLowerCase() === "feature sheets" ||
+                        s.category?.name?.toLowerCase() === "feature sheets"
+          );
+          setFeatureSheetsService(fsService || null);
+
+          if (fsService && fsService.product_options && fsService.product_options.length > 0) {
+            // Find if order already has an option for this service and pre-select it, or fallback to first option
+            const existingBilledService = orderData?.services?.find(
+              (os: any) => os.service?.name?.toLowerCase() === "feature sheets" ||
+                           (os.service as any)?.category?.name?.toLowerCase() === "feature sheets"
+            );
+            
+            const initialOption = fsService.product_options.find((opt: any) => opt.uuid === existingBilledService?.option?.uuid) || fsService.product_options[0];
+            
+            setSelectedOptionUuid(initialOption.uuid);
+            
+            // Extract copies count from title
+            const match = initialOption.title.match(/\d+/);
+            const copiesCount = match ? parseInt(match[0], 10) : 25;
+            setCopies(copiesCount);
+          }
+        } catch (err) {
+          console.error("Failed to fetch services:", err);
+          toast.error("Failed to load print options.");
+        } finally {
+          setLoadingServices(false);
+        }
+      };
+      fetchServices();
+    }
+  }, [open, orderData]);
+
+  const handleOptionChange = (optionUuid: string) => {
+    setSelectedOptionUuid(optionUuid);
+    const opt = featureSheetsService?.product_options?.find((o: any) => o.uuid === optionUuid);
+    if (opt) {
+      const match = opt.title.match(/\d+/);
+      const copiesCount = match ? parseInt(match[0], 10) : 25;
+      setCopies(copiesCount);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!featureSheetUuid) {
@@ -42,18 +112,44 @@ export default function PrintRequestModal({ open, onClose, featureSheetUuid, age
       return;
     }
 
-    if (!agentId || !propertyId || !tourId || !orderUuid) {
+    if (!agentId || !propertyId || !orderUuid) {
       const missing = [];
       if (!agentId) missing.push("Agent ID");
       if (!propertyId) missing.push("Property ID");
-      if (!tourId) missing.push("Tour ID");
       if (!orderUuid) missing.push("Order ID");
       toast.error(`Missing associated order information: ${missing.join(", ")}`);
       return;
     }
 
+    if (!selectedOptionUuid || !featureSheetsService) {
+      toast.error("Please select a print quantity option.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      let activeTourId = tourId;
+
+      if (!activeTourId) {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          toast.error("Authentication token not found.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        toast.info("Creating associated tour record for the order...");
+        const newTour = await CreateTour(token, orderUuid);
+        if (newTour && newTour.data && newTour.data.uuid) {
+          activeTourId = newTour.data.uuid;
+          if (onTourCreated) {
+            onTourCreated(newTour.data);
+          }
+        } else {
+          throw new Error("Failed to create associated tour record.");
+        }
+      }
+
       // 1. Send print request
       await featureSheetService.requestPrint(featureSheetUuid, {
         copies,
@@ -61,11 +157,53 @@ export default function PrintRequestModal({ open, onClose, featureSheetUuid, age
         additional_info: additionalInfo,
         agent_id: agentId,
         property_id: propertyId,
-        tour_id: tourId,
+        tour_id: activeTourId,
       });
+
+      // 2. Add/update the service in the order
+      if (orderData) {
+        const token = localStorage.getItem("token") || "";
+        const selectedOption = featureSheetsService.product_options.find((o: any) => o.uuid === selectedOptionUuid);
+
+        // Map all existing services from the order, replacing/updating if it matches
+        const allServices: OrderServiceItem[] = (orderData.services || []).map(orderService => {
+          const isFS = orderService.service?.name?.toLowerCase() === "feature sheets" ||
+                       (orderService.service as any)?.category?.name?.toLowerCase() === "feature sheets";
+          if (isFS) {
+            return {
+              service_id: featureSheetsService.uuid,
+              option_id: selectedOptionUuid,
+              amount: Number(selectedOption?.amount ?? 0),
+              uuid: orderService.uuid
+            };
+          }
+          return {
+            service_id: orderService.service.uuid,
+            option_id: orderService.option.uuid,
+            amount: Number(orderService.amount),
+            uuid: orderService.uuid
+          };
+        });
+
+        const hasFS = orderData.services?.some(
+          orderService => orderService.service?.name?.toLowerCase() === "feature sheets" ||
+                           (orderService.service as any)?.category?.name?.toLowerCase() === "feature sheets"
+        );
+
+        if (!hasFS) {
+          allServices.push({
+            service_id: featureSheetsService.uuid,
+            option_id: selectedOptionUuid,
+            amount: Number(selectedOption?.amount ?? 0)
+          });
+        }
+
+        await UpdateOrderService(orderData.uuid, allServices, token);
+      }
 
       toast.success("Print request sent successfully!");
       onClose();
+      window.location.reload();
     } catch (error) {
       console.error("Print request failed:", error);
       toast.error(error instanceof Error ? error.message : "Failed to send print request");
@@ -91,15 +229,30 @@ export default function PrintRequestModal({ open, onClose, featureSheetUuid, age
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="copies" className="text-[14px] font-[500] text-[#666666]">Number of Copies</Label>
-            <Input
-              id="copies"
-              type="number"
-              value={copies}
-              onChange={(e) => setCopies(parseInt(e.target.value) || 0)}
-              className="h-[44px] border-[#BBBBBB] focus:ring-0 focus:border-[#4290E9]"
-              min={1}
-            />
+            <Label htmlFor="option" className="text-[14px] font-[500] text-[#666666]">Select Sheet Option / Quantity</Label>
+            {loadingServices ? (
+              <div className="flex items-center gap-2 h-[44px] text-sm text-[#7D7D7D]">
+                <Loader2 className="h-4 w-4 animate-spin text-[#6BAE41]" />
+                Loading print options...
+              </div>
+            ) : featureSheetsService?.product_options?.length > 0 ? (
+              <Select value={selectedOptionUuid} onValueChange={handleOptionChange}>
+                <SelectTrigger className="h-[44px] border-[#BBBBBB] focus:ring-0 focus:border-[#4290E9] text-[#424242]">
+                  <SelectValue placeholder="Select print quantity" />
+                </SelectTrigger>
+                <SelectContent>
+                  {featureSheetsService.product_options.map((opt: any) => (
+                    <SelectItem key={opt.uuid} value={opt.uuid}>
+                      {opt.title} (${parseFloat(opt.amount).toFixed(2)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="text-sm text-red-500 font-medium">
+                No &quot;Feature Sheets&quot; service options found. Please configure the service options first.
+              </div>
+            )}
           </div>
 
           <div className="flex items-center space-x-3 py-2">
@@ -136,7 +289,7 @@ export default function PrintRequestModal({ open, onClose, featureSheetUuid, age
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isSubmitting || copies < 1}
+            disabled={isSubmitting || !selectedOptionUuid}
             className={`${userType}-bg hover:opacity-90 text-white w-full md:w-[180px] h-[44px] font-[500] text-[16px]`}
           >
             {isSubmitting ? (

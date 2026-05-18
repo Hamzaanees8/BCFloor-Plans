@@ -94,6 +94,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
       featureSheets,
       setFeatureSheets,
       filesData,
+      setFilesData,
     } = useFileManagerContext();
     const { userType } = useAppContext();
     const [userInfo, setUserInfo] = useState<any>(null);
@@ -1515,8 +1516,10 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
           featureSheetUuid={selectedSheetUuid}
           agentId={orderData?.agent?.uuid || (userType === "agent" ? userInfo?.uuid : undefined)}
           propertyId={listingId || orderData?.property?.uuid}
-          tourId={filesData?.uuid}
+          tourId={filesData?.uuid || orderData?.tours?.[0]?.uuid}
           orderUuid={orderData?.uuid}
+          orderData={orderData}
+          onTourCreated={setFilesData}
         />
 
         {isPaymentModalOpen && (

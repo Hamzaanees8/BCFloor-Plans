@@ -550,6 +550,9 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                                 <SelectContent>
                                                     {servicesData
                                                         .filter((srv) => {
+                                                            const nameLower = (srv.name || "").toLowerCase();
+                                                            if (nameLower === 'feature sheets') return false;
+
                                                             // Filter out services already in OrderServices
                                                             const isInOrderServices = OrderServices.some(os => os.service.id === srv.id);
                                                             if (isInOrderServices) return false;

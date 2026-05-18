@@ -195,7 +195,7 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
             const calculatedSqFt = area
                 .filter(a => a.category === "Finished" || a.category === "Subtotal" || a.type === "Finished" || a.type === "Subtotal")
                 .reduce((sum, a) => sum + (a.footage || 0), 0);
-            
+
             if (calculatedSqFt > 0) {
                 handleSquareFootageChange(String(calculatedSqFt));
             }
@@ -440,11 +440,16 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
                                                     <SelectValue placeholder="Select Service" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {servicesData.map((srv) => (
-                                                        <SelectItem key={srv.id} value={srv.id.toString()}>
-                                                            {srv.name}
-                                                        </SelectItem>
-                                                    ))}
+                                                    {servicesData
+                                                        .filter((srv) => {
+                                                            const nameLower = (srv.name || "").toLowerCase();
+                                                            return nameLower !== 'feature sheets';
+                                                        })
+                                                        .map((srv) => (
+                                                            <SelectItem key={srv.id} value={srv.id.toString()}>
+                                                                {srv.name}
+                                                            </SelectItem>
+                                                        ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>

@@ -243,6 +243,11 @@ export async function UpdateOrderService(
   const formData = new FormData();
   formData.append('_method', 'PUT');
 
+  const hasNewService = services.some(service => !service.uuid);
+  if (hasNewService) {
+    formData.append('is_add_service', '1');
+  }
+
   services.forEach((service, index) => {
     formData.append(`services[${index}][service_id]`, service.service_id);
     if (service.option_id) {
