@@ -121,7 +121,7 @@ function buildResponse(
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl;
-  const hostname = request.headers.get('host') || '';
+  const hostname = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
 
   console.log('>>> MIDDLEWARE HIT:', hostname, url.pathname);
 
