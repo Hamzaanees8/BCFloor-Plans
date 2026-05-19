@@ -75,7 +75,7 @@ const data = {
           icon: Settings,
         },
         {
-          title: "Matterport",
+          title: "3D / Matterport",
           url: "/dashboard/matterport",
           icon: MatterportIcon,
         },

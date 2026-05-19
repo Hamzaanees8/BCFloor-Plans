@@ -196,7 +196,7 @@ const MatterportPage = () => {
         style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }}
       >
         <p className={`text-[16px] md:text-[24px] font-[400] ${userType}-text`}>
-          Matterport ({filteredData.length})
+          3D Tours / Matterport ({filteredData.length})
         </p>
 
         <div className="flex gap-2 items-center">
