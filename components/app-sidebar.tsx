@@ -167,13 +167,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   // Use organization branding if available
   const orgLogo = organization?.branding?.logo || roleSettings.logo;
-  const orgName = organization?.slug?.toUpperCase() || "BC Floor Plans";
+  const orgName = organization?.slug?.toUpperCase() || "Tojuco Solutions";
 
   // Extract primary color string from branding (API returns { value: "#..." } object)
   const orgPrimaryColor = organization?.branding?.primary_color
     ? (typeof organization.branding.primary_color === 'object'
-        ? (organization.branding.primary_color as { value: string }).value
-        : organization.branding.primary_color as string)
+      ? (organization.branding.primary_color as { value: string }).value
+      : organization.branding.primary_color as string)
     : null;
 
   const [isLogoutHovered, setIsLogoutHovered] = React.useState(false);
@@ -518,16 +518,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                   className="flex items-center gap-2 w-full relative"
                                 >
                                   <div className="relative">
-                                      {subItem.icon && (
-                                        <subItem.icon
-                                          className={`h-4 w-4 shrink-0`}
-                                          style={{
-                                             color: isActive
-                                               ? (orgPrimaryColor || roleSettings.activeColor)
-                                               : roleSettings.sidebarText,
-                                           }}
-                                        />
-                                      )}
+                                    {subItem.icon && (
+                                      <subItem.icon
+                                        className={`h-4 w-4 shrink-0`}
+                                        style={{
+                                          color: isActive
+                                            ? (orgPrimaryColor || roleSettings.activeColor)
+                                            : roleSettings.sidebarText,
+                                        }}
+                                      />
+                                    )}
                                     {subItem.url ===
                                       "/dashboard/notifications" &&
                                       unreadNotificationCount > 0 && (

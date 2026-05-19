@@ -12,6 +12,8 @@ import { useAppContext } from '@/app/context/AppContext'
 import { useOrganization } from '@/app/context/OrganizationContext'
 import { Eye, EyeOff } from 'lucide-react'
 import { isDefaultDomain } from '@/lib/config/domains'
+import { getAppOrigin, getAppHostname } from '@/lib/utils'
+
 
 function LoginUser() {
     const [email, setEmail] = React.useState('')
@@ -45,7 +47,7 @@ function LoginUser() {
         if (hasError) return
         setIsLoading(true)
         try {
-            const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
+            const currentHostname = getAppHostname();
             const isDefault = isDefaultDomain(currentHostname);
 
             const response = await login({ 
@@ -53,7 +55,7 @@ function LoginUser() {
                 password, 
                 role: 'agent',
                 organization_id: organization?.org_id,
-                domain: !isDefault ? (typeof window !== 'undefined' ? window.location.origin : undefined) : undefined
+                domain: !isDefault ? getAppOrigin() : undefined
             });
 
             console.log('Login successful:', response);
@@ -76,8 +78,9 @@ function LoginUser() {
     return (
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
             <form onSubmit={handleLogin} className='w-[400px] flex flex-col gap-[25px]'>
-                <WhitelabelLogo width={180} height={100} />
-                {!hasCustomLogo && (
+                {hasCustomLogo ? (
+                    <WhitelabelLogo width={180} height={100} />
+                ) : (
                     <div className='flex justify-center'>
                         <AgentLoginIcon width='110px' height='110px' />
                     </div>

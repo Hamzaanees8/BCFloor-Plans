@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { getDefaultDomains } from "@/lib/config/domains";
+import { getAppOrigin } from "@/lib/utils";
+
 
 interface ColorValue {
   value: string;
@@ -44,7 +46,7 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
   const [isOrganizationLoaded, setIsOrganizationLoaded] = useState(false);
 
   useEffect(() => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const origin = getAppOrigin();
     console.log("OrganizationProvider: resolving for origin:", origin);
 
     const getCookie = (name: string) => {

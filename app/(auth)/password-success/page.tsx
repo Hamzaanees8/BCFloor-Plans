@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import React, { useEffect } from 'react'
 
 function Page() {
-    
-        const router = useRouter();
+
+    const router = useRouter();
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -16,13 +16,13 @@ function Page() {
 
         return () => clearTimeout(timer);
     }, [router]);
-    
+
     return (
         <div className='px-[40px] md:px-0 w-full flex justify-center items-start pt-[80px]'>
             <div className='w-[410px] flex flex-col gap-[25px]'>
-                <WhitelabelLogo width={180} height={100} />
+                <WhitelabelLogo width={220} height={125} />
 
-                    
+
                 <Image
                     src="/ico-success.png"
                     alt="logo"

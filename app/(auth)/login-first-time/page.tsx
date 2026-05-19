@@ -11,7 +11,7 @@ function Login() {
     return (
         <div className='px-[40px] md:px-0 w-full flex justify-center items-start pt-[80px]'>
             <div className='w-[400px] flex flex-col gap-[25px]'>
-                <WhitelabelLogo width={180} height={100} />
+                <WhitelabelLogo width={220} height={125} />
                 <div className='flex flex-col gap-[10px]'>
                     <label className='text-[14px] font-[500]' htmlFor="email">Email Address</label>
                     <Input

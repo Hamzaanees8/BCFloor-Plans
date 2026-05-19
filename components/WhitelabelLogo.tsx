@@ -11,12 +11,12 @@ interface WhitelabelLogoProps {
   className?: string;
 }
 
-export default function WhitelabelLogo({ 
-  defaultSrc = "/bcfloor.png", 
-  alt = "logo", 
-  width = 180, 
+export default function WhitelabelLogo({
+  defaultSrc = "/tojuco.png",
+  alt = "logo",
+  width = 180,
   height = 100,
-  className = "mx-auto" 
+  className = "mx-auto"
 }: WhitelabelLogoProps) {
   const { organization, isOrganizationLoaded } = useOrganization();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -33,7 +33,7 @@ export default function WhitelabelLogo({
       if (wrapper) {
         const style = window.getComputedStyle(wrapper);
         const urlVar = style.getPropertyValue('--org-logo').trim() || style.getPropertyValue('--logo-url').trim();
-        
+
         if (urlVar && urlVar !== 'none') {
           const match = urlVar.match(/url\(["']?(.*?)["']?\)/);
           if (match && match[1]) {
@@ -46,7 +46,7 @@ export default function WhitelabelLogo({
     if (foundLogo) {
       setLogoUrl(foundLogo);
     }
-    
+
     // We consider it resolved if organization is loaded, OR if we found a logo via fallback immediately
     if (isOrganizationLoaded || foundLogo) {
       setIsResolved(true);

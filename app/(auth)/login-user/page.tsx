@@ -11,6 +11,8 @@ import { useAppContext } from '@/app/context/AppContext'
 import { Eye, EyeOff } from 'lucide-react'
 import { useOrganization } from '@/app/context/OrganizationContext'
 import { isDefaultDomain } from '@/lib/config/domains'
+import { getAppOrigin, getAppHostname } from '@/lib/utils'
+
 
 function LoginUser() {
     const [email, setEmail] = React.useState('')
@@ -42,15 +44,15 @@ function LoginUser() {
         if (hasError) return
         setIsLoading(true)
         try {
-            const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
+            const currentHostname = getAppHostname();
             const isDefault = isDefaultDomain(currentHostname);
 
-            const response = await login({ 
-                email, 
-                password, 
+            const response = await login({
+                email,
+                password,
                 role: 'admin',
                 organization_id: organization?.org_id,
-                domain: !isDefault ? (typeof window !== 'undefined' ? window.location.origin : undefined) : undefined
+                domain: !isDefault ? getAppOrigin() : undefined
             });
 
             console.log('Login successful:', response);
@@ -73,8 +75,8 @@ function LoginUser() {
     return (
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
             <form onSubmit={handleLogin} className='w-[400px] flex flex-col gap-[25px]'>
-                <WhitelabelLogo width={180} height={100} />
-                <Link href={'#'} className='hidden flex justify-center items-center bg-[#4290E9] hover:bg-[#357AD1] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
+                <WhitelabelLogo width={220} height={120} />
+                <Link href={'#'} className='hidden  justify-center items-center bg-[#4290E9] hover:bg-[#357AD1] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.email ? 'text-red-500' : ''}`} htmlFor="email">Email Address</label>
                     <Input

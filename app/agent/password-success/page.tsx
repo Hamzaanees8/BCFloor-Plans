@@ -24,8 +24,9 @@ function Page() {
     return (
         <div className='px-[40px] md:px-0 w-full flex justify-center items-start pt-[80px]'>
             <div className='w-[410px] flex flex-col gap-[25px]'>
-                <WhitelabelLogo width={180} height={100} />
-                {!hasCustomLogo && (
+                {hasCustomLogo ? (
+                    <WhitelabelLogo width={180} height={100} />
+                ) : (
                     <div className='flex justify-center'>
                         <AgentLoginIcon width='110px' height='110px' />
                     </div>

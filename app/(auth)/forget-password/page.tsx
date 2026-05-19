@@ -48,7 +48,7 @@ function ForgotPassword() {
     return (
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
             <div className='w-[400px] flex flex-col gap-[25px]'>
-                <WhitelabelLogo width={180} height={100} />
+                <WhitelabelLogo width={220} height={125} />
                 <form className='flex flex-col gap-[10px]' onSubmit={(e) => handleSubmit(e)}>
                     <label className={`text-[14px] font-[500] ${errors.email ? 'text-red-500' : ''}`} htmlFor="email">Email Address</label>
                     <Input
