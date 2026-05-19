@@ -67,8 +67,14 @@ export default async function RootLayout({
 }>) {
   const headersList = await headers();
   const host = headersList.get("x-forwarded-host") || headersList.get("host") || "";
-  
-  
+  console.log('>>> LAYOUT RESOLVED HOST:', host);
+  console.log('--- LAYOUT ALL HEADERS ---');
+  headersList.forEach((value, key) => {
+    console.log(`  [Layout Header] ${key}: ${value}`);
+  });
+  console.log('--------------------------');
+
+
   let whitelabelData: any = null;
 
   // Fetch branding for any host that isn't bare localhost or a default system domain

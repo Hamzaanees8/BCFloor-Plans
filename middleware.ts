@@ -124,6 +124,11 @@ export async function middleware(request: NextRequest) {
   const hostname = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
 
   console.log('>>> MIDDLEWARE HIT:', hostname, url.pathname);
+  console.log('--- MIDDLEWARE ALL HEADERS ---');
+  request.headers.forEach((value, key) => {
+    console.log(`  [Header] ${key}: ${value}`);
+  });
+  console.log('------------------------------');
 
   let portalType = 'admin';
   let orgData: Record<string, unknown> | null = null;
