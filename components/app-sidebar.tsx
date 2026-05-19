@@ -17,7 +17,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   Calendar,
-  File,
+  // File,
   House,
   LogOut,
   PanelLeftClose,
@@ -64,11 +64,11 @@ const data = {
           url: "/dashboard/listings",
           icon: House,
         },
-        {
-          title: "Orders",
-          url: "/dashboard/orders",
-          icon: File,
-        },
+        // {
+        //   title: "Orders",
+        //   url: "/dashboard/orders",
+        //   icon: File,
+        // },
         {
           title: "Services",
           url: "/dashboard/services",
