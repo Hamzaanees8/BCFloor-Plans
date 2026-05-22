@@ -19,30 +19,24 @@ import {
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
-import { ChevronDown, ChevronUp, ExternalLink, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Download } from "lucide-react";
 import { Get, GetVendors } from "../orders/orders";
 import { toast } from "sonner";
-import { payVendor } from "./vendorBilling";
 import { Button } from "@/components/ui/button";
-import { GetOne } from "../vendors/vendors";
+import { GetOne, GetVendorEarnings } from "../vendors/vendors";
 import { useRouter } from "next/navigation";
 import { batchCalculateTravelCosts, buildTripChainLegs } from "@/lib/batchTravelCalculator";
+import { vendorBillingService, VendorInvoice } from "./VendorBillingService";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
+import InvoicePdfDocument from "@/app/dashboard/invoice/components/InvoicePdfDocument";
+import DownloadInvoicePdf from "@/app/dashboard/invoice/components/DownloadInvoicePdf";
+
+import Script from "next/script";
 
 
-interface UnpaidService {
-    order_service_uuid: string;
-    vendor_uuid: string;
-    amount: number;
-    serviceName: string;
-    orderId: number;
-}
 
-interface VendorUnpaidSummary {
-    vendorId: string | number;
-    vendorName: string;
-    totalUnpaidAmount: number;
-    unpaidServices: UnpaidService[];
-}
+
 
 export interface Slot {
     id: number;
@@ -87,6 +81,15 @@ export interface Order {
     created_at: string;
     slots: Slot[];
     services: ServiceRecord[];
+    // Flat fields returned directly by GET /orders
+    property_address?: string;
+    property_location?: string;
+    // Nested property object (returned by GET /orders/:uuid)
+    property?: {
+        property_address?: string;
+        property_location?: string;
+        address?: string;
+    };
 }
 
 
@@ -125,7 +128,10 @@ interface ServiceForVendor {
     status?: 'COMPLETE' | 'PENDING' | string;
     uuid?: string;
     is_travel_required?: boolean | number;
-    vendor_payment?: { stripe_transfer_id: string, uuid: string, invoice_url: string }
+    vendor_payment?: { stripe_transfer_id: string, uuid: string, invoice_url: string };
+    vendor_paid?: boolean | number;          // NEW — from order_services
+    vendor_invoice_id?: number | null;       // NEW — FK to vendor_invoices.id
+    is_completed?: boolean | number;         // NEW — from order_services
 }
 
 interface TravelCost {
@@ -137,6 +143,8 @@ interface TravelCost {
     travelCost: number;
     fromAddress: string;
     toAddress: string;
+    error?: boolean;
+    errorMessage?: string;
 }
 
 interface VendorLocationData {
@@ -159,9 +167,23 @@ interface VendorPriceData {
     vendor_services?: VendorPriceService[];
 }
 
+const logBillingError = (context: string, error: any, additionalData?: any) => {
+    const errorLog = {
+        timestamp: new Date().toISOString(),
+        context,
+        error: error?.message || error?.response?.data?.message || String(error),
+        vendorId: additionalData?.vendorId || additionalData?.vendorUuid,
+        invoiceId: additionalData?.invoiceId || additionalData?.invoiceUuid,
+        userId: typeof window !== 'undefined' ? localStorage.getItem('userId') : null,
+        userAgent: typeof window !== 'undefined' ? navigator.userAgent : null
+    };
+    console.error('[Billing Error]', errorLog);
+};
+
 const Page = () => {
     const router = useRouter();
     const [confirmOpen, setConfirmOpen] = useState(false);
+
     const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
     const [showAgain, setShowAgain] = useState(true);
     const headerRef = useRef<HTMLDivElement>(null);
@@ -199,23 +221,60 @@ const Page = () => {
     const { appliedSettings } = useWhiteLabel();
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
-
-    const [processingPayments, setProcessingPayments] = useState<Set<string>>(new Set());
     const [expandedRow, setExpandedRow] = useState<number | null>(null);
-    const [processingBulkPayments, setProcessingBulkPayments] = useState<Set<string>>(new Set());
     const [currentPage, setCurrentPage] = useState(1);
     const [travelCosts, setTravelCosts] = useState<Map<string, TravelCost>>(new Map());
     const [vendorLocationData, setVendorLocationData] = useState<Map<string | number, VendorLocationData>>(new Map());
     const [loadingTravelCosts, setLoadingTravelCosts] = useState<Set<string | number>>(new Set());
     const [vendorPricesMap, setVendorPricesMap] = useState<Map<string, Record<number, number>>>(new Map());
+
+    // Per-vendor invoices, lazy-loaded on first accordion expand
+    const [vendorInvoicesMap, setVendorInvoicesMap] = useState<Map<string | number, VendorInvoice[]>>(new Map());
+    const [loadingInvoices, setLoadingInvoices] = useState<Set<string | number>>(new Set());
+    const [vendorTotalEarnings, setVendorTotalEarnings] = useState<Map<string | number, number>>(new Map());
+
+    // Invoice detail modal
+    const [viewingInvoice, setViewingInvoice] = useState<VendorInvoice | null>(null);
+    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const itemsPerPage = 10;
     const confirmAndExecute = () => {
         pendingAction?.();
         setPendingAction(null);
     };
 
-    const toggleRow = (i: number) => {
-        setExpandedRow(expandedRow === i ? null : i);
+    const toggleRow = async (i: number, vg: VendorGrouped) => {
+        const opening = expandedRow !== i;
+        setExpandedRow(opening ? i : null);
+
+        if (opening) {
+            // Fetch travel costs when expanding
+            fetchVendorLocationAndCalculateTravelCosts(vg.vendorId, vg.vendor.uuid, vg.orders);
+
+            // Fetch total earnings when expanding (Task 3.2)
+            try {
+                const earnCheck = await GetVendorEarnings(vg.vendor.uuid);
+                if (earnCheck?.success) {
+                    const totalEarned = earnCheck.data?.summary?.total_earned ?? 0;
+                    setVendorTotalEarnings(prev => new Map(prev).set(vg.vendorId, totalEarned));
+                }
+            } catch (e) {
+                console.error("Failed to fetch earnings for vendor:", e);
+            }
+
+            // Lazy-load invoices for this vendor (only once)
+            if (!vendorInvoicesMap.has(vg.vendorId) && !loadingInvoices.has(vg.vendorId)) {
+                setLoadingInvoices(prev => new Set(prev).add(vg.vendorId));
+                try {
+                    const token = localStorage.getItem('token') || '';
+                    const invoices = await vendorBillingService.getVendorInvoices(vg.vendor.uuid, token);
+                    setVendorInvoicesMap(prev => new Map(prev).set(vg.vendorId, invoices));
+                } catch (e) {
+                    console.error('Failed to load vendor invoices:', e);
+                } finally {
+                    setLoadingInvoices(prev => { const s = new Set(prev); s.delete(vg.vendorId); return s; });
+                }
+            }
+        }
     };
 
     const triggerPaymentAction = (action: () => void) => {
@@ -280,6 +339,8 @@ const Page = () => {
             });
     }, []);
 
+
+
     const formatTime = (timeStr?: string) => {
         if (!timeStr) return "—";
         const parts = timeStr.split(":");
@@ -322,12 +383,45 @@ const Page = () => {
             }
 
             const vendor = vendorData.data;
+            const vendorOrderSlots = vendor?.order_slots || [];
+
+            // Create a map of order IDs to vendor's order slots for this vendor
+            const orderSlotMap = new Map();
+            vendorOrderSlots.forEach((slot: Record<string, unknown>) => {
+                const order = slot.order as { id?: number } | undefined;
+                const orderId = order?.id;
+                if (orderId && !orderSlotMap.has(orderId)) {
+                    orderSlotMap.set(orderId, slot);
+                }
+            });
+
             const startLocation = vendor?.addresses?.find(
                 (address: { type: string }) => address.type === 'start_location'
             );
 
             if (!startLocation) {
                 console.error("Start location not found for vendor");
+                toast.error(`⚠️ Cannot calculate travel for ${vendor.first_name} ${vendor.last_name}: No start location configured. Update vendor profile.`);
+                const newTravelCosts = new Map(travelCosts);
+                orders.forEach(order => {
+                    const vendorSlot = orderSlotMap.get(order.orderId);
+                    const propertyAddress = vendorSlot?.order?.property_address || "";
+                    order.services.forEach(svc => {
+                        newTravelCosts.set(`${order.orderId}-${(svc as any).uuid}`, {
+                            orderId: order.orderId,
+                            serviceUuid: (svc as any).uuid || "",
+                            date: order.created_at.split('T')[0],
+                            distance: 0,
+                            estimatedTime: 0,
+                            travelCost: 0,
+                            fromAddress: "",
+                            toAddress: propertyAddress,
+                            error: true,
+                            errorMessage: "Start location missing"
+                        });
+                    });
+                });
+                setTravelCosts(newTravelCosts);
                 return;
             }
 
@@ -340,24 +434,6 @@ const Page = () => {
                 startLocationAddress,
                 paymentPerKm
             }));
-
-            // Get vendor's order slots which have complete order information
-            const vendorOrderSlots = vendor?.order_slots || [];
-
-            if (!vendorOrderSlots || vendorOrderSlots.length === 0) {
-                console.warn("No order slots found for vendor");
-                return;
-            }
-
-            // Create a map of order IDs to vendor's order slots for this vendor
-            const orderSlotMap = new Map();
-            vendorOrderSlots.forEach((slot: Record<string, unknown>) => {
-                const order = slot.order as { id?: number } | undefined;
-                const orderId = order?.id;
-                if (orderId && !orderSlotMap.has(orderId)) {
-                    orderSlotMap.set(orderId, slot);
-                }
-            });
 
             // Calculate travel costs for each service
             const newTravelCosts = new Map(travelCosts);
@@ -389,15 +465,42 @@ const Page = () => {
                         slotTime = sortedSlots[0].start_time;
                     }
 
-                    const vendorSlot = orderSlotMap.get(order.orderId);
-                    const propertyAddress = vendorSlot?.order?.property_address || "";
-                    const propertyLocation = vendorSlot?.order?.property_location || "";
+                    // Primary: get property address from the service's own slots (most reliable)
+                    const firstSlotWithOrder = allSlots.find(s => s.order?.property_address);
+                    let propertyAddress = firstSlotWithOrder?.order?.property_address || "";
+                    let propertyLocation = firstSlotWithOrder?.order?.property_location || "";
+
+                    // Fallback: try orderSlotMap from vendor.order_slots
+                    if (!propertyAddress) {
+                        const vendorSlot = orderSlotMap.get(order.orderId);
+                        propertyAddress = (vendorSlot as any)?.order?.property_address || "";
+                        propertyLocation = (vendorSlot as any)?.order?.property_location || "";
+                    }
+
+                    // Last resort: look up from orderData which has the flat property_address
+                    // field returned by GET /orders (e.g., order.property_address directly)
+                    if (!propertyAddress) {
+                        const rawOrder = orderData.find((o: Order) => o.id === order.orderId);
+                        // GET /orders returns property_address flat on the order object
+                        propertyAddress = rawOrder?.property_address
+                            || rawOrder?.property?.property_address
+                            || rawOrder?.property?.address
+                            || "";
+                        propertyLocation = rawOrder?.property_location
+                            || rawOrder?.property?.property_location
+                            || "";
+                        if (propertyAddress) {
+                            console.log(`[Travel Calc] ✅ Found address from orderData for order ${order.orderId}: ${propertyAddress}`);
+                        }
+                    }
+
+                    const isTravelRequired = !!(svc as any).is_travel_required;
 
                     return {
                         orderId: order.orderId,
                         serviceUuid: (svc as any).uuid || "",
                         serviceName: svc.serviceName,
-                        isTravelRequired: svc.is_travel_required === true || svc.is_travel_required === 1,
+                        isTravelRequired,
                         slotDate,
                         slotTime,
                         propertyAddress,
@@ -416,6 +519,15 @@ const Page = () => {
                 unitsByDate.get(date)?.push(unit);
             });
 
+            console.log(`[Travel Calc] Vendor ${vendorUuid}: ${allServiceUnits.length} service units, ${unitsByDate.size} unique dates`);
+            console.log(`[Travel Calc] Service units:`, allServiceUnits.map(u => ({
+                orderId: u.orderId,
+                service: u.serviceName,
+                isTravelRequired: u.isTravelRequired,
+                propertyAddress: u.propertyAddress,
+                date: u.slotDate
+            })));
+
             // Process each day
             for (const [date, dayUnits] of Array.from(unitsByDate.entries())) {
                 // Sort units by time on that date
@@ -423,6 +535,7 @@ const Page = () => {
 
                 // Filter units that actually require travel
                 const travelUnitsForDay = sortedDayUnits.filter(u => u.isTravelRequired);
+                console.log(`[Travel Calc] Date ${date}: ${sortedDayUnits.length} total, ${travelUnitsForDay.length} need travel`);
 
                 // Add non-travel services with 0 cost
                 sortedDayUnits.forEach(unit => {
@@ -445,7 +558,11 @@ const Page = () => {
 
                 // Build trip chain legs for all travel services in this day
                 const addresses = travelUnitsForDay.map(u => u.propertyAddress).filter(addr => addr);
-                if (addresses.length === 0) continue;
+                console.log(`[Travel Calc] Date ${date}: addresses to batch:`, addresses);
+                if (addresses.length === 0) {
+                    console.warn(`[Travel Calc] No property addresses found for date ${date} — skipping batch. Check slot data.`);
+                    continue;
+                }
 
                 const tripLegs = buildTripChainLegs(startLocationAddress, addresses);
 
@@ -486,6 +603,7 @@ const Page = () => {
                                 });
                             } else {
                                 console.warn(`⚠️ Distance calculation failed for service ${unit.serviceUuid} in order ${unit.orderId}`);
+                                toast.error(`⚠️ Travel calculation failed for ${unit.serviceName} in order #${unit.orderId}. Leg not found.`);
                                 newTravelCosts.set(`${unit.orderId}-${unit.serviceUuid}`, {
                                     orderId: unit.orderId,
                                     serviceUuid: unit.serviceUuid,
@@ -494,28 +612,49 @@ const Page = () => {
                                     estimatedTime: 0,
                                     travelCost: 0,
                                     fromAddress: startLocationAddress,
-                                    toAddress: toAddressForDisplay
+                                    toAddress: toAddressForDisplay,
+                                    error: true,
+                                    errorMessage: "Leg calculation missing in batch result"
                                 });
                             }
                         }
                     } else {
-                         console.error("❌ Batch travel calculation failed completely for date", date);
-                         travelUnitsForDay.forEach(unit => {
-                             const toAddressForDisplay = `${unit.propertyAddress}, ${unit.propertyLocation}`;
-                             newTravelCosts.set(`${unit.orderId}-${unit.serviceUuid}`, {
-                                 orderId: unit.orderId,
-                                 serviceUuid: unit.serviceUuid,
-                                 date: unit.slotDate,
-                                 distance: 0,
-                                 estimatedTime: 0,
-                                 travelCost: 0,
-                                 fromAddress: startLocationAddress,
-                                 toAddress: toAddressForDisplay
-                             });
-                         });
+                        console.error("❌ Batch travel calculation failed completely for date", date);
+                        toast.warning(`⚠️ Travel calculation failed for ${date}: Google Maps unavailable. Travel set to $0.`);
+                        travelUnitsForDay.forEach(unit => {
+                            const toAddressForDisplay = `${unit.propertyAddress}, ${unit.propertyLocation}`;
+                            newTravelCosts.set(`${unit.orderId}-${unit.serviceUuid}`, {
+                                orderId: unit.orderId,
+                                serviceUuid: unit.serviceUuid,
+                                date: unit.slotDate,
+                                distance: 0,
+                                estimatedTime: 0,
+                                travelCost: 0,
+                                fromAddress: startLocationAddress,
+                                toAddress: toAddressForDisplay,
+                                error: true,
+                                errorMessage: `Batch API failure: ${batchResult.status}`
+                            });
+                        });
                     }
                 } catch (error) {
                     console.error(`❌ Exception in batch travel calculation for ${date}:`, error);
+                    toast.error(`❌ Error calculating travel costs for ${date}. Exception encountered.`);
+                    travelUnitsForDay.forEach(unit => {
+                        const toAddressForDisplay = `${unit.propertyAddress}, ${unit.propertyLocation}`;
+                        newTravelCosts.set(`${unit.orderId}-${unit.serviceUuid}`, {
+                            orderId: unit.orderId,
+                            serviceUuid: unit.serviceUuid,
+                            date: unit.slotDate,
+                            distance: 0,
+                            estimatedTime: 0,
+                            travelCost: 0,
+                            fromAddress: startLocationAddress,
+                            toAddress: toAddressForDisplay,
+                            error: true,
+                            errorMessage: `Exception: ${error instanceof Error ? error.message : String(error)}`
+                        });
+                    });
                 }
             }
 
@@ -528,6 +667,77 @@ const Page = () => {
                 newSet.delete(vendorId);
                 return newSet;
             });
+        }
+    };
+
+    const handlePayInvoice = async (invoiceUuid: string, vendorUuid: string, vendorId: number | string, invoiceNumber: string, invoiceAmount: number) => {
+        const token = localStorage.getItem('token') || '';
+        if (!token) return;
+
+        setLoading(true);
+        try {
+            // Step 1: Trigger payment API
+            const payResult = await vendorBillingService.payInvoice(invoiceUuid, token);
+
+            if (payResult.status !== "success") {
+                toast.error("Payment processing failed");
+                return;
+            }
+
+            // Wait for backend to process earnings record
+            await new Promise(r => setTimeout(r, 1000));
+
+            // Step 2: Verify earnings were updated
+            const earnCheckResult = await GetVendorEarnings(vendorUuid, { period: 'this_month' });
+
+            // Log verification context (Task 4.2)
+            console.log(`[Payment Verification] Invoice ${invoiceNumber} paid. Checking vendor ${vendorUuid} earnings...`);
+
+            if (earnCheckResult?.success) {
+                const newTotalEarned = earnCheckResult.data?.summary?.total_earned ?? 0;
+                const oldTotalEarned = vendorTotalEarnings.get(vendorId) || 0;
+                const earnedIncrease = newTotalEarned - oldTotalEarned;
+                const tolerance = 5; // Allow $5 variance due to rounding/existing balance
+
+                setVendorTotalEarnings(prev => new Map(prev).set(vendorId, newTotalEarned));
+
+                if (earnedIncrease < invoiceAmount - tolerance) {
+                    toast.error(
+                        `⚠️ Payment marked but vendor earnings may not have updated correctly. ` +
+                        `Expected increase: $${Number(invoiceAmount).toFixed(2)}, ` +
+                        `Actual increase: $${earnedIncrease.toFixed(2)} (Old: $${oldTotalEarned.toFixed(2)}, New: $${newTotalEarned.toFixed(2)})`
+                    );
+                    logBillingError("earnings_verification_failed", "Vendor earnings increase less than paid invoice amount", {
+                        vendorUuid,
+                        invoiceUuid,
+                        invoiceAmount,
+                        oldTotalEarned,
+                        newTotalEarned,
+                        earnedIncrease
+                    });
+                } else {
+                    toast.success(`✅ Invoice #${invoiceNumber} paid! Vendor earnings verified: $${newTotalEarned.toFixed(2)}`);
+                }
+            } else {
+                toast.warning(`⚠️ Invoice #${invoiceNumber} paid, but vendor earnings could not be verified automatically. Check backend logs.`);
+                console.warn(`[Payment Verification Warning] Earnings check response failed for vendor ${vendorUuid}:`, earnCheckResult);
+            }
+
+            // Refresh invoices for this vendor
+            const updatedInvoices = await vendorBillingService.getVendorInvoices(vendorUuid, token);
+            setVendorInvoicesMap(prev => new Map(prev).set(vendorId, updatedInvoices));
+
+            // Refresh orders data to update billing status tags
+            const ordersRes = await Get(token);
+            const sorted = Array.isArray(ordersRes.data)
+                ? [...ordersRes.data].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                : [];
+            setOrderData(sorted);
+        } catch (error: any) {
+            logBillingError("handlePayInvoice", error, { invoiceUuid, vendorUuid });
+            toast.error(error?.message || error?.response?.data?.message || 'Payment failed');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -610,7 +820,11 @@ const Page = () => {
                             `Service ${sid}`,
                         slots: slotsForService.filter((s) => s.vendor_id === vendorId),
                         amount: finalAmount,
-                        is_travel_required: svcRecord?.service?.is_travel_required || svcRecord?.is_travel_required
+                        is_travel_required: svcRecord?.service?.is_travel_required || svcRecord?.is_travel_required,
+                        vendor_paid: (svcRecord as any)?.vendor_paid,
+                        vendor_invoice_id: (svcRecord as any)?.vendor_invoice_id ?? null,
+                        vendor_payment: (svcRecord as any)?.vendor_payment,
+                        is_completed: (svcRecord as any)?.is_completed,
                     };
 
                     vendorEntry.orders.get(order.id)!.services.push(serviceForVendor);
@@ -648,213 +862,57 @@ const Page = () => {
         return arr;
     }, [orderData, vendorPricesMap]);
 
+    // Build a flat map of invoiceId → VendorInvoice from all lazy-loaded invoices
+    const invoiceIdMap = useMemo(() => {
+        const map = new Map<number, VendorInvoice>();
+        vendorInvoicesMap.forEach((invoices) => {
+            invoices.forEach((inv) => {
+                if (inv.id != null) map.set(inv.id, inv);
+            });
+        });
+        return map;
+    }, [vendorInvoicesMap]);
+
+    // Handle resume_payment redirection after invoice generation
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            const resume = params.get("resume_payment");
+            if (resume === "true" && vendorsGrouped.length > 0) {
+                const targetVendorUuid = localStorage.getItem("resume_payment_vendor_uuid");
+                if (targetVendorUuid) {
+                    const idx = vendorsGrouped.findIndex(vg => vg.vendor.uuid === targetVendorUuid);
+                    if (idx !== -1) {
+                        const targetPage = Math.floor(idx / itemsPerPage) + 1;
+                        setCurrentPage(targetPage);
+                        const localIndex = idx % itemsPerPage;
+                        setExpandedRow(localIndex);
+                        const targetVg = vendorsGrouped[idx];
+                        toggleRow(localIndex, targetVg);
+                        localStorage.removeItem("resume_payment_vendor_uuid");
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete("resume_payment");
+                        window.history.replaceState({}, "", url.pathname + url.search);
+                    }
+                }
+            }
+        }
+    }, [vendorsGrouped]);
+
     const totalPages = Math.ceil(vendorsGrouped.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const paginatedVendors = vendorsGrouped.slice(startIndex, endIndex);
 
-    const calculateUnpaidServicesByVendor = (): VendorUnpaidSummary[] => {
-        const vendorUnpaidMap = new Map<string | number, VendorUnpaidSummary>();
-
-        vendorsGrouped.forEach((vendorGroup) => {
-            const unpaidServices: UnpaidService[] = [];
-
-            // Iterate through all orders and services for this vendor
-            vendorGroup.orders.forEach((order) => {
-                order.services.forEach((service: ServiceForVendor) => {
-                    // Check if service has no vendor_payment (not paid)
-                    if (!service.vendor_payment && service.uuid && service.amount) {
-                        unpaidServices.push({
-                            order_service_uuid: service.uuid,
-                            vendor_uuid: vendorGroup.vendor.uuid,
-                            amount: Number(service.amount),
-                            serviceName: service.serviceName,
-                            orderId: order.orderId
-                        });
-                    }
-                });
-            });
-
-            if (unpaidServices.length > 0) {
-                const totalUnpaidAmount = unpaidServices.reduce((sum, service) => sum + service.amount, 0);
-
-                vendorUnpaidMap.set(vendorGroup.vendorId, {
-                    vendorId: vendorGroup.vendorId,
-                    vendorName: `${vendorGroup.vendor.first_name} ${vendorGroup.vendor.last_name}`,
-                    totalUnpaidAmount,
-                    unpaidServices
-                });
-            }
-        });
-
-        return Array.from(vendorUnpaidMap.values());
-    };
-
-    const handlePayAllUnpaid = async (vendorId: string | number) => {
-        const unpaidVendors = calculateUnpaidServicesByVendor();
-        const vendorUnpaid = unpaidVendors.find(v => v.unpaidServices[0].vendor_uuid === vendorId);
-
-        if (!vendorUnpaid || vendorUnpaid.unpaidServices.length === 0) {
-            toast.error("No unpaid services found for this vendor");
-            return;
-        }
-
-        const paymentKey = `bulk-${vendorId}`;
-
-        try {
-            setProcessingBulkPayments(prev => new Set(prev).add(paymentKey));
-
-            const token = localStorage.getItem("token") || "";
-
-            const idsArray = vendorUnpaid.unpaidServices.map(s => s.order_service_uuid);
-
-            const payload = {
-                vendor_uuid: String(vendorId),
-                order_service_uuids: idsArray,
-                amount: vendorUnpaid.totalUnpaidAmount
-            };
-
-
-            const result = await payVendor(payload, token);
-
-            if (result.status === "success") {
-                toast.success(`Successfully paid ${vendorUnpaid.unpaidServices.length} services for ${vendorUnpaid.vendorName}`);
-
-                setOrderData(prevOrderData => {
-                    return prevOrderData.map(order => {
-                        const updatedServices = order.services?.map(service => {
-                            const wasPaid = vendorUnpaid.unpaidServices.find(
-                                unpaid => unpaid.order_service_uuid === service.uuid
-                            );
-
-                            if (wasPaid) {
-                                return {
-                                    ...service,
-                                    vendor_payment: {
-                                        paid: true,
-                                        transfer_id: `bulk-${Date.now()}`,
-                                        paid_at: new Date().toISOString()
-                                    }
-                                };
-                            }
-                            return service;
-                        });
-
-                        return {
-                            ...order,
-                            services: updatedServices
-                        };
-                    });
-                });
-            } else {
-                toast.error("Bulk payment failed");
-                console.error("Bulk payment failed:", result);
-            }
-
-        } catch (error: any) {
-            console.error("Bulk payment error:", error);
-            toast.error(error.message || "Bulk payment failed");
-        } finally {
-            setProcessingBulkPayments(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(paymentKey);
-                return newSet;
-            });
-        }
-    };
-
-    const hasUnpaidServices = (vendorId: string | number): boolean => {
-        const unpaidVendors = calculateUnpaidServicesByVendor();
-        return unpaidVendors.some(v => v.vendorId === vendorId);
-    };
-
-    // Add this helper function to get unpaid count for a vendor
-    const getUnpaidServicesCount = (vendorId: string | number): number => {
-        const unpaidVendors = calculateUnpaidServicesByVendor();
-        const vendor = unpaidVendors.find(v => v.vendorId === vendorId);
-        return vendor ? vendor.unpaidServices.length : 0;
-    };
-
-    // Add this helper function to get unpaid amount for a vendor
-    const getUnpaidAmount = (vendorId: string | number): number => {
-        const unpaidVendors = calculateUnpaidServicesByVendor();
-        const vendor = unpaidVendors.find(v => v.vendorId === vendorId);
-        return vendor ? vendor.totalUnpaidAmount : 0;
-    };
-
-
-    const handlePayVendor = async (paymentData: { order_service_uuids: string[], vendor_uuid: string, amount: number }) => {
-        const paymentKey = `${paymentData.order_service_uuids}-${paymentData.vendor_uuid}`;
-        const payload = {
-            order_service_uuids: paymentData.order_service_uuids,
-            vendor_uuid: paymentData.vendor_uuid,
-            amount: paymentData.amount
-        }
-        try {
-            setProcessingPayments(prev => new Set(prev).add(paymentKey));
-
-            const token = localStorage.getItem("token") || "";
-
-            if (!paymentData?.vendor_uuid || !paymentData?.order_service_uuids) {
-                toast.error("Invalid payment data");
-                return;
-            }
-
-            const result = await payVendor(payload, token);
-
-            if (result.status === "success") {
-                toast.success("Payment processed successfully");
-
-                setOrderData(prevOrderData => {
-                    return prevOrderData.map(order => {
-                        const hasPaidService = order.services?.some(service =>
-                            paymentData.order_service_uuids.includes(service.uuid ?? '')
-                        );
-
-                        if (hasPaidService) {
-                            const updatedServices = order.services?.map(service => {
-                                if (paymentData.order_service_uuids.includes(service.uuid ?? '')) {
-                                    return {
-                                        ...service,
-                                        vendor_payment: {
-                                            paid: true,
-                                            transfer_id: result.transfer_id,
-                                            paid_at: new Date().toISOString()
-                                        }
-                                    };
-                                }
-                                return service;
-                            });
-
-                            return {
-                                ...order,
-                                services: updatedServices
-                            };
-                        }
-
-                        return order;
-                    });
-                });
-            } else {
-                toast.error("Payment failed");
-            }
-
-        } catch (error: any) {
-            console.error("Payment error:", error);
-            toast.error(error.message || "Payment failed");
-        } finally {
-            setProcessingPayments(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(paymentKey);
-                return newSet;
-            });
-        }
-    };
 
 
 
     return (
         <div className="text-[#424242]">
+            <Script
+                src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_PLACES_API_KEY || ""}&libraries=places`}
+                strategy="lazyOnload"
+            />
             <div
                 ref={headerRef}
                 className="w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
@@ -919,9 +977,9 @@ const Page = () => {
                             <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Orders</TableHead>
                             <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Services</TableHead>
                             <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Service Time</TableHead>
-                            <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Total</TableHead>
+                            <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Paid / Unpaid</TableHead>
                             <TableHead className="text-[14px] font-[700] text-[#7D7D7D] text-center">Status</TableHead>
-                            <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Added</TableHead>
+                            <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Last Paid</TableHead>
                             <TableHead className="text-[14px] font-[700] text-[#7D7D7D] text-center">{/* chevron */}</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -930,6 +988,27 @@ const Page = () => {
                         <TableBody>
                             {paginatedVendors.length > 0 ? ( // Change from vendorsGrouped to paginatedVendors
                                 paginatedVendors.map((vg, i) => {
+                                    const vendorInvoices = vendorInvoicesMap.get(vg.vendorId) ?? [];
+                                    const paidInvoices = vendorInvoices.filter(inv => inv.status === 'paid');
+                                    const unpaidInvoices = vendorInvoices.filter(inv => inv.status === 'pending_payment' || inv.status === 'draft');
+                                    const paidAmount = paidInvoices.reduce((sum, inv) => sum + Number(inv.total_amount ?? 0), 0);
+                                    const unpaidAmount = unpaidInvoices.reduce((sum, inv) => sum + Number(inv.total_amount ?? 0), 0);
+
+                                    // Last payment date — most recent paid invoice
+                                    const lastPaidDate = paidInvoices.length > 0
+                                        ? paidInvoices
+                                            .map(inv => new Date(inv.created_at))
+                                            .sort((a, b) => b.getTime() - a.getTime())[0]
+                                            .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                        : null;
+
+                                    // Dynamic status: fully paid, partially unpaid, or no invoices yet
+                                    const paymentStatus: 'paid' | 'unpaid' | 'partial' | 'none' =
+                                        vendorInvoices.length === 0 ? 'none'
+                                            : unpaidInvoices.length === 0 ? 'paid'
+                                                : paidInvoices.length === 0 ? 'unpaid'
+                                                    : 'partial';
+
                                     const vendorTimeDisplay: string = computeCombinedTime(
                                         vg.orders.flatMap((o: VendorOrder) =>
                                             o.services.flatMap((svc: VendorService) => svc.slots || [])
@@ -944,11 +1023,7 @@ const Page = () => {
                                         <React.Fragment key={vg.vendorId}>
                                             <TableRow
                                                 onClick={() => {
-                                                    toggleRow(i);
-                                                    // Fetch travel costs when expanding
-                                                    if (expandedRow !== i) {
-                                                        fetchVendorLocationAndCalculateTravelCosts(vg.vendorId, vg.vendor.uuid, vg.orders);
-                                                    }
+                                                    toggleRow(i, vg);
                                                 }}
                                                 className="cursor-pointer hover:bg-gray-100"
                                             >
@@ -969,17 +1044,41 @@ const Page = () => {
                                                 </TableCell>
 
                                                 <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">
-                                                    ${Number(vg.totalAmount ?? 0).toFixed(2)}
+                                                    <div className="flex flex-col gap-0.5">
+                                                        {paidAmount > 0 && (
+                                                            <span className="text-[13px] font-semibold text-green-600">
+                                                                ✓ ${paidAmount.toFixed(2)}
+                                                            </span>
+                                                        )}
+                                                        {unpaidAmount > 0 && (
+                                                            <span className="text-[13px] font-semibold text-red-500">
+                                                                ✗ ${unpaidAmount.toFixed(2)}
+                                                            </span>
+                                                        )}
+                                                        {paidAmount === 0 && unpaidAmount === 0 && (
+                                                            <span className="text-[13px] text-gray-400">—</span>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
 
-                                                <TableCell className="text-[10px] py-[19px] px-[20px] text-center font-[400] text-[#7D7D7D] ">
-                                                    <label className="px-[7px] py-[1.5px] text-white rounded-[10px] leading-[100%] !bg-[#6BAE41]">
-                                                        Completed
-                                                    </label>
+                                                <TableCell className="text-[10px] py-[19px] px-[20px] text-center font-[400]">
+                                                    {paymentStatus === 'paid' ? (
+                                                        <span className="px-[8px] py-[3px] text-white rounded-full text-[10px] font-bold bg-green-500">Paid</span>
+                                                    ) : paymentStatus === 'unpaid' ? (
+                                                        <span className="px-[8px] py-[3px] text-white rounded-full text-[10px] font-bold bg-red-500">Unpaid</span>
+                                                    ) : paymentStatus === 'partial' ? (
+                                                        <span className="px-[8px] py-[3px] text-white rounded-full text-[10px] font-bold bg-amber-500">Partial</span>
+                                                    ) : (
+                                                        <span className="px-[8px] py-[3px] text-gray-500 rounded-full text-[10px] font-bold bg-gray-100">No Invoice</span>
+                                                    )}
                                                 </TableCell>
 
-                                                <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">
-                                                    {vg.added || "—"}
+                                                <TableCell className="text-[13px] py-[19px] font-[400] text-[#7D7D7D]">
+                                                    {lastPaidDate ? (
+                                                        <span className="text-green-700 font-medium">{lastPaidDate}</span>
+                                                    ) : (
+                                                        <span className="text-gray-400">—</span>
+                                                    )}
                                                 </TableCell>
 
                                                 <TableCell className="w-[40px] text-center">
@@ -994,186 +1093,285 @@ const Page = () => {
                                             {expandedRow === i && (
                                                 <TableRow className="bg-gray-50">
                                                     <TableCell colSpan={8} className="p-0">
-                                                        <div className="overflow-hidden transition-all duration-300 p-4">
-                                                            <div className="space-y-4">
-
-                                                                <div className="flex flex-col gap-2 items-end">
+                                                        <div className="overflow-hidden transition-all duration-300 p-6 space-y-6">
+                                                            {/* SECTION A: Invoice History */}
+                                                            <div className="mb-4">
+                                                                <div className="flex items-center justify-between mb-4">
+                                                                    <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Invoice History</h4>
                                                                     <button
                                                                         onClick={(e) => {
-                                                                            if (hasUnpaidServices(vg.vendorId)) {
-                                                                                e.stopPropagation();
-                                                                                triggerPaymentAction(() => handlePayAllUnpaid(vg.vendor.uuid));
-                                                                            }
+                                                                            e.stopPropagation();
+                                                                            localStorage.setItem('resume_payment_vendor_uuid', vg.vendor.uuid);
+                                                                            router.push(`/dashboard/vendor-billing/pending/${vg.vendor.uuid}`);
                                                                         }}
-                                                                        disabled={!hasUnpaidServices(vg.vendorId) || processingBulkPayments.has(`bulk-${vg.vendor.uuid}`)}
-                                                                        className={`px-4 py-2 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[120px]
-            ${!hasUnpaidServices(vg.vendorId)
-                                                                                ? 'bg-gray-400 cursor-not-allowed'
-                                                                                : processingBulkPayments.has(`bulk-${vg.vendor.uuid}`)
-                                                                                    ? 'bg-[#6bae41] hover:bg-[#6bae41]/80 cursor-not-allowed'
-                                                                                    : 'bg-[#6bae41] hover:bg-[#6bae41]/80 cursor-pointer'
-                                                                            }`}
+                                                                        className="px-3 py-3 text-[16px] text-white rounded-md hover:brightness-110 transition-all cursor-pointer"
+                                                                        style={{ backgroundColor: roleSettings.pageTabColor }}
                                                                     >
-                                                                        {processingBulkPayments.has(`bulk-${vg.vendor.uuid}`) ? (
-                                                                            <span className="flex items-center text-white">
-                                                                                <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" />
-                                                                                Processing...
-                                                                            </span>
-                                                                        ) : (
-                                                                            `Pay All (${getUnpaidServicesCount(vg.vendorId)})`
-                                                                        )}
+                                                                        + Generate Invoice
                                                                     </button>
-
-                                                                    {hasUnpaidServices(vg.vendorId) && (
-                                                                        <div className="text-sm text-gray-600">
-                                                                            Unpaid: ${getUnpaidAmount(vg.vendorId).toFixed(2)}
-                                                                        </div>
-                                                                    )}
                                                                 </div>
-                                                                {vg.orders.map((order: VendorOrder) => {
-                                                                    const orderTotal = order.services.reduce(
-                                                                        (total: number, svc: VendorService) => total + Number(svc.amount ?? 0),
-                                                                        0
-                                                                    );
+
+                                                                {loadingInvoices.has(vg.vendorId) ? (
+                                                                    <div className="space-y-2">
+                                                                        {[1, 2].map(n => <Skeleton key={n} className="h-10 w-full bg-gray-200 rounded" />)}
+                                                                    </div>
+                                                                ) : (vendorInvoicesMap.get(vg.vendorId) ?? []).length === 0 ? (
+                                                                    <p className="text-sm text-gray-400 italic py-2">No invoices generated yet.</p>
+                                                                ) : (
+                                                                    <>
+                                                                        <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
+                                                                            <table className="w-full text-sm">
+                                                                                <thead className="bg-gray-100 text-xs text-gray-500 uppercase">
+                                                                                    <tr>
+                                                                                        <th className="px-3 py-2 text-left">Invoice #</th>
+                                                                                        <th className="px-3 py-2 text-left">Cycle</th>
+                                                                                        <th className="px-3 py-2 text-right">Amount</th>
+                                                                                        <th className="px-3 py-2 text-center">Status</th>
+                                                                                        <th className="px-3 py-2 text-center">Actions</th>
+                                                                                    </tr>
+                                                                                </thead>
+                                                                                <tbody className="divide-y divide-gray-100 bg-white">
+                                                                                    {(vendorInvoicesMap.get(vg.vendorId) ?? []).map(inv => (
+                                                                                        <tr key={inv.uuid} className="hover:bg-gray-50">
+                                                                                            <td className="px-3 py-2 font-medium text-gray-850">#{inv.invoice_number}</td>
+                                                                                            <td className="px-3 py-2 text-gray-500 text-xs">
+                                                                                                {inv.cycle_start ? `${inv.cycle_start} → ${inv.cycle_end ?? ''}` : '—'}
+                                                                                            </td>
+                                                                                            <td className="px-3 py-2 text-right font-semibold text-gray-800">
+                                                                                                ${Number(inv.total_amount ?? 0).toFixed(2)}
+                                                                                            </td>
+                                                                                            <td className="px-3 py-2 text-center">
+                                                                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${inv.status === 'paid' ? 'bg-green-100 text-green-700' :
+                                                                                                    inv.status === 'pending_payment' ? 'bg-yellow-100 text-yellow-700' :
+                                                                                                        inv.status === 'draft' ? 'bg-gray-100 text-gray-600' :
+                                                                                                            'bg-red-100 text-red-600'
+                                                                                                    }`}>{inv.status.replace('_', ' ')}</span>
+                                                                                            </td>
+                                                                                            <td className="px-3 py-2 text-center">
+                                                                                                <div className="flex items-center justify-center gap-2">
+                                                                                                    <button
+                                                                                                        onClick={(e) => {
+                                                                                                            e.stopPropagation();
+                                                                                                            // Fetch details first to ensure lines are present
+                                                                                                            const token = localStorage.getItem('token') || '';
+                                                                                                            vendorBillingService.getAdminInvoiceDetails(inv.uuid, token)
+                                                                                                                .then((details) => {
+                                                                                                                    setViewingInvoice(details);
+                                                                                                                    setIsViewModalOpen(true);
+                                                                                                                })
+                                                                                                                .catch(() => {
+                                                                                                                    setViewingInvoice(inv);
+                                                                                                                    setIsViewModalOpen(true);
+                                                                                                                });
+                                                                                                        }}
+                                                                                                        className="px-2 py-1 text-xs border rounded hover:bg-gray-100 transition cursor-pointer"
+                                                                                                    >View</button>
+                                                                                                    {(inv.status === 'pending_payment' || inv.status === 'draft') && (
+                                                                                                        <button
+                                                                                                            onClick={(e) => {
+                                                                                                                e.stopPropagation();
+                                                                                                                triggerPaymentAction(() => handlePayInvoice(inv.uuid, vg.vendor.uuid, vg.vendorId, inv.invoice_number, Number(inv.total_amount)));
+                                                                                                            }}
+                                                                                                            className="px-2 py-1 text-xs text-white rounded transition hover:brightness-110 cursor-pointer"
+                                                                                                            style={{ backgroundColor: roleSettings.pageTabColor }}
+                                                                                                        >Pay</button>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                    ))}
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
+
+                                                                        {/* Earnings verification block (Task 3.2) */}
+                                                                        {(vendorInvoicesMap.get(vg.vendorId)?.some(inv => inv.status === 'paid') || vendorTotalEarnings.has(vg.vendorId)) && (
+                                                                            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg text-left space-y-1">
+                                                                                {vendorInvoicesMap.get(vg.vendorId)?.some(inv => inv.status === 'paid') && (
+                                                                                    <p className="text-sm text-green-800 font-semibold flex items-center gap-1.5">
+                                                                                        <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                                                                                        ✅ Paid invoices: ${vendorInvoicesMap.get(vg.vendorId)
+                                                                                            ?.filter(i => i.status === 'paid')
+                                                                                            .reduce((sum, i) => sum + Number(i.total_amount), 0)
+                                                                                            .toFixed(2)}
+                                                                                    </p>
+                                                                                )}
+                                                                                {vendorTotalEarnings.has(vg.vendorId) && (
+                                                                                    <p className="text-xs text-green-700">
+                                                                                        Verified Vendor Earnings (This Month): ${Number(vendorTotalEarnings.get(vg.vendorId) ?? 0).toFixed(2)}
+                                                                                    </p>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                    </>
+                                                                )}
+                                                            </div>
+
+                                                            {/* SECTION B: Orders & Services */}
+                                                            <div>
+                                                                <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">Orders & Services</h4>
+                                                                {loadingTravelCosts.has(vg.vendorId) ? (
+                                                                    <div className="p-6 space-y-4 bg-white border rounded-lg shadow-sm">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+                                                                            <p className="text-sm text-gray-600">Calculating travel costs...</p>
+                                                                        </div>
+                                                                    </div>
+                                                                ) : vg.orders.map((order: VendorOrder) => {
+                                                                    const orderTotal = order.services.reduce((t, s) => t + Number(s.amount ?? 0), 0);
+                                                                    const orderTravelTotal = getOrderTravelTotal(order.orderId, order.services);
+
+                                                                    // Resolve property address from first slot
+                                                                    const firstSlot = order.services?.[0]?.slots?.[0] || order.services?.find(s => s.slots?.length > 0)?.slots?.[0];
+                                                                    const address = firstSlot?.order ? `${firstSlot.order.property_address || ''}, ${firstSlot.order.property_location || ''}` : '';
+
                                                                     return (
-                                                                        <details
-                                                                            key={order.orderId}
-                                                                            className="group border rounded-lg shadow-sm overflow-hidden"
-                                                                        >
-                                                                            <summary className="cursor-pointer px-4 py-3 bg-white hover:bg-gray-100 flex items-center justify-between font-medium text-gray-800">
+                                                                        <details key={order.orderId} className="group border rounded-lg bg-white shadow-sm overflow-hidden mb-3">
+                                                                            <summary className="cursor-pointer px-4 py-3 bg-white hover:bg-gray-50 flex items-center justify-between font-medium text-gray-800">
                                                                                 <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-6">
-                                                                                    <span>Order #{order.orderId}</span>
-                                                                                    <div className="flex items-center gap-3 text-sm text-gray-500 font-normal">
-                                                                                        <span>Services: ${orderTotal.toFixed(2)}</span>
-                                                                                        {getOrderTravelTotal(order.orderId, order.services) > 0 && (
-                                                                                            <>
-                                                                                                <span className="h-4 w-[1px] bg-gray-300"></span>
-                                                                                                <span className="text-orange-600">Travel: ${getOrderTravelTotal(order.orderId, order.services).toFixed(2)}</span>
-                                                                                            </>
-                                                                                        )}
-                                                                                        <span className="h-4 w-[1px] bg-gray-300"></span>
-                                                                                        <span className="font-semibold text-gray-700">Total: ${(orderTotal + getOrderTravelTotal(order.orderId, order.services)).toFixed(2)}</span>
-                                                                                    </div>
+                                                                                    <span className="text-sm font-semibold">Order #{order.orderId}</span>
+                                                                                    {address && <span className="text-xs text-gray-500 max-w-[200px] md:max-w-xs truncate" title={address}>{address}</span>}
+                                                                                    <span className="text-xs text-gray-400">
+                                                                                        {new Date(order.created_at).toLocaleDateString()}
+                                                                                    </span>
+                                                                                    <span className="text-xs text-gray-500">
+                                                                                        Services: ${orderTotal.toFixed(2)}
+                                                                                        {orderTravelTotal > 0 && ` · Travel: $${orderTravelTotal.toFixed(2)}`}
+                                                                                    </span>
                                                                                 </div>
-                                                                                <div className="flex items-center gap-2 text-gray-500">
-                                                                                    <span className="group-open:hidden"><ChevronDown className="h-5 w-5" /></span>
-                                                                                    <span className="hidden group-open:inline"><ChevronUp className="h-5 w-5" /></span>
+                                                                                <div className="flex items-center gap-2 text-gray-400">
+                                                                                    <span className="group-open:hidden"><ChevronDown className="h-4 w-4" /></span>
+                                                                                    <span className="hidden group-open:inline"><ChevronUp className="h-4 w-4" /></span>
                                                                                 </div>
                                                                             </summary>
 
-                                                                            <div className="bg-gray-50 p-4 space-y-4">
-
+                                                                            <div className="bg-gray-50 divide-y divide-gray-100 p-4 space-y-3">
                                                                                 {order.services.map((svc: ServiceForVendor, idx: number) => {
-                                                                                    const svcTime = computeCombinedTime(svc.slots || []);
+                                                                                    const isPaid = svc.vendor_payment != null || svc.vendor_paid === true || svc.vendor_paid === 1;
+                                                                                    const linkedInvoice = svc.vendor_invoice_id ? invoiceIdMap.get(svc.vendor_invoice_id) : null;
+                                                                                    const isInvoiced = linkedInvoice != null && !isPaid;
                                                                                     const svcTravel = travelCosts.get(`${order.orderId}-${svc.uuid}`);
                                                                                     const vendorLocation = vendorLocationData.get(vg.vendorId);
-                                                                                    
-                                                                                    return (
-                                                                                        <div
-                                                                                            key={idx}
-                                                                                            className="border rounded-md bg-white p-4 shadow-sm hover:shadow-md transition"
-                                                                                        >
-                                                                                            <div className="flex justify-between items-start gap-4">
-                                                                                                <div>
-                                                                                                    <p className="font-semibold text-gray-800">
-                                                                                                        {svc.serviceName}{" "}
-                                                                                                        {svc.option ? `(${svc.option.title})` : ""}
-                                                                                                    </p>
-                                                                                                    <p className="text-sm text-gray-600">
-                                                                                                        Price: ${Number(svc.amount ?? 0).toFixed(2)}
-                                                                                                    </p>
-                                                                                                    <p className="text-sm text-gray-600">Time: {svcTime}</p>
-                                                                                                    <p className="text-sm text-gray-600">Status: {svc.status}</p>
-                                                                                                </div>
+                                                                                    const svcTime = computeCombinedTime(svc.slots || []);
 
-                                                                                                <div className="flex flex-col gap-2 items-end">
-                                                                                                    {(() => {
-                                                                                                        const paymentKey = `${svc.uuid}-${svc.slots?.[0]?.vendor?.uuid || 'unknown'}`;
-                                                                                                        return (
+                                                                                    return (
+                                                                                        <div key={idx} className="border rounded-md bg-white p-4 shadow-sm hover:shadow-md transition">
+                                                                                            <div className="flex items-start justify-between gap-4">
+                                                                                                <div className="flex-1">
+                                                                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                                                                        <p className="font-semibold text-sm text-gray-800">
+                                                                                                            {svc.serviceName}{svc.option ? ` (${svc.option.title})` : ''}
+                                                                                                        </p>
+                                                                                                        {/* Payment Status Badge */}
+                                                                                                        {isPaid ? (
+                                                                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">
+                                                                                                                ✓ Paid
+                                                                                                            </span>
+                                                                                                        ) : isInvoiced ? (
+                                                                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">
+                                                                                                                Invoiced
+                                                                                                            </span>
+                                                                                                        ) : svc.is_completed ? (
+                                                                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700">
+                                                                                                                Unpaid
+                                                                                                            </span>
+                                                                                                        ) : (
+                                                                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-500">
+                                                                                                                In Progress
+                                                                                                            </span>
+                                                                                                        )}
+                                                                                                        {/* Invoice Reference Chip */}
+                                                                                                        {linkedInvoice && (
                                                                                                             <button
-                                                                                                                disabled={svc.vendor_payment != null || processingPayments.has(paymentKey)}
-                                                                                                                onClick={(e) => {
+                                                                                                                onClick={async (e) => {
                                                                                                                     e.stopPropagation();
-                                                                                                                    triggerPaymentAction(() => {
-                                                                                                                        handlePayVendor({
-                                                                                                                            vendor_uuid: svc.slots?.[0]?.vendor?.uuid || '',
-                                                                                                                            order_service_uuids: [svc.uuid ?? ''],
-                                                                                                                            amount: Number(svc.amount ?? 0)
+                                                                                                                    const token = localStorage.getItem('token') || '';
+                                                                                                                    vendorBillingService.getAdminInvoiceDetails(linkedInvoice.uuid, token)
+                                                                                                                        .then((details) => {
+                                                                                                                            setViewingInvoice(details);
+                                                                                                                            setIsViewModalOpen(true);
+                                                                                                                        })
+                                                                                                                        .catch(() => {
+                                                                                                                            setViewingInvoice(linkedInvoice);
+                                                                                                                            setIsViewModalOpen(true);
                                                                                                                         });
-                                                                                                                    });
                                                                                                                 }}
-                                                                                                                className={`px-4 py-2 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] ${
-                                                                                                                    svc.vendor_payment != null
-                                                                                                                        ? 'bg-green-500 cursor-not-allowed'
-                                                                                                                        : processingPayments.has(paymentKey)
-                                                                                                                            ? 'bg-blue-400 cursor-not-allowed'
-                                                                                                                            : 'bg-blue-500 hover:bg-blue-600 cursor-pointer'
-                                                                                                                }`}
+                                                                                                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition cursor-pointer"
+                                                                                                                title="Click to view invoice"
                                                                                                             >
-                                                                                                                {processingPayments.has(paymentKey) ? (
-                                                                                                                    <span className="flex items-center text-white">
-                                                                                                                        <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" />
-                                                                                                                        Processing...
-                                                                                                                    </span>
-                                                                                                                ) : svc.vendor_payment != null ? (
-                                                                                                                    'Paid'
-                                                                                                                ) : (
-                                                                                                                    'Pay Now'
-                                                                                                                )}
+                                                                                                                #{linkedInvoice.invoice_number}
                                                                                                             </button>
-                                                                                                        );
-                                                                                                    })()}
-                                                                                                    
-                                                                                                    {svc.vendor_payment?.invoice_url &&
-                                                                                                        <div className="flex items-center gap-2">
-                                                                                                            <ExternalLink className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                                                                                                            <a
-                                                                                                                href={svc.vendor_payment?.invoice_url}
-                                                                                                                target="_blank"
-                                                                                                                rel="noopener noreferrer"
-                                                                                                                className="text-blue-500 hover:text-blue-700 hover:underline truncate max-w-[200px]"
-                                                                                                                title={svc.vendor_payment?.invoice_url}
-                                                                                                            >
-                                                                                                                {svc.vendor_payment?.invoice_url ?
-                                                                                                                    svc.vendor_payment.invoice_url.replace(/^https?:\/\//, '').substring(0, 30) + '...'
-                                                                                                                    : 'No URL'
-                                                                                                                }
-                                                                                                            </a>
-                                                                                                        </div>
-                                                                                                    }
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                    <p className="text-xs text-gray-500 mt-1">
+                                                                                                        Price: ${Number(svc.amount ?? 0).toFixed(2)}
+                                                                                                        {svcTime && ` · Time: ${svcTime}`}
+                                                                                                    </p>
                                                                                                 </div>
                                                                                             </div>
-
-                                                                                            {svcTravel && svcTravel.travelCost > 0 && (
-                                                                                                <div className="mt-4 pt-4 border-t border-orange-100 bg-orange-50/30 rounded-b-md">
-                                                                                                    <div className="flex justify-between items-start">
-                                                                                                        <div className="space-y-1">
-                                                                                                            <p className="text-sm font-semibold text-orange-800 flex items-center gap-2">
-                                                                                                                <span className="px-2 py-0.5 bg-orange-100 rounded text-[10px] uppercase">Travel Trip</span>
-                                                                                                                ${svcTravel.travelCost.toFixed(2)}
-                                                                                                            </p>
-                                                                                                            <p className="text-[12px] text-gray-600">
-                                                                                                                {svcTravel.distance} km • {svcTravel.estimatedTime} min • {svcTravel.date}
-                                                                                                            </p>
-                                                                                                            <p className="text-[11px] text-gray-500 italic">
-                                                                                                                Rate: ${Number(vendorLocation?.paymentPerKm ?? 0).toFixed(2)}/km • From: {svcTravel.fromAddress.substring(0, 30)}...
-                                                                                                            </p>
-                                                                                                        </div>
-                                                                                                        <button
-                                                                                                            className="px-3 py-1 bg-orange-500 text-white text-[11px] rounded hover:bg-orange-600 transition shadow-sm"
-                                                                                                            onClick={(e) => e.stopPropagation()}
-                                                                                                        >
-                                                                                                            Pay Travel
-                                                                                                        </button>
+                                                                                            {/* Travel debug panel */}
+                                                                                            {svcTravel ? (
+                                                                                                <div className={`mt-3 pt-3 border-t text-xs ${svcTravel.error
+                                                                                                    ? 'border-red-100'
+                                                                                                    : svcTravel.travelCost > 0
+                                                                                                        ? 'border-orange-100'
+                                                                                                        : 'border-gray-100'
+                                                                                                    }`}>
+                                                                                                    {/* Cost / status header */}
+                                                                                                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                                                                                                        {svcTravel.travelCost > 0 ? (
+                                                                                                            <>
+                                                                                                                <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded text-[10px] uppercase font-bold">Travel</span>
+                                                                                                                <span className="font-bold text-orange-700">${svcTravel.travelCost.toFixed(2)}</span>
+                                                                                                                <span className="text-gray-400">{svcTravel.distance} km</span>
+                                                                                                                <span className="text-gray-300">•</span>
+                                                                                                                <span className="text-gray-400">{svcTravel.estimatedTime} min</span>
+                                                                                                                <span className="text-gray-300">•</span>
+                                                                                                                <span className="text-gray-400">@ ${Number(vendorLocation?.paymentPerKm ?? 0).toFixed(2)}/km</span>
+                                                                                                            </>
+                                                                                                        ) : svcTravel.error ? (
+                                                                                                            <span className="px-1.5 py-0.5 bg-red-100 text-red-600 rounded text-[10px] uppercase font-bold">Travel Error</span>
+                                                                                                        ) : (
+                                                                                                            <>
+                                                                                                                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[10px] uppercase font-bold">No Travel</span>
+                                                                                                                <span className="text-gray-400 italic">Travel not required for this service</span>
+                                                                                                            </>
+                                                                                                        )}
                                                                                                     </div>
+                                                                                                    {/* Route card */}
+                                                                                                    <div className="flex items-start gap-1.5 bg-gray-50 border border-gray-200 rounded px-2.5 py-2">
+                                                                                                        <span className="mt-0.5 shrink-0 text-[11px]">📍</span>
+                                                                                                        <div className="flex flex-col gap-1 min-w-0 w-full">
+                                                                                                            <div className="flex items-start gap-2">
+                                                                                                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide pt-0.5 w-7 shrink-0">From</span>
+                                                                                                                <span className="text-gray-600 break-words" title={svcTravel.fromAddress}>
+                                                                                                                    {svcTravel.fromAddress || <em className="text-gray-400">—</em>}
+                                                                                                                </span>
+                                                                                                            </div>
+                                                                                                            <div className="ml-9 h-px bg-gray-200" />
+                                                                                                            <div className="flex items-start gap-2">
+                                                                                                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide pt-0.5 w-7 shrink-0">To</span>
+                                                                                                                <span className={`break-words ${svcTravel.toAddress && svcTravel.toAddress.trim() !== ',' ? 'text-gray-700' : 'text-red-400 italic'}`} title={svcTravel.toAddress}>
+                                                                                                                    {svcTravel.toAddress && svcTravel.toAddress.trim() !== ',' ? svcTravel.toAddress : 'No property address — travel skipped'}
+                                                                                                                </span>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                    {/* Error detail */}
+                                                                                                    {svcTravel.error && (
+                                                                                                        <div className="mt-1.5 px-2.5 py-1.5 bg-red-50 border border-red-200 rounded text-red-600">
+                                                                                                            ⚠️ {svcTravel.errorMessage || 'Unknown calculation error'}
+                                                                                                        </div>
+                                                                                                    )}
                                                                                                 </div>
-                                                                                            )}
+                                                                                            ) : !loadingTravelCosts.has(vg.vendorId) ? (
+                                                                                                <div className="mt-3 pt-3 border-t border-dashed border-gray-100 text-xs text-gray-400 italic">
+                                                                                                    ⏳ Travel not yet calculated
+                                                                                                </div>
+                                                                                            ) : null}
                                                                                         </div>
                                                                                     );
                                                                                 })}
-
-
-
                                                                             </div>
                                                                         </details>
                                                                     );
@@ -1271,6 +1469,119 @@ const Page = () => {
                 toggleShowAgain={() => setShowAgain(!showAgain)}
                 dialogType="payment"
             />
+
+            {/* View Invoice Modal */}
+            <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-bold flex items-center justify-between">
+                            <span>Invoice #{viewingInvoice?.invoice_number}</span>
+                            {viewingInvoice && (
+                                <Button
+                                    onClick={() => {
+                                        const name = `Invoice_${viewingInvoice?.invoice_number || 'draft'}.pdf`;
+                                        DownloadInvoicePdf('invoice-pdf-content', name);
+                                    }}
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex items-center gap-1.5"
+                                >
+                                    <Download className="w-4 h-4" /> Download PDF
+                                </Button>
+                            )}
+                        </DialogTitle>
+                    </DialogHeader>
+                    {viewingInvoice ? (
+                        <div className="bg-white p-6 rounded-lg border border-gray-100 shadow-inner space-y-6">
+                            <InvoiceDocument
+                                invoice={{
+                                    ...viewingInvoice,
+                                    items: viewingInvoice.lines?.map((line: any) => ({
+                                        ...line,
+                                        quantity: line.quantity || 1,
+                                        unit_price: line.unit_price || line.amount,
+                                    })) || []
+                                }}
+                                editData={{
+                                    ...viewingInvoice,
+                                    items: viewingInvoice.lines?.map((line: any) => ({
+                                        ...line,
+                                        quantity: line.quantity || 1,
+                                        unit_price: line.unit_price || line.amount,
+                                    })) || []
+                                }}
+                                isEditing={false}
+                                updateItem={() => { }}
+                                addItem={() => { }}
+                                removeItem={() => { }}
+                                updateTaxRate={() => { }}
+                                setEditData={() => { }}
+                                roleSettings={roleSettings}
+                            />
+
+                            {/* Hidden PDF component for high-accuracy capture */}
+                            <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+                                <InvoicePdfDocument
+                                    invoice={{
+                                        ...viewingInvoice,
+                                        items: viewingInvoice.lines?.map((line: any) => ({
+                                            ...line,
+                                            quantity: line.quantity || 1,
+                                            unit_price: line.unit_price || line.amount,
+                                        })) || []
+                                    }}
+                                    roleSettings={roleSettings}
+                                />
+                            </div>
+
+                            {/* Line Items Breakdown (Task 2.2) */}
+                            <div className="border-t pt-4">
+                                <h4 className="font-semibold text-sm mb-3">Line Items Breakdown</h4>
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="border-b bg-gray-50 text-gray-500 font-bold">
+                                            <th className="text-left p-2">Description</th>
+                                            <th className="text-center p-2">Type</th>
+                                            <th className="text-right p-2">Quantity</th>
+                                            <th className="text-right p-2">Unit Price</th>
+                                            <th className="text-right p-2">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {viewingInvoice.lines?.map((line: any, idx: number) => (
+                                            <tr key={idx} className="border-b text-gray-700">
+                                                <td className="p-2">{line.description}</td>
+                                                <td className="text-center p-2">
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${line.type === 'travel' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
+                                                        }`}>
+                                                        {line.type?.toUpperCase()}
+                                                    </span>
+                                                </td>
+                                                <td className="text-right p-2">{line.quantity || 1}</td>
+                                                <td className="text-right p-2">${Number(line.unit_price || line.amount).toFixed(2)}</td>
+                                                <td className="text-right p-2 font-semibold">${Number(line.amount).toFixed(2)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Warning if no lines */}
+                            {(!viewingInvoice.lines || viewingInvoice.lines.length === 0) && (
+                                <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                                    ⚠️ No line items found. This invoice may not have travel costs recorded.
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-center py-12">
+                            <Loader2 className="animate-spin h-8 w-8 text-gray-400" />
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+
         </div>
     );
 };

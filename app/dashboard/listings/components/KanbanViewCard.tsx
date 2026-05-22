@@ -33,7 +33,9 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
     file_path = featuredFile?.thumbnail_url || featuredFile?.file_path || "";
     // If it's a full URL (thumbnail_url), we don't need to prepend API_URL later, but the current logic prepends it. 
     // We need to adjust the background image logic too.
-    const address = tourData.orders?.property_address || tourData.orders?.property?.address || "N/A";
+    const suite = tourData.orders?.property?.suite;
+    const rawAddress = tourData.orders?.property_address || tourData.orders?.property?.address || "N/A";
+    const address = suite ? `${suite} - ${rawAddress}` : rawAddress;
     const city = tourData.orders?.property?.city || "";
     addressLine = address + (city ? ", " + city : "");
     href = `/tour/${slugify(address)}/${tourData.orders?.uuid}`;
@@ -42,7 +44,8 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
     const files = listingData.orders?.[0]?.tours?.[0]?.files;
     const featuredFile = files?.find((file: { is_featured?: boolean }) => file.is_featured) || files?.[0];
     file_path = featuredFile?.thumbnail_url || featuredFile?.file_path || "";
-    addressLine = listingData.address + ", " + listingData.city;
+    const address = listingData.suite ? `${listingData.suite} - ${listingData.address}` : listingData.address;
+    addressLine = address + (listingData.city ? ", " + listingData.city : "");
     href = listingData.orders?.[0]?.uuid
       ? `/dashboard/file-manager/${listingData.orders?.[0]?.uuid}?listingId=${listingData.uuid}`
       : `/dashboard/listings/create/${listingData.uuid}`;

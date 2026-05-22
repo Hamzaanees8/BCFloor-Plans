@@ -41,13 +41,7 @@ import { Listings } from "@/lib/types";
 import Link from "next/link";
 import { Loader2, X } from "lucide-react";
 
-type Service = {
-  uuid: string;
-  name: string;
-};
-type OrerServices = {
-  service: Service;
-};
+type OrerServices = NonNullable<Order>["services"][0];
 
 export type MediaDateBoundary = {
   from: Date | null;
@@ -58,9 +52,31 @@ const FileManager = () => {
   const router = useRouter();
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
   const [servicesData, setServicesData] = React.useState<Services[]>([]);
-  // services is set by useEffect (used by setServices) but the value is consumed via groupedServices
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [services, setServices] = React.useState<OrerServices[]>([]);
+
+  // --- Duplicate service grouping ---
+  // Group services by service.uuid (definition UUID), sorted by created_at asc
+  const groupedServices = React.useMemo(() => {
+    const map = new Map<string, OrerServices[]>();
+    (services ?? []).forEach((os) => {
+      const isFS = os.service?.name?.toLowerCase() === "feature sheets" ||
+                   (os.service as any)?.category?.name?.toLowerCase() === "feature sheets";
+      if (isFS) return;
+
+      const key = os.service.uuid;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(os);
+    });
+    // Sort each group by created_at ascending
+    map.forEach((group) =>
+      group.sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+    );
+    return map;
+  }, [services]);
+
   const [activeTab, setActiveTab] = useState<string>("download");
   const [activeServiceIndex, setActiveServiceIndex] = useState<number>(0);
   const [orderData, setOrderData] = React.useState<Order | null>(null);
@@ -330,6 +346,26 @@ const FileManager = () => {
       })
       .catch((err) => console.log(err.message));
   }, [orderId]);
+
+  // Redirect unauthorized service tabs for vendor
+  useEffect(() => {
+    if (!orderData || userType !== "vendor") return;
+
+    // Ignore static tabs
+    if (activeTab === "download" || activeTab === "tour" || activeTab === "CreateFeatureSheet") {
+      return;
+    }
+
+    // If services have been loaded and the active service tab is not booked for this vendor
+    if (services.length > 0 && !groupedServices.has(activeTab)) {
+      setActiveTab("download");
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("serviceId");
+      router.replace(`?${params.toString()}`);
+      toast.error("You are not authorized to view this service.");
+    }
+  }, [activeTab, services, groupedServices, orderData, userType, searchParams, router]);
+
   const activeService = servicesData?.find((srv) => srv.uuid === activeTab);
   const activeSlot = orderData?.slots?.find(
     (slot) => slot.service_id === activeService?.id
@@ -338,28 +374,7 @@ const FileManager = () => {
     activeSlot?.vendor?.review_files ?? orderData?.vendor?.review_files
   );
 
-  // --- Duplicate service grouping ---
-  // Group order.services by service.uuid (definition UUID), sorted by created_at asc
-  const groupedServices = React.useMemo(() => {
-    const map = new Map<string, NonNullable<typeof orderData>["services"][0][]>();
-    (orderData?.services ?? []).forEach((os) => {
-      const isFS = os.service?.name?.toLowerCase() === "feature sheets" ||
-                   (os.service as any)?.category?.name?.toLowerCase() === "feature sheets";
-      if (isFS) return;
 
-      const key = os.service.uuid;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(os);
-    });
-    // Sort each group by created_at ascending
-    map.forEach((group) =>
-      group.sort(
-        (a, b) =>
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      )
-    );
-    return map;
-  }, [orderData]);
 
   // Compute the media date boundary for the current service + sub-tab index
   type OrderServiceEntry = NonNullable<typeof orderData>["services"][0];
@@ -418,6 +433,9 @@ const FileManager = () => {
     }
     const category = activeService?.category?.name;
 
+    const primaryInvoice = invoices.find((inv) => (inv.agent_type === "primary" || (inv.agent && !inv.split_details))) || invoices[0];
+    const gstRate = parseFloat(primaryInvoice?.tax_rate || "0") / 100;
+
     switch (category) {
       case "Video":
         return (
@@ -431,6 +449,7 @@ const FileManager = () => {
               onSave={handleSave}
               mediaDateBoundary={mediaDateBoundary}
               onOpenInvoice={handleOpenInvoice}
+              gstRate={gstRate}
             />
           </div>
         );
@@ -445,6 +464,7 @@ const FileManager = () => {
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
+            gstRate={gstRate}
           />
         );
       case "HDR Photos":
@@ -458,6 +478,7 @@ const FileManager = () => {
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
+            gstRate={gstRate}
           />
         );
       case "3d rendering":
@@ -469,6 +490,7 @@ const FileManager = () => {
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onOpenInvoice={handleOpenInvoice}
+            gstRate={gstRate}
           />
         );
       case "drone":
@@ -482,6 +504,7 @@ const FileManager = () => {
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
+            gstRate={gstRate}
           />
         );
       case "Staging":
@@ -493,6 +516,7 @@ const FileManager = () => {
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onOpenInvoice={handleOpenInvoice}
+            gstRate={gstRate}
           />
         );
       case "Standard Photos":
@@ -506,6 +530,7 @@ const FileManager = () => {
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
+            gstRate={gstRate}
           />
         );
       case "Twilight Photos":
@@ -519,6 +544,7 @@ const FileManager = () => {
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
+            gstRate={gstRate}
           />
         );
       case "3D Tour":
@@ -530,6 +556,7 @@ const FileManager = () => {
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
             onOpenInvoice={handleOpenInvoice}
+            gstRate={gstRate}
           />
         );
       default:
@@ -605,6 +632,7 @@ const FileManager = () => {
       ...(filesData?.snapshots || [])
         .filter(snap => !deletedSnapshotUuids.has(snap.uuid))
         .map(snap => ({
+          uuid: snap.uuid,
           x: Number(snap.x_axis),
           y: Number(snap.y_axis),
           floorImageUrl: snap.file_name,

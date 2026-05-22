@@ -31,7 +31,7 @@ import { MediaDateBoundary } from './FileManager';
 
 
 
-function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void }) {
+function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number }) {
     const [files, setFiles] = useState<File[]>([]);
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [open, setOpen] = useState(false);
@@ -743,7 +743,8 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                     if (onSave) onSave();
                                 }}
                                 disabled={isSaving}
-                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[#4290E9] hover:bg-[#4999f5]'}  h-[32px] w-[150px] flex justify-center items-center `}
+                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[var(--primary-color)] hover:opacity-90 text-white'}  h-[32px] w-[150px] flex justify-center items-center `}
+                                style={!mediaUploaded ? { backgroundColor: 'var(--primary-color)' } : {}}
                             >
                                 {isSaving ? (
                                     <>
@@ -765,9 +766,13 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                     />
                     {userType === 'agent' ? (
                         <div className='flex items-center gap-[10px] mr-2'>
-                            <div className='flex flex-col justify-center items-center mr-2'>
-                                <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>${bookingToUse?.option?.amount}</p>
-                                <p className='text-[#7D7D7D] text-[10px] leading-none'>{bookingToUse?.option?.quantity || 0} Files</p>
+                            <div className='flex flex-col justify-center items-end mr-2 text-right'>
+                                <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>
+                                    ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
+                                </p>
+                                <p className='text-[#7D7D7D] text-[10px] leading-none'>
+                                    {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 0} Files`}
+                                </p>
                             </div>
                             <Button
                                 onClick={() => {
@@ -783,8 +788,18 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                 {bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'Paid' : 'UnPaid'}
                             </Button>
                         </div>
-                    ) : (
+                    ) : userType === 'admin' ? (
                         <div className='flex items-center gap-[10px] mr-2'>
+                            <div className='flex flex-col justify-center items-end mr-2 text-right'>
+                                <p className='text-[16px] text-[#6BAE41] font-bold leading-none mb-1'>
+                                    ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
+                                </p>
+                                {gstRate ? (
+                                    <p className='text-[#7D7D7D] text-[9px] leading-none'>
+                                        incl. ${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST
+                                    </p>
+                                ) : null}
+                            </div>
                             <Button
                                 onClick={() => {
                                     if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
@@ -799,7 +814,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                 {bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'PAID' : 'UNPAID'}
                             </Button>
                         </div>
-                    )}
+                    ) : null}
                     <PayInvoiceModal open={openPaymentModal} setOpen={setOpenPaymentModal} success={paymentSuccess} setSuccess={setPaymentSuccess} />
                     <UpgradeServicePopup
                         open={openUpgrade}

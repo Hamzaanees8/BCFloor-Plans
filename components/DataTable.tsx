@@ -39,6 +39,7 @@ interface DataTableProps<TData> {
     // White-labeling overrides
     headerBgOverride?: string;
     rowClick?: (data: TData) => void;
+    autoResetPageIndex?: boolean;
 }
 
 export function DataTable<TData>({
@@ -54,6 +55,7 @@ export function DataTable<TData>({
     onPaginationChange,
     headerBgOverride,
     rowClick,
+    autoResetPageIndex = true,
 }: DataTableProps<TData>) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -65,6 +67,19 @@ export function DataTable<TData>({
 
     // Default header background logic using white-label CSS variables
     const headerBg = headerBgOverride || `var(--${role}-page-bg, #E4E4E4)`;
+
+    // Clamp pagination pageIndex if it exceeds the total pages available for the new data
+    React.useEffect(() => {
+        if (!autoResetPageIndex && data.length > 0) {
+            const totalPages = Math.ceil(data.length / pagination.pageSize);
+            if (pagination.pageIndex >= totalPages) {
+                setPagination((prev) => ({
+                    ...prev,
+                    pageIndex: Math.max(0, totalPages - 1),
+                }));
+            }
+        }
+    }, [data.length, pagination.pageSize, pagination.pageIndex, autoResetPageIndex]);
 
     const table = useReactTable({
         data,
@@ -89,6 +104,7 @@ export function DataTable<TData>({
         getFilteredRowModel: getFilteredRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
+        autoResetPageIndex,
     });
 
     return (

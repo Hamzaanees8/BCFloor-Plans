@@ -45,7 +45,7 @@ export async function batchCalculateTravelCosts(
   legs: TravelLeg[]
 ): Promise<BatchTravelResult> {
   if (typeof window === "undefined" || !window.google?.maps) {
-    console.error("Google Maps API not loaded.");
+    console.warn("Google Maps API not loaded.");
     return {
       status: "ERROR",
       legs: [],

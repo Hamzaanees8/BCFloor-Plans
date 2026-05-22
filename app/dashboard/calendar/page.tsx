@@ -98,8 +98,8 @@ const Page = () => {
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
 
-    const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
-    const [selectedservice, setSelectedservice] = useState<string[]>([]);
+    const [selectedVendors, setSelectedVendors] = useState<string[]>(['ALL']);
+    const [selectedservice, setSelectedservice] = useState<string[]>(['ALL']);
     const [selectedDay, setSelectedDay] = useState<string[]>(['7']);
     const [orderData, setOrderData] = useState<Order[]>([]);
     const [vendorData, setVendorData] = useState<Vendor[]>([]);
@@ -200,7 +200,7 @@ const Page = () => {
 
     return (
         <div>
-            <div ref={headerRef} className='w-full h-[80px] font-alexandria z-50 sticky top-0 grid grid-cols-4 gap-[10px] grid-rows-1 justify-between px-[20px] items-center' style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }} >
+            <div ref={headerRef} className={`w-full h-[80px] font-alexandria z-50 sticky top-0 grid ${userType === 'vendor' ? 'grid-cols-3' : 'grid-cols-4'} gap-[10px] grid-rows-1 justify-between px-[20px] items-center`} style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className='text-[16px] md:text-[22px] font-[400] capitalize' style={{ color: roleSettings.pageTabColor }}>Calendar › {currentMonthYear.month} {currentMonthYear.year}</p>
                 <MultiSelectDropdown
                     options={serviceData}
@@ -210,14 +210,16 @@ const Page = () => {
                     singleSelect={false}
                     type='service'
                 />
-                <MultiSelectDropdown
-                    options={vendorData}
-                    selected={selectedVendors}
-                    setSelected={setSelectedVendors}
-                    title='Select Vendors'
-                    singleSelect={false}
-                    type='vendor'
-                />
+                {userType !== 'vendor' && (
+                    <MultiSelectDropdown
+                        options={vendorData}
+                        selected={selectedVendors}
+                        setSelected={setSelectedVendors}
+                        title='Select Vendors'
+                        singleSelect={false}
+                        type='vendor'
+                    />
+                )}
                 <MultiSelectDropdown
                     options={Days}
                     selected={selectedDay}

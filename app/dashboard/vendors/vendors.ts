@@ -314,7 +314,7 @@ export async function calculateDistance(
   destinationAddress: string
 ): Promise<{ est_time: number; distance: number; status: string } | null> {
   if (typeof window === "undefined" || !window.google?.maps) {
-    console.error("Google Maps API not loaded.");
+    console.warn("Google Maps API not loaded.");
     return null;
   }
 

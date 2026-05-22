@@ -11,9 +11,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
-import { calculateDistance, GetOne } from "@/app/dashboard/vendors/vendors";
+import { GetOne } from "@/app/dashboard/vendors/vendors";
 import { Get } from "@/app/dashboard/orders/orders";
 import { getTaxRateByLocation } from "@/lib/taxCalculator";
+import { batchCalculateTravelCosts, buildTripChainLegs } from "@/lib/batchTravelCalculator";
+
+const logBillingError = (context: string, message: string, extraData?: any) => {
+    console.error(`[Billing Error] Context: ${context} | Message: ${message}`, {
+        timestamp: new Date().toISOString(),
+        ...extraData
+    });
+};
 
 export default function PendingItemsPage() {
     const router = useRouter();
@@ -109,61 +117,43 @@ export default function PendingItemsPage() {
                         }
                     });
 
-                    // Calculate travel for each day
+                    // Calculate travel for each day using batch utility
                     for (const [date, dailyOrders] of Array.from(ordersByDate.entries())) {
                         dailyOrders.sort((a, b) => (a.slots[0]?.start_time || "").localeCompare(b.slots[0]?.start_time || ""));
                         
-                        // Log route sequence for audit trail (Phase 3)
-                        const routeSequence = dailyOrders
-                            .filter(o => o.hasTravelRequiredService)
-                            .map(o => `#${o.id}`)
-                            .join(" → ");
+                        const travelOrdersForDay = dailyOrders.filter(o => o.hasTravelRequiredService);
+                        if (travelOrdersForDay.length === 0) continue;
+
+                        const routeSequence = travelOrdersForDay.map(o => `#${o.id}`).join(" → ");
                         console.log(`Travel route for ${date}:`, `Start → ${routeSequence} → Start`);
 
-                        let currentPos = startLocationAddress;
-                        let dailyDistance = 0;
-                        let lastTravelOrderIndex = -1;
+                        const addresses = travelOrdersForDay.map(o => o.address).filter(addr => addr);
+                        if (addresses.length === 0) continue;
 
-                        // Find the last order with travel-required service
-                        for (let i = dailyOrders.length - 1; i >= 0; i--) {
-                            if (dailyOrders[i].hasTravelRequiredService) {
-                                lastTravelOrderIndex = i;
-                                break;
+                        const tripLegs = buildTripChainLegs(startLocationAddress, addresses);
+
+                        try {
+                            const batchResult = await batchCalculateTravelCosts(tripLegs);
+                            if (batchResult.status === "OK" || batchResult.status === "PARTIAL_FAILURE") {
+                                const costForDay = batchResult.totalDistance * paymentPerKm;
+                                totalTravelCost += costForDay;
+                                totalKm += batchResult.totalDistance;
+                            } else {
+                                console.error(`Batch travel calculation failed completely for ${date}:`, batchResult.status);
+                                logBillingError("pending_items_batch_calculation_failed", `Batch calculation failed with status ${batchResult.status}`, {
+                                    date,
+                                    vendorUuid,
+                                    tripLegsCount: tripLegs.length
+                                });
                             }
+                        } catch (e: any) {
+                            console.error("Exception in batch travel calculation:", e);
+                            logBillingError("pending_items_batch_calculation_exception", e.message || "Exception in batch calculation", {
+                                date,
+                                vendorUuid,
+                                tripLegsCount: tripLegs.length
+                            });
                         }
-
-                        // Calculate distances
-                        for (let i = 0; i < dailyOrders.length; i++) {
-                            const o = dailyOrders[i];
-                            if (!o.hasTravelRequiredService) continue;
-
-                            const dest = o.address;
-                            try {
-                                const res = await calculateDistance(currentPos, dest);
-                                // Phase 1 optimization: now includes status for better error handling
-                                if (res && res.status === "OK") {
-                                    dailyDistance += res.distance;
-                                    if (i === lastTravelOrderIndex) {
-                                        // Add return trip to start location
-                                        const ret = await calculateDistance(dest, startLocationAddress);
-                                        if (ret && ret.status === "OK") {
-                                            dailyDistance += ret.distance;
-                                        } else if (ret?.status && ret.status !== "OK") {
-                                            console.warn("Return trip calculation failed:", ret.status);
-                                        }
-                                    }
-                                    currentPos = dest;
-                                } else if (res?.status && res.status !== "OK") {
-                                    console.warn(`Distance calculation failed for order #${o.id}: ${res.status}`);
-                                }
-                            } catch (e) { 
-                                console.error("Distance calculation error:", e); 
-                            }
-                        }
-
-                        const costForDay = dailyDistance * paymentPerKm;
-                        totalTravelCost += costForDay;
-                        totalKm += dailyDistance;
                     }
 
                     if (totalTravelCost > 0) {
@@ -327,11 +317,77 @@ export default function PendingItemsPage() {
                 })),
             };
 
-            await vendorBillingService.generateInvoice(generatePayload, token);
-            toast.success("Custom invoice generated successfully!");
-            router.push('/dashboard/vendor-billing/invoices');
+            // VERIFICATION LAYER (Task 2.1)
+            // Pre-save verification: check that travel line items are correctly mapped in payload if present in editor
+            const originalTravelItems = editData.items.filter((item: any) => item.type === 'travel');
+            const payloadTravelItems = generatePayload.lines.filter((item: any) => item.type === 'travel');
+            if (originalTravelItems.length > 0 && payloadTravelItems.length === 0) {
+                console.error("Verification failed: Travel items were present in the invoice editor but missing in payload.");
+                logBillingError("invoice_generation_missing_travel_payload", "Travel items present in draft but missing in payload", {
+                    vendorUuid,
+                    invoiceNotes: editData.notes,
+                    originalItemsCount: editData.items.length,
+                    payloadItemsCount: generatePayload.lines.length
+                });
+                toast.error("⚠️ Billing validation mismatch: Travel items are missing from invoice payload.");
+                setGenerating(false);
+                return;
+            }
+
+            const response = await vendorBillingService.generateInvoice(generatePayload, token);
+
+            // ✅ VERIFICATION: Check all items were saved in database
+            if (response && response.uuid) {
+                const details = await vendorBillingService.getAdminInvoiceDetails(response.uuid, token);
+                
+                const expectedItemCount = editData.items.length;
+                const savedItemCount = details.lines?.length ?? 0;
+                
+                if (savedItemCount !== expectedItemCount) {
+                    toast.warning(
+                        `⚠️ Invoice saved but only ${savedItemCount}/${expectedItemCount} line items stored. ` +
+                        `Missing: ${expectedItemCount - savedItemCount} items (likely travel costs)`
+                    );
+                    logBillingError("invoice_verification_mismatch", "Invoice saved but line item count mismatch", {
+                        vendorUuid,
+                        invoiceUuid: response.uuid,
+                        expected: editData.items,
+                        saved: details.lines
+                    });
+                } else {
+                    // Verify travel items specifically
+                    const travelItems = details.lines?.filter((l: any) => l.type === 'travel') ?? [];
+                    const expectedTravel = editData.items.filter((i: any) => i.type === 'travel').length;
+                    
+                    if (travelItems.length !== expectedTravel) {
+                        const travelAmount = editData.items.find((i: any) => i.type === 'travel')?.amount || 0;
+                        toast.error(
+                            `❌ Travel items not saved! Expected ${expectedTravel}, got ${travelItems.length}. ` +
+                            `Vendor will be underpaid by $${Number(travelAmount).toFixed(2)}`
+                        );
+                        logBillingError("invoice_verification_travel_missing", "Travel items not saved in details", {
+                            vendorUuid,
+                            invoiceUuid: response.uuid,
+                            expectedTravel,
+                            actualTravel: travelItems.length
+                        });
+                        setGenerating(false);
+                        return;
+                    }
+                    
+                    toast.success("✅ Invoice generated with all items verified!");
+                }
+            } else {
+                toast.success("Custom invoice generated successfully!");
+            }
+
+            router.push('/dashboard/vendor-billing?resume_payment=true');
         } catch (err: any) {
             console.error("Failed to generate and map customized invoice:", err);
+            logBillingError("invoice_generation_exception", err.response?.data?.message || err.message || "Failed to generate customized invoice", {
+                vendorUuid,
+                errorResponse: err.response?.data
+            });
             toast.error(err.response?.data?.message || "Failed to generate customized invoice");
         } finally {
             setGenerating(false);
@@ -351,7 +407,7 @@ export default function PendingItemsPage() {
                     <Button 
                         variant="default" 
                         className="bg-white/10 hover:bg-white/20 text-white border-0"
-                        onClick={() => router.push('/dashboard/vendor-billing/uninvoiced')}
+                        onClick={() => router.push('/dashboard/vendor-billing')}
                         disabled={generating}
                     >
                         <X className="mr-2 h-4 w-4" /> Cancel

@@ -142,13 +142,13 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                 }
             }
 
-            // If no boundary matched (single booking or no groupedOrderServices provided)
-            // fall back: put in any section matching the service uuid
             if (!matched) {
                 const fallback = sections.find(s => s.serviceUuid === file.service?.uuid);
                 if (fallback) fallback.files.push(file);
                 else {
                     // Service not in groupedOrderServices at all — add a plain section
+                    if (userType === 'vendor') return;
+
                     sections.push({
                         key: file.service.uuid,
                         serviceUuid: file.service.uuid,

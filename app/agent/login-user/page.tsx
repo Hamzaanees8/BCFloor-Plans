@@ -49,10 +49,11 @@ function LoginUser() {
         try {
             const currentHostname = getAppHostname();
             const isDefault = isDefaultDomain(currentHostname);
-
-            const response = await login({ 
-                email, 
-                password, 
+            console.log('currentHostname', currentHostname)
+            console.log('isDefault', isDefault)
+            const response = await login({
+                email,
+                password,
                 role: 'agent',
                 organization_id: organization?.org_id,
                 domain: !isDefault ? getAppOrigin() : undefined
@@ -85,7 +86,7 @@ function LoginUser() {
                         <AgentLoginIcon width='110px' height='110px' />
                     </div>
                 )}
-                <Link href={'#'} className='hidden flex justify-center items-center bg-[var(--primary-color)] hover:bg-[var(--secondary-color)] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
+                <Link href={'#'} className='hidden justify-center items-center bg-[var(--primary-color)] hover:bg-[var(--secondary-color)] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.email ? 'text-red-500' : ''}`} htmlFor="email">Email Address</label>
                     <Input

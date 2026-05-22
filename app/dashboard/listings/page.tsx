@@ -187,15 +187,17 @@ const Page = () => {
             }}
             className={`text-[15px] font-[400] ${userType}-text cursor-pointer hover:underline`}
           >
-            {listing?.address +
-              ", " +
-              listing?.city +
-              ", " +
-              listing?.province +
-              ", " +
-              listing?.postal_code +
-              ", " +
-              listing?.country}
+            {[
+              listing?.address && listing?.suite
+                ? `${listing.suite} - ${listing.address}`
+                : listing?.address || listing?.suite,
+              listing?.city,
+              listing?.province,
+              listing?.postal_code,
+              listing?.country,
+            ]
+              .filter(Boolean)
+              .join(", ")}
           </div>
         );
       },
@@ -212,7 +214,7 @@ const Page = () => {
                 <div key={order.id}>
                   <Link
                     href={`/dashboard/orders/${order.uuid}`}
-                    className="text-[#4290E9] font-[500] hover:underline"
+                    className={`font-[500] hover:underline ${userType}-text`}
                   >
                     {order.id}
                   </Link>

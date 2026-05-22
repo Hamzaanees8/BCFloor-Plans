@@ -23,7 +23,7 @@ type LoginResponse = {
 
 export async function login(payload: LoginPayload): Promise<LoginResponse> {
     const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
+    console.log(API_URL, "API_URL")
     const res = await fetch(`${API_URL}/login`, {
         method: "POST",
         headers: {

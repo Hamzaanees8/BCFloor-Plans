@@ -30,7 +30,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
-import { EditOrderStatus, GetOneOrder, GetVendors } from "../orders";
+import { EditOrderStatus, GetOneOrder } from "../orders";
 import { GetServices } from "../../services/services";
 import { Services } from "../../services/page";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -143,7 +143,6 @@ function Page() {
   const [countries, setCountries] = useState<
     { name: string; isoCode: string }[]
   >([]);
-  const [vendors, setVendors] = useState<VendorData[]>([]);
   const [selectedVendors, setselectedVendors] = useState("");
   const [openEditPopup, setOpenEditPopup] = useState<boolean>(false);
   const { userType } = useAppContext();
@@ -289,12 +288,6 @@ function Page() {
     const token = localStorage.getItem("token");
     if (!token) return;
 
-    GetVendors(token)
-      .then((data) => {
-        setVendors(data.data);
-      })
-      .catch((err) => console.log(err.message));
-
     GetServices(token)
       .then((res) => setServices(Array.isArray(res.data) ? res.data : []))
       .catch(console.log);
@@ -330,7 +323,7 @@ function Page() {
       const isSplit = !!invoice.split_details;
       const payerUuid = currentUser?.uuid;
       const isOwner = currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid);
-      
+
       let paymentMode: "on_behalf" | "self" | undefined = mode;
 
       if (isSplit && !paymentMode) {
@@ -387,6 +380,26 @@ function Page() {
     return found ? found.name : isoCode;
   }
   const uniqueVendors = Array.from(uniqueVendorsMap.values());
+
+  const displayedVendors = (() => {
+    if (userType === "admin" || userType === "agent") {
+      let list = uniqueVendors || [];
+      if (list.length === 0 && orderData?.vendor?.uuid) {
+        list = [orderData.vendor];
+      }
+      return list;
+    } else if (userType === "vendor") {
+      const loggedInVendor = uniqueVendors?.find((v) => v.uuid === currentUser?.uuid) || (currentUser ? {
+        uuid: currentUser.uuid,
+        first_name: currentUser.first_name,
+        last_name: currentUser.last_name,
+        company: currentUser.company,
+        email: currentUser.email,
+      } : null);
+      return loggedInVendor ? [loggedInVendor] : [];
+    }
+    return [];
+  })();
 
   const handleSubmit = async () => {
     const token = localStorage.getItem("token");
@@ -923,32 +936,31 @@ function Page() {
                   </div> */}
                   <div className="col-span-2">
                     <label htmlFor="">
-                      Team Member <span className="text-red-500">*</span>
+                      {displayedVendors.length > 1 ? "Team Members" : "Team Member"} <span className="text-red-500">*</span>
                     </label>
                     <Select
                       value={selectedVendors}
-                      onValueChange={(value) => setselectedVendors(value)}
-                      disabled={userType !== "admin"}
+                      onValueChange={() => { }}
+                      disabled={displayedVendors.length === 0}
                     >
                       <SelectTrigger
-                        className="w-full  h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                        className="w-full h-[42px] border-[1px] border-[#BBBBBB] mt-[12px] text-left"
                         style={{ backgroundColor: fieldBg }}
                       >
-                        <SelectValue placeholder="Select Team Member" />
+                        <span className="truncate pr-4">
+                          {displayedVendors.length > 0
+                            ? displayedVendors.map((v) => `${v.first_name} ${v.last_name}`).join(", ")
+                            : "Select Team Member"}
+                        </span>
                       </SelectTrigger>
                       <SelectContent>
-                        {vendors?.map((vendor) => (
+                        {displayedVendors.map((vendor) => (
                           <SelectItem key={vendor.uuid} value={vendor.uuid}>
                             {`${vendor.first_name} ${vendor.last_name}`}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {/* {fieldErrors.property_status && (
-                                            <p className="text-red-500 text-[10px]">
-                                                {fieldErrors.property_status[0]}
-                                            </p>
-                                        )} */}
                   </div>
                   <div className="col-span-2">
                     <label htmlFor="">Property Website</label>
@@ -1087,11 +1099,11 @@ function Page() {
                 <div className="flex flex-col gap-[10px]">
                   <div className="flex justify-between gap-[12px]">
                     <div className="flex gap-[12px] items-center">
-                      <File 
-                        className="h-[24px] w-[30px] md:h-[36px] md:w-[40px]" 
+                      <File
+                        className="h-[24px] w-[30px] md:h-[36px] md:w-[40px]"
                         style={{ color: roleSettings.pageTabColor }}
                       />
-                      <p 
+                      <p
                         className="text-[24px] md:text-[36px] font-[400]"
                         style={{ color: roleSettings.pageTabColor }}
                       >
@@ -1183,15 +1195,10 @@ function Page() {
                       );
                     })}
                   </div>
-                  <p className="grid grid-cols-4 gap-[15px]">
-                    <span className="col-span-3">GST/HST</span>
-                    <span className="col-span-1">$0.00</span>
-                  </p>
-                  <p className="grid grid-cols-4 gap-[15px]">
-                    <span className="col-span-3">PST/RST/QST</span>
-                    <span className="col-span-1">$0.00</span>
-                  </p>
                   {(() => {
+                    const primaryInvoice = invoices.find((inv) => (inv.agent_type === "primary" || (inv.agent && !inv.split_details))) || invoices[0];
+                    const taxRate = parseFloat(primaryInvoice?.tax_rate || "0");
+
                     // Calculate subtotal from services
                     const subtotal =
                       orderData?.services?.reduce(
@@ -1214,8 +1221,12 @@ function Page() {
                         ? ((totalDiscount / subtotal) * 100).toFixed(2)
                         : "0.00";
 
+                    const gstAmount = primaryInvoice
+                      ? parseFloat(primaryInvoice.tax_amount || "0")
+                      : (subtotal - totalDiscount) * (taxRate / 100);
+
                     // Grand total is the final amount from the order
-                    const grandTotal = parseFloat(orderData?.amount || "0");
+                    const grandTotal = parseFloat(orderData?.amount || "0") + gstAmount;
 
                     // Get paid amount from order data
                     const paidAmount =
@@ -1243,6 +1254,18 @@ function Page() {
                             </span>
                           </p>
                         )}
+
+                        {/* GST/HST */}
+                        <p className="grid grid-cols-4 gap-[15px]">
+                          <span className="col-span-3">GST/HST {taxRate > 0 ? `(${taxRate}%)` : ""}</span>
+                          <span className="col-span-1">${gstAmount.toFixed(2)}</span>
+                        </p>
+
+                        {/* PST/RST/QST */}
+                        <p className="grid grid-cols-4 gap-[15px]">
+                          <span className="col-span-3">PST/RST/QST</span>
+                          <span className="col-span-1">$0.00</span>
+                        </p>
 
                         {/* Order/Quote approx. */}
                         <p className="grid grid-cols-4 gap-[15px]">
@@ -1309,7 +1332,7 @@ function Page() {
                                     borderColor: roleSettings.pageTabColor,
                                   }}
                                 >
-                                  {userType === "admin" ? "Primary Payment" : "Pay Self"}
+                                  {userType === "admin" ? "Pay Now" : "Pay Self"}
                                 </Button>
                               )}
                               {invoices.some((inv) => inv.agent_type === "co-agent") && (
@@ -1381,8 +1404,8 @@ function Page() {
               {invoiceFilter === "primary"
                 ? "Main Agent Invoices"
                 : invoiceFilter === "co-agent"
-                ? "Co-agent Invoices"
-                : "Order Invoices"}
+                  ? "Co-agent Invoices"
+                  : "Order Invoices"}
             </DialogTitle>
           </DialogHeader>
 
@@ -1392,8 +1415,8 @@ function Page() {
                 <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
               </div>
             ) : invoices.filter((inv) =>
-                invoiceFilter === "all" ? true : inv.agent_type === invoiceFilter
-              ).length === 0 ? (
+              invoiceFilter === "all" ? true : inv.agent_type === invoiceFilter
+            ).length === 0 ? (
               <p
                 className="text-center italic"
                 style={{
@@ -1493,58 +1516,58 @@ function Page() {
                             >
                               View Document
                             </Button>
-                                  {status !== "PAID" && status !== "VOID" && (
-                                    currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid) ? (
-                                      <Button
-                                        onClick={() => {
-                                          setShowInvoicesModal(false);
-                                          handlePayInvoice(invoice);
-                                        }}
-                                        className="h-[32px] text-[12px] px-3 font-semibold text-white hover:opacity-90"
-                                        style={{
-                                          backgroundColor: roleSettings.pageTabColor,
-                                          borderColor: roleSettings.pageTabColor,
-                                        }}
-                                      >
-                                        Pay Now
-                                      </Button>
-                                    ) : (
-                                      <div className="flex gap-2">
-                                        {/* Admins always pay on behalf. Agents pay on behalf for co-agents. */}
-                                        {(userType === "admin" || (invoice.agent_type === "co-agent" && invoice.split_details)) && (
-                                          <Button
-                                            onClick={() => {
-                                              setShowInvoicesModal(false);
-                                              handlePayInvoice(invoice, "on_behalf");
-                                            }}
-                                            className="h-[32px] text-[12px] px-3 font-semibold text-white hover:opacity-90"
-                                            style={{
-                                              backgroundColor: roleSettings.pageTabColor,
-                                              borderColor: roleSettings.pageTabColor,
-                                            }}
-                                          >
-                                            Pay on Behalf
-                                          </Button>
-                                        )}
-                                        {/* Agents can pay self (take ownership) for any invoice. Admins cannot. */}
-                                        {userType !== "admin" && (
-                                          <Button
-                                            onClick={() => {
-                                              setShowInvoicesModal(false);
-                                              handlePayInvoice(invoice, "self");
-                                            }}
-                                            className="h-[32px] text-[12px] px-3 font-semibold text-white hover:opacity-90"
-                                            style={{
-                                              backgroundColor: roleSettings.pageTabColor,
-                                              borderColor: roleSettings.pageTabColor,
-                                            }}
-                                          >
-                                            Pay Self
-                                          </Button>
-                                        )}
-                                      </div>
-                                    )
+                            {status !== "PAID" && status !== "VOID" && (
+                              currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid) ? (
+                                <Button
+                                  onClick={() => {
+                                    setShowInvoicesModal(false);
+                                    handlePayInvoice(invoice);
+                                  }}
+                                  className="h-[32px] text-[12px] px-3 font-semibold text-white hover:opacity-90"
+                                  style={{
+                                    backgroundColor: roleSettings.pageTabColor,
+                                    borderColor: roleSettings.pageTabColor,
+                                  }}
+                                >
+                                  Pay Now
+                                </Button>
+                              ) : (
+                                <div className="flex gap-2">
+                                  {/* Admins always pay on behalf. Agents pay on behalf for co-agents. */}
+                                  {(userType === "admin" || (invoice.agent_type === "co-agent" && invoice.split_details)) && (
+                                    <Button
+                                      onClick={() => {
+                                        setShowInvoicesModal(false);
+                                        handlePayInvoice(invoice, "on_behalf");
+                                      }}
+                                      className="h-[32px] text-[12px] px-3 font-semibold text-white hover:opacity-90"
+                                      style={{
+                                        backgroundColor: roleSettings.pageTabColor,
+                                        borderColor: roleSettings.pageTabColor,
+                                      }}
+                                    >
+                                      Pay on Behalf
+                                    </Button>
                                   )}
+                                  {/* Agents can pay self (take ownership) for any invoice. Admins cannot. */}
+                                  {userType !== "admin" && (
+                                    <Button
+                                      onClick={() => {
+                                        setShowInvoicesModal(false);
+                                        handlePayInvoice(invoice, "self");
+                                      }}
+                                      className="h-[32px] text-[12px] px-3 font-semibold text-white hover:opacity-90"
+                                      style={{
+                                        backgroundColor: roleSettings.pageTabColor,
+                                        borderColor: roleSettings.pageTabColor,
+                                      }}
+                                    >
+                                      Pay Self
+                                    </Button>
+                                  )}
+                                </div>
+                              )
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1573,11 +1596,11 @@ function Page() {
                 invoice={viewingInvoice}
                 editData={viewingInvoice}
                 isEditing={false}
-                updateItem={() => {}}
-                addItem={() => {}}
-                removeItem={() => {}}
-                updateTaxRate={() => {}}
-                setEditData={() => {}}
+                updateItem={() => { }}
+                addItem={() => { }}
+                removeItem={() => { }}
+                updateTaxRate={() => { }}
+                setEditData={() => { }}
                 roleSettings={roleSettings}
               />
 

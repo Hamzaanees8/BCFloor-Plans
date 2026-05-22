@@ -352,6 +352,7 @@ const Page = () => {
 
       <div className="w-full">
         <DataTable
+          key={`${searchAddress}-${searchName}-${filterReadStatus}`}
           columns={columns}
           data={filteredNotifications}
           loading={loading}
@@ -359,6 +360,7 @@ const Page = () => {
           dataName="Notifications"
           userType={userType}
           rowClick={handleNotificationClick}
+          autoResetPageIndex={false}
         />
 
         {/* Load More Months Button */}

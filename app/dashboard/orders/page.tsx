@@ -468,10 +468,11 @@ const Page = () => {
             cell: ({ row }: { row: Row<Order> }) => {
                 const address = row.original.property_address;
                 const location = row.original.property_location;
+                const suite = row.original.property?.suite;
 
                 return (
                     <div className="truncate" style={{ color: roleSettings.pageText }}>
-                        {`${address}, ${location}`}
+                        {suite ? `${suite} - ${address}, ${location}` : `${address}, ${location}`}
                     </div>
                 );
             },

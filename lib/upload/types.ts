@@ -1,6 +1,6 @@
 
 export interface PresignedUrlRequest {
-    entity_type: 'tour' | 'order' | 'listing' | 'feature-sheet' | 'vendor-portfolio' | 'agent' | 'agent-audio' | 'organization-audio';
+    entity_type: 'tour' | 'order' | 'listing' | 'feature-sheet' | 'vendor-portfolio' | 'agent' | 'agent-audio' | 'organization-audio' | 'tour-snapshot';
     entity_id: string;
     files: {
         filename: string;
@@ -26,7 +26,7 @@ export interface PresignedUrlResponse {
 }
 
 export interface ConfirmUploadRequest {
-    entity_type: 'tour' | 'order' | 'listing' | 'feature-sheet' | 'vendor-portfolio' | 'agent' | 'agent-audio' | 'organization-audio';
+    entity_type: 'tour' | 'order' | 'listing' | 'feature-sheet' | 'vendor-portfolio' | 'agent' | 'agent-audio' | 'organization-audio' | 'tour-snapshot';
     entity_id: string;
     tour_id?: string;
     feature_sheet_id?: string;
@@ -44,6 +44,11 @@ export interface ConfirmUploadRequest {
         is_agent_approved?: boolean;
         is_show?: boolean;
         sort_order?: number;
+        x_axis?: number;
+        y_axis?: number;
+        description?: string;
+        name?: string;
+        is_hidden?: boolean;
     }[];
 }
 

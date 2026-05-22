@@ -19,7 +19,43 @@ export interface VendorsTourMedia {
     updated_at: string;
     // Optional: If you need the full URL
     image_url?: string;
+    thumbnail_url?: string;
+    variant_urls?: {
+        thumb?: string;
+        small?: string;
+        large?: string;
+    };
 }
+
+const getS3KeyFromUrl = (url: string): string => {
+    if (!url) return "";
+    try {
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            const parsed = new URL(url);
+            let pathname = parsed.pathname;
+            if (pathname.startsWith("/storage/")) {
+                pathname = pathname.substring(8);
+            }
+            if (pathname.startsWith("/")) {
+                pathname = pathname.substring(1);
+            }
+            return pathname;
+        }
+    } catch (e) {
+        console.error("Failed to parse URL:", url, e);
+    }
+    return url;
+};
+
+const getFileKey = (file: VendorsTourMedia): string => {
+    if (file.file_path && file.file_path !== "undefined") {
+        return file.file_path;
+    }
+    const url = file.thumbnail_url || file.variant_urls?.thumb || file.image_url || "";
+    const key = getS3KeyFromUrl(url);
+    console.log("getFileKey: file =", { id: file.id, uuid: file.uuid, name: file.name }, "url =", url, "computed key =", key);
+    return key;
+};
 
 interface VendorWorkGalleryProps {
     files: VendorsTourMedia[];
@@ -55,6 +91,7 @@ export default function VendorWorkGallery({
     }, [selectedImages]);
 
     const toggleSelect = (filePath: string) => {
+        console.log("toggleSelect: filePath =", filePath, "selected =", selected);
         setSelected(prev =>
             prev.includes(filePath)
                 ? prev.filter(p => p !== filePath)
@@ -102,22 +139,24 @@ export default function VendorWorkGallery({
                     {files.length > 0 ? (
                         <div className="grid grid-cols-4 gap-4">
                             {files.map(file => {
-                                const isSelected = selected.includes(file.file_path);
+                                const fileKey = getFileKey(file);
+                                const isSelected = selected.includes(fileKey);
+                                const displayUrl = file.thumbnail_url || file.variant_urls?.thumb || file.image_url || `${API_URL}/${file.file_path}`;
 
                                 return (
                                     <div
                                         key={file.id}
                                         className="justify-self-center cursor-pointer"
-                                        onClick={() => toggleSelect(file.file_path)}
+                                        onClick={() => toggleSelect(fileKey)}
                                     >
                                         <div className="relative">
                                             <div
                                                 className={`relative w-[280px] h-[175px] bg-[#EEEEEE] overflow-hidden transition-all
-                      ${isSelected ? "border-[#4290E9] border-2" : "border-[#A8A8A8] border"}`}
+                       ${isSelected ? "border-[#4290E9] border-2" : "border-[#A8A8A8] border"}`}
                                             >
                                                 {/*  eslint-disable-next-line @next/next/no-img-element */}
                                                 <img
-                                                    src={`${API_URL}/${file.file_path}`}
+                                                    src={displayUrl}
                                                     alt={file.name}
                                                     className="object-cover w-full h-full"
                                                 />

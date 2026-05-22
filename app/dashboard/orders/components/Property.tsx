@@ -798,7 +798,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         if (keyword === "") return data;
 
         return data.filter((listing) => {
-            const label = `${listing.address}, ${listing.city}`.toLowerCase();
+            const addressPart = listing.suite ? `${listing.suite} - ${listing.address}` : listing.address;
+            const label = `${addressPart}, ${listing.city}`.toLowerCase();
             return label.includes(keyword);
         });
     }, [listingSearchValue, listingData, selectedAgentId]);
@@ -1415,7 +1416,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                         >
                                                             {selectedListing ? (
                                                                 <span className='font-normal text-base' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                                                    {selectedListing.address}, {selectedListing.city}
+                                                                    {selectedListing.suite ? `${selectedListing.suite} - ${selectedListing.address}` : selectedListing.address}, {selectedListing.city}
                                                                 </span>
                                                             ) : (
                                                                 "Search and Select previous listings"
@@ -1452,7 +1453,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                                         selectedListingId === listing.uuid ? "opacity-100" : "opacity-0"
                                                                                     )}
                                                                                 />
-                                                                                {listing.address}, {listing.city}
+                                                                                {listing.suite ? `${listing.suite} - ${listing.address}` : listing.address}, {listing.city}
                                                                             </CommandItem>
                                                                         ))
                                                                     ) : (
@@ -1513,7 +1514,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                 {selectedListing && !openAddListingDialog && (
                     <div className='flex flex-col'>
                         <p className={`font-[400] text-[20px]`} style={{ color: roleSettings.pageTabColor }}>
-                            {selectedListing.address}, {selectedListing.city}
+                            {selectedListing.suite ? `${selectedListing.suite} - ${selectedListing.address}` : selectedListing.address}, {selectedListing.city}
                         </p>
                         <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
                             {selectedListing?.agent?.first_name} {selectedListing?.agent?.last_name}

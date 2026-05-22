@@ -18,11 +18,8 @@ export function getDefaultDomains(): string[] {
 
   // Fallback to hardcoded defaults if env vars are not set
   if (domains.length === 0) {
-    return [
-      'teams-new.bcfloorplans.com',
-      'bookings-new.bcfloorplans.com',
-      'vendor-new.bcfloorplans.com',
-    ];
+    console.log('No default domains found, using local defaults');
+
   }
 
   return domains;
@@ -33,7 +30,7 @@ export function getDefaultDomains(): string[] {
  * @returns Base domain string
  */
 export function getDefaultBaseDomain(): string {
-  return 'bcfloorplans.com';
+  return 'tojuco.com';
 }
 
 /**
@@ -119,7 +116,7 @@ export function isDomainMatchingSubdomain(
  */
 export function getDefaultDomainErrorMessage(domain: string): string {
   const baseDomain = getDefaultBaseDomain();
-  
+
   if (domain.trim().toLowerCase() === baseDomain) {
     return `The base domain '${baseDomain}' is reserved and cannot be used as a custom domain. Create a subdomain for your own domain instead.`;
   }

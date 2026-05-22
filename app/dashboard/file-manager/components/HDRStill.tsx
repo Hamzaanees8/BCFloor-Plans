@@ -47,7 +47,7 @@ export interface PaymentData {
 }
 
 
-function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void }) {
+function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number }) {
     const [files, setFiles] = useState<File[]>([]);
     const [sortBy, setSortBy] = useState<'order' | 'name' | 'date'>('order');
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
@@ -137,7 +137,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         let files = filesData?.files
             ?.filter((file: Files) => {
                 if (file?.service?.uuid !== currentService?.uuid) return false;
-                
+
                 // Exclude hidden files from the main gallery
                 if (file.is_hidden) return false;
 
@@ -1021,28 +1021,38 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             </Button>
                         )}
                         {!isHidingMode && userType !== 'agent' && (
-                                <Button
-                                    onClick={() => {
-                                        setShowConfirmation(true);
-                                        handleSubmitToClient();
-                                    }}
-                                    disabled={isSaving}
-                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center`}
-                                >
-                                    {isSaving ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            Submitting...
-                                        </>
-                                    ) : mediaUploaded ? (
-                                        <Check color="#fff" size={14} />
-                                    ) : (
-                                        'Submit to Client'
-                                    )}
-                                </Button>
-                            )}
-                        {userType !== 'agent' && (
+                            <Button
+                                onClick={() => {
+                                    setShowConfirmation(true);
+                                    handleSubmitToClient();
+                                }}
+                                disabled={isSaving}
+                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center`}
+                            >
+                                {isSaving ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Submitting...
+                                    </>
+                                ) : mediaUploaded ? (
+                                    <Check color="#fff" size={14} />
+                                ) : (
+                                    'Submit to Client'
+                                )}
+                            </Button>
+                        )}
+                        {userType === 'admin' && (
                             <div className='flex items-center gap-[10px]'>
+                                {/* <div className='flex flex-col justify-center items-end mr-2 text-right'>
+                                    <p className='text-[16px] text-[#6BAE41] font-bold leading-none mb-1'>
+                                        ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
+                                    </p>
+                                    {gstRate ? (
+                                        <p className='text-[#7D7D7D] text-[9px] leading-none'>
+                                            incl. ${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST
+                                        </p>
+                                    ) : null}
+                                </div> */}
                                 <Button
                                     onClick={() => {
                                         if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
@@ -1066,9 +1076,13 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         />
                         {userType === 'agent' && (
                             <div className='flex items-center gap-[10px] mr-2'>
-                                <div className='flex flex-col justify-center items-center mr-2'>
-                                    <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>${bookingToUse?.option?.amount}</p>
-                                    <p className='text-[#7D7D7D] text-[10px] leading-none'>{bookingToUse?.option?.quantity || 0} Photos</p>
+                                <div className='flex flex-col justify-center items-end mr-2 text-right'>
+                                    <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>
+                                        ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
+                                    </p>
+                                    <p className='text-[#7D7D7D] text-[10px] leading-none'>
+                                        {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 0} Photos`}
+                                    </p>
                                 </div>
                                 <Button
                                     onClick={() => {

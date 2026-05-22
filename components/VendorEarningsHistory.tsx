@@ -21,6 +21,7 @@ import {
 import { useAppContext } from '@/app/context/AppContext'
 import { GetVendorEarnings, GetMyEarnings } from '@/app/dashboard/vendors/vendors'
 import { toast } from 'sonner'
+import { useWhiteLabel } from '@/app/context/Whitelabel'
 
 interface VendorEarningsHistoryProps {
     vendorId?: string;
@@ -57,6 +58,9 @@ interface MonthlyBreakdown {
 
 const VendorEarningsHistory: React.FC<VendorEarningsHistoryProps> = ({ vendorId }) => {
     const { userType } = useAppContext();
+    const { appliedSettings } = useWhiteLabel();
+    const role = userType === 'agent' ? 'agent' : userType === 'vendor' ? 'vendor' : 'admin';
+    const roleSettings = appliedSettings[role] || appliedSettings['admin'];
     const [loading, setLoading] = useState(true);
     const [period, setPeriod] = useState('this_month');
     const [startDate, setStartDate] = useState<Date | undefined>();
@@ -114,24 +118,24 @@ const VendorEarningsHistory: React.FC<VendorEarningsHistoryProps> = ({ vendorId 
 
     const getStatusColor = (status: string) => {
         switch (status.toLowerCase()) {
-            case 'paid': return 'text-green-600';
-            case 'invoiced': return 'text-blue-600';
-            default: return 'text-orange-600';
+            case 'paid': return 'text-[#6BAE41]';
+            case 'invoiced': return 'text-[#4290E9]';
+            default: return 'text-[#E06D5E]';
         }
     };
 
     return (
         <div className="flex flex-col gap-6 p-4 md:p-6 font-alexandria">
             {/* Filters Section */}
-            <div className="flex flex-wrap items-end justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex flex-wrap items-end justify-between gap-4 bg-white p-4 rounded-[6px] border border-[#BBBBBB]">
                 <div className="flex flex-wrap items-end gap-4">
                     <div className="flex flex-col gap-2">
                         <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Period</label>
                         <Select value={period} onValueChange={setPeriod}>
-                            <SelectTrigger className="w-[180px] h-10 border-gray-200">
+                            <SelectTrigger className="w-[180px] h-10 border-[#BBBBBB]" style={{ backgroundColor: roleSettings.pageBg }}>
                                 <SelectValue placeholder="Select Period" />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent style={{ backgroundColor: roleSettings.pageBg }}>
                                 <SelectItem value="this_month">This Month</SelectItem>
                                 <SelectItem value="last_month">Last Month</SelectItem>
                                 <SelectItem value="this_year">This Year</SelectItem>
@@ -148,9 +152,9 @@ const VendorEarningsHistory: React.FC<VendorEarningsHistoryProps> = ({ vendorId 
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant="outline"
-                                            className={`w-[160px] h-10 justify-start text-left font-normal border-gray-200 ${!startDate && 'text-muted-foreground'}`}
+                                            className={`w-[160px] h-10 justify-start text-left font-normal border-[#BBBBBB] bg-white rounded-[6px] ${!startDate && 'text-muted-foreground'}`}
                                         >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            <CalendarIcon className="mr-2 h-4 w-4" style={{ color: roleSettings.activeColor }} />
                                             {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
                                         </Button>
                                     </PopoverTrigger>
@@ -170,9 +174,9 @@ const VendorEarningsHistory: React.FC<VendorEarningsHistoryProps> = ({ vendorId 
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant="outline"
-                                            className={`w-[160px] h-10 justify-start text-left font-normal border-gray-200 ${!endDate && 'text-muted-foreground'}`}
+                                            className={`w-[160px] h-10 justify-start text-left font-normal border-[#BBBBBB] bg-white rounded-[6px] ${!endDate && 'text-muted-foreground'}`}
                                         >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            <CalendarIcon className="mr-2 h-4 w-4" style={{ color: roleSettings.activeColor }} />
                                             {endDate ? format(endDate, "PPP") : <span>Pick a date</span>}
                                         </Button>
                                     </PopoverTrigger>
@@ -190,8 +194,8 @@ const VendorEarningsHistory: React.FC<VendorEarningsHistoryProps> = ({ vendorId 
                     )}
                 </div>
 
-                <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-                    <span className="font-medium">Range:</span>
+                <div className="flex items-center gap-2 text-xs text-[#7D7D7D] bg-gray-50 px-3 py-1.5 rounded-full border border-[#BBBBBB]">
+                    <span className="font-medium text-gray-600">Range:</span>
                     <span>{data?.filters?.start_date ? format(new Date(data.filters.start_date), "MMM d, yyyy") : '...'}</span>
                     <ChevronRight className="w-3 h-3" />
                     <span>{data?.filters?.end_date ? format(new Date(data.filters.end_date), "MMM d, yyyy") : '...'}</span>
@@ -200,25 +204,28 @@ const VendorEarningsHistory: React.FC<VendorEarningsHistoryProps> = ({ vendorId 
 
             {loading ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
-                    <Loader2 className="w-10 h-10 animate-spin text-[#4290E9]" />
+                    <Loader2 className="w-10 h-10 animate-spin" style={{ color: roleSettings.activeColor }} />
                     <p className="text-gray-500 animate-pulse">Loading earnings history...</p>
                 </div>
             ) : (
                 <>
                     {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-2xl shadow-lg shadow-blue-100 text-white flex flex-col gap-1 relative overflow-hidden group">
+                        <div
+                            className="p-6 rounded-[6px] text-white flex flex-col gap-1 relative overflow-hidden group border border-[#BBBBBB]"
+                            style={{ backgroundColor: roleSettings.activeColor }}
+                        >
                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
                                 <DollarSign className="w-20 h-20" />
                             </div>
-                            <span className="text-blue-100 text-sm font-medium uppercase tracking-wider">Total Earned</span>
+                            <span className="text-white/80 text-sm font-medium uppercase tracking-wider">Total Earned</span>
                             <span className="text-3xl font-bold">{formatCurrency(data?.summary?.total_earned || 0)}</span>
-                            <div className="mt-4 flex items-center gap-2 text-blue-100 text-xs">
-                                <span className="bg-white/20 px-2 py-0.5 rounded-full">{data?.summary?.count} Jobs Completed</span>
+                            <div className="mt-4 flex items-center gap-2 text-white/80 text-xs">
+                                <span className="bg-white/20 px-2 py-0.5 rounded-full text-white">{data?.summary?.count} Jobs Completed</span>
                             </div>
                         </div>
 
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-1 relative overflow-hidden group">
+                        <div className="bg-white p-6 rounded-[6px] border border-[#BBBBBB] flex flex-col gap-1 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-4 text-gray-50 opacity-50 group-hover:scale-110 transition-transform">
                                 <Briefcase className="w-20 h-20 text-gray-100" />
                             </div>
@@ -227,7 +234,7 @@ const VendorEarningsHistory: React.FC<VendorEarningsHistoryProps> = ({ vendorId 
                             <div className="mt-4 text-gray-400 text-xs">Base service earnings</div>
                         </div>
 
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-1 relative overflow-hidden group">
+                        <div className="bg-white p-6 rounded-[6px] border border-[#BBBBBB] flex flex-col gap-1 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-4 text-gray-50 opacity-50 group-hover:scale-110 transition-transform">
                                 <Truck className="w-20 h-20 text-gray-100" />
                             </div>
@@ -239,16 +246,16 @@ const VendorEarningsHistory: React.FC<VendorEarningsHistoryProps> = ({ vendorId 
 
                     {/* Breakdown Section (Optional, could be a list or simple cards) */}
                     {data?.breakdown && data.breakdown.length > 0 && (
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                            <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-                                <h3 className="text-sm font-bold text-gray-700 uppercase tracking-widest">Monthly Breakdown</h3>
+                        <div className="bg-white rounded-[6px] border border-[#BBBBBB] overflow-hidden">
+                            <div className="px-6 py-4 border-b border-[#BBBBBB]" style={{ backgroundColor: roleSettings.pageBg }}>
+                                <h3 className="text-[16px] font-[600] uppercase tracking-wide font-alexandria" style={{ color: roleSettings.pageTabColor }}>Monthly Breakdown</h3>
                             </div>
                             <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                 {data.breakdown.map((item) => (
-                                    <div key={item.month} className="p-4 rounded-xl bg-gray-50 border border-gray-100 flex flex-col gap-1">
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{format(new Date(item.month + '-01'), "MMMM yyyy")}</span>
-                                        <span className="text-lg font-bold text-gray-700">{formatCurrency(item.total)}</span>
-                                        <span className="text-[10px] text-gray-500 italic">{item.count} items</span>
+                                    <div key={item.month} className="p-4 rounded-[6px] bg-[#F9F9F9] border border-[#BBBBBB] flex flex-col gap-1">
+                                        <span className="text-[10px] font-bold text-[#7D7D7D] uppercase tracking-wider">{format(new Date(item.month + '-01'), "MMMM yyyy")}</span>
+                                        <span className="text-lg font-bold text-gray-800">{formatCurrency(item.total)}</span>
+                                        <span className="text-[10px] text-[#7D7D7D] italic">{item.count} items</span>
                                     </div>
                                 ))}
                             </div>
@@ -256,48 +263,48 @@ const VendorEarningsHistory: React.FC<VendorEarningsHistoryProps> = ({ vendorId 
                     )}
 
                     {/* Items Table */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-100">
-                            <h3 className="text-sm font-bold text-gray-700 uppercase tracking-widest">Detailed History</h3>
+                    <div className="bg-white rounded-[6px] border border-[#BBBBBB] overflow-hidden">
+                        <div className="px-6 py-4 border-b border-[#BBBBBB]" style={{ backgroundColor: roleSettings.pageBg }}>
+                            <h3 className="text-[16px] font-[600] uppercase tracking-wide font-alexandria" style={{ color: roleSettings.pageTabColor }}>Detailed History</h3>
                         </div>
                         <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader className="bg-gray-50">
-                                    <TableRow>
-                                        <TableHead className="w-[100px] text-[11px] font-bold text-gray-400 uppercase">Date</TableHead>
-                                        <TableHead className="text-[11px] font-bold text-gray-400 uppercase">Property / Service</TableHead>
-                                        <TableHead className="text-[11px] font-bold text-gray-400 uppercase">Amount</TableHead>
-                                        <TableHead className="text-[11px] font-bold text-gray-400 uppercase text-center">Status</TableHead>
-                                        <TableHead className="text-[11px] font-bold text-gray-400 uppercase">Invoice</TableHead>
+                            <Table className="font-alexandria px-0 overflow-x-auto whitespace-nowrap">
+                                <TableHeader>
+                                    <TableRow className="h-[54px] border-b border-[#BBBBBB]" style={{ backgroundColor: roleSettings.pageBg }}>
+                                        <TableHead className="text-[14px] font-[700] text-[#7D7D7D] pl-6">Date</TableHead>
+                                        <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Property / Service</TableHead>
+                                        <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Amount</TableHead>
+                                        <TableHead className="text-[14px] font-[700] text-[#7D7D7D] text-center">Status</TableHead>
+                                        <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">Invoice</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {data?.items && data.items.length > 0 ? (
                                         data.items.map((item) => (
-                                            <TableRow key={item.uuid} className="hover:bg-gray-50 transition-colors">
-                                                <TableCell className="text-sm font-medium text-gray-600">
+                                            <TableRow key={item.uuid} className="hover:bg-gray-100 border-b border-[#E4E4E4] transition-colors">
+                                                <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D] pl-6">
                                                     {format(new Date(item.date), "MMM d, yy")}
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col">
-                                                        <span className="text-sm font-semibold text-gray-800 line-clamp-1">{item.property_address}</span>
-                                                        <span className="text-xs text-gray-400">{item.service_name}</span>
+                                                        <span className="text-[15px] font-[500] text-gray-800 line-clamp-1">{item.property_address}</span>
+                                                        <span className="text-xs text-[#7D7D7D]">{item.service_name}</span>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col">
-                                                        <span className="text-sm font-bold text-gray-700">{formatCurrency(item.total_amount)}</span>
+                                                        <span className="text-[15px] font-[600] text-[#7D7D7D]">{formatCurrency(item.total_amount)}</span>
                                                         {item.travel_amount > 0 && (
-                                                            <span className="text-[10px] text-gray-400">Incl. {formatCurrency(item.travel_amount)} travel</span>
+                                                            <span className="text-[10px] text-[#7D7D7D]">Incl. {formatCurrency(item.travel_amount)} travel</span>
                                                         )}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-center">
-                                                    <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-gray-50 border border-current opacity-80 ${getStatusColor(item.status)}`}>
+                                                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border border-current opacity-85 ${getStatusColor(item.status)}`}>
                                                         {item.status}
                                                     </span>
                                                 </TableCell>
-                                                <TableCell className="text-xs font-medium text-gray-500 italic">
+                                                <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D] italic">
                                                     {item.invoice_number || '---'}
                                                 </TableCell>
                                             </TableRow>

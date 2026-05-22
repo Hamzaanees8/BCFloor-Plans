@@ -102,6 +102,8 @@ const Page = () => {
   const [selectedBilling, setSelectedBilling] = useState<BillingItem | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [rowInvoices, setRowInvoices] = useState<{ [orderUuid: string]: any[] }>({});
+  const [rowInvoicesLoading, setRowInvoicesLoading] = useState<{ [orderUuid: string]: boolean }>({});
 
   useEffect(() => {
     const info = localStorage.getItem("userInfo");
@@ -219,8 +221,24 @@ const Page = () => {
     setPendingAction(null);
   };
 
-  const toggleRow = (index: number) => {
-    setExpandedRow(expandedRow === index ? null : index);
+  const toggleRow = async (index: number) => {
+    const isExpanding = expandedRow !== index;
+    setExpandedRow(isExpanding ? index : null);
+    if (isExpanding) {
+      const billing = sortedBillings[index];
+      if (billing && !rowInvoices[billing.order_uuid] && !rowInvoicesLoading[billing.order_uuid]) {
+        setRowInvoicesLoading(prev => ({ ...prev, [billing.order_uuid]: true }));
+        try {
+          const res = await GetInvoicesByOrder(billing.order_uuid);
+          const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
+          setRowInvoices(prev => ({ ...prev, [billing.order_uuid]: invoicesList }));
+        } catch (err) {
+          console.error("Failed to load row invoice:", err);
+        } finally {
+          setRowInvoicesLoading(prev => ({ ...prev, [billing.order_uuid]: false }));
+        }
+      }
+    }
   };
 
   useEffect(() => {
@@ -460,7 +478,7 @@ const Page = () => {
       </div>
 
       {/* Filters Section */}
-      <div className="p-4 border-b sticky top-[80px] z-40" style={{ backgroundColor: roleSettings.pageBg }}>
+      <div className="p-4 border-b sticky top-[80px] z-40 border-[#BBBBBB]" style={{ backgroundColor: roleSettings.pageBg }}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Status Filter */}
           <div>
@@ -468,7 +486,7 @@ const Page = () => {
               Status
             </label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full" style={{ backgroundColor: roleSettings.pageBg }}>
+              <SelectTrigger className="w-full border-[#BBBBBB]" style={{ backgroundColor: roleSettings.pageBg }}>
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent style={{ backgroundColor: roleSettings.pageBg }}>
@@ -487,7 +505,7 @@ const Page = () => {
                 Agent
               </label>
               <Select value={agentFilter} onValueChange={setAgentFilter}>
-                <SelectTrigger className="w-full" style={{ backgroundColor: roleSettings.pageBg }}>
+                <SelectTrigger className="w-full border-[#BBBBBB]" style={{ backgroundColor: roleSettings.pageBg }}>
                   <SelectValue placeholder="Filter by agent" />
                 </SelectTrigger>
                 <SelectContent style={{ backgroundColor: roleSettings.pageBg }}>
@@ -512,8 +530,11 @@ const Page = () => {
               placeholder="Search address or order ID..."
               value={addressFilter}
               onChange={(e) => setAddressFilter(e.target.value)}
-              className="w-full px-3 h-[35px] py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              style={{ backgroundColor: roleSettings.pageBg }}
+              className="w-full px-[14px] h-[40px] py-[10px] bg-[#EEEEEE] border border-[#BBBBBB] rounded-[6px] focus:outline-none focus:ring-2 transition-all"
+              style={{
+                backgroundColor: roleSettings.pageBg,
+                '--tw-ring-color': roleSettings.activeColor,
+              } as React.CSSProperties}
             />
           </div>
         </div>
@@ -618,13 +639,13 @@ const Page = () => {
                           currency: "USD",
                         })}
                       </TableCell>
-                      <TableCell className="text-[15px] py-[19px] font-[400] text-green-600">
+                      <TableCell className="text-[15px] py-[19px] font-[400] text-[#6BAE41]">
                         {billing.total_paid.toLocaleString("en-US", {
                           style: "currency",
                           currency: "USD",
                         })}
                       </TableCell>
-                      <TableCell className="text-[15px] py-[19px] font-[400] text-red-600">
+                      <TableCell className="text-[15px] py-[19px] font-[400] text-[#E06D5E]">
                         {billing.remaining_amount.toLocaleString("en-US", {
                           style: "currency",
                           currency: "USD",
@@ -650,7 +671,14 @@ const Page = () => {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-gray-500 hover:text-blue-600"
+                            className="h-8 w-8 transition-colors"
+                            style={{ color: '#7D7D7D' }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.color = roleSettings.activeColor;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.color = '#7D7D7D';
+                            }}
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedOrderUuid(billing.order_uuid);
@@ -670,252 +698,333 @@ const Page = () => {
                     </TableRow>
 
                     {/* Expanded Services Row */}
-                    {expandedRow === index && (
-                      <TableRow className="bg-gray-50">
-                        <TableCell colSpan={8} className="p-0">
-                          <div className="overflow-hidden transition-all duration-300 p-6">
-                            <div className="space-y-4">
-                              {/* Order Summary */}
-                              <div className="bg-white p-4 rounded-lg border shadow-sm">
-                                <h3 className="font-semibold text-lg mb-3">
-                                  Order Summary
-                                </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                                  <div>
-                                    <p className="text-gray-600">
-                                      Service Time
-                                    </p>
-                                    <p className="font-medium">
-                                      {computeCombinedTime(billing.slots)}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="text-gray-600">Vendors</p>
-                                    <p className="font-medium">
-                                      {Array.from(
-                                        new Set(
-                                          billing.slots.map(
-                                            (slot) => slot.vendor_name
-                                          )
-                                        )
-                                      ).join(", ")}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="text-gray-600">
-                                      Created Date
-                                    </p>
-                                    <p className="font-medium">
-                                      {new Date(
-                                        billing.created_at
-                                      ).toLocaleDateString()}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <div className="flex flex-col gap-3">
-                                      {orderInvoiceUrl && (
-                                        <a
-                                          href={orderInvoiceUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-blue-500 hover:text-blue-700 flex items-center gap-1 text-sm font-medium mb-1"
-                                        >
-                                          <ExternalLink className="w-4 h-4" />
-                                          Stripe Invoice
-                                        </a>
-                                      )}
-                                      <div className="flex gap-2 items-center">
-                                        <Button
-                                          onClick={() => handleInvoiceAction(billing, "view")}
-                                          disabled={actionLoading !== null}
-                                          className="px-6 py-4 border-gray-200 text-gray-700 bg-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-gray-50"
-                                        >
-                                          {actionLoading?.id === billing.order_id && actionLoading?.action === "view" ? (
-                                            <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
-                                          ) : (
-                                            "Invoice"
-                                          )}
-                                        </Button>
+                    {expandedRow === index && (() => {
+                      const orderInvoices = rowInvoices[billing.order_uuid] || [];
+                      const primaryInvoice = orderInvoices.find((inv) => (inv.agent_type === "primary" || (inv.agent && !inv.split_details))) || orderInvoices[0];
+                      const taxRate = parseFloat(primaryInvoice?.tax_rate || "0");
+                      const taxAmount = parseFloat(primaryInvoice?.tax_amount || "0");
+                      const subtotalVal = parseFloat(primaryInvoice?.subtotal || "0");
+                      const grandTotalVal = parseFloat(primaryInvoice?.total || primaryInvoice?.total_amount || "0");
+                      const hasInvoice = orderInvoices.length > 0;
 
-                                        {billing.remaining_amount > 0 && (
-                                          <Button
-                                            onClick={() => handleInvoiceAction(billing, "pay")}
-                                            disabled={actionLoading !== null}
-                                            className="px-6 py-4 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110"
-                                            style={{ backgroundColor: roleSettings.pageTabColor }}
+                      return (
+                        <TableRow className="bg-gray-50/50">
+                          <TableCell colSpan={8} className="p-0">
+                            <div className="overflow-hidden transition-all duration-300 p-6">
+                              <div className="space-y-4">
+                                {/* Order Summary */}
+                                <div className="bg-white p-6 rounded-[6px] border border-[#BBBBBB]">
+                                  <h3 className="text-[16px] font-[600] uppercase tracking-wide mb-4 font-alexandria" style={{ color: roleSettings.pageTabColor }}>
+                                    Order Summary
+                                  </h3>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                                    <div>
+                                      <p className="text-gray-600">
+                                        Service Time
+                                      </p>
+                                      <p className="font-medium">
+                                        {computeCombinedTime(billing.slots)}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-gray-600">Vendors</p>
+                                      <p className="font-medium">
+                                        {Array.from(
+                                          new Set(
+                                            billing.slots.map(
+                                              (slot) => slot.vendor_name
+                                            )
+                                          )
+                                        ).join(", ")}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-gray-600">
+                                        Created Date
+                                      </p>
+                                      <p className="font-medium">
+                                        {new Date(
+                                          billing.created_at
+                                        ).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <div className="flex flex-col gap-3">
+                                        {orderInvoiceUrl && (
+                                          <a
+                                            href={orderInvoiceUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-1 text-xs font-medium mb-1 hover:underline"
+                                            style={{ color: roleSettings.activeColor }}
                                           >
-                                            {actionLoading?.id === billing.order_id && actionLoading?.action === "pay" ? (
-                                              <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
+                                            <ExternalLink className="w-4 h-4" />
+                                            Stripe Invoice
+                                          </a>
+                                        )}
+                                        <div className="flex gap-2 items-center">
+                                          <Button
+                                            onClick={() => handleInvoiceAction(billing, "view")}
+                                            disabled={actionLoading !== null}
+                                            className="h-[35px] px-4 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-gray-50"
+                                          >
+                                            {actionLoading?.id === billing.order_id && actionLoading?.action === "view" ? (
+                                              <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
                                             ) : (
-                                              "Pay All"
+                                              "Invoice"
                                             )}
                                           </Button>
-                                        )}
-                                        {/* <Button
-                                          variant="outline"
-                                          onClick={() => {
-                                            setSelectedOrderUuid(billing.order_uuid);
-                                            setIsInvoiceModalOpen(true);
-                                          }}
-                                          className='px-6 py-4 border-gray-200 text-gray-700 rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-gray-50'
-                                        >
-                                          View Full Invoice
-                                        </Button> */}
-                                        {role === 'admin' && billing.status === 'paid' && (
-                                          <Button
-                                            variant="outline"
-                                            onClick={(e) => handleRefundClick(e, billing.order_uuid)}
-                                            className='px-6 py-4 border-orange-200 text-orange-600 rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-orange-50'
-                                            disabled={fetchingInvoice}
-                                          >
-                                            {fetchingInvoice ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />} Refund
-                                          </Button>
-                                        )}
-                                      </div>
-                                      {billing.remaining_amount > 0 && (
-                                        <p className="text-xs font-semibold text-red-500">
-                                          Unpaid Amount:{" "}
-                                          {billing.remaining_amount.toLocaleString(
-                                            "en-US",
-                                            {
-                                              style: "currency",
-                                              currency: "USD",
-                                            }
-                                          )}
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
 
-                              {/* Services List */}
-                              <div className="space-y-3">
-                                <h3 className="font-semibold text-lg">
-                                  Services ({billing.services.length})
-                                </h3>
-                                {billing.services.map((service) => (
-                                  <div
-                                    key={service.service_id}
-                                    className="border rounded-lg bg-white p-4 shadow-sm hover:shadow-md transition"
-                                  >
-                                    <div className="flex justify-between items-start">
-                                      <div className="flex-1">
-                                        <div className="flex justify-between items-center">
-                                          <div className="flex items-center gap-4 mb-2">
-                                            <p className="font-semibold text-gray-800">
-                                              {service.service_name}
-                                            </p>
-                                            <span
-                                              className={`px-2 py-1 text-xs rounded-full text-white
-                                              ${service.status ===
-                                                  "completed" ||
-                                                  service.status === "paid"
-                                                  ? "bg-green-500"
-                                                  : service.status === "pending"
-                                                    ? "bg-yellow-500"
-                                                    : service.status ===
-                                                      "cancelled"
-                                                      ? "bg-red-500"
-                                                      : "bg-gray-500"
-                                                }`}
-                                            >
-                                              {service.status}
-                                            </span>
-                                          </div>
-                                          <div className="flex gap-2">
+                                          {billing.remaining_amount > 0 && (
                                             <Button
-                                              onClick={() => handleInvoiceAction(billing, "view", service.order_service_uuid, service.amount)}
+                                              onClick={() => handleInvoiceAction(billing, "pay")}
                                               disabled={actionLoading !== null}
-                                              className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-gray-50"
+                                              className="h-[35px] px-4 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
+                                              style={{ backgroundColor: roleSettings.pageTabColor }}
                                             >
-                                              {actionLoading?.id === service.order_service_uuid && actionLoading?.action === "view" ? (
-                                                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
+                                              {actionLoading?.id === billing.order_id && actionLoading?.action === "pay" ? (
+                                                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
                                               ) : (
-                                                "Invoice"
+                                                "Pay All"
                                               )}
                                             </Button>
-                                            {service.status !== "paid" && billing.status !== "paid" && (
-                                              <Button
-                                                onClick={() => handleInvoiceAction(billing, "pay", service.order_service_uuid, service.amount)}
-                                                disabled={actionLoading !== null}
-                                                className="px-4 py-2 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110"
-                                                style={{ backgroundColor: roleSettings.pageTabColor }}
-                                              >
-                                                {actionLoading?.id === service.order_service_uuid && actionLoading?.action === "pay" ? (
-                                                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
-                                                ) : (
-                                                  "Pay Now"
-                                                )}
-                                              </Button>
-                                            )}
-                                            {(service.status === "paid" || billing.status === "paid") && (
-                                              <Button
-                                                disabled
-                                                className="px-4 py-2 text-white rounded-md text-sm shadow transition-colors flex items-center justify-center min-w-[100px] bg-green-500 cursor-pointer hover:bg-green-600"
-                                              >
-                                                Paid
-                                              </Button>
-                                            )}
-                                          </div>
+                                          )}
+                                          {role === 'admin' && billing.status === 'paid' && (
+                                            <Button
+                                              variant="outline"
+                                              onClick={(e) => handleRefundClick(e, billing.order_uuid)}
+                                              className="h-[35px] px-4 border border-orange-200 text-orange-600 rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-orange-50"
+                                              disabled={fetchingInvoice}
+                                            >
+                                              {fetchingInvoice ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />} Refund
+                                            </Button>
+                                          )}
                                         </div>
-                                        <p className="text-sm text-gray-600">
-                                          Amount:{" "}
-                                          {service.amount.toLocaleString(
-                                            "en-US",
-                                            {
-                                              style: "currency",
-                                              currency: "USD",
-                                            }
-                                          )}
-                                        </p>
-
-                                        {/* Service-specific invoices */}
-                                        {service.related_invoices &&
-                                          service.related_invoices.length >
-                                          0 && (
-                                            <div className="mt-2 space-y-1">
-                                              {service.related_invoices.map(
-                                                (invoice, invoiceIndex) => (
-                                                  <div
-                                                    key={invoiceIndex}
-                                                    className="flex items-center gap-2"
-                                                  >
-                                                    <ExternalLink className="w-3 h-3 text-blue-500 flex-shrink-0" />
-                                                    <a
-                                                      href={invoice.invoice_url}
-                                                      target="_blank"
-                                                      rel="noopener noreferrer"
-                                                      className="text-blue-500 hover:text-blue-700 text-sm truncate"
-                                                      title={
-                                                        invoice.invoice_url
-                                                      }
-                                                    >
-                                                      Service Invoice{" "}
-                                                      {invoiceIndex + 1}
-                                                    </a>
-                                                    <span className="text-xs text-gray-500">
-                                                      (
-                                                      {new Date(
-                                                        invoice.paid_at
-                                                      ).toLocaleDateString()}
-                                                      )
-                                                    </span>
-                                                  </div>
-                                                )
-                                              )}
-                                            </div>
-                                          )}
                                       </div>
                                     </div>
                                   </div>
-                                ))}
+
+                                  {/* GST Breakdown container */}
+                                  {rowInvoicesLoading[billing.order_uuid] ? (
+                                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-4 pt-4 border-t border-gray-100">
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      <span>Loading pricing & tax breakdown...</span>
+                                    </div>
+                                  ) : hasInvoice ? (
+                                    <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap justify-between items-center gap-4 text-sm font-alexandria">
+                                      <div className="flex gap-6">
+                                        <div>
+                                          <span className="text-gray-500 block text-xs">Subtotal</span>
+                                          <span className="font-semibold text-gray-700">
+                                            {subtotalVal.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                                          </span>
+                                        </div>
+                                        {taxRate > 0 && (
+                                          <div>
+                                            <span className="text-gray-500 block text-xs">GST/HST ({taxRate}%)</span>
+                                            <span className="font-semibold text-[#DC9600]">
+                                              {taxAmount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                                            </span>
+                                          </div>
+                                        )}
+                                        <div>
+                                          <span className="text-gray-500 block text-xs">Grand Total</span>
+                                          <span className="font-bold text-gray-800">
+                                            {grandTotalVal.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span className="text-gray-500 block text-xs">Total Paid</span>
+                                          <span className="font-semibold text-[#6BAE41]">
+                                            {billing.total_paid.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span className="text-gray-500 block text-xs">Balance Due</span>
+                                          <span className="font-bold text-[#E06D5E]">
+                                            {billing.remaining_amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap justify-between items-center gap-4 text-sm font-alexandria">
+                                      <div className="flex gap-6">
+                                        <div>
+                                          <span className="text-gray-500 block text-xs">Total Amount</span>
+                                          <span className="font-bold text-gray-800">
+                                            {billing.total_amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span className="text-gray-500 block text-xs">Total Paid</span>
+                                          <span className="font-semibold text-[#6BAE41]">
+                                            {billing.total_paid.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span className="text-gray-500 block text-xs">Balance Due</span>
+                                          <span className="font-bold text-[#E06D5E]">
+                                            {billing.remaining_amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Services List */}
+                                <div className="space-y-3">
+                                  <h3 className="text-[16px] font-[600] uppercase tracking-wide font-alexandria" style={{ color: roleSettings.pageTabColor }}>
+                                    Services ({billing.services.length})
+                                  </h3>
+                                  {billing.services.map((service) => (
+                                    <div
+                                      key={service.service_id}
+                                      className="border border-[#BBBBBB] rounded-[6px] bg-white p-4 transition-all"
+                                    >
+                                      <div className="flex justify-between items-start">
+                                        <div className="flex-1">
+                                          <div className="flex justify-between items-center">
+                                            <div className="flex items-center gap-4 mb-2">
+                                              <p className="font-semibold text-gray-800">
+                                                {service.service_name}
+                                              </p>
+                                              <span
+                                                className={`px-2 py-0.5 text-[10px] rounded-full text-white font-medium uppercase
+                                                ${service.status ===
+                                                    "completed" ||
+                                                    service.status === "paid"
+                                                    ? "bg-[#6BAE41]"
+                                                    : service.status === "pending"
+                                                      ? "bg-[#DC9600]"
+                                                      : service.status ===
+                                                        "cancelled"
+                                                        ? "bg-[#E06D5E]"
+                                                        : "bg-[#7D7D7D]"
+                                                  }`}
+                                              >
+                                                {service.status}
+                                              </span>
+                                            </div>
+                                            <div className="flex gap-2">
+                                              <Button
+                                                onClick={() => handleInvoiceAction(billing, "view", service.order_service_uuid, service.amount)}
+                                                disabled={actionLoading !== null}
+                                                className="h-[30px] px-3 bg-white border border-[#BBBBBB] text-[#666666] rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-gray-50"
+                                              >
+                                                {actionLoading?.id === service.order_service_uuid && actionLoading?.action === "view" ? (
+                                                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
+                                                ) : (
+                                                  "Invoice"
+                                                )}
+                                              </Button>
+                                              {service.status !== "paid" && billing.status !== "paid" && (
+                                                <Button
+                                                  onClick={() => handleInvoiceAction(billing, "pay", service.order_service_uuid, service.amount)}
+                                                  disabled={actionLoading !== null}
+                                                  className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
+                                                  style={{ backgroundColor: roleSettings.pageTabColor }}
+                                                >
+                                                  {actionLoading?.id === service.order_service_uuid && actionLoading?.action === "pay" ? (
+                                                    <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
+                                                  ) : (
+                                                    "Pay Now"
+                                                  )}
+                                                </Button>
+                                              )}
+                                              {(service.status === "paid" || billing.status === "paid") && (
+                                                <Button
+                                                  disabled
+                                                  className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[90px] bg-[#6BAE41] cursor-not-allowed opacity-90"
+                                                >
+                                                  Paid
+                                                </Button>
+                                              )}
+                                            </div>
+                                          </div>
+                                          <div className="text-sm text-gray-600 space-y-0.5">
+                                            <p>
+                                              Base Price:{" "}
+                                              <span className="font-medium text-gray-800">
+                                                {service.amount.toLocaleString("en-US", {
+                                                  style: "currency",
+                                                  currency: "USD",
+                                                })}
+                                              </span>
+                                            </p>
+                                            {taxRate > 0 ? (
+                                              <>
+                                                <p className="text-xs text-gray-500">
+                                                  GST ({taxRate}%):{" "}
+                                                  <span className="font-medium">
+                                                    {(service.amount * (taxRate / 100)).toLocaleString("en-US", {
+                                                      style: "currency",
+                                                      currency: "USD",
+                                                    })}
+                                                  </span>
+                                                </p>
+                                                <p className="text-[13px] font-semibold text-gray-700">
+                                                  Total Price:{" "}
+                                                  <span className="text-[#6BAE41]">
+                                                    {(service.amount * (1 + taxRate / 100)).toLocaleString("en-US", {
+                                                      style: "currency",
+                                                      currency: "USD",
+                                                    })}
+                                                  </span>
+                                                </p>
+                                              </>
+                                            ) : null}
+                                          </div>
+
+                                          {/* Service-specific invoices */}
+                                          {service.related_invoices &&
+                                            service.related_invoices.length >
+                                            0 && (
+                                              <div className="mt-2 space-y-1">
+                                                {service.related_invoices.map(
+                                                  (invoice, invoiceIndex) => (
+                                                    <div
+                                                      key={invoiceIndex}
+                                                      className="flex items-center gap-2"
+                                                    >
+                                                      <ExternalLink className="w-3 h-3 flex-shrink-0" style={{ color: roleSettings.activeColor }} />
+                                                      <a
+                                                        href={invoice.invoice_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs font-medium hover:underline truncate"
+                                                        style={{ color: roleSettings.activeColor }}
+                                                        title={
+                                                          invoice.invoice_url
+                                                        }
+                                                      >
+                                                        Service Invoice{" "}
+                                                        {invoiceIndex + 1}
+                                                      </a>
+                                                      <span className="text-xs text-gray-500">
+                                                        (
+                                                        {new Date(
+                                                          invoice.paid_at
+                                                        ).toLocaleDateString()}
+                                                        )
+                                                      </span>
+                                                    </div>
+                                                  )
+                                                )}
+                                              </div>
+                                            )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })()}
                   </React.Fragment>
                 );
               })
@@ -990,8 +1099,8 @@ const Page = () => {
 
       {/* Multiple Invoices Modal for Split Invoices */}
       <Dialog open={showInvoicesModal} onOpenChange={setShowInvoicesModal}>
-        <DialogContent className="max-w-4xl w-[95vw] md:w-[850px] rounded-[12px] p-0 font-alexandria overflow-hidden border border-gray-100 shadow-2xl bg-white/95 backdrop-blur-md [&>button]:hidden">
-          <DialogHeader className="p-6 border-b border-gray-100 bg-white">
+        <DialogContent className="max-w-4xl w-[95vw] md:w-[850px] rounded-[6px] p-0 font-alexandria overflow-hidden border border-[#BBBBBB] bg-white [&>button]:hidden">
+          <DialogHeader className="p-6 border-b border-[#BBBBBB] bg-white">
             <DialogTitle className="flex items-center justify-between text-lg font-bold tracking-tight uppercase" style={{ color: roleSettings.pageTabColor }}>
               <span>Order Split Invoices</span>
               <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-gray-100 rounded-full animate-none" onClick={() => setShowInvoicesModal(false)}>
@@ -1000,7 +1109,7 @@ const Page = () => {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="max-h-[65vh] overflow-y-auto p-6 space-y-4 bg-gray-50/50">
+          <div className="max-h-[65vh] overflow-y-auto p-6 space-y-4 bg-[#F9F9F9]">
             {invoicesLoading ? (
               <div className="flex flex-col justify-center items-center py-20 gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
@@ -1056,7 +1165,7 @@ const Page = () => {
                     return (
                       <div
                         key={invoice.uuid}
-                        className="group flex flex-col md:flex-row justify-between items-start md:items-center p-5 rounded-xl border border-gray-200/80 bg-white shadow-sm hover:shadow-md hover:border-gray-300/80 transition-all duration-300 gap-4"
+                        className="group flex flex-col md:flex-row justify-between items-start md:items-center p-5 rounded-[6px] border border-[#BBBBBB] bg-white transition-all duration-300 gap-4"
                       >
                         <div className="flex-1 space-y-2">
                           <div className="flex items-center gap-3 flex-wrap">
@@ -1070,7 +1179,7 @@ const Page = () => {
                               {badgeText}
                             </span>
                             {invoice.agent_type && (
-                              <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">
+                              <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-gray-100 text-gray-600 uppercase border border-[#BBBBBB]">
                                 {invoice.agent_type} {splitPercentage ? `(${splitPercentage}%)` : ""}
                               </span>
                             )}
@@ -1086,7 +1195,7 @@ const Page = () => {
                           </div>
 
                           {invoice.items && invoice.items.length > 0 && (
-                            <div className="text-[12px] font-medium text-gray-400 line-clamp-1">
+                            <div className="text-[12px] font-normal text-[#7D7D7D] line-clamp-1">
                               Services: {invoice.items.map((i: any) => i.description || "Service Item").join(", ")}
                             </div>
                           )}
@@ -1108,7 +1217,7 @@ const Page = () => {
                             <Button
                               variant="outline"
                               onClick={() => setViewingInvoice(invoice)}
-                              className="h-[34px] text-[13px] px-4 font-semibold border-gray-200 hover:bg-gray-50 text-gray-700 rounded-lg shadow-sm"
+                              className="h-[30px] text-xs px-3 font-normal border border-[#BBBBBB] hover:bg-gray-50 text-[#666666] rounded-[6px] transition-colors"
                             >
                               View Invoice
                             </Button>
@@ -1120,7 +1229,7 @@ const Page = () => {
                                     setShowInvoicesModal(false);
                                     handlePayInvoice(invoice, selectedBilling);
                                   }}
-                                  className="h-[34px] text-[13px] px-4 font-semibold text-white hover:brightness-110 rounded-lg shadow-sm"
+                                  className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98]"
                                   style={{ backgroundColor: roleSettings.pageTabColor }}
                                 >
                                   Pay Now
@@ -1133,7 +1242,7 @@ const Page = () => {
                                         setShowInvoicesModal(false);
                                         handlePayInvoice(invoice, selectedBilling, "on_behalf");
                                       }}
-                                      className="h-[34px] text-[13px] px-4 font-semibold text-white hover:brightness-110 rounded-lg shadow-sm animate-none"
+                                      className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] animate-none"
                                       style={{ backgroundColor: roleSettings.pageTabColor }}
                                     >
                                       Pay on Behalf
@@ -1145,7 +1254,7 @@ const Page = () => {
                                         setShowInvoicesModal(false);
                                         handlePayInvoice(invoice, selectedBilling, "self");
                                       }}
-                                      className="h-[34px] text-[13px] px-4 font-semibold text-white hover:brightness-110 rounded-lg shadow-sm animate-none"
+                                      className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] animate-none"
                                       style={{ backgroundColor: roleSettings.pageTabColor }}
                                     >
                                       Pay Self
@@ -1173,10 +1282,10 @@ const Page = () => {
           onClick={() => setViewingInvoice(null)}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[95vh] overflow-hidden flex flex-col"
+            className="bg-white rounded-[6px] border border-[#BBBBBB] shadow-2xl w-full max-w-4xl h-[95vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center p-4 border-b">
+            <div className="flex justify-between items-center p-4 border-b border-[#BBBBBB]">
               <h2 className="text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
                 Invoice #{viewingInvoice.invoice_number || viewingInvoice.id}
               </h2>
@@ -1187,7 +1296,7 @@ const Page = () => {
                       setViewingInvoice(null);
                       handlePayInvoice(viewingInvoice, selectedBilling);
                     }}
-                    className="px-6 h-[36px] text-[14px] font-semibold text-white hover:brightness-110 cursor-pointer"
+                    className="px-6 h-[30px] text-xs font-normal text-white hover:brightness-110 rounded-[6px] cursor-pointer transition-all active:scale-[0.98]"
                     style={{ backgroundColor: roleSettings.pageTabColor }}
                   >
                     Pay Now
@@ -1259,10 +1368,10 @@ const Page = () => {
           onClick={() => setServiceInvoicePopup(null)}
         >
           <div
-            className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[95vh] overflow-hidden flex flex-col"
+            className="bg-white rounded-[6px] border border-[#BBBBBB] shadow-xl w-full max-w-4xl h-[95vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center p-4 border-b">
+            <div className="flex justify-between items-center p-4 border-b border-[#BBBBBB]">
               <h2 className="text-xl font-bold" style={{ color: roleSettings.pageTabColor }}>
                 Invoice #{serviceInvoicePopup.invoice.invoice_number || serviceInvoicePopup.invoice.id}
               </h2>
@@ -1273,7 +1382,7 @@ const Page = () => {
                       handleInvoiceAction(serviceInvoicePopup.billing, "pay", serviceInvoicePopup.serviceId);
                     }}
                     disabled={actionLoading !== null}
-                    className="px-6 h-[36px] text-[14px] font-semibold text-white hover:brightness-110 cursor-pointer"
+                    className="px-6 h-[30px] text-xs font-normal text-white hover:brightness-110 rounded-[6px] cursor-pointer transition-all active:scale-[0.98]"
                     style={{ backgroundColor: roleSettings.pageTabColor }}
                   >
                     {actionLoading?.id === (serviceInvoicePopup.serviceId || serviceInvoicePopup.billing.order_id) && actionLoading?.action === "pay" ? (

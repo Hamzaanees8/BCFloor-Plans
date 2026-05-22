@@ -318,6 +318,24 @@ export default function AddBreakPopup({
 
         }
     }, [userType, vendorData, popupType, currentBreak?.uuid, currentBreak?.vendor_id]);
+ 
+    useEffect(() => {
+        if (!currentBreak) {
+            if (selectedVendor) {
+                const addrObj = selectedVendor.addresses?.find((a: any) => a.type === 'start_location') || selectedVendor.addresses?.[0];
+                if (addrObj) {
+                    const addr = `${addrObj.address_line_1 || ''}, ${addrObj.city || ''}, ${addrObj.province || ''}, ${addrObj.country || ''}`.trim();
+                    setAddress(
+                        addr === ', , ,' ? '' : addr.replace(/^,\s*|,\s*$/g, '').replace(/,\s*,/g, ',')
+                    );
+                } else {
+                    setAddress('');
+                }
+            } else {
+                setAddress('');
+            }
+        }
+    }, [selectedVendor, currentBreak]);
 
     useEffect(() => {
         if (currentBreak) {
@@ -356,8 +374,9 @@ export default function AddBreakPopup({
                 }
 
                 setSelectedVendor(vendor);
-                if (vendor?.addresses?.[0]) {
-                    const addr = `${vendor.addresses[0].address_line_1 || ''}, ${vendor.addresses[0].city || ''}, ${vendor.addresses[0].province || ''}, ${vendor.addresses[0].country || ''}`.trim();
+                const addrObj = vendor?.addresses?.find((a: any) => a.type === 'start_location') || vendor?.addresses?.[0];
+                if (addrObj) {
+                    const addr = `${addrObj.address_line_1 || ''}, ${addrObj.city || ''}, ${addrObj.province || ''}, ${addrObj.country || ''}`.trim();
                     setAddress(
                         addr === ', , ,' ? '' : addr.replace(/^,\s*|,\s*$/g, '').replace(/,\s*,/g, ',')
                     );
@@ -539,8 +558,13 @@ export default function AddBreakPopup({
     const handleVendorSelect = (vendorUuid: string) => {
         const vendor = vendorData.find(vendor => vendor.uuid === vendorUuid) || null;
         setSelectedVendor(vendor);
-        const address = `${vendor?.addresses?.[0]?.address_line_1 || ''}, ${vendor?.addresses?.[0]?.city || ''}, ${vendor?.addresses?.[0]?.province || ''}, ${vendor?.addresses?.[0]?.country || ''}`.trim();
-        setAddress(address)
+        const addrObj = vendor?.addresses?.find((a: any) => a.type === 'start_location') || vendor?.addresses?.[0];
+        if (addrObj) {
+            const address = `${addrObj.address_line_1 || ''}, ${addrObj.city || ''}, ${addrObj.province || ''}, ${addrObj.country || ''}`.trim();
+            setAddress(address === ', , ,' ? '' : address.replace(/^,\s*|,\s*$/g, '').replace(/,\s*,/g, ','));
+        } else {
+            setAddress('');
+        }
         if (errors.vendor) setErrors(prev => ({ ...prev, vendor: false }));
         if (errors.address) setErrors(prev => ({ ...prev, address: false }));
     };
@@ -593,7 +617,7 @@ export default function AddBreakPopup({
                         />
                     </div>
 
-                    {popupType !== 'hide' && (
+                    {popupType !== 'hide' && userType !== 'vendor' && (
                         <div className="space-y-[10px] w-full">
                             <Label className={errors.vendor ? "text-red-500" : ""}>Vendor <span className="text-red-500">*</span></Label>
                             <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
@@ -630,7 +654,7 @@ export default function AddBreakPopup({
                                                             className={cn(
                                                                 "mr-2 h-4 w-4",
                                                                 selectedVendor?.uuid === vendor.uuid ? "opacity-100" : "opacity-0"
-                                                            )}
+                                                             )}
                                                         />
                                                         {vendor.first_name} {vendor.last_name}
                                                     </CommandItem>
@@ -658,10 +682,15 @@ export default function AddBreakPopup({
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
-                                    <DatePicker mode="single" selected={fromDate} onSelect={(date) => {
-                                        handleStartDateChange(date);
-                                        if (errors.fromDate) setErrors(prev => ({ ...prev, fromDate: false }));
-                                    }} />
+                                    <DatePicker
+                                        mode="single"
+                                        selected={fromDate}
+                                        onSelect={(date) => {
+                                            handleStartDateChange(date);
+                                            if (errors.fromDate) setErrors(prev => ({ ...prev, fromDate: false }));
+                                        }}
+                                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                                    />
                                 </PopoverContent>
                             </Popover>
                         </div>

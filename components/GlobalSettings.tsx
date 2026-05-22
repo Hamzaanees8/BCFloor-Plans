@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Check, Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { ColumnDef, Row } from "@tanstack/react-table";
 import { DataTable } from "@/components/DataTable";
@@ -790,35 +790,6 @@ const GlobalSettings = () => {
         }
     }, [tabs, activeTab]);
 
-    const tabsRef = useRef<HTMLDivElement>(null);
-    const [showLeftArrow, setShowLeftArrow] = useState(false);
-    const [showRightArrow, setShowRightArrow] = useState(false);
-
-    const checkScroll = () => {
-        if (tabsRef.current) {
-            const { scrollLeft, scrollWidth, clientWidth } = tabsRef.current;
-            setShowLeftArrow(scrollLeft > 0);
-            setShowRightArrow(scrollLeft + clientWidth < scrollWidth);
-        }
-    };
-
-    const scrollTabs = (direction: 'left' | 'right') => {
-        if (tabsRef.current) {
-            const scrollAmount = 300;
-            if (direction === 'left') {
-                tabsRef.current.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-            } else {
-                tabsRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-            }
-            setTimeout(checkScroll, 300);
-        }
-    };
-
-    useEffect(() => {
-        checkScroll();
-        window.addEventListener('resize', checkScroll);
-        return () => window.removeEventListener('resize', checkScroll);
-    }, [tabs]);
 
     const addDiscount = (discount: {
         discount_code?: string;
@@ -1064,69 +1035,30 @@ const GlobalSettings = () => {
             /> */}
             {userType === "admin" && (
                 <div
-                    className="h-[60px] sticky top-[80px] z-[40] border-b-[1px] border-[#BBBBBB] w-full overflow-hidden"
+                    className="h-[60px] sticky top-[80px] z-[40] border-b-[1px] border-[#BBBBBB] w-full"
                     style={{
                         backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%)`,
                     }}
                 >
                     <div className="mx-auto max-w-7xl h-full flex items-center justify-center px-4">
-                        <div className="w-full md:w-[85%] relative flex items-center group h-full">
-                            {showLeftArrow && (
-                                <div className="absolute left-0 z-[50] flex items-center justify-start w-16 h-full bg-gradient-to-r from-[#E4E4E4] via-[#E4E4E4]/80 to-transparent pointer-events-none"
-                                    style={{
-                                        backgroundImage: `linear-gradient(to right, color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%), transparent)`
-                                    }}
-                                >
+                        <div className="w-full overflow-x-auto scrollbar-hide flex items-center justify-center py-2 h-full">
+                            <div className="flex gap-[6px] min-w-max">
+                                {tabs.map((tab) => (
                                     <button
+                                        key={tab}
                                         type="button"
-                                        onClick={() => scrollTabs('left')}
-                                        className="pointer-events-auto flex items-center justify-center w-10 h-10 bg-white shadow-xl border border-gray-200 rounded-full hover:scale-110 active:scale-95 transition-all duration-200"
+                                        onClick={() => {
+                                            setActiveTab(tab);
+                                        }}
+                                        className={`text-center px-4 py-2 text-[13px] whitespace-nowrap h-[36px] transition-all duration-200 cursor-pointer ${activeTab === tab
+                                            ? `${userType}-bg text-white rounded-[8px] font-[600] shadow-md`
+                                            : "text-[#555555] hover:text-black hover:bg-black/5 rounded-[8px] font-[500]"
+                                            }`}
                                     >
-                                        <ChevronLeft className="w-6 h-6 text-gray-800" />
+                                        {tab.toUpperCase()}
                                     </button>
-                                </div>
-                            )}
-
-                            <div
-                                ref={tabsRef}
-                                onScroll={checkScroll}
-                                className="w-full overflow-x-auto scrollbar-hide flex items-center py-2 h-full scroll-smooth"
-                                style={{ scrollBehavior: 'smooth' }}
-                            >
-                                <div className="flex gap-[12px] min-w-max px-12">
-                                    {tabs.map((tab) => (
-                                        <button
-                                            key={tab}
-                                            type="button"
-                                            onClick={() => {
-                                                setActiveTab(tab);
-                                            }}
-                                            className={`text-center px-6 py-2 text-[13px] whitespace-nowrap h-[36px] transition-all duration-200 cursor-pointer ${activeTab === tab
-                                                ? `${userType}-bg text-white rounded-[8px] font-[600] shadow-md`
-                                                : "text-[#555555] hover:text-black hover:bg-black/5 rounded-[8px] font-[500]"
-                                                }`}
-                                        >
-                                            {tab.toUpperCase()}
-                                        </button>
-                                    ))}
-                                </div>
+                                ))}
                             </div>
-
-                            {showRightArrow && (
-                                <div className="absolute right-0 z-[50] flex items-center justify-end w-16 h-full bg-gradient-to-l from-[#E4E4E4] via-[#E4E4E4]/80 to-transparent pointer-events-none"
-                                    style={{
-                                        backgroundImage: `linear-gradient(to left, color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 10%), transparent)`
-                                    }}
-                                >
-                                    <button
-                                        type="button"
-                                        onClick={() => scrollTabs('right')}
-                                        className="pointer-events-auto flex items-center justify-center w-10 h-10 bg-white shadow-xl border border-gray-200 rounded-full hover:scale-110 active:scale-95 transition-all duration-200"
-                                    >
-                                        <ChevronRight className="w-6 h-6 text-gray-800" />
-                                    </button>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>

@@ -410,7 +410,9 @@ export default function QuickViewCard({
                     {/* {type === "listing" && (data as Listings).address  } */}
                     {type === "listing" &&
                       [
-                        (data as Listings)?.address,
+                        (data as Listings)?.address && (data as Listings)?.suite
+                          ? `${(data as Listings).suite} - ${(data as Listings).address}`
+                          : (data as Listings)?.address || (data as Listings)?.suite,
                         (data as Listings)?.city,
                         (data as Listings)?.province,
                         (data as Listings)?.postal_code,

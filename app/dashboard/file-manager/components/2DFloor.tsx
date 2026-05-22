@@ -42,8 +42,9 @@ type Props = {
     mediaDateBoundary?: MediaDateBoundary;
     currentBookedService?: OrderService;
     onOpenInvoice?: (serviceName?: string) => void;
+    gstRate?: number;
 };
-const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, currentService, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice }) => {
+const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, currentService, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate }) => {
     const { floorFiles, setFloorFiles, filesData, setFilesData, setChangedFileUuids, setSelectionChangedUuids, fileManagerMode, setFileManagerMode, imagesPerRow, isSaving, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
     const [replacingFile, setReplacingFile] = useState<File | null>(null);
     const [openPreview, setOpenPreview] = useState(false);
@@ -776,9 +777,13 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                             />
                             {userType === 'agent' ? (
                                 <div className='flex items-center gap-[10px] mr-2'>
-                                    <div className='flex flex-col justify-center items-center mr-2'>
-                                        <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>${bookingToUse?.option?.amount}</p>
-                                        <p className='text-[#7D7D7D] text-[10px] leading-none'>{bookingToUse?.option?.quantity || 1} Files</p>
+                                    <div className='flex flex-col justify-center items-end mr-2 text-right'>
+                                        <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>
+                                            ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
+                                        </p>
+                                        <p className='text-[#7D7D7D] text-[10px] leading-none'>
+                                            {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 1} Files`}
+                                        </p>
                                     </div>
                                     <Button
                                         onClick={() => {
@@ -794,8 +799,18 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                         {bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'Paid' : 'UnPaid'}
                                     </Button>
                                 </div>
-                            ) : (
+                            ) : userType === 'admin' ? (
                                 <div className='flex items-center gap-[10px] mr-2'>
+                                    {/* <div className='flex flex-col justify-center items-end mr-2 text-right'>
+                                        <p className='text-[16px] text-[#6BAE41] font-bold leading-none mb-1'>
+                                            ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
+                                        </p>
+                                        {gstRate ? (
+                                            <p className='text-[#7D7D7D] text-[9px] leading-none'>
+                                                incl. ${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST
+                                            </p>
+                                        ) : null}
+                                    </div> */}
                                     <Button
                                         onClick={() => {
                                             if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
@@ -810,7 +825,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                         {bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'PAID' : 'UNPAID'}
                                     </Button>
                                 </div>
-                            )}
+                            ) : null}
                             <PayInvoiceModal open={openPaymentModal} setOpen={setOpenPaymentModal} success={paymentSuccess} setSuccess={setPaymentSuccess} />
                             <UpgradeServicePopup
                                 open={openUpgrade}
@@ -886,9 +901,9 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                                 variant="outline"
                                 onClick={() => setOpenUpgrade(true)}
                                 className={`border h-[36px] px-6 rounded transition-colors font-medium ml-2 ${userType}-button`}
-                                style={{ 
-                                    borderColor: `var(--${userType}-page-tab-color)`, 
-                                    color: `var(--${userType}-page-tab-color)` 
+                                style={{
+                                    borderColor: `var(--${userType}-page-tab-color)`,
+                                    color: `var(--${userType}-page-tab-color)`
                                 }}
                             >
                                 Upgrade Plan

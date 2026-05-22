@@ -143,6 +143,7 @@ export interface VendorPortfolioImage {
   image_url: string;
   full_storage_path: string;
   file_exists: boolean;
+  image_type?: string;
   is_processing?: boolean;
   variant_urls?: {
     thumb?: string;
@@ -417,25 +418,26 @@ const VendorForm = () => {
     }
   }, [isSuperAdmin, userId]);
 
-  let idToUse: string = "";
-
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-
-    if (userType === "vendor") {
+  let idToUse = "";
+  if (userType === "vendor") {
+    if (typeof window !== "undefined") {
       const userInfo = localStorage.getItem("userInfo");
       if (userInfo) {
         try {
           const parsedInfo = JSON.parse(userInfo);
-          // eslint-disable-next-line react-hooks/exhaustive-deps
-          idToUse = parsedInfo.uuid;
+          idToUse = parsedInfo.uuid || "";
         } catch (err) {
           console.error("Failed to parse userInfo:", err);
         }
       }
-    } else {
-      idToUse = userId;
     }
+  } else {
+    idToUse = userId || "";
+  }
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+
     if (!token) {
       console.log("Token not found.");
       return;
@@ -1328,17 +1330,19 @@ const VendorForm = () => {
                             </p>
                           )}
                         </div>
-                        <div className='col-span-2'>
-                          <label htmlFor="">Role <span className="text-red-500">*</span></label>
-                          <Select disabled value="vendor">
-                            <SelectTrigger className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
-                              <SelectValue placeholder="Vendor" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="vendor">Vendor</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        {userType !== "vendor" && (
+                          <div className='col-span-2'>
+                            <label htmlFor="">Role <span className="text-red-500">*</span></label>
+                            <Select disabled value="vendor">
+                              <SelectTrigger className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
+                                <SelectValue placeholder="Vendor" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="vendor">Vendor</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                         {userType !== "vendor" && (
                           <div className="col-span-2">
                             <label htmlFor="">Organization</label>
@@ -1698,36 +1702,40 @@ const VendorForm = () => {
                           )}
                         </div>
 
-                        <div className="col-span-2">
-                          <div className="flex items-center justify-between">
-                            <p>Show Vendor Name When Booking</p>
-                            <Switch
-                              checked={showVendorName}
-                              onCheckedChange={setShowVendorName}
-                              className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41] float-end"
-                            />
-                            {fieldErrors.review_files && (
-                              <p className="text-red-500 text-[10px] mt-1">
-                                {fieldErrors.review_files[0]}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="col-span-2">
-                          <div className="flex items-center justify-between">
-                            <p>Review Files before Submitting to Clients</p>
-                            <Switch
-                              checked={adminReviewRequired}
-                              onCheckedChange={setAdminReviewRequired}
-                              className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41] float-end"
-                            />
-                            {fieldErrors.review_files && (
-                              <p className="text-red-500 text-[10px] mt-1">
-                                {fieldErrors.review_files[0]}
-                              </p>
-                            )}
-                          </div>
-                        </div>
+                        {userType !== "vendor" && (
+                          <>
+                            <div className="col-span-2">
+                              <div className="flex items-center justify-between">
+                                <p>Show Vendor Name When Booking</p>
+                                <Switch
+                                  checked={showVendorName}
+                                  onCheckedChange={setShowVendorName}
+                                  className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41] float-end"
+                                />
+                                {fieldErrors.review_files && (
+                                  <p className="text-red-500 text-[10px] mt-1">
+                                    {fieldErrors.review_files[0]}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="col-span-2">
+                              <div className="flex items-center justify-between">
+                                <p>Review Files before Submitting to Clients</p>
+                                <Switch
+                                  checked={adminReviewRequired}
+                                  onCheckedChange={setAdminReviewRequired}
+                                  className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41] float-end"
+                                />
+                                {fieldErrors.review_files && (
+                                  <p className="text-red-500 text-[10px] mt-1">
+                                    {fieldErrors.review_files[0]}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2448,7 +2456,7 @@ const VendorForm = () => {
                 </AccordionTrigger>
                 <AccordionContent className="grid gap-4">
                   <div className="flex flex-col gap-y-4 py-[16px]">
-                    {(userType === "admin" || userType === "vendor") && (
+                    {userType !== "vendor" && (
                       /* Change: Container is now flex-col so children stack vertically */
                       <div className="pl-[18px] flex flex-col items-start">
                         {/* Row 1: Checkbox and Label */}
@@ -2484,7 +2492,7 @@ const VendorForm = () => {
                     {(userType === "admin" || userType === "vendor") && (
                       <div className="flex flex-col">
                         <div className="pl-[18px] flex items-center gap-[10px]">
-                          <Input
+                          <input
                             type="checkbox"
                             checked={forceServiceArea}
                             onChange={(e) =>
@@ -2547,6 +2555,7 @@ const VendorForm = () => {
             portfolioImages={portfolioImages}
             setPortfolioImages={setPortfolioImages}
             portfolioImagesUrls={portfolioImagesUrls}
+            setPortfolioImagesUrls={setPortfolioImagesUrl}
             galleryImages={galleryImages}
             setGalleryImages={setGalleryImages}
             coords={map_coordinates}

@@ -43,6 +43,7 @@ export interface PendingResponse {
 }
 
 export interface VendorInvoice {
+    id?: number;
     uuid: string;
     invoice_number: string;
     status: 'draft' | 'pending_payment' | 'paid' | 'cancelled';
@@ -52,6 +53,8 @@ export interface VendorInvoice {
     tax_rate?: string | number;
     tax_amount?: string | number;
     total?: string | number;
+    cycle_start?: string;
+    cycle_end?: string;
     created_at: string;
     notes?: string;
     vendor?: {
@@ -146,6 +149,15 @@ class VendorBillingService {
             headers: this.getHeaders(token),
         });
         return response.data.data;
+    }
+
+    async getVendorInvoices(vendorUuid: string, token: string): Promise<VendorInvoice[]> {
+        const response = await api.get('/vendor-billing/invoices', {
+            headers: this.getHeaders(token),
+            params: { vendor_uuid: vendorUuid, limit: 100 },
+        });
+        const raw = response.data.data;
+        return Array.isArray(raw) ? raw : (raw?.data ?? []);
     }
 
     async updateInvoice(uuid: string, data: Partial<VendorInvoice>, token: string): Promise<VendorInvoice> {

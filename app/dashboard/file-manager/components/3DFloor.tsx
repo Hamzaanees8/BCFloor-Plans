@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/popover"
 import { ServiceCompletion, HideMediaFiles } from '../file-manager';
 
-function FileTab2({ currentService, orderData, isListing, currentBookedService, onOpenInvoice }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void }) {
+function FileTab2({ currentService, orderData, isListing, currentBookedService, onOpenInvoice, gstRate }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number }) {
     const { links, setLinks, setPreviewFiles, filesData, setFilesData, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [openPayment, setOpenPayment] = useState(false);
@@ -345,8 +345,18 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService, 
                                 }}
                                 className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Send for Approval'} </Button>
                         }
-                        {userType !== 'agent' && (
+                        {userType === 'admin' && (
                             <div className='flex items-center gap-[10px] mr-2'>
+                                {/* <div className='flex flex-col justify-center items-end mr-2 text-right'>
+                                    <p className='text-[16px] text-[#6BAE41] font-bold leading-none mb-1'>
+                                        ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
+                                    </p>
+                                    {gstRate ? (
+                                        <p className='text-[#7D7D7D] text-[9px] leading-none'>
+                                            incl. ${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST
+                                        </p>
+                                    ) : null}
+                                </div> */}
                                 <Button
                                     onClick={() => {
                                         if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
@@ -370,9 +380,13 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService, 
                         />
                         {userType === 'agent' && (
                             <div className='flex items-center gap-[10px] mr-2'>
-                                <div className='flex flex-col justify-center items-center mr-2'>
-                                    <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>${bookingToUse?.option?.amount}</p>
-                                    <p className='text-[#7D7D7D] text-[10px] leading-none'>1 Link</p>
+                                <div className='flex flex-col justify-center items-end mr-2 text-right'>
+                                    <p className='text-[18px] text-[#6BAE41] leading-none mb-1'>
+                                        ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
+                                    </p>
+                                    <p className='text-[#7D7D7D] text-[10px] leading-none'>
+                                        {gstRate ? `incl. $${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST` : `${bookingToUse?.option?.quantity || 1} Link`}
+                                    </p>
                                 </div>
                                 <Button
                                     onClick={() => {
@@ -464,7 +478,7 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService, 
                     <div className="flex gap-2">
 
                         {userType === 'agent' ? (
-                             <div className="relative w-full">
+                            <div className="relative w-full">
                                 <div className={`absolute inset-0 z-10 cursor-pointer ${isHidingMode ? 'block' : 'hidden'}`} onClick={() => brandedApiUuid && toggleHideSelection(brandedApiUuid)} />
                                 <Input
                                     className={`w-full h-[42px] text-[#666666] pr-9 cursor-default select-text ${isHidingMode && brandedApiUuid && filesToHide.has(brandedApiUuid) ? 'ring-2 ring-red-500 bg-red-50' : ''}`}
@@ -547,7 +561,7 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService, 
                     <div className="flex gap-2">
 
                         {userType === 'agent' ? (
-                             <div className="relative w-full">
+                            <div className="relative w-full">
                                 <div className={`absolute inset-0 z-10 cursor-pointer ${isHidingMode ? 'block' : 'hidden'}`} onClick={() => unbrandedApiUuid && toggleHideSelection(unbrandedApiUuid)} />
                                 <Input
                                     className={`w-full h-[42px] text-[#666] pr-9 cursor-default select-text ${isHidingMode && unbrandedApiUuid && filesToHide.has(unbrandedApiUuid) ? 'ring-2 ring-red-500 bg-red-50' : ''}`}

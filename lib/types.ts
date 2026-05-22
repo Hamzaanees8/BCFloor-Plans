@@ -407,6 +407,7 @@ export interface Tour {
             property_status: string;
             tour_activated: boolean;
             mls_number?: string;
+            suite?: string | null;
         };
     };
 }

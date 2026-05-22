@@ -263,6 +263,7 @@ interface WorkDetailProps {
   portfolioImages?: File[];
   setPortfolioImages?: React.Dispatch<React.SetStateAction<File[]>>;
   portfolioImagesUrls?: VendorPortfolioImage[];
+  setPortfolioImagesUrls?: React.Dispatch<React.SetStateAction<VendorPortfolioImage[]>>;
   vendorTourMedia?: VendorsTourMedia[];
   galleryImages?: string[];
   setGalleryImages?: React.Dispatch<React.SetStateAction<string[]>>;
@@ -762,10 +763,56 @@ const VendorWorkHours = ({
     }
   };
 
+  const cleanImageUrl = (url: string, type?: string) => {
+    if (!url) return "/placeholder.png";
+
+    // 1. If it's already a working cloud URL, blob, data URL, or local public asset, return it directly.
+    if (url.includes("amazonaws.com") || url.startsWith("blob:") || url.startsWith("data:")) {
+      return url;
+    }
+    if (url.startsWith("/") && !url.startsWith("/storage/")) {
+      return url;
+    }
+
+    // 2. Determine environment-based S3 bucket domain
+    const s3BaseUrl = "https://bcf-media.s3.amazonaws.com";
+
+    // 3. If it is a relative path (doesn't start with http/https)
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      let path = url;
+      if (path.startsWith("/storage/")) {
+        path = path.substring(8);
+      }
+      if (path.startsWith("/")) {
+        path = path.substring(1);
+      }
+      return `${s3BaseUrl}/${path}`;
+    }
+
+    // 4. If it's a local storage URL (e.g. https://api-stage.bcfloorplans.com/storage/...)
+    if (type === "tour_reference" || url.includes("/storage/tours/") || url.includes("/storage/orders/")) {
+      try {
+        const parsed = new URL(url);
+        let pathname = parsed.pathname;
+        if (pathname.startsWith("/storage/")) {
+          pathname = pathname.substring(8);
+        }
+        if (pathname.startsWith("/")) {
+          pathname = pathname.substring(1);
+        }
+        return `${s3BaseUrl}/${pathname}`;
+      } catch (e) {
+        console.error("Failed to clean image URL:", url, e);
+      }
+    }
+
+    return url;
+  };
+
   const allImagesForDisplay: DisplayImage[] = [
     ...portfolioImagesUrls.map((img) => ({
       id: `existing-${img.uuid}`,
-      url: img.variant_urls?.thumb || img.image_url,
+      url: cleanImageUrl(img.variant_urls?.thumb || img.image_url, "tour_reference"),
       type: "existing" as const,
       api: true,
       is_processing: img.is_processing,
@@ -779,28 +826,35 @@ const VendorWorkHours = ({
     })),
     ...galleryImages.map((path, index) => ({
       id: `gallery-${index}`,
-      url: `${API_URL}/${path}`,
+      url: cleanImageUrl(`${API_URL}/${path}`, "tour_reference"),
       type: "gallery" as const,
       api: true,
       is_processing: false,
     })),
   ];
 
-  const handleRemoveFile = (index: number) => {
-    const newFiles = files.filter((_, i) => i !== index);
-    setFiles(newFiles);
-    if (setPortfolioImages) {
-      setPortfolioImages(newFiles);
+  const handleRemoveFile = (displayFile: DisplayImage) => {
+    if (displayFile.type === "new") {
+      const match = allImagesForDisplay.filter(f => f.type === "new");
+      const itemIndex = match.indexOf(displayFile);
+      if (itemIndex > -1) {
+        const newFiles = files.filter((_, i) => i !== itemIndex);
+        setFiles(newFiles);
+        if (setPortfolioImages) {
+          setPortfolioImages(newFiles);
+        }
+      }
+    } else if (displayFile.type === "gallery") {
+      const match = allImagesForDisplay.filter(f => f.type === "gallery");
+      const itemIndex = match.indexOf(displayFile);
+      if (itemIndex > -1) {
+        const newGalleryImages = galleryImages.filter((_, i) => i !== itemIndex);
+        setGalleryImages(newGalleryImages);
+        if (propSetGalleryImages) {
+          propSetGalleryImages(newGalleryImages);
+        }
+      }
     }
-    // if (fileType === 'local') {
-    // } else {
-    //     const newGalleryImages = [...galleryImages];
-    //     newGalleryImages.splice(index, 1);
-    //     setGalleryImages(newGalleryImages);
-    //     if (propSetGalleryImages) {
-    //         propSetGalleryImages(newGalleryImages);
-    //     }
-    // }
   };
 
   return (
@@ -1190,7 +1244,7 @@ const VendorWorkHours = ({
                         className={`px-6 py-3 w-auto ${currentUser?.google_access_token ||
                           currentUser?.google_refresh_token
                           ? "bg-[#6BAE41] hover:bg-[#6BAE41]/80"
-                          : "bg-[#4290E9] hover:bg-[#4290E9]/80"
+                          : `${userType}-bg hover-${userType}-bg`
                           } text-white font-medium rounded-lg shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
                       >
                         {isCalendarLoading ? (
@@ -1791,12 +1845,11 @@ const VendorWorkHours = ({
                                     className="object-cover"
                                   />
                                 )}
-                                {/* Only show remove button for local and gallery images */}
                                 {(file.type === "new" ||
                                   file.type === "gallery") && (
                                     <button
                                       type="button"
-                                      onClick={() => handleRemoveFile(index)}
+                                      onClick={() => handleRemoveFile(file)}
                                       className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
                                       <X className="w-4 h-4" />
