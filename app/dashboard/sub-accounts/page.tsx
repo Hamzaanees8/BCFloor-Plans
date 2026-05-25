@@ -1,6 +1,6 @@
 "use client";
 import QuickViewCard, { AgentData, SubAccountData } from '@/components/QuickViewCard';
-import React, { useEffect, useState, useRef, useMemo } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link';
 import { toast } from 'sonner';
 import SubAccountTable, { SubAccount } from '@/components/SubAccountTable';

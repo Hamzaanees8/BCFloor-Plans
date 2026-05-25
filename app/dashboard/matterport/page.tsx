@@ -103,7 +103,7 @@ const MatterportPage = () => {
     }
 
     return result;
-  }, [matterports, filter, addressFilter]);
+  }, [matterports, filter, addressFilter, orgFilter]);
 
   const columns = useMemo<ColumnDef<MatterportAd>[]>(() => {
     const cols: ColumnDef<MatterportAd>[] = [
@@ -180,7 +180,7 @@ const MatterportPage = () => {
     }
 
     return cols;
-  }, [isSuperAdmin, organizations]);
+  }, [isSuperAdmin]);
 
   useEffect(() => {
     const fetchData = async () => {

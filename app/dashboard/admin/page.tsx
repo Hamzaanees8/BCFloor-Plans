@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef, useMemo } from 'react'
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import QuickViewCard, { AdminData } from '@/components/QuickViewCard';
 import { Delete, Get, UpdateStatus } from './admin';
 import Link from 'next/link';
@@ -102,7 +102,7 @@ const Page = () => {
             });
     }, []);
 
-    const handleDelete = async (userId: string) => {
+    const handleDelete = useCallback(async (userId: string) => {
         try {
             await Delete(userId);
             toast.success('User deleted successfully');
@@ -116,10 +116,10 @@ const Page = () => {
                 toast.error('Failed to delete user');
             }
         }
-    };
+    }, []);
 
     // Wrapper for UpdateStatus to fix the checked variable scope issue and state update
-    const onStatusChange = async (uuid: string, checked: boolean) => {
+    const onStatusChange = useCallback(async (uuid: string, checked: boolean) => {
         try {
             const payload = {
                 status: checked,
@@ -142,7 +142,7 @@ const Page = () => {
                 toast.error(error.message || 'Failed to submit user data');
             }
         }
-    }
+    }, []);
 
     const onQuickView = (type: string, data: AdminData) => {
         setShowCard(true);
@@ -340,7 +340,7 @@ const Page = () => {
         }
 
         return cols;
-    }, [isSuperAdmin, organizations, router, onStatusChange, handleDelete]);
+    }, [isSuperAdmin, router, onStatusChange, handleDelete]);
 
     const adminLength = filteredAdmins.length;
     const { hasPermission } = usePermissions();

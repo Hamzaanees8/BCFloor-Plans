@@ -1,6 +1,6 @@
 "use client";
 import QuickViewCard from '@/components/QuickViewCard';
-import React, { useEffect, useState, useRef, useMemo } from 'react'
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { Delete, Get } from './agents';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -106,7 +106,7 @@ const Page = () => {
         });
     }, [agentData, orgFilter]);
 
-    const handleUpdateStatus = async (uuid: string, status: boolean) => {
+    const handleUpdateStatus = useCallback(async (uuid: string, status: boolean) => {
         try {
             const payload = {
                 status: status,
@@ -121,9 +121,9 @@ const Page = () => {
                 toast.error(error.message || 'Failed to submit agent data');
             }
         }
-    };
+    }, []);
 
-    const handleDelete = async (uuid: string) => {
+    const handleDelete = useCallback(async (uuid: string) => {
         try {
             await Delete(uuid);
             toast.success('Agent deleted successfully');
@@ -137,7 +137,7 @@ const Page = () => {
                 toast.error('Failed to delete Agent');
             }
         }
-    };
+    }, []);
 
     const columns = useMemo<ColumnDef<Agent>[]>(() => {
         const cols: ColumnDef<Agent>[] = [
@@ -340,7 +340,7 @@ const Page = () => {
         }
 
         return cols;
-    }, [isSuperAdmin, organizations, userType, router, handleUpdateStatus, handleDelete]);
+    }, [isSuperAdmin, userType, router, handleUpdateStatus, handleDelete]);
 
 
     useEffect(() => {
