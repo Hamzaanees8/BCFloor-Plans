@@ -134,6 +134,7 @@ const AdminForm = () => {
   // const [CompanyBannerfileName, setCompanyBannerFileName] = useState("");
   // const [CompanyBannerUrl, setCompanyBannerUrl] = useState("");
   type Role = { id: string; name: string };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [roles, setRoles] = useState<Role[]>([]);
   type Permission = { id: string; name: string };
   const [permissions, setPermissions] = useState<Permission[]>([]);
@@ -703,48 +704,7 @@ const AdminForm = () => {
                           type="text"
                         />
                       </div>
-                      <div className="col-span-2">
-                        <label htmlFor="">
-                          Role <span className="text-red-500">*</span>
-                        </label>
-                        <Select
-                          disabled
-                          value={String(role)}
-                          onValueChange={(val) => {
-                            setRole(val);
-                            if (hasInitiallyRendered.current) {
-                              setIsDirty(true);
-                            }
-                            if (fieldErrors.roles) {
-                              setFieldErrors((prev) => {
-                                const newErrors = { ...prev };
-                                delete newErrors.roles;
-                                return newErrors;
-                              });
-                            }
-                          }}
-                        >
-                          <SelectTrigger
-                            className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.roles ? "border-red-500" : ""
-                              }`}
-                          >
-                            <SelectValue placeholder="Select a role" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {roles?.map((role) => (
-                              <SelectItem key={role.id} value={String(role.id)}>
-                                {role.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
 
-                        {fieldErrors.roles && (
-                          <p className="text-red-500 text-[10px]">
-                            {fieldErrors.roles[0]}
-                          </p>
-                        )}
-                      </div>
                       <div className="col-span-2">
                         <label htmlFor="">Organization</label>
                         {isSuperAdmin ? (
