@@ -40,7 +40,7 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
         pathname.startsWith("/dashboard/admin") ||
         pathname.startsWith("/dashboard/services") ||
         pathname.startsWith("/dashboard/listings/create") ||
-        pathname.startsWith("/dashboard/vendor-billing")
+        (pathname.startsWith("/dashboard/vendor-billing") && pathname.replace(/\/$/, "") !== "/dashboard/vendor-billing")
       )
     ) {
       router.replace("/dashboard/orders");

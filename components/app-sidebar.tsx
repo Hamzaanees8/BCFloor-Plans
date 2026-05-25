@@ -243,8 +243,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             return false;
           }
 
-          // Vendor Billing (Admin only)
-          if (item.url === "/dashboard/vendor-billing" && userType !== "admin") {
+          // Vendor Billing (Admin or Vendor)
+          if (
+            item.url === "/dashboard/vendor-billing" &&
+            userType !== "admin" &&
+            userType !== "vendor"
+          ) {
             return false;
           }
 

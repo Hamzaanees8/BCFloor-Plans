@@ -23,7 +23,7 @@ import { ChevronDown, ChevronUp, Loader2, Download } from "lucide-react";
 import { Get, GetVendors } from "../orders/orders";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { GetOne, GetVendorEarnings } from "../vendors/vendors";
+import { GetOne, GetVendorEarnings, GetMyEarnings } from "../vendors/vendors";
 import { useRouter } from "next/navigation";
 import { batchCalculateTravelCosts, buildTripChainLegs } from "@/lib/batchTravelCalculator";
 import { vendorBillingService, VendorInvoice } from "./VendorBillingService";
@@ -218,6 +218,20 @@ const Page = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [orderData, setOrderData] = useState<Order[]>([]);
     const { userType } = useAppContext();
+    const loggedInVendorUuid = useMemo(() => {
+        if (userType === "vendor" && typeof window !== "undefined") {
+            const userInfo = localStorage.getItem("userInfo");
+            if (userInfo) {
+                try {
+                    const parsedInfo = JSON.parse(userInfo);
+                    return parsedInfo.uuid || "";
+                } catch (err) {
+                    console.error("Failed to parse userInfo:", err);
+                }
+            }
+        }
+        return "";
+    }, [userType]);
     const { appliedSettings } = useWhiteLabel();
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
@@ -252,7 +266,9 @@ const Page = () => {
 
             // Fetch total earnings when expanding (Task 3.2)
             try {
-                const earnCheck = await GetVendorEarnings(vg.vendor.uuid);
+                const earnCheck = userType === 'vendor'
+                    ? await GetMyEarnings()
+                    : await GetVendorEarnings(vg.vendor.uuid);
                 if (earnCheck?.success) {
                     const totalEarned = earnCheck.data?.summary?.total_earned ?? 0;
                     setVendorTotalEarnings(prev => new Map(prev).set(vg.vendorId, totalEarned));
@@ -266,7 +282,9 @@ const Page = () => {
                 setLoadingInvoices(prev => new Set(prev).add(vg.vendorId));
                 try {
                     const token = localStorage.getItem('token') || '';
-                    const invoices = await vendorBillingService.getVendorInvoices(vg.vendor.uuid, token);
+                    const invoices = userType === 'vendor'
+                        ? await vendorBillingService.getMyInvoices(token)
+                        : await vendorBillingService.getVendorInvoices(vg.vendor.uuid, token);
                     setVendorInvoicesMap(prev => new Map(prev).set(vg.vendorId, invoices));
                 } catch (e) {
                     console.error('Failed to load vendor invoices:', e);
@@ -276,6 +294,9 @@ const Page = () => {
             }
         }
     };
+
+    const toggleRowRef = useRef(toggleRow);
+    toggleRowRef.current = toggleRow;
 
     const triggerPaymentAction = (action: () => void) => {
         if (!showAgain) {
@@ -785,6 +806,10 @@ const Page = () => {
                             last_name: "",
                         };
 
+                    if (userType === "vendor" && vendorObj.uuid !== loggedInVendorUuid) {
+                        return;
+                    }
+
                     if (!map.has(vendorId)) {
                         map.set(vendorId, { vendor: vendorObj, orders: new Map<number, VendorOrder>() });
                     }
@@ -860,7 +885,7 @@ const Page = () => {
         });
 
         return arr;
-    }, [orderData, vendorPricesMap]);
+    }, [orderData, vendorPricesMap, userType, loggedInVendorUuid]);
 
     // Build a flat map of invoiceId → VendorInvoice from all lazy-loaded invoices
     const invoiceIdMap = useMemo(() => {
@@ -888,7 +913,7 @@ const Page = () => {
                         const localIndex = idx % itemsPerPage;
                         setExpandedRow(localIndex);
                         const targetVg = vendorsGrouped[idx];
-                        toggleRow(localIndex, targetVg);
+                        toggleRowRef.current(localIndex, targetVg);
                         localStorage.removeItem("resume_payment_vendor_uuid");
                         const url = new URL(window.location.href);
                         url.searchParams.delete("resume_payment");
@@ -898,6 +923,14 @@ const Page = () => {
             }
         }
     }, [vendorsGrouped]);
+
+    // Auto-expand vendor row if logged in as a vendor
+    useEffect(() => {
+        if (userType === 'vendor' && vendorsGrouped.length > 0 && expandedRow === null) {
+            setExpandedRow(0);
+            toggleRowRef.current(0, vendorsGrouped[0]);
+        }
+    }, [userType, vendorsGrouped, expandedRow]);
 
     const totalPages = Math.ceil(vendorsGrouped.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -922,20 +955,24 @@ const Page = () => {
                     Billing ({vendorsGrouped.length})
                 </p>
                 <div className="flex items-center gap-4">
-                    <Button
-                        onClick={() => router.push(userType === 'vendor' ? '/dashboard/vendor-billing/my-invoices' : '/dashboard/vendor-billing/invoices')}
-                        className="text-white h-[42px] px-6 text-[14px] hover:brightness-110 active:scale-[0.98] transition-all"
-                        style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
-                    >
-                        View Invoices
-                    </Button>
-                    <Button
-                        onClick={() => router.push('/dashboard/vendor-billing/uninvoiced')}
-                        className="text-white h-[42px] px-6 text-[14px] hover:brightness-110 active:scale-[0.98] transition-all"
-                        style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
-                    >
-                        Create Invoice
-                    </Button>
+                    {userType !== 'vendor' && (
+                        <>
+                            <Button
+                                onClick={() => router.push(userType === 'vendor' ? '/dashboard/vendor-billing/my-invoices' : '/dashboard/vendor-billing/invoices')}
+                                className="text-white h-[42px] px-6 text-[14px] hover:brightness-110 active:scale-[0.98] transition-all"
+                                style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+                            >
+                                View Invoices
+                            </Button>
+                            <Button
+                                onClick={() => router.push('/dashboard/vendor-billing/uninvoiced')}
+                                className="text-white h-[42px] px-6 text-[14px] hover:brightness-110 active:scale-[0.98] transition-all"
+                                style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+                            >
+                                Create Invoice
+                            </Button>
+                        </>
+                    )}
                     <Select onValueChange={(value) => console.log(value)}>
                         <SelectTrigger
                             className={`w-[174px] h-[42px] text-[#666666] border-[1px] border-[#BBBBBB] ${userType === "admin"
@@ -1098,17 +1135,19 @@ const Page = () => {
                                                             <div className="mb-4">
                                                                 <div className="flex items-center justify-between mb-4">
                                                                     <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Invoice History</h4>
-                                                                    <button
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            localStorage.setItem('resume_payment_vendor_uuid', vg.vendor.uuid);
-                                                                            router.push(`/dashboard/vendor-billing/pending/${vg.vendor.uuid}`);
-                                                                        }}
-                                                                        className="px-3 py-3 text-[16px] text-white rounded-md hover:brightness-110 transition-all cursor-pointer"
-                                                                        style={{ backgroundColor: roleSettings.pageTabColor }}
-                                                                    >
-                                                                        + Generate Invoice
-                                                                    </button>
+                                                                    {userType !== 'vendor' && (
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                localStorage.setItem('resume_payment_vendor_uuid', vg.vendor.uuid);
+                                                                                router.push(`/dashboard/vendor-billing/pending/${vg.vendor.uuid}`);
+                                                                            }}
+                                                                            className="px-3 py-3 text-[16px] text-white rounded-md hover:brightness-110 transition-all cursor-pointer"
+                                                                            style={{ backgroundColor: roleSettings.pageTabColor }}
+                                                                        >
+                                                                            + Generate Invoice
+                                                                        </button>
+                                                                    )}
                                                                 </div>
 
                                                                 {loadingInvoices.has(vg.vendorId) ? (
@@ -1127,7 +1166,7 @@ const Page = () => {
                                                                                         <th className="px-3 py-2 text-left">Cycle</th>
                                                                                         <th className="px-3 py-2 text-right">Amount</th>
                                                                                         <th className="px-3 py-2 text-center">Status</th>
-                                                                                        <th className="px-3 py-2 text-center">Actions</th>
+                                                                                        {userType !== 'vendor' && <th className="px-3 py-2 text-center">Actions</th>}
                                                                                     </tr>
                                                                                 </thead>
                                                                                 <tbody className="divide-y divide-gray-100 bg-white">
@@ -1147,37 +1186,39 @@ const Page = () => {
                                                                                                             'bg-red-100 text-red-600'
                                                                                                     }`}>{inv.status.replace('_', ' ')}</span>
                                                                                             </td>
-                                                                                            <td className="px-3 py-2 text-center">
-                                                                                                <div className="flex items-center justify-center gap-2">
-                                                                                                    <button
-                                                                                                        onClick={(e) => {
-                                                                                                            e.stopPropagation();
-                                                                                                            // Fetch details first to ensure lines are present
-                                                                                                            const token = localStorage.getItem('token') || '';
-                                                                                                            vendorBillingService.getAdminInvoiceDetails(inv.uuid, token)
-                                                                                                                .then((details) => {
-                                                                                                                    setViewingInvoice(details);
-                                                                                                                    setIsViewModalOpen(true);
-                                                                                                                })
-                                                                                                                .catch(() => {
-                                                                                                                    setViewingInvoice(inv);
-                                                                                                                    setIsViewModalOpen(true);
-                                                                                                                });
-                                                                                                        }}
-                                                                                                        className="px-2 py-1 text-xs border rounded hover:bg-gray-100 transition cursor-pointer"
-                                                                                                    >View</button>
-                                                                                                    {(inv.status === 'pending_payment' || inv.status === 'draft') && (
+                                                                                            {userType !== 'vendor' && (
+                                                                                                <td className="px-3 py-2 text-center">
+                                                                                                    <div className="flex items-center justify-center gap-2">
                                                                                                         <button
                                                                                                             onClick={(e) => {
                                                                                                                 e.stopPropagation();
-                                                                                                                triggerPaymentAction(() => handlePayInvoice(inv.uuid, vg.vendor.uuid, vg.vendorId, inv.invoice_number, Number(inv.total_amount)));
+                                                                                                                // Fetch details first to ensure lines are present
+                                                                                                                const token = localStorage.getItem('token') || '';
+                                                                                                                vendorBillingService.getAdminInvoiceDetails(inv.uuid, token)
+                                                                                                                    .then((details) => {
+                                                                                                                        setViewingInvoice(details);
+                                                                                                                        setIsViewModalOpen(true);
+                                                                                                                    })
+                                                                                                                    .catch(() => {
+                                                                                                                        setViewingInvoice(inv);
+                                                                                                                        setIsViewModalOpen(true);
+                                                                                                                    });
                                                                                                             }}
-                                                                                                            className="px-2 py-1 text-xs text-white rounded transition hover:brightness-110 cursor-pointer"
-                                                                                                            style={{ backgroundColor: roleSettings.pageTabColor }}
-                                                                                                        >Pay</button>
-                                                                                                    )}
-                                                                                                </div>
-                                                                                            </td>
+                                                                                                            className="px-2 py-1 text-xs border rounded hover:bg-gray-100 transition cursor-pointer"
+                                                                                                        >View</button>
+                                                                                                        {(inv.status === 'pending_payment' || inv.status === 'draft') && (
+                                                                                                            <button
+                                                                                                                onClick={(e) => {
+                                                                                                                    e.stopPropagation();
+                                                                                                                    triggerPaymentAction(() => handlePayInvoice(inv.uuid, vg.vendor.uuid, vg.vendorId, inv.invoice_number, Number(inv.total_amount)));
+                                                                                                                }}
+                                                                                                                className="px-2 py-1 text-xs text-white rounded transition hover:brightness-110 cursor-pointer"
+                                                                                                                style={{ backgroundColor: roleSettings.pageTabColor }}
+                                                                                                            >Pay</button>
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                </td>
+                                                                                            )}
                                                                                         </tr>
                                                                                     ))}
                                                                                 </tbody>
@@ -1262,7 +1303,6 @@ const Page = () => {
                                                                                                         <p className="font-semibold text-sm text-gray-800">
                                                                                                             {svc.serviceName}{svc.option ? ` (${svc.option.title})` : ''}
                                                                                                         </p>
-                                                                                                        {/* Payment Status Badge */}
                                                                                                         {isPaid ? (
                                                                                                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">
                                                                                                                 ✓ Paid
@@ -1282,25 +1322,33 @@ const Page = () => {
                                                                                                         )}
                                                                                                         {/* Invoice Reference Chip */}
                                                                                                         {linkedInvoice && (
-                                                                                                            <button
-                                                                                                                onClick={async (e) => {
-                                                                                                                    e.stopPropagation();
-                                                                                                                    const token = localStorage.getItem('token') || '';
-                                                                                                                    vendorBillingService.getAdminInvoiceDetails(linkedInvoice.uuid, token)
-                                                                                                                        .then((details) => {
-                                                                                                                            setViewingInvoice(details);
-                                                                                                                            setIsViewModalOpen(true);
-                                                                                                                        })
-                                                                                                                        .catch(() => {
-                                                                                                                            setViewingInvoice(linkedInvoice);
-                                                                                                                            setIsViewModalOpen(true);
-                                                                                                                        });
-                                                                                                                }}
-                                                                                                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition cursor-pointer"
-                                                                                                                title="Click to view invoice"
-                                                                                                            >
-                                                                                                                #{linkedInvoice.invoice_number}
-                                                                                                            </button>
+                                                                                                            userType === 'vendor' ? (
+                                                                                                                <span
+                                                                                                                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 select-none"
+                                                                                                                >
+                                                                                                                    #{linkedInvoice.invoice_number}
+                                                                                                                </span>
+                                                                                                            ) : (
+                                                                                                                <button
+                                                                                                                    onClick={async (e) => {
+                                                                                                                        e.stopPropagation();
+                                                                                                                        const token = localStorage.getItem('token') || '';
+                                                                                                                        vendorBillingService.getAdminInvoiceDetails(linkedInvoice.uuid, token)
+                                                                                                                            .then((details) => {
+                                                                                                                                setViewingInvoice(details);
+                                                                                                                                setIsViewModalOpen(true);
+                                                                                                                            })
+                                                                                                                            .catch(() => {
+                                                                                                                                setViewingInvoice(linkedInvoice);
+                                                                                                                                setIsViewModalOpen(true);
+                                                                                                                            });
+                                                                                                                    }}
+                                                                                                                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition cursor-pointer"
+                                                                                                                    title="Click to view invoice"
+                                                                                                                >
+                                                                                                                    #{linkedInvoice.invoice_number}
+                                                                                                                </button>
+                                                                                                            )
                                                                                                         )}
                                                                                                     </div>
                                                                                                     <p className="text-xs text-gray-500 mt-1">
