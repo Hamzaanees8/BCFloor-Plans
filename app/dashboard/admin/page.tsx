@@ -209,37 +209,72 @@ const Page = () => {
                 const permissions = row.original.permissions || [];
                 const names = permissions.map(p => p.name);
 
-                // Try to find the most specific role
-                const superAdmin = roles.find(r => 
+                // Check if Super Admin (no org, or has "super admin" role, or is global super admin)
+                const isSuper = roles.some(r => 
                     r.name?.toLowerCase().includes("super") || 
                     String(r.id) === "1"
                 ) || row.original.organization_id == null || row.original.organization_id === "";
-                
-                const bookingAgent = roles.find(r => 
-                    r.name?.toLowerCase().includes("book") || 
-                    r.name?.toLowerCase().includes("agent") ||
-                    String(r.id) === "3" || 
-                    String(r.id) === "4"
-                );
 
-                let roleTitle = "Admin";
-                let sep = " - ";
-
-                if (superAdmin) {
-                    roleTitle = "Super Admin";
-                } else if (bookingAgent) {
-                    roleTitle = bookingAgent.name || "Booking Agent";
-                    sep = " = ";
-                } else if (roles.length > 0) {
-                    roleTitle = roles[0].name;
+                if (isSuper) {
+                    return (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-[#4290E9] border border-blue-200">
+                            Super Admin
+                        </span>
+                    );
                 }
 
-                const displayText = (roleTitle === "Super Admin") 
-                    ? "Super Admin" 
-                    : `${roleTitle}${sep}${names.join(", ")}`;
+                // If not super admin, identify functional access blocks
+                const badges = [];
+
+                const hasBooking = names.some(n => n.includes("Appointment") || n.includes("Booking") || n.includes("Listing"));
+                const hasBilling = names.some(n => n.includes("Billing") || n.includes("Discount"));
+                const hasAgents = names.some(n => n.includes("Agent"));
+                const hasServices = names.some(n => n.includes("Service"));
+                const hasVendors = names.some(n => n.includes("Vendor"));
+
+                if (hasBooking) {
+                    badges.push(
+                        <span key="booking" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-50 text-[#6BAE41] border border-emerald-200/50">
+                            Booking
+                        </span>
+                    );
+                }
+                if (hasBilling) {
+                    badges.push(
+                        <span key="billing" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-purple-50 text-purple-700 border border-purple-200/50">
+                            Billing
+                        </span>
+                    );
+                }
+                if (hasAgents) {
+                    badges.push(
+                        <span key="agents" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200/50">
+                            Agents
+                        </span>
+                    );
+                }
+                if (hasServices) {
+                    badges.push(
+                        <span key="services" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-pink-50 text-pink-700 border border-pink-200/50">
+                            Services
+                        </span>
+                    );
+                }
+                if (hasVendors) {
+                    badges.push(
+                        <span key="vendors" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-cyan-50 text-cyan-700 border border-cyan-200/50">
+                            Vendors
+                        </span>
+                    );
+                }
+
+                if (badges.length === 0) {
+                    return <span className="text-gray-400 text-xs italic">No Access</span>;
+                }
+
                 return (
-                    <div className="text-[#666666] truncate max-w-[300px]" title={displayText}>
-                        {displayText}
+                    <div className="flex flex-wrap gap-1.5 max-w-[320px]">
+                        {badges}
                     </div>
                 );
             }

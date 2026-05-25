@@ -202,6 +202,7 @@ const AgentForm = () => {
     const [CompanyBannerfileName, setCompanyBannerFileName] = useState('')
     const [CompanyBannerUrl, setCompanyBannerUrl] = useState('')
     type Role = { id: string; name: string };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [roles, setRoles] = useState<Role[]>([])
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [companyBannerFile, setCompanyBannerFile] = useState<File | null>(null);
@@ -1177,36 +1178,7 @@ const AgentForm = () => {
                                                 </div>
                                                 {userType !== 'agent' && (
                                                     <>
-                                                        <div className='col-span-2'>
-                                                            <label htmlFor="">Role <span className="text-red-500">*</span></label>
-                                                            <Select
-                                                                disabled
-                                                                value={String(role)}
-                                                                onValueChange={(val) => {
-                                                                    setRole(val);
-                                                                    if (hasInitiallyRendered.current) setIsDirty(true);
-                                                                    if (fieldErrors.role_id) {
-                                                                        const newErrors = { ...fieldErrors };
-                                                                        delete newErrors.role_id;
-                                                                        setFieldErrors(newErrors);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <SelectTrigger className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.role_id ? 'border-red-500' : 'border-[#BBBBBB]'}`}>
-                                                                    <SelectValue placeholder="Select a role" />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    {roles?.map((role) => (
-                                                                        <SelectItem key={role.id} value={String(role.id)}>
-                                                                            {role.name}
-                                                                        </SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
-                                                            {fieldErrors.role_id && (
-                                                                <p className='text-red-500 text-[10px]'>{fieldErrors.role_id[0]}</p>
-                                                            )}
-                                                        </div>
+
                                                         <div className='col-span-2'>
                                                             <label htmlFor="">Organization</label>
                                                             {isSuperAdmin ? (
