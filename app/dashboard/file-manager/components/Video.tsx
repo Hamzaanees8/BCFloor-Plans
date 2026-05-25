@@ -290,7 +290,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                     </Button>
                                 </div>
                             )}
-                            {userType === 'admin' && reviewFilesEnabled && (
+                            {userType === 'admin' && (
                                 <div
                                     className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
                                     onClick={(e) => {
@@ -410,7 +410,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                     )}
                                 </div>
                             )}
-                            {userType === 'admin' && reviewFilesEnabled && (
+                             {userType === 'admin' && (
                                 <div
                                     className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
                                     onClick={(e) => {
@@ -440,6 +440,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                     <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
                                 </div>
                             )}
+
 
                             {userType === 'agent' && (
                                 <div

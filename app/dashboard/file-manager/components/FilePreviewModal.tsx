@@ -307,8 +307,7 @@ export default function FilePreviewModal({
         group: selectedIndexes.includes(index) ? groupLabel : "",
         upload: true,
         service_id: serviceUuid,
-        is_admin_approved:
-          userType === 'admin' ? true : !reviewFilesEnabled,
+        is_admin_approved: !reviewFilesEnabled,
         is_show: true,
         sort_order: totalExistingForService + index,
         is_complimentary: complimentaryIndexes.includes(index),

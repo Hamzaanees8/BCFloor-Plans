@@ -699,6 +699,35 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                     );
                 })})()}
             </div>
+            
+            <div className="px-16 pb-6">
+                <div className="flex justify-between items-center border border-[#EEEEEE] bg-white p-4 rounded-lg">
+                    <div className="flex items-center gap-2 text-[9px] text-[#424242]">
+                        <span className="w-3 h-3 bg-[#2BC6FF] inline-block" />
+                        <span>Travel From Home</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[9px] text-[#424242]">
+                        <span className="w-3 h-3 bg-[#FD7DFF] inline-block" />
+                        <span>Travel Time Within 15 Minutes</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[9px] text-[#424242]">
+                        <span className="w-3 h-3 bg-[#E8B611] inline-block" />
+                        <span>Travel Time Within 30 Minutes</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[9px] text-[#424242]">
+                        <span className="w-3 h-3 bg-[#E2F202] inline-block" />
+                        <span>Travel Time Within 45 Minutes</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[9px] text-[#424242]">
+                        <span className="w-3 h-3 bg-[#9900A7] inline-block" />
+                        <span>Travel Time Within 60 Minutes</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[9px] text-[#424242]">
+                        <span className="w-3 h-3 bg-[#171484] inline-block" />
+                        <span>Travel Time More Than 60 Minutes</span>
+                    </div>
+                </div>
+            </div>
         </div>
     )
 }

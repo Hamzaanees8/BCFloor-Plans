@@ -402,7 +402,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     <Star className="w-6 h-6 text-gray-400 hover:text-yellow-400" />
                                 )}
                             </span>
-                            {userType === 'admin' && reviewFilesEnabled && (
+                            {userType === 'admin' && (
                                 <div
                                     className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
                                     onClick={(e) => {
@@ -589,7 +589,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     <Star className="w-6 h-6 text-gray-400 hover:text-yellow-400" />
                                 )}
                             </span>
-                            {userType === 'admin' && reviewFilesEnabled && (
+                            {userType === 'admin' && (
                                 <div
                                     className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
                                     onClick={(e) => {
@@ -619,6 +619,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     <span className="text-[10px] font-bold text-[#7D7D7D]">Approved</span>
                                 </div>
                             )}
+
                             {userType === 'agent' && (
                                 <div
                                     className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
