@@ -196,94 +196,6 @@ export async function DeleteSnapshot(token: string, uuid: string) {
   return response.json();
 }
 
-async function uploadRawSnapshots(
-  token: string,
-  tourUuid: string,
-  rawSnaps: DroppedMarker[]
-): Promise<void> {
-  if (rawSnaps.length === 0) return;
-
-  const uploads: {
-    upload_id: string;
-    s3_key: string;
-    original_filename: string;
-    content_type: string;
-    presigned_url: string;
-  }[] = [];
-
-  try {
-    // 1. Get presigned URLs for all raw snaps in batches
-    for (let i = 0; i < rawSnaps.length; i += PRESIGNED_BATCH_SIZE) {
-      const batch = rawSnaps.slice(i, i + PRESIGNED_BATCH_SIZE);
-      const presignedRequest = {
-        entity_type: "tour-snapshot" as const,
-        entity_id: tourUuid,
-        files: batch.map((snap) => {
-          if (!snap.file) throw new Error("Marker is missing a file object");
-          return {
-            filename: snap.file.name,
-            content_type: snap.file.type,
-            size: snap.file.size,
-          };
-        }),
-      };
-
-      const presignedResponse = await S3UploadService.getPresignedUrls(presignedRequest);
-      if (!presignedResponse.success) throw new Error("Failed to get presigned URLs for snapshots");
-      uploads.push(...presignedResponse.data.uploads);
-    }
-
-    // 2. Upload snapshot files to S3 (concurrency limit)
-    for (let i = 0; i < rawSnaps.length; i += S3_CONCURRENT_UPLOADS) {
-      const batch = rawSnaps.slice(i, i + S3_CONCURRENT_UPLOADS);
-      const batchUploads = uploads.slice(i, i + S3_CONCURRENT_UPLOADS);
-
-      await Promise.all(
-        batch.map(async (snap, idx) => {
-          const upload = batchUploads[idx];
-          if (!snap.file) return;
-          await S3UploadService.uploadToS3(
-            upload.presigned_url,
-            snap.file,
-            upload.content_type
-          );
-        })
-      );
-    }
-
-    // 3. Confirm uploads in batches
-    for (let i = 0; i < rawSnaps.length; i += PRESIGNED_BATCH_SIZE) {
-      const batch = rawSnaps.slice(i, i + PRESIGNED_BATCH_SIZE);
-      const batchUploads = uploads.slice(i, i + PRESIGNED_BATCH_SIZE);
-
-      await S3UploadService.confirmUpload({
-        entity_type: "tour-snapshot",
-        entity_id: tourUuid,
-        uploads: batch.map((snap, idx) => {
-          const upload = batchUploads[idx];
-          return {
-            upload_id: upload.upload_id,
-            s3_key: upload.s3_key,
-            original_filename: upload.original_filename,
-            content_type: upload.content_type,
-            name: snap.name || "",
-            description: snap.description || "",
-            x_axis: snap.x,
-            y_axis: snap.y,
-            sort_order: i + idx + 1,
-            is_admin_approved: true,
-            is_agent_approved: false,
-            is_hidden: false,
-          };
-        }),
-      });
-    }
-  } catch (error) {
-    console.error("uploadRawSnapshots failed:", error);
-    throw error;
-  }
-}
-
 export async function UploadFilesData(
   token: string,
   orderUuid: string,
@@ -395,20 +307,13 @@ export async function UploadFilesData(
     if (linkObj.uuid) formData.append(`links[${index}][uuid]`, linkObj.uuid);
   });
 
-  // Partition snapshots into raw file uploads and URL/API-based links
-  const rawSnaps = snapshots.filter(snap => snap.file instanceof File);
-  const urlSnaps = snapshots.filter(snap => !(snap.file instanceof File));
-
-  urlSnaps.forEach((snap, index) => {
-    if (snap.uuid) {
-      formData.append(`snapshots[${index}][uuid]`, snap.uuid);
-    }
+  snapshots.forEach((snap, index) => {
     formData.append(`snapshots[${index}][name]`, snap.name || "");
     formData.append(`snapshots[${index}][file_name]`, snap.floorImageUrl || "");
     formData.append(`snapshots[${index}][description]`, snap.description || "");
     formData.append(
       `snapshots[${index}][file]`,
-      snap.variant_urls?.thumb || snap.thumbnail_url || snap.url || snap.file_path || "",
+      snap.file || snap.variant_urls?.thumb || snap.thumbnail_url || snap.url || snap.file_path || "",
     );
     formData.append(`snapshots[${index}][x_axis]`, String(snap.x));
     formData.append(`snapshots[${index}][y_axis]`, String(snap.y));
@@ -436,11 +341,6 @@ export async function UploadFilesData(
 
   const tourResult = await tourResponse.json();
   const tourUuid = tourResult.data.uuid;
-
-  // Step 2.5: Upload raw snapshot files to S3 and confirm them using tourUuid
-  if (rawSnaps.length > 0) {
-    await uploadRawSnapshots(token, tourUuid, rawSnaps);
-  }
 
   // Step 3: NOW confirm uploads with the new tourUuid in batches
   if (files.length > 0 && uploads.length > 0) {
@@ -620,20 +520,6 @@ export async function UpdateFilesData(
     }
   }
 
-  // Partition snapshots into raw file uploads and URL/API-based links
-  const rawSnaps = snapshots.filter(snap => snap.file instanceof File);
-  const urlSnaps = snapshots.filter(snap => !(snap.file instanceof File));
-
-  // Step 1.5: Upload raw snapshots to S3 and confirm them using tourUuid
-  if (rawSnaps.length > 0) {
-    try {
-      await uploadRawSnapshots(token, tourUuid, rawSnaps);
-    } catch (snapError) {
-      console.error("Failed to upload/confirm raw snapshots during update:", snapError);
-      throw snapError;
-    }
-  }
-
   // Step 2: Prepare metadata update via old endpoint
   const formData = new FormData();
   let hasMetadataChanges = false;
@@ -690,21 +576,14 @@ export async function UpdateFilesData(
     if (linkObj.uuid) formData.append(`links[${index}][uuid]`, linkObj.uuid);
   });
 
-  if (rawSnaps.length > 0) {
+  snapshots.forEach((snap, index) => {
     hasMetadataChanges = true;
-  }
-
-  urlSnaps.forEach((snap, index) => {
-    hasMetadataChanges = true;
-    if (snap.uuid) {
-      formData.append(`snapshots[${index}][uuid]`, snap.uuid);
-    }
     formData.append(`snapshots[${index}][name]`, snap.name || "");
     formData.append(`snapshots[${index}][description]`, snap.description || "");
     formData.append(`snapshots[${index}][file_name]`, snap.floorImageUrl || "");
     formData.append(
       `snapshots[${index}][file]`,
-      snap.variant_urls?.thumb || snap.thumbnail_url || snap.url || snap.file_path || "",
+      snap.file || snap.variant_urls?.thumb || snap.thumbnail_url || snap.url || snap.file_path || "",
     );
     formData.append(`snapshots[${index}][x_axis]`, String(snap.x.toFixed(6)));
     formData.append(`snapshots[${index}][y_axis]`, String(snap.y.toFixed(6)));

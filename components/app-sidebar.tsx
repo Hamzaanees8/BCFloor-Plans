@@ -412,11 +412,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <p className="text-[14px] font-normal text-white font-alexandria leading-4 truncate">
                   {orgName}
                 </p>
-                {userType !== "admin" && (
+                {/* {userType !== "admin" && (
                   <p className="text-[14px] font-normal text-white font-alexandria leading-4 truncate">
                     Media Company Owner
                   </p>
-                )}
+                )} */}
                 <p className="text-[12px] font-normal text-white font-alexandria leading-4 truncate">
                   {userInfo.first_name} {userInfo.last_name}
                 </p>

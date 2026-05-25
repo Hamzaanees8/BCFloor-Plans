@@ -791,7 +791,7 @@ export default function OrderDetailView({
                   >
                     Appointment
                   </Button>
-                  {userType !== "agent" && (userType === "vendor" || !isEdit) && (
+                  {(userType !== "agent" || !isEdit) && (
                     <Button
                       variant={activeTab === "square_footage" ? "default" : "outline"}
                       onClick={() => setActiveTab("square_footage")}

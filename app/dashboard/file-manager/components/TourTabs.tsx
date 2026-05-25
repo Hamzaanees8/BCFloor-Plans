@@ -13,10 +13,12 @@ import TourActivityDialog from './TourActivityDialog';
 
 // const tabs = ['Settings', 'Photos', 'Floorplan', 'Matterport', 'Confirm'];
 interface TourProps {
-  orderData: Order | null
+  orderData: Order | null;
+  setOrderData?: React.Dispatch<React.SetStateAction<Order | null>>;
+  onRefresh?: () => Promise<void>;
 }
 
-export default function TourTabs({ orderData }: TourProps) {
+export default function TourTabs({ orderData, setOrderData, onRefresh }: TourProps) {
   const [activeTab, setActiveTab] = useState('Settings');
   const [open, setOpen] = useState(false);
   const { userType } = useAppContext()
@@ -45,7 +47,7 @@ export default function TourTabs({ orderData }: TourProps) {
   const renderContent = () => {
     switch (activeTab) {
       case 'Settings':
-        return <div className="p-4"><TourSettings orderData={orderData} /></div>;
+        return <div className="p-4"><TourSettings orderData={orderData} setOrderData={setOrderData} onRefresh={onRefresh} /></div>;
       case 'Photos':
         return <div className="p-4"><TourPicture orderData={orderData} /></div>;
       case 'Floor plans':

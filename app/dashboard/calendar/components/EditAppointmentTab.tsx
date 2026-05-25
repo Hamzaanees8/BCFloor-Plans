@@ -419,7 +419,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                 </AccordionTrigger>
                 <AccordionContent className="grid grid-cols-1 gap-4">
                     <div className="w-full grid grid-cols-3 gap-4 items-center mt-4">
-                        <div className={userType === 'agent' ? "col-span-3" : "col-span-2"}>
+                        <div className="col-span-2">
                             <Label className="text-[14px] text-[#424242] " htmlFor="">Listing</Label>
                             <Input
                                 readOnly
@@ -431,19 +431,17 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                             />
 
                         </div>
-                        {userType !== 'agent' && (
-                            <div className="col-span-1">
-                                <Label className="text-[14px] text-[#424242] " htmlFor="">Square Footage</Label>
-                                <Input
-                                    readOnly
-                                    value={squareFootage}
-                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
-                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                    type="text"
-                                />
+                        <div className="col-span-1">
+                            <Label className="text-[14px] text-[#424242] " htmlFor="">Square Footage</Label>
+                            <Input
+                                readOnly
+                                value={squareFootage}
+                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                type="text"
+                            />
 
-                            </div>
-                        )}
+                        </div>
                         <div className="col-span-3 flex justify-end">
                             <div className="flex items-center space-x-2">
                                 <Switch id="update-invoice-appointment-calendar" checked={updateInvoice} onCheckedChange={setUpdateInvoice} className="data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-[#E06D5E]" />

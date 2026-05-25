@@ -15,7 +15,8 @@ import { DataTable } from '@/components/DataTable';
 import { ColumnDef, Row } from '@tanstack/react-table';
 import { Switch } from '@/components/ui/switch';
 import DropdownActions from '@/components/DropdownActions';
-import { Listings } from '@/lib/types';
+import { Listings, Agent } from '@/lib/types';
+import { Get as GetAgents } from '@/app/dashboard/agents/agents';
 
 
 const Page = () => {
@@ -28,6 +29,7 @@ const Page = () => {
   const [showCard, setShowCard] = React.useState(false);
   const [type, setType] = React.useState("");
   const [listingsData, setListingsData] = useState<Listings[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedData, setSelectedData] = useState<Listings | null>(null);
   const [selectedData1, setSelectedData1] = useState<AgentData>();
   const [loading, setLoading] = useState<boolean>(true);
@@ -41,6 +43,16 @@ const Page = () => {
   const searchParams = useSearchParams();
   const agentFilter = searchParams.get("agent") || "";
   const headerRef = useRef<HTMLDivElement>(null);
+
+  const handleAgentChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value && value !== "all") {
+      params.set("agent", value);
+    } else {
+      params.delete("agent");
+    }
+    router.push(`?${params.toString()}`);
+  };
 
   useEffect(() => {
     const header = headerRef.current;
@@ -90,6 +102,21 @@ const Page = () => {
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    if (userType === 'admin' || userType === 'vendor') {
+      GetAgents()
+        .then((data) => {
+          setAgents(Array.isArray(data.data) ? data.data : []);
+        })
+        .catch((err) => {
+          console.error("Failed to fetch agents for filter:", err);
+        });
+    }
+  }, [userType]);
 
   const handleDelete = async (userId: string) => {
     try {
@@ -393,7 +420,9 @@ const Page = () => {
       </div>
 
       <div
-        className="w-full px-4 py-3 border-b border-gray-200 border border-b-gray-300 grid grid-cols-4 gap-4 h-[60px] font-alexandria"
+        className={`w-full px-4 py-3 border-b border-gray-200 border border-b-gray-300 grid ${
+          userType === "admin" || userType === "vendor" ? "grid-cols-5" : "grid-cols-4"
+        } gap-4 h-[60px] font-alexandria`}
         style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
 
         <Input
@@ -401,6 +430,22 @@ const Page = () => {
           className="h-[38px] w-full bg-white"
           onChange={(e) => setSearchQuery(e.target.value)}
         />
+
+        {(userType === "admin" || userType === "vendor") && (
+          <Select value={agentFilter || "all"} onValueChange={handleAgentChange}>
+            <SelectTrigger className="h-[38px] w-full bg-white">
+              <SelectValue placeholder="All Agents" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px]">
+              <SelectItem value="all">All Agents</SelectItem>
+              {agents.map((agent) => (
+                <SelectItem key={agent.uuid} value={agent.uuid || ""}>
+                  {agent.first_name} {agent.last_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <Select onValueChange={(value) => setFilterStatus(value)}>
           <SelectTrigger className="w-full h-[38px] bg-white">

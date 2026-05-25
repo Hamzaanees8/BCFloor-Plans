@@ -342,6 +342,7 @@ export async function GetOne(token: string, orderId: string) {
   try {
     const response = await fetch(`${API_URL}/orders/${orderId}`, {
       method: "GET",
+      cache: "no-store",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
@@ -467,6 +468,7 @@ export async function GetOneOrder(token: string, uuid: string) {
   try {
     const response = await fetch(`${API_URL}/orders/${uuid}`, {
       method: "GET",
+      cache: "no-store",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",

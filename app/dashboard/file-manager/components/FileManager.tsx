@@ -60,7 +60,7 @@ const FileManager = () => {
     const map = new Map<string, OrerServices[]>();
     (services ?? []).forEach((os) => {
       const isFS = os.service?.name?.toLowerCase() === "feature sheets" ||
-                   (os.service as any)?.category?.name?.toLowerCase() === "feature sheets";
+        (os.service as any)?.category?.name?.toLowerCase() === "feature sheets";
       if (isFS) return;
 
       const key = os.service.uuid;
@@ -258,7 +258,7 @@ const FileManager = () => {
       const isSplit = !!invoice.split_details;
       const payerUuid = currentUser?.uuid;
       const isOwner = currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid);
-      
+
       let paymentMode: "on_behalf" | "self" | undefined = mode;
 
       if (isSplit && !paymentMode) {
@@ -283,7 +283,7 @@ const FileManager = () => {
     }
   };
 
-  useEffect(() => {
+  const fetchOrder = React.useCallback(async () => {
     const token = localStorage.getItem("token");
     const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
     const currentVendorUUID = userInfo?.uuid;
@@ -294,34 +294,39 @@ const FileManager = () => {
       return;
     }
 
-    GetOneOrder(token, orderId || "")
-      .then((data) => {
-        const order = data.data;
-        setOrderData(order);
+    try {
+      const data = await GetOneOrder(token, orderId || "");
+      const order = data.data;
+      setOrderData(order);
 
-        let filteredServices = order.services;
+      let filteredServices = order.services;
 
-        if (userType === "vendor") {
-          const vendorServiceIds = order.slots
-            ?.filter((slot: Slot) => slot.vendor?.uuid === currentVendorUUID)
-            .map((slot: Slot) => slot.service_id);
+      if (userType === "vendor") {
+        const vendorServiceIds = order.slots
+          ?.filter((slot: Slot) => slot.vendor?.uuid === currentVendorUUID)
+          .map((slot: Slot) => slot.service_id);
 
-          const uniqueVendorServiceIds = Array.from(new Set(vendorServiceIds));
-          filteredServices = order.services?.filter(
-            (srv: { service_id: number }) =>
-              uniqueVendorServiceIds.includes(srv.service_id)
-          );
-        }
+        const uniqueVendorServiceIds = Array.from(new Set(vendorServiceIds));
+        filteredServices = order.services?.filter(
+          (srv: { service_id: number }) =>
+            uniqueVendorServiceIds.includes(srv.service_id)
+        );
+      }
 
-        setServices(filteredServices);
+      setServices(filteredServices);
+    } catch (err: any) {
+      console.log(err.message);
+    }
+  }, [orderId]);
 
-        if (!serviceIdFromURL) {
-          if (activeTab === "tour" || activeTab === "CreateFeatureSheet" || activeTab === "download")
-            return;
-          setActiveTab("download");
-        }
-      })
-      .catch((err) => console.log(err.message));
+  useEffect(() => {
+    fetchOrder().then(() => {
+      if (!serviceIdFromURL) {
+        if (activeTab === "tour" || activeTab === "CreateFeatureSheet" || activeTab === "download")
+          return;
+        setActiveTab("download");
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
@@ -400,18 +405,18 @@ const FileManager = () => {
   const handleOpenInvoice = (serviceName?: string) => {
     const serviceInv = serviceName
       ? invoices.find(inv => {
-          const isConsolidated = inv.notes?.toLowerCase().includes("consolidated");
-          if (isConsolidated) return false;
-          return inv.items?.some((i: any) => {
-            const desc = i.description?.toLowerCase() || "";
-            const sName = serviceName.toLowerCase();
-            return desc.includes(sName) || sName.includes(desc);
-          });
-        })
+        const isConsolidated = inv.notes?.toLowerCase().includes("consolidated");
+        if (isConsolidated) return false;
+        return inv.items?.some((i: any) => {
+          const desc = i.description?.toLowerCase() || "";
+          const sName = serviceName.toLowerCase();
+          return desc.includes(sName) || sName.includes(desc);
+        });
+      })
       : undefined;
 
     const finalInv = serviceInv || invoices[0];
-    
+
     if (finalInv) {
       setViewingInvoice(finalInv);
     } else {
@@ -421,7 +426,7 @@ const FileManager = () => {
 
   const renderContent = () => {
     if (activeTab === "tour") {
-      return <TourTabs orderData={orderData} />;
+      return <TourTabs orderData={orderData} setOrderData={setOrderData} onRefresh={fetchOrder} />;
     }
 
     if (activeTab === "download") {
@@ -457,6 +462,7 @@ const FileManager = () => {
         return (
           <Service
             orderData={orderData}
+            setOrderData={setOrderData}
             currentService={activeService}
             currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
@@ -632,7 +638,6 @@ const FileManager = () => {
       ...(filesData?.snapshots || [])
         .filter(snap => !deletedSnapshotUuids.has(snap.uuid))
         .map(snap => ({
-          uuid: snap.uuid,
           x: Number(snap.x_axis),
           y: Number(snap.y_axis),
           floorImageUrl: snap.file_name,
@@ -999,11 +1004,11 @@ const FileManager = () => {
                       invoice={viewingInvoice}
                       editData={viewingInvoice}
                       isEditing={false}
-                      updateItem={() => {}}
-                      addItem={() => {}}
-                      removeItem={() => {}}
-                      updateTaxRate={() => {}}
-                      setEditData={() => {}}
+                      updateItem={() => { }}
+                      addItem={() => { }}
+                      removeItem={() => { }}
+                      updateTaxRate={() => { }}
+                      setEditData={() => { }}
                       roleSettings={{
                         pageTabColor: `var(--${userType}-page-tab-color, #4290E9)`,
                         pageBg: `var(--${userType}-page-bg, #FFFFFF)`,
@@ -1028,9 +1033,9 @@ const FileManager = () => {
                 <p className="text-[14px] font-normal text-white font-alexandria leading-4">
                   BC Floor Plans
                 </p>
-                <p className="text-[14px] font-normal text-white font-alexandria leading-4">
+                {/* <p className="text-[14px] font-normal text-white font-alexandria leading-4">
                   Media Company Owner
-                </p>
+                </p> */}
                 <p className="text-[12px] font-normal text-white font-alexandria leading-4">
                   {(() => {
                     const vendor = activeSlot?.vendor || orderData?.vendor;
@@ -1332,8 +1337,8 @@ const FileManager = () => {
                   key={booking.uuid}
                   onClick={() => setActiveServiceIndex(idx)}
                   className={`flex-1 cursor-pointer border-r border-[#BBBBBB] last:border-r-0 transition-all duration-200 flex items-center justify-between px-6 ${isSubActive
-                      ? `${userType}-bg shadow-inner`
-                      : "bg-white/50 hover:bg-white/80"
+                    ? `${userType}-bg shadow-inner`
+                    : "bg-white/50 hover:bg-white/80"
                     }`}
                 >
                   <div className="flex items-center gap-3">

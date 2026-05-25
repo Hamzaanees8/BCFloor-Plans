@@ -341,6 +341,7 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
                             <Input
                                 value={squareFootage}
                                 onChange={(e) => handleSquareFootageChange(e.target.value)}
+                                readOnly={userType === 'agent'}
                                 className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px]"
                                 type="number"
                                 min="0"

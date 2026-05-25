@@ -9,6 +9,8 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import HouseSheetModal from './HouseSheetModal';
+import SquareFootage from '../../calendar/components/SquareFootage';
 
 
 import { Order, OrderService } from '../../orders/page';
@@ -36,6 +38,7 @@ import { GridSizeToggle } from './dual-mode/GridSizeToggle';
 import { MediaDateBoundary } from './FileManager';
 type Props = {
     orderData: Order | null;
+    setOrderData?: React.Dispatch<React.SetStateAction<Order | null>>;
     currentService?: Services;
     isListing: boolean;
     reviewFilesEnabled?: boolean;
@@ -44,8 +47,8 @@ type Props = {
     onOpenInvoice?: (serviceName?: string) => void;
     gstRate?: number;
 };
-const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, currentService, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate }) => {
-    const { floorFiles, setFloorFiles, filesData, setFilesData, setChangedFileUuids, setSelectionChangedUuids, fileManagerMode, setFileManagerMode, imagesPerRow, isSaving, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
+const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrderData, currentService, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate }) => {
+    const { floorFiles, setFloorFiles, filesData, setFilesData, setChangedFileUuids, setSelectionChangedUuids, area, setArea, fileManagerMode, setFileManagerMode, imagesPerRow, isSaving, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
     const [replacingFile, setReplacingFile] = useState<File | null>(null);
     const [openPreview, setOpenPreview] = useState(false);
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
@@ -96,6 +99,14 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
         pendingAction?.();
         setPendingAction(null);
     };
+
+    const [open, setOpen] = useState(false);
+
+    useEffect(() => {
+        if (orderData?.areas && area.length === 0) {
+            setArea(orderData.areas);
+        }
+    }, [orderData, area.length, setArea]);
 
 
     // Filter existing files safely with useMemo to prevent infinite loops
@@ -926,6 +937,21 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                         </div>
                     )}
                 </div>}
+            <div className='px-[200px] pt-[54px]'>
+                <div className='px-[80px] pb-[60px] gap-y-6'>
+                    <p className={`font-semibold text-lg ${userType}-text uppercase`}>Square Footage</p>
+                    <div className="flex justify-center">
+                        <div className="w-[700px] pt-6">
+                            <SquareFootage currentOrder={orderData || undefined} />
+                        </div>
+                    </div>
+                    {userType !== 'agent' && (
+                        <div className='flex items-center justify-end pt-6'>
+                            <Button onClick={() => setOpen(true)} className={`w-[150px] md:w-[143px] h-[32px] md:h-[32px]  justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>Edit</Button>
+                        </div>
+                    )}
+                </div>
+            </div>
 
             <div className='w-full pb-[54px]'>
                 <DualModeFileManager
@@ -989,6 +1015,17 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, current
                 onConfirm={confirmAndExecute}
                 showAgain={showAgain}
                 toggleShowAgain={() => setShowAgain(!showAgain)}
+            />
+            <HouseSheetModal
+                setArea={setArea}
+                uuid={orderData?.uuid}
+                open={open}
+                setOpen={setOpen}
+                onSuccess={(updatedOrder) => {
+                    if (updatedOrder && setOrderData) {
+                        setOrderData(updatedOrder);
+                    }
+                }}
             />
 
             <PhotoPreviewModal

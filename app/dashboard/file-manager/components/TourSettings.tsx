@@ -25,10 +25,12 @@ import { Copy } from "lucide-react";
 import { toast } from "sonner";
 
 interface TourSettingProps {
-    orderData: Order | null
+    orderData: Order | null;
+    setOrderData?: React.Dispatch<React.SetStateAction<Order | null>>;
+    onRefresh?: () => Promise<void>;
 }
 
-const TourSettings = ({ orderData }: TourSettingProps) => {
+const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) => {
     const { userType } = useAppContext()
     const [price, setprice] = useState<number>();
     const [bedrooms, setBedrooms] = useState<number>();
@@ -159,6 +161,20 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
 
             if (response.ok && data.status) {
                 toast.success("Property settings saved successfully");
+                if (setOrderData && data.data) {
+                    setOrderData((prev: any) => {
+                        if (!prev) return prev;
+                        return {
+                            ...prev,
+                            property_address: data.data.address,
+                            property_location: `${data.data.city}, ${data.data.province}`,
+                            property: data.data
+                        };
+                    });
+                }
+                if (onRefresh) {
+                    await onRefresh();
+                }
             } else {
                 const errorMsg = data.message || "Failed to save property settings";
                 toast.error(errorMsg);

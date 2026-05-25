@@ -18,13 +18,15 @@ type Props = {
     setOpen: (value: boolean) => void
     uuid?: string;
     setArea: (value: Area[]) => void
+    onSuccess?: (updatedOrder?: any) => void;
 }
 
 const HouseSheetModal: React.FC<Props> = ({
     open,
     setOpen,
     uuid,
-    setArea
+    setArea,
+    onSuccess
 }) => {
     const [orderData, setOrderData] = React.useState<Order | null>(null);
     const [tempArea, setTempArea] = useState<Area[]>([]);
@@ -110,6 +112,7 @@ const HouseSheetModal: React.FC<Props> = ({
 
                 toast.success('Order updated successfully');
                 setArea(response.data.areas ?? []);
+                onSuccess?.(response.data);
                 setOpen(false)
             } else {
                 toast.error("Something went wrong");
