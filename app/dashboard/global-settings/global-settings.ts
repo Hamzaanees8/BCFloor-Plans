@@ -625,9 +625,9 @@ export interface OrganizationPayload {
   logo?: string;
   portal_type?: 'agent' | 'vendor';
   is_whitelabel?: boolean;
-  domain?: string;
-  from_name?: string;
-  from_email?: string;
+  domain?: string | null;
+  from_name?: string | null;
+  from_email?: string | null;
   white_label_styles?: any;
   domains?: OrganizationDomain[];
 }

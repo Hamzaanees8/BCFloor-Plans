@@ -1,5 +1,7 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useUser } from "@/context/UserContext";
+import { GetOrganizations } from "@/app/dashboard/global-settings/global-settings";
 import {
   Table,
   TableBody,
@@ -68,6 +70,21 @@ const Page = () => {
 
   const [billings, setBillings] = useState<BillingItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { isSuperAdmin } = useUser();
+  const [organizations, setOrganizations] = useState<any[]>([]);
+  const [orgFilter, setOrgFilter] = useState<string>("all");
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      GetOrganizations()
+        .then(res => {
+          if (res.status && Array.isArray(res.data)) {
+            setOrganizations(res.data);
+          }
+        })
+        .catch(err => console.error("Failed to fetch organizations:", err));
+    }
+  }, [isSuperAdmin]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [showAgain, setShowAgain] = useState(true);
@@ -322,6 +339,11 @@ const Page = () => {
 
   // Filter billings based on selected filters
   const filteredBillings = billings.filter((billing) => {
+    // Org Filter
+    if (orgFilter !== "all" && String(billing.organization_id) !== orgFilter) {
+      return false;
+    }
+
     // Status filter
     if (statusFilter !== "all" && billing.status !== statusFilter) {
       return false;
@@ -479,7 +501,28 @@ const Page = () => {
 
       {/* Filters Section */}
       <div className="p-4 border-b sticky top-[80px] z-40 border-[#BBBBBB]" style={{ backgroundColor: roleSettings.pageBg }}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${isSuperAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4`}>
+          {/* Organization Filter - Super Admin Only */}
+          {isSuperAdmin && (
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">
+                Organization
+              </label>
+              <Select value={orgFilter} onValueChange={setOrgFilter}>
+                <SelectTrigger className="w-full border-[#BBBBBB]" style={{ backgroundColor: roleSettings.pageBg }}>
+                  <SelectValue placeholder="Filter by organization" />
+                </SelectTrigger>
+                <SelectContent style={{ backgroundColor: roleSettings.pageBg }}>
+                  <SelectItem value="all">All Organizations</SelectItem>
+                  {organizations.map((org) => (
+                    <SelectItem key={org.id} value={String(org.id)}>
+                      {org.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           {/* Status Filter */}
           <div>
             <label className="text-sm font-medium text-gray-700 mb-1 block">
@@ -561,6 +604,11 @@ const Page = () => {
               <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
                 Agent
               </TableHead>
+              {isSuperAdmin && (
+                <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
+                  Organization
+                </TableHead>
+              )}
               {/* <TableHead className="text-[14px] font-[700] text-[#7D7D7D]">
                 Address
               </TableHead> */}
@@ -630,6 +678,11 @@ const Page = () => {
                       >
                         {billing.agent_name || "N/A"}
                       </TableCell>
+                      {isSuperAdmin && (
+                        <TableCell className="text-[15px] py-[19px] font-[400] text-[#7D7D7D]">
+                          {billing.organization?.name || "Global / None"}
+                        </TableCell>
+                      )}
                       <TableCell className="text-[15px] py-[19px] font-[400] hidden text-[#7D7D7D]">
                         {address}
                       </TableCell>
@@ -709,7 +762,7 @@ const Page = () => {
 
                       return (
                         <TableRow className="bg-gray-50/50">
-                          <TableCell colSpan={8} className="p-0">
+                          <TableCell colSpan={isSuperAdmin ? 9 : 8} className="p-0">
                             <div className="overflow-hidden transition-all duration-300 p-6">
                               <div className="space-y-4">
                                 {/* Order Summary */}

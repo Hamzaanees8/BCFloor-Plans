@@ -196,13 +196,13 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
         const defaultMappings = customDomain
             ? [
                 { domain: `booking-new.${customDomain}`, portal_type: 'agent' },
-                { domain: `vendor-new.${customDomain}`, portal_type: 'vendor' },
+                { domain: `vendors.${customDomain}`, portal_type: 'vendor' },
                 { domain: `teams-new.${customDomain}`, portal_type: 'admin' },
             ]
             : slug ? [
-                { domain: `${slug}.${envDefaultDomains[0] || 'teams-new.bcfloorplans.com'}`, portal_type: 'admin' },
-                { domain: `${slug}.${envDefaultDomains[1] || 'bookings-new.bcfloorplans.com'}`, portal_type: 'agent' },
-                { domain: `${slug}.${envDefaultDomains[2] || 'vendor-new.bcfloorplans.com'}`, portal_type: 'vendor' },
+                { domain: `${slug}.${envDefaultDomains[0] || 'teams.tojuco.com'}`, portal_type: 'admin' },
+                { domain: `${slug}.${envDefaultDomains[1] || 'bookings.tojuco.com'}`, portal_type: 'agent' },
+                { domain: `${slug}.${envDefaultDomains[2] || 'vendors.tojuco.com'}`, portal_type: 'vendor' },
             ] : [];
 
         if (defaultMappings.length > 0) {
@@ -314,10 +314,10 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                 logo: form.logo,
                 portal_type: form.portal_type,
                 is_whitelabel: form.is_whitelabel,
-                domain: form.domain?.trim() || undefined,
-                from_name: form.from_name?.trim() || undefined,
-                from_email: form.from_email?.trim() || undefined,
-                domains: form.domains,
+                domain: form.is_whitelabel ? (form.domain?.trim() || null) : null,
+                from_name: form.is_whitelabel ? (form.from_name?.trim() || null) : null,
+                from_email: form.is_whitelabel ? (form.from_email?.trim() || null) : null,
+                domains: form.is_whitelabel ? form.domains : [],
             };
 
             if (isEdit && initialData) {
@@ -940,8 +940,8 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                                                     <td className="px-3 py-2 font-mono text-[#4290E9]">{d.domain}</td>
                                                                     <td className="px-3 py-2">
                                                                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${d.portal_type === 'admin' ? 'bg-purple-100 text-purple-700' :
-                                                                                d.portal_type === 'vendor' ? 'bg-orange-100 text-orange-700' :
-                                                                                    'bg-blue-100 text-blue-700'
+                                                                            d.portal_type === 'vendor' ? 'bg-orange-100 text-orange-700' :
+                                                                                'bg-blue-100 text-blue-700'
                                                                             }`}>
                                                                             {d.portal_type}
                                                                         </span>
@@ -989,6 +989,30 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                                         )}
                                     </div>
                                 </div>
+
+                                {/* DevOps Checklist Box */}
+                                <div className="mt-6 border-t border-slate-200 pt-5">
+                                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
+                                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-2 mb-3">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></svg>
+                                            DevOps Checklist for Whitelabeling
+                                        </p>
+                                        <ul className="space-y-2 text-xs text-slate-600 font-medium">
+                                            <li className="flex items-start gap-2">
+                                                <input type="checkbox" readOnly checked className="mt-0.5 pointer-events-none rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                                <span><strong>DNS Setup:</strong> Add CNAME/A records pointing your custom subdomains to AWS Route 53.</span>
+                                            </li>
+                                            <li className="flex items-start gap-2">
+                                                <input type="checkbox" readOnly checked className="mt-0.5 pointer-events-none rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                                <span><strong>AWS Amplify:</strong> Attach the custom subdomains to the Amplify hosted app in the AWS console.</span>
+                                            </li>
+                                            <li className="flex items-start gap-2">
+                                                <input type="checkbox" readOnly checked className="mt-0.5 pointer-events-none rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                                <span><strong>Resend Email:</strong> Verify the custom domain in your Resend console for domain alignment authentication.</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </>
                         ) : (
                             /* No whitelabel permission banner */
@@ -1004,76 +1028,76 @@ const CreateOrganizationDialog: React.FC<Props> = ({ open, setOpen, onSuccess, i
                         )}
                     </div>
 
-                        {isEdit && (
-                            <>
-                                <hr className="border-[#BBBBBB]" />
-                                <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wider text-[#999] mb-3">Audio Files</p>
-                                    <div className="flex items-center gap-3 mb-3">
-                                        <Button
-                                            type="button"
-                                            onClick={() => orgAudioRef.current?.click()}
-                                            disabled={audioUploading}
-                                            className="h-[36px] px-4 text-sm font-medium text-white admin-bg hover:opacity-90"
-                                        >
-                                            {audioUploading ? "Uploading..." : "+ Upload Audio"}
-                                        </Button>
-                                        <span className="text-xs text-[#999]">MP3 / WAV · max 20 MB</span>
-                                        <input
-                                            ref={orgAudioRef}
-                                            type="file"
-                                            accept="audio/*"
-                                            className="hidden"
-                                            onChange={handleOrgAudioUpload}
-                                        />
-                                    </div>
-                                    {orgAudios.length > 0 ? (
-                                        <div className="border border-[#BBBBBB] rounded-[6px] overflow-hidden divide-y divide-[#BBBBBB]">
-                                            {orgAudios.map(audio => (
-                                                <div key={audio.uuid} className="flex items-center justify-between px-3 py-2 hover:bg-[#F9F9F9]">
-                                                    <span className="text-xs text-[#666] truncate flex-1">{audio.name}</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleOrgAudioDelete(audio.uuid)}
-                                                        className="ml-2 text-red-500 hover:text-red-700"
-                                                    >
-                                                        <X className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-[#999] italic">No audio files uploaded yet.</p>
-                                    )}
+                    {isEdit && (
+                        <>
+                            <hr className="border-[#BBBBBB]" />
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wider text-[#999] mb-3">Audio Files</p>
+                                <div className="flex items-center gap-3 mb-3">
+                                    <Button
+                                        type="button"
+                                        onClick={() => orgAudioRef.current?.click()}
+                                        disabled={audioUploading}
+                                        className="h-[36px] px-4 text-sm font-medium text-white admin-bg hover:opacity-90"
+                                    >
+                                        {audioUploading ? "Uploading..." : "+ Upload Audio"}
+                                    </Button>
+                                    <span className="text-xs text-[#999]">MP3 / WAV · max 20 MB</span>
+                                    <input
+                                        ref={orgAudioRef}
+                                        type="file"
+                                        accept="audio/*"
+                                        className="hidden"
+                                        onChange={handleOrgAudioUpload}
+                                    />
                                 </div>
-                            </>
-                        )}
-                    </div>
+                                {orgAudios.length > 0 ? (
+                                    <div className="border border-[#BBBBBB] rounded-[6px] overflow-hidden divide-y divide-[#BBBBBB]">
+                                        {orgAudios.map(audio => (
+                                            <div key={audio.uuid} className="flex items-center justify-between px-3 py-2 hover:bg-[#F9F9F9]">
+                                                <span className="text-xs text-[#666] truncate flex-1">{audio.name}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleOrgAudioDelete(audio.uuid)}
+                                                    className="ml-2 text-red-500 hover:text-red-700"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-[#999] italic">No audio files uploaded yet.</p>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
 
-                    {/* Footer */}
-                    <div
-                        className="px-6 py-4 border-t border-[#BBBBBB] flex justify-end gap-3 flex-shrink-0"
-                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                {/* Footer */}
+                <div
+                    className="px-6 py-4 border-t border-[#BBBBBB] flex justify-end gap-3 flex-shrink-0"
+                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                >
+                    <Button
+                        type="button"
+                        onClick={() => setOpen(false)}
+                        className="bg-white w-[140px] h-[44px] text-[16px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]"
                     >
-                        <Button
-                            type="button"
-                            onClick={() => setOpen(false)}
-                            className="bg-white w-[140px] h-[44px] text-[16px] font-[400] border border-[#0078D4] text-[#0078D4] hover:bg-[#f1f8ff]"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={handleSubmit}
-                            disabled={isLoading}
-                            className={`w-[180px] h-[44px] text-[16px] font-[400] text-white ${userType}-bg hover:opacity-90 transition-opacity`}
-                        >
-                            {isLoading
-                                ? isEdit ? "Saving..." : "Creating..."
-                                : isEdit ? "Save Changes" : "Create Organization"
-                            }
-                        </Button>
-                    </div>
+                        Cancel
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={handleSubmit}
+                        disabled={isLoading}
+                        className={`w-[180px] h-[44px] text-[16px] font-[400] text-white ${userType}-bg hover:opacity-90 transition-opacity`}
+                    >
+                        {isLoading
+                            ? isEdit ? "Saving..." : "Creating..."
+                            : isEdit ? "Save Changes" : "Create Organization"
+                        }
+                    </Button>
+                </div>
             </DialogContent>
         </Dialog>
     );

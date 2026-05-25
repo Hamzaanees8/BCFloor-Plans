@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { getDefaultDomains } from "./config/domains"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -34,16 +35,18 @@ export function getAppOrigin(): string {
 
     // 3. Fallbacks based on path context for the demo
     const path = window.location.pathname;
+    const defaultDomains = getDefaultDomains();
+
     if (path.includes("/agent") || path.includes("/book")) {
-      return "https://booking-new.bcfloorplans.com";
+      return `https://${defaultDomains[1] || 'bookings.tojuco.com'}`;
     } else if (path.includes("/vendor")) {
-      return "https://vendors-new.bcfloorplans.com";
+      return `https://${defaultDomains[2] || 'vendors.tojuco.com'}`;
     } else if (path.includes("/teams")) {
-      return "https://teams-new.bcfloorplans.com";
+      return `https://${defaultDomains[0] || 'teams.tojuco.com'}`;
     }
-    
+
     // Default fallback
-    return "https://booking-new.bcfloorplans.com";
+    return `https://${defaultDomains[1] || 'bookings.tojuco.com'}`;
   }
 
   return window.location.origin;

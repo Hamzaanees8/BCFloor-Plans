@@ -64,6 +64,8 @@ export interface MatterportAd {
   renewalDate: string; // formatted date string
   status: MatterportStatus;
   renewal: MatterportRenewalAction;
+  organizationName?: string;
+  organizationId?: number;
 }
 
 export async function GetMatterPort(token: string) {
@@ -90,6 +92,7 @@ export async function GetMatterPort(token: string) {
 export const mapMatterportApiToAd = (
   api: MatterportApiResponse
 ): MatterportAd => {
+  const org = (api.orders as any)?.organization;
   return {
     agentName: `${api.orders.agent?.first_name ?? "N/A"} ${api.orders.agent?.last_name ?? ""
       }`.trim(),
@@ -97,6 +100,8 @@ export const mapMatterportApiToAd = (
     orderuud: api.orders.uuid,
     propertyuuid: api.orders.property.uuid,
     address: `${api.orders.property_address}, ${api.orders.property_location}`,
+    organizationName: org?.name || "Global / None",
+    organizationId: org?.id ?? undefined,
     reminderDate: new Date(
       new Date(api.updated_at).setDate(new Date(api.updated_at).getDate())
     ).toLocaleDateString("en-US", {

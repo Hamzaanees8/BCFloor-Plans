@@ -59,6 +59,8 @@ export interface BillingItem {
   property_address?: string;
   property_location?: string;
   created_at: string;
+  organization?: { id: number; name: string } | null;
+  organization_id?: number | null;
 }
 
 export const getBillings = async (): Promise<BillingItem[]> => {

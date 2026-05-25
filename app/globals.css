@@ -609,3 +609,43 @@ textarea::placeholder {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+
+/* ==========================================================================
+   WYSIWYG Feature Sheet Print Canvas Styles
+   Lock editor preview workspace strictly to standard paper aspect ratios
+   without modifying individual template code.
+   ========================================================================== */
+
+.pdf-preview-workspace #pdf-section {
+  width: 8.5in !important;
+  margin: 0 auto !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+}
+
+.pdf-preview-workspace #pdf-section.tabloid-sheet {
+  width: 17in !important;
+}
+
+.pdf-preview-workspace #pdf-section .pdf-page {
+  width: 8.5in !important;
+  height: 11in !important;
+  margin: 20px auto !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+  position: relative !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+.pdf-preview-workspace #pdf-section.tabloid-sheet .pdf-page {
+  width: 17in !important;
+  height: 11in !important;
+}
+
+/* Ensure absolute elements, SVGs, and subcomponents fit the locked preview canvas */
+.pdf-preview-workspace #pdf-section .pdf-page > div {
+  width: 100% !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
+}

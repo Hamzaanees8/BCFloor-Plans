@@ -4,6 +4,7 @@ type LoginPayload = {
     password: string
     password_confirmation: string
     token: string
+    role?: string
 };
 
 type LoginResponse = {

@@ -764,7 +764,7 @@ const BcfpStandard12 = React.forwardRef<BcfpStandard12Ref, BcfpStandard12Props>(
               </div>
               <div className="px-[50px] pt-[50px] ">
                 <div
-                  className="w-[658px] h-[700px] place-self-center border-2 border-[#fff] relative overflow-hidden flex items-center justify-center group"
+                  className="w-full max-w-[658px] aspect-[658/700] max-h-[700px] place-self-center border-2 border-[#fff] relative overflow-hidden flex items-center justify-center group"
                   onMouseDown={(e) => handleMouseDown("image2", e)}
                   onMouseMove={(e) => handleMouseMove("image2", e)}
                   onMouseUp={() => handleMouseUp("image2")}

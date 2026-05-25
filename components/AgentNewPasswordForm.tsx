@@ -23,6 +23,7 @@ function AgentNewPasswordForm() {
     const searchParams = useSearchParams();
     const email = searchParams.get('email') || '';
     const token = searchParams.get('token') || '';
+    const role = searchParams.get('role') || '';
 
     const checkStrength = (pass: string) => {
         const requirements = [
@@ -55,9 +56,10 @@ function AgentNewPasswordForm() {
         if (Object.values(newErrors).some(Boolean)) return;
         try {
             setIsLoading(true)
-            const response = await newPassword({ email, password, password_confirmation: password, token });
+            const response = await newPassword({ email, password, password_confirmation: password, token, role });
             toast.success('Password reset successfully');
-            router.push('/password-success');
+            const redirectPath = role ? `/${role}/password-success` : '/password-success';
+            router.push(redirectPath);
             localStorage.setItem('token', response.token);
             setIsLoading(false)
         } catch (error: unknown) {

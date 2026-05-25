@@ -1,6 +1,6 @@
 "use client";
 import QuickViewCard from '@/components/QuickViewCard';
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { Delete, Get } from './agents';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -18,6 +18,15 @@ import { useRouter } from "next/navigation";
 import { UploadRightIcon } from "@/components/Icons";
 import { UpdateAgentStatus } from './agents';
 import { ColumnDef } from "@tanstack/react-table";
+import { useUser } from "@/context/UserContext";
+import { GetOrganizations } from "@/app/dashboard/global-settings/global-settings";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 export interface AgentData {
     uuid?: string;
     first_name: string;
@@ -66,11 +75,36 @@ const Page = () => {
 
     const [showCard, setShowCard] = React.useState(false);
     const [agentData, setAgentData] = useState<Agent[]>([]);
+    const { isSuperAdmin } = useUser();
+    const [organizations, setOrganizations] = useState<any[]>([]);
+    const [orgFilter, setOrgFilter] = useState<string>("all");
+
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<boolean>(false);
 
     const [selectedData, setSelectedData] = useState<AgentData | null>(null);
     const router = useRouter();
+
+    useEffect(() => {
+        if (isSuperAdmin) {
+            GetOrganizations()
+                .then(res => {
+                    if (res.status && Array.isArray(res.data)) {
+                        setOrganizations(res.data);
+                    }
+                })
+                .catch(err => console.error("Failed to fetch organizations:", err));
+        }
+    }, [isSuperAdmin]);
+
+    const filteredAgents = useMemo(() => {
+        return agentData.filter(agent => {
+            if (orgFilter !== "all" && String(agent.organization_id) !== orgFilter) {
+                return false;
+            }
+            return true;
+        });
+    }, [agentData, orgFilter]);
 
     const handleUpdateStatus = async (uuid: string, status: boolean) => {
         try {
@@ -89,7 +123,24 @@ const Page = () => {
         }
     };
 
-    const columns: ColumnDef<Agent>[] = [
+    const handleDelete = async (uuid: string) => {
+        try {
+            await Delete(uuid);
+            toast.success('Agent deleted successfully');
+            setAgentData(prev => prev.filter(agent => agent.uuid !== uuid));
+        } catch (error) {
+            if (error instanceof Error) {
+                console.error('Delete failed:', error.message);
+                toast.error(error.message || 'Failed to delete Agent');
+            } else {
+                console.error('Delete failed:', error);
+                toast.error('Failed to delete Agent');
+            }
+        }
+    };
+
+    const columns = useMemo<ColumnDef<Agent>[]>(() => {
+        const cols: ColumnDef<Agent>[] = [
         {
             id: "select",
             header: () => <div></div>,
@@ -275,8 +326,21 @@ const Page = () => {
                 );
             },
         }
-
     ];
+
+        if (isSuperAdmin) {
+            cols.splice(2, 0, {
+                accessorKey: "organization",
+                header: "ORGANIZATION",
+                cell: ({ row }) => {
+                    const org = row.original.organization;
+                    return <div className="text-[#666666]">{org?.name || "Global / None"}</div>;
+                }
+            });
+        }
+
+        return cols;
+    }, [isSuperAdmin, organizations, userType, router, handleUpdateStatus, handleDelete]);
 
 
     useEffect(() => {
@@ -303,22 +367,7 @@ const Page = () => {
             });
     }, []);
 
-    const handleDelete = async (uuid: string) => {
-        try {
-            await Delete(uuid);
-            toast.success('Agent deleted successfully');
-            setAgentData(prev => prev.filter(agent => agent.uuid !== uuid));
-        } catch (error) {
-            if (error instanceof Error) {
-                console.error('Delete failed:', error.message);
-                toast.error(error.message || 'Failed to delete Agent');
-            } else {
-                console.error('Delete failed:', error);
-                toast.error('Failed to delete Agent');
-            }
-        }
-    };
-    const agentlength = agentData.length;
+    const agentlength = filteredAgents.length;
     const { hasPermission } = usePermissions();
 
     // Check if user can create agents
@@ -328,22 +377,37 @@ const Page = () => {
         <div>
             <div ref={headerRef} className='w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center' style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>Agents ({agentlength})</p>
-                {(userType !== 'vendor' && canCreateAgent) && (
-                    <Link
-                        href={'/dashboard/agents/create'}
+                <div className="flex items-center gap-3">
+                    {isSuperAdmin && (
+                        <Select value={orgFilter} onValueChange={setOrgFilter}>
+                            <SelectTrigger className="w-[180px] h-[35px] md:h-[42px] text-[#666666] border border-[#BBBBBB] rounded-[6px]" style={{ backgroundColor: roleSettings.pageBg }}>
+                                <SelectValue placeholder="All Organizations" />
+                            </SelectTrigger>
+                            <SelectContent className="border border-[#BBBBBB]" style={{ backgroundColor: roleSettings.pageBg }}>
+                                <SelectItem value="all">All Organizations</SelectItem>
+                                {organizations.map((org) => (
+                                    <SelectItem key={org.id} value={String(org.id)}>{org.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                    {(userType !== 'vendor' && canCreateAgent) && (
+                        <Link
+                            href={'/dashboard/agents/create'}
 
-                        className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] justify-center rounded-[6px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:brightness-110'
-                        style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
-                    >
-                        + New Agent
-                    </Link>
-                )}
+                            className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] justify-center rounded-[6px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:brightness-110'
+                            style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+                        >
+                            + New Agent
+                        </Link>
+                    )}
+                </div>
             </div>
 
             <div className="w-full">
                 <DataTable
                     columns={columns}
-                    data={agentData}
+                    data={filteredAgents}
                     loading={loading}
                     error={error}
                     dataName="Agents"

@@ -7,11 +7,15 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useBookNowContext } from '../context/BookNowContext'
+import { fetchMlsData } from "@/app/dashboard/listings/listing";
+import { toast } from "sonner";
 
 const Property = () => {
     const { tempPropertyData, setTempPropertyData } = useBookNowContext();
 
     // Form state
+    const [mls, setMls] = useState(tempPropertyData?.mls_number || "");
+    const [isLoadingMls, setIsLoadingMls] = useState(false);
     const [address, setAddress] = useState(tempPropertyData?.address || "");
     const [suite, setSuite] = useState(tempPropertyData?.suite || "");
     const [city, setCity] = useState(tempPropertyData?.city || "");
@@ -22,6 +26,48 @@ const Property = () => {
     const [notes, setNotes] = useState(tempPropertyData?.notes || "");
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
     const [states, setStates] = useState<{ name: string; isoCode: string }[]>([]);
+
+    const handleMlsSync = async () => {
+        if (!mls) {
+            toast.error("Please enter an MLS number first");
+            return;
+        }
+
+        try {
+            setIsLoadingMls(true);
+            const response = await fetchMlsData(mls);
+            const mls_data = response.mls || response;
+
+            if (mls_data && !mls_data.error) {
+                setSquareFootage(mls_data.details?.sqft?.toString() || "");
+                setCity(mls_data.address?.city || "");
+                setPostalCode(mls_data.address?.zip || "");
+
+                // Assemble address from street parts
+                const addressParts = [];
+                if (mls_data.address?.streetNumber) addressParts.push(mls_data.address.streetNumber);
+                if (mls_data.address?.streetName) addressParts.push(mls_data.address.streetName);
+                if (mls_data.address?.streetSuffix) addressParts.push(mls_data.address.streetSuffix);
+                setAddress(addressParts.join(" ") || "");
+
+                if (mls_data.address?.state) {
+                    setProvince(mls_data.address.state);
+                }
+                if (mls_data.address?.country) {
+                    setCountry(mls_data.address.country);
+                }
+
+                toast.success("MLS data synced successfully!");
+            } else {
+                toast.error("Failed to fetch MLS data. Please verify the MLS#.");
+            }
+        } catch (err) {
+            console.error("Error syncing MLS:", err);
+            toast.error("Error syncing MLS data.");
+        } finally {
+            setIsLoadingMls(false);
+        }
+    };
 
     // Get sorted countries
     const sortedCountries = React.useMemo(() => {
@@ -67,11 +113,12 @@ const Property = () => {
             country,
             square_footage: squareFootage ? Number(squareFootage) : undefined,
             notes,
-            agent_id: userInfo?.uuid || tempPropertyData?.agent_id
+            agent_id: userInfo?.uuid || tempPropertyData?.agent_id,
+            mls_number: mls
         };
         setTempPropertyData(newPropertyData);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [address, suite, city, province, postalCode, country, squareFootage, notes]);
+    }, [address, suite, city, province, postalCode, country, squareFootage, notes, mls]);
 
     const fieldBg = '#EEEEEE';
 
@@ -80,6 +127,32 @@ const Property = () => {
             <div className='w-full flex flex-col items-center'>
                 <h1 className='font-[500] text-[25px] py-4 text-[#4290E9]'>Property Details</h1>
                 <div className='w-full py-[16px] px-0 md:px-0 flex justify-center flex-col gap-[16px] text-[14px] font-[400] text-[#7D7D7D] max-w-[1000px]'>
+
+                    {/* MLS# Search / Sync */}
+                    <div className='grid grid-cols-4 gap-[16px] items-end'>
+                        <div className="col-span-3">
+                            <label htmlFor="mls_number" className="font-semibold text-gray-700">MLS# (Sync Optional)</label>
+                            <Input
+                                id="mls_number"
+                                value={mls}
+                                onChange={(e) => setMls(e.target.value)}
+                                placeholder="Enter MLS Number (e.g. R2846933)"
+                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                style={{ backgroundColor: fieldBg }}
+                                type="text"
+                            />
+                        </div>
+                        <div className="col-span-1">
+                            <button
+                                type="button"
+                                onClick={handleMlsSync}
+                                disabled={isLoadingMls}
+                                className="w-full h-[42px] bg-[#4290E9] hover:bg-[#357AD1] disabled:bg-gray-400 text-white rounded-[6px] font-[600] text-[14px] flex justify-center items-center cursor-pointer transition-all duration-200"
+                            >
+                                {isLoadingMls ? "Syncing..." : "Sync MLS"}
+                            </button>
+                        </div>
+                    </div>
 
                     {/* Address with Google Places Autocomplete */}
                     <div className='grid grid-cols-4 gap-[16px]'>

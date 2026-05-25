@@ -17,6 +17,8 @@ import DropdownActions from "@/components/DropdownActions";
 import Link from "next/link";
 import { DataTable } from '@/components/DataTable';
 import { ColumnDef } from "@tanstack/react-table";
+import { useUser } from "@/context/UserContext";
+import { GetOrganizations } from "@/app/dashboard/global-settings/global-settings";
 
 const options = [
   { label: "Activate" },
@@ -29,8 +31,24 @@ const MatterportPage = () => {
   const [filter, setFilter] = useState("Show All");
   const [addressFilter, setAddressFilter] = useState<string>("");
   const { userType } = useAppContext();
+  const { isSuperAdmin } = useUser();
+  const [organizations, setOrganizations] = useState<any[]>([]);
+  const [orgFilter, setOrgFilter] = useState<string>("all");
+
   const [loading, setLoading] = useState<boolean>(false);
   const headerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      GetOrganizations()
+        .then(res => {
+          if (res.status && Array.isArray(res.data)) {
+            setOrganizations(res.data);
+          }
+        })
+        .catch(err => console.error("Failed to fetch organizations:", err));
+    }
+  }, [isSuperAdmin]);
 
   useEffect(() => {
     const header = headerRef.current;
@@ -61,6 +79,10 @@ const MatterportPage = () => {
   const filteredData = useMemo(() => {
     let result = matterports;
 
+    if (orgFilter !== "all") {
+      result = result.filter((item) => String(item.organizationId) === orgFilter);
+    }
+
     if (filter !== "Show All") {
       if (filter === "ACTIVE") {
         result = result.filter((item) => item.status === "ACTIVE");
@@ -83,7 +105,8 @@ const MatterportPage = () => {
     return result;
   }, [matterports, filter, addressFilter]);
 
-  const columns: ColumnDef<MatterportAd>[] = [
+  const columns = useMemo<ColumnDef<MatterportAd>[]>(() => {
+    const cols: ColumnDef<MatterportAd>[] = [
     {
       accessorKey: "agentName",
       header: "AGENT NAME",
@@ -148,6 +171,17 @@ const MatterportPage = () => {
     }
   ];
 
+    if (isSuperAdmin) {
+      cols.splice(1, 0, {
+        accessorKey: "organizationName",
+        header: "ORGANIZATION",
+        cell: ({ row }) => <div className="text-[15px] font-[400] text-[#666666]">{row.original.organizationName || "Global / None"}</div>
+      });
+    }
+
+    return cols;
+  }, [isSuperAdmin, organizations]);
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -200,6 +234,19 @@ const MatterportPage = () => {
         </p>
 
         <div className="flex gap-2 items-center">
+          {isSuperAdmin && (
+            <Select value={orgFilter} onValueChange={setOrgFilter}>
+              <SelectTrigger className="w-[180px] h-[42px] text-[#666666] border border-[#BBBBBB] rounded-[6px]" style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>
+                <SelectValue placeholder="All Organizations" />
+              </SelectTrigger>
+              <SelectContent className="border border-[#BBBBBB]" style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}>
+                <SelectItem value="all">All Organizations</SelectItem>
+                {organizations.map((org) => (
+                  <SelectItem key={org.id} value={String(org.id)}>{org.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <div className="flex gap-2">
             <input
               type="text"

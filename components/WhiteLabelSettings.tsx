@@ -2,13 +2,14 @@
 
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { useAppContext } from '@/app/context/AppContext'
-import React, { useState, useRef } from 'react'
-
+import React, { useState, useRef, useEffect } from 'react'
+import { usePermissions } from '@/app/hooks/usePermissions'
+import { useOrganization } from '@/app/context/OrganizationContext'
 
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Calendar, House, File, Settings as SettingsIcon, UserCheck, Sliders, LogOut, ChevronLeft, PanelLeftClose, PanelLeftOpen, ChevronDown, Upload } from 'lucide-react'
+import { Calendar, House, File, Settings as SettingsIcon, UserCheck, Sliders, LogOut, ChevronLeft, PanelLeftClose, PanelLeftOpen, ChevronDown, Upload, Shield } from 'lucide-react'
 import ResetConfirmationDialog from './ResetConfirmationDialog'
 import { toast } from "sonner"
 import Image from "next/image"
@@ -21,9 +22,11 @@ import {
 } from "@/components/ui/select";
 import { UpdateOrganizationBranding } from "@/app/dashboard/global-settings/global-settings";
 
-
 const Settings = () => {
     const { userType } = useAppContext()
+    const { isSuperAdmin } = usePermissions()
+    const { organization: activeOrg } = useOrganization()
+
     // State for visual customization
     const { 
         activeTab, 
@@ -41,6 +44,12 @@ const Settings = () => {
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
 
+    // Enforce that non-super-admins cannot edit global or other org settings
+    useEffect(() => {
+        if (!isSuperAdmin && activeOrg?.uuid) {
+            setSelectedOrgUuid(activeOrg.uuid);
+        }
+    }, [isSuperAdmin, activeOrg, setSelectedOrgUuid]);
 
     // Determine if the selected org has whitelabel permission.
     // null/global => unrestricted (global defaults).
@@ -81,32 +90,32 @@ const Settings = () => {
     }
 
     const handleSaveChanges = async () => {
-        if (!selectedOrgUuid || selectedOrgUuid === 'global') {
-            toast.error("Please select an organization to save branding settings.");
-            return;
-        }
-        
         setIsSaving(true);
         try {
-            const formData = new FormData();
-            formData.append('primary_color', currentSettings.pageTabColor || '#6BAE41');
-            formData.append('secondary_color', currentSettings.activeColor || '#DC9600');
-            // Include all settings as a JSON string just in case the backend uses it to populate colors
-            formData.append('settings', JSON.stringify(currentSettings));
-            
-            if (logoFile) {
-                formData.append('logo', logoFile);
+            if (!selectedOrgUuid || selectedOrgUuid === 'global') {
+                // Save global default settings (Tojuco)
+                await saveSettings();
+                toast.success("Global default theme updated successfully!");
+            } else {
+                const formData = new FormData();
+                formData.append('primary_color', currentSettings.pageTabColor || '#2E79FF');
+                formData.append('secondary_color', currentSettings.activeColor || '#1E1E1E');
+                // Include all settings as a JSON string for full custom color scheme persistence
+                formData.append('settings', JSON.stringify(currentSettings));
+                
+                if (logoFile) {
+                    formData.append('logo', logoFile);
+                }
+                
+                await UpdateOrganizationBranding(selectedOrgUuid, formData);
+                
+                // Sync the full styles object to the organization's settings table row
+                await saveSettings();
+                
+                toast.success("Organization branding updated successfully!");
             }
-            
-            await UpdateOrganizationBranding(selectedOrgUuid, formData);
-            
-            // Also sync the full styles object to the organization's white_label_styles column
-            // and update local context state
-            await saveSettings();
-            
-            toast.success("Branding updated successfully!");
         } catch (error) {
-            toast.error("Failed to update branding.");
+            toast.error("Failed to update branding settings.");
             console.error(error);
         } finally {
             setIsSaving(false);
@@ -118,8 +127,6 @@ const Settings = () => {
         toast.success(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} settings reset to default!`)
     }
 
-
-
     return (
         <div
             className="flex flex-col lg:flex-row gap-6 p-6 min-h-[calc(100vh-200px)] transition-colors duration-300"
@@ -128,6 +135,29 @@ const Settings = () => {
             {/* Left Column: Settings Configuration */}
             <div className="w-full lg:w-1/3 flex flex-col gap-6 bg-white p-6 rounded-lg border border-[#BBBBBB] relative">
                 <div className="space-y-4">
+                    {/* Active Scoping Badge */}
+                    <div className="mb-2">
+                        {!selectedOrgUuid || selectedOrgUuid === 'global' ? (
+                            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-blue-50 border border-blue-200 shadow-sm">
+                                <Shield className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                                <div className="text-xs">
+                                    <p className="font-bold text-blue-800 uppercase tracking-wide">SYSTEM GLOBAL DEFAULT (Tojuco)</p>
+                                    <p className="text-blue-600 mt-0.5 leading-relaxed">Editing the main platform fallback branding.</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 shadow-sm">
+                                <Shield className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                                <div className="text-xs">
+                                    <p className="font-bold text-amber-800 uppercase tracking-wide">ORGANIZATION MODE</p>
+                                    <p className="text-amber-600 mt-0.5 leading-relaxed">
+                                        Editing: <span className="font-semibold">{organizations.find(o => o.uuid === selectedOrgUuid)?.name || "Active Tenant"}</span>
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     {/* Role Tabs */}
                     <div className="flex gap-2 mb-6 bg-gray-100 p-1 rounded-lg">
                         {(['admin', 'vendor', 'agent'] as const).map((roleKey) => (
@@ -148,30 +178,33 @@ const Settings = () => {
 
                     <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Appearance Settings</h3>
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="org-select">Select Organization</Label>
-                        <Select
-                            value={selectedOrgUuid || "global"}
-                            onValueChange={(val) => setSelectedOrgUuid(val === "global" ? null : val)}
-                        >
-                            <SelectTrigger id="org-select" className="w-full h-[42px] border-[#BBBBBB]">
-                                <SelectValue placeholder="Select Organization" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="global">Global Settings (Default)</SelectItem>
-                                {organizations.map((org) => (
-                                    <SelectItem key={org.uuid} value={org.uuid}>
-                                        {org.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <p className="text-[10px] text-gray-500 italic">
-                            {selectedOrgUuid 
-                                ? "Changes will be saved specifically for this organization." 
-                                : "Changes will be saved as the default system-wide theme."}
-                        </p>
-                    </div>
+                    {/* Organization Selector - Only visible to Super Admins */}
+                    {isSuperAdmin ? (
+                        <div className="grid gap-2">
+                            <Label htmlFor="org-select">Select Organization</Label>
+                            <Select
+                                value={selectedOrgUuid || "global"}
+                                onValueChange={(val) => setSelectedOrgUuid(val === "global" ? null : val)}
+                            >
+                                <SelectTrigger id="org-select" className="w-full h-[42px] border-[#BBBBBB]">
+                                    <SelectValue placeholder="Select Organization" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="global">Global Settings (Default)</SelectItem>
+                                    {organizations.map((org) => (
+                                        <SelectItem key={org.uuid} value={org.uuid}>
+                                            {org.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-[10px] text-gray-500 italic">
+                                {selectedOrgUuid 
+                                    ? "Changes will be saved specifically for this organization." 
+                                    : "Changes will be saved as the default system-wide theme."}
+                            </p>
+                        </div>
+                    ) : null}
 
                     <div className="grid gap-2">
                         <Label htmlFor="page-bg">Page Background</Label>
@@ -381,7 +414,7 @@ const Settings = () => {
                             />
                         </div>
                     </div>
-                    <div className="pt-4  border-t border-gray-200">
+                    <div className="pt-4 border-t border-gray-200">
                         <Button
                             type="button"
                             variant="outline"
@@ -468,7 +501,7 @@ const Settings = () => {
                                         <p className="text-[14px] font-normal leading-4 truncate">
                                             {selectedOrgUuid && selectedOrgUuid !== 'global'
                                                 ? organizations.find(o => o.uuid === selectedOrgUuid)?.name || "BC Floor Plans"
-                                                : "BC Floor Plans"}
+                                                : "Tojuco"}
                                         </p>
                                         <p className="text-[12px] font-normal leading-4 truncate">Admin User</p>
                                     </div>
@@ -543,21 +576,6 @@ const Settings = () => {
                                     </div>
                                 </div>
                             ))}
-
-                            {/* Search Group */}
-                            {/* <div className="mb-6 w-full">
-                                {!isCollapsed && <p className="font-extrabold text-[12px] text-[#BBBBBB] mb-2">SEARCH</p>}
-                                {isCollapsed ? (
-                                    <div className="flex justify-center w-full">
-                                        <Search className={`h-5 w-5 shrink-0`} style={{ color: currentSettings.activeColor }} />
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm border w-full">
-                                        <span className="text-sm text-gray-400">This page...</span>
-                                        <Search className={`h-5 w-5 shrink-0 ml-auto`} style={{ color: currentSettings.activeColor }} />
-                                    </div>
-                                )}
-                            </div> */}
                         </div>
 
                         {/* Footer/Logout */}
@@ -649,7 +667,6 @@ const Settings = () => {
 
                             {/* Accordion Item 2 (CLOSED) */}
                             <div className="w-full">
-                                {/* Accordion Trigger */}
                                 {/* Accordion Trigger */}
                                 <div className="px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] flex justify-between items-center cursor-pointer" style={{ backgroundColor: currentSettings.pageBg }}>
                                     <span className="text-[18px] font-[600] uppercase" style={{ color: currentSettings.pageTabColor }}>BRANDING ASSETS</span>

@@ -50,6 +50,8 @@ export type SubAccount = {
     secondary_phone?: string;
     avatar_url?: string;
     activity: string;
+    organization_id?: number | string | null;
+    organization?: { id: number | string; name: string } | null;
 };
 
 
@@ -65,9 +67,10 @@ interface SubAccountTableProps {
     onDelete: (userId: string) => void;
     loading: boolean;
     error: boolean;
+    isSuperAdmin?: boolean;
 }
 
-export default function SubAccountTable({ setSubAccountData, onQuickView, subAccountData, onDelete, onQuickView1, loading, error }: SubAccountTableProps) {
+export default function SubAccountTable({ setSubAccountData, onQuickView, subAccountData, onDelete, onQuickView1, loading, error, isSuperAdmin }: SubAccountTableProps) {
     const router = useRouter();
     const { userType } = useAppContext()
 
@@ -98,7 +101,8 @@ export default function SubAccountTable({ setSubAccountData, onQuickView, subAcc
 
 
 
-    const columns: ColumnDef<SubAccount>[] = [
+    const columns = React.useMemo<ColumnDef<SubAccount>[]>(() => {
+        const cols: ColumnDef<SubAccount>[] = [
         {
             id: "select",
             header: () => <div></div>,
@@ -262,6 +266,20 @@ export default function SubAccountTable({ setSubAccountData, onQuickView, subAcc
         }
 
     ];
+
+        if (isSuperAdmin) {
+            cols.splice(2, 0, {
+                accessorKey: "organization",
+                header: "ORGANIZATION",
+                cell: ({ row }) => {
+                    const org = row.original.organization;
+                    return <div className="text-[#666666]">{org?.name || "Global / None"}</div>;
+                }
+            });
+        }
+
+        return cols;
+    }, [isSuperAdmin, userType, router, handleUpdateStatus, onDelete]);
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(

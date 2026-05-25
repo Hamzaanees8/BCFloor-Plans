@@ -725,6 +725,10 @@ const ListingsFrom = () => {
   }
 
   const handleAgentChange = (val: string) => {
+    if (val === connectedAgent || isPopulatingData.current) {
+      setConnectedAgent(val);
+      return;
+    }
     if (!showAgainAgent) {
       setConnectedAgent(val);
       setIsAgentChanged(val !== initialAgentId);

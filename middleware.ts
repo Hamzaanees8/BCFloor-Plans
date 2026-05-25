@@ -41,7 +41,9 @@ function guessPortalTypeFromHostname(hostname: string): string {
   )
     return 'agent';
   if (
-    h.includes('vendors-new')
+    h.includes('vendors-new') ||
+    h.includes('vendor') ||
+    h.includes('vendors')
   )
     return 'vendor';
   return 'admin';

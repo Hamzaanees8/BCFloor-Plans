@@ -74,12 +74,16 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     );
 }
 
+import { UserProvider } from "@/context/UserContext";
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     return (
         <Suspense fallback={<div>Loading...</div>}>
-            <DashboardLayoutContent>
-                {children}
-            </DashboardLayoutContent>
+            <UserProvider>
+                <DashboardLayoutContent>
+                    {children}
+                </DashboardLayoutContent>
+            </UserProvider>
         </Suspense>
     );
 }

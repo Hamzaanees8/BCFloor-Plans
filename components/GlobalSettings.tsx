@@ -297,6 +297,7 @@ const GlobalSettings = () => {
     useUnsavedChangesWarning(isDirty);
     const isPopulatingData = useRef(false);
     const hasInitiallyRendered = useRef(false);
+    const baselineSettingsRef = useRef<any>(null);
     const headerRef = useRef<HTMLDivElement>(null);
 
 
@@ -359,6 +360,22 @@ const GlobalSettings = () => {
 
                     if (adminData.avatar_url) setAvatarUrl(adminData.avatar_url);
                     if (adminData.avatar) setAvatarFileName(adminData.avatar);
+
+                    baselineSettingsRef.current = {
+                        firstName: adminData.first_name || "",
+                        lastName: adminData.last_name || "",
+                        email: adminData.email || "",
+                        secondaryEmail: adminData.secondary_email || "",
+                        notificationEmail: adminData.notification_email || "",
+                        primaryPhone: adminData.primary_phone || "",
+                        secondaryPhone: adminData.secondary_phone || "",
+                        companyName: adminData.company_name || "",
+                        website: adminData.website || "",
+                        headquarterAddress: adminData.address || "",
+                        city: adminData.city || "",
+                        province: adminData.province || "",
+                        country: adminData.country || "CA",
+                    };
                 })
                 .catch((err) => {
                     console.log(err.message);
@@ -412,6 +429,23 @@ const GlobalSettings = () => {
                         }));
                         setCoAgents(formattedAgents);
                     }
+
+                    baselineSettingsRef.current = {
+                        firstName: data.first_name || "",
+                        lastName: data.last_name || "",
+                        email: data.email || "",
+                        secondaryEmail: data.secondary_email || "",
+                        notificationEmail: data.notification_email || "",
+                        primaryPhone: data.primary_phone || "",
+                        secondaryPhone: data.secondary_phone || "",
+                        companyName: data.company_name || "",
+                        website: data.website || "",
+                        headquarterAddress: data.headquarter_address || "",
+                        city: data.city || "",
+                        province: data.province || "",
+                        country: data.country || "",
+                        license: data.license_number || "",
+                    };
                 })
                 .catch((err) => {
                     console.log(err.message);
@@ -452,6 +486,33 @@ const GlobalSettings = () => {
             }
         }
     }, [country]);
+
+    useEffect(() => {
+        if (!baselineSettingsRef.current || isPopulatingData.current) return;
+
+        const isChanged = 
+            firstName !== baselineSettingsRef.current.firstName ||
+            lastName !== baselineSettingsRef.current.lastName ||
+            email !== baselineSettingsRef.current.email ||
+            primaryPhone !== baselineSettingsRef.current.primaryPhone ||
+            secondaryPhone !== baselineSettingsRef.current.secondaryPhone ||
+            companyName !== baselineSettingsRef.current.companyName ||
+            (userType === "admin" ? companyWebsite : website) !== baselineSettingsRef.current.website ||
+            headquarterAddress !== baselineSettingsRef.current.headquarterAddress ||
+            city !== baselineSettingsRef.current.city ||
+            province !== baselineSettingsRef.current.province ||
+            country !== baselineSettingsRef.current.country ||
+            secondaryEmail !== (baselineSettingsRef.current.secondaryEmail || "") ||
+            notificationEmail !== (baselineSettingsRef.current.notificationEmail || "") ||
+            (userType === "agent" ? license !== (baselineSettingsRef.current.license || "") : false);
+
+        setIsDirty(isChanged);
+    }, [
+        firstName, lastName, email, primaryPhone, secondaryPhone,
+        companyName, companyWebsite, website, headquarterAddress,
+        city, province, country, secondaryEmail, notificationEmail, license, userType
+    ]);
+
     const removeCard = (uuid: string) => {
         setCards((prev) => prev.filter((card) => card.uuid !== uuid));
     };
@@ -537,6 +598,21 @@ const GlobalSettings = () => {
                 };
 
                 await EditAdminUser(userInfo.uuid, adminPayload);
+                baselineSettingsRef.current = {
+                    firstName,
+                    lastName,
+                    email,
+                    secondaryEmail,
+                    notificationEmail,
+                    primaryPhone,
+                    secondaryPhone,
+                    companyName,
+                    website: companyWebsite,
+                    headquarterAddress,
+                    city,
+                    province,
+                    country,
+                };
                 setIsLoading(true);
                 setOpenSaveDialog(true);
                 router.push("/dashboard/global-settings");
@@ -563,6 +639,22 @@ const GlobalSettings = () => {
 
                 try {
                     await EditAgent(userInfo.uuid, payload);
+                    baselineSettingsRef.current = {
+                        firstName,
+                        lastName,
+                        email,
+                        secondaryEmail,
+                        notificationEmail,
+                        primaryPhone,
+                        secondaryPhone,
+                        companyName,
+                        website,
+                        headquarterAddress,
+                        city,
+                        province,
+                        country,
+                        license,
+                    };
                     setIsLoading(true);
                     setOpenSaveDialog(true);
                     toast.success("settings updated successfully");
@@ -1063,16 +1155,7 @@ const GlobalSettings = () => {
                     </div>
                 </div>
             )}
-            <form
-                onChange={() => {
-                    // Only mark as dirty if:
-                    // 1. Not currently populating data from API
-                    // 2. Has initially rendered (prevents autofill from triggering)
-                    if (!isPopulatingData.current && hasInitiallyRendered.current) {
-                        setIsDirty(true);
-                    }
-                }}
-            >
+            <form onSubmit={(e) => e.preventDefault()}>
                 {activeTab === "Templates" && userType === "admin" && (
                     <EmailTemplatesSettings />
                 )}
@@ -1154,13 +1237,7 @@ const GlobalSettings = () => {
                     )}
 
                     {activeTab === "Profile Settings" && (
-                        <div
-                            onChange={() => {
-                                if (!isPopulatingData.current) {
-                                    setIsDirty(true);
-                                }
-                            }}
-                        >
+                        <div>
                             {userType === "admin" && (
                                 <AccordionItem value="profile" className="border-none">
                                     <AccordionTrigger

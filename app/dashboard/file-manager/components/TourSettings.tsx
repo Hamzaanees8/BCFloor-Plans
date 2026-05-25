@@ -34,7 +34,8 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
     const [bedrooms, setBedrooms] = useState<number>();
     const [bathrooms, setBathrooms] = useState<number>();
     const [propertySize, setPropertySize] = useState<number>();
-    const [lotSize, setLotSize] = useState<number>();
+    const [lotSize, setLotSize] = useState<string>("");
+    const [parkingSpots, setParkingSpots] = useState<number>();
     const [year_constructed, setYear_constructed] = useState<number>();
     const [type, setType] = useState<string>();
     const [description, setDescription] = useState<string>();
@@ -43,6 +44,7 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
     const [Activated, setActivated] = useState<boolean>(false);
     const [propertyWebsite, setPropertyWebsite] = useState("");
     const [mlsProperty, setMlsProperty] = useState("");
+    const [saving, setSaving] = useState(false);
     const CompanyLogofileInputRef = useRef(null)
     const [CompanyLogofileName, setCompanyLogoFileName] = useState('')
     const [AvatarfileName, setAvatarFileName] = useState('')
@@ -85,7 +87,8 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
             setPropertySize(Number(orderData?.property?.square_footage))
             setBedrooms(Number(orderData?.property?.bedrooms))
             setBathrooms(Number(orderData?.property?.bathrooms))
-            setLotSize(Number(orderData?.property?.lot_size))
+            setLotSize(orderData?.property?.lot_size ?? '')
+            setParkingSpots(Number(orderData?.property?.parking_spots))
             setYear_constructed(Number(orderData?.property?.year_constructed))
             setType(orderData?.property?.property_type)
             setDescription(orderData?.property?.description)
@@ -116,12 +119,63 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
         }
     }
 
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!orderData?.property?.uuid) {
+            toast.error("Property not found");
+            return;
+        }
+        setSaving(true);
+        try {
+            const token = localStorage.getItem("token");
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+            
+            const response = await fetch(`${apiUrl}/orders/edit/properties/${orderData.property.uuid}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    address,
+                    mls_number: mlsProperty,
+                    listing_price: price,
+                    bedrooms,
+                    bathrooms,
+                    square_footage: propertySize,
+                    lot_size: lotSize,
+                    parking_spots: parkingSpots,
+                    year_constructed,
+                    property_type: type,
+                    description,
+                    city: orderData?.property?.city || "",
+                    province: orderData?.property?.province || "",
+                    country: orderData?.property?.country || "Canada",
+                    tour_activated: tourActivated,
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.status) {
+                toast.success("Property settings saved successfully");
+            } else {
+                const errorMsg = data.message || "Failed to save property settings";
+                toast.error(errorMsg);
+            }
+        } catch (err: any) {
+            console.error("Save error:", err);
+            toast.error(err.message || "An unexpected error occurred while saving");
+        } finally {
+            setSaving(false);
+        }
+    };
+
 
     return (
         <div className="font-alexandria">
             <div>
-                <form
-                >
+                <form onSubmit={handleSave}>
                     <Accordion
                         type="multiple"
                         defaultValue={["property", "additional", "statistics"]}
@@ -166,7 +220,7 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
                                                 <label htmlFor="">Address</label>
                                                 <Input
                                                     value={address}
-                                                    // onChange={(e) => setAddress(e.target.value)}
+                                                    onChange={(e) => setAddress(e.target.value)}
                                                     placeholder="Enter Address"
                                                     className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
@@ -200,7 +254,7 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
                                                 <div className="relative w-full ">
                                                     <Input
                                                         value={mlsProperty}
-                                                        // onChange={(e) => setMlsProperty(e.target.value)}
+                                                        onChange={(e) => setMlsProperty(e.target.value)}
                                                         type="text"
                                                         placeholder="company.bcfp.com/mls/id=88392"
                                                         className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
@@ -290,7 +344,7 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
                                                 <label htmlFor="">Price</label>
                                                 <Input
                                                     value={price}
-                                                    // onChange={(e) => setParkingSpots(e.target.value)}
+                                                    onChange={(e) => setprice(e.target.value ? Number(e.target.value) : undefined)}
                                                     placeholder="Enter Price"
                                                     className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
@@ -300,7 +354,7 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
                                                 <label htmlFor="">Beds</label>
                                                 <Input
                                                     value={bedrooms}
-                                                    // onChange={(e) => setParkingSpots(e.target.value)}
+                                                    onChange={(e) => setBedrooms(e.target.value ? Number(e.target.value) : undefined)}
                                                     placeholder="Enter Beds"
                                                     className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
@@ -310,7 +364,7 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
                                                 <label htmlFor="">Baths</label>
                                                 <Input
                                                     value={bathrooms}
-                                                    // onChange={(e) => setParkingSpots(e.target.value)}
+                                                    onChange={(e) => setBathrooms(e.target.value ? Number(e.target.value) : undefined)}
                                                     placeholder="Enter Baths"
                                                     className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
@@ -320,7 +374,7 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
                                                 <label htmlFor="">Property Size</label>
                                                 <Input
                                                     value={propertySize}
-                                                    // onChange={(e) => setParkingSpots(e.target.value)}
+                                                    onChange={(e) => setPropertySize(e.target.value ? Number(e.target.value) : undefined)}
                                                     placeholder="Enter Property Size"
                                                     className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
@@ -331,7 +385,7 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
                                                 <label htmlFor="">Lot Size</label>
                                                 <Input
                                                     value={lotSize}
-                                                    // onChange={(e) => setParkingSpots(e.target.value)}
+                                                    onChange={(e) => setLotSize(e.target.value)}
                                                     placeholder="Enter Lot Size"
                                                     className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
@@ -342,7 +396,7 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
                                                 <label htmlFor="">Year Built</label>
                                                 <Input
                                                     value={year_constructed}
-                                                    // onChange={(e) => setCity(e.target.value)}
+                                                    onChange={(e) => setYear_constructed(e.target.value ? Number(e.target.value) : undefined)}
                                                     placeholder="Enter Year Built"
                                                     className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
@@ -354,18 +408,18 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
                                                 <label htmlFor="">Type</label>
                                                 <Input
                                                     value={type}
-                                                    // onChange={(e) => setPostalCode(e.target.value)}
+                                                    onChange={(e) => setType(e.target.value)}
                                                     placeholder="Enter Type"
                                                     className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
                                                 />
                                             </div>
                                             <div>
-                                                <label htmlFor="">Lot Size</label>
+                                                <label htmlFor="">Parking Spots</label>
                                                 <Input
-                                                    value={lotSize}
-                                                    // onChange={(e) => setPostalCode(e.target.value)}
-                                                    placeholder="Enter Lot Size"
+                                                    value={parkingSpots}
+                                                    onChange={(e) => setParkingSpots(e.target.value ? Number(e.target.value) : undefined)}
+                                                    placeholder="Enter Parking Spots"
                                                     className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
                                                 />
@@ -374,6 +428,7 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
                                                 <label htmlFor="">Description</label>
                                                 <Textarea
                                                     value={description}
+                                                    onChange={(e) => setDescription(e.target.value)}
                                                     placeholder="Description"
                                                     className="h-[200px] resize-none bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
 
@@ -540,6 +595,17 @@ const TourSettings = ({ orderData }: TourSettingProps) => {
                             </AccordionContent>
                         </AccordionItem>
                     </Accordion>
+                    <div className="w-full flex justify-center md:justify-end px-[10px] md:px-0 mt-6 pb-6">
+                        <button
+                            type="submit"
+                            disabled={saving}
+                            className={`w-full md:w-[180px] h-[45px] rounded-[6px] text-white font-medium text-[16px] transition-all hover:brightness-110 shadow disabled:opacity-50 ${
+                                userType === 'admin' ? 'bg-[#4290E9]' : 'bg-[#6BAE41]'
+                            }`}
+                        >
+                            {saving ? "Saving..." : "Save Changes"}
+                        </button>
+                    </div>
                 </form>
             </div >
             {/* <SaveModal

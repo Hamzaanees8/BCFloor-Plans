@@ -12,6 +12,7 @@ export type Admin = {
     avatar_url?: string;
     first_name?: string;
     organization_id?: number | string | null;
+    organization?: { id: number | string; name: string } | null;
 };
 
 export type Agent = {
@@ -37,6 +38,8 @@ export type Agent = {
         primary_phone?: string;
         split?: string;
     }[];
+    organization_id?: number | string | null;
+    organization?: { id: number | string; name: string } | null;
 };
 
 export type Vendor = {
@@ -56,6 +59,8 @@ export type Vendor = {
     avatar_url?: string;
     addresses: Address[];
     settings: { payment_per_km: string }
+    organization_id?: number | string | null;
+    organization?: { id: number | string; name: string } | null;
 };
 
 export interface Company {

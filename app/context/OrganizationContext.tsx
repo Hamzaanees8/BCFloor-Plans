@@ -94,9 +94,9 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
       }
 
       try {
-        console.log("OrganizationProvider: fetching resolution for:", fullUrl);
+        console.log("OrganizationProvider: fetching resolution for hostname:", domainWithoutPort);
         const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://api-stage.bcfloorplans.com').replace(/\/api\/?$/, '');
-        const res = await fetch(`${baseUrl}/api/domains/resolve?domain=${fullUrl}`);
+        const res = await fetch(`${baseUrl}/api/domains/resolve?domain=${domainWithoutPort}`);
         if (res.ok) {
           const data = await res.json();
           console.log("OrganizationProvider: resolved:", data.slug, data.portal_type);

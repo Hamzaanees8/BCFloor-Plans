@@ -18,19 +18,23 @@ export function getDefaultDomains(): string[] {
 
   // Fallback to hardcoded defaults if env vars are not set
   if (domains.length === 0) {
-    console.log('No default domains found, using local defaults');
-
+    console.log('No default domains found, using local defaults pointing to tojuco.com');
+    return [
+      'teams.tojuco.com',
+      'bookings.tojuco.com',
+      'vendors.tojuco.com'
+    ];
   }
 
   return domains;
 }
 
 /**
- * Get the base domain for default organizations (bcfloorplans.com)
+ * Get the base domain for default organizations (tojuco.com)
  * @returns Base domain string
  */
 export function getDefaultBaseDomain(): string {
-  return 'tojuco.com';
+  return process.env.NEXT_PUBLIC_DEFAULT_BASE_DOMAIN || 'tojuco.com';
 }
 
 /**

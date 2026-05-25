@@ -1,6 +1,6 @@
 "use client";
 import QuickViewCard, { AgentData, SubAccountData } from '@/components/QuickViewCard';
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
 import Link from 'next/link';
 import { toast } from 'sonner';
 import SubAccountTable, { SubAccount } from '@/components/SubAccountTable';
@@ -8,6 +8,15 @@ import { Delete, Get } from './subaccounts';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import { useSearchParams } from 'next/navigation';
+import { useUser } from "@/context/UserContext";
+import { GetOrganizations } from "@/app/dashboard/global-settings/global-settings";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 const Page = () => {
     const searchParams = useSearchParams();
@@ -17,8 +26,24 @@ const Page = () => {
     const [showHeader, setShowHeader] = useState(true)
     const [subAccountData, setSubAccountData] = useState<SubAccount[]>([]);
     const { userType } = useAppContext()
+    const { isSuperAdmin } = useUser();
+    const [organizations, setOrganizations] = useState<any[]>([]);
+    const [orgFilter, setOrgFilter] = useState<string>("all");
+
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<boolean>(false);
+
+    useEffect(() => {
+        if (isSuperAdmin) {
+            GetOrganizations()
+                .then(res => {
+                    if (res.status && Array.isArray(res.data)) {
+                        setOrganizations(res.data);
+                    }
+                })
+                .catch(err => console.error("Failed to fetch organizations:", err));
+        }
+    }, [isSuperAdmin]);
 
     const [selectedData, setSelectedData] = useState<SubAccountData | null>(null);
     const [selectedData1, setSelectedData1] = useState<AgentData>();
@@ -100,6 +125,9 @@ const Page = () => {
             return subAccount.agent.uuid === agentId
 
         }
+        if (orgFilter !== "all" && String(subAccount.organization_id) !== orgFilter) {
+            return false;
+        }
         return true;
     })
     const lengthFiltered = filteredSubAccounts.length;
@@ -107,16 +135,31 @@ const Page = () => {
         <div>
             <div ref={headerRef} className='w-full h-[80px] font-alexandria z-50 sticky top-0 flex justify-between px-[20px] items-center' style={{ backgroundColor: roleSettings.pageBg, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className='text-[16px] md:text-[24px] font-[400]' style={{ color: roleSettings.pageTabColor }}>Sub Accounts ({lengthFiltered})</p>
-                <Link
-                    href={`/dashboard/sub-accounts/create?agentId=${agentId}`}
-                    onClick={() => {
-                        setShowHeader(false)
-                    }}
-                    className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] justify-center rounded-[6px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:brightness-110'
-                    style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
-                >
-                    + Sub Accounts
-                </Link>
+                <div className="flex items-center gap-3">
+                    {isSuperAdmin && (
+                        <Select value={orgFilter} onValueChange={setOrgFilter}>
+                            <SelectTrigger className="w-[180px] h-[35px] md:h-[42px] text-[#666666] border border-[#BBBBBB] rounded-[6px]" style={{ backgroundColor: roleSettings.pageBg }}>
+                                <SelectValue placeholder="All Organizations" />
+                            </SelectTrigger>
+                            <SelectContent className="border border-[#BBBBBB]" style={{ backgroundColor: roleSettings.pageBg }}>
+                                <SelectItem value="all">All Organizations</SelectItem>
+                                {organizations.map((org) => (
+                                    <SelectItem key={org.id} value={String(org.id)}>{org.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                    <Link
+                        href={`/dashboard/sub-accounts/create?agentId=${agentId}`}
+                        onClick={() => {
+                            setShowHeader(false)
+                        }}
+                        className='w-[110px] md:w-[143px] h-[35px] md:h-[44px] justify-center rounded-[6px] border-[1px] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:brightness-110'
+                        style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
+                    >
+                        + Sub Accounts
+                    </Link>
+                </div>
             </div>
 
             <div className="w-full">
@@ -138,6 +181,7 @@ const Page = () => {
                     onDelete={handleDelete}
                     loading={loading}
                     error={error}
+                    isSuperAdmin={isSuperAdmin}
                 />
                 {(type === "agent") && showCard && selectedData1 && (
                     <QuickViewCard
