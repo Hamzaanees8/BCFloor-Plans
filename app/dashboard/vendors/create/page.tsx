@@ -1330,19 +1330,7 @@ const VendorForm = () => {
                             </p>
                           )}
                         </div>
-                        {userType !== "vendor" && (
-                          <div className='col-span-2'>
-                            <label htmlFor="">Role <span className="text-red-500">*</span></label>
-                            <Select disabled value="vendor">
-                              <SelectTrigger className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
-                                <SelectValue placeholder="Vendor" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="vendor">Vendor</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
+
                         {userType !== "vendor" && (
                           <div className="col-span-2">
                             <label htmlFor="">Organization</label>
