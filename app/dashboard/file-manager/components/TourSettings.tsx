@@ -421,14 +421,26 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                             </div>
 
                                             <div>
-                                                <label htmlFor="">Type</label>
-                                                <Input
+                                                <label htmlFor="">Property Type</label>
+                                                <Select
                                                     value={type}
-                                                    onChange={(e) => setType(e.target.value)}
-                                                    placeholder="Enter Type"
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                    type="text"
-                                                />
+                                                    onValueChange={(value) => setType(value)}
+                                                >
+                                                    <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
+                                                        <SelectValue placeholder="Select Property Type" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="Detached Home">
+                                                            Detached Home
+                                                        </SelectItem>
+                                                        <SelectItem value="Semi-Detached">
+                                                            Semi-Detached
+                                                        </SelectItem>
+                                                        <SelectItem value="Townhouse">Townhouse</SelectItem>
+                                                        <SelectItem value="Condo">Condo</SelectItem>
+                                                        <SelectItem value="Apartment">Apartment</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
                                             <div>
                                                 <label htmlFor="">Parking Spots</label>

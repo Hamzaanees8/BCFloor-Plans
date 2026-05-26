@@ -27,16 +27,16 @@ const TourMatterport = () => {
         });
     };
 
-    if ((!brandedLinks || brandedLinks.length === 0) && (!unbrandedLinks || unbrandedLinks.length === 0)) {
-        return (
-            <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
-                <p>No Matterport links found — please add links or select a Matterport service.</p>
-            </div>
-        );
-    }
+    const hasLinks = (brandedLinks && brandedLinks.length > 0) || (unbrandedLinks && unbrandedLinks.length > 0);
 
     return (
         <div className='font-alexandria w-full'>
+            {!hasLinks && (
+                <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
+                    <p>No Matterport links found — please add links or select a Matterport service.</p>
+                </div>
+            )}
+            <div className={!hasLinks ? 'hidden' : ''} style={{ display: !hasLinks ? 'none' : undefined }}>
             <div className='flex flex-col items-center justify-center gap-y-[38px] my-[42px]'>
                 {/* Branded */}
                 <div className='flex items-end gap-x-5 w-[474px]'>
@@ -171,6 +171,7 @@ const TourMatterport = () => {
 
             </div>
         </div>
+            </div>
     )
 }
 

@@ -443,25 +443,41 @@ export default function QuickViewCard({
                         {notifAddress}
                       </p>
                     );
+                  })() : type === "listing" ? (() => {
+                    const listingAddress = [
+                      (data as Listings)?.address && (data as Listings)?.suite
+                        ? `${(data as Listings).suite} - ${(data as Listings).address}`
+                        : (data as Listings)?.address || (data as Listings)?.suite,
+                      (data as Listings)?.city,
+                      (data as Listings)?.province,
+                      (data as Listings)?.postal_code,
+                      (data as Listings)?.country,
+                    ]
+                      .filter(Boolean)
+                      .join(", ");
+                    const mapsUrl = listingAddress
+                      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(listingAddress)}`
+                      : null;
+                    return mapsUrl ? (
+                      <a
+                        href={mapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px] cursor-pointer`}
+                      >
+                        {listingAddress}
+                      </a>
+                    ) : (
+                      <p className={`text-[15px] font-[400] ${userType}-text leading-[25px]`}>
+                        {listingAddress}
+                      </p>
+                    );
                   })() : (
                   <p
                     className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px]`}
                   >
                     {type === "admin" && (data as AdminData).address}
                     {type === "subaccount" && (data as SubAccountData).address}
-                    {/* {type === "listing" && (data as Listings).address  } */}
-                    {type === "listing" &&
-                      [
-                        (data as Listings)?.address && (data as Listings)?.suite
-                          ? `${(data as Listings).suite} - ${(data as Listings).address}`
-                          : (data as Listings)?.address || (data as Listings)?.suite,
-                        (data as Listings)?.city,
-                        (data as Listings)?.province,
-                        (data as Listings)?.postal_code,
-                        (data as Listings)?.country,
-                      ]
-                        .filter(Boolean)
-                        .join(", ")}
                     {type === "subaccount" && (data as SubAccountData).address}
                   </p>
                   )}
@@ -494,9 +510,16 @@ export default function QuickViewCard({
                       className={`hover:underline text-[15px] font-[400] text-[#8E8E8E] leading-[25px]`}
                     >
                       <span>Order:</span>{" "}
-                      <span className={`${userType}-text`}>
-                        {data?.orders?.[0]?.id}
-                      </span>
+                      {data?.orders?.[0] ? (
+                        <Link
+                          href={`/dashboard/orders/${data.orders[0].uuid}`}
+                          className={`${userType}-text hover:underline text-[#4290E9] ml-1`}
+                        >
+                          #{data.orders[0].id}
+                        </Link>
+                      ) : (
+                        <span className="ml-1 text-[#8E8E8E]">N/A</span>
+                      )}
                     </div>
                   </div>
                   <div className="w-full mt-4">

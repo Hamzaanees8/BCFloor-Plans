@@ -280,40 +280,42 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                     {[
                       {
                         label: "PRICE",
-                        value: `$${orderData?.property.listing_price}`,
+                        value: orderData?.property.listing_price ? `$${orderData?.property.listing_price}` : null,
                         icon: <PriceTag />,
                       },
                       {
                         label: "BEDS",
-                        value: `${orderData?.property.bedrooms}`,
+                        value: orderData?.property.bedrooms !== undefined && orderData?.property.bedrooms !== null ? `${orderData?.property.bedrooms}` : null,
                         icon: <BedIcon />,
                       },
                       {
                         label: "BATHS",
-                        value: `${orderData?.property.bathrooms}`,
+                        value: orderData?.property.bathrooms !== undefined && orderData?.property.bathrooms !== null ? `${orderData?.property.bathrooms}` : null,
                         icon: <BathIcon />,
                       },
                       {
                         label: "SQUARE FOOTAGE",
-                        value: `${orderData?.property.square_footage}FT²`,
+                        value: orderData?.property.square_footage ? `${orderData?.property.square_footage}FT²` : null,
                         icon: <HomeIcon />,
                       },
                       {
                         label: "LOT SIZE",
-                        value: `${orderData?.property.lot_size}FT²`,
+                        value: orderData?.property.lot_size ? `${orderData?.property.lot_size}FT²` : null,
                         icon: <LotIcon />,
                       },
                       {
                         label: "YEAR BUILT",
-                        value: `${orderData?.property.year_constructed}`,
+                        value: orderData?.property.year_constructed !== undefined && orderData?.property.year_constructed !== null ? `${orderData?.property.year_constructed}` : null,
                         icon: <HelpIcon />,
                       },
                       {
                         label: "TYPE",
-                        value: `${orderData?.property.property_type}`,
+                        value: orderData?.property.property_type,
                         icon: <TypoeIcon />,
                       },
-                    ].map((item, index) => (
+                    ]
+                      .filter((item) => item.value !== null && item.value !== undefined && String(item.value).trim() !== "" && String(item.value).toLowerCase() !== "null" && String(item.value).toLowerCase() !== "undefined")
+                      .map((item, index) => (
                       <div
                         key={index}
                         className="flex flex-col items-center gap-3"
@@ -331,16 +333,21 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
 
                   <div className="flex gap-10">
                     <div className="flex flex-col gap-5 items-center w-[350px]">
-                      <div className="bg-[#ccc]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={
-                            orderData?.agent.avatar_url || "/default-avatar.png"
-                          }
-                          alt="Agent"
-                          className="w-full object-cover mb-2"
-                        />
-                      </div>
+                      {orderData?.agent.avatar_url ? (
+                        <div className="bg-[#ccc] w-full">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={orderData.agent.avatar_url}
+                            alt="Agent"
+                            className="w-full object-cover mb-2"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                              const parent = e.currentTarget.parentElement;
+                              if (parent) parent.style.display = "none";
+                            }}
+                          />
+                        </div>
+                      ) : null}
                       <div className="text-left w-full flex flex-col gap-[12px]">
                         <div className="text-[#424242] text-[16px] font-alexandria font-semibold">
                           Contact
@@ -396,15 +403,7 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                           ABOUT THE PROPERTY
                         </h2>
                         <p className="text-sm text-gray-600">
-                          Lorem ipsum dolor sit amet, consectetur adipiscing
-                          elit, sed do eiusmod tempor incididunt ut labore et
-                          dolore magna aliqua. Ut enim ad minim veniam, quis
-                          nostrud exercitation ullamco laboris nisi ut aliquip
-                          ex ea commodo consequat. Duis aute irure dolor in
-                          reprehenderit in voluptate velit esse cillum dolore eu
-                          fugiat nulla pariatur. Excepteur sint occaecat
-                          cupidatat non proident, sunt in culpa qui officia
-                          deserunt mollit anim id est laborum.
+                          {orderData?.property.description || "No description available."}
                         </p>
                         <Button className="w-max bg-[#4290E9]">
                           View Feature Sheet
@@ -556,40 +555,41 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                   <TourFloorPlans type="confirm" />
                 </div>
               )}
-              {activeTab === "Matterport" && (
-                <div className="w-full flex flex-col items-center gap-10">
-                  {(!brandedLinks?.length && !unbrandedLinks?.length) ? (
-                    <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
-                      <p>No Matterport links found — please add links or select a Matterport service.</p>
-                    </div>
-                  ) : (
-                    <>
-                      {brandedLinks?.map(
-                        (link, idx) =>
-                          isValidUrl(link.link) && (
-                            <iframe
-                              key={`preview-branded-${idx}`}
-                              src={link.link}
-                              className="w-[80%] h-[500px] border"
-                              allowFullScreen
-                            ></iframe>
-                          )
-                      )}
-                      {unbrandedLinks?.map(
-                        (link, idx) =>
-                          isValidUrl(link.link) && (
-                            <iframe
-                              key={`preview-unbranded-${idx}`}
-                              src={link.link}
-                              className="w-[80%] h-[500px] border"
-                              allowFullScreen
-                            ></iframe>
-                          )
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
+              <div
+                className="w-full flex flex-col items-center gap-10"
+                style={{ display: activeTab === "Matterport" ? undefined : "none" }}
+              >
+                {(!brandedLinks?.length && !unbrandedLinks?.length) ? (
+                  <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
+                    <p>No Matterport links found — please add links or select a Matterport service.</p>
+                  </div>
+                ) : (
+                  <>
+                    {brandedLinks?.map(
+                      (link, idx) =>
+                        isValidUrl(link.link) && (
+                          <iframe
+                            key={`preview-branded-${idx}`}
+                            src={link.link}
+                            className="w-[80%] h-[500px] border"
+                            allowFullScreen
+                          ></iframe>
+                        )
+                    )}
+                    {unbrandedLinks?.map(
+                      (link, idx) =>
+                        isValidUrl(link.link) && (
+                          <iframe
+                            key={`preview-unbranded-${idx}`}
+                            src={link.link}
+                            className="w-[80%] h-[500px] border"
+                            allowFullScreen
+                          ></iframe>
+                        )
+                    )}
+                  </>
+                )}
+              </div>
 
             </div>
           </AccordionContent>

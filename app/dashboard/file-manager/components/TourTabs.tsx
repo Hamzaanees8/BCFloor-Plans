@@ -44,24 +44,7 @@ export default function TourTabs({ orderData, setOrderData, onRefresh }: TourPro
     }
   }, [visibleTabs, activeTab]);
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'Settings':
-        return <div className="p-4"><TourSettings orderData={orderData} setOrderData={setOrderData} onRefresh={onRefresh} /></div>;
-      case 'Photos':
-        return <div className="p-4"><TourPicture orderData={orderData} /></div>;
-      case 'Floor plans':
-        return <div className=""><TourFloorPlans /></div>;
-      case 'Videos':
-        return <div className="p-4"><TourVideos /></div>;
-      case 'Matterport':
-        return <div className="p-4"><TourMatterport /></div>;
-      case 'Confirm':
-        return <div className=""><TourConfirm orderData={orderData} /></div>;
-      default:
-        return null;
-    }
-  };
+
 
   return (
     <div className="w-full">
@@ -82,7 +65,32 @@ export default function TourTabs({ orderData, setOrderData, onRefresh }: TourPro
         </div>
       </div>
       <div className="bg-white shadow-md border rounded-b-md mt-0">
-        {renderContent()}
+        <div style={{ display: activeTab === 'Settings' ? undefined : 'none' }} className="p-4">
+          <TourSettings orderData={orderData} setOrderData={setOrderData} onRefresh={onRefresh} />
+        </div>
+        {visibleTabs.includes('Photos') && (
+          <div style={{ display: activeTab === 'Photos' ? undefined : 'none' }} className="p-4">
+            <TourPicture orderData={orderData} />
+          </div>
+        )}
+        {visibleTabs.includes('Floor plans') && (
+          <div style={{ display: activeTab === 'Floor plans' ? undefined : 'none' }}>
+            <TourFloorPlans />
+          </div>
+        )}
+        {visibleTabs.includes('Videos') && (
+          <div style={{ display: activeTab === 'Videos' ? undefined : 'none' }} className="p-4">
+            <TourVideos />
+          </div>
+        )}
+        {visibleTabs.includes('Matterport') && (
+          <div style={{ display: activeTab === 'Matterport' ? undefined : 'none' }} className="p-4">
+            <TourMatterport />
+          </div>
+        )}
+        <div style={{ display: activeTab === 'Confirm' ? undefined : 'none' }}>
+          <TourConfirm orderData={orderData} />
+        </div>
       </div>
       {orderData?.tours?.[0]?.uuid && (
         <TourActivityDialog
