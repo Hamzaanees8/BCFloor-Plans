@@ -87,7 +87,7 @@ const Page = () => {
         });
     }, [vendorData, orgFilter]);
 
-    const handleUpdateStatus = async (userId: string, status: boolean) => {
+    const handleUpdateStatus = React.useCallback(async (userId: string, status: boolean) => {
         try {
             const token = localStorage.getItem('token') || '';
 
@@ -109,9 +109,9 @@ const Page = () => {
                 toast.error(error.message || 'Failed to submit vendor data');
             }
         }
-    };
+    }, []);
 
-    const handleDelete = async (userId: string) => {
+    const handleDelete = React.useCallback(async (userId: string) => {
         try {
             await Delete(userId);
             toast.success('vendor deleted successfully');
@@ -125,7 +125,7 @@ const Page = () => {
                 toast.error('Failed to delete vendor');
             }
         }
-    };
+    }, [setVendorData]);
 
     const columns = useMemo<ColumnDef<Vendor>[]>(() => {
         const cols: ColumnDef<Vendor>[] = [
@@ -298,7 +298,7 @@ const Page = () => {
         }
 
         return cols;
-    }, [isSuperAdmin, organizations, router, handleUpdateStatus, handleDelete]);
+    }, [isSuperAdmin, router, handleUpdateStatus, handleDelete]);
 
 
     useEffect(() => {

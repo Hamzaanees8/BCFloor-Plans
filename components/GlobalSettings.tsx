@@ -510,7 +510,7 @@ const GlobalSettings = () => {
     }, [
         firstName, lastName, email, primaryPhone, secondaryPhone,
         companyName, companyWebsite, website, headquarterAddress,
-        city, province, country, secondaryEmail, notificationEmail, license, userType
+        city, province, country, secondaryEmail, notificationEmail, license, userType, setIsDirty
     ]);
 
     const removeCard = (uuid: string) => {

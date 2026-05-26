@@ -785,7 +785,9 @@ export function convertVendorWorkHoursToPropertyTimezone(
       is_twilight: string | number | boolean;
     }[];
   },
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   vendorTimezone: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   propertyTimezone: string
 ): {
   start_time?: string;
@@ -800,6 +802,10 @@ export function convertVendorWorkHoursToPropertyTimezone(
     is_twilight: string | number | boolean;
   }[];
 } {
+  // Bypassing timezone conversion for now: return workHours directly
+  return workHours;
+
+  /*
   if (vendorTimezone === propertyTimezone) {
     return workHours;
   }
@@ -862,6 +868,7 @@ export function convertVendorWorkHoursToPropertyTimezone(
   }
 
   return converted;
+  */
 }
 
 export async function SyncToMls(

@@ -211,45 +211,53 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                 <div className='flex gap-[12px] items-center mt-[42px] py-[15px]'>
                     <div className='flex flex-col gap-2'>
                         <label className='text-[14px] font-[500]' style={{ color: roleSettings.pageText }}>Square Footage</label>
-                        <input
-                            type="number"
-                            value={tempPropertyData?.square_footage || listingData?.square_footage || ''}
-                            onChange={(e) => {
-                                const val = parseFloat(e.target.value);
-                                setTempPropertyData((prev) => {
-                                    if (!prev && !listingData) return {
-                                        square_footage: val,
-                                        // minimal required fields to satisfy type, though usually this would be populated
-                                        listing_price: 0,
-                                        mls_number: '',
-                                        bedrooms: 0,
-                                        bathrooms: 0,
-                                        agent_id: '',
-                                        lot_size: '',
-                                        year_constructed: 0,
-                                        parking_spots: 0,
-                                        property_type: '',
-                                        property_status: '',
-                                        heading: '',
-                                        description: '',
-                                        suite: '',
-                                        address: '',
-                                        city: '',
-                                        province: '',
-                                        postal_code: '',
-                                        country: '',
-                                    };
+                        <div className='relative w-[280px]'>
+                            <input
+                                type="number"
+                                value={tempPropertyData?.square_footage || listingData?.square_footage || ''}
+                                onChange={(e) => {
+                                    const val = parseFloat(e.target.value);
+                                    setTempPropertyData((prev) => {
+                                        if (!prev && !listingData) return {
+                                            square_footage: val,
+                                            // minimal required fields to satisfy type, though usually this would be populated
+                                            listing_price: 0,
+                                            mls_number: '',
+                                            bedrooms: 0,
+                                            bathrooms: 0,
+                                            agent_id: '',
+                                            lot_size: '',
+                                            year_constructed: 0,
+                                            parking_spots: 0,
+                                            property_type: '',
+                                            property_status: '',
+                                            heading: '',
+                                            description: '',
+                                            suite: '',
+                                            address: '',
+                                            city: '',
+                                            province: '',
+                                            postal_code: '',
+                                            country: '',
+                                        };
 
-                                    return {
-                                        ...prev!,
-                                        square_footage: val
-                                    };
-                                });
-                            }}
-                            className='w-[280px] h-[42px] px-3 border-[1px] border-[#BBBBBB] rounded-md focus:outline-none focus:ring-1 focus:ring-black'
-                            style={{ backgroundColor: fieldBg, color: roleSettings.pageText }}
-                            placeholder="Square Footage"
-                        />
+                                        return {
+                                            ...prev!,
+                                            square_footage: val
+                                        };
+                                    });
+                                }}
+                                className='w-full h-[42px] pl-3 pr-12 border-[1px] border-[#BBBBBB] rounded-md focus:outline-none focus:ring-1 focus:ring-black'
+                                style={{ backgroundColor: fieldBg, color: roleSettings.pageText }}
+                                placeholder="Square Footage"
+                            />
+                            <span
+                                className='absolute right-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none select-none font-[500]'
+                                style={{ color: 'color-mix(in srgb, currentColor 60%, transparent)' }}
+                            >
+                                Sqft.
+                            </span>
+                        </div>
                     </div>
                 </div>
             )}
@@ -410,7 +418,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                                             </span>
                                         )}
                                     </div>
-                                    <span>$ {service.price}</span>
+                                    <span>$ {Number(service.price).toFixed(2)}</span>
                                 </div>
                             ))}
 
@@ -429,7 +437,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                             </div> */}
 
                             <div className='flex justify-end'>
-                                <div className='w-1/2'>
+                                <div className='w-2/3'>
                                     <hr className="my-2 h-[2px] justify-self-end" style={{ backgroundColor: roleSettings.pageTabColor, opacity: 0.3 }} />
                                     <div className="flex justify-between font-[500]">
                                         <span>Sub Total:</span>
@@ -455,7 +463,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                                     </div>
 
                                     <div className="flex justify-between font-[400] text-[15px] my-10">
-                                        <span>Total:</span>
+                                        <span>Order/Quote approx:</span>
                                         <span>${totalPrice.toFixed(2)}</span>
                                     </div>
                                 </div>

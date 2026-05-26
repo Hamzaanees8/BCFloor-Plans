@@ -74,7 +74,7 @@ export default function SubAccountTable({ setSubAccountData, onQuickView, subAcc
     const router = useRouter();
     const { userType } = useAppContext()
 
-    const handleUpdateStatus = async (userId: string, status: boolean) => {
+    const handleUpdateStatus = React.useCallback(async (userId: string, status: boolean) => {
         try {
             const token = localStorage.getItem('token') || '';
 
@@ -96,7 +96,7 @@ export default function SubAccountTable({ setSubAccountData, onQuickView, subAcc
                 toast.error(error.message || 'Failed to submit Sub-Account data');
             }
         }
-    };
+    }, []);
 
 
 
@@ -277,9 +277,8 @@ export default function SubAccountTable({ setSubAccountData, onQuickView, subAcc
                 }
             });
         }
-
         return cols;
-    }, [isSuperAdmin, userType, router, handleUpdateStatus, onDelete]);
+    }, [isSuperAdmin, userType, router, handleUpdateStatus, onDelete, onQuickView, onQuickView1, setSubAccountData]);
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(

@@ -22,6 +22,10 @@ function BookNowPageContent() {
     const confirmationRef = useRef<BookNowConfirmationHandle>(null);
 
     React.useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [active]);
+
+    React.useEffect(() => {
 
         const checkToken = () => {
             if (typeof window !== 'undefined') {

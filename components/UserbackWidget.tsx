@@ -53,7 +53,7 @@ export default function UserbackWidget() {
         userbackInstance.current = null;
       }
     };
-  }, []);
+  }, [user]);
 
   // Update user identity dynamically when user info changes
   useEffect(() => {

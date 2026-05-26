@@ -323,7 +323,6 @@ export default function FilePreviewModal({
     selectedIndexes,
     groupLabel,
     serviceUuid,
-    userType,
     reviewFilesEnabled,
     setSelectedFiles,
     onOpenChange,

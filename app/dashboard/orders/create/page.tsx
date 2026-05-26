@@ -127,6 +127,10 @@ const OrderForm = () => {
     }, [active, isSubmitted, setIsDirty]);
 
     useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [active]);
+
+    useEffect(() => {
         const token = localStorage.getItem("token");
         if (token) {
             // Fetch global data

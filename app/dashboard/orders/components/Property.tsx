@@ -545,7 +545,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             setPostalCode(tempPropertyData.postal_code || "");
             setCountry(tempPropertyData.country || "CA");
         }
-    }, [currentListing, tempPropertyData, selectedListingId]);
+    }, [currentListing, selectedListingId, tempPropertyData]);
     useEffect(() => {
         if (!selectedListingId && (address || squareFootage) && !isLoading && !currentListing) {
             const payload = {
@@ -1060,19 +1060,19 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                 <Input
                                                                     value={suite}
                                                                     onChange={(e) => setSuite(e.target.value)}
-                                                                    placeholder=""
+                                                                    placeholder="e.g. Unit 4"
                                                                     className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px] text-center px-1"
                                                                     style={{ backgroundColor: fieldBg }}
                                                                     type="text"
                                                                 />
                                                             </div>
 
-                                                            <div className="col-span-1">
+                                                             <div className="col-span-1">
                                                                 <label htmlFor="">City <span className="text-red-500">*</span></label>
                                                                 <Input
                                                                     value={city}
                                                                     onChange={(e) => setCity(e.target.value)}
-                                                                    placeholder=""
+                                                                    placeholder="e.g. Calgary"
                                                                     className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                                     style={{ backgroundColor: fieldBg }}
                                                                     type="text"
@@ -1080,27 +1080,27 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                 {fieldErrors.city && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.city[0]}</p>}
                                                             </div>
 
-                                                            <div className="col-span-1">
+                                                             <div className="col-span-1">
                                                                 <label htmlFor="">{country === 'US' ? 'State' : 'Province'}</label>
                                                                 <div className="mt-[12px]">
                                                                     <SearchableSelect
                                                                         options={provinceOptions}
                                                                         value={province}
                                                                         onChange={(val) => setProvince(val)}
-                                                                        placeholder="Select Province"
-                                                                        searchPlaceholder="Search province..."
+                                                                        placeholder={country === 'US' ? "Select State" : "Select Province"}
+                                                                        searchPlaceholder={country === 'US' ? "Search state..." : "Search province..."}
                                                                         className="h-[42px]"
                                                                     />
                                                                 </div>
                                                                 {fieldErrors.province && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.province[0]}</p>}
                                                             </div>
 
-                                                            <div className="col-span-1">
+                                                             <div className="col-span-1">
                                                                 <label htmlFor="">Postal Code <span className="text-red-500">*</span></label>
                                                                 <Input
                                                                     value={postalCode}
                                                                     onChange={(e) => setPostalCode(e.target.value)}
-                                                                    placeholder=""
+                                                                    placeholder={country === 'US' ? "e.g. 90210" : "e.g. T2P 2M2"}
                                                                     className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                                     style={{ backgroundColor: fieldBg }}
                                                                     type="text"

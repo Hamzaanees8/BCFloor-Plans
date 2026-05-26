@@ -462,7 +462,7 @@ const VendorForm = () => {
     } else {
       console.log("User ID is undefined.");
     }
-  }, [userId, userType]);
+  }, [userId, userType, idToUse]);
 
   useEffect(() => {
     if (currentUser) {

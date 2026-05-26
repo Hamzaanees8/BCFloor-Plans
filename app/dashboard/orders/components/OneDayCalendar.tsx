@@ -21,6 +21,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { getEffectiveServiceDuration } from '../utils/serviceTimeUtils';
+import { Loader2 } from 'lucide-react';
+import ConfirmationDialog from '@/components/ConfirmationDialog';
 
 declare global {
   interface Window {
@@ -78,6 +80,7 @@ interface CalendarProps {
   externalVendorsData?: VendorData[];
   externalServicesData?: Services[];
   onVendorSelected?: (vendorId: string) => void;
+  isCalculating?: boolean;
 }
 
 interface MinimalSlot {
@@ -352,7 +355,12 @@ function generateMarkedSlots(
       );
     });
 
-    if (!inBreak && !isBooked && !isConflict && !isTimeOff && !isCalendarEvent) {
+    // If the selected date is today, exclude slots whose start time has already passed
+    const now = dayjs();
+    const isToday = currentDateObj.isSame(now, 'day');
+    const isPastTime = isToday && current.isBefore(now);
+
+    if (!inBreak && !isBooked && !isConflict && !isTimeOff && !isCalendarEvent && !isPastTime) {
       slots.push({
         id: currentISO,
         start: currentISO,
@@ -399,7 +407,7 @@ export function getDistanceColor(distance: number | undefined): string {
   return "#171484";
 }
 
-export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, serviceKey, vendorDistances, propertyTimezone, masterDate, externalSetSelectedSlots, externalSelectedSlots, externalBookedSlots, externalVendorsData, externalServicesData, onVendorSelected }: CalendarProps) {
+export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, serviceKey, vendorDistances, propertyTimezone, masterDate, externalSetSelectedSlots, externalSelectedSlots, externalBookedSlots, externalVendorsData, externalServicesData, onVendorSelected, isCalculating }: CalendarProps) {
   const {
     selectedSlots: contextSelectedSlots,
     setSelectedSlots: contextSetSelectedSlots,
@@ -418,6 +426,23 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
   const servicesData = externalServicesData || contextServicesData;
   const { id } = useParams();
 
+  const currentServiceForBorder = servicesData?.find((s) => s.uuid === service.uuid);
+  const productOptionForBorder = currentServiceForBorder?.product_options?.find(
+    (option) => option.uuid === service.option_id
+  );
+  const squareFootageForBorder = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
+  const requiredDurationForBorder = getEffectiveServiceDuration(
+    productOptionForBorder?.service_duration,
+    squareFootageForBorder
+  );
+  const requiredSlotsCountForBorder = Math.ceil(requiredDurationForBorder / 15);
+
+  const hasSelectedSlotsForBorder = selectedSlots.some(s => s.service_id === service.uuid);
+  const currentServiceSlotsCountForBorder = selectedSlots.filter(
+    (slot: Slot) => slot.service_id === service.uuid
+  ).length;
+  const isUnderScheduled = hasSelectedSlotsForBorder && currentServiceSlotsCountForBorder < requiredSlotsCountForBorder;
+
   const existingSlot = selectedSlots.find((s: Slot) => s.service_id === service.uuid);
   const initialDateStr = existingSlot ? existingSlot.date : dayjs().format('YYYY-MM-DD');
 
@@ -427,6 +452,9 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
   const [clickedSlot, setClickedSlot] = useState<{ start: string; end: string } | null>(null);
   const [availableSlotVendors, setAvailableSlotVendors] = useState<VendorData[]>([]);
   const [twilightData, setTwilightData] = useState<TwilightResponse | null>(null);
+  const [showConfirmDayChange, setShowConfirmDayChange] = useState(false);
+  const [pendingSelection, setPendingSelection] = useState<any | null>(null);
+  const [showAgain, setShowAgain] = useState(true);
   const calendarRef = React.useRef<FullCalendar>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const hasJumpedToInitialDate = React.useRef(false);
@@ -511,14 +539,22 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       squareFootageForSlots
     );
     const requiredSlotsCountForService = Math.max(1, Math.ceil(requiredDurationForSlots / 15));
-    const shouldEnforceNextBookingRule = !isFloorPlanService(service.title, service.uuid, service.id, servicesData);
+    const isFloorPlan = isFloorPlanService(service.title, service.uuid, service.id, servicesData);
 
     filteredVendors.forEach((vendor) => {
       const vendorId = vendor.uuid ?? '';
       if (!vendorId) return;
 
-      // IF SCHEDULE OVERRIDE IS ON OR THIS IS A NO-TRAVEL SERVICE, FORCE FULL DAY AVAILABILITY
-      if (scheduleOverrideMap[serviceKey] === 1 || isNoTravelRequired) {
+      const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
+      const shouldEnforceForVendor = isFloorPlan
+        ? vendorHasNextBookingFlag
+        : true;
+
+      // Full-day bypass: skip it if this is a floor plan + vendor has next booking slot only
+      const useFullDay = (scheduleOverrideMap[serviceKey] === 1 || isNoTravelRequired)
+                         && !(isFloorPlan && vendorHasNextBookingFlag);
+
+      if (useFullDay) {
         // Create 24h work hours
         const fullDayWorkHours: WorkHours = {
           start_time: '00:00:00',
@@ -556,7 +592,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           AllBookedSlots,
           vendorSlots,
           requiredSlotsCountForService,
-          shouldEnforceNextBookingRule,
+          shouldEnforceForVendor,
           service.uuid,
           selectedSlots
         );
@@ -600,7 +636,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           AllBookedSlots,
           vendorSlots,
           requiredSlotsCountForService,
-          shouldEnforceNextBookingRule,
+          shouldEnforceForVendor,
           service.uuid,
           selectedSlots
         );
@@ -811,6 +847,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         // Check if this is a no-travel service for next-day search
         const serviceDataForSearch = servicesData.find(s => s.uuid === service.uuid || String(s.id) === String(service.id));
         const isNoTravelSearch = serviceDataForSearch?.is_travel_required === false;
+        const isFloorPlanSearch = isFloorPlanService(service.title, service.uuid, service.id, servicesData);
 
         for (let daysAhead = 1; daysAhead <= 30; daysAhead++) {
           const testDate = dayjs(currentDate).add(daysAhead, 'day').format('YYYY-MM-DD');
@@ -818,7 +855,10 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           const availableSlotMap = new Map<string, Slots>();
 
           filteredVendors.forEach((vendor) => {
-            if (isNoTravelSearch) {
+            const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
+            const useFullDaySearch = isNoTravelSearch && !(isFloorPlanSearch && vendorHasNextBookingFlag);
+
+            if (useFullDaySearch) {
               // No-Travel: use full-day work hours, only booked slots are blocked
               const fullDayWorkHours: WorkHours = {
                 start_time: '00:00:00',
@@ -903,13 +943,14 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
       searchForNextAvailableDay();
     }
-  }, [events, vendorsData, selectedVendors, currentDate, selectedSlots, service.uuid, service.id, AllBookedSlots, propertyTimezone, setSelectedDate, servicesData]);
+  }, [events, vendorsData, selectedVendors, currentDate, selectedSlots, service.uuid, service.id, service.title, AllBookedSlots, propertyTimezone, setSelectedDate, servicesData]);
 
   const vendorsKey = JSON.stringify(selectedVendors);
+  const recommendVal = recommendTimeMap?.[serviceKey];
   useEffect(() => {
     hasScrolledToFirstSlot.current = false;
     hasCheckedForNextAvailableDay.current = false; // Reset when vendors change
-  }, [vendorsKey]); // Only reset on vendor change, not date change
+  }, [vendorsKey, recommendVal]); // Reset when vendors or recommendation status change
 
 
   const prevDateRef = React.useRef<string>(currentDate);
@@ -1022,17 +1063,29 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     }
   }
 
-  const onEventClick = async (info: EventClickArg) => {
+  const onEventClick = async (info: EventClickArg, forceProceed = false) => {
     if (!info.event.start || !info.event.end) return;
 
     const clicked = {
       start: info.event.start.toISOString(),
       end: info.event.end.toISOString(),
     };
-
     const slotStart = dayjs(info.event.start).format('HH:mm:ss');
     const slotEnd = dayjs(info.event.end).format('HH:mm:ss');
     const selectedDate = dayjs(info.event.start).format('YYYY-MM-DD');
+
+    // SERVICE DURATION VALIDATION
+    // Get the service duration (either defined or calculated from square footage)
+    const currentService = servicesData?.find((s) => s.uuid === service.uuid);
+    const productOption = currentService?.product_options?.find(
+      (option) => option.uuid === service.option_id
+    );
+    const squareFootage = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
+    const requiredDuration = getEffectiveServiceDuration(
+      productOption?.service_duration,
+      squareFootage
+    );
+    const requiredSlots = Math.ceil(requiredDuration / 15);
 
     const isAlreadySelected = selectedSlots.find(
       (slot: Slot) =>
@@ -1041,6 +1094,16 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         slot.end_time === slotEnd &&
         slot.date === selectedDate
     );
+
+    if (!forceProceed && !isAlreadySelected) {
+      const existingSlots = selectedSlots.filter((slot: Slot) => slot.service_id === service.uuid);
+      const hasDifferentDate = existingSlots.some((slot: Slot) => slot.date !== selectedDate);
+      if (hasDifferentDate) {
+        setPendingSelection(info);
+        setShowConfirmDayChange(true);
+        return;
+      }
+    }
 
     if (isAlreadySelected) {
       // Get all selected slots for this service on this date, sorted by time
@@ -1077,6 +1140,21 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         });
 
         setEvents(updatedEvents);
+
+        // Show unselect toast
+        const formatTime = (time: string) => {
+          const [h, m] = time.split(":");
+          const hour = parseInt(h);
+          const meridian = hour >= 12 ? "PM" : "AM";
+          const formattedHour = hour % 12 || 12;
+          return `${formattedHour}:${m} ${meridian}`;
+        };
+        const slotTimeRange = `${formatTime(slotStart)} - ${formatTime(slotEnd)}`;
+        const deficit = requiredSlots - 0;
+        if (deficit > 0) {
+          toast.warning(`You have unselected a slot from ${slotTimeRange} and have ${deficit} less slot${deficit > 1 ? 's' : ''}. Please select ${deficit === 1 ? 'one' : deficit} more slot${deficit > 1 ? 's' : ''}.`);
+        }
+
         return;
       }
 
@@ -1121,27 +1199,33 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       });
 
       setEvents(updatedEvents);
+
+      // Show unselect toast
+      const formatTime = (time: string) => {
+        const [h, m] = time.split(":");
+        const hour = parseInt(h);
+        const meridian = hour >= 12 ? "PM" : "AM";
+        const formattedHour = hour % 12 || 12;
+        return `${formattedHour}:${m} ${meridian}`;
+      };
+      const slotTimeRange = `${formatTime(slotStart)} - ${formatTime(slotEnd)}`;
+      const deficit = requiredSlots - (serviceSlotsForDate.length - 1);
+      if (deficit > 0) {
+        toast.warning(`You have unselected a slot from ${slotTimeRange} and have ${deficit} less slot${deficit > 1 ? 's' : ''}. Please select ${deficit === 1 ? 'one' : deficit} more slot${deficit > 1 ? 's' : ''}.`);
+      }
+
       return;
     }
-
-
-    // SERVICE DURATION VALIDATION
-    // Get the service duration (either defined or calculated from square footage)
-    const currentService = servicesData?.find((s) => s.uuid === service.uuid);
-    const productOption = currentService?.product_options?.find(
-      (option) => option.uuid === service.option_id
-    );
-    const squareFootage = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
-    const requiredDuration = getEffectiveServiceDuration(
-      productOption?.service_duration,
-      squareFootage
-    );
 
     const currentServiceSlots = selectedSlots.filter(
       (slot: Slot) => slot.service_id === service.uuid && slot.date === selectedDate
     );
 
-    const requiredSlots = Math.ceil(requiredDuration / 15);
+    if (currentServiceSlots.length >= requiredSlots) {
+      toast.warning(`You cannot select more than the required ${requiredDuration} minutes for "${service.title}".`);
+      return;
+    }
+
     let remainingSlotsNeeded = requiredSlots - currentServiceSlots.length;
 
     // Determine the range of slots to select
@@ -1165,16 +1249,23 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     // Check if this is a no-travel service — if so, skip work-hours filtering
     const currentServiceDataForClick = servicesData.find(s => s.uuid === service.uuid || String(s.id) === String(service.id));
     const isNoTravelClick = currentServiceDataForClick?.is_travel_required === false;
-    const shouldEnforceNextBookingRuleForClick = !isFloorPlanService(service.title, service.uuid, service.id, servicesData);
+    const isFloorPlanClick = isFloorPlanService(service.title, service.uuid, service.id, servicesData);
 
     const matching = vendorsData.filter(vendor => {
       if (!vendor.uuid || !selectedVendors.includes(vendor.uuid)) {
         return false;
       }
 
-      // For no-travel services, any vendor in the list is available for any slot
+      const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
+      const shouldEnforceForVendor = isFloorPlanClick
+        ? vendorHasNextBookingFlag
+        : true;
+
+      const useFullDayClick = isNoTravelClick && !(isFloorPlanClick && vendorHasNextBookingFlag);
+
+      // For no-travel services (or if bypass is active), any vendor in the list is available for any slot
       // (only already-booked slots are excluded, which was already handled during event generation)
-      if (isNoTravelClick) {
+      if (useFullDayClick) {
         const fullDayWorkHours: WorkHours = {
           start_time: '00:00:00',
           end_time: '23:59:59',
@@ -1201,7 +1292,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           15
         );
 
-        const requiredSlotStart = shouldEnforceNextBookingRuleForClick
+        const requiredSlotStart = shouldEnforceForVendor
           ? getVendorRequiredSlotStart(vendor, selectedDate, AllBookedSlots, vendorAvailableSlots)
           : null;
         if (requiredSlotStart && currentServiceSlots.length === 0 && !dayjs(slotsToSelect[0].start).isSame(requiredSlotStart)) {
@@ -1239,7 +1330,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         15
       );
 
-      const requiredSlotStart = shouldEnforceNextBookingRuleForClick
+      const requiredSlotStart = shouldEnforceForVendor
         ? getVendorRequiredSlotStart(vendor, selectedDate, AllBookedSlots, vendorAvailableSlots)
         : null;
       if (requiredSlotStart && currentServiceSlots.length === 0 && !dayjs(slotsToSelect[0].start).isSame(requiredSlotStart)) {
@@ -1278,11 +1369,12 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         return v ? `${v.first_name} ${v.last_name || ''}`.trim() : null;
       }).filter(Boolean).join(', ');
 
-      const restrictedVendor = shouldEnforceNextBookingRuleForClick ? vendorsData.find(v =>
-        v.uuid &&
-        vendorsToCheck.includes(v.uuid) &&
-        isNextBookingSlotOnlyEnabled(v)
-      ) : undefined;
+      const restrictedVendor = vendorsData.find(v => {
+        if (!v.uuid || !vendorsToCheck.includes(v.uuid)) return false;
+        const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(v);
+        const shouldEnforceForVendor = isFloorPlanClick ? vendorHasNextBookingFlag : true;
+        return shouldEnforceForVendor && vendorHasNextBookingFlag;
+      });
 
       if (restrictedVendor?.uuid && currentServiceSlots.length === 0) {
         const currentServiceData = servicesData.find(s => s.uuid === service.uuid || String(s.id) === String(service.id));
@@ -1341,6 +1433,15 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       const durationTryingToSelect = remainingSlotsNeeded * 15;
       toast.error(`There are not ${durationTryingToSelect} min consecutive slots available for any eligible vendor starting at this time. Please select another slot.`);
     }
+  };
+
+  const handleConfirmDayChange = async () => {
+    if (!pendingSelection) return;
+    setSelectedSlots((prev: Slot[]) => prev.filter((slot: Slot) => slot.service_id !== service.uuid));
+    const info = pendingSelection;
+    setPendingSelection(null);
+    setShowConfirmDayChange(false);
+    await onEventClick(info, true);
   };
 
   const handleAssignVendor = async (vendor: VendorData, slots: { start: string; end: string }[]) => {
@@ -1464,13 +1565,23 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
   return (
     <>
       <div ref={containerRef} className="mt-[20px] relative custom-scroll" style={{
-        border: selectedSlots.some(s => s.service_id === service.uuid) ? '3px solid #6bae41' : '2px solid #BBBBBB',
+        border: isUnderScheduled
+          ? '3px solid #EF4444'
+          : hasSelectedSlotsForBorder
+            ? '3px solid #6bae41'
+            : '2px solid #BBBBBB',
         borderRadius: '6px',
         maxHeight: 430,
         height: 430,
         overflowY: 'auto',
         width: '100%',
       }}>
+        {isCalculating && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 gap-3 z-[100]">
+            <Loader2 className="w-8 h-8 animate-spin text-[#6bae41]" />
+            <span className="text-sm font-medium text-gray-500 font-alexandria">Calculating slots & travel times...</span>
+          </div>
+        )}
         <FullCalendar
           ref={calendarRef}
           plugins={[timeGridPlugin]}
@@ -1685,6 +1796,20 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           </div>
         </div>
       )}
+      <ConfirmationDialog
+        open={showConfirmDayChange}
+        setOpen={(open) => {
+          setShowConfirmDayChange(open);
+          if (!open) {
+            setPendingSelection(null);
+          }
+        }}
+        onConfirm={handleConfirmDayChange}
+        showAgain={showAgain}
+        toggleShowAgain={() => setShowAgain(prev => !prev)}
+        title="Change Selected Date?"
+        description={`Selecting a slot for this day will remove the previous day selection for ${service.title || "this service"}.`}
+      />
     </>
   );
 }

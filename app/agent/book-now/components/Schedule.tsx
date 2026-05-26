@@ -9,7 +9,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover"
 import { Button } from '@/components/ui/button'
-import { CalendarIcon, Images, Info } from 'lucide-react'
+import { CalendarIcon, Images, Info, Loader2 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -101,8 +101,6 @@ export interface ScheduleProps {
 
 const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
     const [selectedVendorMap, setSelectedVendorMap] = React.useState<Record<string, string | string[]>>({});
-    const [showAllVendorsMap, setShowAllVendorsMap] = useState<Record<string, 0 | 1>>({});
-    const [scheduleOverrideMap, setScheduleOverrideMap] = useState<Record<string, 0 | 1>>({});
     const [recommendTimeMap, setRecommendTimeMap] = useState<Record<string, 0 | 1>>({});
     const [filteredVendorsByService, setFilteredVendorsByService] = useState<Record<string, VendorData[]>>({});
     const [masterDate, setMasterDate] = useState<Date>(new Date());
@@ -117,6 +115,7 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
 
     const {
         selectedServices,
+        setSelectedServices,
         tempPropertyData,
         selectedSlots,
         setSelectedSlots,
@@ -168,14 +167,16 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
     }, []);
 
     // Filter vendors by service and service area
+    // Filter vendors, load timezone, and calculate distances in one unified hook
     useEffect(() => {
-        async function filterVendorsByService() {
+        async function loadAndCalculate() {
             if (!vendorsData.length || !tempPropertyData || !servicesData.length) {
                 return;
             }
 
             setIsCalculating(true);
 
+            // 1. Filter vendors by service/area
             const addressString = `${tempPropertyData?.address}, ${tempPropertyData?.city}, ${tempPropertyData?.country}`;
             const result: Record<string, VendorData[]> = {};
 
@@ -189,12 +190,10 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
                         const force_service_area = vendor.settings?.force_service_area;
                         const isRestricted = force_service_area === 1 || force_service_area === true;
 
-                        // If force_service_area is FALSE, show vendor for all properties
                         if (!isRestricted) {
                             return { vendor, inside: true };
                         }
 
-                        // If force_service_area is TRUE, check if property is in service area
                         return {
                             vendor,
                             inside: await isPropertyInsideVendorArea(addressString, vendor),
@@ -208,13 +207,37 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
             }
 
             setFilteredVendorsByService(result);
+
+            // 2. Load property timezone
+            const fullAddress = `${tempPropertyData?.address}, ${tempPropertyData?.city}, ${tempPropertyData?.province}, ${tempPropertyData?.country}`;
+            const location = await getPropertyTimezone(fullAddress);
+            if (location) {
+                setPropertyLocation(location);
+            }
+
+            // 3. Calculate all vendor distances
+            const listingAddress = `${tempPropertyData?.address}, ${tempPropertyData?.city}, ${tempPropertyData?.province}, ${tempPropertyData?.country}`;
+            const distancePromises = Object.values(result).map(async (vendors) => {
+                if (vendors?.length > 0) {
+                    await calculateAllVendorDistances(listingAddress, vendors);
+                }
+            });
+            await Promise.all(distancePromises);
+
             setIsCalculating(false);
         }
 
-        filterVendorsByService();
+        loadAndCalculate();
     }, [vendorsData, servicesData, tempPropertyData]);
 
-    // Calculate distances for all vendors
+    const formatTravelTime = (minutes: number) => {
+        if (minutes < 60) return `${minutes} min`;
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        if (mins === 0) return `${hours} hour${hours > 1 ? 's' : ''}`;
+        return `${hours} hour${hours > 1 ? 's' : ''} ${mins} min`;
+    };
+
     async function calculateAllVendorDistances(
         address: string,
         availableVendors: VendorData[]
@@ -275,44 +298,6 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
         setVendorDistances((prev) => ({ ...prev, ...estimatedTimes }));
     }
 
-    useEffect(() => {
-        if (!tempPropertyData || !filteredVendorsByService) return;
-
-        const listingAddress = `${tempPropertyData?.address}, ${tempPropertyData?.city}, ${tempPropertyData?.province}, ${tempPropertyData?.country}`;
-
-        Object.values(filteredVendorsByService).forEach((vendors) => {
-            if (vendors?.length > 0) {
-                calculateAllVendorDistances(listingAddress, vendors);
-            }
-        });
-    }, [tempPropertyData, filteredVendorsByService]);
-
-    const formatTravelTime = (minutes: number) => {
-        if (minutes < 60) return `${minutes} min`;
-        const hours = Math.floor(minutes / 60);
-        const mins = minutes % 60;
-        if (mins === 0) return `${hours} hour${hours > 1 ? 's' : ''}`;
-        return `${hours} hour${hours > 1 ? 's' : ''} ${mins} min`;
-    };
-
-    // Fetch property timezone
-    useEffect(() => {
-        async function loadPropertyTimezone() {
-            if (!tempPropertyData) return;
-
-            const fullAddress = `${tempPropertyData?.address}, ${tempPropertyData?.city}, ${tempPropertyData?.province}, ${tempPropertyData?.country}`;
-
-            const location = await getPropertyTimezone(fullAddress);
-            if (location) {
-                setPropertyLocation(location);
-            } else {
-                console.error('Failed to fetch property timezone');
-            }
-        }
-
-        loadPropertyTimezone();
-    }, [tempPropertyData]);
-
     return (
         <div className='font-alexandria'>
             <div className="flex justify-between items-center px-16 py-4 border-b border-[#EEEEEE] bg-white">
@@ -356,9 +341,13 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
                         setSelectedVendorMap((prev) => ({ ...prev, [serviceKey]: value }));
                     };
 
-                    const showAllVendors = showAllVendorsMap[serviceKey] ?? 0;
-                    const scheduleOverride = scheduleOverrideMap[serviceKey] ?? 0;
+                    const showAllVendorsMap: Record<string, 0 | 1> = {};
+                    const scheduleOverrideMap: Record<string, 0 | 1> = {};
+                    const showAllVendors = 0;
+                    const scheduleOverride = 0;
                     const recommendTime = recommendTimeMap[serviceKey] ?? 0;
+                    const serviceSlots = selectedSlots.filter((s: Slot) => s.service_id === service.uuid);
+                    const hasNoVendors = !isCalculating && !!service.uuid && (!filteredVendorsByService[service.uuid] || filteredVendorsByService[service.uuid].length === 0);
 
 
                     return (
@@ -431,7 +420,6 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
                                             productOption?.service_duration,
                                             squareFootage
                                         );
-                                        const serviceSlots = selectedSlots.filter((s: Slot) => s.service_id === service.uuid);
                                         const currentDuration = serviceSlots.length * 15;
                                         const isFullyScheduled = currentDuration >= requiredDuration && requiredDuration > 0;
 
@@ -456,7 +444,7 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
                                     })()}
                                 </div>
                                 <div className="flex flex-col gap-4">
-                                    <div className="flex justify-start gap-6 items-center">
+                                    {/* <div className="flex justify-start gap-6 items-center">
                                         <Switch
                                             id={`show-all-vendors-${idx}`}
                                             checked={!!showAllVendors}
@@ -469,8 +457,8 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
                                             className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                                         />
                                         <label htmlFor={`show-all-vendors-${idx}`} className="text-[12px] cursor-pointer">Show all Vendors Regardless of Travel Time</label>
-                                    </div>
-                                    <div className="flex justify-start gap-6 items-center">
+                                    </div> */}
+                                    {/* <div className="flex justify-start gap-6 items-center">
                                         <Switch
                                             id={`schedule-override-${idx}`}
                                             checked={!!scheduleOverride}
@@ -483,7 +471,7 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
                                             className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                                         />
                                         <label htmlFor={`schedule-override-${idx}`} className="text-[12px] cursor-pointer">Schedule Override</label>
-                                    </div>
+                                    </div> */}
                                     <div className="flex justify-start gap-6 items-center">
                                         <Switch
                                             id={`recommend-time-${idx}`}
@@ -534,17 +522,26 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
                                 </div>
                                 <div>
                                     <Select
-                                        value={typeof selectedVendor === 'string' ? selectedVendor : 'all'}
+                                        value={hasNoVendors ? "none" : (typeof selectedVendor === 'string' ? selectedVendor : 'all')}
                                         onValueChange={handleVendorChange}
+                                        disabled={hasNoVendors}
                                     >
-                                        <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
-                                            <SelectValue placeholder="Select Vendor" />
+                                        <SelectTrigger 
+                                            className={cn(
+                                                "w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]",
+                                                hasNoVendors && "border-red-500 text-red-500 font-semibold"
+                                            )}
+                                        >
+                                            {hasNoVendors ? "No vendor available" : <SelectValue placeholder="Select Vendor" />}
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="all">All Vendors</SelectItem>
                                             {isCalculating ? (
                                                 <SelectItem value="loading" disabled>
-                                                    Fetching vendors...
+                                                    <div className="flex items-center gap-2">
+                                                        <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                                                        <span>Calculating travel times & vendors...</span>
+                                                    </div>
                                                 </SelectItem>
                                             ) : service.uuid && filteredVendorsByService[service.uuid]?.length ? (
                                                 [...filteredVendorsByService[service.uuid]!]
@@ -656,34 +653,114 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
                                             }
 
                                             return (
-                                                <OneDayCalendar
-                                                    selectedVendors={vendorsToShow.length > 0 ? vendorsToShow : ['all']}
-                                                    service={service}
-                                                    calendarIdx={idx}
-                                                    serviceKey={serviceKey}
-                                                    showAllVendorsMap={showAllVendorsMap}
-                                                    scheduleOverrideMap={scheduleOverrideMap}
-                                                    recommendTimeMap={recommendTimeMap}
-                                                    recommendTime={recommendTime}
-                                                    showAllVendors={showAllVendors}
-                                                    scheduleOverride={scheduleOverride}
-                                                    setSelectedDate={(date) => {
-                                                        if (date) {
-                                                            const [y, m, d] = date.split('-').map(Number);
-                                                            const newDate = new Date(y, m - 1, d);
-                                                            setServiceDates(prev => ({ ...prev, [serviceKey]: newDate }));
-                                                        }
-                                                    }}
-                                                    vendorDistances={vendorDistances}
-                                                    propertyTimezone={propertyLocation?.timeZoneId}
-                                                    masterDate={serviceDates[serviceKey] || masterDate}
-                                                    externalSetSelectedSlots={setSelectedSlots}
-                                                    externalSelectedSlots={selectedSlots}
-                                                    externalBookedSlots={bookedSlots}
-                                                    externalVendorsData={vendorsData}
-                                                    externalServicesData={servicesData}
-                                                    onVendorSelected={handleVendorChange}
-                                                />
+                                                <>
+                                                    {serviceSlots.length > 0 && (
+                                                        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg flex flex-col gap-1 text-[12px] text-green-855 font-raleway font-semibold">
+                                                            <p className="font-bold text-green-900 flex items-center gap-1.5">
+                                                                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                                                Selected Appointment:
+                                                            </p>
+                                                            {(() => {
+                                                                const slotsByDate: Record<string, Slot[]> = {};
+                                                                serviceSlots.forEach((slot: Slot) => {
+                                                                    if (!slotsByDate[slot.date]) {
+                                                                        slotsByDate[slot.date] = [];
+                                                                    }
+                                                                    slotsByDate[slot.date].push(slot);
+                                                                });
+
+                                                                return Object.entries(slotsByDate).map(([dateStr, slots]) => {
+                                                                    slots.sort((a, b) => a.start_time.localeCompare(b.start_time));
+                                                                    const mergedRanges: { start: string; end: string }[] = [];
+                                                                    if (slots.length > 0) {
+                                                                        let currentRange = { start: slots[0].start_time, end: slots[0].end_time };
+                                                                        for (let i = 1; i < slots.length; i++) {
+                                                                            const slot = slots[i];
+                                                                            if (slot.start_time === currentRange.end) {
+                                                                                currentRange.end = slot.end_time;
+                                                                            } else {
+                                                                                mergedRanges.push(currentRange);
+                                                                                currentRange = { start: slot.start_time, end: slot.end_time };
+                                                                            }
+                                                                        }
+                                                                        mergedRanges.push(currentRange);
+                                                                    }
+
+                                                                    const formattedDate = dateStr
+                                                                        ? new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-US", {
+                                                                            year: "numeric",
+                                                                            month: "long",
+                                                                            day: "numeric",
+                                                                        })
+                                                                        : "";
+
+                                                                    const formatTime = (time: string) => {
+                                                                        const [h, m] = time.split(":");
+                                                                        const hour = parseInt(h);
+                                                                        const meridian = hour >= 12 ? "PM" : "AM";
+                                                                        const formattedHour = hour % 12 || 12;
+                                                                        return `${formattedHour}:${m} ${meridian}`;
+                                                                    };
+
+                                                                    return mergedRanges.map((range, rIdx) => {
+                                                                        const startTime = range.start ? formatTime(range.start) : "";
+                                                                        const endTime = range.end ? formatTime(range.end) : "";
+                                                                        return (
+                                                                            <div key={`${dateStr}-${rIdx}`} className="pl-3.5 text-green-700 font-medium text-[13px]">
+                                                                                {formattedDate} | {startTime} - {endTime}
+                                                                            </div>
+                                                                        );
+                                                                    });
+                                                                });
+                                                            })()}
+                                                        </div>
+                                                    )}
+                                                    {hasNoVendors ? (
+                                                        <div className="flex flex-col items-center justify-center p-6 border border-red-200 bg-red-50/50 rounded-lg text-center gap-4 mt-[20px]">
+                                                            <Info className="w-8 h-8 text-red-500 animate-bounce" />
+                                                            <div className="text-[14px] text-red-800 font-medium font-alexandria">
+                                                                This service currently has no available vendors. Please remove the service from selection.
+                                                            </div>
+                                                            <Button 
+                                                                variant="destructive"
+                                                                onClick={() => setSelectedServices(prev => prev.filter(s => s.uuid !== service.uuid))}
+                                                                className="w-full max-w-[200px] h-[40px] font-alexandria font-semibold"
+                                                            >
+                                                                Remove Service
+                                                            </Button>
+                                                        </div>
+                                                    ) : (
+                                                        <OneDayCalendar
+                                                            selectedVendors={vendorsToShow.length > 0 ? vendorsToShow : ['all']}
+                                                            service={service}
+                                                            calendarIdx={idx}
+                                                            serviceKey={serviceKey}
+                                                            showAllVendorsMap={showAllVendorsMap}
+                                                            scheduleOverrideMap={scheduleOverrideMap}
+                                                            recommendTimeMap={recommendTimeMap}
+                                                            recommendTime={recommendTime}
+                                                            showAllVendors={showAllVendors}
+                                                            scheduleOverride={scheduleOverride}
+                                                            setSelectedDate={(date) => {
+                                                                if (date) {
+                                                                    const [y, m, d] = date.split('-').map(Number);
+                                                                    const newDate = new Date(y, m - 1, d);
+                                                                    setServiceDates(prev => ({ ...prev, [serviceKey]: newDate }));
+                                                                }
+                                                            }}
+                                                            vendorDistances={vendorDistances}
+                                                            propertyTimezone={propertyLocation?.timeZoneId}
+                                                            masterDate={serviceDates[serviceKey] || masterDate}
+                                                            externalSetSelectedSlots={setSelectedSlots}
+                                                            externalSelectedSlots={selectedSlots}
+                                                            externalBookedSlots={bookedSlots}
+                                                            externalVendorsData={vendorsData}
+                                                            externalServicesData={servicesData}
+                                                            onVendorSelected={handleVendorChange}
+                                                            isCalculating={isCalculating}
+                                                        />
+                                                    )}
+                                                </>
                                             );
                                         })()}
                                     </div>

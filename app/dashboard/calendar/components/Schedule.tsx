@@ -15,7 +15,7 @@ import { useAppContext } from '@/app/context/AppContext'
 import { Button } from '@/components/ui/button'
 import { cn } from "@/lib/utils"
 // import { Images } from 'lucide-react'
-import { CalendarIcon, Images, Info } from 'lucide-react'
+import { CalendarIcon, Images, Info, Loader2 } from 'lucide-react'
 import { Calendar } from "@/components/ui/calendar"
 import {
     Popover,
@@ -160,8 +160,8 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
         const newServiceDates: Record<number, Date | undefined> = {};
 
         mergedServices.forEach((service: OrderService, idx: number) => {
-            const slot = selectedSlots.find((s: Slot) => 
-                String(s.service_id) === String(service.service?.uuid) || 
+            const slot = selectedSlots.find((s: Slot) =>
+                String(s.service_id) === String(service.service?.uuid) ||
                 String(s.service_id) === String(service.service?.id)
             );
             if (slot && slot.date) {
@@ -299,11 +299,12 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
         setRecommendTimeMap(newRecommendTimeMap);
     }, [currentOrder]);
     useEffect(() => {
-        async function filterVendorsByService() {
+        async function loadAndCalculate() {
             if (!vendorsData.length || !currentOrder?.property || !servicesData.length) return;
 
             setIsCalculating(true);
 
+            // 1. Filter vendors
             const addressString = `${currentOrder?.property.address}, ${currentOrder?.property.city}, ${currentOrder?.property.country}`;
             const result: Record<string, VendorData[]> = {};
 
@@ -334,11 +335,36 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
             }
 
             setFilteredVendorsByService(result);
+
+            // 2. Load property timezone
+            const fullAddress = `${currentOrder.property.address}, ${currentOrder.property.city}, ${currentOrder.property.province}, ${currentOrder.property.country}`;
+            const location = await getPropertyTimezone(fullAddress);
+            if (location) {
+                setPropertyLocation(location);
+            }
+
+            // 3. Calculate all vendor distances
+            const listingAddress = `${currentOrder.property.address}, ${currentOrder.property.city}, ${currentOrder.property.country}`;
+            const distancePromises = Object.values(result).map(async (vendors) => {
+                if (vendors?.length > 0) {
+                    await calculateAllVendorDistances(listingAddress, vendors);
+                }
+            });
+            await Promise.all(distancePromises);
+
             setIsCalculating(false);
         }
 
-        filterVendorsByService();
+        loadAndCalculate();
     }, [vendorsData, servicesData, currentOrder]);
+
+    const formatTravelTime = (minutes: number) => {
+        if (minutes < 60) return `${minutes} min`;
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        if (mins === 0) return `${hours} hour${hours > 1 ? 's' : ''}`;
+        return `${hours} hour${hours > 1 ? 's' : ''} ${mins} min`;
+    };
 
     async function calculateAllVendorDistances(
         address: string,
@@ -400,37 +426,6 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
         setVendorDistances((prev) => ({ ...prev, ...estimatedTimes }));
     }
 
-
-    useEffect(() => {
-        if (!currentOrder?.property || !filteredVendorsByService) return;
-
-        const listingAddress = `${currentOrder.property.address}, ${currentOrder.property.city}, ${currentOrder.property.country}`;
-
-        Object.values(filteredVendorsByService).forEach((vendors) => {
-            if (vendors?.length > 0) {
-                calculateAllVendorDistances(listingAddress, vendors);
-            }
-        });
-    }, [currentOrder, filteredVendorsByService]);
-
-    const formatTravelTime = (minutes: number) => {
-        if (minutes < 60) return `${minutes} min`;
-        const hours = Math.floor(minutes / 60);
-        const mins = minutes % 60;
-        if (mins === 0) return `${hours} hour${hours > 1 ? 's' : ''}`;
-        return `${hours} hour${hours > 1 ? 's' : ''} ${mins} min`;
-    };
-
-    // Load property timezone
-    useEffect(() => {
-        async function loadPropertyTimezone() {
-            if (!currentOrder?.property) return;
-            const fullAddress = `${currentOrder.property.address}, ${currentOrder.property.city}, ${currentOrder.property.province}, ${currentOrder.property.country}`;
-            const location = await getPropertyTimezone(fullAddress);
-            if (location) setPropertyLocation(location);
-        }
-        loadPropertyTimezone();
-    }, [currentOrder]);
     return (
         <div className='font-alexandria'>
             <div className="px-3 py-4 bg-white border-b border-[#EEEEEE]">
@@ -554,7 +549,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-4">
-                                    <div className="flex justify-start gap-6 items-center">
+                                    {/* <div className="flex justify-start gap-6 items-center">
                                         <Switch
                                             checked={!!showAllVendors}
                                             onCheckedChange={() =>
@@ -566,8 +561,8 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                             className={cn("data-[state=unchecked]:bg-gray-300", showAllVendors ? `${userType}-bg border-none` : "")}
                                         />
                                         <p className="text-[12px]">Show all Vendors Regardless of Travel Time</p>
-                                    </div>
-                                    <div className="flex justify-start gap-6 items-center">
+                                    </div> */}
+                                    {/* <div className="flex justify-start gap-6 items-center">
                                         <Switch
                                             checked={!!scheduleOverride}
                                             onCheckedChange={() =>
@@ -579,7 +574,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                             className={cn("data-[state=unchecked]:bg-gray-300", scheduleOverride ? `${userType}-bg border-none` : "")}
                                         />
                                         <p className="text-[12px]">Schedule Override</p>
-                                    </div>
+                                    </div> */}
                                     <div className="flex justify-start gap-6 items-center">
                                         <Switch
                                             checked={!!recommendTime}
@@ -622,7 +617,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                         value={typeof selectedVendor === 'string' ? selectedVendor : 'all'}
                                         onValueChange={handleVendorChange}
                                     >
-                                        <SelectTrigger 
+                                        <SelectTrigger
                                             className="w-full h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
                                             style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                         >
@@ -631,7 +626,12 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                         <SelectContent>
                                             <SelectItem value="all">All Vendors</SelectItem>
                                             {isCalculating ? (
-                                                <SelectItem value="loading" disabled>Fetching vendors...</SelectItem>
+                                                <SelectItem value="loading" disabled>
+                                                    <div className="flex items-center gap-2">
+                                                        <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                                                        <span>Calculating travel times & vendors...</span>
+                                                    </div>
+                                                </SelectItem>
                                             ) : service.service.uuid && filteredVendorsByService[service.service.uuid]?.length ? (
                                                 [...filteredVendorsByService[service.service.uuid]!]
                                                     .sort((a, b) => {
@@ -640,22 +640,22 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                                         return ta - tb;
                                                     })
                                                     .map((vendor, vidx) => {
-                                                    const travelTime = vendorDistances[vendor.uuid ?? ''];
-                                                    const color = getDistanceColor(travelTime);
-                                                    return (
-                                                        <SelectItem className='flex justify-between text-nowrap' key={vidx} value={vendor.uuid ?? ''}>
-                                                            <div className="flex items-center gap-2 text-nowrap truncate w-full">
-                                                                <span className="w-2 h-4" style={{ backgroundColor: color }} />
-                                                                <span>{vendor.first_name} {vendor.last_name}</span>
-                                                                <span>{travelTime !== undefined && (
-                                                                    <span className="text-gray-500 text-[12px] ml-2">
-                                                                        ({formatTravelTime(travelTime)})
-                                                                    </span>
-                                                                )}</span>
-                                                            </div>
-                                                        </SelectItem>
-                                                    );
-                                                })
+                                                        const travelTime = vendorDistances[vendor.uuid ?? ''];
+                                                        const color = getDistanceColor(travelTime);
+                                                        return (
+                                                            <SelectItem className='flex justify-between text-nowrap' key={vidx} value={vendor.uuid ?? ''}>
+                                                                <div className="flex items-center gap-2 text-nowrap truncate w-full">
+                                                                    <span className="w-2 h-4" style={{ backgroundColor: color }} />
+                                                                    <span>{vendor.first_name} {vendor.last_name}</span>
+                                                                    <span>{travelTime !== undefined && (
+                                                                        <span className="text-gray-500 text-[12px] ml-2">
+                                                                            ({formatTravelTime(travelTime)})
+                                                                        </span>
+                                                                    )}</span>
+                                                                </div>
+                                                            </SelectItem>
+                                                        );
+                                                    })
                                             ) : (
                                                 <SelectItem value="none" disabled>
                                                     No vendors available for this service in the selected area
@@ -728,6 +728,68 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                         </PopoverContent>
                                     </Popover>
 
+                                    {serviceSlots.length > 0 && (
+                                        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg flex flex-col gap-1 text-[12px] text-green-855 font-raleway font-semibold">
+                                            <p className="font-bold text-green-900 flex items-center gap-1.5">
+                                                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                                Selected Appointment:
+                                            </p>
+                                            {(() => {
+                                                const slotsByDate: Record<string, Slot[]> = {};
+                                                serviceSlots.forEach(slot => {
+                                                    if (!slotsByDate[slot.date]) {
+                                                        slotsByDate[slot.date] = [];
+                                                    }
+                                                    slotsByDate[slot.date].push(slot);
+                                                });
+
+                                                return Object.entries(slotsByDate).map(([dateStr, slots]) => {
+                                                    slots.sort((a, b) => a.start_time.localeCompare(b.start_time));
+                                                    const mergedRanges: { start: string; end: string }[] = [];
+                                                    if (slots.length > 0) {
+                                                        let currentRange = { start: slots[0].start_time, end: slots[0].end_time };
+                                                        for (let i = 1; i < slots.length; i++) {
+                                                            const slot = slots[i];
+                                                            if (slot.start_time === currentRange.end) {
+                                                                currentRange.end = slot.end_time;
+                                                            } else {
+                                                                mergedRanges.push(currentRange);
+                                                                currentRange = { start: slot.start_time, end: slot.end_time };
+                                                            }
+                                                        }
+                                                        mergedRanges.push(currentRange);
+                                                    }
+
+                                                    const formattedDate = dateStr
+                                                        ? new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-US", {
+                                                            year: "numeric",
+                                                            month: "long",
+                                                            day: "numeric",
+                                                        })
+                                                        : "";
+
+                                                    const formatTime = (time: string) => {
+                                                        const [h, m] = time.split(":");
+                                                        const hour = parseInt(h);
+                                                        const meridian = hour >= 12 ? "PM" : "AM";
+                                                        const formattedHour = hour % 12 || 12;
+                                                        return `${formattedHour}:${m} ${meridian}`;
+                                                    };
+
+                                                    return mergedRanges.map((range, rIdx) => {
+                                                        const startTime = range.start ? formatTime(range.start) : "";
+                                                        const endTime = range.end ? formatTime(range.end) : "";
+                                                        return (
+                                                            <div key={`${dateStr}-${rIdx}`} className="pl-3.5 text-green-700 font-medium text-[13px]">
+                                                                {formattedDate} | {startTime} - {endTime}
+                                                            </div>
+                                                        );
+                                                    });
+                                                });
+                                            })()}
+                                        </div>
+                                    )}
+
                                     <div className="mt-[20px]">
                                         <OneDayCalendar
                                             className={`my-${userType}-calendar`}
@@ -777,6 +839,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                             onVendorSelected={handleVendorChange}
                                             propertyTimezone={propertyLocation?.timeZoneId}
                                             squareFootage={currentOrder?.property?.square_footage}
+                                            isCalculating={isCalculating}
                                         />
                                     </div>
 
@@ -788,7 +851,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                     );
                 })}
             </div>
-            
+
             <div className="px-3 pb-6">
                 <div className="flex justify-between items-center border border-[#EEEEEE] bg-white p-4 rounded-lg">
                     <div className="flex items-center gap-2 text-[9px] text-[#424242]">
