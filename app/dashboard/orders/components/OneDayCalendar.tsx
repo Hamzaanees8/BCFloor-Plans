@@ -455,6 +455,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
   const [showConfirmDayChange, setShowConfirmDayChange] = useState(false);
   const [pendingSelection, setPendingSelection] = useState<any | null>(null);
   const [showAgain, setShowAgain] = useState(true);
+  const [hoveredSlotStart, setHoveredSlotStart] = useState<string | null>(null);
   const calendarRef = React.useRef<FullCalendar>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const hasJumpedToInitialDate = React.useRef(false);
@@ -950,7 +951,50 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
   useEffect(() => {
     hasScrolledToFirstSlot.current = false;
     hasCheckedForNextAvailableDay.current = false; // Reset when vendors change
-  }, [vendorsKey, recommendVal]); // Reset when vendors or recommendation status change
+  }, [vendorsKey, recommendVal, currentDate]); // Reset when vendors, recommendation status, or date changes
+
+  // ── Hover preview computation ──────────────────────────────────────────────
+  // Determines which slots to highlight and whether the preview is valid
+  // (i.e., enough consecutive available slots exist for the full service duration).
+  const hoverPreviewSlots = useMemo(() => {
+    if (!hoveredSlotStart) return { slots: [] as string[], isValid: false };
+
+    const currentServiceForHover = servicesData?.find((s) => s.uuid === service.uuid);
+    const productOptionForHover = currentServiceForHover?.product_options?.find(
+      (opt) => opt.uuid === service.option_id
+    );
+    const squareFootageForHover =
+      tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
+    const requiredDurationForHover = getEffectiveServiceDuration(
+      productOptionForHover?.service_duration,
+      squareFootageForHover
+    );
+    const requiredSlotsForHover = Math.max(1, Math.ceil(requiredDurationForHover / 15));
+
+    // Account for already-selected slots so the preview only shows remaining needed
+    const alreadySelectedCount = selectedSlots.filter(
+      (s: Slot) => s.service_id === service.uuid
+    ).length;
+    const remainingNeeded = Math.max(1, requiredSlotsForHover - alreadySelectedCount);
+
+    const hoveredEvent = events.find((e) => e.start === hoveredSlotStart);
+    if (!hoveredEvent || !hoveredEvent.className?.includes('slot-available')) {
+      return { slots: [] as string[], isValid: false };
+    }
+
+    const preview: string[] = [];
+    for (let i = 0; i < remainingNeeded; i++) {
+      const slotStart = dayjs(hoveredSlotStart).add(i * 15, 'minute').toISOString();
+      const candidate = events.find((e) => e.start === slotStart);
+      if (!candidate || !candidate.className?.includes('slot-available')) break;
+      preview.push(slotStart);
+    }
+
+    return {
+      slots: preview,
+      isValid: preview.length >= remainingNeeded,
+    };
+  }, [hoveredSlotStart, events, service.uuid, service.option_id, servicesData, tempPropertyData, selectedCurrentListing, selectedSlots]);
 
 
   const prevDateRef = React.useRef<string>(currentDate);
@@ -1062,6 +1106,17 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       return null;
     }
   }
+
+  // ── Hover preview handlers ─────────────────────────────────────────────────
+  const onEventMouseEnter = (info: { event: { start: Date | null } }) => {
+    if (info.event.start) {
+      setHoveredSlotStart(info.event.start.toISOString());
+    }
+  };
+
+  const onEventMouseLeave = () => {
+    setHoveredSlotStart(null);
+  };
 
   const onEventClick = async (info: EventClickArg, forceProceed = false) => {
     if (!info.event.start || !info.event.end) return;
@@ -1225,6 +1280,48 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       toast.warning(`You cannot select more than the required ${requiredDuration} minutes for "${service.title}".`);
       return;
     }
+
+    // ── Gap validation ────────────────────────────────────────────────────────
+    // If the user previously deselected a middle slot, existing selections may
+    // have a gap. Block adding any new slot until the gap is resolved.
+    if (currentServiceSlots.length > 0) {
+      const sortedExisting = [...currentServiceSlots].sort((a, b) =>
+        a.start_time.localeCompare(b.start_time)
+      );
+
+      let hasGap = false;
+      for (let i = 0; i < sortedExisting.length - 1; i++) {
+        if (sortedExisting[i].end_time !== sortedExisting[i + 1].start_time) {
+          hasGap = true;
+          break;
+        }
+      }
+
+      if (hasGap) {
+        toast.error(
+          `Your current slot selection for "${service.title}" has a gap. Please remove the isolated slot before adding a new one.`
+        );
+        return;
+      }
+
+      // ── Adjacency validation ────────────────────────────────────────────────
+      // New slots must attach directly to the start or end of the existing block.
+      const firstExisting = sortedExisting[0];
+      const lastExisting = sortedExisting[sortedExisting.length - 1];
+      const clickedStartTime = dayjs(clicked.start).format('HH:mm:ss');
+      const clickedEndTime = dayjs(clicked.end).format('HH:mm:ss');
+
+      const isAdjacentToEnd = clickedStartTime === lastExisting.end_time;
+      const isAdjacentToStart = clickedEndTime === firstExisting.start_time;
+
+      if (!isAdjacentToEnd && !isAdjacentToStart) {
+        toast.error(
+          `Slots must be consecutive. You can only add slots immediately before or after your existing selection for "${service.title}".`
+        );
+        return;
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     let remainingSlotsNeeded = requiredSlots - currentServiceSlots.length;
 
@@ -1560,6 +1657,19 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       padding-bottom: 10px;
       border-bottom: 1px solid #BBBBBB;
     }
+    /* Hover preview: enough consecutive slots — bright green with darker border per slot */
+    .slot-hover-preview:not(.slot-selected):not(.slot-unavailable) {
+      background-color: #5CFF6C !important;
+      border: 1.5px solid #2db83d !important;
+      opacity: 1;
+      transition: background-color 0.08s ease, border-color 0.08s ease;
+    }
+    /* Hover preview: insufficient consecutive slots — soft red warning on hovered slot only */
+    .slot-hover-preview-error:not(.slot-selected):not(.slot-unavailable) {
+      background-color: #ffb3b3 !important;
+      opacity: 0.85;
+      transition: background-color 0.08s ease;
+    }
   `;
 
   return (
@@ -1704,6 +1814,18 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           height="auto"
           dayHeaders={false}
           eventClick={onEventClick}
+          eventMouseEnter={onEventMouseEnter}
+          eventMouseLeave={onEventMouseLeave}
+          eventClassNames={(arg) => {
+            const eventStart = arg.event.start?.toISOString();
+            if (!eventStart) return [];
+            if (hoverPreviewSlots.slots.includes(eventStart)) {
+              return hoverPreviewSlots.isValid
+                ? ['slot-hover-preview']
+                : ['slot-hover-preview-error'];
+            }
+            return [];
+          }}
           selectable={true}
           editable={true}
           initialDate={initialDateStr}
