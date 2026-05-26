@@ -296,6 +296,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
 
 
     const events = orderData?.flatMap((order) => {
+        if (!order || !order.slots || !order.uuid) return [];
         const sortedSlots = [...order.slots].sort((a, b) => {
             const aStart = dayjs(`${a.date} ${a.start_time}`);
             const bStart = dayjs(`${b.date} ${b.start_time}`);

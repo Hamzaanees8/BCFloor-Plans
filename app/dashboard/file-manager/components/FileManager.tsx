@@ -68,7 +68,8 @@ const FileManager = () => {
         (os.service as any)?.category?.name?.toLowerCase() === "feature sheets";
       if (isFS) return;
 
-      const key = os.service.uuid;
+      const key = os.service?.uuid;
+      if (!key) return;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(os);
     });
