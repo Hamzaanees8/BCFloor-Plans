@@ -187,43 +187,81 @@ const Page = () => {
       const res = await GetInvoicesByOrder(billing.order_uuid);
       const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
 
-      if (invoicesList.length > 1) {
-        setActionLoading(null);
-        setInvoices(invoicesList);
-        setSelectedBilling(billing);
-        setSelectedOrderUuid(billing.order_uuid);
-        setSelectedServiceId(serviceId || null);
-        setShowInvoicesModal(true);
-        setInvoicesLoading(false);
-        return;
+      // ── Smart invoice selection ──────────────────────────────────────────
+      // When multiple invoices exist (e.g. split/consolidated + individual),
+      // pick the best one directly instead of always opening the selection modal.
+
+      let targetInvoice: any = null;
+
+      if (serviceId) {
+        // Service-level action: find the invoice that contains this service
+        targetInvoice = invoicesList.find((inv: any) =>
+          inv.items?.some((i: any) =>
+            i.order_service?.uuid === serviceId || i.order_service_id?.toString() === serviceId
+          )
+        ) || invoicesList[0];
+      } else {
+        // Order-level action: prefer the consolidated invoice, then primary, then first
+        targetInvoice =
+          invoicesList.find((inv: any) => inv.notes?.toLowerCase().includes("consolidated")) ||
+          invoicesList.find((inv: any) => inv.agent_type === "primary") ||
+          invoicesList[0];
       }
 
-      const invoice = invoicesList[0];
-
-      if (invoice) {
-        if (action === "view") {
+      if (action === "view") {
+        // Always open the selected invoice directly — no popup selector needed
+        if (targetInvoice) {
           setActionLoading(null);
-          setServiceInvoicePopup({ invoice, billing, serviceId });
-        } else if (action === "pay") {
+          setServiceInvoicePopup({ invoice: targetInvoice, billing, serviceId });
+        } else {
+          setActionLoading(null);
+          toast.error("Could not find invoice for this order.");
+        }
+      } else if (action === "pay") {
+        // For pay: if there are multiple UNPAID invoices, show the selector so the user
+        // can choose which one to pay. If only one unpaid invoice, go straight to Stripe.
+        const unpaidInvoices = invoicesList.filter((inv: any) => {
+          const s = (inv.status || "").toUpperCase();
+          return s !== "PAID" && s !== "VOID";
+        });
+
+        const hasCoAgentInvoice = unpaidInvoices.some((inv: any) => inv.agent_type === "co-agent");
+        const uniqueAgents = new Set(unpaidInvoices.map((inv: any) => inv.agent?.uuid || inv.agent_uuid).filter(Boolean));
+
+        if (unpaidInvoices.length > 1 && (hasCoAgentInvoice || uniqueAgents.size > 1)) {
+          // Multiple unpaid invoices with split details (co-agent or different agents) — need user to pick
+          setActionLoading(null);
+          setInvoices(invoicesList);
+          setSelectedBilling(billing);
+          setSelectedOrderUuid(billing.order_uuid);
+          setSelectedServiceId(serviceId || null);
+          setShowInvoicesModal(true);
+          setInvoicesLoading(false);
+          return;
+        }
+
+        const invoiceToPay =
+          unpaidInvoices.find((inv: any) => inv.notes?.toLowerCase().includes("consolidated")) ||
+          unpaidInvoices.find((inv: any) => inv.agent_type === "primary") ||
+          unpaidInvoices[0] ||
+          targetInvoice;
+
+        if (invoiceToPay) {
           await PayInvoiceWithStripe(
-            invoice,
+            invoiceToPay,
             { agent: { uuid: billing.agent_uuid }, id: billing.order_id },
             typeof window !== "undefined" ? window.location.href : "dashboard/billing",
             serviceId
           );
-        }
-      } else {
-        if (action === "pay") {
+        } else {
           const amount = serviceId ? (serviceAmount || 0) : billing.remaining_amount;
           await handlePay(billing.order_id, billing.agent_uuid ?? "", amount, {
             paymentType: serviceId ? "service" : "full",
             serviceId
           });
-        } else {
-          setActionLoading(null);
-          toast.error("Could not find invoice for this order.");
         }
       }
+
       setInvoicesLoading(false);
     } catch (err) {
       setActionLoading(null);
@@ -734,12 +772,15 @@ const Page = () => {
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedOrderUuid(billing.order_uuid);
-                              setIsInvoiceModalOpen(true);
+                              handleInvoiceAction(billing, "view");
                             }}
                             title="View Invoice"
                           >
-                            <FileText className="h-4 w-4" />
+                            {actionLoading?.id === billing.order_id && actionLoading?.action === "view" ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <FileText className="h-4 w-4" />
+                            )}
                           </Button>
                           {expandedRow === index ? (
                             <ChevronUp className="h-5 w-5 text-gray-600" />

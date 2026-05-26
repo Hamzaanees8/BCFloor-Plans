@@ -4,16 +4,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash } from 'lucide-react';
-import React, { useEffect, useState, useCallback } from 'react'
+import { Plus, Trash, Edit2Icon } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { Order } from '../../orders/page';
 import { Agent } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { GetServices } from '../../orders/orders';
+import { GetServices, GetUser } from '../../orders/orders';
 import { Services } from '../../services/page';
 import { useAppContext } from '@/app/context/AppContext';
 import { AddCoAgentDialog } from '../../calendar/components/AddCoAgnets';
-import AddNotesDialog from '../../calendar/components/AddNotesDialog';
 import { useOrderContext } from '../context/OrderContext';
 import Schedule from '../../calendar/components/Schedule';
 import { Area } from '../../calendar/components/OrderDetailView';
@@ -38,18 +37,57 @@ export interface CoAgent {
 interface Notes {
     name: string;
     note: string;
-    date: string
+    date: string;
+    internal?: string;
 }
 function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent, setCoAgent, updateInvoice, setUpdateInvoice, area }: AppointmentTab) {
     const { userType } = useAppContext();
     const [agent, setAgent] = useState(currentOrder?.agent?.uuid ?? '');
     const [contactNumber, setContactNumber] = useState("");
     const [contactEmail, setContactEmail] = useState("");
-    const [openAddNotesDialog, setOpenAddNotesDialog] = useState(false);
     const [openAddDialog, setOpenAddDialog] = useState(false);
     const [listing, setListing] = useState("");
     const [squareFootage, setSquareFootage] = useState("");
     const [servicesData, setServicesData] = useState<Services[]>([]);
+    const [userName, setUserName] = useState('');
+    const [isEditingNote, setIsEditingNote] = useState(false);
+    const [tempNote, setTempNote] = useState('');
+    const [editingNote, setEditingNote] = useState<any | null>(null);
+    const [editNoteText, setEditNoteText] = useState('');
+
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+            console.log("Token not found.");
+            return;
+        }
+
+        GetUser(token)
+            .then((res) => {
+                const firstName = res?.data?.first_name || "";
+                const lastName = res?.data?.last_name || "";
+                setUserName(`${firstName} ${lastName}`.trim());
+            })
+            .catch((err) => console.log("Error fetching user info:", err.message));
+    }, []);
+
+    const formatTimestamp = (dateVal: any) => {
+        if (!dateVal) return "";
+        try {
+            const d = new Date(dateVal);
+            if (isNaN(d.getTime())) return String(dateVal);
+            return d.toLocaleString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+            });
+        } catch {
+            return String(dateVal);
+        }
+    };
 
     const { setCalendarServices, calendarServices } = useOrderContext();
 
@@ -93,8 +131,8 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
         } else if (typeof currentOrder?.notes === 'string') {
             try {
                 setNotes(JSON.parse(currentOrder.notes) as Notes[]);
-            } catch (e) {
-                console.error("Failed to parse notes:", e);
+            } catch {
+                console.error("Failed to parse notes.");
                 setNotes([]);
             }
         } else {
@@ -206,7 +244,63 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
         userType === 'admin'
             ? ['Notes', 'Internal Notes']
             : [];
-    const [activeTab, setActiveTab] = useState('Notes')
+    const [activeTab, setActiveTab] = useState('Notes');
+
+    const filteredNotes = useMemo(() => {
+        return notes?.filter(note => {
+            if (activeTab === 'Notes') {
+                return note.internal === 'false' || !note.internal;
+            } else {
+                return note.internal === 'true';
+            }
+        });
+    }, [notes, activeTab]);
+
+    const handleEditClick = () => {
+        setTempNote('');
+        setIsEditingNote(true);
+    };
+
+    const handleSaveNote = () => {
+        setIsEditingNote(false);
+        if (tempNote.trim()) {
+            setNotes(prev => [
+                ...prev,
+                {
+                    note: tempNote.trim(),
+                    name: userName,
+                    date: new Date().toISOString().replace('T', ' ').split('.')[0],
+                    internal: activeTab === 'Internal Notes' ? 'true' : 'false'
+                }
+            ]);
+            setTempNote('');
+        }
+    };
+
+    const handleEditNote = (n: any) => {
+        setEditingNote(n);
+        setEditNoteText(n.note);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingNote(null);
+        setEditNoteText('');
+    };
+
+    const handleUpdateNote = (targetNote: any) => {
+        if (!editNoteText.trim()) {
+            return;
+        }
+        setNotes(prev =>
+            prev.map(note =>
+                note === targetNote
+                    ? { ...note, note: editNoteText.trim() }
+                    : note
+            )
+        );
+        setEditingNote(null);
+        setEditNoteText('');
+    };
     return (
         <Accordion
             type="multiple"
@@ -572,38 +666,94 @@ function EditAppointmentTab({ currentOrder, agentData, notes, setNotes, coAgent,
                                     ))}
                                 </div>
                             </div>
-                            {notes?.map((note, index) => (
-                                <div
-                                    key={index}
-                                    className="w-full p-3 rounded-[6px] bg-[#E4E4E4] border border-[#BBBBBB] relative whitespace-pre-wrap break-words mt-[15px]"
-                                >
-
-                                    <p className="text-sm text-[#333]">{note.note}</p>
-
-                                    <div className="mt-2 text-right text-[#8E8E8E] text-[13px] font-[400] leading-tight">
-                                        <p>{new Date(note.date).toLocaleDateString("en-US", {
-                                            year: "numeric",
-                                            month: "short",
-                                            day: "numeric",
-                                        })}</p>
-                                        <p>{note.name}</p>
-                                    </div>
+                            <div className="relative mt-[15px]">
+                                <div className={`w-full min-h-[150px] max-h-[300px] p-3 rounded-[6px] border border-[#BBBBBB] overflow-y-auto ${isEditingNote ? "bg-white" : "bg-[#E4E4E4]"}`}>
+                                    {filteredNotes.length === 0 && !isEditingNote ? (
+                                        <p className="text-sm text-gray-500 italic">No notes yet.</p>
+                                    ) : (
+                                        <>
+                                            {filteredNotes.map((n, i) => (
+                                                <div key={i} className="mb-3 pb-2 border-b border-[#BBBBBB] last:border-b-0 last:pb-0">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <div className="font-bold text-xs text-gray-500 select-none">
+                                                            {n.name} ({formatTimestamp(n.date)}):
+                                                        </div>
+                                                        {editingNote !== n && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleEditNote(n)}
+                                                                className="p-1 hover:bg-gray-200 rounded"
+                                                                title="Edit Note"
+                                                            >
+                                                                <Edit2Icon className="w-3.5 h-3.5 text-blue-500" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    {editingNote === n ? (
+                                                        <div className="flex flex-col gap-2 mt-1">
+                                                            <textarea
+                                                                className="w-full p-2 border border-[#BBBBBB] rounded bg-white text-sm focus:outline-none"
+                                                                value={editNoteText}
+                                                                onChange={(e) => setEditNoteText(e.target.value)}
+                                                                rows={2}
+                                                            />
+                                                            <div className="flex justify-end gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    className="text-xs font-bold text-gray-500 hover:text-gray-700 uppercase"
+                                                                    onClick={handleCancelEdit}
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className="text-xs font-bold uppercase"
+                                                                    style={{ color: '#4290E9' }}
+                                                                    onClick={() => handleUpdateNote(n)}
+                                                                >
+                                                                    Save
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-sm text-gray-800 whitespace-pre-wrap">{n.note}</div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            {isEditingNote && (
+                                                <div className="mt-2 pt-2 border-t border-dashed border-[#BBBBBB]">
+                                                    <div className="font-bold text-xs text-gray-400 mb-1 select-none">
+                                                        New Note:
+                                                    </div>
+                                                    <textarea
+                                                        autoFocus
+                                                        className="w-full mt-1 p-2 border border-[#BBBBBB] rounded bg-white text-sm focus:outline-none"
+                                                        placeholder="Type note here..."
+                                                        value={tempNote}
+                                                        onChange={(e) => setTempNote(e.target.value)}
+                                                        rows={3}
+                                                    />
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
-                            ))
-                            }
+                            </div>
                             <div className="flex justify-end mt-[10px]">
                                 <Button
-                                    onClick={() => { setOpenAddNotesDialog(true) }}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        if (isEditingNote) {
+                                            handleSaveNote();
+                                        } else {
+                                            handleEditClick();
+                                        }
+                                    }}
                                     className="bg-[#4290E9] border-[1px] text-[14px] flex justify-center items-center border-[#4290E9] text-[#fff]  w-[110px] h-[37px] hover:text-white hover:bg-[#4e9af1]"
-                                >Add Note</Button>
+                                >
+                                    {isEditingNote ? 'SAVE' : 'EDIT'}
+                                </Button>
                             </div>
-                            <AddNotesDialog
-                                open={openAddNotesDialog}
-                                setOpen={setOpenAddNotesDialog}
-                                notes={notes}
-                                setNotes={setNotes}
-                                isInternal={activeTab === 'Internal Notes' ? true : false}
-                            />
                         </div>
                     </AccordionContent>
                 </AccordionItem>}

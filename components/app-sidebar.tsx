@@ -600,51 +600,53 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarGroupContent>
           </SidebarGroup>
         )} */}
-        <TooltipProvider delayDuration={0}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div
-                className={`pb-[20px] ${isCollapsed ? "flex justify-center pt-4" : "pt-[120px] px-[25px]"}`}
-              >
+        <div className="mt-auto w-full">
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <div
-                  onClick={logoutUser}
-                  onMouseEnter={() => setIsLogoutHovered(true)}
-                  onMouseLeave={() => setIsLogoutHovered(false)}
-                  className="flex items-center gap-x-2.5 cursor-pointer"
+                  className={`pb-[20px] ${isCollapsed ? "flex justify-center pt-4" : "pt-4 px-[25px]"}`}
                 >
-                  <LogOut
-                    className="h-[18px] w-[18px] shrink-0"
-                    style={{
-                      color: isLogoutHovered
-                        ? roleSettings.sidebarHoverText
-                        : roleSettings.sidebarText,
-                    }}
-                  />
-                  {!isCollapsed && (
-                    <p
-                      className="text-[16px] font-normal"
+                  <div
+                    onClick={logoutUser}
+                    onMouseEnter={() => setIsLogoutHovered(true)}
+                    onMouseLeave={() => setIsLogoutHovered(false)}
+                    className="flex items-center gap-x-2.5 cursor-pointer"
+                  >
+                    <LogOut
+                      className="h-[18px] w-[18px] shrink-0"
                       style={{
                         color: isLogoutHovered
                           ? roleSettings.sidebarHoverText
                           : roleSettings.sidebarText,
                       }}
-                    >
-                      Log Out
-                    </p>
-                  )}
+                    />
+                    {!isCollapsed && (
+                      <p
+                        className="text-[16px] font-normal"
+                        style={{
+                          color: isLogoutHovered
+                            ? roleSettings.sidebarHoverText
+                            : roleSettings.sidebarText,
+                        }}
+                      >
+                        Log Out
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </TooltipTrigger>
-            {isCollapsed && (
-              <TooltipContent
-                side="right"
-                className="bg-white border border-[#BBBBBB] text-[#424242] font-alexandria text-[14px] shadow-md"
-              >
-                Log Out
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
+              </TooltipTrigger>
+              {isCollapsed && (
+                <TooltipContent
+                  side="right"
+                  className="bg-white border border-[#BBBBBB] text-[#424242] font-alexandria text-[14px] shadow-md"
+                >
+                  Log Out
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </SidebarContent>
     </Sidebar>
   );

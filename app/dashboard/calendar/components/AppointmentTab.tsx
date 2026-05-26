@@ -51,7 +51,7 @@ function AppointmentTab({ currentOrder, serviceId, disabled }: AppointmentTab) {
             : ''
         );
         setCompany(currentOrder?.agent?.company_name ?? '')
-        setContactNumber(currentOrder?.agent.primary_phone ?? '')
+        setContactNumber(currentOrder?.agent?.primary_phone ?? '')
         setContactEmail(currentOrder?.agent?.email ?? '')
         setContactNumber(currentOrder?.agent?.primary_phone ?? '')
         const currentVendor = currentOrder?.slots.find((slots) => {
@@ -124,6 +124,23 @@ function AppointmentTab({ currentOrder, serviceId, disabled }: AppointmentTab) {
 
 
     }, [currentOrder, serviceId])
+    const formatTimestamp = (dateVal: any) => {
+        if (!dateVal) return "";
+        try {
+            const d = new Date(dateVal);
+            if (isNaN(d.getTime())) return String(dateVal);
+            return d.toLocaleString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+            });
+        } catch {
+            return String(dateVal);
+        }
+    };
+
     return (
         <div className={`w-full grid grid-cols-2 gap-4 ${disabled ? 'pointer-events-none opacity-70 cursor-not-allowed select-none' : ''}`}>
             <div className="col-span-1 font-alexandria">
@@ -316,33 +333,28 @@ function AppointmentTab({ currentOrder, serviceId, disabled }: AppointmentTab) {
             )}
             <div className="w-full h-[300px] col-span-2">
                 <DynamicMap
-                    address={currentOrder?.property.address}
-                    city={currentOrder?.property.city}
-                    province={currentOrder?.property.province}
-                    country={currentOrder?.property.country ? currentOrder?.property.country : ""}
+                    address={currentOrder?.property?.address}
+                    city={currentOrder?.property?.city}
+                    province={currentOrder?.property?.province}
+                    country={currentOrder?.property?.country ? currentOrder?.property?.country : ""}
                 />
             </div>
             <div className="col-span-2">
                 <Label className="text-[14px] text-[#424242] " htmlFor="">Notes</Label>
-                {notes?.filter(note => userType !== 'agent' || note.internal !== 'true').map((note, index) => (
-                    <div
-                        key={index}
-                        className="w-full p-3 rounded-[6px] border border-[#BBBBBB] relative whitespace-pre-wrap break-words mt-[15px]"
-                        style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
-                    >
-
-                        <p className="text-sm text-[#333]">{note.note}</p>
-
-                        <div className="mt-2 text-right text-[#8E8E8E] text-[13px] font-[400] leading-tight">
-                            <p>{new Date(note.date).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                            })}</p>
-                            <p>{note.name}</p>
-                        </div>
-                    </div>
-                ))}
+                <div className={`w-full min-h-[100px] max-h-[300px] p-3 rounded-[6px] border border-[#BBBBBB] overflow-y-auto bg-[#E4E4E4] mt-[10px]`}>
+                    {notes?.filter(note => userType !== 'agent' || note.internal !== 'true').length === 0 ? (
+                        <p className="text-sm text-gray-500 italic">No notes yet.</p>
+                    ) : (
+                        notes?.filter(note => userType !== 'agent' || note.internal !== 'true').map((note, index) => (
+                            <div key={index} className="mb-3 pb-2 border-b border-[#BBBBBB] last:border-b-0 last:pb-0">
+                                <div className="font-bold text-xs text-gray-500 mb-1 select-none">
+                                    {note.name} ({formatTimestamp(note.date)}):
+                                </div>
+                                <div className="text-sm text-gray-800 whitespace-pre-wrap">{note.note}</div>
+                            </div>
+                        ))
+                    )}
+                </div>
 
                 <div className="flex justify-end mt-[10px]">
                     {/* <Button

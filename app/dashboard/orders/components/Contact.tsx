@@ -65,19 +65,8 @@ const Contact = () => {
     const [showSignIn, setShowSignIn] = useState(false);
 
     // New States for Notes Redesign
-    const [appointmentText, setAppointmentText] = useState('');
-    const [internalText, setInternalText] = useState('');
-    const [isEditingAppointment, setIsEditingAppointment] = useState(false);
-    const [isEditingInternal, setIsEditingInternal] = useState(false);
-
-    // Helper to format date + name signature
-    const getSignature = () => {
-        const today = new Date();
-        const formattedDate = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        // E.g., "(Admin Todd): "
-        const userPrefix = userType === 'admin' ? 'Admin' : 'Agent';
-        return `\n${formattedDate} (${userPrefix} ${userName}): `;
-    };
+    const [editingNote, setEditingNote] = useState<any | null>(null);
+    const [editNoteText, setEditNoteText] = useState('');
 
 
     const token = localStorage.getItem('token')
@@ -260,55 +249,134 @@ const Contact = () => {
         }
     }, [selectedAgent, setAgentNotes, setCoAgents, lastPopulatedAgentId, setLastPopulatedAgentId]);
 
-    useEffect(() => {
-        // Initialize text areas from context ONCE on load
-        if (agentNotes.length > 0) {
-            const apptNotes = agentNotes
-                .filter(n => n.internal === "false")
-                .map(n => n.note) // The note often has the date/name already attached, or we simply join them
-                .join("\n");
-            const intNotes = agentNotes
-                .filter(n => n.internal === "true")
-                .map(n => n.note)
-                .join("\n");
+    const [tempAppointmentNote, setTempAppointmentNote] = useState('');
+    const [tempInternalNote, setTempInternalNote] = useState('');
 
-            if (apptNotes) setAppointmentText(apptNotes);
-            if (intNotes) setInternalText(intNotes);
+    const appointmentNoteRef = useRef(tempAppointmentNote);
+    const internalNoteRef = useRef(tempInternalNote);
+    const userNameRef = useRef(userName);
+
+    useEffect(() => {
+        appointmentNoteRef.current = tempAppointmentNote;
+    }, [tempAppointmentNote]);
+
+    useEffect(() => {
+        internalNoteRef.current = tempInternalNote;
+    }, [tempInternalNote]);
+
+    useEffect(() => {
+        userNameRef.current = userName;
+    }, [userName]);
+
+    useEffect(() => {
+        return () => {
+            const apptVal = appointmentNoteRef.current.trim();
+            const intVal = internalNoteRef.current.trim();
+
+            if (apptVal || intVal) {
+                setAgentNotes(prev => {
+                    const updated = [...prev];
+                    if (apptVal) {
+                        const noteExists = prev.some(n => n.note === apptVal && n.internal === "false");
+                        if (!noteExists) {
+                            updated.push({
+                                note: apptVal,
+                                name: userNameRef.current,
+                                date: new Date(),
+                                internal: "false"
+                            });
+                        }
+                    }
+                    if (intVal) {
+                        const noteExists = prev.some(n => n.note === intVal && n.internal === "true");
+                        if (!noteExists) {
+                            updated.push({
+                                note: intVal,
+                                name: userNameRef.current,
+                                date: new Date(),
+                                internal: "true"
+                            });
+                        }
+                    }
+                    return updated;
+                });
+            }
+        };
+    }, [setAgentNotes]);
+
+    const formatTimestamp = (dateVal: any) => {
+        if (!dateVal) return "";
+        try {
+            const d = new Date(dateVal);
+            if (isNaN(d.getTime())) return String(dateVal);
+            return d.toLocaleString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+            });
+        } catch {
+            return String(dateVal);
         }
-    }, [agentNotes]);
-    const handleEditClick = (type: 'appointment' | 'internal') => {
-        if (type === 'appointment') {
-            setAppointmentText(prev => prev ? prev + getSignature() : getSignature().trimStart());
-        } else {
-            setInternalText(prev => prev ? prev + getSignature() : getSignature().trimStart());
-        }
-    }
+    };
+
 
     const handleSaveNotes = (type: 'appointment' | 'internal') => {
         if (type === 'appointment') {
-            setIsEditingAppointment(false);
-            // Overwrite existing appointment notes logic. Wait backend payload just uses agentNotes
-            setAgentNotes(prev => [
-                ...prev.filter(n => n.internal === "true"), // keep other type
-                {
-                    note: appointmentText.trim(),
-                    name: userName,
-                    date: new Date(),
-                    internal: "false"
-                }
-            ]);
+            if (tempAppointmentNote.trim()) {
+                setAgentNotes(prev => [
+                    ...prev,
+                    {
+                        note: tempAppointmentNote.trim(),
+                        name: userName,
+                        date: new Date(),
+                        internal: "false"
+                    }
+                ]);
+                setTempAppointmentNote('');
+            }
         } else {
-            setIsEditingInternal(false);
-            setAgentNotes(prev => [
-                ...prev.filter(n => n.internal === "false"), // keep other type
-                {
-                    note: internalText.trim(),
-                    name: userName,
-                    date: new Date(),
-                    internal: "true"
-                }
-            ]);
+            if (tempInternalNote.trim()) {
+                setAgentNotes(prev => [
+                    ...prev,
+                    {
+                        note: tempInternalNote.trim(),
+                        name: userName,
+                        date: new Date(),
+                        internal: "true"
+                    }
+                ]);
+                setTempInternalNote('');
+            }
         }
+    };
+
+    const handleEditNote = (n: any) => {
+        setEditingNote(n);
+        setEditNoteText(n.note);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingNote(null);
+        setEditNoteText('');
+    };
+
+    const handleUpdateNote = (targetNote: any) => {
+        if (!editNoteText.trim()) {
+            toast.error("Note content cannot be empty.");
+            return;
+        }
+        setAgentNotes(prev =>
+            prev.map(note =>
+                note === targetNote
+                    ? { ...note, note: editNoteText.trim() }
+                    : note
+            )
+        );
+        setEditingNote(null);
+        setEditNoteText('');
+        toast.success("Note updated.");
     };
     return (
         <>
@@ -564,13 +632,72 @@ const Contact = () => {
                                                 These notes will be viewable by AGENT.
                                             </p>
                                             <div className="relative">
-                                                <textarea
-                                                    className={`w-full min-h-[150px] p-3 rounded-[6px] border border-[#BBBBBB] resize-none overflow-y-auto ${isEditingAppointment ? "bg-white" : "bg-[#E4E4E4]"}`}
-                                                    placeholder={isEditingAppointment ? "Type appointment note here..." : ""}
-                                                    value={appointmentText}
-                                                    onChange={(e) => setAppointmentText(e.target.value)}
-                                                    readOnly={!isEditingAppointment}
-                                                />
+                                                <div className="w-full min-h-[150px] max-h-[300px] p-3 rounded-[6px] border border-[#BBBBBB] overflow-y-auto bg-[#E4E4E4]">
+                                                    {agentNotes.filter(n => n.internal === "false" || !n.internal).length === 0 ? (
+                                                        <p className="text-sm text-gray-500 italic mb-2">No appointment notes yet.</p>
+                                                    ) : (
+                                                        agentNotes.filter(n => n.internal === "false" || !n.internal).map((n, i) => (
+                                                            <div key={i} className="mb-3 pb-2 border-b border-[#BBBBBB] last:border-b-0 last:pb-0">
+                                                                <div className="flex justify-between items-center mb-1">
+                                                                    <div className="font-bold text-xs text-gray-500 select-none">
+                                                                        {n.name} ({formatTimestamp(n.date)}):
+                                                                    </div>
+                                                                    {editingNote !== n && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleEditNote(n)}
+                                                                            className="p-1 hover:bg-gray-200 rounded"
+                                                                            title="Edit Note"
+                                                                        >
+                                                                            <Edit2Icon className="w-3.5 h-3.5 text-blue-500" />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                                {editingNote === n ? (
+                                                                    <div className="flex flex-col gap-2 mt-1">
+                                                                        <textarea
+                                                                            className="w-full p-2 border border-[#BBBBBB] rounded bg-white text-sm focus:outline-none"
+                                                                            value={editNoteText}
+                                                                            onChange={(e) => setEditNoteText(e.target.value)}
+                                                                            rows={2}
+                                                                        />
+                                                                        <div className="flex justify-end gap-2">
+                                                                            <button
+                                                                                type="button"
+                                                                                className="text-xs font-bold text-gray-500 hover:text-gray-700 uppercase"
+                                                                                onClick={handleCancelEdit}
+                                                                            >
+                                                                                Cancel
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                className="text-xs font-bold uppercase"
+                                                                                style={{ color: roleSettings.pageTabColor }}
+                                                                                onClick={() => handleUpdateNote(n)}
+                                                                            >
+                                                                                Save
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{n.note}</div>
+                                                                )}
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                    <div className="mt-2 pt-2 border-t border-dashed border-[#BBBBBB]">
+                                                        <div className="font-bold text-xs text-gray-400 mb-1 select-none">
+                                                            New Note:
+                                                        </div>
+                                                        <textarea
+                                                            className="w-full mt-1 p-2 border border-[#BBBBBB] rounded bg-white text-sm focus:outline-none"
+                                                            placeholder="Type appointment note here..."
+                                                            value={tempAppointmentNote}
+                                                            onChange={(e) => setTempAppointmentNote(e.target.value)}
+                                                            rows={3}
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
                                             <div className="flex justify-end mt-2">
                                                 <button
@@ -578,15 +705,10 @@ const Contact = () => {
                                                     style={{ color: roleSettings.pageTabColor }}
                                                     onClick={(e) => {
                                                         e.preventDefault();
-                                                        if (isEditingAppointment) {
-                                                            handleSaveNotes('appointment');
-                                                        } else {
-                                                            setIsEditingAppointment(true);
-                                                            handleEditClick('appointment');
-                                                        }
+                                                        handleSaveNotes('appointment');
                                                     }}
                                                 >
-                                                    {isEditingAppointment ? 'SAVE' : 'EDIT'}
+                                                    SAVE
                                                 </button>
                                             </div>
                                         </div>
@@ -597,17 +719,76 @@ const Contact = () => {
                                                 <div className="flex justify-between items-center text-white rounded-[6px] px-4 py-1.5 w-max mb-2" style={{ backgroundColor: roleSettings.pageTabColor }}>
                                                     <span className="font-bold text-[13px]">Internal AGENT Notes</span>
                                                 </div>
-                                                <p className="text-[#E06D5E] text-[12px] mb-2 font-bold">
+                                                <p className="text-[#357ad1] text-[12px] mb-2 font-bold">
                                                     These notes will NOT be viewable to AGENT
                                                 </p>
                                                 <div className="relative">
-                                                    <textarea
-                                                        className={`w-full min-h-[150px] p-3 rounded-[6px] border border-[#BBBBBB] resize-none overflow-y-auto ${isEditingInternal ? "bg-white" : "bg-[#E4E4E4]"}`}
-                                                        placeholder={isEditingInternal ? "Type internal note here..." : ""}
-                                                        value={internalText}
-                                                        onChange={(e) => setInternalText(e.target.value)}
-                                                        readOnly={!isEditingInternal}
-                                                    />
+                                                    <div className="w-full min-h-[150px] max-h-[300px] p-3 rounded-[6px] border border-[#BBBBBB] overflow-y-auto bg-[#E4E4E4]">
+                                                        {agentNotes.filter(n => n.internal === "true").length === 0 ? (
+                                                            <p className="text-sm text-gray-500 italic mb-2">No internal notes yet.</p>
+                                                        ) : (
+                                                            agentNotes.filter(n => n.internal === "true").map((n, i) => (
+                                                                <div key={i} className="mb-3 pb-2 border-b border-[#BBBBBB] last:border-b-0 last:pb-0">
+                                                                    <div className="flex justify-between items-center mb-1">
+                                                                        <div className="font-bold text-xs text-gray-500 select-none">
+                                                                            {n.name} ({formatTimestamp(n.date)}):
+                                                                        </div>
+                                                                        {editingNote !== n && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleEditNote(n)}
+                                                                                className="p-1 hover:bg-gray-200 rounded"
+                                                                                title="Edit Note"
+                                                                            >
+                                                                                <Edit2Icon className="w-3.5 h-3.5 text-blue-500" />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                    {editingNote === n ? (
+                                                                        <div className="flex flex-col gap-2 mt-1">
+                                                                            <textarea
+                                                                                className="w-full p-2 border border-[#BBBBBB] rounded bg-white text-sm focus:outline-none"
+                                                                                value={editNoteText}
+                                                                                onChange={(e) => setEditNoteText(e.target.value)}
+                                                                                rows={2}
+                                                                            />
+                                                                            <div className="flex justify-end gap-2">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="text-xs font-bold text-gray-500 hover:text-gray-700 uppercase"
+                                                                                    onClick={handleCancelEdit}
+                                                                                >
+                                                                                    Cancel
+                                                                                </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="text-xs font-bold uppercase"
+                                                                                    style={{ color: roleSettings.pageTabColor }}
+                                                                                    onClick={() => handleUpdateNote(n)}
+                                                                                >
+                                                                                    Save
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-sm text-gray-800 whitespace-pre-wrap">{n.note}</div>
+                                                                    )}
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                        <div className="mt-2 pt-2 border-t border-dashed border-[#BBBBBB]">
+                                                            <div className="font-bold text-xs text-gray-400 mb-1 select-none">
+                                                                New Note:
+                                                            </div>
+                                                            <textarea
+                                                                className="w-full mt-1 p-2 border border-[#BBBBBB] rounded bg-white text-sm focus:outline-none"
+                                                                placeholder="Type internal note here..."
+                                                                value={tempInternalNote}
+                                                                onChange={(e) => setTempInternalNote(e.target.value)}
+                                                                rows={3}
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </div>
                                                 <div className="flex justify-end mt-2">
                                                     <button
@@ -615,15 +796,10 @@ const Contact = () => {
                                                         style={{ color: roleSettings.pageTabColor }}
                                                         onClick={(e) => {
                                                             e.preventDefault();
-                                                            if (isEditingInternal) {
-                                                                handleSaveNotes('internal');
-                                                            } else {
-                                                                setIsEditingInternal(true);
-                                                                handleEditClick('internal');
-                                                            }
+                                                            handleSaveNotes('internal');
                                                         }}
                                                     >
-                                                        {isEditingInternal ? 'SAVE' : 'EDIT'}
+                                                        SAVE
                                                     </button>
                                                 </div>
                                             </div>

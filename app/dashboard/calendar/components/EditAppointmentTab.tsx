@@ -3,15 +3,15 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pencil, Plus, Trash, X, Edit2, Eye, EyeOff } from 'lucide-react';
+import { Pencil, Plus, Trash, X } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import React, { useEffect, useState, useMemo } from 'react'
 import { Order } from '../../orders/page';
 import { Agent } from '@/lib/types';
 import Schedule from './Schedule';
 import { Button } from '@/components/ui/button';
-import AddNotesDialog from './AddNotesDialog';
 import AddCoAgentDialog from '@/components/AddCoAgentDialog'
+import { GetUser } from '../../orders/orders';
 import { useOrderContext } from '../../orders/context/OrderContext';
 import { useAppContext } from '@/app/context/AppContext';
 
@@ -54,7 +54,6 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
     const [agent, setAgent] = useState(currentOrder?.agent.uuid ?? '');
     const [contactNumber, setContactNumber] = useState("");
     const [contactEmail, setContactEmail] = useState("");
-    const [openAddNotesDialog, setOpenAddNotesDialog] = useState(false);
     const [openAddDialog, setOpenAddDialog] = useState(false);
     const [selectedCoAgent, setSelectedCoAgent] = useState<{ name: string; email: string; primary_phone: string; split: string } | null>(null);
     const [selectedCoAgentIndex, setSelectedCoAgentIndex] = useState<number | null>(null);
@@ -67,8 +66,11 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
     // const [time, setTime] = useState("");
     const [listing, setListing] = useState("");
     const [squareFootage, setSquareFootage] = useState("");
-    const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
-    const [tempNotes, setTempNotes] = useState('');
+    const [isEditingNote, setIsEditingNote] = useState(false);
+    const [tempNote, setTempNote] = useState('');
+    const [userName, setUserName] = useState('');
+    const [editingNote, setEditingNote] = useState<any | null>(null);
+    const [editNoteText, setEditNoteText] = useState('');
     // const [isSplit, setIsSplit] = useState(currentOrder?.split_invoice ?? false);
     // const [additionalServices, setAdditionalServices] = useState<
     //     { serviceId: number; optionId: string | null; price: string }[]
@@ -101,8 +103,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
         } else if (typeof currentOrder?.notes === 'string') {
             try {
                 setNotes(JSON.parse(currentOrder.notes) as Notes[]);
-            } catch (e) {
-                console.error("Failed to parse notes:", e);
+            } catch {
+                console.error("Failed to parse notes.");
                 setNotes([]);
             }
         } else {
@@ -162,39 +164,84 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
         });
     }, [notes, activeTab]);
 
-    const handleDeleteNote = (indexInFiltered: number) => {
-        const noteToDelete = filteredNotes[indexInFiltered];
-        setNotes(prev => {
-            const actualIndex = prev.findIndex(n =>
-                n.note === noteToDelete.note &&
-                n.date === noteToDelete.date &&
-                n.name === noteToDelete.name
-            );
-            if (actualIndex !== -1) {
-                const updated = [...prev];
-                updated.splice(actualIndex, 1);
-                return updated;
-            }
-            return prev;
-        });
-    };
+    useEffect(() => {
+        const token = localStorage.getItem("token");
 
-    const handleEditNote = (note: Notes, index: number) => {
-        setEditingNoteIndex(index);
-        setTempNotes(note.note);
-    };
-
-    const handleSaveInlineNote = (indexInFiltered: number) => {
-        if (editingNoteIndex === indexInFiltered && tempNotes.trim()) {
-            const noteToUpdate = filteredNotes[indexInFiltered];
-            setNotes(prev => prev.map(note =>
-                (note.note === noteToUpdate.note && note.date === noteToUpdate.date && note.name === noteToUpdate.name)
-                    ? { ...note, note: tempNotes.trim() }
-                    : note
-            ));
+        if (!token) {
+            console.log("Token not found.");
+            return;
         }
-        setEditingNoteIndex(null);
-        setTempNotes('');
+
+        GetUser(token)
+            .then((res) => {
+                const firstName = res?.data?.first_name || "";
+                const lastName = res?.data?.last_name || "";
+                setUserName(`${firstName} ${lastName}`.trim());
+            })
+            .catch((err) => console.log("Error fetching user info:", err.message));
+    }, []);
+
+    const formatTimestamp = (dateVal: any) => {
+        if (!dateVal) return "";
+        try {
+            const d = new Date(dateVal);
+            if (isNaN(d.getTime())) return String(dateVal);
+            return d.toLocaleString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+            });
+        } catch {
+            return String(dateVal);
+        }
+    };
+
+    const handleEditClick = () => {
+        setTempNote('');
+        setIsEditingNote(true);
+    };
+
+    const handleSaveNote = () => {
+        setIsEditingNote(false);
+        if (tempNote.trim()) {
+            setNotes(prev => [
+                ...prev,
+                {
+                    note: tempNote.trim(),
+                    name: userName,
+                    date: new Date().toISOString().replace('T', ' ').split('.')[0],
+                    internal: activeTab === 'Notes on Agent' ? 'true' : 'false'
+                }
+            ]);
+            setTempNote('');
+        }
+    };
+
+    const handleEditNote = (n: any) => {
+        setEditingNote(n);
+        setEditNoteText(n.note);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingNote(null);
+        setEditNoteText('');
+    };
+
+    const handleUpdateNote = (targetNote: any) => {
+        if (!editNoteText.trim()) {
+            return;
+        }
+        setNotes(prev =>
+            prev.map(note =>
+                note === targetNote
+                    ? { ...note, note: editNoteText.trim() }
+                    : note
+            )
+        );
+        setEditingNote(null);
+        setEditNoteText('');
     };
 
     const [invalidServices, setInvalidServices] = useState<string[]>([]);
@@ -228,8 +275,8 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
             const productOption = serviceData?.product_options?.find((opt) => opt.uuid === srv.optionId);
 
             const requiredDuration = getEffectiveServiceDuration(productOption?.service_duration, hasValidSqFt ? sqFt : undefined);
-            const serviceSlots = selectedSlots.filter((slot) => 
-                String(slot.service_id) === String(srv.uuid) || 
+            const serviceSlots = selectedSlots.filter((slot) =>
+                String(slot.service_id) === String(srv.uuid) ||
                 (srv.id && String(slot.service_id) === String(srv.id))
             );
             const allocatedDuration = serviceSlots.length * 15;
@@ -454,10 +501,10 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                         </div> */}
                         <div className="w-full h-[300px] col-span-3 mt-[20px]">
                             <DynamicMap
-                                address={currentOrder?.property.address}
-                                city={currentOrder?.property.city}
-                                province={currentOrder?.property.province}
-                                country={currentOrder?.property.country ? currentOrder?.property.country : ""}
+                                address={currentOrder?.property?.address}
+                                city={currentOrder?.property?.city}
+                                province={currentOrder?.property?.province}
+                                country={currentOrder?.property?.country ? currentOrder?.property?.country : ""}
                             />
                         </div>
 
@@ -750,71 +797,100 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                     </p>
                                 )
                             ) : (
-                                <p className="text-[#7D7D7D] text-[13px]">
+                                <p className="text-[#357AD1] text-[13px]">
                                     This note is for Internal Use only. Agent will not be able to see or access Note.
                                 </p>
                             )}
                         </div>
-                        <div className="flex flex-col gap-4 mt-[12px]">
-                            {filteredNotes?.map((note, index) => (
-                                <div
-                                    key={index}
-                                    className="w-full p-3 rounded-[6px] bg-[#E4E4E4] border border-[#BBBBBB] relative whitespace-pre-wrap break-words"
-                                >
-                                    {editingNoteIndex === index ? (
-                                        <textarea
-                                            autoFocus
-                                            className="w-full bg-transparent border-none outline-none resize-none text-sm text-[#333] min-h-[60px]"
-                                            value={tempNotes}
-                                            onChange={(e) => setTempNotes(e.target.value)}
-                                            onBlur={() => handleSaveInlineNote(index)}
-                                            onClick={(e) => e.stopPropagation()}
-                                        />
-                                    ) : (
-                                        <p
-                                            className="text-sm text-[#333] cursor-pointer"
-                                            onClick={() => handleEditNote(note, index)}
-                                        >
-                                            {note.note}
-                                        </p>
-                                    )}
-
-                                    <div className="mt-2 text-right text-[#8E8E8E] text-[13px] font-[400] leading-tight">
-                                        <p>
-                                            {new Date(note.date).toLocaleDateString("en-US", {
-                                                year: "numeric",
-                                                month: "short",
-                                                day: "numeric",
-                                            })}
-                                        </p>
-                                        <p>{note.name}</p>
-                                        <div className='flex items-center justify-end gap-x-2'>
-                                            {note.internal === "true" ? (
-                                                <EyeOff className='w-4 h-4 text-[#7D7D7D]' />
-                                            ) : (
-                                                <Eye className='w-4 h-4 text-[#7D7D7D]' />
-                                            )}
-                                            <Edit2 className='w-4 h-4 text-[#7D7D7D] cursor-pointer' onClick={() => handleEditNote(note, index)} />
-                                            <Trash onClick={() => handleDeleteNote(index)} className="w-4 h-4 text-[#7D7D7D] cursor-pointer" />
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
+                        <div className="relative mt-[15px]">
+                            <div className={`w-full min-h-[150px] max-h-[300px] p-3 rounded-[6px] border border-[#BBBBBB] overflow-y-auto ${isEditingNote ? "bg-white" : "bg-[#E4E4E4]"}`}>
+                                {filteredNotes.length === 0 && !isEditingNote ? (
+                                    <p className="text-sm text-gray-500 italic">No notes yet.</p>
+                                ) : (
+                                    <>
+                                        {filteredNotes.map((n, i) => (
+                                            <div key={i} className="mb-3 pb-2 border-b border-[#BBBBBB] last:border-b-0 last:pb-0">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <div className="font-bold text-xs text-gray-500 select-none">
+                                                        {n.name} ({formatTimestamp(n.date)}):
+                                                    </div>
+                                                    {editingNote !== n && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleEditNote(n)}
+                                                            className="p-1 hover:bg-gray-200 rounded"
+                                                            title="Edit Note"
+                                                        >
+                                                            <Pencil className="w-3.5 h-3.5 text-blue-500" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {editingNote === n ? (
+                                                    <div className="flex flex-col gap-2 mt-1">
+                                                        <textarea
+                                                            className="w-full p-2 border border-[#BBBBBB] rounded bg-white text-sm focus:outline-none"
+                                                            value={editNoteText}
+                                                            onChange={(e) => setEditNoteText(e.target.value)}
+                                                            rows={2}
+                                                        />
+                                                        <div className="flex justify-end gap-2">
+                                                            <button
+                                                                type="button"
+                                                                className="text-xs font-bold text-gray-500 hover:text-gray-700 uppercase"
+                                                                onClick={handleCancelEdit}
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="text-xs font-bold uppercase"
+                                                                style={{ color: `var(--${userType}-theme-color, #4290E9)` }}
+                                                                onClick={() => handleUpdateNote(n)}
+                                                            >
+                                                                Save
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{n.note}</div>
+                                                )}
+                                            </div>
+                                        ))}
+                                        {isEditingNote && (
+                                            <div className="mt-2 pt-2 border-t border-dashed border-[#BBBBBB]">
+                                                <div className="font-bold text-xs text-gray-400 mb-1 select-none">
+                                                    New Note:
+                                                </div>
+                                                <textarea
+                                                    autoFocus
+                                                    className="w-full mt-1 p-2 border border-[#BBBBBB] rounded bg-white text-sm focus:outline-none"
+                                                    placeholder="Type note here..."
+                                                    value={tempNote}
+                                                    onChange={(e) => setTempNote(e.target.value)}
+                                                    rows={3}
+                                                />
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex justify-end mt-[10px]">
                             <Button
-                                onClick={() => { setOpenAddNotesDialog(true) }}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    if (isEditingNote) {
+                                        handleSaveNote();
+                                    } else {
+                                        handleEditClick();
+                                    }
+                                }}
                                 className={`${userType}-bg border-[1px] text-[14px] flex justify-center items-center ${userType}-border text-[#fff]  w-[110px] h-[37px] hover:text-white hover:brightness-110`}
-                            >Add Note</Button>
+                            >
+                                {isEditingNote ? 'SAVE' : 'EDIT'}
+                            </Button>
                         </div>
-                        <AddNotesDialog
-                            open={openAddNotesDialog}
-                            setOpen={setOpenAddNotesDialog}
-                            notes={notes}
-                            setNotes={setNotes}
-                            isInternal={activeTab === 'Notes on Agent'}
-                        />
                         <div className='mt-[40px]'>
                             <Link
                                 href={`/dashboard/file-manager/${currentOrder?.uuid}?listingId=${currentOrder?.property?.uuid}`}

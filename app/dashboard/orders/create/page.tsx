@@ -138,7 +138,7 @@ const OrderForm = () => {
         }
     }, [setServicesData, setAgentsData, setPackagesData]);
     const handleDoneClick = () => {
-        router.push('/dashboard/orders');
+        router.push('/dashboard/listings');
         setSelectedAgentId(null);
         setSelectedListingId(null);
         setDiscountCode("");

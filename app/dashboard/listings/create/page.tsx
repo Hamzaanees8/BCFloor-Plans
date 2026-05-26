@@ -35,6 +35,7 @@ import { Get } from "../../agents/agents";
 import { ArrowDown, ArrowUp } from "@/components/Icons";
 import { useAppContext } from "@/app/context/AppContext";
 import { useUnsaved } from "@/app/context/UnsavedContext";
+import { useOrganization } from "@/app/context/OrganizationContext";
 import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
 import Link from "next/link";
 import GooglePlacesAutocomplete from "../../calendar/components/AutoCompleteInput";
@@ -44,6 +45,10 @@ import { Info, Plus } from "lucide-react";
 
 const ListingsFrom = () => {
   const { userType } = useAppContext();
+  const { organization } = useOrganization();
+  const orgName = (organization?.is_whitelabel && organization?.name)
+    ? organization.name
+    : "Tojuco Solutions";
   const [currentListing, setCurrentListing] = useState<Listings | null>(null);
   const [filesData, setFilesData] = useState<FilesData | null>(null);
   const [listingPrice, setListingPrice] = useState("");
@@ -818,7 +823,7 @@ const ListingsFrom = () => {
               : `Create Your Property Listing`}
           </p>
           <p className="text-[12px] md:text-[16px] font-[500] text-[#F2F2F2ff]">
-            BC Floor Plans
+            {orgName}
           </p>
         </div>
       </div>

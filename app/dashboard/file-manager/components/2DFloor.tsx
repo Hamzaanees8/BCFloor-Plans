@@ -571,7 +571,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                             </Tooltip>
                         )}
 
-                        {userType === 'admin' && reviewFilesEnabled && (
+                        {userType === 'admin' && (
                             <div
                                 className="absolute flex justify-between items-center bottom-2 left-2 z-10 cursor-pointer bg-white/80 p-1 rounded"
                                 onClick={(e) => {

@@ -420,9 +420,8 @@ const Page = () => {
       </div>
 
       <div
-        className={`w-full px-4 py-3 border-b border-gray-200 border border-b-gray-300 grid ${
-          userType === "admin" || userType === "vendor" ? "grid-cols-5" : "grid-cols-4"
-        } gap-4 h-[60px] font-alexandria`}
+        className={`w-full px-4 py-3 border-b border-gray-200 border border-b-gray-300 grid ${userType === "admin" || userType === "vendor" ? "grid-cols-5" : "grid-cols-4"
+          } gap-4 h-[60px] font-alexandria`}
         style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}>
 
         <Input
@@ -470,7 +469,7 @@ const Page = () => {
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
             <SelectItem value="true">Tour Active</SelectItem>
-            <SelectItem value="false">Tour InActive</SelectItem>
+            <SelectItem value="false">Tour Inactive</SelectItem>
           </SelectContent>
         </Select>
 

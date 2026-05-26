@@ -50,6 +50,7 @@ import OrderDetailView from "../../calendar/components/OrderDetailView";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { GetInvoicesByOrder, PayInvoiceWithStripe } from "../../invoice/invoice_api";
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
+import { useOrganization } from "@/app/context/OrganizationContext";
 export interface VendorAddress {
   type: "company" | "billing" | string;
   address_line_1: string;
@@ -135,6 +136,10 @@ export interface OrderData {
 }
 
 function Page() {
+  const { organization } = useOrganization();
+  const orgName = (organization?.is_whitelabel && organization?.name)
+    ? organization.name
+    : "Tojuco Solutions";
   const [orderData, setOrderData] = useState<Order | null>(null);
   const [order_status, setOrder_status] = useState("");
   const [property_website, setProperty_website] = useState("");
@@ -630,15 +635,19 @@ function Page() {
         <div className="absolute left-0 top-0 h-full w-1/3 bg-gradient-to-r from-black/70 to-transparent z-[9]" />
         <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-black/70 to-transparent z-[9]" />
 
-        <p className="text-[14px] md:text-[20px] font-[500] text-[#F2F2F2] z-[9]">
-          {orderData?.property?.address || ""}
-          <br />
-          {getCountryNameByIso(country, countries) || ""} <br />
-          {orderData?.property?.postal_code || ""}
-        </p>
-        {/*<p className="text-[12px] md:text-[16px] font-[500] text-[#F2F2F2ff] z-20">
-                    Photographer
-                </p>*/}
+        <div className="relative z-10 w-full flex flex-col md:flex-row justify-between items-start md:items-center">
+          <p className="text-[14px] md:text-[20px] font-[500] text-[#F2F2F2]">
+            {orderData?.property?.address || ""}
+            <br />
+            {getCountryNameByIso(country, countries) || ""} <br />
+            {orderData?.property?.postal_code || ""}
+          </p>
+          <div className="mt-4 md:mt-0">
+            <p className="text-[12px] md:text-[16px] font-[500] text-white">
+              {orgName}
+            </p>
+          </div>
+        </div>
       </div>
       <div
         className="w-full h-[60px] font-alexandria pr-5 z-20 sticky top-[80px] flex items-center border-b border-[#BBBBBB]"

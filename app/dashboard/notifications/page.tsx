@@ -372,7 +372,7 @@ const Page = () => {
             disabled={isLoadingMore}
             className="text-sm px-4 py-2 text-[#666666] border border-[#D1D5DB] hover:bg-gray-100"
           >
-            {isLoadingMore ? "Loading..." : "Load Next Month Notifications"}
+            {isLoadingMore ? "Loading..." : "Load previous Month Notifications"}
           </Button>
         </div>
 

@@ -343,14 +343,14 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                             title: `${firstSlot.vendor?.first_name ?? "Vendor"} ${firstSlot.vendor?.last_name ?? ""}`.trim(),
                             start: dayjs(`${firstSlot.date} ${firstSlot.start_time}`).toDate(),
                             end: dayjs(`${lastSlot.date} ${lastSlot.end_time}`).toDate(),
-                            vendor_id: firstSlot.vendor.uuid,
+                            vendor_id: firstSlot.vendor?.uuid,
                             service_id: firstSlot.service_id,
                             order_id: order.uuid,
                             address: firstSlot.address || order.property_address,
                             service_name: serviceName,
                             // @ts-expect-error skip
                             color_id: Number(firstSlot.vendor?.company?.vendor_id ?? 0),
-                            resourceId: firstSlot.vendor.uuid
+                            resourceId: firstSlot.vendor?.uuid
                         });
                         currentGroup = [slot];
                     }
@@ -366,14 +366,14 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     title: `${firstSlot.vendor?.first_name ?? "Vendor"} ${firstSlot.vendor?.last_name ?? ""}`.trim(),
                     start: dayjs(`${firstSlot.date} ${firstSlot.start_time}`).toDate(),
                     end: dayjs(`${lastSlot.date} ${lastSlot.end_time}`).toDate(),
-                    vendor_id: firstSlot.vendor.uuid,
+                    vendor_id: firstSlot.vendor?.uuid,
                     service_id: firstSlot.service_id,
                     order_id: order.uuid,
                     address: firstSlot.address || order.property_address,
                     service_name: serviceName,
                     // @ts-expect-error skip
-                    color_id: firstSlot.vendor.company?.vendor_id,
-                    resourceId: firstSlot.vendor.uuid
+                    color_id: firstSlot.vendor?.company?.vendor_id,
+                    resourceId: firstSlot.vendor?.uuid
                 });
             }
         });

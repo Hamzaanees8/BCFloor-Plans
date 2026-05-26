@@ -20,6 +20,7 @@ interface OrganizationData {
   org_id: number;
   uuid: string;
   slug: string;
+  name?: string;
   portal_type: "admin" | "agent" | "vendor";
   is_whitelabel: boolean;
   from_name: string;

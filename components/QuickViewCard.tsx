@@ -371,16 +371,33 @@ export default function QuickViewCard({
             {type === "notification" && (
               <div className="flex items-center space-x-[18px] ">
                 <File className="w-[24px] text-[#666666]" strokeWidth={1} />
-                <p
-                  className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px] text-[#4290E9]`}
-                >
-                  #
-                  {data?.meta_data?.order_id ||
+                {(() => {
+                  const orderUuid =
+                    data?.meta_data?.order_uuid ||
+                    (data.source === "AgentPayment"
+                      ? data.diff_data?.payment_details?.after?.order_uuid
+                      : undefined);
+                  const orderId =
+                    data?.meta_data?.order_id ||
                     (data.source === "AgentPayment" &&
-                      data.diff_data?.payment_details?.after?.order_uuid
+                    data.diff_data?.payment_details?.after?.order_uuid
                       ? "Order UUID"
-                      : "N/A")}
-                </p>
+                      : "N/A");
+                  return orderUuid ? (
+                    <Link
+                      href={`/dashboard/orders/${orderUuid}`}
+                      className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px] text-[#4290E9]`}
+                    >
+                      #{orderId}
+                    </Link>
+                  ) : (
+                    <p
+                      className={`text-[15px] font-[400] ${userType}-text leading-[25px] text-[#4290E9]`}
+                    >
+                      #{orderId}
+                    </p>
+                  );
+                })()}
               </div>
             )}
             {type === "vendors" && data.addresses?.length > 0 && (
@@ -402,6 +419,31 @@ export default function QuickViewCard({
                     className="w-[24px] basis-[7%] text-[#666666]"
                     strokeWidth={1}
                   />
+                  {type === "notification" ? (() => {
+                    const notifAddress =
+                      (data as NotificationData).source === "AgentPayment" ||
+                      (data as NotificationData).source === "VendorPayment"
+                        ? (data as NotificationData).meta_data?.property_address ||
+                          "Payment Transaction"
+                        : (data as NotificationData)?.order?.property_address;
+                    const mapsUrl = notifAddress && notifAddress !== "Payment Transaction"
+                      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(notifAddress)}`
+                      : null;
+                    return mapsUrl ? (
+                      <a
+                        href={mapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px] cursor-pointer`}
+                      >
+                        {notifAddress}
+                      </a>
+                    ) : (
+                      <p className={`text-[15px] font-[400] ${userType}-text leading-[25px]`}>
+                        {notifAddress}
+                      </p>
+                    );
+                  })() : (
                   <p
                     className={`hover:underline text-[15px] font-[400] ${userType}-text leading-[25px]`}
                   >
@@ -420,16 +462,9 @@ export default function QuickViewCard({
                       ]
                         .filter(Boolean)
                         .join(", ")}
-
-                    {type === "notification" &&
-                      ((data as NotificationData).source === "AgentPayment" ||
-                        (data as NotificationData).source === "VendorPayment"
-                        ? (data as NotificationData).meta_data?.property_address
-                          ? (data as NotificationData).meta_data?.property_address
-                          : "Payment Transaction"
-                        : (data as NotificationData)?.order?.property_address)}
                     {type === "subaccount" && (data as SubAccountData).address}
                   </p>
+                  )}
                 </div>
               )}
             {type === "listing" && (
@@ -555,12 +590,16 @@ export default function QuickViewCard({
                     {data.secondary_phone || "N/A"}
                   </span>
                 </div>
-                <div className="text-[10px] text-[#8E8E8E] uppercase font-[700]">
-                  Notes (Hidden from Agent)
-                </div>
-                <p className="text-[15px] font-[400] text-[#666666]">
-                  {data.notes || "No Notes"}
-                </p>
+                {userType !== "agent" && (
+                  <>
+                    <div className="text-[10px] text-[#8E8E8E] uppercase font-[700]">
+                      Notes (Hidden from Agent)
+                    </div>
+                    <p className="text-[15px] font-[400] text-[#666666]">
+                      {data.notes || "No Notes"}
+                    </p>
+                  </>
+                )}
               </div>
             )}
             {type === "listing" && (

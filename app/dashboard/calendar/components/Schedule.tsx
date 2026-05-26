@@ -755,7 +755,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                                             (uuid): uuid is string => typeof uuid === 'string'
                                                         )
                                             }
-                                            selectedListingId={currentOrder?.property.uuid ?? ''}
+                                            selectedListingId={currentOrder?.property?.uuid ?? ''}
                                             service={service}
                                             calendarIdx={idx}
                                             showAllVendorsMap={showAllVendorsMap}

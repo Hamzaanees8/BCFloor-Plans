@@ -83,7 +83,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         if (from === 'calendar') {
             router.push('/dashboard/calendar');
         } else {
-            router.push('/dashboard/orders');
+            router.push('/dashboard/listings');
         }
     };
 

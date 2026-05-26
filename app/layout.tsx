@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Alexandria, Geist, Geist_Mono, Raleway } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import { getDefaultDomains } from "@/lib/config/domains";
 
 import { AppProvider } from "./context/AppContext";

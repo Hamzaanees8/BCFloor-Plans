@@ -114,6 +114,7 @@ export default function OrderDetailView({
   serviceId,
   orderData,
   agentData,
+  refreshOrders,
 }: OrderDetailViewProps) {
   const { userType } = useAppContext();
   const [activeTab, setActiveTab] = useState<
@@ -698,6 +699,7 @@ export default function OrderDetailView({
         }
 
         toast.success("Order updated successfully");
+        refreshOrders();
         return true;
       } else {
         toast.error("Something went wrong");

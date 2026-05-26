@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { useFileManagerContext, Files } from "../FileManagerContext";
 import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
 import { useUnsaved } from "@/app/context/UnsavedContext";
+import { useOrganization } from "@/app/context/OrganizationContext";
 import { toast } from "sonner";
 import { GetInvoicesByOrder, PayInvoiceWithStripe } from "../../invoice/invoice_api";
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
@@ -50,6 +51,10 @@ export type MediaDateBoundary = {
 
 const FileManager = () => {
   const router = useRouter();
+  const { organization } = useOrganization();
+  const orgName = (organization?.is_whitelabel && organization?.name)
+    ? organization.name
+    : "Tojuco Solutions";
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
   const [servicesData, setServicesData] = React.useState<Services[]>([]);
   const [services, setServices] = React.useState<OrerServices[]>([]);
@@ -1031,7 +1036,7 @@ const FileManager = () => {
               </Avatar>
               <div>
                 <p className="text-[14px] font-normal text-white font-alexandria leading-4">
-                  BC Floor Plans
+                  {orgName}
                 </p>
                 {/* <p className="text-[14px] font-normal text-white font-alexandria leading-4">
                   Media Company Owner
@@ -1125,7 +1130,7 @@ const FileManager = () => {
           </div>
           <div className="mt-4 md:mt-0">
             <p className="text-[12px] md:text-[16px] font-[500] text-white">
-              BC Floor Plans
+              {orgName}
             </p>
           </div>
         </div>
