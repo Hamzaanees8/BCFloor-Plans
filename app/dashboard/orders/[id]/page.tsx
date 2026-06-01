@@ -748,7 +748,7 @@ function Page() {
                         <Select
                           value={order_status}
                           onValueChange={(value) => setOrder_status(value)}
-                          disabled
+                          disabled={userType !== "admin"}
                         >
                           <SelectTrigger
                             className="w-full h-[42px] border-[1px] border-[#BBBBBB]"

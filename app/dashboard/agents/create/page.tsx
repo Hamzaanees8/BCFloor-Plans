@@ -34,6 +34,7 @@ import { AudioLibrary } from '../components/AudioLibrary'
 import { Listings } from '@/lib/types'
 import Link from 'next/link'
 import { useS3Upload } from '@/hooks/useS3Upload'
+import { formatPhoneNumber } from '@/lib/utils'
 // interface PaymentCard {
 //     uuid: string;
 //     type: 'visa' | 'mastercard' | 'amex';
@@ -1295,7 +1296,7 @@ const AgentForm = () => {
                                                     <label htmlFor="">Primary Phone <span className="text-red-500">*</span></label>
                                                     <Input value={primaryPhone}
                                                         onChange={(e) => {
-                                                            setPrimaryPhone(e.target.value);
+                                                            setPrimaryPhone(formatPhoneNumber(e.target.value));
                                                             if (fieldErrors.primary_phone) {
                                                                 const newErrors = { ...fieldErrors };
                                                                 delete newErrors.primary_phone;
@@ -1308,7 +1309,7 @@ const AgentForm = () => {
                                                 <div>
                                                     <label htmlFor="">Secondary Phone</label>
                                                     <Input value={secondaryPhone}
-                                                        onChange={(e) => setSecondaryPhone(e.target.value)}
+                                                        onChange={(e) => setSecondaryPhone(formatPhoneNumber(e.target.value))}
                                                         className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
                                                 </div>
                                                 <div className="col-span-2">
@@ -1432,7 +1433,7 @@ const AgentForm = () => {
                                                 {userType === "admin" && (
                                                     <div className="col-span-2">
                                                         <label htmlFor="">
-                                                            Agent Notes (Not visible to Agent)
+                                                            Internal Notes
                                                         </label>
                                                         <textarea
                                                             className="h-[200px] w-full p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"

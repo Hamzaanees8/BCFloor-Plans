@@ -13,6 +13,7 @@ interface OptimizedImagePreviewProps {
     isRestricted?: boolean;
     width?: number;
     height?: number;
+    onDoubleClick?: (e: React.MouseEvent<HTMLElement>) => void;
 }
 
 /**
@@ -20,7 +21,7 @@ interface OptimizedImagePreviewProps {
  * Prevents UI freezing with large files
  */
 export const OptimizedImagePreview = forwardRef<HTMLImageElement, OptimizedImagePreviewProps>(
-    ({ file, alt = 'preview', className = '', onClick, onDragStart, onDragEnd, draggable, isRestricted, width = 300, height = 300 }, ref) => {
+    ({ file, alt = 'preview', className = '', onClick, onDragStart, onDragEnd, draggable, isRestricted, width = 300, height = 300, onDoubleClick }, ref) => {
         const { previewUrl, isLoading, error } = useOptimizedPreview(file, width, height);
 
         // Show loading placeholder
@@ -71,6 +72,7 @@ export const OptimizedImagePreview = forwardRef<HTMLImageElement, OptimizedImage
                 onClick={onClick}
                 onDragStart={onDragStart}
                 onDragEnd={onDragEnd}
+                onDoubleClick={onDoubleClick}
             />
         );
     }

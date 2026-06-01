@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
+import { HexColorPicker } from "react-colorful";
 import {
     Accordion,
     AccordionContent,
@@ -14,7 +15,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
@@ -43,7 +43,6 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
     const [description, setDescription] = useState<string>();
     const [address, setAddress] = useState("");
     const [tourActivated, setTourActivated] = useState<boolean>(false);
-    const [Activated, setActivated] = useState<boolean>(false);
     const [propertyWebsite, setPropertyWebsite] = useState("");
     const [mlsProperty, setMlsProperty] = useState("");
     const [saving, setSaving] = useState(false);
@@ -62,6 +61,45 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
     // const [avatarFile, setAvatarFile] = useState<File | null>(null);
     // const [companyLogoFile, setCompanyLogoFile] = useState<File | null>(null);
 
+    const [primaryColor, setPrimaryColor] = useState<string>("#6BAE41");
+    const [secondaryColor, setSecondaryColor] = useState<string>("#DC9600");
+    const [openPrimaryPicker, setOpenPrimaryPicker] = useState<boolean>(false);
+    const [openSecondaryPicker, setOpenSecondaryPicker] = useState<boolean>(false);
+
+    const primaryWrapperRef = useRef<HTMLDivElement>(null);
+    const secondaryWrapperRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (
+                primaryWrapperRef.current &&
+                event.target instanceof Node &&
+                !primaryWrapperRef.current.contains(event.target)
+            ) {
+                setOpenPrimaryPicker(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (
+                secondaryWrapperRef.current &&
+                event.target instanceof Node &&
+                !secondaryWrapperRef.current.contains(event.target)
+            ) {
+                setOpenSecondaryPicker(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
 
     useEffect(() => {
         if (orderData) {
@@ -104,6 +142,8 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
             setCompanyLogoFileName(orderData.agent.company_logo)
             setAvatarFileName(orderData.agent.avatar)
             setTourActivated(orderData.property?.tour_activated)
+            setPrimaryColor((orderData.property as any)?.primary_color || "#6BAE41");
+            setSecondaryColor((orderData.property as any)?.secondary_color || "#DC9600");
 
         }
     }, [orderData])
@@ -154,6 +194,8 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                     province: orderData?.property?.province || "",
                     country: orderData?.property?.country || "Canada",
                     tour_activated: tourActivated,
+                    primary_color: primaryColor,
+                    secondary_color: secondaryColor,
                 })
             });
 
@@ -222,7 +264,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
 
                                                 {fieldErrors.agent_id && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.agent_id[0]}</p>}
                                             </div> */}
-                                            <div className="col-span-2 flex items-center gap-[16px]">
+                                            {/* <div className="col-span-2 flex items-center gap-[16px]">
                                                 <Switch
                                                     checked={tourActivated}
                                                     onCheckedChange={setTourActivated}
@@ -231,7 +273,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                 <Label className="text-[14px] text-[#424242]">
                                                     Activate Tour
                                                 </Label>
-                                            </div>
+                                            </div> */}
                                             <div className="col-span-2">
                                                 <label htmlFor="">Address</label>
                                                 <Input
@@ -289,23 +331,57 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                     />
                                                 </div>
                                             </div>
-                                            <div>
-                                                <label htmlFor="">Primary Color</label>
-                                                <Input
-                                                    // onChange={(e) => setMls(e.target.value)}
-
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                    type="text"
-                                                />
+                                            <div ref={primaryWrapperRef} className="relative">
+                                                <label htmlFor="primary-color">Primary Color</label>
+                                                <div className="flex items-center gap-3 mt-[12px]">
+                                                    <div
+                                                        onClick={() => setOpenPrimaryPicker(!openPrimaryPicker)}
+                                                        className="w-10 h-10 border border-[#BBBBBB] rounded cursor-pointer shrink-0"
+                                                        style={{
+                                                            backgroundColor: primaryColor,
+                                                        }}
+                                                    />
+                                                    <Input
+                                                        id="primary-color"
+                                                        value={primaryColor}
+                                                        onChange={(e) => setPrimaryColor(e.target.value)}
+                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] font-mono flex-1 text-black"
+                                                    />
+                                                </div>
+                                                {openPrimaryPicker && (
+                                                    <div className="absolute z-10 mt-2 rounded shadow-md border border-[#BBBBBB] bg-white p-3">
+                                                        <HexColorPicker
+                                                            color={primaryColor}
+                                                            onChange={setPrimaryColor}
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div>
-                                                <label htmlFor="">Secondary Color</label>
-                                                <Input
-                                                    // onChange={(e) => setMls(e.target.value)}
-
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                    type="text"
-                                                />
+                                            <div ref={secondaryWrapperRef} className="relative">
+                                                <label htmlFor="secondary-color">Secondary Color</label>
+                                                <div className="flex items-center gap-3 mt-[12px]">
+                                                    <div
+                                                        onClick={() => setOpenSecondaryPicker(!openSecondaryPicker)}
+                                                        className="w-10 h-10 border border-[#BBBBBB] rounded cursor-pointer shrink-0"
+                                                        style={{
+                                                            backgroundColor: secondaryColor,
+                                                        }}
+                                                    />
+                                                    <Input
+                                                        id="secondary-color"
+                                                        value={secondaryColor}
+                                                        onChange={(e) => setSecondaryColor(e.target.value)}
+                                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] font-mono flex-1 text-black"
+                                                    />
+                                                </div>
+                                                {openSecondaryPicker && (
+                                                    <div className="absolute z-10 mt-2 rounded shadow-md border border-[#BBBBBB] bg-white p-3">
+                                                        <HexColorPicker
+                                                            color={secondaryColor}
+                                                            onChange={setSecondaryColor}
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="col-span-2">
                                                 <label htmlFor="">Priority Hosted Expiry</label>
@@ -346,7 +422,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                 <div className="w-full flex flex-col items-center">
                                     <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
                                         <div className="grid grid-cols-2 gap-[16px]">
-                                            <div className="col-span-2 flex items-center gap-[16px]">
+                                            {/* <div className="col-span-2 flex items-center gap-[16px]">
                                                 <Switch
                                                     checked={Activated}
                                                     onCheckedChange={setActivated}
@@ -355,7 +431,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                 <Label className="text-[14px] text-[#424242]">
                                                     Active
                                                 </Label>
-                                            </div>
+                                            </div> */}
                                             <div>
                                                 <label htmlFor="">Price</label>
                                                 <Input

@@ -245,6 +245,10 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
 
     // Helper to get thumbnail URL with fallback
     const getThumbnailUrl = (templateKey: string) => {
+      if (!templateKey || typeof templateKey !== "string") {
+        return "/featuresheetimage1.png";
+      }
+
       // Special case for the base template which doesn't have a BcfpStandard.png
       if (templateKey === "BCFPStandard") {
         return "/featuresheetimage1.png";
@@ -485,6 +489,14 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
 
           if (dataArray.length > 0) {
             setFeatureSheets(dataArray);
+            // Populate uploadedPdfs with any pdf sheets
+            const pdfSheets = dataArray
+              .filter((sheet) => sheet.type === "pdf")
+              .map((sheet) => ({
+                name: sheet.template_key,
+                url: featureSheetService.buildStorageUrl(sheet.pdf_url) || "",
+              }));
+            setUploadedPdfs(pdfSheets);
             // Don't auto-select a template - let user choose from the grid
           }
         } catch (error) {
@@ -493,7 +505,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
       };
 
       fetchFeatureSheets();
-    }, [orderData?.uuid, setFeatureSheets]);
+    }, [orderData?.uuid, setFeatureSheets, setUploadedPdfs]);
 
     useEffect(() => {
       const fetchAgentSheets = async () => {
@@ -524,6 +536,14 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
       );
       if (sheetData) {
         console.log("Loading data for template:", selectedTemplate, sheetData);
+        if (sheetData.type === "pdf") {
+          setCustomPdf({
+            name: sheetData.template_key,
+            url: featureSheetService.buildStorageUrl(sheetData.pdf_url) || "",
+          });
+        } else {
+          setCustomPdf(null);
+        }
         const state = featureSheetService.parsePayloadToState(sheetData);
 
         // We only update if the template data is different from current context to avoid unnecessary loops
@@ -556,11 +576,12 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
           AvatarfileName: orderData?.agent.avatar || "",
         });
         setSelectedSheetUuid(null);
+        setCustomPdf(null);
       }
       // We intentionally only run this when selectedTemplate or featureSheets (data source) changes.
 
       // Including formData components in deps creates a loop.
-    }, [selectedTemplate, featureSheets, updateFormData, orderData?.agent.avatar, orderData?.agent.avatar_url]);
+    }, [selectedTemplate, featureSheets, updateFormData, orderData?.agent.avatar, orderData?.agent.avatar_url, setCustomPdf]);
 
     const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -580,7 +601,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
         );
 
         // Update the UI with the new sheet
-        const pdfData = { name: file.name, url: newSheet.pdf_url || "" };
+        const pdfData = { name: file.name, url: featureSheetService.buildStorageUrl(newSheet.pdf_url) || "" };
         setCustomPdf(pdfData);
         setSelectedTemplate(file.name);
         setUploadedPdfs((prev) => {
@@ -1343,8 +1364,10 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                     )}
 
                     {/* Preview Mode Toggle Button */}
-                    <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-3 rounded-lg border border-[#BBBBBB] shadow-sm mb-4 gap-4">
-                      <div className="text-sm font-medium text-gray-700">
+                    {!customPdf && (
+                      <>
+                        <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-3 rounded-lg border border-[#BBBBBB] shadow-sm mb-4 gap-4">
+                          <div className="text-sm font-medium text-gray-700">
                         Workspace Preview Mode: <span className="font-semibold capitalize text-blue-600">{previewMode === "print" ? "Print Layout (100% Paper Size)" : "Fit to Screen"}</span>
                       </div>
                       <div className="flex bg-gray-100 p-1 rounded-md border border-gray-200">
@@ -1547,6 +1570,8 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                         )}
                       </div>
                     </div>
+                  </>
+                )}
 
                   </AccordionContent>
                 </AccordionItem>

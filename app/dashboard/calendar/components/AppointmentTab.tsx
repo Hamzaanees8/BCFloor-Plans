@@ -239,9 +239,9 @@ function AppointmentTab({ currentOrder, serviceId, disabled }: AppointmentTab) {
                     No co-agents added.
                 </div>
             )}
-            {userType !== 'agent' && (
+            {userType === 'admin' && (
                 <div className="col-span-2">
-                    <Label className="text-[14px] text-[#424242] " htmlFor="">Agent Notes (Not Viewable by Agent)</Label>
+                    <Label className="text-[14px] text-[#424242] " htmlFor="">Internal Notes</Label>
                     <Textarea
                         // value={address}
                         className=" border-[1px] border-[#BBBBBB] mt-[10px] resize-none h-[100px] "
@@ -342,10 +342,10 @@ function AppointmentTab({ currentOrder, serviceId, disabled }: AppointmentTab) {
             <div className="col-span-2">
                 <Label className="text-[14px] text-[#424242] " htmlFor="">Notes</Label>
                 <div className={`w-full min-h-[100px] max-h-[300px] p-3 rounded-[6px] border border-[#BBBBBB] overflow-y-auto bg-[#E4E4E4] mt-[10px]`}>
-                    {notes?.filter(note => userType !== 'agent' || note.internal !== 'true').length === 0 ? (
+                    {notes?.filter(note => userType === 'admin' || note.internal !== 'true').length === 0 ? (
                         <p className="text-sm text-gray-500 italic">No notes yet.</p>
                     ) : (
-                        notes?.filter(note => userType !== 'agent' || note.internal !== 'true').map((note, index) => (
+                        notes?.filter(note => userType === 'admin' || note.internal !== 'true').map((note, index) => (
                             <div key={index} className="mb-3 pb-2 border-b border-[#BBBBBB] last:border-b-0 last:pb-0">
                                 <div className="font-bold text-xs text-gray-500 mb-1 select-none">
                                     {note.name} ({formatTimestamp(note.date)}):

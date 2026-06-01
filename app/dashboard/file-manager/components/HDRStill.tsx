@@ -33,6 +33,7 @@ import { useS3Upload } from '@/hooks/useS3Upload';
 import { UploadProgressOverlay } from './UploadProgressOverlay';
 import { OptimizedImagePreview, PdfPlaceholder } from './OptimizedPreview';
 import { DualModeFileManager } from './dual-mode/DualModeFileManager';
+import { api } from '@/lib/api';
 import { ModeToggle } from './dual-mode/ModeToggle';
 import { FileItem, DualMode } from './dual-mode/types';
 import { GridSizeToggle } from './dual-mode/GridSizeToggle';
@@ -68,6 +69,52 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     const [shrinkingIds, setShrinkingIds] = useState<Set<string>>(new Set());
     const [flyingClones, setFlyingClones] = useState<{ id: string; src: string; rect: DOMRect }[]>([]);
     const { userType } = useAppContext()
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+    const handleSubmitAdminApproval = async () => {
+        setIsSubmitting(true);
+        try {
+            const token = localStorage.getItem("token") || "";
+            const vendor = orderData?.vendor;
+            const vendorName = vendor ? `${vendor.first_name} ${vendor.last_name}` : "Vendor";
+            
+            await api.post(`/notifications`, {
+                source: 'order',
+                source_id: orderData?.uuid || "",
+                type: 'admin_approval_required',
+                description: `Media submitted by Vendor ${vendorName} for Order #${orderData?.id || ""} requires Admin Approval.`,
+                role: 'admin',
+                created_by_name: vendorName
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            await api.post(`/notifications/email`, {
+                to: "info@bcfplatform.com",
+                subject: `Order #${orderData?.id || ""}: Media Submitted for Admin Approval`,
+                html: `
+                    <div style="font-family: 'Alexandria', sans-serif; padding: 20px; color: #333;">
+                        <h2 style="color: #4290E9;">Media Submitted for Admin Approval</h2>
+                        <p>Vendor <strong>${vendorName}</strong> has uploaded and submitted media files for Order <strong>#${orderData?.id || ""}</strong>.</p>
+                        <p>This vendor is marked for mandatory admin review before files are released to the client/agent.</p>
+                        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+                        <p style="font-size: 13px; color: #666;">Please log in to your admin dashboard, navigate to the File Manager for Order #${orderData?.id || ""}, and approve the files.</p>
+                    </div>
+                `
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (onSave) onSave();
+            setMediaUploaded(true);
+            toast.success("Submitted successfully! The admins have been notified to review your files.");
+        } catch (error) {
+            console.error("Submission failed:", error);
+            toast.error("Failed to submit for approval. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
     const handleModeChange = (newMode: DualMode) => {
@@ -112,10 +159,12 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 }));
                 setReplacingFile(null);
                 setFiles([]);
+                e.target.value = "";
                 return;
             }
             setFiles(validFiles);
         }
+        e.target.value = "";
     };
 
     const handleFilesChange = (selectedFiles: File[]) => {
@@ -1022,25 +1071,40 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                             </Button>
                         )}
                         {!isHidingMode && userType !== 'agent' && (
-                            <Button
-                                onClick={() => {
-                                    setShowConfirmation(true);
-                                    handleSubmitToClient();
-                                }}
-                                disabled={isSaving}
-                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center`}
-                            >
-                                {isSaving ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Submitting...
-                                    </>
-                                ) : mediaUploaded ? (
-                                    <Check color="#fff" size={14} />
-                                ) : (
-                                    'Submit to Client'
-                                )}
-                            </Button>
+                            reviewFilesEnabled && userType === 'vendor' ? (
+                                <Button
+                                    onClick={handleSubmitAdminApproval}
+                                    disabled={isSubmitting}
+                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] min-w-[150px] w-fit px-4 flex justify-center items-center font-alexandria`}
+                                >
+                                    {isSubmitting ? (
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    ) : mediaUploaded ? (
+                                        <Check color="#fff" size={14} className="mr-2" />
+                                    ) : null}
+                                    {mediaUploaded ? 'Submitted' : 'Submit for Admin Approval'}
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={() => {
+                                        setShowConfirmation(true);
+                                        handleSubmitToClient();
+                                    }}
+                                    disabled={isSaving}
+                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center`}
+                                >
+                                    {isSaving ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Submitting...
+                                        </>
+                                    ) : mediaUploaded ? (
+                                        <Check color="#fff" size={14} />
+                                    ) : (
+                                        'Submit to Client'
+                                    )}
+                                </Button>
+                            )
                         )}
                         {userType === 'admin' && (
                             <div className='flex items-center gap-[10px]'>
@@ -1285,7 +1349,15 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     reviewFilesEnabled={reviewFilesEnabled}
                 />
 
-                <div className="">
+                <div className="flex flex-col items-center justify-center">
+                    {userType === 'vendor' && reviewFilesEnabled && (
+                        <div className="w-[80%] max-w-[800px] mb-6 p-4 border border-blue-200 bg-blue-50 rounded-[8px] flex items-start gap-3 font-alexandria shadow-sm self-center">
+                            <span className="text-[18px] text-blue-600 mt-0.5">ℹ️</span>
+                            <p className="text-[13px] text-blue-700 leading-relaxed font-medium">
+                                Your uploads are undergoing Admin Approval. Once approved by the administrator, they will be released to the booking agent.
+                            </p>
+                        </div>
+                    )}
                     <DualModeFileManager
                         mode={fileManagerMode}
                         items={fileItems}

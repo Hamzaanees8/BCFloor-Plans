@@ -112,7 +112,6 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     // Using context data directly where possible, but keeping local state for immediate UI responsiveness if needed 
     // or just synchronizing them. For now, let's keep local states and sync them to context.
     const [agentData, setAgentData] = useState<Agent[]>([]);
-    const [agent, setAgent] = useState<{ uuid: string; first_name: string; last_name: string; email: string; created_at: string }[]>([]);
     const [listingData, setListingData] = useState<Listings[]>([]);
     const [searchValue, setSearchValue] = useState("");
     const [listingSearchValue, setListingSearchValue] = useState("");
@@ -282,7 +281,6 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         Get()
             .then((data) => {
                 const allAgents = Array.isArray(data.data) ? data.data : [];
-                setAgent(allAgents);
 
                 // ✅ Only include agents where status is true
                 const filteredAgents = allAgents.filter((agent: Agent) => agent.status === true);
@@ -291,7 +289,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                 setAgentsData(filteredAgents);
             })
             .catch((err) => console.log("Error fetching data:", err.message));
-    }, [setAgentsData, setAgent]);
+    }, [setAgentsData]);
 
     useEffect(() => {
         fetchAgents();
@@ -388,13 +386,6 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             value: s.isoCode
         }));
     }, [states]);
-
-    const agentOptions = useMemo(() => {
-        return agent?.map(ag => ({
-            label: `${ag.first_name} ${ag.last_name}`,
-            value: ag.uuid
-        })) || [];
-    }, [agent]);
 
     const propertyTypeOptions = [
         { label: "Detached Home", value: "Detached Home" },
@@ -1125,33 +1116,6 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                 </div>
                                                             </div>
 
-
-
-                                                            <div className='col-span-1'>
-                                                                <label htmlFor="">Connected Agents</label>
-                                                                <div className="mt-[12px]">
-                                                                    {userType === 'agent' ? (
-                                                                        <div className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] px-3 flex items-center rounded-md cursor-default text-base font-normal" style={{ backgroundColor: fieldBg }}>
-                                                                            {agentOptions.find(opt => opt.value === connectedAgent)?.label || "Select Agent"}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <SearchableSelect
-                                                                            options={agentOptions}
-                                                                            value={connectedAgent}
-                                                                            onChange={(val) => {
-                                                                                setConnectedAgent(val);
-                                                                                setSelectedAgentId(val);
-                                                                            }}
-                                                                            placeholder="Select Agent"
-                                                                            searchPlaceholder="Search agent..."
-                                                                            className="h-[42px]"
-                                                                            disabled={userType !== 'admin'}
-                                                                        />
-                                                                    )}
-                                                                </div>
-                                                                {fieldErrors.agent_id && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.agent_id[0]}</p>}
-                                                            </div>
-
                                                             <div className="col-span-1">
                                                                 <label htmlFor="">MLS#</label>
                                                                 <Input
@@ -1402,7 +1366,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                     </Accordion>
 
                                     <div className='flex flex-col gap-[14px]'>
-                                        <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Listing <span className="text-red-500">*</span></p>
+                                        <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Listing</p>
                                         <div className='flex items-start justify-between'>
                                             <div className='flex items-center gap-4'>
                                                 <Popover open={isAgentEdit ? false : openListing} onOpenChange={(open) => !isAgentEdit && setOpenListing(open)}>

@@ -253,7 +253,7 @@ const Page = () => {
       },
     },
     {
-      header: "Diffrences",
+      header: "Differences",
       cell: () => <div className="text-[15px] font-[400] text-[#7D7D7D]">-</div>
     },
     {

@@ -37,6 +37,18 @@ export interface OrderApi {
   updated_at: string;
 }
 
+export interface TourLinkApi {
+  id: number;
+  uuid: string;
+  tour_id: number;
+  type: string;
+  service_id: number | null;
+  link: string;
+  expiry_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface MatterportApiResponse {
   id: number;
   uuid: string;
@@ -45,6 +57,7 @@ export interface MatterportApiResponse {
   created_at: string;
   updated_at: string;
   orders: OrderApi;
+  links?: TourLinkApi[];
 }
 export enum MatterportStatus {
   ACTIVE = "ACTIVE",
@@ -66,6 +79,8 @@ export interface MatterportAd {
   renewal: MatterportRenewalAction;
   organizationName?: string;
   organizationId?: number;
+  brandedLink?: string;
+  unbrandedLink?: string;
 }
 
 export async function GetMatterPort(token: string) {
@@ -93,34 +108,51 @@ export const mapMatterportApiToAd = (
   api: MatterportApiResponse
 ): MatterportAd => {
   const org = (api.orders as any)?.organization;
+  
+  // Find branded and unbranded links in the tour links array
+  const brandedLinkObj = api.links?.find((l) => l.type === "branded");
+  const unbrandedLinkObj = api.links?.find((l) => l.type === "unbranded");
+  
+  const actualExpiry = brandedLinkObj?.expiry_date || unbrandedLinkObj?.expiry_date;
+  
+  let formattedExpiry = "";
+  if (actualExpiry) {
+    formattedExpiry = new Date(actualExpiry).toLocaleDateString("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+    });
+  } else {
+    // If no expiry exists, default to 90 days from the Tour creation date (api.created_at)
+    const baseDate = api.created_at ? new Date(api.created_at) : new Date();
+    const defaultExpiry = new Date(baseDate.getTime() + 90 * 24 * 60 * 60 * 1000);
+    formattedExpiry = defaultExpiry.toLocaleDateString("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+    }) + " (Default 90 days)";
+  }
+
   return {
-    agentName: `${api.orders.agent?.first_name ?? "N/A"} ${api.orders.agent?.last_name ?? ""
-      }`.trim(),
+    agentName: `${api.orders.agent?.first_name ?? "N/A"} ${api.orders.agent?.last_name ?? ""}`.trim(),
     orderNumber: `#${api.orders.id}`,
     orderuud: api.orders.uuid,
     propertyuuid: api.orders.property.uuid,
     address: `${api.orders.property_address}, ${api.orders.property_location}`,
     organizationName: org?.name || "Global / None",
     organizationId: org?.id ?? undefined,
-    reminderDate: new Date(
-      new Date(api.updated_at).setDate(new Date(api.updated_at).getDate())
-    ).toLocaleDateString("en-US", {
+    reminderDate: new Date(api.created_at).toLocaleDateString("en-US", {
       month: "short",
       day: "2-digit",
       year: "numeric",
     }),
-
-    renewalDate: new Date(
-      new Date(api.updated_at).setDate(new Date(api.updated_at).getDate() + 10)
-    ).toLocaleDateString("en-US", {
-      month: "short",
-      day: "2-digit",
-      year: "numeric",
-    }),
+    renewalDate: formattedExpiry,
     status:
       api.orders.payment_status === "PAID"
         ? MatterportStatus.ACTIVE
         : MatterportStatus.INACTIVE,
     renewal: MatterportRenewalAction.RENEW,
+    brandedLink: brandedLinkObj?.link,
+    unbrandedLink: unbrandedLinkObj?.link,
   };
 };

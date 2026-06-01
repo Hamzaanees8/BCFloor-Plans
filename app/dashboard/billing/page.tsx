@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useUser } from "@/context/UserContext";
 import { GetOrganizations } from "@/app/dashboard/global-settings/global-settings";
 import {
@@ -30,7 +30,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import InvoiceModal from "../invoice/components/InvoiceModal";
 import RefundModal from "../invoice/components/RefundModal";
-import { GetInvoicesByOrder, PayInvoiceWithStripe } from "../invoice/invoice_api";
+import { GetInvoicesByOrder, PayInvoiceWithStripe, MarkPaid } from "../invoice/invoice_api";
 import InvoiceDocument from "../invoice/components/InvoiceDocument";
 import {
   Dialog,
@@ -133,6 +133,61 @@ const Page = () => {
     }
   }, []);
 
+  // Manual Payment states
+  const [manualPaymentOpen, setManualPaymentOpen] = useState(false);
+  const [manualPaymentInvoice, setManualPaymentInvoice] = useState<any | null>(null);
+  const [manualPaymentAmount, setManualPaymentAmount] = useState<string>("");
+  const [manualPaymentMethod, setManualPaymentMethod] = useState<string>("E-Transfer");
+  const [manualPaymentNotes, setManualPaymentNotes] = useState<string>("");
+  const [submittingManualPayment, setSubmittingManualPayment] = useState(false);
+
+  const handleOpenManualPayment = (invoice: any) => {
+    setManualPaymentInvoice(invoice);
+    const remaining = Math.max(0, parseFloat(invoice.total || "0") - parseFloat(invoice.paid_amount || "0"));
+    setManualPaymentAmount(remaining.toFixed(2));
+    setManualPaymentMethod("E-Transfer");
+    setManualPaymentNotes("");
+    setManualPaymentOpen(true);
+  };
+
+  const handleSubmitManualPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualPaymentInvoice) return;
+
+    const amountNum = parseFloat(manualPaymentAmount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      toast.error("Please enter a valid amount.");
+      return;
+    }
+
+    try {
+      setSubmittingManualPayment(true);
+      
+      const response = await MarkPaid(
+        manualPaymentInvoice.uuid,
+        amountNum,
+        undefined,
+        undefined,
+        manualPaymentMethod,
+        manualPaymentNotes
+      );
+
+      if (response.success) {
+        toast.success(response.message || "Manual payment recorded successfully!");
+        setManualPaymentOpen(false);
+        setManualPaymentInvoice(null);
+        loadBillings();
+      } else {
+        toast.error(response.message || "Failed to record manual payment.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to record manual payment.");
+    } finally {
+      setSubmittingManualPayment(false);
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -173,6 +228,7 @@ const Page = () => {
         undefined,
         isSplit ? paymentMode : undefined,
         isSplit ? payerUuid : undefined,
+        true
       );
     } catch (err) {
       console.error(err);
@@ -251,7 +307,10 @@ const Page = () => {
             invoiceToPay,
             { agent: { uuid: billing.agent_uuid }, id: billing.order_id },
             typeof window !== "undefined" ? window.location.href : "dashboard/billing",
-            serviceId
+            serviceId,
+            undefined,
+            undefined,
+            true
           );
         } else {
           const amount = serviceId ? (serviceAmount || 0) : billing.remaining_amount;
@@ -296,6 +355,52 @@ const Page = () => {
     }
   };
 
+  const loadBillings = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await getBillings();
+
+      // If user is an agent, filter data immediately to their own
+      if (userType === 'agent') {
+        const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+        const agentUuid = userInfo?.uuid;
+        if (agentUuid) {
+          const agentFilteredData = data.filter(b => b.agent_uuid === agentUuid);
+          setBillings(agentFilteredData);
+          console.log("Fetched and filtered billings for agent:", agentFilteredData);
+        } else {
+          setBillings(data);
+        }
+      } else {
+        setBillings(data);
+        console.log("Fetched billings:", data);
+      }
+    } catch (err) {
+      console.error("Failed to load billings:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [userType]);
+
+  useEffect(() => {
+    loadBillings();
+  }, [loadBillings]);
+
+  // Listen to cross-tab/new window payment success notifications
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const channel = new BroadcastChannel("billing_payment_channel");
+    channel.onmessage = (event) => {
+      if (event.data === "payment_success") {
+        toast.success("Payment processed successfully! Updating records...");
+        loadBillings();
+      }
+    };
+    return () => {
+      channel.close();
+    };
+  }, [loadBillings]);
+
   useEffect(() => {
     const sessionId = searchParams.get("session_id");
     if (!sessionId) return; // no payment session to process
@@ -322,12 +427,24 @@ const Page = () => {
           );
         }
 
-        toast.success("Payment processed successfully! ");
+        toast.success("Payment processed successfully! This tab will close automatically.");
+
+        // Notify the original tab to refresh its state
+        if (typeof window !== "undefined") {
+          const channel = new BroadcastChannel("billing_payment_channel");
+          channel.postMessage("payment_success");
+          channel.close();
+        }
 
         // remove session_id from URL
         const params = new URLSearchParams(searchParams.toString());
         params.delete("session_id");
         router.replace(`?${params.toString()}`);
+
+        // Close the tab after 2.5 seconds
+        setTimeout(() => {
+          window.close();
+        }, 2500);
       } catch (error) {
         console.error("Stripe session error:", error);
         toast.error(
@@ -340,36 +457,6 @@ const Page = () => {
 
     processStripePayment();
   }, [searchParams, router]);
-
-  useEffect(() => {
-    const loadBillings = async () => {
-      try {
-        setLoading(true);
-        const data = await getBillings();
-
-        // If user is an agent, filter data immediately to their own
-        if (userType === 'agent') {
-          const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
-          const agentUuid = userInfo?.uuid;
-          if (agentUuid) {
-            const agentFilteredData = data.filter(b => b.agent_uuid === agentUuid);
-            setBillings(agentFilteredData);
-            console.log("Fetched and filtered billings for agent:", agentFilteredData);
-          } else {
-            setBillings(data);
-          }
-        } else {
-          setBillings(data);
-          console.log("Fetched billings:", data);
-        }
-      } catch (err) {
-        console.error("Failed to load billings:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadBillings();
-  }, [userType]);
 
   const uniqueAgents = Array.from(
     new Set(billings.map((billing) => billing.agent_name).filter(Boolean))
@@ -883,6 +970,46 @@ const Page = () => {
                                               )}
                                             </Button>
                                           )}
+
+                                          {role === 'admin' && billing.remaining_amount > 0 && (
+                                            <Button
+                                              onClick={async () => {
+                                                try {
+                                                  setActionLoading({ id: billing.order_id, action: "pay" });
+                                                  const res = await GetInvoicesByOrder(billing.order_uuid);
+                                                  const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
+                                                  const unpaidInvoices = invoicesList.filter((inv: any) => {
+                                                    const s = (inv.status || "").toUpperCase();
+                                                    return s !== "PAID" && s !== "VOID";
+                                                  });
+                                                  const invoiceToPay =
+                                                    unpaidInvoices.find((inv: any) => inv.notes?.toLowerCase().includes("consolidated")) ||
+                                                    unpaidInvoices.find((inv: any) => inv.agent_type === "primary") ||
+                                                    unpaidInvoices[0] ||
+                                                    invoicesList[0];
+                                                  
+                                                  if (invoiceToPay) {
+                                                    handleOpenManualPayment(invoiceToPay);
+                                                  } else {
+                                                    toast.error("No invoice found to mark as paid.");
+                                                  }
+                                                } catch (err) {
+                                                  console.error("Failed to load invoice for manual payment:", err);
+                                                  toast.error("Failed to load invoice.");
+                                                } finally {
+                                                  setActionLoading(null);
+                                                }
+                                              }}
+                                              disabled={actionLoading !== null}
+                                              className="h-[35px] px-4 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-emerald-50 active:scale-[0.98]"
+                                            >
+                                              {actionLoading?.id === billing.order_id && actionLoading?.action === "pay" ? (
+                                                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
+                                              ) : (
+                                                "Mark Paid"
+                                              )}
+                                            </Button>
+                                          )}
                                           {role === 'admin' && billing.status === 'paid' && (
                                             <Button
                                               variant="outline"
@@ -1014,18 +1141,57 @@ const Page = () => {
                                                 )}
                                               </Button>
                                               {service.status !== "paid" && billing.status !== "paid" && (
-                                                <Button
-                                                  onClick={() => handleInvoiceAction(billing, "pay", service.order_service_uuid, service.amount)}
-                                                  disabled={actionLoading !== null}
-                                                  className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
-                                                  style={{ backgroundColor: roleSettings.pageTabColor }}
-                                                >
-                                                  {actionLoading?.id === service.order_service_uuid && actionLoading?.action === "pay" ? (
-                                                    <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
-                                                  ) : (
-                                                    "Pay Now"
+                                                <>
+                                                  <Button
+                                                    onClick={() => handleInvoiceAction(billing, "pay", service.order_service_uuid, service.amount)}
+                                                    disabled={actionLoading !== null}
+                                                    className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
+                                                    style={{ backgroundColor: roleSettings.pageTabColor }}
+                                                  >
+                                                    {actionLoading?.id === service.order_service_uuid && actionLoading?.action === "pay" ? (
+                                                      <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
+                                                    ) : (
+                                                      "Pay Now"
+                                                    )}
+                                                  </Button>
+
+                                                  {role === 'admin' && (
+                                                    <Button
+                                                      onClick={async () => {
+                                                        try {
+                                                          setActionLoading({ id: service.order_service_uuid, action: "pay" });
+                                                          const res = await GetInvoicesByOrder(billing.order_uuid);
+                                                          const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
+                                                          const targetInvoice = invoicesList.find((inv: any) =>
+                                                            inv.items?.some((i: any) =>
+                                                              i.order_service?.uuid === service.order_service_uuid || 
+                                                              i.order_service_id?.toString() === service.order_service_uuid
+                                                            )
+                                                          ) || invoicesList[0];
+
+                                                          if (targetInvoice) {
+                                                            handleOpenManualPayment(targetInvoice);
+                                                          } else {
+                                                            toast.error("No invoice found for this service.");
+                                                          }
+                                                        } catch (err) {
+                                                          console.error(err);
+                                                          toast.error("Failed to load invoice.");
+                                                        } finally {
+                                                          setActionLoading(null);
+                                                        }
+                                                      }}
+                                                      disabled={actionLoading !== null}
+                                                      className="h-[30px] px-3 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-emerald-50 active:scale-[0.98]"
+                                                    >
+                                                      {actionLoading?.id === service.order_service_uuid && actionLoading?.action === "pay" ? (
+                                                        <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
+                                                      ) : (
+                                                        "Mark Paid"
+                                                      )}
+                                                    </Button>
                                                   )}
-                                                </Button>
+                                                </>
                                               )}
                                               {(service.status === "paid" || billing.status === "paid") && (
                                                 <Button
@@ -1317,45 +1483,59 @@ const Page = () => {
                             </Button>
 
                             {status !== "PAID" && status !== "VOID" && selectedBilling && (
-                              isOwner ? (
-                                <Button
-                                  onClick={() => {
-                                    setShowInvoicesModal(false);
-                                    handlePayInvoice(invoice, selectedBilling);
-                                  }}
-                                  className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98]"
-                                  style={{ backgroundColor: roleSettings.pageTabColor }}
-                                >
-                                  Pay Now
-                                </Button>
-                              ) : (
-                                <div className="flex gap-2">
-                                  {(userType === "admin" || (invoice.agent_type === "co-agent" && invoice.split_details)) && (
-                                    <Button
-                                      onClick={() => {
-                                        setShowInvoicesModal(false);
-                                        handlePayInvoice(invoice, selectedBilling, "on_behalf");
-                                      }}
-                                      className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] animate-none"
-                                      style={{ backgroundColor: roleSettings.pageTabColor }}
-                                    >
-                                      Pay on Behalf
-                                    </Button>
-                                  )}
-                                  {userType !== "admin" && (
-                                    <Button
-                                      onClick={() => {
-                                        setShowInvoicesModal(false);
-                                        handlePayInvoice(invoice, selectedBilling, "self");
-                                      }}
-                                      className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] animate-none"
-                                      style={{ backgroundColor: roleSettings.pageTabColor }}
-                                    >
-                                      Pay Self
-                                    </Button>
-                                  )}
-                                </div>
-                              )
+                              <>
+                                {isOwner ? (
+                                  <Button
+                                    onClick={() => {
+                                      setShowInvoicesModal(false);
+                                      handlePayInvoice(invoice, selectedBilling);
+                                    }}
+                                    className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98]"
+                                    style={{ backgroundColor: roleSettings.pageTabColor }}
+                                  >
+                                    Pay Now
+                                  </Button>
+                                ) : (
+                                  <div className="flex gap-2">
+                                    {(userType === "admin" || (invoice.agent_type === "co-agent" && invoice.split_details)) && (
+                                      <Button
+                                        onClick={() => {
+                                          setShowInvoicesModal(false);
+                                          handlePayInvoice(invoice, selectedBilling, "on_behalf");
+                                        }}
+                                        className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] animate-none"
+                                        style={{ backgroundColor: roleSettings.pageTabColor }}
+                                      >
+                                        Pay on Behalf
+                                      </Button>
+                                    )}
+                                    {userType !== "admin" && (
+                                      <Button
+                                        onClick={() => {
+                                          setShowInvoicesModal(false);
+                                          handlePayInvoice(invoice, selectedBilling, "self");
+                                        }}
+                                        className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] animate-none"
+                                        style={{ backgroundColor: roleSettings.pageTabColor }}
+                                      >
+                                        Pay Self
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+
+                                {role === 'admin' && (
+                                  <Button
+                                    onClick={() => {
+                                      setShowInvoicesModal(false);
+                                      handleOpenManualPayment(invoice);
+                                    }}
+                                    className="h-[30px] text-xs px-3 font-normal text-emerald-600 bg-white border border-emerald-500 rounded-[6px] hover:bg-emerald-50 transition-colors cursor-pointer"
+                                  >
+                                    Mark Paid
+                                  </Button>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
@@ -1385,16 +1565,30 @@ const Page = () => {
               </h2>
               <div className="flex items-center gap-4">
                 {viewingInvoice.status?.toUpperCase() !== 'PAID' && selectedBilling && (
-                  <Button
-                    onClick={() => {
-                      setViewingInvoice(null);
-                      handlePayInvoice(viewingInvoice, selectedBilling);
-                    }}
-                    className="px-6 h-[30px] text-xs font-normal text-white hover:brightness-110 rounded-[6px] cursor-pointer transition-all active:scale-[0.98]"
-                    style={{ backgroundColor: roleSettings.pageTabColor }}
-                  >
-                    Pay Now
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => {
+                        setViewingInvoice(null);
+                        handlePayInvoice(viewingInvoice, selectedBilling);
+                      }}
+                      className="px-6 h-[30px] text-xs font-normal text-white hover:brightness-110 rounded-[6px] cursor-pointer transition-all active:scale-[0.98]"
+                      style={{ backgroundColor: roleSettings.pageTabColor }}
+                    >
+                      Pay Now
+                    </Button>
+
+                    {role === 'admin' && (
+                      <Button
+                        onClick={() => {
+                          setViewingInvoice(null);
+                          handleOpenManualPayment(viewingInvoice);
+                        }}
+                        className="px-6 h-[30px] text-xs font-normal text-emerald-600 bg-white border border-emerald-500 rounded-[6px] cursor-pointer hover:bg-emerald-50 transition-all active:scale-[0.98]"
+                      >
+                        Mark Paid
+                      </Button>
+                    )}
+                  </div>
                 )}
                 <button
                   onClick={() => setViewingInvoice(null)}
@@ -1471,18 +1665,33 @@ const Page = () => {
               </h2>
               <div className="flex items-center gap-4">
                 {serviceInvoicePopup.invoice.status?.toUpperCase() !== 'PAID' && (
-                  <Button
-                    onClick={() => {
-                      handleInvoiceAction(serviceInvoicePopup.billing, "pay", serviceInvoicePopup.serviceId);
-                    }}
-                    disabled={actionLoading !== null}
-                    className="px-6 h-[30px] text-xs font-normal text-white hover:brightness-110 rounded-[6px] cursor-pointer transition-all active:scale-[0.98]"
-                    style={{ backgroundColor: roleSettings.pageTabColor }}
-                  >
-                    {actionLoading?.id === (serviceInvoicePopup.serviceId || serviceInvoicePopup.billing.order_id) && actionLoading?.action === "pay" ? (
-                      <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
-                    ) : "Pay Now"}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => {
+                        handleInvoiceAction(serviceInvoicePopup.billing, "pay", serviceInvoicePopup.serviceId);
+                      }}
+                      disabled={actionLoading !== null}
+                      className="px-6 h-[30px] text-xs font-normal text-white hover:brightness-110 rounded-[6px] cursor-pointer transition-all active:scale-[0.98]"
+                      style={{ backgroundColor: roleSettings.pageTabColor }}
+                    >
+                      {actionLoading?.id === (serviceInvoicePopup.serviceId || serviceInvoicePopup.billing.order_id) && actionLoading?.action === "pay" ? (
+                        <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
+                      ) : "Pay Now"}
+                    </Button>
+
+                    {role === 'admin' && (
+                      <Button
+                        onClick={() => {
+                          setServiceInvoicePopup(null);
+                          handleOpenManualPayment(serviceInvoicePopup.invoice);
+                        }}
+                        disabled={actionLoading !== null}
+                        className="px-6 h-[30px] text-xs font-normal text-emerald-600 bg-white border border-emerald-500 rounded-[6px] cursor-pointer hover:bg-emerald-50 transition-all active:scale-[0.98]"
+                      >
+                        Mark Paid
+                      </Button>
+                    )}
+                  </div>
                 )}
                 <button
                   onClick={() => setServiceInvoicePopup(null)}
@@ -1508,6 +1717,114 @@ const Page = () => {
           </div>
         </div>
       )}
+
+      {/* Manual Payment Dialog */}
+      <Dialog open={manualPaymentOpen} onOpenChange={setManualPaymentOpen}>
+        <DialogContent className="max-w-md w-[95vw] rounded-[6px] p-0 font-alexandria overflow-hidden border border-[#BBBBBB] bg-white [&>button]:hidden">
+          <DialogHeader className="p-6 border-b border-[#BBBBBB] bg-white">
+            <DialogTitle className="flex items-center justify-between text-lg font-bold tracking-tight uppercase" style={{ color: roleSettings.pageTabColor }}>
+              <span>Record Manual Payment</span>
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-gray-100 rounded-full animate-none" onClick={() => setManualPaymentOpen(false)}>
+                <X className="h-5 w-5 text-gray-500" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmitManualPayment} className="p-6 space-y-4">
+            {manualPaymentInvoice && (
+              <div className="bg-gray-50 p-4 rounded-[6px] border border-[#E4E4E4] text-sm space-y-1">
+                <p className="font-semibold text-gray-700">
+                  Invoice: #{manualPaymentInvoice.invoice_number || manualPaymentInvoice.id}
+                </p>
+                <p className="text-gray-500">
+                  Total Amount: ${parseFloat(manualPaymentInvoice.total || "0").toFixed(2)}
+                </p>
+                <p className="text-gray-500">
+                  Already Paid: ${parseFloat(manualPaymentInvoice.paid_amount || "0").toFixed(2)}
+                </p>
+                <p className="font-semibold text-red-600">
+                  Balance Due: ${(parseFloat(manualPaymentInvoice.total || "0") - parseFloat(manualPaymentInvoice.paid_amount || "0")).toFixed(2)}
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700 block">
+                Payment Amount ($ CAD)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                required
+                value={manualPaymentAmount}
+                onChange={(e) => setManualPaymentAmount(e.target.value)}
+                className="w-full px-[14px] h-[40px] py-[10px] bg-white border border-[#BBBBBB] rounded-[6px] focus:outline-none focus:ring-2 transition-all text-sm"
+                style={{
+                  '--tw-ring-color': roleSettings.activeColor,
+                } as React.CSSProperties}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700 block">
+                Payment Method
+              </label>
+              <Select value={manualPaymentMethod} onValueChange={setManualPaymentMethod}>
+                <SelectTrigger className="w-full border-[#BBBBBB] h-[40px] bg-white">
+                  <SelectValue placeholder="Select payment method" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border border-[#BBBBBB]">
+                  <SelectItem value="E-Transfer">E-Transfer</SelectItem>
+                  <SelectItem value="Cheque">Cheque</SelectItem>
+                  <SelectItem value="Cash">Cash</SelectItem>
+                  <SelectItem value="Credit Card">Credit Card (Manual)</SelectItem>
+                  <SelectItem value="Other">Other / Manual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700 block">
+                Reference Notes
+              </label>
+              <textarea
+                placeholder="Enter transaction reference, e-transfer details, cheque numbers, dates..."
+                value={manualPaymentNotes}
+                onChange={(e) => setManualPaymentNotes(e.target.value)}
+                rows={3}
+                className="w-full px-[14px] py-[10px] bg-white border border-[#BBBBBB] rounded-[6px] focus:outline-none focus:ring-2 transition-all text-sm resize-none"
+                style={{
+                  '--tw-ring-color': roleSettings.activeColor,
+                } as React.CSSProperties}
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-[#BBBBBB]">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setManualPaymentOpen(false)}
+                className="h-[38px] px-4 border border-[#BBBBBB] rounded-[6px]"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={submittingManualPayment}
+                className="h-[38px] px-6 text-white rounded-[6px] font-medium transition-all hover:brightness-110 active:scale-[0.98]"
+                style={{ backgroundColor: roleSettings.pageTabColor }}
+              >
+                {submittingManualPayment ? (
+                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Saving...</>
+                ) : (
+                  "Record Payment"
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

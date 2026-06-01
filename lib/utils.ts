@@ -62,3 +62,24 @@ export function getAppHostname(): string {
   }
 }
 
+export function formatPhoneNumber(value: string): string {
+  if (!value) return value;
+  // Keep only digits
+  const cleaned = value.replace(/\D/g, "");
+  const length = cleaned.length;
+
+  if (length === 0) return "";
+  
+  if (length <= 3) {
+    return cleaned;
+  }
+  if (length <= 6) {
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+  }
+  if (length <= 10) {
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+  }
+  return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)} ext. ${cleaned.slice(10, 15)}`;
+}
+
+

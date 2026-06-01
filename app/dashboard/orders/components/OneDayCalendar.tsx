@@ -407,7 +407,7 @@ export function getDistanceColor(distance: number | undefined): string {
   return "#171484";
 }
 
-export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, calendarIdx, serviceKey, vendorDistances, propertyTimezone, masterDate, externalSetSelectedSlots, externalSelectedSlots, externalBookedSlots, externalVendorsData, externalServicesData, onVendorSelected, isCalculating }: CalendarProps) {
+export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, serviceKey, vendorDistances, propertyTimezone, masterDate, externalSetSelectedSlots, externalSelectedSlots, externalBookedSlots, externalVendorsData, externalServicesData, onVendorSelected, isCalculating }: CalendarProps) {
   const {
     selectedSlots: contextSelectedSlots,
     setSelectedSlots: contextSetSelectedSlots,
@@ -1568,9 +1568,9 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     const newSlots = slots.map(slot => ({
       service_id: service.uuid ?? '',
       vendor_id: vendor.uuid ? vendor.uuid : '',
-      show_all_vendors: showAllVendorsMap[calendarIdx] ?? 0,
-      schedule_override: scheduleOverrideMap[calendarIdx] ?? 0,
-      recommend_time: recommendTimeMap[calendarIdx] ?? 0,
+      show_all_vendors: showAllVendorsMap[serviceKey] ?? 0,
+      schedule_override: scheduleOverrideMap[serviceKey] ?? 0,
+      recommend_time: recommendTimeMap[serviceKey] ?? 0,
       travel: null,
       start_time: dayjs(slot.start).format('HH:mm:ss'),
       end_time: dayjs(slot.end).format('HH:mm:ss'),

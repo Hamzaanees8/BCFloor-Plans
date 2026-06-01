@@ -235,8 +235,9 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
 
     useEffect(() => {
         const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-        const vendorsToProcess = userType === 'vendor' && userInfo?.uuid
-            ? vendorData.filter(v => v.uuid === userInfo.uuid)
+        const userUuid = userInfo?.uuid || userInfo?.data?.uuid;
+        const vendorsToProcess = userType === 'vendor' && userUuid
+            ? vendorData.filter(v => v.uuid === userUuid)
             : vendorData.filter(v => selectedVendors.includes('ALL') || selectedVendors.includes(v.uuid || ''));
 
         const allMappedEvents: CalendarEvent[] = [];
@@ -277,12 +278,13 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
     useEffect(() => {
 
         const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        const userUuid = userInfo?.uuid || userInfo?.data?.uuid;
 
-        const currentvendorData = vendorData.find((vendor) => vendor.uuid === userInfo?.uuid);
+        const currentvendorData = vendorData.find((vendor) => vendor.uuid === userUuid);
 
         let breaks: CalendarEvent[] = [];
 
-        if (userType === 'vendor' && userInfo?.uuid) {
+        if (userType === 'vendor' && userUuid) {
             breaks = generateWeeklyBreakEvents(currentvendorData ? [currentvendorData] : [], date);
         } else if (userType === 'admin') {
             breaks = generateWeeklyBreakEvents(vendorData, date);
@@ -388,11 +390,12 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
 
         // Filter vendors based on userType
         const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        const userUuid = userInfo?.uuid || userInfo?.data?.uuid;
         let vendorsToProcess = vendorData;
 
-        if (userType === 'vendor' && userInfo?.uuid) {
+        if (userType === 'vendor' && userUuid) {
             // Only show current vendor's time-offs
-            vendorsToProcess = vendorData.filter(vendor => vendor.uuid === userInfo.uuid);
+            vendorsToProcess = vendorData.filter(vendor => vendor.uuid === userUuid);
         }
 
         vendorsToProcess?.forEach(vendor => {
@@ -429,6 +432,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
 
     // Filter events based on userType
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const userUuid = userInfo?.uuid || userInfo?.data?.uuid;
 
     const filteredEvents = events.filter(event => {
         const matchService =
@@ -440,8 +444,8 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
             selectedVendors.includes(String(event.vendor_id));
 
         // If vendor is logged in, only show their own orders
-        const matchCurrentVendor = userType === 'vendor' && userInfo?.uuid
-            ? event.vendor_id === userInfo.uuid
+        const matchCurrentVendor = userType === 'vendor' && userUuid
+            ? event.vendor_id === userUuid
             : true;
 
         return matchService && matchVendor && matchCurrentVendor;
@@ -791,8 +795,9 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
     // Calculate resources and pagination
     const resources = React.useMemo(() => {
         const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-        const vendorsToProcess = userType === 'vendor' && userInfo?.uuid
-            ? vendorData.filter(v => v.uuid === userInfo.uuid)
+        const userUuid = userInfo?.uuid || userInfo?.data?.uuid;
+        const vendorsToProcess = userType === 'vendor' && userUuid
+            ? vendorData.filter(v => v.uuid === userUuid)
             : vendorData.filter(v => selectedVendors.includes('ALL') || selectedVendors.includes(v.uuid || ''));
 
         return vendorsToProcess.map(vendor => ({
@@ -1028,10 +1033,13 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
         const startOfMonth = today.startOf('month');
         const endOfMonth = today.endOf('month');
 
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        const userUuid = userInfo?.uuid || userInfo?.data?.uuid;
+
         vendors.forEach((vendor) => {
-            const matchVendor =
-                selectedVendors.includes('ALL') ||
-                selectedVendors.includes(String(vendor.uuid));
+            const matchVendor = userType === 'vendor' && userUuid
+                ? vendor.uuid === userUuid
+                : (selectedVendors.includes('ALL') || selectedVendors.includes(String(vendor.uuid)));
 
             if (!matchVendor) return;
 
@@ -1084,6 +1092,9 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
         const currentMonth = today.month();
         const currentYear = today.year();
 
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        const userUuid = userInfo?.uuid || userInfo?.data?.uuid;
+
         // Process order events for monthly view
         orderData?.forEach((order) => {
             order.slots.forEach((slot) => {
@@ -1101,9 +1112,9 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     (selectedservice.length === 0) ||
                     (selectedservice.includes('TIME_OFF') && selectedservice.filter(s => s !== 'TIME_OFF').length === 0);
 
-                const matchVendor =
-                    selectedVendors.includes('ALL') ||
-                    selectedVendors.includes(String(slot.vendor_id));
+                const matchVendor = userType === 'vendor' && userUuid
+                    ? slot.vendor.uuid === userUuid
+                    : (selectedVendors.includes('ALL') || selectedVendors.includes(String(slot.vendor_id)));
 
                 if (matchService && matchVendor) {
                     monthlyEvents.push({

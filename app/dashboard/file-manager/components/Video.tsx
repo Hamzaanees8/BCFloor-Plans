@@ -28,6 +28,7 @@ import { ModeToggle } from './dual-mode/ModeToggle';
 import { FileItem, DualMode } from './dual-mode/types';
 import { GridSizeToggle } from './dual-mode/GridSizeToggle';
 import { MediaDateBoundary } from './FileManager';
+import { api } from '@/lib/api';
 
 
 
@@ -49,6 +50,52 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
     const [editingFile, setEditingFile] = useState<SelectedFiles | Files | null>(null);
     const [replacingFile, setReplacingFile] = useState<File | null>(null);
     const { userType } = useAppContext()
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+    const handleSubmitAdminApproval = async () => {
+        setIsSubmitting(true);
+        try {
+            const token = localStorage.getItem("token") || "";
+            const vendor = orderData?.vendor;
+            const vendorName = vendor ? `${vendor.first_name} ${vendor.last_name}` : "Vendor";
+            
+            await api.post(`/notifications`, {
+                source: 'order',
+                source_id: orderData?.uuid || "",
+                type: 'admin_approval_required',
+                description: `Media submitted by Vendor ${vendorName} for Order #${orderData?.id || ""} requires Admin Approval.`,
+                role: 'admin',
+                created_by_name: vendorName
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            await api.post(`/notifications/email`, {
+                to: "info@bcfplatform.com",
+                subject: `Order #${orderData?.id || ""}: Media Submitted for Admin Approval`,
+                html: `
+                    <div style="font-family: 'Alexandria', sans-serif; padding: 20px; color: #333;">
+                        <h2 style="color: #4290E9;">Media Submitted for Admin Approval</h2>
+                        <p>Vendor <strong>${vendorName}</strong> has uploaded and submitted media files for Order <strong>#${orderData?.id || ""}</strong>.</p>
+                        <p>This vendor is marked for mandatory admin review before files are released to the client/agent.</p>
+                        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+                        <p style="font-size: 13px; color: #666;">Please log in to your admin dashboard, navigate to the File Manager for Order #${orderData?.id || ""}, and approve the files.</p>
+                    </div>
+                `
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (onSave) onSave();
+            setMediaUploaded(true);
+            toast.success("Submitted successfully! The admins have been notified to review your files.");
+        } catch (error) {
+            console.error("Submission failed:", error);
+            toast.error("Failed to submit for approval. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const videoOptions = [
         "Branded Video", "Unbranded Video", "Social Media Teaser", "Reel / Short", "Aerial Highlight"
@@ -121,10 +168,12 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 }));
                 setReplacingFile(null);
                 setFiles([]);
+                e.target.value = "";
                 return;
             }
             setFiles(videoFiles);
         }
+        e.target.value = "";
     };
 
     const handleFilesChange = (selectedVideoFiles: File[]) => {
@@ -736,28 +785,43 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                         </Button>
                     )}
                     {!isHidingMode && userType !== 'agent' && (
-                            <Button
-                                onClick={() => {
-                                    setFileManagerMode('upload');
-                                    setMediaUploaded(true);
-                                    setShowConfirmation(true)
-                                    if (onSave) onSave();
-                                }}
-                                disabled={isSaving}
-                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[var(--primary-color)] hover:opacity-90 text-white'}  h-[32px] w-[150px] flex justify-center items-center `}
-                                style={!mediaUploaded ? { backgroundColor: 'var(--primary-color)' } : {}}
-                            >
-                                {isSaving ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Submitting...
-                                    </>
-                                ) : mediaUploaded ? (
-                                    <Check color="#fff" size={14} />
-                                ) : (
-                                    'Submit to Client'
-                                )}
-                            </Button>
+                            reviewFilesEnabled && userType === 'vendor' ? (
+                                <Button
+                                    onClick={handleSubmitAdminApproval}
+                                    disabled={isSubmitting}
+                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] min-w-[150px] w-fit px-4 flex justify-center items-center font-alexandria`}
+                                >
+                                    {isSubmitting ? (
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    ) : mediaUploaded ? (
+                                        <Check color="#fff" size={14} className="mr-2" />
+                                    ) : null}
+                                    {mediaUploaded ? 'Submitted' : 'Submit for Admin Approval'}
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={() => {
+                                        setFileManagerMode('upload');
+                                        setMediaUploaded(true);
+                                        setShowConfirmation(true)
+                                        if (onSave) onSave();
+                                    }}
+                                    disabled={isSaving}
+                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[var(--primary-color)] hover:opacity-90 text-white'}  h-[32px] w-[150px] flex justify-center items-center `}
+                                    style={!mediaUploaded ? { backgroundColor: 'var(--primary-color)' } : {}}
+                                >
+                                    {isSaving ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Submitting...
+                                        </>
+                                    ) : mediaUploaded ? (
+                                        <Check color="#fff" size={14} />
+                                    ) : (
+                                        'Submit to Client'
+                                    )}
+                                </Button>
+                            )
                         )}
                     <AgentNotificationModal
                         open={showConfirmation}
@@ -896,7 +960,15 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
             <div className="py-4">
                 <FilePreviewModal type='HDR_photos' open={open} onOpenChange={() => { setOpen(false) }} files={files} setSelectedFiles={setSelectedVideoFiles} serviceUuid={currentService?.uuid ?? ''} reviewFilesEnabled={reviewFilesEnabled} />
 
-                <div className="mt-4">
+                <div className="mt-4 flex flex-col items-center justify-center">
+                    {userType === 'vendor' && reviewFilesEnabled && (
+                        <div className="w-[80%] max-w-[800px] mb-6 p-4 border border-blue-200 bg-blue-50 rounded-[8px] flex items-start gap-3 font-alexandria shadow-sm self-center">
+                            <span className="text-[18px] text-blue-600 mt-0.5">ℹ️</span>
+                            <p className="text-[13px] text-blue-700 leading-relaxed font-medium">
+                                Your uploads are undergoing Admin Approval. Once approved by the administrator, they will be released to the booking agent.
+                            </p>
+                        </div>
+                    )}
                     <DualModeFileManager
                         mode={fileManagerMode}
                         items={fileItems}

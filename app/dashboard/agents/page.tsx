@@ -274,10 +274,10 @@ const Page = () => {
                     userType !== "vendor" &&
                     <div className="flex gap-2 justify-center items-center">
                         <Link
-                            className={`w-[90px]  h-[30px]   justify-center rounded-[6px] border-[1px] ${userType}-border ${userType}-bg text-[12px]  font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg hover:opacity-95`}
+                            className={`w-[95px]  h-[30px]   justify-center rounded-[6px] border-[1px] ${userType}-border ${userType}-bg text-[12px]  font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg hover:opacity-95`}
                             href={`/dashboard/listings${row.original.uuid ? `?agent=${row.original.uuid}` : ''}`}
                         >
-                            <span>Tour</span>
+                            <span>Listings</span>
                             <UploadRightIcon size={14} color="#fff" />
                         </Link>
 

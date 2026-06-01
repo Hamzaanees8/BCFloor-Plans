@@ -20,13 +20,26 @@ export async function DeleteInvoice(uuid: string) {
     return response.data;
 }
 
-export async function MarkPaid(uuid: string, amount: string | number, paymentMode?: 'on_behalf' | 'self', payerUuid?: string) {
+export async function MarkPaid(
+    uuid: string, 
+    amount: string | number, 
+    paymentMode?: 'on_behalf' | 'self', 
+    payerUuid?: string,
+    paymentMethod?: string,
+    notes?: string
+) {
     const body: any = {
         amount: amount,
     };
     if (paymentMode) {
         body.payment_mode = paymentMode;
         body.payer_uuid = payerUuid;
+    }
+    if (paymentMethod) {
+        body.payment_method = paymentMethod;
+    }
+    if (notes) {
+        body.notes = notes;
     }
     const response = await api.post(`/invoices/${uuid}/markPaid`, body);
     return response.data;
@@ -59,7 +72,8 @@ export async function PayInvoiceWithStripe(
     redirectUrl: string, 
     serviceId?: string,
     paymentMode?: 'on_behalf' | 'self',
-    payerUuid?: string
+    payerUuid?: string,
+    openInNewTab?: boolean
 ) {
     const body: any = {
         agent_uuid: invoice.agent?.uuid || order.agent?.uuid || order.agent_uuid, // allow fallback
@@ -80,7 +94,11 @@ export async function PayInvoiceWithStripe(
 
     const response = await api.post('/agent/pay/create-session', body);
     if (response.data?.success && response.data?.url) {
-        window.location.href = response.data.url;
+        if (openInNewTab) {
+            window.open(response.data.url, '_blank');
+        } else {
+            window.location.href = response.data.url;
+        }
     } else {
         throw new Error(response.data?.message || 'Failed to create payment session');
     }

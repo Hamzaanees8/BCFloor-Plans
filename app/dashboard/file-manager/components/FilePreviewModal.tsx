@@ -330,9 +330,41 @@ export default function FilePreviewModal({
     complimentaryIndexes,
   ]);
 
+  const handleOpenChange = (val: boolean) => {
+    if (!val) {
+      if (localFiles.length > 0) {
+        const confirmCancel = window.confirm("Are you sure you want to cancel? Your file selection will be lost.");
+        if (!confirmCancel) return;
+      }
+      onOpenChange(false);
+    } else {
+      onOpenChange(true);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[320px] md:w-[700px] max-w-none font-alexandria">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent 
+        className="w-[320px] md:w-[700px] max-w-none font-alexandria"
+        onPointerDownOutside={(e) => {
+          if (localFiles.length > 0) {
+            e.preventDefault();
+            const confirmCancel = window.confirm("Are you sure you want to cancel? Your file selection will be lost.");
+            if (confirmCancel) {
+              onOpenChange(false);
+            }
+          }
+        }}
+        onEscapeKeyDown={(e) => {
+          if (localFiles.length > 0) {
+            e.preventDefault();
+            const confirmCancel = window.confirm("Are you sure you want to cancel? Your file selection will be lost.");
+            if (confirmCancel) {
+              onOpenChange(false);
+            }
+          }
+        }}
+      >
         <DialogHeader className="border-b pb-4 border-[#7d7d7d]">
           <DialogTitle className={`text-[18px] ${userType}-text font-[600]`}>
             FILE UPLOAD
@@ -390,7 +422,13 @@ export default function FilePreviewModal({
             <Button
               className={`w-full ${userType}-text ${userType}-border h-[44px]`}
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                if (localFiles.length > 0) {
+                  const confirmCancel = window.confirm("Are you sure you want to cancel? Your file selection will be lost.");
+                  if (!confirmCancel) return;
+                }
+                onOpenChange(false);
+              }}
             >
               Cancel
             </Button>

@@ -644,6 +644,7 @@ const FileManager = () => {
       ...(filesData?.snapshots || [])
         .filter(snap => !deletedSnapshotUuids.has(snap.uuid))
         .map(snap => ({
+          uuid: snap.uuid,
           x: Number(snap.x_axis),
           y: Number(snap.y_axis),
           floorImageUrl: snap.file_name,
@@ -1394,6 +1395,56 @@ const FileManager = () => {
           </div>
         </div>
       )}
+
+      {/* Admin Approval Widget */}
+      {userType === 'admin' && reviewFilesEnabled && activeService && (() => {
+        const unapprovedFiles = filesData?.files?.filter(f => f.service?.uuid === activeService.uuid && !f.is_admin_approved) || [];
+        if (unapprovedFiles.length === 0) return null;
+
+        return (
+          <div className="mx-[25px] my-4 p-4 border border-amber-200 bg-amber-50 rounded-[8px] flex flex-col md:flex-row justify-between items-center gap-4 font-alexandria shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="text-[20px]">⚠️</span>
+              <div>
+                <p className="text-[14px] font-bold text-amber-800">Admin Approval Required</p>
+                <p className="text-[12px] text-amber-700">This vendor requires your approval. {unapprovedFiles.length} file(s) are currently locked and hidden from the client/agent.</p>
+              </div>
+            </div>
+            <Button
+              onClick={async () => {
+                // Mark all unapproved files for this service as admin approved
+                setFilesData(prev => {
+                  if (!prev) return prev;
+                  return {
+                    ...prev,
+                    files: prev.files.map(f => {
+                      if (f.service?.uuid === activeService.uuid && !f.is_admin_approved) {
+                        setChangedFileUuids(prevSet => {
+                          const newSet = new Set(prevSet);
+                          newSet.add(f.uuid);
+                          return newSet;
+                        });
+                        return { ...f, is_admin_approved: true };
+                      }
+                      return f;
+                    })
+                  };
+                });
+                
+                // Trigger auto-save to commit to database
+                setTimeout(() => {
+                  handleSave();
+                }, 100);
+                
+                toast.success("Files approved! Saving changes...");
+              }}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-[500] h-[36px] px-6 rounded-[6px] transition-colors"
+            >
+              Approve & Release Files
+            </Button>
+          </div>
+        );
+      })()}
 
       <div>{renderContent()}</div>
 

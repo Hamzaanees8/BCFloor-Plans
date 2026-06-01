@@ -145,6 +145,7 @@ interface TravelCost {
     toAddress: string;
     error?: boolean;
     errorMessage?: string;
+    isFallback?: boolean;
 }
 
 interface VendorLocationData {
@@ -178,6 +179,41 @@ const logBillingError = (context: string, error: any, additionalData?: any) => {
         userAgent: typeof window !== 'undefined' ? navigator.userAgent : null
     };
     console.error('[Billing Error]', errorLog);
+};
+
+const geocodeAddress = (address: string): Promise<{ lat: number; lng: number } | null> => {
+    if (typeof window === "undefined" || !window.google?.maps?.Geocoder) return Promise.resolve(null);
+    const geocoder = new window.google.maps.Geocoder();
+    return new Promise((resolve) => {
+        geocoder.geocode({ address }, (results, status) => {
+            if (status === "OK" && results?.[0]?.geometry?.location) {
+                const loc = results[0].geometry.location;
+                resolve({ lat: loc.lat(), lng: loc.lng() });
+            } else {
+                resolve(null);
+            }
+        });
+    });
+};
+
+const getHaversineDistance = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+): number => {
+    const R = 6371; // Radius of the earth in km
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c; // Distance in km
+    return d;
 };
 
 const Page = () => {
@@ -446,7 +482,9 @@ const Page = () => {
                 return;
             }
 
-            const startLocationAddress = `${startLocation.address_line_1}, ${startLocation.city}, ${startLocation.country}`;
+            const rawCountry = startLocation.country || "";
+            const normalizedCountry = rawCountry.trim().toUpperCase() === 'CA' ? 'Canada' : rawCountry.trim().toUpperCase() === 'US' ? 'USA' : rawCountry;
+            const startLocationAddress = `${startLocation.address_line_1}, ${startLocation.city}, ${normalizedCountry}`;
             const paymentPerKm = Number(vendor?.settings?.payment_per_km ?? 0);
 
             // Store vendor location data
@@ -623,20 +661,93 @@ const Page = () => {
                                     toAddress: toAddressForDisplay
                                 });
                             } else {
-                                console.warn(`⚠️ Distance calculation failed for service ${unit.serviceUuid} in order ${unit.orderId}`);
-                                toast.error(`⚠️ Travel calculation failed for ${unit.serviceName} in order #${unit.orderId}. Leg not found.`);
-                                newTravelCosts.set(`${unit.orderId}-${unit.serviceUuid}`, {
-                                    orderId: unit.orderId,
-                                    serviceUuid: unit.serviceUuid,
-                                    date: unit.slotDate,
-                                    distance: 0,
-                                    estimatedTime: 0,
-                                    travelCost: 0,
-                                    fromAddress: startLocationAddress,
-                                    toAddress: toAddressForDisplay,
-                                    error: true,
-                                    errorMessage: "Leg calculation missing in batch result"
-                                });
+                                console.warn(`⚠️ Driving directions calculation failed for service ${unit.serviceUuid} in order ${unit.orderId}. Attempting straight-line fallback.`);
+                                const fromAddr = i === 0 ? startLocationAddress : travelUnitsForDay[i - 1].propertyAddress;
+                                const toAddr = unit.propertyAddress;
+                                
+                                let distance = 0;
+                                let estimatedTime = 0;
+                                let isFallback = false;
+                                let specificError = "Leg calculation missing in batch result";
+                                
+                                const failedLeg = batchResult.failedLegs?.find(l => l.legIndex === i);
+                                if (failedLeg && failedLeg.status) {
+                                    specificError = `Google Maps failed: ${failedLeg.status}`;
+                                }
+
+                                if (fromAddr && toAddr) {
+                                    try {
+                                        const fromCoords = await geocodeAddress(fromAddr);
+                                        const toCoords = await geocodeAddress(toAddr);
+                                        if (fromCoords && toCoords) {
+                                            const straightLineDist = getHaversineDistance(
+                                                fromCoords.lat,
+                                                fromCoords.lng,
+                                                toCoords.lat,
+                                                toCoords.lng
+                                            );
+                                            // Driving distance is typically ~30% longer than straight line
+                                            distance = parseFloat((straightLineDist * 1.3).toFixed(2));
+                                            estimatedTime = Math.round(distance * 1.2); // approx 1.2 min per km
+                                            isFallback = true;
+                                        }
+                                    } catch (geoErr) {
+                                        console.error("Failed to geocode for travel fallback:", geoErr);
+                                    }
+                                }
+
+                                if (isFallback) {
+                                    // If this is the last trip of the day, add return trip using fallback geocoding
+                                    if (i === travelUnitsForDay.length - 1) {
+                                        try {
+                                            const startCoords = await geocodeAddress(startLocationAddress);
+                                            if (startCoords) {
+                                                const lastBookingCoords = await geocodeAddress(toAddr);
+                                                if (lastBookingCoords) {
+                                                    const returnStraightLine = getHaversineDistance(
+                                                        lastBookingCoords.lat,
+                                                        lastBookingCoords.lng,
+                                                        startCoords.lat,
+                                                        startCoords.lng
+                                                    );
+                                                    distance += parseFloat((returnStraightLine * 1.3).toFixed(2));
+                                                    estimatedTime += Math.round((returnStraightLine * 1.3) * 1.2);
+                                                }
+                                            }
+                                        } catch (retErr) {
+                                            console.error("Failed to geocode return trip fallback:", retErr);
+                                        }
+                                    }
+
+                                    const travelCost = parseFloat((distance * paymentPerKm).toFixed(2));
+                                    newTravelCosts.set(`${unit.orderId}-${unit.serviceUuid}`, {
+                                        orderId: unit.orderId,
+                                        serviceUuid: unit.serviceUuid,
+                                        date: unit.slotDate,
+                                        distance,
+                                        estimatedTime,
+                                        travelCost,
+                                        fromAddress: fromAddr,
+                                        toAddress: toAddressForDisplay,
+                                        isFallback: true,
+                                        errorMessage: `Driving directions unroutable (${specificError}). Estimated via straight-line fallback.`
+                                    });
+                                    toast.warning(`ℹ️ Straight-line fallback distance used for ${unit.serviceName} (#${unit.orderId}) due to routing limits.`);
+                                } else {
+                                    toast.error(`⚠️ Travel calculation failed for ${unit.serviceName} in order #${unit.orderId}. Leg not found.`);
+                                    newTravelCosts.set(`${unit.orderId}-${unit.serviceUuid}`, {
+                                        orderId: unit.orderId,
+                                        serviceUuid: unit.serviceUuid,
+                                        date: unit.slotDate,
+                                        distance: 0,
+                                        estimatedTime: 0,
+                                        travelCost: 0,
+                                        fromAddress: fromAddr,
+                                        toAddress: toAddressForDisplay,
+                                        error: true,
+                                        errorMessage: specificError
+                                    });
+                                }
                             }
                         }
                     } else {
@@ -1366,7 +1477,7 @@ const Page = () => {
                                                                                                         : 'border-gray-100'
                                                                                                     }`}>
                                                                                                     {/* Cost / status header */}
-                                                                                                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                                                                                                                                                                                           <div className="flex items-center gap-2 flex-wrap mb-2">
                                                                                                         {svcTravel.travelCost > 0 ? (
                                                                                                             <>
                                                                                                                 <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded text-[10px] uppercase font-bold">Travel</span>
@@ -1376,6 +1487,9 @@ const Page = () => {
                                                                                                                 <span className="text-gray-400">{svcTravel.estimatedTime} min</span>
                                                                                                                 <span className="text-gray-300">•</span>
                                                                                                                 <span className="text-gray-400">@ ${Number(vendorLocation?.paymentPerKm ?? 0).toFixed(2)}/km</span>
+                                                                                                                {svcTravel.isFallback && (
+                                                                                                                    <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] uppercase font-bold" title={svcTravel.errorMessage}>Fallback Estimate</span>
+                                                                                                                )}
                                                                                                             </>
                                                                                                         ) : svcTravel.error ? (
                                                                                                             <span className="px-1.5 py-0.5 bg-red-100 text-red-600 rounded text-[10px] uppercase font-bold">Travel Error</span>
@@ -1383,6 +1497,9 @@ const Page = () => {
                                                                                                             <>
                                                                                                                 <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[10px] uppercase font-bold">No Travel</span>
                                                                                                                 <span className="text-gray-400 italic">Travel not required for this service</span>
+                                                                                                                {svcTravel.isFallback && (
+                                                                                                                    <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] uppercase font-bold" title={svcTravel.errorMessage}>Fallback Estimate</span>
+                                                                                                                )}
                                                                                                             </>
                                                                                                         )}
                                                                                                     </div>
@@ -1409,6 +1526,11 @@ const Page = () => {
                                                                                                     {svcTravel.error && (
                                                                                                         <div className="mt-1.5 px-2.5 py-1.5 bg-red-50 border border-red-200 rounded text-red-600">
                                                                                                             ⚠️ {svcTravel.errorMessage || 'Unknown calculation error'}
+                                                                                                        </div>
+                                                                                                    )}
+                                                                                                    {svcTravel.isFallback && (
+                                                                                                        <div className="mt-1.5 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded text-amber-700">
+                                                                                                            ℹ️ {svcTravel.errorMessage}
                                                                                                         </div>
                                                                                                     )}
                                                                                                 </div>

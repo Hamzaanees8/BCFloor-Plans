@@ -1196,7 +1196,6 @@ const GlobalSettings = () => {
                             >
                                 <div
                                     className="flex items-center justify-between w-full"
-                                    onClick={(e) => e.stopPropagation()}
                                 >
                                     <p>DISCOUNTS</p>
                                     <div
@@ -1205,11 +1204,11 @@ const GlobalSettings = () => {
                                             setSelectedDiscount(null);
                                             setOpenAddDiscountDialog(true);
                                         }}
-                                        className="flex items-center gap-x-[10px] pr-[24px]"
+                                        className="flex items-center gap-x-[10px] pr-[24px] cursor-pointer group"
                                     >
-                                        <p className="text-base font-semibold font-raleway">Add</p>
+                                        <p className="text-base font-semibold font-raleway group-hover:underline transition-all duration-200">Add</p>
                                         <Plus
-                                            className={`w-[18px] h-[18px] ${userType}-bg text-white rounded-sm`}
+                                            className={`w-[18px] h-[18px] ${userType}-bg text-white rounded-sm transition-transform duration-300 group-hover:rotate-90`}
                                         />
                                     </div>
                                     <AddDiscountDialog

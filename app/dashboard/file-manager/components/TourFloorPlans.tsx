@@ -73,6 +73,64 @@ function TourFloorPlans({ type = "" }) {
   } | null>(null);
   const [previewMarker, setPreviewMarker] = useState<DroppedMarker | null>(null);
 
+  const [clickPos, setClickPos] = useState<{ x: number; y: number } | null>(null);
+  const [showPhotoSelector, setShowPhotoSelector] = useState(false);
+
+  const handleImageDoubleClick = (e: React.MouseEvent<HTMLElement>) => {
+    if (type === "confirm" || !imgRef.current || !selectedImageId) return;
+
+    const img = imgRef.current;
+    const imgRect = img.getBoundingClientRect();
+
+    const relX = e.clientX - imgRect.left;
+    const relY = e.clientY - imgRect.top;
+
+    const xPercent = (relX / imgRect.width) * 100;
+    const yPercent = (relY / imgRect.height) * 100;
+
+    setClickPos({ x: xPercent, y: yPercent });
+    setShowPhotoSelector(true);
+  };
+
+  const handleSelectPhotoForClick = (file: any) => {
+    if (!clickPos || !selectedImageId) return;
+
+    const newMarker: DroppedMarker = {
+      x: clickPos.x,
+      y: clickPos.y,
+      floorImageUrl: selectedImageId,
+      name: '',
+      description: '',
+    };
+
+    if ('file' in file || !('uuid' in file)) {
+      newMarker.file = file.file;
+    } else {
+      newMarker.file_path = file.file_path;
+      newMarker.url = file.url || file.variant_urls?.landing || file.variant_urls?.popup || file.variant_urls?.thumb;
+      newMarker.thumbnail_url = file.variant_urls?.thumb || file.thumbnail_url || file.url;
+      newMarker.variant_urls = file.variant_urls;
+      newMarker.isApi = true;
+    }
+
+    setDroppedMarkers(prev => {
+      const newArr = [...prev, newMarker];
+      const newIndex = newArr.length - 1;
+      setActiveMarkerIndex(newIndex);
+
+      setSnapshotFile(file.file || null);
+      setSnapshotName('');
+      setSnapshotDescription('');
+      setTempMarkerPos({ x: clickPos.x, y: clickPos.y });
+      setPreviewMarker(newMarker);
+      return newArr;
+    });
+
+    setShowPhotoSelector(false);
+    setClickPos(null);
+    toast.success("Snapshot placed! Add a name and description, then click Add.");
+  };
+
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
@@ -244,6 +302,7 @@ function TourFloorPlans({ type = "" }) {
     }
 
     if (activeApiSnapshotUuid) {
+      newMarker.uuid = activeApiSnapshotUuid;
       // Migrate API snapshot to local droppedMarkers and mark original as deleted
       setDeletedSnapshotUuids(prev => {
         const next = new Set(prev);
@@ -341,6 +400,19 @@ function TourFloorPlans({ type = "" }) {
 
   return (
     <div className={`w-full h-auto font-alexandria bg-gray-100 py-6  ${type !== "confirm" ? "pl-6" : "pl-0 mt-[75px] pt-0"}`}>
+      {type !== "confirm" && (
+        <div className="mb-6 mr-6 bg-[#E3F2FD] border-l-4 border-[#1E88E5] text-[#1565C0] p-4 rounded-r-lg shadow-sm flex items-start gap-3">
+          <svg className="w-5 h-5 mt-0.5 text-[#1E88E5] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <span className="font-semibold block text-[15px] mb-0.5">Quick Guide: How to Attach Snapshots</span>
+            <p className="text-[13.5px] leading-relaxed">
+              Drag and drop any photo from the <strong>Photos</strong> gallery below onto the desired position on the floor plan image to attach it as a snapshot. Alternatively, you can <strong>double-click or tap</strong> anywhere on the floor plan to select a photo directly.
+            </p>
+          </div>
+        </div>
+      )}
       <div className={`w-full h-[550px] flex gap-[30px] ${type === "confirm" ? "bg-white" : ""} `}>
         <div
           ref={imageContainerRef}
@@ -377,7 +449,8 @@ function TourFloorPlans({ type = "" }) {
                 height={1200}
                 draggable={false}
                 ref={imgRef as any}
-                className="object-contain max-h-full max-w-full w-full h-full"
+                className="object-contain max-h-full max-w-full w-full h-full cursor-pointer"
+                onDoubleClick={handleImageDoubleClick}
               />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
@@ -392,7 +465,8 @@ function TourFloorPlans({ type = "" }) {
                     : ""
                 }
                 alt="Selected Floor"
-                className="object-contain max-h-full max-w-full w-full h-full"
+                className="object-contain max-h-full max-w-full w-full h-full cursor-pointer"
+                onDoubleClick={handleImageDoubleClick}
               />
             )
           )}
@@ -657,7 +731,7 @@ function TourFloorPlans({ type = "" }) {
         <div className="mt-8">
           <p className="text-[#666666] text-[24px] px-3">Photos</p>
 
-          {(currentTourPhotos || [])?.length > 0 && (
+          {(currentTourPhotos || [])?.length > 0 ? (
             <div className="mt-4 w-full grid grid-cols-6 gap-2 p-3">
               {currentTourPhotos?.map((file, idx) => {
                 const isEditing = activeMarkerIndex !== null || !!activeApiSnapshotUuid;
@@ -695,7 +769,7 @@ function TourFloorPlans({ type = "" }) {
                             e.dataTransfer.setData("text/plain", file.uuid);
                             setDraggedFile({ 
                               file_path: file.file_path || (file as any).variants?.thumb || (file as any).variants?.landing || (file as any).variants?.popup, 
-                              url: file.url || file.variant_urls?.landing || file.variant_urls?.popup || file.variant_urls?.thumb, 
+                               url: file.url || file.variant_urls?.landing || file.variant_urls?.popup || file.variant_urls?.thumb, 
                               thumbnail_url: file.variant_urls?.thumb || file.thumbnail_url || file.url,
                               variant_urls: file.variant_urls
                             });
@@ -719,10 +793,94 @@ function TourFloorPlans({ type = "" }) {
                 );
               })}
             </div>
+          ) : (
+            <div className="mt-4 mx-3 border border-dashed border-gray-300 bg-white rounded-lg p-8 text-center text-[#666666] font-medium text-[14px] flex flex-col items-center justify-center gap-3">
+              <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375 0 11-.75 0 .375 0 01.75 0z" />
+              </svg>
+              <span>No Photo is available to attach as snapshot, please select / approve some photos from the available media.</span>
+            </div>
           )}
         </div>
       )}
 
+      {showPhotoSelector && (
+        <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center font-alexandria p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">Select Snapshot Photo</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Click any photo below to attach it to the selected floor plan coordinates</p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => {
+                  setShowPhotoSelector(false);
+                  setClickPos(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-200 rounded-full"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              {currentTourPhotos?.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  No photos available to select.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {currentTourPhotos?.map((file, idx) => {
+                    const isLocal = !('uuid' in file);
+                    return (
+                      <div 
+                        key={idx}
+                        onClick={() => handleSelectPhotoForClick(file)}
+                        className="group border border-gray-200 rounded-lg overflow-hidden bg-gray-50 hover:border-[#4290E9] hover:ring-2 hover:ring-[#4290E9]/20 transition-all duration-200 cursor-pointer shadow-sm"
+                      >
+                        <div className="relative w-full h-[120px]">
+                          {isLocal ? (
+                            <OptimizedImagePreview
+                              file={(file as any).file}
+                              className="w-full h-full object-cover animate-none"
+                            />
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={
+                                file.variant_urls?.thumb || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : '')
+                              }
+                              alt="preview"
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                          <div className="absolute inset-0 bg-[#4290E9]/10 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <span className="text-white text-[11px] font-bold bg-[#4290E9] px-2.5 py-1 rounded shadow">USE PHOTO</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            
+            <div className="px-6 py-3.5 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <Button 
+                type="button"
+                onClick={() => {
+                  setShowPhotoSelector(false);
+                  setClickPos(null);
+                }}
+                className="bg-gray-300 hover:bg-gray-400 text-gray-700 font-medium"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

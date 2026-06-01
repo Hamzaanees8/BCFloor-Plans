@@ -551,7 +551,7 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
               )}
 
               {activeTab === "Floorplan" && (
-                <div className="w-full">
+                <div className="w-full pt-[80px]">
                   <TourFloorPlans type="confirm" />
                 </div>
               )}

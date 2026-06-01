@@ -19,12 +19,63 @@ import { DataTable } from '@/components/DataTable';
 import { ColumnDef } from "@tanstack/react-table";
 import { useUser } from "@/context/UserContext";
 import { GetOrganizations } from "@/app/dashboard/global-settings/global-settings";
+import { Copy, Check, ExternalLink } from "lucide-react";
 
 const options = [
   { label: "Activate" },
   { label: "Deactivate" },
   { label: "Delete", confirm1: true },
 ];
+
+const CopyableLink = ({ url }: { url: string }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 max-w-[200px] group">
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-[#4290E9] hover:underline truncate text-[14px] font-[400]"
+        title={url}
+      >
+        {url}
+      </a>
+      <button
+        onClick={handleCopy}
+        className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
+        title="Copy Link"
+      >
+        {copied ? (
+          <Check className="h-3.5 w-3.5 text-green-500 animate-in fade-in zoom-in duration-200" />
+        ) : (
+          <Copy className="h-3.5 w-3.5 text-gray-400 group-hover:text-gray-600 transition-colors" />
+        )}
+      </button>
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Open in new tab"
+      >
+        <ExternalLink className="h-3.5 w-3.5 text-gray-400 hover:text-[#4290E9]" />
+      </a>
+    </div>
+  );
+};
 
 const MatterportPage = () => {
   const [matterports, setMatterports] = useState<MatterportAd[]>([]);
@@ -143,6 +194,30 @@ const MatterportPage = () => {
       accessorKey: "renewalDate",
       header: "RENEWAL DATE",
       cell: ({ row }) => <div className="text-[15px] font-[400] text-[#666666]">{row.original.renewalDate}</div>
+    },
+    {
+      accessorKey: "brandedLink",
+      header: "BRANDED LINK",
+      cell: ({ row }) => {
+        const url = row.original.brandedLink;
+        return url ? (
+          <CopyableLink url={url} />
+        ) : (
+          <span className="text-gray-400 italic text-[14px]">None</span>
+        );
+      }
+    },
+    {
+      accessorKey: "unbrandedLink",
+      header: "UNBRANDED LINK",
+      cell: ({ row }) => {
+        const url = row.original.unbrandedLink;
+        return url ? (
+          <CopyableLink url={url} />
+        ) : (
+          <span className="text-gray-400 italic text-[14px]">None</span>
+        );
+      }
     },
     {
       accessorKey: "status",

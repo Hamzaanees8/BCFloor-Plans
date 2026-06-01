@@ -549,32 +549,38 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-4">
-                                    {/* <div className="flex justify-start gap-6 items-center">
-                                        <Switch
-                                            checked={!!showAllVendors}
-                                            onCheckedChange={() =>
-                                                setShowAllVendorsMap((prev) => ({
-                                                    ...prev,
-                                                    [idx]: showAllVendors === 1 ? 0 : 1,
-                                                }))
-                                            }
-                                            className={cn("data-[state=unchecked]:bg-gray-300", showAllVendors ? `${userType}-bg border-none` : "")}
-                                        />
-                                        <p className="text-[12px]">Show all Vendors Regardless of Travel Time</p>
-                                    </div> */}
-                                    {/* <div className="flex justify-start gap-6 items-center">
-                                        <Switch
-                                            checked={!!scheduleOverride}
-                                            onCheckedChange={() =>
-                                                setScheduleOverrideMap((prev) => ({
-                                                    ...prev,
-                                                    [idx]: scheduleOverride === 1 ? 0 : 1,
-                                                }))
-                                            }
-                                            className={cn("data-[state=unchecked]:bg-gray-300", scheduleOverride ? `${userType}-bg border-none` : "")}
-                                        />
-                                        <p className="text-[12px]">Schedule Override</p>
-                                    </div> */}
+                                    {userType === 'admin' && (
+                                        <div className="flex flex-col gap-4">
+                                            <div className="flex justify-start gap-6 items-center">
+                                                <Switch
+                                                    id={`show-all-vendors-${idx}`}
+                                                    checked={!!showAllVendors}
+                                                    onCheckedChange={(checked) =>
+                                                        setShowAllVendorsMap((prev) => ({
+                                                            ...prev,
+                                                            [idx]: checked ? 1 : 0,
+                                                        }))
+                                                    }
+                                                    className={cn("data-[state=unchecked]:bg-gray-300", showAllVendors ? `${userType}-bg border-none` : "")}
+                                                />
+                                                <label htmlFor={`show-all-vendors-${idx}`} className="text-[12px] cursor-pointer">Show all Vendors Regardless of Travel Time</label>
+                                            </div>
+                                            <div className="flex justify-start gap-6 items-center">
+                                                <Switch
+                                                    id={`schedule-override-${idx}`}
+                                                    checked={!!scheduleOverride}
+                                                    onCheckedChange={(checked) =>
+                                                        setScheduleOverrideMap((prev) => ({
+                                                            ...prev,
+                                                            [idx]: checked ? 1 : 0,
+                                                        }))
+                                                    }
+                                                    className={cn("data-[state=unchecked]:bg-gray-300", scheduleOverride ? `${userType}-bg border-none` : "")}
+                                                />
+                                                <label htmlFor={`schedule-override-${idx}`} className="text-[12px] cursor-pointer">Schedule Override</label>
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="flex justify-start gap-6 items-center">
                                         <Switch
                                             checked={!!recommendTime}

@@ -745,7 +745,7 @@ const ServicesFrom = () => {
             </div>
             <Accordion
               type="multiple"
-              defaultValue={ServiceId ? ["property", "statistics", "options"] : ["property", "statistics"]}
+              defaultValue={["property", "statistics", "options"]}
               className="w-full space-y-4"
             >
               <AccordionItem value="property">

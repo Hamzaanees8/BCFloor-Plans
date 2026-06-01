@@ -317,6 +317,9 @@ export async function UploadFilesData(
     );
     formData.append(`snapshots[${index}][x_axis]`, String(snap.x));
     formData.append(`snapshots[${index}][y_axis]`, String(snap.y));
+    if (snap.uuid) {
+      formData.append(`snapshots[${index}][uuid]`, snap.uuid);
+    }
   });
 
   formData.append("slide_show[slide_delay]", String(delay));
@@ -587,6 +590,9 @@ export async function UpdateFilesData(
     );
     formData.append(`snapshots[${index}][x_axis]`, String(snap.x.toFixed(6)));
     formData.append(`snapshots[${index}][y_axis]`, String(snap.y.toFixed(6)));
+    if (snap.uuid) {
+      formData.append(`snapshots[${index}][uuid]`, snap.uuid);
+    }
   });
 
   if (

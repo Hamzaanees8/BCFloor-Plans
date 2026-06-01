@@ -131,6 +131,7 @@ type CurrentUser = {
   pay_outside?: boolean;
   stripe_connect?: boolean;
   organization_id?: number | string;
+  organization?: Organization;
   // add other fields as needed
 };
 export interface VendorPortfolioImage {
@@ -696,6 +697,16 @@ const VendorForm = () => {
       "0"
     )}`;
   };
+
+  const selectedOrg = organizations.find((org) => String(org.id) === organizationId);
+  const displayCompanyName = userType === "vendor"
+    ? (currentUser?.organization?.name || selectedOrg?.name || companyName)
+    : companyName;
+
+  const displayCompanyWebsite = userType === "vendor"
+    ? (currentUser?.organization?.domain || selectedOrg?.domain || companyWebsite)
+    : companyWebsite;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -789,7 +800,7 @@ const VendorForm = () => {
     try {
       const token = localStorage.getItem("token") || "";
 
-      let formattedWebsite = companyWebsite?.trim();
+      let formattedWebsite = displayCompanyWebsite?.trim();
       if (formattedWebsite && !/^https?:\/\//i.test(formattedWebsite)) {
         formattedWebsite = "https://" + formattedWebsite;
       }
@@ -812,6 +823,10 @@ const VendorForm = () => {
         company_logo: companyLogoFile,
         company_banner: companyBannerFile,
         coordinates: JSON.stringify(map_coordinates),
+        company: {
+          name: displayCompanyName,
+          website: formattedWebsite || "",
+        },
         addresses: [
           {
             type: "company",
@@ -1550,19 +1565,23 @@ const VendorForm = () => {
                         <div className="col-span-2">
                           <label htmlFor="">Company Name</label>
                           <Input
-                            value={companyName}
+                            value={displayCompanyName}
                             onChange={(e) => setCompanyName(e.target.value)}
-                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-75 disabled:cursor-not-allowed"
                             type="text"
+                            disabled={userType === "vendor"}
+                            readOnly={userType === "vendor"}
                           />
                         </div>
                         <div className="col-span-2">
                           <label htmlFor="">Company Website</label>
                           <Input
-                            value={companyWebsite}
+                            value={displayCompanyWebsite}
                             onChange={(e) => setCompanyWebsite(e.target.value)}
-                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-75 disabled:cursor-not-allowed"
                             type="text"
+                            disabled={userType === "vendor"}
+                            readOnly={userType === "vendor"}
                           />
                         </div>
                         <div className="col-span-2">
@@ -2157,67 +2176,71 @@ const VendorForm = () => {
                     <div className="w-full flex flex-col items-center">
                       <div className="w-full md:w-[410px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
                         <div className="grid grid-cols-2 gap-[32px]">
-                          <div className="col-span-2">
-                            <div className="flex items-center justify-between">
-                              <p className="font-bold text-sm text-[#666666]">
-                                Cards
-                              </p>
-                              <div
-                                className="flex items-center gap-x-[10px] cursor-pointer"
-                                onClick={() => setOpenPaymentDialog(true)}
-                              >
-                                <p className="text-base font-semibold font-raleway text-[#6BAE41]">
-                                  Add
-                                </p>
-                                <Plus className="w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm" />
-                              </div>
-                              <PaymentDialog
-                                open={openPaymentDialog}
-                                setOpen={setOpenPaymentDialog}
-                                onSuccess={() => {
-                                  fetchPaymentMethods();
-                                }}
-                              />
-                            </div>
-                          </div>
-                          <div className="col-span-2">
-                            {cards.length > 0 ? (
-                              cards.map((card) => (
-                                <div
-                                  key={card.uuid}
-                                  className="flex flex-col gap-y-3 mt-2"
-                                >
-                                  <div className="flex justify-between items-center w-full text-[16px] font-normal text-[#666666]">
-                                    <div className="basis-[60%] flex items-center justify-between w-full gap-x-2.5">
-                                      <p className="text-[#4290E9]">
-                                        {capitalizeFirst(card.type)}
-                                      </p>
-                                      <p>
-                                        {card.last_four.slice(0, 4)} **** ****
-                                        ****
-                                      </p>
-                                    </div>
-                                    <div className="basis-[40%] w-full flex gap-x-4 items-center justify-end">
-                                      {card.is_primary && (
-                                        <span className="text-sm font-normal text-[#666666]">
-                                          Primary
-                                        </span>
-                                      )}
-                                      <X
-                                        onClick={() => handleDelete(card.uuid)}
-                                        className="text-[#E06D5E] w-6 h-6 cursor-pointer hover:scale-110 transition-transform"
-                                      />
-                                    </div>
+                          {userType !== "vendor" && (
+                            <>
+                              <div className="col-span-2">
+                                <div className="flex items-center justify-between">
+                                  <p className="font-bold text-sm text-[#666666]">
+                                    Cards
+                                  </p>
+                                  <div
+                                    className="flex items-center gap-x-[10px] cursor-pointer"
+                                    onClick={() => setOpenPaymentDialog(true)}
+                                  >
+                                    <p className="text-base font-semibold font-raleway text-[#6BAE41]">
+                                      Add
+                                    </p>
+                                    <Plus className="w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm" />
                                   </div>
-                                  <hr />
+                                  <PaymentDialog
+                                    open={openPaymentDialog}
+                                    setOpen={setOpenPaymentDialog}
+                                    onSuccess={() => {
+                                      fetchPaymentMethods();
+                                    }}
+                                  />
                                 </div>
-                              ))
-                            ) : (
-                              <p className="text-[#666666] text-sm font-normal text-center py-4">
-                                Click Add+ to add your payment info
-                              </p>
-                            )}
-                          </div>
+                              </div>
+                              <div className="col-span-2">
+                                {cards.length > 0 ? (
+                                  cards.map((card) => (
+                                    <div
+                                      key={card.uuid}
+                                      className="flex flex-col gap-y-3 mt-2"
+                                    >
+                                      <div className="flex justify-between items-center w-full text-[16px] font-normal text-[#666666]">
+                                        <div className="basis-[60%] flex items-center justify-between w-full gap-x-2.5">
+                                          <p className="text-[#4290E9]">
+                                            {capitalizeFirst(card.type)}
+                                          </p>
+                                          <p>
+                                            {card.last_four.slice(0, 4)} **** ****
+                                            ****
+                                          </p>
+                                        </div>
+                                        <div className="basis-[40%] w-full flex gap-x-4 items-center justify-end">
+                                          {card.is_primary && (
+                                            <span className="text-sm font-normal text-[#666666]">
+                                              Primary
+                                            </span>
+                                          )}
+                                          <X
+                                            onClick={() => handleDelete(card.uuid)}
+                                            className="text-[#E06D5E] w-6 h-6 cursor-pointer hover:scale-110 transition-transform"
+                                          />
+                                        </div>
+                                      </div>
+                                      <hr />
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="text-[#666666] text-sm font-normal text-center py-4">
+                                    Click Add+ to add your payment info
+                                  </p>
+                                )}
+                              </div>
+                            </>
+                          )}
 
                           <div className="w-full flex flex-col col-span-2 items-start gap-4 mt-5 margin-top-5 border-t pt-5">
                             {userType === "admin" && (

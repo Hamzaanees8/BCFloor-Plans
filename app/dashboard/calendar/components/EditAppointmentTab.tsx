@@ -780,7 +780,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                 >
                                     Appointment Notes
                                 </button>
-                                {userType !== 'agent' && (
+                                {userType === 'admin' && (
                                     <button
                                         onClick={() => setActiveTab("Notes on Agent")}
                                         className={`px-5 py-1 text-[13px] rounded-[6px] font-bold rounded-l-md transition-colors duration-200 h-[30px]

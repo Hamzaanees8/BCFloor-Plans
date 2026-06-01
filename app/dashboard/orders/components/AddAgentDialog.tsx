@@ -21,6 +21,7 @@ import { toast } from "sonner"
 import { SaveModal } from "../../../../components/SaveModal"
 import { useAppContext } from "@/app/context/AppContext"
 import { Button } from "@/components/ui/button"
+import { formatPhoneNumber } from "@/lib/utils"
 
 type CoAgent = {
     email: string;
@@ -387,7 +388,7 @@ const AddAgentDialog: React.FC<Props> = ({
                             <div className='col-span-2'>
                                 <label htmlFor="">Primary Phone <span className="text-red-500">*</span></label>
                                 <Input value={primaryPhone}
-                                    onChange={(e) => setPrimaryPhone(e.target.value)}
+                                    onChange={(e) => setPrimaryPhone(formatPhoneNumber(e.target.value))}
                                     className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
                                 {fieldErrors.primary_phone && <p className='text-red-500 text-[10px]'>{fieldErrors.primary_phone[0]}</p>}
                             </div>
@@ -425,7 +426,7 @@ const AddAgentDialog: React.FC<Props> = ({
                                     <div className='col-span-2'>
                                         <label htmlFor="">Secondary Phone</label>
                                         <Input value={secondaryPhone}
-                                            onChange={(e) => setSecondaryPhone(e.target.value)}
+                                            onChange={(e) => setSecondaryPhone(formatPhoneNumber(e.target.value))}
                                             className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
                                     </div>
                                     <div className='col-span-2'>
@@ -535,7 +536,7 @@ const AddAgentDialog: React.FC<Props> = ({
                                     </div>
                                     <div className="col-span-2">
                                         <label htmlFor="">
-                                            Agent Notes (Not visible to Agent)
+                                            Internal Notes
                                         </label>
                                         <textarea
                                             className="h-[200px] w-full p-3 rounded-[6px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"

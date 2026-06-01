@@ -17,7 +17,71 @@ import { Switch } from '@/components/ui/switch';
 import DropdownActions from '@/components/DropdownActions';
 import { Listings, Agent } from '@/lib/types';
 import { Get as GetAgents } from '@/app/dashboard/agents/agents';
+const getLatestOrder = (orders?: any[]) => {
+  if (!orders || orders.length === 0) return null;
+  return [...orders].sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  )[0];
+};
 
+const getProjectStatus = (orders?: any[]) => {
+  const latestOrder = getLatestOrder(orders);
+  if (!latestOrder) {
+    return { label: "No Bookings", color: "bg-gray-100 text-gray-800 border-gray-200" };
+  }
+
+  const orderStatus = latestOrder.order_status;
+  const paymentStatus = latestOrder.payment_status;
+
+  if (orderStatus === "Completed") {
+    if (paymentStatus === "PAID") {
+      return { label: "Complete", color: "bg-green-100 text-green-800 border-green-200" };
+    } else {
+      return { label: "Ready for Payment", color: "bg-amber-100 text-amber-800 border-amber-200" };
+    }
+  }
+
+  if (orderStatus === "Processing" || orderStatus === "In Progress" || orderStatus === "Pending") {
+    return { label: "Scheduled", color: "bg-blue-100 text-blue-800 border-blue-200" };
+  }
+
+  if (orderStatus === "Cancelled") {
+    return { label: "Cancelled", color: "bg-red-100 text-red-800 border-red-200" };
+  }
+
+  if (orderStatus === "On Hold") {
+    return { label: "On Hold", color: "bg-orange-100 text-orange-800 border-orange-200" };
+  }
+
+  return { label: orderStatus || "N/A", color: "bg-gray-100 text-gray-800 border-gray-200" };
+};
+
+const getPaymentStatus = (orders?: any[]) => {
+  const latestOrder = getLatestOrder(orders);
+  if (!latestOrder) {
+    return { label: "N/A", color: "bg-gray-100 text-gray-800 border-gray-200" };
+  }
+
+  const status = latestOrder.payment_status;
+  if (status === "PAID") {
+    return { label: "Paid", color: "bg-emerald-100 text-emerald-800 border-emerald-200" };
+  } else if (status === "PARTIALLY_PAID") {
+    return { label: "Partially Paid", color: "bg-amber-100 text-amber-800 border-amber-200" };
+  } else {
+    return { label: "Unpaid", color: "bg-rose-100 text-rose-800 border-rose-200" };
+  }
+};
+
+
+const slugify = (text: string) => {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]+/g, '')
+    .replace(/--+/g, '-');
+};
 
 const Page = () => {
   const { userType } = useAppContext();
@@ -231,7 +295,7 @@ const Page = () => {
     },
     {
       accessorKey: "bookings",
-      header: "Bookings",
+      header: "Order #",
       cell: ({ row }: { row: Row<Listings> }) => {
         const orders = row.original.orders;
         return (
@@ -276,6 +340,64 @@ const Page = () => {
         } as ColumnDef<Listings>,
       ]
       : []),
+    {
+      id: "project_status",
+      header: "Order Status",
+      cell: ({ row }: { row: Row<Listings> }) => {
+        const listing = row.original;
+        const status = getProjectStatus(listing.orders);
+        return (
+          <div className="text-[13px] font-[500]">
+            <span className={`px-2.5 py-1 rounded-full border text-[12px] font-[500] ${status.color}`}>
+              {status.label}
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      id: "payment_status",
+      header: "Payment Status",
+      cell: ({ row }: { row: Row<Listings> }) => {
+        const listing = row.original;
+        const status = getPaymentStatus(listing.orders);
+        return (
+          <div className="text-[13px] font-[500]">
+            <span className={`px-2.5 py-1 rounded-full border text-[12px] font-[500] ${status.color}`}>
+              {status.label}
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      id: "public_tour",
+      header: "Public Tour",
+      cell: ({ row }: { row: Row<Listings> }) => {
+        const listing = row.original;
+        const latestOrder = getLatestOrder(listing.orders);
+        const tour = latestOrder?.tours?.[0];
+        const isPublished = tour?.is_publish;
+        if (isPublished && latestOrder) {
+          const addressSlug = listing.suite ? `${listing.suite} - ${listing.address}` : listing.address;
+          const publicTourUrl = `/tour/${slugify(addressSlug)}/${latestOrder.uuid}`;
+          return (
+            <a
+              href={publicTourUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[12px] font-[600] px-2.5 py-1 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 transition-all shadow-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
+              <span>View Tour</span>
+            </a>
+          );
+        }
+        return <span className="text-[12px] text-gray-400 font-medium pl-2">Not Published</span>;
+      }
+    },
     {
       accessorKey: "created_at",
       header: "Added",

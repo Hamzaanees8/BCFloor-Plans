@@ -197,6 +197,14 @@ function payloadToFormData(payload: VendorPayload): FormData {
           formData.append(`${key}[${k}]`, finalValue);
         }
       });
+    } else if (key === "company") {
+      const companyVal = value as any;
+      if (companyVal.name !== undefined) {
+        formData.append("company[name]", String(companyVal.name));
+      }
+      if (companyVal.website !== undefined) {
+        formData.append("company[website]", String(companyVal.website));
+      }
     } else if (key === "settings") {
       Object.entries(value).forEach(([k, v]) => {
         if (v !== null && v !== undefined) {

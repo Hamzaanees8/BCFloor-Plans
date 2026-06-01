@@ -23,6 +23,7 @@ type PreviewFile = {
 }
 
 export type DroppedMarker = {
+    uuid?: string;
     x: number;
     y: number;
     file?: File;

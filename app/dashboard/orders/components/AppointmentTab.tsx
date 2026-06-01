@@ -85,18 +85,23 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
         setServiceOption(currentService?.option?.title ?? '')
         setListing(currentOrder?.property ? `${currentOrder?.property.address}, ${currentOrder?.property.city}, ${currentOrder?.property.province}` : '')
         setSquareFootage(String(currentOrder?.property?.square_footage))
+        let notesArray: Notes[] = [];
         if (Array.isArray(currentOrder?.notes)) {
-            setNotes(currentOrder.notes as unknown as Notes[]);
+            notesArray = currentOrder.notes as unknown as Notes[];
         } else if (typeof currentOrder?.notes === 'string') {
             try {
-                setNotes(JSON.parse(currentOrder.notes) as Notes[]);
+                notesArray = JSON.parse(currentOrder.notes) as Notes[];
             } catch (e) {
                 console.error("Failed to parse notes:", e);
-                setNotes([]);
+                notesArray = [];
             }
-        } else {
-            setNotes([]);
         }
+
+        const filteredNotes = userType === 'admin'
+            ? notesArray
+            : notesArray.filter((n: any) => n.internal !== 'true' && n.is_internal !== true && n.internal !== true);
+
+        setNotes(filteredNotes);
 
         try {
             const raw = currentOrder?.co_agents;
@@ -123,7 +128,7 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
         }
 
 
-    }, [currentOrder, serviceId])
+    }, [currentOrder, serviceId, userType])
     return (
         <div className=" w-full grid grid-cols-2 gap-4">
             <div className="col-span-1 font-alexandria">
@@ -197,15 +202,17 @@ function AppointmentTab({ currentOrder, serviceId }: AppointmentTab) {
                 />
 
             </div>
-            <div className="col-span-2">
-                <Label className="text-[14px] text-[#424242] " htmlFor="">Agent Notes (Not Viewable by Agent)</Label>
-                <Textarea
-                    // value={address}
-                    className=" bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px] resize-none h-[100px] "
+            {userType === 'admin' && (
+                <div className="col-span-2">
+                    <Label className="text-[14px] text-[#424242] " htmlFor="">Internal Notes</Label>
+                    <Textarea
+                        // value={address}
+                        className=" bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[10px] resize-none h-[100px] "
 
-                />
+                    />
 
-            </div>
+                </div>
+            )}
             <div className="col-span-2">
                 <Label className="text-[14px] text-[#424242] " htmlFor="">Vendor</Label>
                 <Input

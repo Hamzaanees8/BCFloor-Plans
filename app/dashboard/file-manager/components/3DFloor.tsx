@@ -24,8 +24,9 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover"
 import { ServiceCompletion, HideMediaFiles } from '../file-manager';
+import { api } from '@/lib/api';
 
-function FileTab2({ currentService, orderData, isListing, currentBookedService, onOpenInvoice, gstRate }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number }) {
+function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, currentBookedService, onOpenInvoice, gstRate }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number }) {
     const { links, setLinks, setPreviewFiles, filesData, setFilesData, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [openPayment, setOpenPayment] = useState(false);
@@ -39,6 +40,51 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService, 
     const dragCounter = useRef(0);
 
     const { userType } = useAppContext()
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+    const handleSubmitAdminApproval = async () => {
+        setIsSubmitting(true);
+        try {
+            const token = localStorage.getItem("token") || "";
+            const vendor = orderData?.vendor;
+            const vendorName = vendor ? `${vendor.first_name} ${vendor.last_name}` : "Vendor";
+            
+            await api.post(`/notifications`, {
+                source: 'order',
+                source_id: orderData?.uuid || "",
+                type: 'admin_approval_required',
+                description: `Media submitted by Vendor ${vendorName} for Order #${orderData?.id || ""} requires Admin Approval.`,
+                role: 'admin',
+                created_by_name: vendorName
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            await api.post(`/notifications/email`, {
+                to: "info@bcfplatform.com",
+                subject: `Order #${orderData?.id || ""}: Media Submitted for Admin Approval`,
+                html: `
+                    <div style="font-family: 'Alexandria', sans-serif; padding: 20px; color: #333;">
+                        <h2 style="color: #4290E9;">Media Submitted for Admin Approval</h2>
+                        <p>Vendor <strong>${vendorName}</strong> has uploaded and submitted media files for Order <strong>#${orderData?.id || ""}</strong>.</p>
+                        <p>This vendor is marked for mandatory admin review before files are released to the client/agent.</p>
+                        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+                        <p style="font-size: 13px; color: #666;">Please log in to your admin dashboard, navigate to the File Manager for Order #${orderData?.id || ""}, and approve the files.</p>
+                    </div>
+                `
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            setMediaUploaded(true);
+            toast.success("Submitted successfully! The admins have been notified to review your files.");
+        } catch (error) {
+            console.error("Submission failed:", error);
+            toast.error("Failed to submit for approval. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const handleCopy = (type: 'branded' | 'unbranded', value: string) => {
         if (!value) return;
@@ -55,6 +101,20 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService, 
         } catch {
             return false;
         }
+    };
+
+    const parseLocalDate = (dateStr: string) => {
+        if (!dateStr) return undefined;
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const day = parseInt(parts[2], 10);
+            return new Date(year, month, day);
+        }
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return undefined;
+        return d;
     };
 
 
@@ -337,14 +397,29 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService, 
                                 )}
                             </Button>
                         )}
-                        {userType !== 'agent' && !isHidingMode &&
-                            <Button
-                                onClick={() => {
-                                    setMediaUploaded(true)
-                                    setShowConfirmation(true)
-                                }}
-                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Send for Approval'} </Button>
-                        }
+                        {userType !== 'agent' && !isHidingMode && (
+                            reviewFilesEnabled && userType === 'vendor' ? (
+                                <Button
+                                    onClick={handleSubmitAdminApproval}
+                                    disabled={isSubmitting}
+                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] min-w-[150px] w-fit px-4 flex justify-center items-center font-alexandria`}
+                                >
+                                    {isSubmitting ? (
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    ) : mediaUploaded ? (
+                                        <Check color="#fff" size={14} className="mr-2" />
+                                    ) : null}
+                                    {mediaUploaded ? 'Submitted' : 'Submit for Admin Approval'}
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={() => {
+                                        setMediaUploaded(true)
+                                        setShowConfirmation(true)
+                                    }}
+                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Send for Approval'} </Button>
+                            )
+                        )}
                         {userType === 'admin' && (
                             <div className='flex items-center gap-[10px] mr-2'>
                                 {/* <div className='flex flex-col justify-center items-end mr-2 text-right'>
@@ -468,6 +543,14 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService, 
                 </div>
             )}
             <div className='flex flex-col items-center justify-center my-4'>
+                {userType === 'vendor' && reviewFilesEnabled && (
+                    <div className="w-[650px] mb-4 p-4 border border-blue-200 bg-blue-50 rounded-[8px] flex items-start gap-3 font-alexandria shadow-sm">
+                        <span className="text-[18px] text-blue-600 mt-0.5">ℹ️</span>
+                        <p className="text-[13px] text-blue-700 leading-relaxed">
+                            Your uploads are undergoing Admin Approval. Once approved by the administrator, they will be released to the booking agent.
+                        </p>
+                    </div>
+                )}
                 <div className='w-[650px]'>
                     <Label className='text-[14px] text-[#424242]'>
                         3D Tour Link - Branded
@@ -536,13 +619,13 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService, 
                                     disabled={userType === 'agent'}
                                 >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {brandedExpiry ? format(new Date(brandedExpiry), "PPP") : <span>Expiry date</span>}
+                                    {brandedExpiry ? format(parseLocalDate(brandedExpiry)!, "PPP") : <span>Expiry date</span>}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
                                 <Calendar
                                     mode="single"
-                                    selected={brandedExpiry ? new Date(brandedExpiry) : undefined}
+                                    selected={parseLocalDate(brandedExpiry)}
                                     onSelect={(date) => handleDateChange("branded", date ? format(date, "yyyy-MM-dd") : "")}
                                     initialFocus
                                 />
@@ -619,13 +702,13 @@ function FileTab2({ currentService, orderData, isListing, currentBookedService, 
                                     disabled={userType === 'agent'}
                                 >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {unbrandedExpiry ? format(new Date(unbrandedExpiry), "PPP") : <span>Expiry date</span>}
+                                    {unbrandedExpiry ? format(parseLocalDate(unbrandedExpiry)!, "PPP") : <span>Expiry date</span>}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
                                 <Calendar
                                     mode="single"
-                                    selected={unbrandedExpiry ? new Date(unbrandedExpiry) : undefined}
+                                    selected={parseLocalDate(unbrandedExpiry)}
                                     onSelect={(date) => handleDateChange("unbranded", date ? format(date, "yyyy-MM-dd") : "")}
                                     initialFocus
                                 />

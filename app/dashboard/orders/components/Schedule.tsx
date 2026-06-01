@@ -21,6 +21,7 @@ import { getEffectiveServiceDuration } from '../utils/serviceTimeUtils'
 import { Services } from '../../services/page'
 import { CleanedProductOption } from '../../services/services'
 import { useSearchParams } from 'next/navigation'
+import { useAppContext } from '@/app/context/AppContext'
 
 interface Coordinate {
     lat: number
@@ -94,6 +95,9 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
     const [isCalculating, setIsCalculating] = useState(true);
     const [propertyLocation, setPropertyLocation] = useState<PropertyLocation | null>(null);
     const [openTooltipIdx, setOpenTooltipIdx] = useState<number | null>(null);
+    const { userType } = useAppContext();
+    const [scheduleOverrideMap, setScheduleOverrideMap] = useState<Record<string, 0 | 1>>({});
+    const [showAllVendorsMap, setShowAllVendorsMap] = useState<Record<string, 0 | 1>>({});
 
     const {
         selectedCurrentListing,
@@ -301,10 +305,8 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                         const handleVendorChange = (value: string) => {
                             setSelectedVendorMap((prev) => ({ ...prev, [serviceKey]: value }));
                         };
-                        const showAllVendorsMap: Record<string, 0 | 1> = {};
-                        const scheduleOverrideMap: Record<string, 0 | 1> = {};
-                        const showAllVendors = 0;
-                        const scheduleOverride = 0;
+                        const showAllVendors = showAllVendorsMap[serviceKey] ?? 0;
+                        const scheduleOverride = scheduleOverrideMap[serviceKey] ?? 0;
                         const recommendTime = recommendTimeMap[serviceKey] ?? 0;
 
                         const currentService = servicesData?.find((s: Services) => s.uuid === service.uuid);
@@ -407,34 +409,38 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                         </div>
                                     </div>
                                     <div className="flex flex-col gap-4">
-                                        {/* <div className="flex justify-start gap-6 items-center">
-                                        <Switch
-                                            id={`show-all-vendors-${idx}`}
-                                            checked={!!showAllVendors}
-                                            onCheckedChange={() =>
-                                                setShowAllVendorsMap((prev) => ({
-                                                    ...prev,
-                                                    [serviceKey]: showAllVendors === 1 ? 0 : 1,
-                                                }))
-                                            }
-                                            className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
-                                        />
-                                        <label htmlFor={`show-all-vendors-${idx}`} className="text-[12px] cursor-pointer">Show all Vendors Regardless of Travel Time</label>
-                                    </div> */}
-                                        {/* <div className="flex justify-start gap-6 items-center">
-                                            <Switch
-                                                id={`schedule-override-${idx}`}
-                                                checked={!!scheduleOverride}
-                                                onCheckedChange={() =>
-                                                    setScheduleOverrideMap((prev) => ({
-                                                        ...prev,
-                                                        [serviceKey]: scheduleOverride === 1 ? 0 : 1,
-                                                    }))
-                                                }
-                                                className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
-                                            />
-                                            <label htmlFor={`schedule-override-${idx}`} className="text-[12px] cursor-pointer">Schedule Override</label>
-                                        </div> */}
+                                        {userType === 'admin' && (
+                                            <div className="flex flex-col gap-4">
+                                                <div className="flex justify-start gap-6 items-center">
+                                                    <Switch
+                                                        id={`show-all-vendors-${idx}`}
+                                                        checked={!!showAllVendors}
+                                                        onCheckedChange={(checked) =>
+                                                            setShowAllVendorsMap((prev) => ({
+                                                                ...prev,
+                                                                [serviceKey]: checked ? 1 : 0,
+                                                            }))
+                                                        }
+                                                        className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
+                                                    />
+                                                    <label htmlFor={`show-all-vendors-${idx}`} className="text-[12px] cursor-pointer">Show all Vendors Regardless of Travel Time</label>
+                                                </div>
+                                                <div className="flex justify-start gap-6 items-center">
+                                                    <Switch
+                                                        id={`schedule-override-${idx}`}
+                                                        checked={!!scheduleOverride}
+                                                        onCheckedChange={(checked) =>
+                                                            setScheduleOverrideMap((prev) => ({
+                                                                ...prev,
+                                                                [serviceKey]: checked ? 1 : 0,
+                                                            }))
+                                                        }
+                                                        className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
+                                                    />
+                                                    <label htmlFor={`schedule-override-${idx}`} className="text-[12px] cursor-pointer">Schedule Override</label>
+                                                </div>
+                                            </div>
+                                        )}
                                         <div className="flex justify-start gap-6 items-center">
                                             <Switch
                                                 id={`recommend-time-${idx}`}

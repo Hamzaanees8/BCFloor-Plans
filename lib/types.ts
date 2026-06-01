@@ -336,6 +336,8 @@ export interface ListingOrder {
     services: OrderService[];
     lock_materials: boolean;
     tours?: {
+        uuid?: string;
+        is_publish?: boolean;
         files?: {
             is_featured?: boolean;
             file_path?: string;
