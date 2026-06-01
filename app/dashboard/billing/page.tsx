@@ -143,7 +143,9 @@ const Page = () => {
 
   const handleOpenManualPayment = (invoice: any) => {
     setManualPaymentInvoice(invoice);
-    const remaining = Math.max(0, parseFloat(invoice.total || "0") - parseFloat(invoice.paid_amount || "0"));
+    const totalVal = parseFloat(invoice.total || invoice.total_amount || "0");
+    const paidVal = parseFloat(invoice.paid_amount || invoice.total_paid || "0");
+    const remaining = Math.max(0, totalVal - paidVal);
     setManualPaymentAmount(remaining.toFixed(2));
     setManualPaymentMethod("E-Transfer");
     setManualPaymentNotes("");
@@ -252,9 +254,11 @@ const Page = () => {
       if (serviceId) {
         // Service-level action: find the invoice that contains this service
         targetInvoice = invoicesList.find((inv: any) =>
-          inv.items?.some((i: any) =>
-            i.order_service?.uuid === serviceId || i.order_service_id?.toString() === serviceId
-          )
+          inv.items?.some((i: any) => {
+            const sUuid = i.order_service?.uuid || i.orderService?.uuid;
+            const sId = i.order_service_id || i.order_service?.id || i.orderService?.id;
+            return sUuid === serviceId || sId?.toString() === serviceId;
+          })
         ) || invoicesList[0];
       } else {
         // Order-level action: prefer the consolidated invoice, then primary, then first
@@ -321,6 +325,7 @@ const Page = () => {
         }
       }
 
+      setActionLoading(null);
       setInvoicesLoading(false);
     } catch (err) {
       setActionLoading(null);
@@ -1099,185 +1104,189 @@ const Page = () => {
                                   <h3 className="text-[16px] font-[600] uppercase tracking-wide font-alexandria" style={{ color: roleSettings.pageTabColor }}>
                                     Services ({billing.services.length})
                                   </h3>
-                                  {billing.services.map((service) => (
-                                    <div
-                                      key={service.service_id}
-                                      className="border border-[#BBBBBB] rounded-[6px] bg-white p-4 transition-all"
-                                    >
-                                      <div className="flex justify-between items-start">
-                                        <div className="flex-1">
-                                          <div className="flex justify-between items-center">
-                                            <div className="flex items-center gap-4 mb-2">
-                                              <p className="font-semibold text-gray-800">
-                                                {service.service_name}
-                                              </p>
-                                              <span
-                                                className={`px-2 py-0.5 text-[10px] rounded-full text-white font-medium uppercase
-                                                ${service.status ===
-                                                    "completed" ||
-                                                    service.status === "paid"
-                                                    ? "bg-[#6BAE41]"
-                                                    : service.status === "pending"
-                                                      ? "bg-[#DC9600]"
-                                                      : service.status ===
-                                                        "cancelled"
-                                                        ? "bg-[#E06D5E]"
-                                                        : "bg-[#7D7D7D]"
-                                                  }`}
-                                              >
-                                                {service.status}
-                                              </span>
-                                            </div>
-                                            <div className="flex gap-2">
-                                              <Button
-                                                onClick={() => handleInvoiceAction(billing, "view", service.order_service_uuid, service.amount)}
-                                                disabled={actionLoading !== null}
-                                                className="h-[30px] px-3 bg-white border border-[#BBBBBB] text-[#666666] rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-gray-50"
-                                              >
-                                                {actionLoading?.id === service.order_service_uuid && actionLoading?.action === "view" ? (
-                                                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
-                                                ) : (
-                                                  "Invoice"
-                                                )}
-                                              </Button>
-                                              {service.status !== "paid" && billing.status !== "paid" && (
-                                                <>
-                                                  <Button
-                                                    onClick={() => handleInvoiceAction(billing, "pay", service.order_service_uuid, service.amount)}
-                                                    disabled={actionLoading !== null}
-                                                    className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
-                                                    style={{ backgroundColor: roleSettings.pageTabColor }}
-                                                  >
-                                                    {actionLoading?.id === service.order_service_uuid && actionLoading?.action === "pay" ? (
-                                                      <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
-                                                    ) : (
-                                                      "Pay Now"
-                                                    )}
-                                                  </Button>
-
-                                                  {role === 'admin' && (
+                                  {billing.services.map((service) => {
+                                    const serviceUuid = service.uuid || service.order_service_uuid;
+                                    return (
+                                      <div
+                                        key={service.service_id}
+                                        className="border border-[#BBBBBB] rounded-[6px] bg-white p-4 transition-all"
+                                      >
+                                        <div className="flex justify-between items-start">
+                                          <div className="flex-1">
+                                            <div className="flex justify-between items-center">
+                                              <div className="flex items-center gap-4 mb-2">
+                                                <p className="font-semibold text-gray-800">
+                                                  {service.service_name}
+                                                </p>
+                                                <span
+                                                  className={`px-2 py-0.5 text-[10px] rounded-full text-white font-medium uppercase
+                                                  ${service.status ===
+                                                      "completed" ||
+                                                      service.status === "paid"
+                                                      ? "bg-[#6BAE41]"
+                                                      : service.status === "pending"
+                                                        ? "bg-[#DC9600]"
+                                                        : service.status ===
+                                                          "cancelled"
+                                                          ? "bg-[#E06D5E]"
+                                                          : "bg-[#7D7D7D]"
+                                                    }`}
+                                                >
+                                                  {service.status}
+                                                </span>
+                                              </div>
+                                              <div className="flex gap-2">
+                                                <Button
+                                                  onClick={() => handleInvoiceAction(billing, "view", serviceUuid, service.amount)}
+                                                  disabled={actionLoading !== null}
+                                                  className="h-[30px] px-3 bg-white border border-[#BBBBBB] text-[#666666] rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-gray-50"
+                                                >
+                                                  {actionLoading?.id === serviceUuid && actionLoading?.action === "view" ? (
+                                                    <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
+                                                  ) : (
+                                                    "Invoice"
+                                                  )}
+                                                </Button>
+                                                {service.status !== "paid" && billing.status !== "paid" && (
+                                                  <>
                                                     <Button
-                                                      onClick={async () => {
-                                                        try {
-                                                          setActionLoading({ id: service.order_service_uuid, action: "pay" });
-                                                          const res = await GetInvoicesByOrder(billing.order_uuid);
-                                                          const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
-                                                          const targetInvoice = invoicesList.find((inv: any) =>
-                                                            inv.items?.some((i: any) =>
-                                                              i.order_service?.uuid === service.order_service_uuid || 
-                                                              i.order_service_id?.toString() === service.order_service_uuid
-                                                            )
-                                                          ) || invoicesList[0];
-
-                                                          if (targetInvoice) {
-                                                            handleOpenManualPayment(targetInvoice);
-                                                          } else {
-                                                            toast.error("No invoice found for this service.");
-                                                          }
-                                                        } catch (err) {
-                                                          console.error(err);
-                                                          toast.error("Failed to load invoice.");
-                                                        } finally {
-                                                          setActionLoading(null);
-                                                        }
-                                                      }}
+                                                      onClick={() => handleInvoiceAction(billing, "pay", serviceUuid, service.amount)}
                                                       disabled={actionLoading !== null}
-                                                      className="h-[30px] px-3 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-emerald-50 active:scale-[0.98]"
+                                                      className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
+                                                      style={{ backgroundColor: roleSettings.pageTabColor }}
                                                     >
-                                                      {actionLoading?.id === service.order_service_uuid && actionLoading?.action === "pay" ? (
-                                                        <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
+                                                      {actionLoading?.id === serviceUuid && actionLoading?.action === "pay" ? (
+                                                        <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
                                                       ) : (
-                                                        "Mark Paid"
+                                                        "Pay Now"
                                                       )}
                                                     </Button>
-                                                  )}
-                                                </>
-                                              )}
-                                              {(service.status === "paid" || billing.status === "paid") && (
-                                                <Button
-                                                  disabled
-                                                  className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[90px] bg-[#6BAE41] cursor-not-allowed opacity-90"
-                                                >
-                                                  Paid
-                                                </Button>
-                                              )}
-                                            </div>
-                                          </div>
-                                          <div className="text-sm text-gray-600 space-y-0.5">
-                                            <p>
-                                              Base Price:{" "}
-                                              <span className="font-medium text-gray-800">
-                                                {service.amount.toLocaleString("en-US", {
-                                                  style: "currency",
-                                                  currency: "USD",
-                                                })}
-                                              </span>
-                                            </p>
-                                            {taxRate > 0 ? (
-                                              <>
-                                                <p className="text-xs text-gray-500">
-                                                  GST ({taxRate}%):{" "}
-                                                  <span className="font-medium">
-                                                    {(service.amount * (taxRate / 100)).toLocaleString("en-US", {
-                                                      style: "currency",
-                                                      currency: "USD",
-                                                    })}
-                                                  </span>
-                                                </p>
-                                                <p className="text-[13px] font-semibold text-gray-700">
-                                                  Total Price:{" "}
-                                                  <span className="text-[#6BAE41]">
-                                                    {(service.amount * (1 + taxRate / 100)).toLocaleString("en-US", {
-                                                      style: "currency",
-                                                      currency: "USD",
-                                                    })}
-                                                  </span>
-                                                </p>
-                                              </>
-                                            ) : null}
-                                          </div>
 
-                                          {/* Service-specific invoices */}
-                                          {service.related_invoices &&
-                                            service.related_invoices.length >
-                                            0 && (
-                                              <div className="mt-2 space-y-1">
-                                                {service.related_invoices.map(
-                                                  (invoice, invoiceIndex) => (
-                                                    <div
-                                                      key={invoiceIndex}
-                                                      className="flex items-center gap-2"
-                                                    >
-                                                      <ExternalLink className="w-3 h-3 flex-shrink-0" style={{ color: roleSettings.activeColor }} />
-                                                      <a
-                                                        href={invoice.invoice_url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-xs font-medium hover:underline truncate"
-                                                        style={{ color: roleSettings.activeColor }}
-                                                        title={
-                                                          invoice.invoice_url
-                                                        }
+                                                    {role === 'admin' && (
+                                                      <Button
+                                                        onClick={async () => {
+                                                          try {
+                                                            setActionLoading({ id: serviceUuid, action: "pay" });
+                                                            const res = await GetInvoicesByOrder(billing.order_uuid);
+                                                            const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
+                                                            const targetInvoice = invoicesList.find((inv: any) =>
+                                                              inv.items?.some((i: any) => {
+                                                                const sUuid = i.order_service?.uuid || i.orderService?.uuid;
+                                                                const sId = i.order_service_id || i.order_service?.id || i.orderService?.id;
+                                                                return sUuid === serviceUuid || sId?.toString() === serviceUuid;
+                                                              })
+                                                            ) || invoicesList[0];
+
+                                                            if (targetInvoice) {
+                                                              handleOpenManualPayment(targetInvoice);
+                                                            } else {
+                                                              toast.error("No invoice found for this service.");
+                                                            }
+                                                          } catch (err) {
+                                                            console.error(err);
+                                                            toast.error("Failed to load invoice.");
+                                                          } finally {
+                                                            setActionLoading(null);
+                                                          }
+                                                        }}
+                                                        disabled={actionLoading !== null}
+                                                        className="h-[30px] px-3 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-emerald-50 active:scale-[0.98]"
                                                       >
-                                                        Service Invoice{" "}
-                                                        {invoiceIndex + 1}
-                                                      </a>
-                                                      <span className="text-xs text-gray-500">
-                                                        (
-                                                        {new Date(
-                                                          invoice.paid_at
-                                                        ).toLocaleDateString()}
-                                                        )
-                                                      </span>
-                                                    </div>
-                                                  )
+                                                        {actionLoading?.id === serviceUuid && actionLoading?.action === "pay" ? (
+                                                          <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
+                                                        ) : (
+                                                          "Mark Paid"
+                                                        )}
+                                                      </Button>
+                                                    )}
+                                                  </>
+                                                )}
+                                                {(service.status === "paid" || billing.status === "paid") && (
+                                                  <Button
+                                                    disabled
+                                                    className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[90px] bg-[#6BAE41] cursor-not-allowed opacity-90"
+                                                  >
+                                                    Paid
+                                                  </Button>
                                                 )}
                                               </div>
-                                            )}
+                                            </div>
+                                            <div className="text-sm text-gray-600 space-y-0.5">
+                                              <p>
+                                                Base Price:{" "}
+                                                <span className="font-medium text-gray-800">
+                                                  {service.amount.toLocaleString("en-US", {
+                                                    style: "currency",
+                                                    currency: "USD",
+                                                  })}
+                                                </span>
+                                              </p>
+                                              {taxRate > 0 ? (
+                                                <>
+                                                  <p className="text-xs text-gray-500">
+                                                    GST ({taxRate}%):{" "}
+                                                    <span className="font-medium">
+                                                      {(service.amount * (taxRate / 100)).toLocaleString("en-US", {
+                                                        style: "currency",
+                                                        currency: "USD",
+                                                      })}
+                                                    </span>
+                                                  </p>
+                                                  <p className="text-[13px] font-semibold text-gray-700">
+                                                    Total Price:{" "}
+                                                    <span className="text-[#6BAE41]">
+                                                      {(service.amount * (1 + taxRate / 100)).toLocaleString("en-US", {
+                                                        style: "currency",
+                                                        currency: "USD",
+                                                      })}
+                                                    </span>
+                                                  </p>
+                                                </>
+                                              ) : null}
+                                            </div>
+
+                                            {/* Service-specific invoices */}
+                                            {service.related_invoices &&
+                                              service.related_invoices.length >
+                                              0 && (
+                                                <div className="mt-2 space-y-1">
+                                                  {service.related_invoices.map(
+                                                    (invoice, invoiceIndex) => (
+                                                      <div
+                                                        key={invoiceIndex}
+                                                        className="flex items-center gap-2"
+                                                      >
+                                                        <ExternalLink className="w-3 h-3 flex-shrink-0" style={{ color: roleSettings.activeColor }} />
+                                                        <a
+                                                          href={invoice.invoice_url}
+                                                          target="_blank"
+                                                          rel="noopener noreferrer"
+                                                          className="text-xs font-medium hover:underline truncate"
+                                                          style={{ color: roleSettings.activeColor }}
+                                                          title={
+                                                            invoice.invoice_url
+                                                          }
+                                                        >
+                                                          Service Invoice{" "}
+                                                          {invoiceIndex + 1}
+                                                        </a>
+                                                        <span className="text-xs text-gray-500">
+                                                          (
+                                                          {new Date(
+                                                            invoice.paid_at
+                                                          ).toLocaleDateString()}
+                                                          )
+                                                        </span>
+                                                      </div>
+                                                    )
+                                                  )}
+                                                </div>
+                                              )}
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               </div>
                             </div>
@@ -1380,7 +1389,11 @@ const Page = () => {
                 ? invoices.filter(inv => {
                     const isConsolidated = inv.notes?.toLowerCase().includes("consolidated");
                     if (isConsolidated) return false;
-                    return inv.items?.some((i: any) => i.order_service?.uuid === selectedServiceId || i.order_service_id?.toString() === selectedServiceId);
+                    return inv.items?.some((i: any) => {
+                      const sUuid = i.order_service?.uuid || i.orderService?.uuid;
+                      const sId = i.order_service_id || i.order_service?.id || i.orderService?.id;
+                      return sUuid === selectedServiceId || sId?.toString() === selectedServiceId;
+                    });
                   })
                 : invoices.filter(inv => inv.notes?.toLowerCase().includes("consolidated"));
 
@@ -1731,22 +1744,27 @@ const Page = () => {
           </DialogHeader>
 
           <form onSubmit={handleSubmitManualPayment} className="p-6 space-y-4">
-            {manualPaymentInvoice && (
-              <div className="bg-gray-50 p-4 rounded-[6px] border border-[#E4E4E4] text-sm space-y-1">
-                <p className="font-semibold text-gray-700">
-                  Invoice: #{manualPaymentInvoice.invoice_number || manualPaymentInvoice.id}
-                </p>
-                <p className="text-gray-500">
-                  Total Amount: ${parseFloat(manualPaymentInvoice.total || "0").toFixed(2)}
-                </p>
-                <p className="text-gray-500">
-                  Already Paid: ${parseFloat(manualPaymentInvoice.paid_amount || "0").toFixed(2)}
-                </p>
-                <p className="font-semibold text-red-600">
-                  Balance Due: ${(parseFloat(manualPaymentInvoice.total || "0") - parseFloat(manualPaymentInvoice.paid_amount || "0")).toFixed(2)}
-                </p>
-              </div>
-            )}
+            {manualPaymentInvoice && (() => {
+              const totalVal = parseFloat(manualPaymentInvoice.total || manualPaymentInvoice.total_amount || "0");
+              const paidVal = parseFloat(manualPaymentInvoice.paid_amount || manualPaymentInvoice.total_paid || "0");
+              const remaining = Math.max(0, totalVal - paidVal);
+              return (
+                <div className="bg-gray-50 p-4 rounded-[6px] border border-[#E4E4E4] text-sm space-y-1">
+                  <p className="font-semibold text-gray-700">
+                    Invoice: #{manualPaymentInvoice.invoice_number || manualPaymentInvoice.id}
+                  </p>
+                  <p className="text-gray-500">
+                    Total Amount: ${totalVal.toFixed(2)}
+                  </p>
+                  <p className="text-gray-500">
+                    Already Paid: ${paidVal.toFixed(2)}
+                  </p>
+                  <p className="font-semibold text-red-600">
+                    Balance Due: ${remaining.toFixed(2)}
+                  </p>
+                </div>
+              );
+            })()}
 
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700 block">

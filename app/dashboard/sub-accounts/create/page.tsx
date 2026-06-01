@@ -24,6 +24,7 @@ import { useAppContext } from '@/app/context/AppContext'
 import { useUnsaved } from '@/app/context/UnsavedContext'
 import useUnsavedChangesWarning from '@/app/hooks/useUnsavedChangesWarning'
 import GooglePlacesAutocomplete from '../../calendar/components/AutoCompleteInput'
+import { isValidWebsite, isValidPhoneNumber, formatPhoneNumber } from '@/lib/utils'
 // interface PaymentCard {
 //     uuid: string;
 //     type: 'visa' | 'mastercard' | 'amex';
@@ -434,13 +435,18 @@ const OrdersForm = () => {
         if (!primaryPhone.trim()) {
             errors.primary_phone = ["Primary Phone is required"];
             isValid = false;
-        } else if (primaryPhone.length > 20) {
-            errors.primary_phone = ["Primary Phone must be less than 20 characters"];
+        } else if (!isValidPhoneNumber(primaryPhone)) {
+            errors.primary_phone = ["Invalid phone number. Example: +1 (204) 345-3456"];
             isValid = false;
         }
 
-        if (secondaryPhone && secondaryPhone.length > 20) {
-            errors.secondary_phone = ["Secondary Phone must be less than 20 characters"];
+        if (secondaryPhone.trim() && !isValidPhoneNumber(secondaryPhone)) {
+            errors.secondary_phone = ["Invalid phone number. Example: +1 (204) 345-3456"];
+            isValid = false;
+        }
+
+        if (companyWebsite.trim() && !isValidWebsite(companyWebsite)) {
+            errors.website = ["Invalid website URL"];
             isValid = false;
         }
 
@@ -831,8 +837,18 @@ const OrdersForm = () => {
                                                 <div>
                                                     <label htmlFor="">Secondary Phone</label>
                                                     <Input value={secondaryPhone}
-                                                        onChange={(e) => setSecondaryPhone(e.target.value)}
-                                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                        onChange={(e) => {
+                                                            setSecondaryPhone(formatPhoneNumber(e.target.value));
+                                                            if (fieldErrors.secondary_phone) {
+                                                                setFieldErrors(prev => {
+                                                                    const newErrors = { ...prev };
+                                                                    delete newErrors.secondary_phone;
+                                                                    return newErrors;
+                                                                });
+                                                            }
+                                                        }}
+                                                        className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.secondary_phone ? 'border-red-500' : 'border-[#BBBBBB]'}`} type="text" />
+                                                    {fieldErrors.secondary_phone && <p className='text-red-500 text-[10px]'>{fieldErrors.secondary_phone[0]}</p>}
                                                 </div>
 
                                                 <div className='col-span-2'>
@@ -844,8 +860,18 @@ const OrdersForm = () => {
                                                 <div className='col-span-2'>
                                                     <label htmlFor="">Company Website</label>
                                                     <Input value={companyWebsite}
-                                                        onChange={(e) => setCompanyWebsite(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-
+                                                        onChange={(e) => {
+                                                            setCompanyWebsite(e.target.value);
+                                                            if (fieldErrors.website) {
+                                                                setFieldErrors(prev => {
+                                                                    const newErrors = { ...prev };
+                                                                    delete newErrors.website;
+                                                                    return newErrors;
+                                                                });
+                                                            }
+                                                        }}
+                                                        className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.website ? 'border-red-500' : 'border-[#BBBBBB]'}`} type="text" />
+                                                    {fieldErrors.website && <p className='text-red-500 text-[10px]'>{fieldErrors.website[0]}</p>}
                                                 </div>
                                                 <div className='col-span-2'>
                                                     <label htmlFor="">Address</label>

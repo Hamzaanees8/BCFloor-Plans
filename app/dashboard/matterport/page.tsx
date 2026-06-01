@@ -68,7 +68,7 @@ const CopyableLink = ({ url }: { url: string }) => {
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
         title="Open in new tab"
       >
         <ExternalLink className="h-3.5 w-3.5 text-gray-400 hover:text-[#4290E9]" />
@@ -158,93 +158,93 @@ const MatterportPage = () => {
 
   const columns = useMemo<ColumnDef<MatterportAd>[]>(() => {
     const cols: ColumnDef<MatterportAd>[] = [
-    {
-      accessorKey: "agentName",
-      header: "AGENT NAME",
-      cell: ({ row }) => <div className="text-[15px] font-[400] text-[#666666]">{row.original.agentName}</div>
-    },
-    {
-      accessorKey: "orderNumber",
-      header: "ORDER NUMBER",
-      cell: ({ row }) => (
-        <div className="text-[15px] font-[400] text-[#4290E9]">
-          <Link href={`orders/${row.original.orderuud}`}>
-            {row.original.orderNumber}
-          </Link>
-        </div>
-      )
-    },
-    {
-      accessorKey: "address",
-      header: "ADDRESS",
-      cell: ({ row }) => (
-        <div className="text-[15px] font-[400] text-[#4290E9]">
-          <Link href={`listings/create/${row.original.propertyuuid}`}>
-            {row.original.address}
-          </Link>
-        </div>
-      )
-    },
-    {
-      accessorKey: "reminderDate",
-      header: "REMINDER DATE",
-      cell: ({ row }) => <div className="text-[15px] font-[400] text-[#666666]">{row.original.reminderDate}</div>
-    },
-    {
-      accessorKey: "renewalDate",
-      header: "RENEWAL DATE",
-      cell: ({ row }) => <div className="text-[15px] font-[400] text-[#666666]">{row.original.renewalDate}</div>
-    },
-    {
-      accessorKey: "brandedLink",
-      header: "BRANDED LINK",
-      cell: ({ row }) => {
-        const url = row.original.brandedLink;
-        return url ? (
-          <CopyableLink url={url} />
-        ) : (
-          <span className="text-gray-400 italic text-[14px]">None</span>
-        );
-      }
-    },
-    {
-      accessorKey: "unbrandedLink",
-      header: "UNBRANDED LINK",
-      cell: ({ row }) => {
-        const url = row.original.unbrandedLink;
-        return url ? (
-          <CopyableLink url={url} />
-        ) : (
-          <span className="text-gray-400 italic text-[14px]">None</span>
-        );
-      }
-    },
-    {
-      accessorKey: "status",
-      header: "STATUS",
-      cell: ({ row }) => {
-        const status = row.original.status;
-        return status ? (
-          <div className="text-center">
-            <span
-              className={`px-[7px] py-[1.5px] text-white rounded-[10px] text-[10px] leading-[100%] ${status === "ACTIVE" ? "!bg-[#6BAE41]" : "bg-[#DC9600]"}`}
-            >
-              {status}
-            </span>
+      {
+        accessorKey: "agentName",
+        header: "AGENT NAME",
+        cell: ({ row }) => <div className="text-[15px] font-[400] text-[#666666]">{row.original.agentName}</div>
+      },
+      {
+        accessorKey: "orderNumber",
+        header: "ORDER NUMBER",
+        cell: ({ row }) => (
+          <div className="text-[15px] font-[400] text-[#4290E9]">
+            <Link href={`orders/${row.original.orderuud}`}>
+              {row.original.orderNumber}
+            </Link>
           </div>
-        ) : null;
+        )
+      },
+      {
+        accessorKey: "address",
+        header: "ADDRESS",
+        cell: ({ row }) => (
+          <div className="text-[15px] font-[400] text-[#4290E9]">
+            <Link href={`listings/create/${row.original.propertyuuid}`}>
+              {row.original.address}
+            </Link>
+          </div>
+        )
+      },
+      {
+        accessorKey: "reminderDate",
+        header: "REMINDER DATE",
+        cell: ({ row }) => <div className="text-[15px] font-[400] text-[#666666]">{row.original.reminderDate}</div>
+      },
+      {
+        accessorKey: "renewalDate",
+        header: "RENEWAL DATE",
+        cell: ({ row }) => <div className="text-[15px] font-[400] text-[#666666]">{row.original.renewalDate}</div>
+      },
+      {
+        accessorKey: "brandedLink",
+        header: "BRANDED LINK",
+        cell: ({ row }) => {
+          const url = row.original.brandedLink;
+          return url ? (
+            <CopyableLink url={url} />
+          ) : (
+            <span className="text-gray-400 italic text-[14px]">None</span>
+          );
+        }
+      },
+      {
+        accessorKey: "unbrandedLink",
+        header: "UNBRANDED LINK",
+        cell: ({ row }) => {
+          const url = row.original.unbrandedLink;
+          return url ? (
+            <CopyableLink url={url} />
+          ) : (
+            <span className="text-gray-400 italic text-[14px]">None</span>
+          );
+        }
+      },
+      {
+        accessorKey: "status",
+        header: "STATUS",
+        cell: ({ row }) => {
+          const status = row.original.status;
+          return status ? (
+            <div className="text-center">
+              <span
+                className={`px-[7px] py-[1.5px] text-white rounded-[10px] text-[10px] leading-[100%] ${status === "ACTIVE" ? "!bg-[#6BAE41]" : "bg-[#DC9600]"}`}
+              >
+                {status}
+              </span>
+            </div>
+          ) : null;
+        }
+      },
+      {
+        id: "actions",
+        header: () => <div className="text-center">ACTION</div>,
+        cell: () => (
+          <div className="flex justify-center">
+            <DropdownActions options={options} />
+          </div>
+        )
       }
-    },
-    {
-      id: "actions",
-      header: () => <div className="text-center">ACTION</div>,
-      cell: () => (
-        <div className="flex justify-center">
-          <DropdownActions options={options} />
-        </div>
-      )
-    }
-  ];
+    ];
 
     if (isSuperAdmin) {
       cols.splice(1, 0, {
@@ -298,7 +298,7 @@ const MatterportPage = () => {
   //   };
 
   return (
-    <div>
+    <div className="w-full max-w-full min-w-0 ">
       <div
         ref={headerRef}
         className="w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
@@ -381,7 +381,7 @@ const MatterportPage = () => {
         </div>
       </div>
 
-      <div className="w-full relative">
+      <div className="w-full relative min-w-0">
         <DataTable
           columns={columns}
           data={filteredData}

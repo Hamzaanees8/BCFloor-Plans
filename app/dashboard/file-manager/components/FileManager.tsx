@@ -623,7 +623,7 @@ const FileManager = () => {
 
 
 
-  const handleUpload = React.useCallback(async () => {
+  const handleUpload = React.useCallback(async (overrideChangedFiles?: Files[]) => {
     setFileManagerMode('upload');
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -632,7 +632,9 @@ const FileManager = () => {
     const allFiles = [...selectedFiles, ...floorFiles, ...selectedVideoFiles].filter(f => !f.is_deleted);
 
     let changedFiles: Files[] = [];
-    if (filesData) {
+    if (overrideChangedFiles) {
+      changedFiles = overrideChangedFiles;
+    } else if (filesData) {
       // Filter only the files that have changed (featured status changed)
       changedFiles = filesData.files.filter((file) =>
         changedFileUuids.has(file.uuid)
@@ -712,7 +714,7 @@ const FileManager = () => {
     }
   }, [selectedFiles, floorFiles, selectedVideoFiles, filesData, changedFileUuids, startUpload, orderData?.uuid, links, droppedMarkers, delay, transition, selectedAudioTrack, setSelectedFiles, setFloorFiles, setSelectedVideoFiles, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setFileManagerMode, deletedSnapshotUuids, setDeletedSnapshotUuids, setDroppedMarkers]);
 
-  const handleSave = React.useCallback(async () => {
+  const handleSave = React.useCallback(async (overrideChangedFiles?: Files[]) => {
     setIsSaving(true);
     try {
       if (activeTab === "CreateFeatureSheet") {
@@ -720,7 +722,7 @@ const FileManager = () => {
           await featureSheetRef.current.handleSave();
         }
       } else {
-        await handleUpload();
+        await handleUpload(overrideChangedFiles);
       }
     } catch (error) {
       console.error("Error during save:", error);
@@ -1062,7 +1064,7 @@ const FileManager = () => {
         </div>
         <div className="flex items-center gap-x-2.5">
           <Button
-            onClick={handleSave}
+            onClick={() => handleSave()}
             disabled={isSaving}
             className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button`}
             style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
@@ -1412,31 +1414,37 @@ const FileManager = () => {
             </div>
             <Button
               onClick={async () => {
-                // Mark all unapproved files for this service as admin approved
+                // Compute the updated files list immediately
+                const filesToApprove = filesData?.files?.filter(f => f.service?.uuid === activeService.uuid && !f.is_admin_approved) || [];
+                if (filesToApprove.length === 0) return;
+
+                const approvedFiles = filesToApprove.map(f => ({ ...f, is_admin_approved: true }));
+
+                // Mark all unapproved files for this service as admin approved locally
                 setFilesData(prev => {
                   if (!prev) return prev;
                   return {
                     ...prev,
                     files: prev.files.map(f => {
                       if (f.service?.uuid === activeService.uuid && !f.is_admin_approved) {
-                        setChangedFileUuids(prevSet => {
-                          const newSet = new Set(prevSet);
-                          newSet.add(f.uuid);
-                          return newSet;
-                        });
                         return { ...f, is_admin_approved: true };
                       }
                       return f;
                     })
                   };
                 });
+
+                // Update changed file UUIDs to reflect that they are being saved
+                setChangedFileUuids(prevSet => {
+                  const newSet = new Set(prevSet);
+                  filesToApprove.forEach(f => newSet.add(f.uuid));
+                  return newSet;
+                });
                 
-                // Trigger auto-save to commit to database
-                setTimeout(() => {
-                  handleSave();
-                }, 100);
+                // Save changes directly with the updated data to bypass React state delay
+                await handleSave(approvedFiles);
                 
-                toast.success("Files approved! Saving changes...");
+                toast.success("Files approved and released successfully!");
               }}
               className="bg-amber-600 hover:bg-amber-700 text-white font-[500] h-[36px] px-6 rounded-[6px] transition-colors"
             >

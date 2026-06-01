@@ -21,7 +21,7 @@ import { toast } from "sonner"
 import { SaveModal } from "../../../../components/SaveModal"
 import { useAppContext } from "@/app/context/AppContext"
 import { Button } from "@/components/ui/button"
-import { formatPhoneNumber } from "@/lib/utils"
+import { formatPhoneNumber, isValidWebsite, isValidPhoneNumber } from "@/lib/utils"
 
 type CoAgent = {
     email: string;
@@ -202,6 +202,37 @@ const AddAgentDialog: React.FC<Props> = ({
         e.preventDefault();
 
         try {
+
+            const errors: Record<string, string[]> = {};
+            if (!primaryPhone.trim()) {
+                errors.primary_phone = ['Primary phone is required'];
+            } else if (!isValidPhoneNumber(primaryPhone)) {
+                errors.primary_phone = ['Invalid phone number. Example: +1 (204) 345-3456'];
+            }
+            if (secondaryPhone.trim() && !isValidPhoneNumber(secondaryPhone)) {
+                errors.secondary_phone = ['Invalid phone number. Example: +1 (204) 345-3456'];
+            }
+            if (companyWebsite.trim() && !isValidWebsite(companyWebsite)) {
+                errors.website = ['Invalid website URL'];
+            }
+
+            // Validate co-agents if present
+            coAgents.forEach((coAgent, index) => {
+                if (!coAgent.primary_phone.trim()) {
+                    errors[`co_agents`] = errors[`co_agents`] || [];
+                    errors[`co_agents`].push(`Co-agent ${index + 1}: Primary phone is required`);
+                } else if (!isValidPhoneNumber(coAgent.primary_phone)) {
+                    errors[`co_agents`] = errors[`co_agents`] || [];
+                    errors[`co_agents`].push(`Co-agent ${index + 1}: Invalid phone number. Example: +1 (204) 345-3456`);
+                }
+            });
+
+            if (Object.keys(errors).length > 0) {
+                setFieldErrors(errors);
+                const firstError = Object.values(errors).flat()[0];
+                toast.error(firstError);
+                return;
+            }
 
             let formattedWebsite = companyWebsite?.trim();
             if (formattedWebsite && !/^https?:\/\//i.test(formattedWebsite)) {
@@ -388,8 +419,15 @@ const AddAgentDialog: React.FC<Props> = ({
                             <div className='col-span-2'>
                                 <label htmlFor="">Primary Phone <span className="text-red-500">*</span></label>
                                 <Input value={primaryPhone}
-                                    onChange={(e) => setPrimaryPhone(formatPhoneNumber(e.target.value))}
-                                    className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                    onChange={(e) => {
+                                        setPrimaryPhone(formatPhoneNumber(e.target.value));
+                                        if (fieldErrors.primary_phone) {
+                                            const newErrors = { ...fieldErrors };
+                                            delete newErrors.primary_phone;
+                                            setFieldErrors(newErrors);
+                                        }
+                                    }}
+                                    className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.primary_phone ? 'border-red-500' : 'border-[#BBBBBB]'}`} type="text" />
                                 {fieldErrors.primary_phone && <p className='text-red-500 text-[10px]'>{fieldErrors.primary_phone[0]}</p>}
                             </div>
 
@@ -426,14 +464,30 @@ const AddAgentDialog: React.FC<Props> = ({
                                     <div className='col-span-2'>
                                         <label htmlFor="">Secondary Phone</label>
                                         <Input value={secondaryPhone}
-                                            onChange={(e) => setSecondaryPhone(formatPhoneNumber(e.target.value))}
-                                            className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                            onChange={(e) => {
+                                                setSecondaryPhone(formatPhoneNumber(e.target.value));
+                                                if (fieldErrors.secondary_phone) {
+                                                    const newErrors = { ...fieldErrors };
+                                                    delete newErrors.secondary_phone;
+                                                    setFieldErrors(newErrors);
+                                                }
+                                            }}
+                                            className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.secondary_phone ? 'border-red-500' : 'border-[#BBBBBB]'}`} type="text" />
+                                        {fieldErrors.secondary_phone && <p className='text-red-500 text-[10px]'>{fieldErrors.secondary_phone[0]}</p>}
                                     </div>
                                     <div className='col-span-2'>
                                         <label htmlFor="">Website</label>
                                         <Input value={companyWebsite}
-                                            onChange={(e) => setCompanyWebsite(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-
+                                            onChange={(e) => {
+                                                setCompanyWebsite(e.target.value);
+                                                if (fieldErrors.website) {
+                                                    const newErrors = { ...fieldErrors };
+                                                    delete newErrors.website;
+                                                    setFieldErrors(newErrors);
+                                                }
+                                            }}
+                                            className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.website ? 'border-red-500' : 'border-[#BBBBBB]'}`} type="text" />
+                                        {fieldErrors.website && <p className='text-red-500 text-[10px]'>{fieldErrors.website[0]}</p>}
                                     </div>
                                     <div>
                                         <label htmlFor="">Agent license #</label>

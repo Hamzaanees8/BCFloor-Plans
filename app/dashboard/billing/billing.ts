@@ -17,6 +17,7 @@ export interface ServiceItem {
   status: string;
   related_invoices: ServiceInvoices[];
   order_service_uuid: string;
+  uuid?: string;
 }
 
 export interface OrderSlots {

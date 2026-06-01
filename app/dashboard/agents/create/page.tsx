@@ -34,7 +34,7 @@ import { AudioLibrary } from '../components/AudioLibrary'
 import { Listings } from '@/lib/types'
 import Link from 'next/link'
 import { useS3Upload } from '@/hooks/useS3Upload'
-import { formatPhoneNumber } from '@/lib/utils'
+import { formatPhoneNumber, isValidWebsite, isValidPhoneNumber } from '@/lib/utils'
 // interface PaymentCard {
 //     uuid: string;
 //     type: 'visa' | 'mastercard' | 'amex';
@@ -697,6 +697,14 @@ const AgentForm = () => {
         }
         if (!primaryPhone.trim()) {
             validationErrors.primary_phone = ['Primary phone is required'];
+        } else if (!isValidPhoneNumber(primaryPhone)) {
+            validationErrors.primary_phone = ['Invalid phone number. Example: +1 (204) 345-3456'];
+        }
+        if (secondaryPhone.trim() && !isValidPhoneNumber(secondaryPhone)) {
+            validationErrors.secondary_phone = ['Invalid phone number. Example: +1 (204) 345-3456'];
+        }
+        if (companyWebsite.trim() && !isValidWebsite(companyWebsite)) {
+            validationErrors.website = ['Invalid website URL'];
         }
 
 
@@ -716,6 +724,9 @@ const AgentForm = () => {
             if (!coAgent.primary_phone.trim()) {
                 validationErrors[`co_agents`] = validationErrors[`co_agents`] || [];
                 validationErrors[`co_agents`].push(`Co-agent ${index + 1}: Primary phone is required`);
+            } else if (!isValidPhoneNumber(coAgent.primary_phone)) {
+                validationErrors[`co_agents`] = validationErrors[`co_agents`] || [];
+                validationErrors[`co_agents`].push(`Co-agent ${index + 1}: Invalid phone number. Example: +1 (204) 345-3456`);
             }
         });
 
@@ -1309,8 +1320,16 @@ const AgentForm = () => {
                                                 <div>
                                                     <label htmlFor="">Secondary Phone</label>
                                                     <Input value={secondaryPhone}
-                                                        onChange={(e) => setSecondaryPhone(formatPhoneNumber(e.target.value))}
-                                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                        onChange={(e) => {
+                                                            setSecondaryPhone(formatPhoneNumber(e.target.value));
+                                                            if (fieldErrors.secondary_phone) {
+                                                                const newErrors = { ...fieldErrors };
+                                                                delete newErrors.secondary_phone;
+                                                                setFieldErrors(newErrors);
+                                                            }
+                                                        }}
+                                                        className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.secondary_phone ? 'border-red-500' : 'border-[#BBBBBB]'}`} type="text" />
+                                                    {fieldErrors.secondary_phone && <p className='text-red-500 text-[10px]'>{fieldErrors.secondary_phone[0]}</p>}
                                                 </div>
                                                 <div className="col-span-2">
                                                     <hr className='text-[#BBBBBB]' />
@@ -1324,8 +1343,16 @@ const AgentForm = () => {
                                                 <div className='col-span-2'>
                                                     <label htmlFor="">Website</label>
                                                     <Input value={companyWebsite}
-                                                        onChange={(e) => setCompanyWebsite(e.target.value)} className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
-
+                                                        onChange={(e) => {
+                                                            setCompanyWebsite(e.target.value);
+                                                            if (fieldErrors.website) {
+                                                                const newErrors = { ...fieldErrors };
+                                                                delete newErrors.website;
+                                                                setFieldErrors(newErrors);
+                                                            }
+                                                        }}
+                                                        className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.website ? 'border-red-500' : 'border-[#BBBBBB]'}`} type="text" />
+                                                    {fieldErrors.website && <p className='text-red-500 text-[10px]'>{fieldErrors.website[0]}</p>}
                                                 </div>
                                                 <div>
                                                     <label htmlFor="">Agent license #</label>

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/app/context/AppContext";
 import { SelectedFiles, useFileManagerContext } from "../FileManagerContext";
 import { OptimizedImagePreview } from "./OptimizedPreview";
+import ConfirmationDialog from "@/components/ConfirmationDialog";
 
 /* ------------------------------------------------------------------ */
 /* CONSTANTS */
@@ -251,6 +252,20 @@ export default function FilePreviewModal({
   const [groupLabel, setGroupLabel] = useState("");
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
   const [complimentaryIndexes, setComplimentaryIndexes] = useState<number[]>([]);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [showAgain, setShowAgain] = useState(true);
+
+  // LOAD FROM LOCALSTORAGE ON MOUNT
+  useEffect(() => {
+    const saved = localStorage.getItem('confirmation_dialog_file_upload_cancel_show_again');
+    if (saved !== null) {
+      setShowAgain(JSON.parse(saved));
+    }
+  }, []);
+
+  const handleToggleShowAgain = () => {
+    setShowAgain(prev => !prev);
+  };
 
   const { userType } = useAppContext();
   const { filesData } = useFileManagerContext();
@@ -332,102 +347,106 @@ export default function FilePreviewModal({
 
   const handleOpenChange = (val: boolean) => {
     if (!val) {
-      if (localFiles.length > 0) {
-        const confirmCancel = window.confirm("Are you sure you want to cancel? Your file selection will be lost.");
-        if (!confirmCancel) return;
+      if (localFiles.length > 0 && showAgain) {
+        setConfirmOpen(true);
+      } else {
+        onOpenChange(false);
       }
-      onOpenChange(false);
     } else {
       onOpenChange(true);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent 
-        className="w-[320px] md:w-[700px] max-w-none font-alexandria"
-        onPointerDownOutside={(e) => {
-          if (localFiles.length > 0) {
-            e.preventDefault();
-            const confirmCancel = window.confirm("Are you sure you want to cancel? Your file selection will be lost.");
-            if (confirmCancel) {
-              onOpenChange(false);
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent 
+          className="w-[320px] md:w-[700px] max-w-none h-[90vh] md:h-[95vh] flex flex-col font-alexandria gap-0 p-4 md:p-6"
+          onPointerDownOutside={(e) => {
+            if (localFiles.length > 0) {
+              e.preventDefault();
+              if (showAgain) {
+                setConfirmOpen(true);
+              } else {
+                onOpenChange(false);
+              }
             }
-          }
-        }}
-        onEscapeKeyDown={(e) => {
-          if (localFiles.length > 0) {
-            e.preventDefault();
-            const confirmCancel = window.confirm("Are you sure you want to cancel? Your file selection will be lost.");
-            if (confirmCancel) {
-              onOpenChange(false);
+          }}
+          onEscapeKeyDown={(e) => {
+            if (localFiles.length > 0) {
+              e.preventDefault();
+              if (showAgain) {
+                setConfirmOpen(true);
+              } else {
+                onOpenChange(false);
+              }
             }
-          }
-        }}
-      >
-        <DialogHeader className="border-b pb-4 border-[#7d7d7d]">
-          <DialogTitle className={`text-[18px] ${userType}-text font-[600]`}>
-            FILE UPLOAD
-          </DialogTitle>
-        </DialogHeader>
+          }}
+        >
+          <DialogHeader className="border-b pb-4 border-[#7d7d7d] flex-shrink-0">
+            <DialogTitle className={`text-[18px] ${userType}-text font-[600]`}>
+              FILE UPLOAD
+            </DialogTitle>
+          </DialogHeader>
 
-        {selectedIndexes.length >= 2 && (
-          <div className="mb-4">
-            <Label className="text-[#7d7d7d] text-[14px] mb-[10px] block">
-              Group Label
-            </Label>
-            <Input
-              value={groupLabel}
-              onChange={(e) => setGroupLabel(e.target.value)}
-              placeholder="Name"
-              className="w-full h-[42px] border text-[#696868] border-[#7d7d7d]"
-            />
+          {selectedIndexes.length >= 2 && (
+            <div className="mb-4 mt-4 flex-shrink-0">
+              <Label className="text-[#7d7d7d] text-[14px] mb-[10px] block">
+                Group Label
+              </Label>
+              <Input
+                value={groupLabel}
+                onChange={(e) => setGroupLabel(e.target.value)}
+                placeholder="Name"
+                className="w-full h-[42px] border text-[#696868] border-[#7d7d7d]"
+              />
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto space-y-4 py-4 min-h-0 custom-scroll pr-[10px]">
+            {localFiles.map((file, idx) => (
+              <FileRow
+                key={idx}
+                file={file}
+                idx={idx}
+                mediaType={mediaTypes[idx] || ""}
+                onMediaTypeChange={(i, v) =>
+                  setMediaTypes(p => ({ ...p, [i]: v }))
+                }
+                onRemove={removeFile}
+                onToggleSelect={(i) =>
+                  setSelectedIndexes(p =>
+                    p.includes(i) ? p.filter(x => x !== i) : [...p, i]
+                  )
+                }
+                isSelected={selectedIndexes.includes(idx)}
+                type={type}
+                openDropdown={openDropdown}
+                setOpenDropdown={setOpenDropdown}
+                allSuggestions={allSuggestions}
+                totalFiles={localFiles.length}
+                userType={userType}
+                isComplimentary={complimentaryIndexes.includes(idx)}
+                onToggleComplimentary={(i) =>
+                  setComplimentaryIndexes(p =>
+                    p.includes(i) ? p.filter(x => x !== i) : [...p, i]
+                  )
+                }
+                onCopyFromAbove={handleCopyFromAbove}
+              />
+            ))}
           </div>
-        )}
 
-        <div className="space-y-4 pt-4 max-h-[70vh] overflow-y-auto">
-          {localFiles.map((file, idx) => (
-            <FileRow
-              key={idx}
-              file={file}
-              idx={idx}
-              mediaType={mediaTypes[idx] || ""}
-              onMediaTypeChange={(i, v) =>
-                setMediaTypes(p => ({ ...p, [i]: v }))
-              }
-              onRemove={removeFile}
-              onToggleSelect={(i) =>
-                setSelectedIndexes(p =>
-                  p.includes(i) ? p.filter(x => x !== i) : [...p, i]
-                )
-              }
-              isSelected={selectedIndexes.includes(idx)}
-              type={type}
-              openDropdown={openDropdown}
-              setOpenDropdown={setOpenDropdown}
-              allSuggestions={allSuggestions}
-              totalFiles={localFiles.length}
-              userType={userType}
-              isComplimentary={complimentaryIndexes.includes(idx)}
-              onToggleComplimentary={(i) =>
-                setComplimentaryIndexes(p =>
-                  p.includes(i) ? p.filter(x => x !== i) : [...p, i]
-                )
-              }
-              onCopyFromAbove={handleCopyFromAbove}
-            />
-          ))}
-
-          <div className="grid grid-cols-2 gap-3 pt-2">
+          <div className="grid grid-cols-2 gap-3 pt-4 border-t border-[#7d7d7d] flex-shrink-0 mt-2">
             <Button
               className={`w-full ${userType}-text ${userType}-border h-[44px]`}
               variant="outline"
               onClick={() => {
-                if (localFiles.length > 0) {
-                  const confirmCancel = window.confirm("Are you sure you want to cancel? Your file selection will be lost.");
-                  if (!confirmCancel) return;
+                if (localFiles.length > 0 && showAgain) {
+                  setConfirmOpen(true);
+                } else {
+                  onOpenChange(false);
                 }
-                onOpenChange(false);
               }}
             >
               Cancel
@@ -440,8 +459,21 @@ export default function FilePreviewModal({
               Add
             </Button>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmationDialog
+        open={confirmOpen}
+        setOpen={setConfirmOpen}
+        onConfirm={() => {
+          onOpenChange(false);
+        }}
+        showAgain={showAgain}
+        toggleShowAgain={handleToggleShowAgain}
+        dialogType="file_upload_cancel"
+        title="CANCEL UPLOAD"
+        description="Are you sure you want to cancel? Your file selection will be lost."
+      />
+    </>
   );
 }

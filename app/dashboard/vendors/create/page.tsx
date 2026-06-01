@@ -63,6 +63,7 @@ import { VendorsTourMedia } from "@/components/vendorWorkGallery";
 import { S3UploadService } from "@/lib/upload/s3-service";
 import { PresignedUrlRequest, ConfirmUploadRequest } from "@/lib/upload/types";
 import { validateForm, ValidationSchema } from "@/lib/validation";
+import { isValidWebsite, isValidPhoneNumber, formatPhoneNumber } from "@/lib/utils";
 // import { tree } from "next/dist/build/templates/app-page";
 interface VendorCompany {
   company_name: string;
@@ -788,6 +789,18 @@ const VendorForm = () => {
           }
         });
       }
+    }
+
+    if (primaryPhone.trim() && !isValidPhoneNumber(primaryPhone)) {
+      validationErrors.primary_phone = ["Invalid phone number. Example: +1 (204) 345-3456"];
+    }
+
+    if (secondaryPhone.trim() && !isValidPhoneNumber(secondaryPhone)) {
+      validationErrors.secondary_phone = ["Invalid phone number. Example: +1 (204) 345-3456"];
+    }
+
+    if (displayCompanyWebsite?.trim() && !isValidWebsite(displayCompanyWebsite)) {
+      validationErrors.company_website = ["Invalid website URL"];
     }
 
     if (Object.keys(validationErrors).length > 0) {
@@ -1533,7 +1546,7 @@ const VendorForm = () => {
                               placeholder="e.g. +1 (555) 555-5555"
                               value={primaryPhone}
                               onChange={(e) => {
-                                setPrimaryPhone(e.target.value);
+                                setPrimaryPhone(formatPhoneNumber(e.target.value));
                                 if (fieldErrors.primary_phone) {
                                   const newErrors = { ...fieldErrors };
                                   delete newErrors.primary_phone;
@@ -1556,10 +1569,25 @@ const VendorForm = () => {
                           <label htmlFor="">Secondary Phone</label>
                           <Input
                             value={secondaryPhone}
-                            onChange={(e) => setSecondaryPhone(e.target.value)}
-                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                            onChange={(e) => {
+                              setSecondaryPhone(formatPhoneNumber(e.target.value));
+                              if (fieldErrors.secondary_phone) {
+                                const newErrors = { ...fieldErrors };
+                                delete newErrors.secondary_phone;
+                                setFieldErrors(newErrors);
+                              }
+                            }}
+                            className={`h-[42px] mt-[12px] ${fieldErrors.secondary_phone
+                              ? "border-red-500"
+                              : "bg-[#EEEEEE] border-[#BBBBBB]"
+                              }`}
                             type="text"
                           />
+                          {fieldErrors.secondary_phone && (
+                            <p className="text-red-500 text-xs mt-1">
+                              {fieldErrors.secondary_phone[0]}
+                            </p>
+                          )}
                         </div>
 
                         <div className="col-span-2">
@@ -1577,12 +1605,27 @@ const VendorForm = () => {
                           <label htmlFor="">Company Website</label>
                           <Input
                             value={displayCompanyWebsite}
-                            onChange={(e) => setCompanyWebsite(e.target.value)}
-                            className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-75 disabled:cursor-not-allowed"
+                            onChange={(e) => {
+                              setCompanyWebsite(e.target.value);
+                              if (fieldErrors.company_website) {
+                                const newErrors = { ...fieldErrors };
+                                delete newErrors.company_website;
+                                setFieldErrors(newErrors);
+                              }
+                            }}
+                            className={`h-[42px] mt-[12px] disabled:opacity-75 disabled:cursor-not-allowed ${fieldErrors.company_website
+                              ? "border-red-500"
+                              : "bg-[#EEEEEE] border-[#BBBBBB]"
+                            }`}
                             type="text"
                             disabled={userType === "vendor"}
                             readOnly={userType === "vendor"}
                           />
+                          {fieldErrors.company_website && (
+                            <p className="text-red-500 text-[10px] mt-1">
+                              {fieldErrors.company_website[0]}
+                            </p>
+                          )}
                         </div>
                         <div className="col-span-2">
                           <label htmlFor="">
@@ -2397,6 +2440,7 @@ const VendorForm = () => {
                               onCheckedChange={(val) => {
                                 setInKilometers(val);
                               }}
+                              disabled={userType !== "admin"}
                               className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
                             />
                           </div>
@@ -2414,6 +2458,7 @@ const VendorForm = () => {
                                   setInKilometers(true);
                                 }
                               }}
+                              disabled={userType !== "admin"}
                               className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
                             />
                           </div>
@@ -2441,6 +2486,7 @@ const VendorForm = () => {
                                   }
                                 }
                               }}
+                              disabled={userType !== "admin"}
                               className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                             />
 

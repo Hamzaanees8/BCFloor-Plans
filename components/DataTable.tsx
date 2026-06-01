@@ -108,8 +108,8 @@ export function DataTable<TData>({
     });
 
     return (
-        <div className="w-full">
-            <div className="rounded-none border">
+        <div className="w-full min-w-0 max-w-full">
+            <div className="rounded-none border w-full overflow-x-auto">
                 <Table className="font-alexandria">
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -117,7 +117,7 @@ export function DataTable<TData>({
                                 {headerGroup.headers.map((header) => (
                                     <TableHead
                                         key={header.id}
-                                        className="text-[14px] font-[700] text-[#7D7D7D] pl-[20px]"
+                                        className="text-[14px] font-[700] text-[#7D7D7D] pl-[20px] whitespace-nowrap"
                                     >
                                         {header.isPlaceholder
                                             ? null
@@ -133,7 +133,7 @@ export function DataTable<TData>({
                             Array.from({ length: initialPagination.pageSize }).map((_, rowIndex) => (
                                 <TableRow key={rowIndex} className="h-[54px] bg-white border-b border-[#E4E4E4]">
                                     {columns.map((_, colIndex) => (
-                                        <TableCell key={colIndex} className="pl-[20px]">
+                                        <TableCell key={colIndex} className="pl-[20px] whitespace-nowrap">
                                             <Skeleton className="h-4 w-[80%] bg-gray-200" />
                                         </TableCell>
                                     ))}
@@ -148,7 +148,7 @@ export function DataTable<TData>({
                                     onClick={() => rowClick?.(row.original)}
                                 >
                                     {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id} className="pl-[20px]">
+                                        <TableCell key={cell.id} className="pl-[20px] whitespace-nowrap">
                                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                         </TableCell>
                                     ))}
