@@ -110,8 +110,8 @@ export default function UnsavedChangesDialog({
 
           <Button
             disabled={isSaving}
-            className={`text-white w-full md:w-[170px] h-[44px] font-[400] text-[16px] hover:brightness-110 border-none transition-all ${onSave ? 'bg-red-500' : ''}`}
-            style={!onSave ? { backgroundColor: roleSettings.pageTabColor } : { backgroundColor: '#ef4444' }}
+            className={`w-full md:w-[170px] h-[44px] font-[400] text-[16px] border-none transition-all hover:brightness-110 ${onSave ? 'bg-red-500 text-white' : ''}`}
+            style={!onSave ? { backgroundColor: roleSettings.pageTabColor, color: '#ffffff' } : { backgroundColor: '#ef4444', color: '#ffffff' }}
             onClick={() => {
               onConfirm();
               setOpen(false);
@@ -120,16 +120,27 @@ export default function UnsavedChangesDialog({
             {confirmLabel || "Leave Page"}
           </Button>
 
-          {cancelLabel && (
-            <Button
-              disabled={isSaving}
-              variant="outline"
-              className="w-full md:w-[170px] h-[44px] font-[400] text-[16px]"
-              onClick={() => setOpen(false)}
-            >
-              {cancelLabel}
-            </Button>
-          )}
+          <Button
+            disabled={isSaving}
+            variant="outline"
+            className="w-full md:w-[170px] h-[44px] font-[400] text-[16px] transition-all"
+            style={{
+              border: `1px solid ${roleSettings.pageTabColor}`,
+              color: roleSettings.pageTabColor,
+              backgroundColor: "transparent",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = roleSettings.pageTabColor;
+              (e.currentTarget as HTMLButtonElement).style.color = '#ffffff';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
+              (e.currentTarget as HTMLButtonElement).style.color = roleSettings.pageTabColor;
+            }}
+            onClick={() => setOpen(false)}
+          >
+            {cancelLabel || "Stay on Page"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

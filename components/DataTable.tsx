@@ -109,7 +109,7 @@ export function DataTable<TData>({
 
     return (
         <div className="w-full min-w-0 max-w-full">
-            <div className="rounded-none border w-full overflow-x-auto">
+            <div className="rounded-none border w-full overflow-x-auto custom-scrollbar">
                 <Table className="font-alexandria">
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (

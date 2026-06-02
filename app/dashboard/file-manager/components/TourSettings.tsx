@@ -23,6 +23,8 @@ import { Order } from "../../orders/page";
 import { useAppContext } from "@/app/context/AppContext";
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
+import { useS3Upload } from "@/hooks/useS3Upload";
+import { EditAgent } from "@/app/dashboard/agents/agents";
 
 interface TourSettingProps {
     orderData: Order | null;
@@ -56,10 +58,17 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
     const [company_name, setcompany_name] = useState('')
     const [avatar_url, setavatar_url] = useState('')
     const [company_logo_url, setcompany_logo_url] = useState('')
+    const [website, setwebsite] = useState('')
+    const [license_number, setlicense_number] = useState('')
 
     const AvatarfileInputRef = useRef(null)
-    // const [avatarFile, setAvatarFile] = useState<File | null>(null);
-    // const [companyLogoFile, setCompanyLogoFile] = useState<File | null>(null);
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [companyLogoFile, setCompanyLogoFile] = useState<File | null>(null);
+
+    const { uploadFiles } = useS3Upload({
+        entityType: 'agent',
+        entityId: orderData?.agent?.uuid || '',
+    });
 
     const [primaryColor, setPrimaryColor] = useState<string>("#6BAE41");
     const [secondaryColor, setSecondaryColor] = useState<string>("#DC9600");
@@ -104,7 +113,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
     useEffect(() => {
         if (orderData) {
             setAddress(orderData?.property_address)
-            
+
             // Generate Tour Link for prefilling property website
             const slugify = (text: string) => {
                 return text
@@ -141,6 +150,8 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
             setcompany_logo_url(orderData.agent.company_logo_url)
             setCompanyLogoFileName(orderData.agent.company_logo)
             setAvatarFileName(orderData.agent.avatar)
+            setwebsite(orderData.agent.website || '')
+            setlicense_number(orderData.agent.license_number || '')
             setTourActivated(orderData.property?.tour_activated)
             setPrimaryColor((orderData.property as any)?.primary_color || "#6BAE41");
             setSecondaryColor((orderData.property as any)?.secondary_color || "#DC9600");
@@ -161,17 +172,88 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
         }
     }
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (file) {
+            setAvatarFile(file);
+            setAvatarFileName(file.name);
+            setavatar_url(URL.createObjectURL(file));
+        }
+    }
+
+    const handleFileChange1 = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (file) {
+            setCompanyLogoFile(file);
+            setCompanyLogoFileName(file.name);
+            setcompany_logo_url(URL.createObjectURL(file));
+        }
+    }
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!orderData?.property?.uuid) {
             toast.error("Property not found");
             return;
         }
+        if (!orderData?.agent?.uuid) {
+            toast.error("Agent not found");
+            return;
+        }
+
+        // Validate agent inputs
+        if (!first_name.trim()) {
+            toast.error("Agent first name is required");
+            return;
+        }
+        if (!last_name.trim()) {
+            toast.error("Agent last name is required");
+            return;
+        }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!email.trim()) {
+            toast.error("Agent email is required");
+            return;
+        } else if (!emailRegex.test(email)) {
+            toast.error("Invalid agent email address");
+            return;
+        }
+
+        let formattedWebsite = website?.trim();
+        if (formattedWebsite && !/^https?:\/\//i.test(formattedWebsite)) {
+            formattedWebsite = 'https://' + formattedWebsite;
+        }
+
         setSaving(true);
         try {
+            // Step 1: Upload agent files directly to S3
+            const filesToUpload: { file: File; slot: string }[] = [];
+            if (avatarFile) {
+                filesToUpload.push({ file: avatarFile, slot: 'avatar' });
+            }
+            if (companyLogoFile) {
+                filesToUpload.push({ file: companyLogoFile, slot: 'company_logo' });
+            }
+            if (filesToUpload.length > 0) {
+                await uploadFiles(filesToUpload, orderData.agent.uuid);
+            }
+
+            // Step 2: Save agent details
+            await EditAgent(orderData.agent.uuid, {
+                first_name,
+                last_name,
+                email,
+                primary_phone: primary_phone || undefined,
+                company_name: company_name || undefined,
+                website: formattedWebsite || undefined,
+                license_number: license_number || undefined,
+                _method: 'PUT'
+            });
+
+            // Step 3: Save property details
             const token = localStorage.getItem("token");
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-            
+
             const response = await fetch(`${apiUrl}/orders/edit/properties/${orderData.property.uuid}`, {
                 method: 'PATCH',
                 headers: {
@@ -202,7 +284,9 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
             const data = await response.json();
 
             if (response.ok && data.status) {
-                toast.success("Property settings saved successfully");
+                toast.success("Settings saved successfully");
+                setAvatarFile(null);
+                setCompanyLogoFile(null);
                 if (setOrderData && data.data) {
                     setOrderData((prev: any) => {
                         if (!prev) return prev;
@@ -218,12 +302,25 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                     await onRefresh();
                 }
             } else {
-                const errorMsg = data.message || "Failed to save property settings";
+                let errorMsg = data.message || "Failed to save property settings";
+                if (data.errors && typeof data.errors === "object") {
+                    const firstError = Object.values(data.errors).flat()[0];
+                    if (firstError) {
+                        errorMsg = String(firstError);
+                    }
+                }
                 toast.error(errorMsg);
             }
         } catch (err: any) {
             console.error("Save error:", err);
-            toast.error(err.message || "An unexpected error occurred while saving");
+            let errorMsg = err.message || "An unexpected error occurred while saving";
+            if (err.errors && typeof err.errors === "object") {
+                const firstError = Object.values(err.errors).flat()[0];
+                if (firstError) {
+                    errorMsg = String(firstError);
+                }
+            }
+            toast.error(errorMsg);
         } finally {
             setSaving(false);
         }
@@ -560,6 +657,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                 <label htmlFor="">First Name</label>
                                                 <Input
                                                     value={first_name}
+                                                    onChange={(e) => setfirst_name(e.target.value)}
                                                     placeholder="Enter First Name"
                                                     className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
@@ -569,6 +667,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                 <label htmlFor="">Last Name</label>
                                                 <Input
                                                     value={last_name}
+                                                    onChange={(e) => setlast_name(e.target.value)}
                                                     placeholder="Enter Last Name"
                                                     className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
@@ -581,6 +680,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                     className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
                                                     value={company_name}
+                                                    onChange={(e) => setcompany_name(e.target.value)}
                                                 />
                                             </div>
                                             <div>
@@ -589,6 +689,8 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                     placeholder="Enter License Number"
                                                     className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
+                                                    value={license_number}
+                                                    onChange={(e) => setlicense_number(e.target.value)}
                                                 />
                                             </div>
                                             <div>
@@ -597,6 +699,8 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                     placeholder="Enter Website"
                                                     className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
                                                     type="text"
+                                                    value={website}
+                                                    onChange={(e) => setwebsite(e.target.value)}
                                                 />
                                             </div>
                                             <div className='col-span-2 flex items-end gap-x-[6px]'>
@@ -628,7 +732,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                         type="file"
                                                         accept="image/png, image/jpeg"
                                                         ref={AvatarfileInputRef}
-                                                        // onChange={handleFileChange}
+                                                        onChange={handleFileChange}
                                                         className="hidden"
                                                     />
                                                 </div>
@@ -668,7 +772,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                         type="file"
                                                         accept="image/png, image/jpeg"
                                                         ref={CompanyLogofileInputRef}
-                                                        // onChange={handleFileChange1}
+                                                        onChange={handleFileChange1}
                                                         className="hidden"
                                                     />
                                                 </div>
@@ -682,7 +786,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                             <label htmlFor="">Email </label>
                                             <Input
                                                 value={email}
-                                                // onChange={(e) => setEmail(e.target.value)}
+                                                onChange={(e) => setemail(e.target.value)}
                                                 className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="email" />
 
                                         </div>
@@ -690,7 +794,7 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                             <label htmlFor="">Phone Number </label>
                                             <Input
                                                 value={primary_phone}
-                                                // onChange={(e) => setPrimaryPhone(e.target.value)}
+                                                onChange={(e) => setprimary_phone(e.target.value)}
                                                 className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
                                         </div>
 
@@ -703,9 +807,8 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                         <button
                             type="submit"
                             disabled={saving}
-                            className={`w-full md:w-[180px] h-[45px] rounded-[6px] text-white font-medium text-[16px] transition-all hover:brightness-110 shadow disabled:opacity-50 ${
-                                userType === 'admin' ? 'bg-[#4290E9]' : 'bg-[#6BAE41]'
-                            }`}
+                            className={`w-full md:w-[180px] h-[45px] rounded-[6px] text-white font-medium text-[16px] transition-all hover:brightness-110 shadow disabled:opacity-50 ${userType === 'admin' ? 'bg-[#4290E9]' : 'bg-[#6BAE41]'
+                                }`}
                         >
                             {saving ? "Saving..." : "Save Changes"}
                         </button>

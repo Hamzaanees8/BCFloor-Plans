@@ -1359,6 +1359,9 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                 {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Next"}
                                                             </button>
                                                         </div>
+                                                        <p className="text-[12px] font-[500] text-center mt-2" style={{ color: roleSettings.pageTabColor }}>
+                                                            Please complete all required fields to proceed to the next step.
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </AccordionContent>

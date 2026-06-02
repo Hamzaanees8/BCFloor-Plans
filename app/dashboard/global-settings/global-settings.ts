@@ -214,21 +214,58 @@ export async function Delete(uuid: string) {
 
   return data;
 }
-export async function GetCompany() {
-
+/**
+ * Get the current user's organization/company data
+ * Retrieves organization UUID from localStorage userInfo
+ */
+export async function GetUserOrganization() {
   try {
-    const response = await api.get(`/companies/by_user`);
-
-    const company = await response.data;
-    if (company.status !== true) {
-      throw new Error(company.message || "Failed to fetch company data");
+    // Get organization UUID from localStorage
+    let organizationUuid: string | null = null;
+    
+    if (typeof window !== 'undefined') {
+      const userInfoStr = localStorage.getItem('userInfo');
+      if (userInfoStr) {
+        try {
+          const userInfo = JSON.parse(userInfoStr);
+          // Try different possible locations for UUID - prefer organization.uuid first
+          organizationUuid = userInfo?.organization?.uuid || userInfo?.data?.organization?.uuid || userInfo?.data?.uuid || userInfo?.organization_uuid;
+          
+          if (!organizationUuid) {
+            console.warn('Could not find organization UUID in userInfo structure:', userInfo);
+          }
+        } catch (e) {
+          console.error('Failed to parse userInfo from localStorage:', e);
+        }
+      }
     }
 
-    return company;
+    if (!organizationUuid) {
+      throw new Error('Organization UUID not found in user info');
+    }
+
+    console.log('Fetching organization with UUID:', organizationUuid);
+    // Fetch organization details
+    const response = await api.get(`/organizations/${organizationUuid}`);
+    const organization = await response.data;
+    
+    if (!organization.status || !organization.data) {
+      throw new Error(organization.message || "Failed to fetch organization data");
+    }
+
+    return organization;
   } catch (error) {
-    console.error("Failed to fetch company data:", error);
+    console.error("Failed to fetch user organization data:", error);
     throw error;
   }
+}
+
+/**
+ * @deprecated Use GetUserOrganization() instead. /companies/by_user endpoint no longer exists.
+ */
+export async function GetCompany() {
+  console.warn('GetCompany() is deprecated. Use GetUserOrganization() instead.');
+  return GetUserOrganization();
 }
 
 function payloadToFormData(payload: CompanyData): FormData {

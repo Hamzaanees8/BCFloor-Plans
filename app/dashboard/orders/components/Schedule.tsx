@@ -49,6 +49,7 @@ function isPointInPolygon(point: Coordinate, polygon: Coordinate[]): boolean {
 
 async function isPropertyInsideVendorArea(selectedCurrentListing: string, vendor: VendorData): Promise<boolean> {
     if (!selectedCurrentListing || !vendor.coordinates) return false
+    if (typeof window === 'undefined' || !window.google || !window.google.maps) return false
 
     try {
         const polygon: Coordinate[] = JSON.parse(vendor.coordinates as unknown as string);
@@ -84,12 +85,30 @@ export interface ScheduleProps {
 const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
     const searchParams = useSearchParams();
     const isEdit = searchParams.get('isEdit') === 'true';
+    const [googleReady, setGoogleReady] = useState(typeof window !== 'undefined' && !!window.google && !!window.google.maps);
     const [selectedVendorMap, setSelectedVendorMap] = React.useState<Record<string, string | string[]>>({});
     const [recommendTimeMap, setRecommendTimeMap] = useState<Record<string, 0 | 1>>({});
     const [filteredVendorsByService, setFilteredVendorsByService] = useState<Record<string, VendorData[]>>({});
+    // Vendors with force_service_area=false whose property is OUTSIDE their geofence.
+    // These are hidden by default but become available when the admin enables Schedule Override.
+    const [overridableVendorsByService, setOverridableVendorsByService] = useState<Record<string, VendorData[]>>({});
     const [masterDate, setMasterDate] = useState<Date>(new Date());
     const [serviceDates, setServiceDates] = useState<Record<string, Date | null>>({});
     const [vendorDistances, setVendorDistances] = useState<Record<string, number>>({});
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (window.google && window.google.maps) return;
+
+        const interval = setInterval(() => {
+            if (window.google && window.google.maps) {
+                setGoogleReady(true);
+                clearInterval(interval);
+            }
+        }, 500);
+
+        return () => clearInterval(interval);
+    }, []);
     const [selectedVendorForModal, setSelectedVendorForModal] = useState<VendorData | null>(null);
     const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
     const [isCalculating, setIsCalculating] = useState(true);
@@ -125,6 +144,8 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                 ? `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.country}`
                 : `${tempPropertyData?.address}, ${tempPropertyData?.city}, ${tempPropertyData?.country}`;
             const result: Record<string, VendorData[]> = {};
+            // Vendors that can be included via Schedule Override (force_service_area=false, outside geofence)
+            const overridable: Record<string, VendorData[]> = {};
 
             for (const service of servicesData) {
                 const vendorsForService = vendorsData.filter(v =>
@@ -134,25 +155,47 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                 const insideResults = await Promise.all(
                     vendorsForService.map(async vendor => {
                         const force_service_area = vendor.settings?.force_service_area;
-                        const isRestricted = force_service_area === 1 || force_service_area === true;
+                        const isForced = force_service_area === 1 || force_service_area === true;
 
-                        if (!isRestricted) {
-                            return { vendor, inside: true };
+                        // Parse coordinates — check if a geofence has been drawn
+                        let hasCoordinates = false;
+                        try {
+                            const coords = JSON.parse(vendor.coordinates as unknown as string);
+                            hasCoordinates = Array.isArray(coords) && coords.length >= 3;
+                        } catch {
+                            hasCoordinates = false;
                         }
 
-                        return {
-                            vendor,
-                            inside: await isPropertyInsideVendorArea(addressString, vendor),
-                        };
+                        if (isForced) {
+                            // force_service_area=true: always check geofence, NEVER overridable
+                            const inside = await isPropertyInsideVendorArea(addressString, vendor);
+                            return { vendor, inside, canOverride: false };
+                        }
+
+                        if (!hasCoordinates) {
+                            // force_service_area=false, no geofence drawn: always available
+                            return { vendor, inside: true, canOverride: false };
+                        }
+
+                        // force_service_area=false but a geofence IS drawn:
+                        // Check if the property falls inside it.
+                        // If outside → vendor is overridable (admin can bypass with Schedule Override).
+                        const inside = await isPropertyInsideVendorArea(addressString, vendor);
+                        return { vendor, inside, canOverride: !inside };
                     })
                 );
 
                 result[service.uuid] = insideResults
                     .filter(r => r.inside)
                     .map(r => r.vendor);
+
+                overridable[service.uuid] = insideResults
+                    .filter(r => r.canOverride)
+                    .map(r => r.vendor);
             }
 
             setFilteredVendorsByService(result);
+            setOverridableVendorsByService(overridable);
 
             // 2. Load property timezone
             const fullAddress = selectedCurrentListing
@@ -166,12 +209,18 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                 console.error('Failed to fetch property timezone');
             }
 
-            // 3. Calculate all vendor distances
+            // 3. Calculate distances for both available and overridable vendors
             const listingAddress = selectedCurrentListing
                 ? `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.province}, ${selectedCurrentListing.country}`
                 : `${tempPropertyData?.address}, ${tempPropertyData?.city}, ${tempPropertyData?.province}, ${tempPropertyData?.country}`;
 
-            const distancePromises = Object.values(result).map(async (vendors) => {
+            const allVendorSets = Object.keys(result).map(svcUuid => {
+                const available = result[svcUuid] ?? [];
+                const override = overridable[svcUuid] ?? [];
+                return [...available, ...override];
+            });
+
+            const distancePromises = allVendorSets.map(async (vendors) => {
                 if (vendors?.length > 0) {
                     await calculateAllVendorDistances(listingAddress, vendors);
                 }
@@ -182,7 +231,32 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
         }
 
         loadAndCalculate();
-    }, [vendorsData, servicesData, selectedCurrentListing, tempPropertyData]);
+    }, [vendorsData, servicesData, selectedCurrentListing, tempPropertyData, googleReady]);
+
+    useEffect(() => {
+        if (!isEdit || !selectedSlots.length || !servicesData.length) return;
+
+        const newShowAllVendorsMap: Record<string, 0 | 1> = {};
+        const newScheduleOverrideMap: Record<string, 0 | 1> = {};
+        const newRecommendTimeMap: Record<string, 0 | 1> = {};
+
+        servicesToSchedule.forEach((service, idx) => {
+            const serviceKey = service.uuid || `service-${idx}`;
+            const slot = selectedSlots.find(
+                (s) => String(s.service_id) === String(service.uuid)
+            );
+
+            if (slot) {
+                newShowAllVendorsMap[serviceKey] = slot.show_all_vendors ? 1 : 0;
+                newScheduleOverrideMap[serviceKey] = slot.schedule_override ? 1 : 0;
+                newRecommendTimeMap[serviceKey] = slot.recommend_time ? 1 : 0;
+            }
+        });
+
+        setShowAllVendorsMap((prev) => ({ ...prev, ...newShowAllVendorsMap }));
+        setScheduleOverrideMap((prev) => ({ ...prev, ...newScheduleOverrideMap }));
+        setRecommendTimeMap((prev) => ({ ...prev, ...newRecommendTimeMap }));
+    }, [isEdit, selectedSlots, servicesToSchedule, servicesData]);
 
     const formatTravelTime = (minutes: number) => {
         if (minutes < 60) return `${minutes} min`;
@@ -324,7 +398,6 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                         const currentDuration = serviceSlots.length * 15;
                         const isFullyScheduled = currentDuration >= requiredDuration && requiredDuration > 0;
                         const isInvalid = invalidServices.includes(service.uuid || '');
-                        const hasNoVendors = !isCalculating && !!service.uuid && (!filteredVendorsByService[service.uuid] || filteredVendorsByService[service.uuid].length === 0);
 
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);
@@ -411,7 +484,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                     <div className="flex flex-col gap-4">
                                         {userType === 'admin' && (
                                             <div className="flex flex-col gap-4">
-                                                <div className="flex justify-start gap-6 items-center">
+                                                {/* <div className="flex justify-start gap-6 items-center">
                                                     <Switch
                                                         id={`show-all-vendors-${idx}`}
                                                         checked={!!showAllVendors}
@@ -424,7 +497,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                         className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                                                     />
                                                     <label htmlFor={`show-all-vendors-${idx}`} className="text-[12px] cursor-pointer">Show all Vendors Regardless of Travel Time</label>
-                                                </div>
+                                                </div> */}
                                                 <div className="flex justify-start gap-6 items-center">
                                                     <Switch
                                                         id={`schedule-override-${idx}`}
@@ -479,71 +552,104 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                         </div>
                                     </div>
                                     <div>
-                                        <Select
-                                            value={hasNoVendors ? "none" : (typeof selectedVendor === 'string' ? selectedVendor : 'all')}
-                                            onValueChange={handleVendorChange}
-                                            disabled={hasNoVendors}
-                                        >
-                                            <SelectTrigger 
-                                                className={cn(
-                                                    "w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]",
-                                                    hasNoVendors && "border-red-500 text-red-500 font-semibold"
-                                                )}
-                                            >
-                                                {hasNoVendors ? "No vendor available" : <SelectValue placeholder="Select Vendor" />}
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All Vendors</SelectItem>
-                                                {isCalculating ? (
-                                                    <SelectItem value="loading" disabled>
-                                                        <div className="flex items-center gap-2">
-                                                            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                                                            <span>Calculating travel times & vendors...</span>
+                                        {(() => {
+                                            const overridableVendors = service.uuid ? (overridableVendorsByService[service.uuid] ?? []) : [];
+                                            const hasOverridable = overridableVendors.length > 0;
+                                            // When override is ON, merge filtered + overridable vendors
+                                            const visibleVendors = service.uuid
+                                                ? [
+                                                    ...(filteredVendorsByService[service.uuid] ?? []),
+                                                    ...(scheduleOverride === 1 ? overridableVendors : []),
+                                                ]
+                                                : [];
+                                            const overridableUUIDs = new Set(overridableVendors.map(v => v.uuid));
+                                            const noVendors = !isCalculating && !!service.uuid && visibleVendors.length === 0;
+
+                                            return (
+                                                <>
+                                                    {/* Show override hint when there are overridable vendors */}
+                                                    {!isCalculating && hasOverridable && scheduleOverride === 0 && (
+                                                        <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md">
+                                                            <Info className="w-4 h-4 text-amber-600 shrink-0" />
+                                                            <p className="text-[11px] text-amber-700 leading-snug">
+                                                                <span className="font-semibold">{overridableVendors.length} vendor{overridableVendors.length > 1 ? 's are' : ' is'} available outside their service area.</span>{' '}
+                                                                Enable <span className="font-semibold">Schedule Override</span> to include them.
+                                                            </p>
                                                         </div>
-                                                    </SelectItem>
-                                                ) : service.uuid && filteredVendorsByService[service.uuid]?.length ? (
-                                                    [...filteredVendorsByService[service.uuid]!]
-                                                        .sort((a, b) => {
-                                                            const timeA = vendorDistances[a.uuid ?? ''] ?? Infinity;
-                                                            const timeB = vendorDistances[b.uuid ?? ''] ?? Infinity;
-                                                            return timeA - timeB;
-                                                        })
-                                                        .map((vendor, vidx) => {
-                                                            const travelTime = vendorDistances[vendor.uuid ?? ''];
-                                                            const color = getDistanceColor(travelTime);
-                                                            return (
-                                                                <SelectItem className='flex justify-between text-nowrap' key={vidx} value={vendor.uuid ?? ''}>
-                                                                    <div className="flex items-center gap-2 text-nowrap truncate">
-                                                                        <span className="w-2 h-4" style={{ backgroundColor: color }} />
-                                                                        <span>{vendor.first_name} {vendor.last_name}</span>
-                                                                        <span>{travelTime !== undefined && (
-                                                                            <span className="text-gray-500 text-[12px] ml-2">
-                                                                                ({formatTravelTime(travelTime)})
-                                                                            </span>
-                                                                        )}</span>
+                                                    )}
+                                                    <Select
+                                                        value={noVendors ? "none" : (typeof selectedVendor === 'string' ? selectedVendor : 'all')}
+                                                        onValueChange={handleVendorChange}
+                                                        disabled={noVendors}
+                                                    >
+                                                        <SelectTrigger
+                                                            className={cn(
+                                                                "w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]",
+                                                                noVendors && "border-red-500 text-red-500 font-semibold"
+                                                            )}
+                                                        >
+                                                            {noVendors ? "No vendor available" : <SelectValue placeholder="Select Vendor" />}
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="all">All Vendors</SelectItem>
+                                                            {isCalculating ? (
+                                                                <SelectItem value="loading" disabled>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                                                                        <span>Calculating travel times &amp; vendors...</span>
                                                                     </div>
                                                                 </SelectItem>
-                                                            );
-                                                        })
-                                                ) : (
-                                                    <SelectItem value="none" disabled>
-                                                        No vendors available for this service in the selected area
-                                                    </SelectItem>
-                                                )}
-                                            </SelectContent>
-
-
-                                        </Select>
+                                                            ) : visibleVendors.length > 0 ? (
+                                                                [...visibleVendors]
+                                                                    .sort((a, b) => {
+                                                                        const timeA = vendorDistances[a.uuid ?? ''] ?? Infinity;
+                                                                        const timeB = vendorDistances[b.uuid ?? ''] ?? Infinity;
+                                                                        return timeA - timeB;
+                                                                    })
+                                                                    .map((vendor, vidx) => {
+                                                                        const travelTime = vendorDistances[vendor.uuid ?? ''];
+                                                                        const color = getDistanceColor(travelTime);
+                                                                        const isOverride = overridableUUIDs.has(vendor.uuid);
+                                                                        return (
+                                                                            <SelectItem className='flex justify-between text-nowrap' key={vidx} value={vendor.uuid ?? ''}>
+                                                                                <div className="flex items-center gap-2 text-nowrap truncate">
+                                                                                    <span className="w-2 h-4" style={{ backgroundColor: color }} />
+                                                                                    <span>{vendor.first_name} {vendor.last_name}</span>
+                                                                                    {isOverride && (
+                                                                                        <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300 rounded px-1 py-0.5 leading-none">Override</span>
+                                                                                    )}
+                                                                                    {travelTime !== undefined && (
+                                                                                        <span className="text-gray-500 text-[12px] ml-1">
+                                                                                            ({formatTravelTime(travelTime)})
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </SelectItem>
+                                                                        );
+                                                                    })
+                                                            ) : (
+                                                                <SelectItem value="none" disabled>
+                                                                    No vendors available for this service in the selected area
+                                                                </SelectItem>
+                                                            )}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </>
+                                            );
+                                        })()}
 
                                         {/* SELECTED VENDOR DISPLAY */}
                                         <div className="mt-3 flex flex-col gap-2">
 
                                             {selectedVendor !== 'all' ? (
                                                 (() => {
-                                                    const vendor = service.uuid
-                                                        ? (filteredVendorsByService[service.uuid] ?? [])
-                                                            .find((v) => v.uuid === selectedVendor)
-                                                        : undefined;
+                                                    const allVisible = service.uuid
+                                                        ? [
+                                                            ...(filteredVendorsByService[service.uuid] ?? []),
+                                                            ...(scheduleOverride === 1 ? (overridableVendorsByService[service.uuid] ?? []) : []),
+                                                        ]
+                                                        : [];
+                                                    const vendor = allVisible.find((v) => v.uuid === selectedVendor);
                                                     if (!vendor) return null;
 
                                                     return (
@@ -681,13 +787,18 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                         )}
 
                                         <div className="mt-[20px]">
-                                            {hasNoVendors ? (
+                                            {(!isCalculating && !!service.uuid && (
+                                                [
+                                                    ...(filteredVendorsByService[service.uuid] ?? []),
+                                                    ...(scheduleOverride === 1 ? (overridableVendorsByService[service.uuid] ?? []) : []),
+                                                ].length === 0
+                                            )) ? (
                                                 <div className="flex flex-col items-center justify-center p-6 border border-red-200 bg-red-50/50 rounded-lg text-center gap-4">
                                                     <Info className="w-8 h-8 text-red-500 animate-bounce" />
                                                     <div className="text-[14px] text-red-800 font-medium font-alexandria">
                                                         This service currently has no available vendors. Please remove the service from selection.
                                                     </div>
-                                                    <Button 
+                                                    <Button
                                                         variant="destructive"
                                                         onClick={() => setSelectedServices(prev => prev.filter(s => s.uuid !== service.uuid))}
                                                         className="w-full max-w-[200px] h-[40px] font-alexandria font-semibold"
@@ -701,7 +812,10 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                         selectedVendor === 'all'
                                                             ? (
                                                                 service.uuid
-                                                                    ? (filteredVendorsByService[service.uuid] ?? [])
+                                                                    ? [
+                                                                        ...(filteredVendorsByService[service.uuid] ?? []),
+                                                                        ...(scheduleOverride === 1 ? (overridableVendorsByService[service.uuid] ?? []) : []),
+                                                                    ]
                                                                         .filter((v) =>
                                                                             v.vendor_services?.some(
                                                                                 (vs) => vs.service?.uuid === service.uuid

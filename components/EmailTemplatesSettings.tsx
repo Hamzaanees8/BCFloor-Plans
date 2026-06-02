@@ -16,7 +16,7 @@ import { Signature, GetSignatures, DeleteSignature } from "@/app/dashboard/globa
 import { GetCompany } from "@/app/dashboard/global-settings/global-settings";
 
 const EmailTemplatesSettings = () => {
-    const { userType } = useAppContext();
+    const { userType, organizationId, setOrganizationId } = useAppContext();
     const { appliedSettings } = useWhiteLabel();
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
@@ -29,7 +29,6 @@ const EmailTemplatesSettings = () => {
     const [signatureToEdit, setSignatureToEdit] = useState<Signature | null>(null);
     const [loading, setLoading] = useState(true);
     const [sigsLoading, setSigsLoading] = useState(true);
-    const [companyUuid, setCompanyUuid] = useState<string | null>(null);
 
     const fetchTemplates = useCallback(async () => {
         setLoading(true);
@@ -69,21 +68,46 @@ const EmailTemplatesSettings = () => {
         fetchTemplates();
 
         const initSigs = async () => {
+            // First, try to get organization ID from context or localStorage
+            let orgId = organizationId;
+            
+            if (!orgId) {
+                try {
+                    // Try to get from localStorage userInfo - look for organization.uuid first
+                    const userInfoStr = typeof window !== 'undefined' ? localStorage.getItem('userInfo') : null;
+                    if (userInfoStr) {
+                        const userInfo = JSON.parse(userInfoStr);
+                        // Correct hierarchy: organization.uuid is the actual org UUID
+                        orgId = userInfo?.organization?.uuid || userInfo?.data?.organization?.uuid || userInfo?.data?.uuid || userInfo?.organization_uuid;
+                        console.log('Extracted organization ID from userInfo:', orgId);
+                    }
+                } catch (e) {
+                    console.error('Failed to parse userInfo:', e);
+                }
+            }
+
+            if (orgId) {
+                setOrganizationId(orgId);
+                fetchSignatures(orgId);
+                return;
+            }
+
+            // Fallback: Try to fetch using the new GetUserOrganization function
             try {
                 const res = await GetCompany();
                 if (res.status && res.data?.uuid) {
-                    setCompanyUuid(res.data.uuid);
+                    setOrganizationId(res.data.uuid);
                     fetchSignatures(res.data.uuid);
                 }
             } catch (err) {
-                console.error("Failed to fetch company for signatures", err);
+                console.error("Failed to fetch organization for signatures", err);
             }
         };
         initSigs();
-    }, [fetchTemplates, fetchSignatures]);
+    }, [fetchTemplates, fetchSignatures, organizationId, setOrganizationId]);
 
     const handleSignatureDelete = async (sigUuid: string) => {
-        if (!companyUuid) return;
+        if (!organizationId) return;
         try {
             const res = await DeleteSignature(sigUuid);
             if (res.status !== false) {
@@ -299,7 +323,7 @@ const EmailTemplatesSettings = () => {
                     if (!open) setSignatureToEdit(null);
                 }}
                 onSave={() => {
-                    if (companyUuid) fetchSignatures(companyUuid);
+                    if (organizationId) fetchSignatures(organizationId);
                 }}
                 initialData={signatureToEdit}
             />

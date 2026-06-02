@@ -180,7 +180,7 @@ export async function GetServices(token: string) {
             },
         });
 
-        if (response.status !== 200) {
+        if (response.status < 200 || response.status >= 300) {
             throw new Error(response.data.message || `Request failed with status ${response.status}`);
         }
 
@@ -201,7 +201,7 @@ export async function GetCategories(token: string) {
             },
         });
 
-        if (response.status !== 200) {
+        if (response.status < 200 || response.status >= 300) {
             throw new Error(response.data.message || `Request failed with status ${response.status}`);
         }
 
@@ -251,7 +251,7 @@ export async function DeleteCategory(uuid: string, token: string) {
         },
     });
 
-    if (response.status !== 200) {
+    if (response.status < 200 || response.status >= 300) {
         throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
@@ -266,7 +266,7 @@ export async function CreateService(payload: ServicePayload, token: string) {
         },
     });
 
-    if (response.status !== 200) {
+    if (response.status < 200 || response.status >= 300) {
         throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
@@ -282,7 +282,7 @@ export async function GetPackages(token: string) {
             },
         });
 
-        if (response.status !== 200) {
+        if (response.status < 200 || response.status >= 300) {
             throw new Error(response.data.message || `Request failed with status ${response.status}`);
         }
 
@@ -302,7 +302,7 @@ export async function CreatePackage(payload: PackagePayload, token: string) {
         },
     });
 
-    if (response.status !== 200) {
+    if (response.status < 200 || response.status >= 300) {
         throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
@@ -319,7 +319,7 @@ export async function UpdatePackage(payload: PackagePayload, token: string, pack
         },
     });
 
-    if (response.status !== 200) {
+    if (response.status < 200 || response.status >= 300) {
         throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
@@ -336,7 +336,7 @@ export async function UpdateService(payload: ServicePayload, token: string, serv
         },
     });
 
-    if (response.status !== 200) {
+    if (response.status < 200 || response.status >= 300) {
         throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
@@ -352,7 +352,7 @@ export async function GetOneService(token: string, serviceId: string) {
             },
         });
 
-        if (response.status !== 200) {
+        if (response.status < 200 || response.status >= 300) {
             throw new Error(response.data.message || `Request failed with status ${response.status}`);
         }
 
@@ -372,7 +372,7 @@ export async function GetOnePackage(token: string, packageId: string) {
             },
         });
 
-        if (response.status !== 200) {
+        if (response.status < 200 || response.status >= 300) {
             throw new Error(response.data.message || `Request failed with status ${response.status}`);
         }
 
@@ -392,7 +392,7 @@ export async function UpdateServiceStatus(listingId: string, payload: UpdateServ
         },
     });
 
-    if (response.status !== 200) {
+    if (response.status < 200 || response.status >= 300) {
         throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
@@ -407,7 +407,7 @@ export async function UpdatePackageStatus(packageId: string, payload: UpdateServ
         },
     });
 
-    if (response.status !== 200) {
+    if (response.status < 200 || response.status >= 300) {
         throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
@@ -422,7 +422,7 @@ export async function UpdateVendorServiceStatus(vendorServiceId: string, payload
         },
     });
 
-    if (response.status !== 200) {
+    if (response.status < 200 || response.status >= 300) {
         throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
@@ -436,7 +436,7 @@ export async function DeleteService(setviceId: string, token: string) {
         },
     });
 
-    if (response.status !== 200) {
+    if (response.status < 200 || response.status >= 300) {
         throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 
@@ -450,7 +450,7 @@ export async function DeleteVendorService(vendorServiceId: string, token: string
         },
     });
 
-    if (response.status !== 200) {
+    if (response.status < 200 || response.status >= 300) {
         throw new Error(response.data.message || `Request failed with status ${response.status}`);
     }
 

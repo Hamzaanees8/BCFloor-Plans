@@ -300,7 +300,27 @@ const GlobalSettings = () => {
     const baselineSettingsRef = useRef<any>(null);
     const headerRef = useRef<HTMLDivElement>(null);
 
+    // Override overflow-x: hidden on ancestor elements that break sticky positioning
+    useEffect(() => {
+        const header = headerRef.current;
+        if (!header) return;
 
+        let ancestor = header.parentElement;
+        while (ancestor) {
+            const style = window.getComputedStyle(ancestor);
+            if (style.overflowX === 'hidden' || ancestor.classList.contains('overflow-x-hidden')) {
+                ancestor.style.setProperty('overflow-x', 'visible', 'important');
+                ancestor.style.setProperty('overflow-y', 'visible', 'important');
+
+                const target = ancestor;
+                return () => {
+                    target.style.removeProperty('overflow-x');
+                    target.style.removeProperty('overflow-y');
+                };
+            }
+            ancestor = ancestor.parentElement;
+        }
+    }, []);
 
     const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const repeatOptions = [

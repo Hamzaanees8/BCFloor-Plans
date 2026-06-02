@@ -200,6 +200,22 @@ function isFloorPlanService(
   return /2d\s*floor|2dfloor|floor\s*plan|floorplan/.test(searchable);
 }
 
+function isMatterportService(
+  serviceTitle: string | undefined,
+  serviceUuid: string | undefined,
+  serviceId: string | number | undefined,
+  servicesData: Services[]
+): boolean {
+  const currentServiceData = servicesData.find(s => s.uuid === serviceUuid || String(s.id) === String(serviceId));
+  const searchable = [
+    serviceTitle || '',
+    currentServiceData?.name || '',
+    currentServiceData?.category?.name || ''
+  ].join(' ').toLowerCase();
+
+  return /matterport|3d\s*tour|3dtour|iguide/.test(searchable);
+}
+
 function getRestrictedDisplaySlots(
   vendor: VendorData,
   date: string,
@@ -389,6 +405,7 @@ export default function OneDayCalendar({
   propertyTimezone,
   squareFootage,
   isCalculating,
+  scheduleOverride,
 }: CalendarProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const hasScrolledToFirstSlot = useRef(false);
@@ -533,19 +550,28 @@ export default function OneDayCalendar({
     );
     const requiredSlotsCountForService = Math.max(1, Math.ceil(requiredDurationForSlots / 15));
     const isFloorPlan = isFloorPlanService(service.title, service.service.uuid, service.service.id, servicesData);
+    const isMatterport = isMatterportService(service.title, service.service.uuid, service.service.id, servicesData);
+    // Services where allow_next_booking should be enforced (like floor plan)
+    const isSpecialService = isFloorPlan || isMatterport;
 
     filteredVendors.forEach(vendor => {
       const vendorId = vendor.uuid ?? '';
       if (!vendorId) return;
 
       const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
-      const shouldEnforceForVendor = isFloorPlan
+      // For special services (floor plan / matterport), enforce next_booking_slot_only per-vendor
+      const shouldEnforceForVendor = isSpecialService
         ? vendorHasNextBookingFlag
         : true;
 
-      // Full-day bypass: skip it if this is a floor plan + vendor has next booking slot only
-      const useFullDay = (scheduleOverrideMap[calendarIdx] === 1 || isNoTravelRequired)
-                         && !(isFloorPlan && vendorHasNextBookingFlag);
+      // Full-day bypass logic:
+      // - For no-travel services: full day only when vendor's allow_next_booking is OFF
+      //   (if allow_next_booking is ON, use actual schedule so first-slot restriction applies)
+      // - For travel-required services: full day only when schedule override is ON,
+      //   but never for special services (floor plan / matterport) that have next_booking_slot_only
+      const useFullDay = isNoTravelRequired
+        ? !vendorHasNextBookingFlag
+        : (scheduleOverride === 1) && !(isSpecialService && vendorHasNextBookingFlag);
 
       if (useFullDay) {
         const fullDayWorkHours: WorkHours = {
@@ -704,7 +730,7 @@ export default function OneDayCalendar({
 
     setEvents(finalSlots);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vendors, currentDate, selectedVendors, selectedSlots, service.service.uuid, service.service.id, recommendTimeMap, calendarIdx, scheduleOverrideMap, twilightData, servicesData, effectiveSquareFootage, propertyTimezone, AllBookedSlots, orderData]);
+  }, [vendors, currentDate, selectedVendors, selectedSlots, service.service.uuid, service.service.id, recommendTimeMap, calendarIdx, scheduleOverrideMap, scheduleOverride, twilightData, servicesData, effectiveSquareFootage, propertyTimezone, AllBookedSlots, orderData]);
 
   // Reset scroll ref when service or date changes
   useEffect(() => {
@@ -916,18 +942,22 @@ export default function OneDayCalendar({
     const currentServiceDataForClick = servicesData.find(s => s.uuid === service.service.uuid || String(s.id) === String(service.service.id));
     const isNoTravelClick = currentServiceDataForClick?.is_travel_required === false;
     const isFloorPlanClick = isFloorPlanService(service.title, service.service.uuid, service.service.id, servicesData);
+    const isMatterportClick = isMatterportService(service.title, service.service.uuid, service.service.id, servicesData);
+    const isSpecialServiceClick = isFloorPlanClick || isMatterportClick;
 
     // Find vendors available for ALL consecutive slots
     const matching = vendors.filter(vendor => {
       if (!vendor.uuid || !selectedVendors.includes(vendor.uuid)) return false;
 
       const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
-      const shouldEnforceForVendor = isFloorPlanClick
+      const shouldEnforceForVendor = isSpecialServiceClick
         ? vendorHasNextBookingFlag
         : true;
 
-      const useFullDayClick = (scheduleOverrideMap[calendarIdx] === 1 || isNoTravelClick)
-                              && !(isFloorPlanClick && vendorHasNextBookingFlag);
+      // Mirror the same useFullDay logic from event generation
+      const useFullDayClick = isNoTravelClick
+        ? !vendorHasNextBookingFlag
+        : (scheduleOverride === 1) && !(isSpecialServiceClick && vendorHasNextBookingFlag);
 
       if (useFullDayClick) {
         const fullDayWorkHours: WorkHours = {
@@ -1061,7 +1091,7 @@ export default function OneDayCalendar({
       service_id: service.service.uuid ?? '',
       vendor_id: vendor.uuid || '',
       show_all_vendors: showAllVendorsMap[calendarIdx] ?? 0,
-      schedule_override: scheduleOverrideMap[calendarIdx] ?? 0,
+      schedule_override: scheduleOverride ?? 0,
       recommend_time: recommendTimeMap[calendarIdx] ?? 0,
       travel: null,
       start_time: dayjs(slot.start).format('HH:mm:ss'),

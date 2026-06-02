@@ -20,9 +20,10 @@ export interface SignaturePayload {
  * Fetch all signatures for an organization
  */
 export async function GetSignatures(_orgUuid: string) {
-    console.log(_orgUuid);
-    const orgId = "fbd6e3a5-4b2c-4de1-ab73-e677b54c4b8a";
-    const response = await api.get(`/organizations/${orgId}/signatures`);
+    if (!_orgUuid) {
+        throw new Error("Organization UUID is required");
+    }
+    const response = await api.get(`/organizations/${_orgUuid}/signatures`);
     return response.data;
 }
 
@@ -38,8 +39,10 @@ export async function GetSignature(signatureUuid: string) {
  * Create a new signature
  */
 export async function CreateSignature(_orgUuid: string, payload: SignaturePayload) {
-    const orgId = "fbd6e3a5-4b2c-4de1-ab73-e677b54c4b8a";
-    const response = await api.post(`/organizations/${orgId}/signatures`, payload);
+    if (!_orgUuid) {
+        throw new Error("Organization UUID is required");
+    }
+    const response = await api.post(`/organizations/${_orgUuid}/signatures`, payload);
     return response.data;
 }
 

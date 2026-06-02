@@ -380,6 +380,7 @@ const ServicesFrom = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     try {
       setIsLoading(true);
       const token = localStorage.getItem("token") || "";
@@ -479,10 +480,8 @@ const ServicesFrom = () => {
         }
       }
 
-      setOpen(true);
-      router.push("/dashboard/services");
-      setIsLoading(false);
       setIsDirty(false);
+      router.push("/dashboard/services");
     } catch (error) {
       setIsLoading(false);
       setOpen(false);

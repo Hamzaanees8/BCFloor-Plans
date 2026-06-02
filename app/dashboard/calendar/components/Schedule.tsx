@@ -67,6 +67,7 @@ function isPointInPolygon(point: Coordinate, polygon: Coordinate[]): boolean {
 
 async function isPropertyInsideVendorArea(selectedCurrentListing: string, vendor: VendorData): Promise<boolean> {
     if (!selectedCurrentListing || !vendor.coordinates) return false
+    if (typeof window === 'undefined' || !window.google || !window.google.maps) return false
 
     try {
         const polygon: Coordinate[] = JSON.parse(vendor.coordinates as unknown as string);
@@ -100,6 +101,7 @@ interface ScheduleProps extends AppointmentTab {
 
 const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
     const { userType } = useAppContext();
+    const [googleReady, setGoogleReady] = useState(typeof window !== 'undefined' && !!window.google && !!window.google.maps);
     const [vendorsData, setVendorsData] = React.useState<VendorData[]>([]);
     const [selectedVendorMap, setSelectedVendorMap] = React.useState<Record<number, string | string[]>>({});
     const [showAllVendorsMap, setShowAllVendorsMap] = useState<Record<number, 0 | 1>>({});
@@ -107,10 +109,25 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
     const [recommendTimeMap, setRecommendTimeMap] = useState<Record<number, 0 | 1>>({});
     const [servicesData, setServicesData] = useState<Services[]>([]);
     const [filteredVendorsByService, setFilteredVendorsByService] = useState<Record<string, VendorData[]>>({});
+    const [overridableVendorsByService, setOverridableVendorsByService] = useState<Record<string, VendorData[]>>({});
     const [mergedServices, setMergedServices] = useState<OrderService[]>([]);
     const { setSelectedSlots, calendarServices, selectedSlots } = useOrderContext();
     const [serviceDates, setServiceDates] = useState<Record<number, Date | undefined>>({}); // For calendar control
     const [vendorDistances, setVendorDistances] = useState<Record<string, number>>({});
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (window.google && window.google.maps) return;
+
+        const interval = setInterval(() => {
+            if (window.google && window.google.maps) {
+                setGoogleReady(true);
+                clearInterval(interval);
+            }
+        }, 500);
+
+        return () => clearInterval(interval);
+    }, []);
     const [selectedVendorForModal, setSelectedVendorForModal] = useState<VendorData | null>(null);
     const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
     const [isCalculating, setIsCalculating] = useState(false);
@@ -288,9 +305,9 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
             );
 
             if (slot) {
-                newShowAllVendorsMap[idx] = (slot.show_all_vendors ?? 0) as 0 | 1;
-                newScheduleOverrideMap[idx] = (slot.schedule_override ?? 0) as 0 | 1;
-                newRecommendTimeMap[idx] = (slot.recommend_time ?? 0) as 0 | 1;
+                newShowAllVendorsMap[idx] = slot.show_all_vendors ? 1 : 0;
+                newScheduleOverrideMap[idx] = slot.schedule_override ? 1 : 0;
+                newRecommendTimeMap[idx] = slot.recommend_time ? 1 : 0;
             }
         });
 
@@ -307,6 +324,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
             // 1. Filter vendors
             const addressString = `${currentOrder?.property.address}, ${currentOrder?.property.city}, ${currentOrder?.property.country}`;
             const result: Record<string, VendorData[]> = {};
+            const overridable: Record<string, VendorData[]> = {};
 
             for (const service of servicesData) {
                 const vendorsForService = vendorsData.filter(v =>
@@ -316,25 +334,47 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                 const insideResults = await Promise.all(
                     vendorsForService.map(async vendor => {
                         const force_service_area = vendor.settings?.force_service_area;
-                        const isRestricted = force_service_area === 1 || force_service_area === true;
+                        const isForced = force_service_area === 1 || force_service_area === true;
 
-                        if (!isRestricted) {
-                            return { vendor, inside: true };
+                        // Parse coordinates — check if a geofence has been drawn
+                        let hasCoordinates = false;
+                        try {
+                            const coords = JSON.parse(vendor.coordinates as unknown as string);
+                            hasCoordinates = Array.isArray(coords) && coords.length >= 3;
+                        } catch {
+                            hasCoordinates = false;
                         }
 
-                        return {
-                            vendor,
-                            inside: await isPropertyInsideVendorArea(addressString, vendor),
-                        };
+                        if (isForced) {
+                            // force_service_area=true: always check geofence, NEVER overridable
+                            const inside = await isPropertyInsideVendorArea(addressString, vendor);
+                            return { vendor, inside, canOverride: false };
+                        }
+
+                        if (!hasCoordinates) {
+                            // force_service_area=false, no geofence drawn: always available
+                            return { vendor, inside: true, canOverride: false };
+                        }
+
+                        // force_service_area=false but a geofence IS drawn:
+                        // Check if the property falls inside it.
+                        // If outside → vendor is overridable (admin can bypass with Schedule Override).
+                        const inside = await isPropertyInsideVendorArea(addressString, vendor);
+                        return { vendor, inside, canOverride: !inside };
                     })
                 );
 
                 result[service.uuid] = insideResults
                     .filter(r => r.inside)
                     .map(r => r.vendor);
+
+                overridable[service.uuid] = insideResults
+                    .filter(r => r.canOverride)
+                    .map(r => r.vendor);
             }
 
             setFilteredVendorsByService(result);
+            setOverridableVendorsByService(overridable);
 
             // 2. Load property timezone
             const fullAddress = `${currentOrder.property.address}, ${currentOrder.property.city}, ${currentOrder.property.province}, ${currentOrder.property.country}`;
@@ -343,9 +383,15 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                 setPropertyLocation(location);
             }
 
-            // 3. Calculate all vendor distances
+            // 3. Calculate distances for both available and overridable vendors
             const listingAddress = `${currentOrder.property.address}, ${currentOrder.property.city}, ${currentOrder.property.country}`;
-            const distancePromises = Object.values(result).map(async (vendors) => {
+            const allVendorSets = Object.keys(result).map(svcUuid => {
+                const available = result[svcUuid] ?? [];
+                const override = overridable[svcUuid] ?? [];
+                return [...available, ...override];
+            });
+
+            const distancePromises = allVendorSets.map(async (vendors) => {
                 if (vendors?.length > 0) {
                     await calculateAllVendorDistances(listingAddress, vendors);
                 }
@@ -356,7 +402,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
         }
 
         loadAndCalculate();
-    }, [vendorsData, servicesData, currentOrder]);
+    }, [vendorsData, servicesData, currentOrder, googleReady]);
 
     const formatTravelTime = (minutes: number) => {
         if (minutes < 60) return `${minutes} min`;
@@ -454,6 +500,17 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                     const showAllVendors = showAllVendorsMap[idx] ?? 0;
                     const scheduleOverride = scheduleOverrideMap[idx] ?? 0;
                     const recommendTime = recommendTimeMap[idx] ?? 0;
+
+                    const overridableVendors = service.service.uuid ? (overridableVendorsByService[service.service.uuid] ?? []) : [];
+                    const hasOverridable = overridableVendors.length > 0;
+                    const visibleVendors = service.service.uuid
+                        ? [
+                            ...(filteredVendorsByService[service.service.uuid] ?? []),
+                            ...(scheduleOverride === 1 ? overridableVendors : []),
+                        ]
+                        : [];
+                    const overridableUUIDs = new Set(overridableVendors.map(v => v.uuid));
+                    const noVendors = !isCalculating && !!service.service.uuid && visibleVendors.length === 0;
 
                     const squareFootage = currentOrder?.property?.square_footage;
                     const requiredDuration = getEffectiveServiceDuration(
@@ -591,8 +648,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                                 }));
 
                                                 if (checked) {
-                                                    const serviceUuid = service.service.uuid;
-                                                    const serviceVendors = filteredVendorsByService[serviceUuid || ''] || [];
+                                                    const serviceVendors = visibleVendors;
                                                     if (serviceVendors.length > 0) {
                                                         let nearestVendorId = '';
                                                         let minDistance = Infinity;
@@ -619,15 +675,28 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                     </div>
                                 </div>
                                 <div>
+                                    {/* Show override hint when there are overridable vendors */}
+                                    {!isCalculating && hasOverridable && scheduleOverride === 0 && (
+                                        <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md">
+                                            <Info className="w-4 h-4 text-amber-600 shrink-0" />
+                                            <p className="text-[11px] text-amber-700 leading-snug">
+                                                <span className="font-semibold">{overridableVendors.length} vendor{overridableVendors.length > 1 ? 's are' : ' is'} available outside their service area.</span>{' '}
+                                                Enable <span className="font-semibold">Schedule Override</span> to include them.
+                                            </p>
+                                        </div>
+                                    )}
                                     <Select
-                                        value={typeof selectedVendor === 'string' ? selectedVendor : 'all'}
+                                        value={noVendors ? "none" : (typeof selectedVendor === 'string' ? selectedVendor : 'all')}
                                         onValueChange={handleVendorChange}
+                                        disabled={noVendors}
                                     >
                                         <SelectTrigger
-                                            className="w-full h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                            style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                            className={cn(
+                                                "w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]",
+                                                noVendors && "border-red-500 text-red-500 font-semibold"
+                                            )}
                                         >
-                                            <SelectValue placeholder="Select Vendor" />
+                                            {noVendors ? "No vendor available" : <SelectValue placeholder="Select Vendor" />}
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="all">All Vendors</SelectItem>
@@ -638,8 +707,8 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                                         <span>Calculating travel times & vendors...</span>
                                                     </div>
                                                 </SelectItem>
-                                            ) : service.service.uuid && filteredVendorsByService[service.service.uuid]?.length ? (
-                                                [...filteredVendorsByService[service.service.uuid]!]
+                                            ) : visibleVendors.length > 0 ? (
+                                                [...visibleVendors]
                                                     .sort((a, b) => {
                                                         const ta = vendorDistances[a.uuid ?? ''] ?? Infinity;
                                                         const tb = vendorDistances[b.uuid ?? ''] ?? Infinity;
@@ -648,11 +717,15 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                                     .map((vendor, vidx) => {
                                                         const travelTime = vendorDistances[vendor.uuid ?? ''];
                                                         const color = getDistanceColor(travelTime);
+                                                        const isOverride = overridableUUIDs.has(vendor.uuid);
                                                         return (
                                                             <SelectItem className='flex justify-between text-nowrap' key={vidx} value={vendor.uuid ?? ''}>
                                                                 <div className="flex items-center gap-2 text-nowrap truncate w-full">
                                                                     <span className="w-2 h-4" style={{ backgroundColor: color }} />
                                                                     <span>{vendor.first_name} {vendor.last_name}</span>
+                                                                    {isOverride && (
+                                                                        <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300 rounded px-1 py-0.5 leading-none">Override</span>
+                                                                    )}
                                                                     <span>{travelTime !== undefined && (
                                                                         <span className="text-gray-500 text-[12px] ml-2">
                                                                             ({formatTravelTime(travelTime)})
@@ -674,10 +747,7 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                     <div className="mt-3 flex flex-col gap-2">
                                         {selectedVendor !== 'all' ? (
                                             (() => {
-                                                const vendor = service.service.uuid
-                                                    ? (filteredVendorsByService[service.service.uuid] ?? [])
-                                                        .find((v) => v.uuid === selectedVendor)
-                                                    : undefined;
+                                                const vendor = visibleVendors.find((v) => v.uuid === selectedVendor);
                                                 if (!vendor) return null;
 
                                                 return (
@@ -803,7 +873,10 @@ const Schedule = ({ currentOrder, invalidServices = [] }: ScheduleProps) => {
                                                 selectedVendor === 'all'
                                                     ? (
                                                         service.service.uuid
-                                                            ? (filteredVendorsByService[service.service.uuid] ?? [])
+                                                            ? [
+                                                                ...(filteredVendorsByService[service.service.uuid] ?? []),
+                                                                ...(scheduleOverride === 1 ? (overridableVendorsByService[service.service.uuid] ?? []) : []),
+                                                            ]
                                                                 .filter((v) =>
                                                                     v.vendor_services?.some(
                                                                         (vs) => vs.service?.uuid === service.service.uuid

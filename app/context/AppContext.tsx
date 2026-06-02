@@ -15,6 +15,8 @@ import { NotificationData } from "@/lib/types";
 type AppContextType = {
   userType: string;
   setUserType: Dispatch<SetStateAction<string>>;
+  organizationId: string | null;
+  setOrganizationId: Dispatch<SetStateAction<string | null>>;
   unreadNotificationCount: number;
   setUnreadNotificationCount: Dispatch<SetStateAction<number>>;
   refreshNotifications: () => Promise<void>;
@@ -24,6 +26,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [userType, setUserType] = useState<string>("");
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [unreadNotificationCount, setUnreadNotificationCount] =
     useState<number>(0);
   useEffect(() => {
@@ -54,6 +57,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       value={{
         userType,
         setUserType,
+        organizationId,
+        setOrganizationId,
         unreadNotificationCount,
         setUnreadNotificationCount,
         refreshNotifications,

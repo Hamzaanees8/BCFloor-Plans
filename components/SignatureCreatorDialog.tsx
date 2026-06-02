@@ -11,7 +11,6 @@ import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
 import RichTextEditor from "@/app/dashboard/calendar/components/RichTextEditor";
-import { GetCompany } from "@/app/dashboard/global-settings/global-settings";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -233,8 +232,8 @@ interface Props {
 }
 
 const SignatureCreatorDialog: React.FC<Props> = ({ open, setOpen, onSave, initialData }) => {
-    const { userType } = useAppContext();
-    const [company, setCompany] = useState<any>(null);
+    const { userType, organizationId } = useAppContext();
+    const [userData, setUserData] = useState<any>(null);
     const [showLogo, setShowLogo] = useState(true);
     const [selectedLayoutId, setSelectedLayoutId] = useState<string>(SIGNATURE_LAYOUTS[0].id);
     const [signatureName, setSignatureName] = useState("");
@@ -242,30 +241,42 @@ const SignatureCreatorDialog: React.FC<Props> = ({ open, setOpen, onSave, initia
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    // Load user data directly from localStorage on mount
     React.useEffect(() => {
-        const fetchCompany = async () => {
-            try {
-                const res = await GetCompany();
-                if (res.status && res.data) {
-                    setCompany(res.data);
+        if (typeof window !== 'undefined') {
+            const userInfoStr = localStorage.getItem('userInfo');
+            if (userInfoStr) {
+                try {
+                    const userInfo = JSON.parse(userInfoStr);
+                    console.log('Loaded userInfo from localStorage:', userInfo);
+                    setUserData(userInfo);
+                } catch (e) {
+                    console.error('Failed to parse userInfo:', e);
                 }
-            } catch (error) {
-                console.error("Failed to fetch company data", error);
             }
-        };
-        fetchCompany();
+        }
     }, []);
 
     const interpolateSignature = (html: string, data: any, displayLogo: boolean) => {
+        if (!data) return html;
+
+        // Get organization data - prefer organization object
+        const org = data?.organization || {};
+        const userInfo = data;
+
         // Prepare interpolation context with fallbacks to placeholders
+        // Priority: use organization data first, then user data, then placeholders
         const context = {
-            fullName: data?.name || "{{Full Name}}",
-            jobTitle: "{{Job Title}}", // No job title in company data, keep placeholder
-            companyName: data?.name || "{{Company Name}}",
-            phoneNumber: data?.primary_phone || "{{Phone Number}}",
-            emailAddress: data?.email || "{{Email Address}}",
-            websiteUrl: data?.website || "{{Website}}",
-            officeAddress: data ? `${data.street}, ${data.city}, ${data.province}`.trim().replace(/^, |, $/g, '') || "{{Office Address}}" : "{{Office Address}}",
+            fullName: userInfo?.full_name || userInfo?.name || "{{Full Name}}",
+            jobTitle: "{{Job Title}}", // No job title in data, keep placeholder
+            companyName: org?.name || userInfo?.company_name || "{{Company Name}}",
+            phoneNumber: org?.contact_phone || userInfo?.primary_phone || "{{Phone Number}}",
+            emailAddress: org?.contact_email || userInfo?.email || "{{Email Address}}",
+            websiteUrl: userInfo?.website || "{{Website}}",
+            officeAddress: org?.address_line_1
+                ? `${org.address_line_1}${org.address_line_2 ? ', ' + org.address_line_2 : ''} ${org.city || ''} ${org.province || ''}`.trim().replace(/,\s+/g, ', ')
+                : userInfo ? `${userInfo.address || ""} ${userInfo.city || ""} ${userInfo.province || ""}`.trim()
+                    : "{{Office Address}}",
             licenseNumber: "{{License Number}}",
             teamName: "{{Team Name}}",
         };
@@ -281,37 +292,50 @@ const SignatureCreatorDialog: React.FC<Props> = ({ open, setOpen, onSave, initia
             .replace(/\{\{License Number\}\}/g, context.licenseNumber)
             .replace(/\{\{Team Name\}\}/g, context.teamName);
 
-        // Handle logo
-        const logoUrl = data?.logo_path 
-            ? (data.logo_path.startsWith('http') ? data.logo_path : `${process.env.NEXT_PUBLIC_API_URL || ''}/storage/${data.logo_path}`)
-            : null;
+        // Handle logo - get from organization logos (prefer org > user fallback)
+        let logoUrl: string | null = null;
 
-        if (!displayLogo || !logoUrl) {
-            // Remove the <img> tag and its container if logo is hidden
-            result = result.replace(/<img[^>]*src="\{\{logo_url\}\}"[^>]*>/g, "");
-            result = result.replace(/<img[^>]*src="https:\/\/via\.placeholder\.com\/80"[^>]*>/g, "");
-            // Standardize: if there's a specific logo container in a layout, we might want to hide it too
-            // For layouts that use a stylized placeholder like Brokerage Team (BT)
-            if (!displayLogo) {
-                result = result.replace(/<div[^>]*>\{\{Team Name\}\}<\/div>/g, "");
-            }
-        } else {
-            result = result.replace(/\{\{logo_url\}\}/g, logoUrl)
-                           .replace(/https:\/\/via\.placeholder\.com\/80/g, logoUrl);
+        // Try organization.company_logos_urls first
+        const orgLogos = org?.company_logos_urls || [];
+        if (orgLogos.length > 0) {
+            logoUrl = orgLogos[0]?.url || null;
         }
+        // Fallback to top-level company_logos_urls on userInfo
+        if (!logoUrl) {
+            const rootLogos = userInfo?.company_logos_urls || [];
+            if (rootLogos.length > 0) {
+                logoUrl = rootLogos[0]?.url || null;
+            }
+        }
+        // Final fallback to company_logo_url
+        if (!logoUrl) {
+            logoUrl = userInfo?.company_logo_url || null;
+        }
+
+        // Dynamically prepend logo block when show logo is enabled and a URL exists
+        if (displayLogo && logoUrl) {
+            const logoBlock = `<div style="margin-bottom:12px;"><img src="${logoUrl}" alt="Organization Logo" style="max-height:60px;max-width:180px;object-fit:contain;display:block;" /></div>`;
+            result = logoBlock + result;
+        }
+
+        // Clean up any legacy {{logo_url}} or placeholder.com references from old layouts
+        result = result.replace(/<img[^>]*src="\{\{logo_url\}\}"[^>]*>/g, "");
+        result = result.replace(/<img[^>]*src="https:\/\/via\.placeholder\.com\/80"[^>]*>/g, "");
 
         return result;
     };
 
     React.useEffect(() => {
-        if (open && company) {
+        if (open) {
             if (initialData) {
+                // When editing an existing signature, show the saved HTML with name
                 setSignatureName(initialData.name);
                 setCurrentHtml(initialData.html_content);
-                setIsEditing(true);
-            } else if (!isEditing) {
+                setIsEditing(false); // Show preview by default when editing
+            } else if (!isEditing && userData) {
+                // When creating new signature, show the selected layout interpolated with user data
                 const layout = SIGNATURE_LAYOUTS.find(l => l.id === selectedLayoutId) || SIGNATURE_LAYOUTS[0];
-                setCurrentHtml(interpolateSignature(layout.html, company, showLogo));
+                setCurrentHtml(interpolateSignature(layout.html, userData, showLogo));
             }
         } else if (!open) {
             // Reset on close
@@ -320,11 +344,27 @@ const SignatureCreatorDialog: React.FC<Props> = ({ open, setOpen, onSave, initia
             setIsEditing(false);
             setSelectedLayoutId(SIGNATURE_LAYOUTS[0].id);
         }
-    }, [open, company, selectedLayoutId, showLogo, isEditing, initialData]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, initialData, userData]);
+
+    // Update preview when layout selection changes (for new signatures)
+    React.useEffect(() => {
+        if (open && !initialData && userData && !isEditing) {
+            const layout = SIGNATURE_LAYOUTS.find(l => l.id === selectedLayoutId) || SIGNATURE_LAYOUTS[0];
+            setCurrentHtml(interpolateSignature(layout.html, userData, showLogo));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedLayoutId, showLogo, userData]);
 
     const handleSelectLayout = (layout: SignatureLayout) => {
         setSelectedLayoutId(layout.id);
         setIsEditing(false);
+        // Immediately update preview with interpolated layout
+        if (userData) {
+            setCurrentHtml(interpolateSignature(layout.html, userData, showLogo));
+        } else {
+            setCurrentHtml(layout.html);
+        }
     };
 
     const handleSave = async () => {
@@ -333,24 +373,35 @@ const SignatureCreatorDialog: React.FC<Props> = ({ open, setOpen, onSave, initia
             return;
         }
 
-        if (!company?.uuid) {
-            toast.error("Company information missing. Unable to save.");
+        // Resolve org UUID: context > userData.organization.uuid
+        const targetOrgId = organizationId ||
+            userData?.organization?.uuid ||
+            null;
+        if (!targetOrgId) {
+            toast.error("Organization information missing. Unable to save.");
             return;
         }
+
+        // Resolve logo URL for media_url field
+        const orgLogoUrl =
+            userData?.organization?.company_logos_urls?.[0]?.url ||
+            userData?.company_logos_urls?.[0]?.url ||
+            userData?.company_logo_url ||
+            null;
 
         setLoading(true);
         try {
             const payload = {
                 name: signatureName,
                 html_content: currentHtml,
-                media_url: company.logo_path || null
+                media_url: orgLogoUrl
             };
 
             let res;
             if (initialData?.uuid) {
                 res = await UpdateSignature(initialData.uuid, payload);
             } else {
-                res = await CreateSignature(company.uuid, payload);
+                res = await CreateSignature(targetOrgId, payload);
             }
 
             if (res.status !== false) {
@@ -389,11 +440,10 @@ const SignatureCreatorDialog: React.FC<Props> = ({ open, setOpen, onSave, initia
                             <div
                                 key={layout.id}
                                 onClick={() => handleSelectLayout(layout)}
-                                className={`group relative cursor-pointer border-2 rounded-lg p-3 transition-all ${
-                                    selectedLayoutId === layout.id 
-                                    ? "border-[#4290E9] bg-[#f0f7ff]" 
+                                className={`group relative cursor-pointer border-2 rounded-lg p-3 transition-all ${selectedLayoutId === layout.id
+                                    ? "border-[#4290E9] bg-[#f0f7ff]"
                                     : "border-[#EEEEEE] hover:border-[#BBBBBB]"
-                                }`}
+                                    }`}
                             >
                                 <div className="flex items-center justify-between mb-2">
                                     <span className={`text-xs font-bold ${selectedLayoutId === layout.id ? "text-[#4290E9]" : "text-[#7D7D7D]"}`}>
@@ -418,56 +468,106 @@ const SignatureCreatorDialog: React.FC<Props> = ({ open, setOpen, onSave, initia
                                 placeholder="e.g. Primary Marketing Signature"
                                 value={signatureName}
                                 onChange={(e) => setSignatureName(e.target.value)}
-                                className="h-10 border-[#BBBBBB]"
+                                disabled={initialData ? true : false}
+                                className="h-10 border-[#BBBBBB] disabled:bg-gray-100 disabled:text-gray-600"
                             />
+                            {initialData && (
+                                <p className="text-[11px] text-gray-500">Name cannot be changed. Delete and recreate to change name.</p>
+                            )}
                         </div>
 
-                        {/* Live Preview Area */}
-                        <div className="flex flex-col gap-2">
-                            <div className="flex justify-between items-center">
-                                <h4 className="text-sm font-semibold text-[#666666] uppercase">Live Preview</h4>
-                                <div className="flex items-center gap-4">
-                                    <div className="flex items-center space-x-2">
-                                        <Switch 
-                                            id="show-logo" 
-                                            checked={showLogo} 
-                                            onCheckedChange={setShowLogo}
-                                        />
-                                        <Label htmlFor="show-logo" className="text-xs text-[#7D7D7D] cursor-pointer">Show Logo</Label>
+                        {/* Organization Details - Show when editing */}
+                        {initialData && userData && (
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <h4 className="text-xs font-semibold text-[#666666] uppercase mb-3">Organization & Contact Details</h4>
+                                <div className="grid grid-cols-2 gap-3 text-xs">
+                                    <div>
+                                        <span className="text-gray-500 text-[10px]">Organization:</span>
+                                        <p className="text-gray-800 font-medium">{userData?.organization?.name || userData?.company_name || "N/A"}</p>
                                     </div>
-                                    <Button 
-                                        variant="outline" 
-                                        size="sm" 
-                                        onClick={() => setIsEditing(!isEditing)}
-                                        className="h-8 text-xs font-semibold"
-                                    >
-                                        {isEditing ? "View Preview" : "Edit Details"}
-                                    </Button>
+                                    <div>
+                                        <span className="text-gray-500 text-[10px]">Contact Email:</span>
+                                        <p className="text-gray-800 font-medium">{userData?.organization?.contact_email || userData?.email || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-500 text-[10px]">Contact Phone:</span>
+                                        <p className="text-gray-800 font-medium">{userData?.organization?.contact_phone || userData?.primary_phone || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-500 text-[10px]">Address:</span>
+                                        <p className="text-gray-800 font-medium text-[11px]">
+                                            {userData?.organization?.address_line_1
+                                                ? `${userData.organization.address_line_1}${userData.organization.address_line_2 ? ', ' + userData.organization.address_line_2 : ''}`
+                                                : userData?.address || "N/A"}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="bg-white border border-[#BBBBBB] rounded-lg p-8 min-h-[200px] shadow-sm flex items-center justify-center overflow-auto">
-                                <div 
-                                    className="w-full max-w-[500px]"
-                                    dangerouslySetInnerHTML={{ __html: currentHtml }} 
-                                />
-                            </div>
-                            <p className="text-[10px] text-gray-400 italic mt-1">
-                                Note: Placeholders like {"{{Full Name}}"} will be automatically filled when sending emails.
-                            </p>
-                        </div>
+                        )}
 
-                        {/* Editor Area (Conditional) */}
-                        <div className={`flex-1 flex flex-col gap-2 transition-all ${isEditing ? "opacity-100" : "opacity-0 pointer-events-none absolute h-0"}`}>
-                            <h4 className="text-sm font-semibold text-[#666666] uppercase">Customize Layout</h4>
-                            <div className="flex-1 border border-[#BBBBBB] bg-white rounded-md overflow-hidden min-h-[300px]">
-                                <RichTextEditor
-                                    value={currentHtml}
-                                    onChange={setCurrentHtml}
-                                />
+                        {/* Editor Area - Shows when isEditing = true */}
+                        {isEditing && (
+                            <div className="flex-1 flex flex-col gap-2">
+                                <div className="flex justify-between items-center">
+                                    <h4 className="text-sm font-semibold text-[#666666] uppercase">Edit Signature</h4>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsEditing(false)}
+                                        className="h-8 text-xs font-semibold"
+                                    >
+                                        Done Editing
+                                    </Button>
+                                </div>
+                                <div className="flex-1 border border-[#BBBBBB] bg-white rounded-md overflow-hidden">
+                                    <RichTextEditor
+                                        value={currentHtml}
+                                        onChange={setCurrentHtml}
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        )}
 
+                        {/* Preview Area - Shows when not editing */}
                         {!isEditing && (
+                            <div className="flex-1 flex flex-col gap-2">
+                                <div className="flex justify-between items-center">
+                                    <h4 className="text-sm font-semibold text-[#666666] uppercase">Preview</h4>
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex items-center space-x-2">
+                                            <Label htmlFor="show-logo" className="text-xs text-[#7D7D7D] cursor-pointer">
+                                                {showLogo ? "Logo: ON" : "Logo: OFF"}
+                                            </Label>
+                                            <Switch
+                                                id="show-logo"
+                                                checked={showLogo}
+                                                onCheckedChange={setShowLogo}
+                                                className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-red-600"
+                                            />
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setIsEditing(true)}
+                                            className="h-8 text-xs font-semibold"
+                                        >
+                                            Edit Signature
+                                        </Button>
+                                    </div>
+                                </div>
+                                <div className="flex-1 bg-white border border-[#BBBBBB] rounded-lg p-8 shadow-sm flex items-center justify-center overflow-auto">
+                                    <div
+                                        className="w-full max-w-[500px]"
+                                        dangerouslySetInnerHTML={{ __html: currentHtml }}
+                                    />
+                                </div>
+                                {/* <p className="text-[10px] text-gray-400 italic">
+                                    Note: Placeholders like {"{{Full Name}}"} will be automatically filled when sending emails.
+                                </p> */}
+                            </div>
+                        )}
+
+                        {!isEditing && !initialData && (
                             <div className="flex-1 flex flex-col gap-4">
                                 <h4 className="text-sm font-semibold text-[#666666] uppercase">Instructions</h4>
                                 <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg text-sm text-blue-800 leading-relaxed">
@@ -475,8 +575,9 @@ const SignatureCreatorDialog: React.FC<Props> = ({ open, setOpen, onSave, initia
                                     <ul className="list-disc ml-5 space-y-1">
                                         <li>Select a professional layout from the left sidebar.</li>
                                         <li>The preview shows how it will appear to your clients.</li>
-                                        <li>You can click &quot;Edit Raw Details&quot; to change colors, fonts, or move elements around.</li>
-                                        <li>Use curly braces like <code>{`{{Phone Number}}`}</code> to insert dynamic profile data.</li>
+                                        <li>Organization details are automatically populated from your account.</li>
+                                        <li>You can click &quot;Edit HTML&quot; to customize colors, fonts, or move elements.</li>
+                                        <li>Use curly braces like <code>{`{{Phone Number}}`}</code> to insert dynamic data.</li>
                                     </ul>
                                 </div>
                             </div>

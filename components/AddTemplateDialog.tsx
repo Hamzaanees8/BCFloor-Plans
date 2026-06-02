@@ -18,7 +18,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { X } from "lucide-react";
+import { X, Info } from "lucide-react";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
 import RichTextEditor from "@/app/dashboard/calendar/components/RichTextEditor";
@@ -34,7 +40,7 @@ interface Props {
 }
 
 const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialData }) => {
-    const { userType } = useAppContext();
+    const { userType, organizationId } = useAppContext();
     const [title, setTitle] = useState("");
     const [type, setType] = useState("");
     const [tags, setTags] = useState<string[]>([]);
@@ -73,10 +79,10 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
 
             // Fetch signatures
             const fetchSigs = async () => {
+                if (!organizationId) return;
                 setFetchingSigs(true);
                 try {
-                    // Using the hardcoded UUID as per request
-                    const res = await GetSignatures("fbd6e3a5-4b2c-4de1-ab73-e677b54c4b8a");
+                    const res = await GetSignatures(organizationId);
                     if (res.status !== false && res.data) {
                         setSignatures(res.data);
                     }
@@ -88,7 +94,7 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
             };
             fetchSigs();
         }
-    }, [open, initialData]);
+    }, [open, initialData, organizationId]);
 
     // const handlePreview = async () => {
     //     if (!initialData?.uuid) {
@@ -267,11 +273,12 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                             <div className="flex-[3] flex flex-col gap-4 relative z-10 min-w-0">
                                 <div className="flex justify-between items-center">
                                     <Label className="font-bold text-gray-800 text-base">Template Content <span className="text-red-500">*</span></Label>
-                                    
+
                                     {/* Signature Insertion Dropdown */}
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1.5">
                                         <Label className="text-xs text-[#888] font-semibold hidden md:inline-block">Insert Signature:</Label>
-                                        <Select 
+
+                                        <Select
                                             onValueChange={(val) => {
                                                 const sig = signatures.find(s => s.uuid === val);
                                                 if (sig) {
@@ -294,9 +301,19 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                                                 )}
                                             </SelectContent>
                                         </Select>
+                                        <TooltipProvider delayDuration={100}>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Info className="w-3.5 h-3.5 cursor-pointer text-[#4290E9] flex-shrink-0" />
+                                                </TooltipTrigger>
+                                                <TooltipContent side="top" className="max-w-[220px] text-xs text-center">
+                                                    Click in the editor to place your cursor first, then select a signature to insert it at that position.
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
                                     </div>
                                 </div>
-                                <div className="border border-[#DDDDDD] bg-white rounded-lg p-1.5 flex-1 w-full max-w-full overflow-hidden shadow-inner">
+                                <div className="border border-[#DDDDDD] bg-white rounded-lg p-1.5 flex-1 w-full max-w-full overflow-y-auto shadow-inner" style={{ minHeight: 0 }}>
                                     {open && <RichTextEditor
                                         value={content}
                                         onChange={setContent}
@@ -314,17 +331,17 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                                     <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
                                         <ul className="flex flex-wrap gap-2.5 font-mono bg-[#f9f9f9] p-4 rounded-xl content-start border border-dashed border-[#CCCCCC]">
                                             {[
-                                                "{{user_name}}", 
+                                                "{{user_name}}",
                                                 "{{agent_name}}",
                                                 "{{vendor_name}}",
                                                 "{{vendor_number}}",
-                                                "{{property_address}}", 
-                                                "{{order_id}}", 
-                                                "{{service_name}}", 
-                                                "{{amount}}", 
-                                                "{{schedule_date}}", 
-                                                "{{schedule_time}}", 
-                                                "{{company_name}}", 
+                                                "{{property_address}}",
+                                                "{{order_id}}",
+                                                "{{service_name}}",
+                                                "{{amount}}",
+                                                "{{schedule_date}}",
+                                                "{{schedule_time}}",
+                                                "{{company_name}}",
                                             ].map((ph) => (
                                                 <li
                                                     key={ph}
@@ -360,7 +377,7 @@ const AddTemplateDialog: React.FC<Props> = ({ open, setOpen, onSuccess, initialD
                     </div>
                 </form>
             </DialogContent>
-            <SignatureCreatorDialog 
+            <SignatureCreatorDialog
                 open={openSignatureCreator}
                 setOpen={setOpenSignatureCreator}
                 onSave={(sig: Signature) => setTextToInsert(sig.html_content)}
