@@ -189,7 +189,7 @@ export default function PricingCard({
 
   return (
     <Card
-      className={`!w-[250px] h-fit border-2 rounded-[6px] px-2 py-4`}
+      className={`w-full h-fit border-2 rounded-[6px] px-2 py-4`}
       style={{
         backgroundColor: fieldBg,
         borderColor: isSelected ? pageTabColor : fieldBorder,
@@ -358,7 +358,7 @@ export default function PricingCard({
                                 ? "Cannot modify - service has been paid"
                                 : ""
                             }
-                            id={`option-${idx}`}
+                            id={`option-${service.uuid}-${idx}`}
                             className={`w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
                                   appearance-none
                                   after:hidden
@@ -376,22 +376,22 @@ export default function PricingCard({
                               "--checked-bg": pageTabColor,
                             }}
                           />
-                          <label htmlFor={`option-${idx}`} className="">
+                          <label htmlFor={`option-${service.uuid}-${idx}`} className="">
                             {option?.title ?? ""}
                           </label>
                           <span className="">
                             $
                             {option.sq_ft_rate &&
-                            parseFloat(String(option.sq_ft_rate)) > 0
+                              parseFloat(String(option.sq_ft_rate)) > 0
                               ? (option.min_price
-                                  ? Math.max(
-                                      parseFloat(String(option.sq_ft_rate)) *
-                                        squareFootage,
-                                      option.min_price
-                                    )
-                                  : parseFloat(String(option.sq_ft_rate)) *
-                                    squareFootage
-                                ).toFixed(2)
+                                ? Math.max(
+                                  parseFloat(String(option.sq_ft_rate)) *
+                                  squareFootage,
+                                  option.min_price
+                                )
+                                : parseFloat(String(option.sq_ft_rate)) *
+                                squareFootage
+                              ).toFixed(2)
                               : Number(option?.amount).toFixed(2)}
                           </span>
                         </div>
@@ -399,14 +399,14 @@ export default function PricingCard({
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mt-2">
-                      <label htmlFor="custom" className="text-[11px] text-[#666666]">
+                      <label htmlFor={`custom-${service.uuid}`} className="text-[11px] text-[#666666]">
                         Custom
                       </label>
                     </div>
                     <div className="grid grid-cols-8 gap-2 mt-2 items-center">
                       <RadioGroupItem
                         value="custom"
-                        id="custom"
+                        id={`custom-${service.uuid}`}
                         disabled={isPaid}
                         title={
                           isPaid
@@ -448,7 +448,7 @@ export default function PricingCard({
                         min={0}
                         placeholder="$__"
                         disabled={isPaid || userType !== "admin"}
-                        className="h-[26px] px-[3px] bg-white text-[10px] col-span-2"
+                        className="h-[26px] px-[3px] bg-gray-300 text-[10px] col-span-2"
                         value={customPrice}
                         onChange={(e) => {
                           if (isPaid || userType !== "admin") return;

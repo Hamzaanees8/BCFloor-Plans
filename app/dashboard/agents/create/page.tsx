@@ -4,6 +4,7 @@ import GooglePlacesAutocomplete from "../../calendar/components/AutoCompleteInpu
 import Image from 'next/image'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 //import ToggleButtons from '@/components/ui/toogle'
@@ -1246,7 +1247,7 @@ const AgentForm = () => {
                                                 {!userId && userType !== 'agent' && (
                                                     <div className='col-span-2'>
                                                         <label htmlFor="">Password <span className="text-red-500">*</span></label>
-                                                        <Input
+                                                        <PasswordInput
                                                             value={password}
                                                             onChange={(e) => {
                                                                 setPassword(e.target.value);
@@ -1257,7 +1258,6 @@ const AgentForm = () => {
                                                                 }
                                                             }}
                                                             className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.password ? 'border-red-500' : 'border-[#BBBBBB]'}`}
-                                                            type="password"
                                                             autoComplete="new-password"
                                                         />
                                                         {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}

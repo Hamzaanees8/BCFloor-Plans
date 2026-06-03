@@ -137,9 +137,12 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
 
   const displayPrice = useMemo(() => {
     if (customPrice !== '') return Number(customPrice).toFixed(2);
-    if (calculatedCustomPrice !== null) return Number(calculatedCustomPrice).toFixed(2);
+    // Only auto-fill the calculated price when the user has explicitly chosen
+    // the "custom" option — never populate it for a regular tier selection.
+    if (selectedOption === 'custom' && calculatedCustomPrice !== null)
+      return Number(calculatedCustomPrice).toFixed(2);
     return '';
-  }, [calculatedCustomPrice, customPrice]);
+  }, [calculatedCustomPrice, customPrice, selectedOption]);
 
 
   useEffect(() => {
@@ -175,6 +178,17 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
           [service.uuid]: "custom",
         }));
       }
+      // Pre-fill the sqft input with the property's square footage so the
+      // calculated price is immediately correct and visible to the user.
+      if (squareFootage > 0) {
+        setCustomServiceNames(prev => {
+          // Only set if the user hasn't already typed a custom value
+          if (!prev[service.uuid]) {
+            return { ...prev, [service.uuid]: String(squareFootage) };
+          }
+          return prev;
+        });
+      }
     } else if (!isValid && FilteredOptions.length > 0 && selectedOption !== "custom") {
       const defaultVal = FilteredOptions[0].title ?? '';
       setSelectedOptions(prev => ({
@@ -182,6 +196,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
         [service.uuid]: defaultVal,
       }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pricingOptions, selectedOption, service.uuid, setSelectedOptions, selectedListingId, squareFootage, showAll, currentCalcMode, isHybrid]);
 
   const getEffectivePriceAndQty = (optionTitle?: string, customAmt?: string, forcedQty?: string) => {
@@ -377,10 +392,12 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                   Pricing Options
                 </AccordionTrigger>
                 <AccordionContent className="text-[#666666] text-[11px] font-[400]">
-                  {noTierMatch && (
-                    <div className="flex items-center gap-2 mb-2 p-1.5 rounded-md bg-amber-100 text-amber-800 text-[10px]">
-                      <AlertTriangle className="w-3 h-3 flex-shrink-0" />
-                      <span>Sqft falls outside tiers. Defaulting to custom.</span>
+                  {noTierMatch && squareFootage > 0 && (
+                    <div className="flex items-center gap-2 mb-2 p-2 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-[10px]">
+                      <AlertTriangle className="w-3 h-3 shrink-0" />
+                      <span>
+                        No pricing tier matches <strong>{squareFootage} sqft</strong>. Please enter a custom price below.
+                      </span>
                     </div>
                   )}
                   <RadioGroup
@@ -410,7 +427,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                               value={option?.title ?? ""}
                               disabled={isPaid || isBooked}
                               title={isPaid ? "Cannot modify - service has been paid" : isBooked ? "Service is already booked" : ""}
-                              id={`option-${idx}`}
+                              id={`option-${service.uuid}-${idx}`}
                               className={`w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
                                       appearance-none
                                       after:hidden
@@ -428,7 +445,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                                 '--checked-bg': roleSettings.pageTabColor
                               }}
                             />
-                            <label htmlFor={`option-${idx}`} className="text-left">
+                            <label htmlFor={`option-${service.uuid}-${idx}`} className="text-left">
                               {option?.title ?? ''}
                             </label>
                           </div>
@@ -443,7 +460,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
 
                     <div className="mt-3">
                       <div className="flex items-center justify-between mb-1">
-                        <label htmlFor="custom" className="text-[11px] text-[#666666]">Custom Price</label>
+                        <label htmlFor={`custom-${service.uuid}`} className="text-[11px] text-[#666666]">Custom Price</label>
                         {isHybrid && (
                           <select
                             className="text-[9px] bg-gray-200 border border-gray-300 rounded p-0.5 px-1 outline-none focus:ring-1 focus:ring-gray-400 cursor-pointer"
@@ -471,7 +488,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                       <div className="grid grid-cols-8 gap-2 mt-1 items-center">
                         <RadioGroupItem
                           value="custom"
-                          id="custom"
+                          id={`custom-${service.uuid}`}
                           disabled={isPaid || isBooked}
                           title={isPaid ? "Cannot modify - service has been paid" : isBooked ? "Service is already booked" : ""}
                           className="w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
@@ -495,7 +512,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                           placeholder={currentCalcMode === 'quantity' ? "Enter quantity" : "Enter sqft."}
                           type="number"
                           disabled={isPaid || isBooked}
-                          className="h-[26px] px-[5px] bg-white text-[12px] font-medium text-gray-800 col-span-4 disabled:opacity-100 disabled:text-gray-800"
+                          className="h-[30px] px-[5px] bg-white text-[12px] font-medium text-gray-800 col-span-4 disabled:opacity-100 disabled:text-gray-800"
                           value={customServiceName}
                           onChange={(e) => {
                             if (isPaid || isBooked) return;
@@ -507,7 +524,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                             handleSelectService("custom", undefined, e.target.value);
                           }}
                         />
-                        <div className="relative col-span-3 flex items-center h-[26px]">
+                        <div className="relative col-span-3 flex items-center h-[30px]">
                           <span className="absolute left-[6px] text-[12px] font-medium text-gray-800 pointer-events-none">$</span>
                           <Input
                             type="number"

@@ -10,10 +10,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { useAppContext } from "@/app/context/AppContext";
 import { useOrganization } from "@/app/context/OrganizationContext";
 import { agentLogin, agentSignup } from "../book-now";
-import { Eye, EyeOff, X } from "lucide-react";
+import { X } from "lucide-react";
 
 // Utility function to decode JWT token
 function decodeJWT(token: string) {
@@ -51,8 +52,6 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
     const [confirmPassword, setConfirmPassword] = React.useState("");
     const [firstName, setFirstName] = React.useState("");
     const [lastName, setLastName] = React.useState("");
-    const [showPassword, setShowPassword] = React.useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
 
     const validateEmail = (email: string) => {
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -304,22 +303,12 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                                 <label className="text-sm font-normal text-[#666666]">
                                     Password <span className="text-red-500">*</span>
                                 </label>
-                                <div className="relative">
-                                    <Input
-                                        type={showPassword ? "text" : "password"}
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        placeholder="••••••••"
-                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] pr-10"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7D7D7D]"
-                                    >
-                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                    </button>
-                                </div>
+                                <PasswordInput
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB]"
+                                />
                             </div>
 
                             <div className="flex gap-2 mt-6">
@@ -396,44 +385,24 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                                 <label className="text-sm font-normal text-[#666666]">
                                     Password <span className="text-red-500">*</span>
                                 </label>
-                                <div className="relative">
-                                    <Input
-                                        type={showPassword ? "text" : "password"}
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        placeholder="••••••••"
-                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] pr-10"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7D7D7D]"
-                                    >
-                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                    </button>
-                                </div>
+                                <PasswordInput
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB]"
+                                />
                             </div>
 
                             <div className="flex flex-col gap-2">
                                 <label className="text-sm font-normal text-[#666666]">
                                     Confirm Password <span className="text-red-500">*</span>
                                 </label>
-                                <div className="relative">
-                                    <Input
-                                        type={showConfirmPassword ? "text" : "password"}
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                        placeholder="••••••••"
-                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] pr-10"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7D7D7D]"
-                                    >
-                                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                    </button>
-                                </div>
+                                <PasswordInput
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB]"
+                                />
                             </div>
 
                             <div className="flex gap-2 mt-6">

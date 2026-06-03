@@ -1,6 +1,7 @@
 'use client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import WhitelabelLogo from '@/components/WhitelabelLogo'
 import React from 'react'
 
@@ -24,8 +25,7 @@ function Login() {
                 </div>
                 <div className='flex flex-col gap-[10px]'>
                     <label className='text-[14px] font-[500]' htmlFor="password">Password</label>
-                    <Input
-                        type='password'
+                    <PasswordInput
                         placeholder='********'
                         className='h-[42px] border-[2px] border-solid border-[#BBBBBB] rounded-[6px]'
                         value={password}

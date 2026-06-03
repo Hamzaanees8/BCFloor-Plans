@@ -52,9 +52,7 @@ export type MediaDateBoundary = {
 const FileManager = () => {
   const router = useRouter();
   const { organization } = useOrganization();
-  const orgName = (organization?.is_whitelabel && organization?.name)
-    ? organization.name
-    : "Tojuco Solutions";
+  const orgName = organization?.slug?.toUpperCase() || "Tojuco Solutions";
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
   const [servicesData, setServicesData] = React.useState<Services[]>([]);
   const [services, setServices] = React.useState<OrerServices[]>([]);

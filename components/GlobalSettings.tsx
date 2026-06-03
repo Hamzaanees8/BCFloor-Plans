@@ -291,7 +291,7 @@ const GlobalSettings = () => {
 
     const { saveSettings } = useWhiteLabel();
 
-    const { hasPermission } = usePermissions();
+    const { hasPermission, isSuperAdmin } = usePermissions();
 
     const { isDirty, setIsDirty } = useUnsaved();
     useUnsavedChangesWarning(isDirty);
@@ -299,6 +299,7 @@ const GlobalSettings = () => {
     const hasInitiallyRendered = useRef(false);
     const baselineSettingsRef = useRef<any>(null);
     const headerRef = useRef<HTMLDivElement>(null);
+    const orgSettingsRef = useRef<{ save: () => Promise<void> } | null>(null);
 
     // Override overflow-x: hidden on ancestor elements that break sticky positioning
     useEffect(() => {
@@ -1121,7 +1122,20 @@ const GlobalSettings = () => {
                     >
                         Save Settings
                     </Button>
-                ) : activeTab === "Organizations" || activeTab === "Templates" || activeTab === "Tour Settings" || activeTab === "Email Logs" ? null : (
+                ) : activeTab === "Organizations" ? (
+                    !isSuperAdmin ? (
+                        <Button
+                            type="button"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                orgSettingsRef.current?.save();
+                            }}
+                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center justify-center hover:text-[#fff] hover-${userType}-bg `}
+                        >
+                            Save Changes
+                        </Button>
+                    ) : null
+                ) : activeTab === "Templates" || activeTab === "Tour Settings" || activeTab === "Email Logs" ? null : (
                     <Button
                         type="button"
                         onClick={(e) => {
@@ -2724,7 +2738,7 @@ const GlobalSettings = () => {
                         <WhiteLabelSettings />
                     )}
                     {activeTab === "Organizations" && userType === "admin" && (
-                        <OrganizationsSettings />
+                        <OrganizationsSettings ref={orgSettingsRef} />
                     )}
                 </Accordion>
             </form>

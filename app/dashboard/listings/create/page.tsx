@@ -44,9 +44,7 @@ import { Info, Plus } from "lucide-react";
 const ListingsFrom = () => {
   const { userType } = useAppContext();
   const { organization } = useOrganization();
-  const orgName = (organization?.is_whitelabel && organization?.name)
-    ? organization.name
-    : "Tojuco Solutions";
+  const orgName = organization?.slug?.toUpperCase() || "Tojuco Solutions";
   const [currentListing, setCurrentListing] = useState<Listings | null>(null);
   const [filesData, setFilesData] = useState<FilesData | null>(null);
   const [listingPrice, setListingPrice] = useState("");

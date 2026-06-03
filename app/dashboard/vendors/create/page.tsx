@@ -8,6 +8,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   Select,
   SelectContent,
@@ -1434,11 +1435,10 @@ const VendorForm = () => {
                                 )}
                               </Label>
                               <div className="relative">
-                                <Input
+                                <PasswordInput
                                   placeholder="e.g. ************"
                                   value={password}
                                   autoComplete="new-password"
-                                  type="password"
                                   onChange={(e) => {
                                     setPassword(e.target.value);
                                     if (fieldErrors.password) {

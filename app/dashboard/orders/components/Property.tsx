@@ -1087,7 +1087,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                 />
                                                             </div>
 
-                                                             <div className="col-span-1">
+                                                            <div className="col-span-1">
                                                                 <label htmlFor="">City <span className="text-red-500">*</span></label>
                                                                 <Input
                                                                     value={city}
@@ -1100,7 +1100,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                 {fieldErrors.city && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.city[0]}</p>}
                                                             </div>
 
-                                                             <div className="col-span-1">
+                                                            <div className="col-span-1">
                                                                 <label htmlFor="">{country === 'US' ? 'State' : 'Province'}</label>
                                                                 <div className="mt-[12px]">
                                                                     <SearchableSelect
@@ -1115,7 +1115,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                 {fieldErrors.province && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.province[0]}</p>}
                                                             </div>
 
-                                                             <div className="col-span-1">
+                                                            <div className="col-span-1">
                                                                 <label htmlFor="">Postal Code <span className="text-red-500">*</span></label>
                                                                 <Input
                                                                     value={postalCode}
@@ -1388,7 +1388,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                 {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Next"}
                                                             </button>
                                                         </div>
-                                                        <p className="text-[12px] font-[500] text-center mt-2" style={{ color: roleSettings.pageTabColor }}>
+                                                        <p className="text-[12px] font-[500] text-center" style={{ color: roleSettings.pageTabColor }}>
                                                             Please complete all required fields to proceed to the next step.
                                                         </p>
                                                     </div>

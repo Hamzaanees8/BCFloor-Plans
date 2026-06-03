@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion'
 import { Input } from './ui/input'
+import { PasswordInput } from './ui/password-input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Button } from './ui/button'
 import { Switch } from './ui/switch'
@@ -362,11 +363,10 @@ const AdminForm = () => {
                                             </div>
                                             <div className='col-span-2'>
                                                 <label htmlFor="">Password</label>
-                                                <Input value={password}
+                                                <PasswordInput value={password}
                                                     onChange={(e) => setPassword(e.target.value)}
                                                     className='h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]'
-                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                                    type="password" />
+                                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }} />
                                             </div>
                                             <p className='text-[16px] font-normal text-[#666666]'>Reset Password</p>
                                             <div className='col-span-2'>

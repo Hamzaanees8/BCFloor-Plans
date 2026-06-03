@@ -23,7 +23,7 @@ export interface SelectedService {
 }
 
 const PricingCardSkeleton = () => (
-    <div className="!w-[250px] h-[190px] border-[#BBBBBB] bg-[#f5f5f5] border-2 rounded-[6px] px-2 py-4">
+    <div className="w-full h-[190px] border-[#BBBBBB] bg-[#f5f5f5] border-2 rounded-[6px] px-2 py-4">
         <div className="flex items-start justify-between mb-2">
             <div className="flex justify-between gap-2 w-full items-center">
                 <Skeleton className="w-6 h-6 rounded-md bg-gray-300" />
@@ -154,7 +154,7 @@ const BookNowServices = ({ showAll = true }: { showAll?: boolean }) => {
                                         {category}
                                     </AccordionTrigger>
                                     <AccordionContent className="border-none">
-                                        <div className="grid grid-cols-[repeat(auto-fill,250px)] gap-4 mt-[10px]">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-[10px]">
                                             {services.map((service) => (
                                                 <PricingCard
                                                     key={service.uuid}
@@ -175,7 +175,7 @@ const BookNowServices = ({ showAll = true }: { showAll?: boolean }) => {
                         {[1, 2, 3].map((groupIndex) => (
                             <div key={groupIndex} className="space-y-4">
                                 <Skeleton className="h-8 w-48 mb-4 ml-2 bg-gray-200" />
-                                <div className="grid grid-cols-[repeat(auto-fill,250px)] gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {[1, 2, 3, 4].map((cardIndex) => (
                                         <PricingCardSkeleton key={cardIndex} />
                                     ))}

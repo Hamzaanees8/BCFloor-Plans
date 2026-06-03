@@ -1,6 +1,7 @@
 'use client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import WhitelabelLogo from '@/components/WhitelabelLogo'
 import Link from 'next/link'
 import React, { useState } from 'react'
@@ -8,7 +9,6 @@ import { login } from './login'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { useAppContext } from '@/app/context/AppContext'
-import { Eye, EyeOff } from 'lucide-react'
 import { useOrganization } from '@/app/context/OrganizationContext'
 import { isDefaultDomain } from '@/lib/config/domains'
 import { getAppOrigin, getAppHostname } from '@/lib/utils'
@@ -22,7 +22,6 @@ function LoginUser() {
         password: false,
     })
     const [isLoading, setIsLoading] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
     const router = useRouter();
     const { setUserType } = useAppContext()
     const { organization } = useOrganization()
@@ -101,29 +100,19 @@ function LoginUser() {
                     <label
                         className={`text-[14px] font-[500] ${errors.password ? 'text-red-500' : ''}`}
                         htmlFor="password">Password</label>
-                    <div className="relative">
-                        <Input
-                            id='password'
-                            name='password'
-                            type={showPassword ? 'text' : 'password'}
-                            placeholder='********'
-                            className={`h-[42px] border-[2px] border-solid border-[#BBBBBB] rounded-[6px] ${errors.password ? 'border-red-500' : 'border-[#BBBBBB]'} pr-10`}
-                            value={password}
-                            onChange={(e) => {
-                                setPassword(e.target.value)
-                                if (errors.password && e.target.value.trim() !== '') {
-                                    setErrors(prev => ({ ...prev, password: false }))
-                                }
-                            }}
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                        >
-                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
-                    </div>
+                    <PasswordInput
+                        id='password'
+                        name='password'
+                        placeholder='********'
+                        className={`h-[42px] border-[2px] border-solid border-[#BBBBBB] rounded-[6px] ${errors.password ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                        value={password}
+                        onChange={(e) => {
+                            setPassword(e.target.value)
+                            if (errors.password && e.target.value.trim() !== '') {
+                                setErrors(prev => ({ ...prev, password: false }))
+                            }
+                        }}
+                    />
                 </div>
                 <Button
                     type='submit'

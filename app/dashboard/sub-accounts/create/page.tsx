@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -736,7 +737,7 @@ const OrdersForm = () => {
                                                 {!currentUser && (
                                                     <div className='col-span-2'>
                                                         <label htmlFor="">Password <span className="text-red-500">*</span></label>
-                                                        <Input
+                                                        <PasswordInput
                                                             value={password}
                                                             onChange={(e) => {
                                                                 setPassword(e.target.value);
@@ -750,7 +751,6 @@ const OrdersForm = () => {
                                                             }}
                                                             className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.password ? 'border-red-500' : ''}`}
                                                             autoComplete="new-password"
-                                                            type="password"
                                                         />
                                                         {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
                                                     </div>

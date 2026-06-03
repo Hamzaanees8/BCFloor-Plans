@@ -31,7 +31,7 @@ export interface SelectedService {
 
 
 const PricingCardSkeleton = () => (
-    <div className="!w-[250px] h-[190px] border-[#BBBBBB] bg-[#f5f5f5] border-2 rounded-[6px] px-2 py-4">
+    <div className="w-full h-[190px] border-[#BBBBBB] bg-[#f5f5f5] border-2 rounded-[6px] px-2 py-4">
         <div className="flex items-start justify-between mb-2">
             <div className="flex justify-between gap-2 w-full items-center">
                 <Skeleton className="w-6 h-6 rounded-md bg-gray-300" />
@@ -133,10 +133,10 @@ const Services = ({ showAll }: { showAll: boolean }) => {
         const filteredServices = fetched.filter((service: Services) => {
             if (service.status === false) return false;
 
-            const name = service.name?.toLowerCase() || '';
-            const cat = service.category?.name?.toLowerCase() || '';
-            const keywords = ['photo', 'twilight', 'hdr', 'still', 'drone', 'video', 'pano', 'matterport'];
-            const isPhotoService = keywords.some(k => name.includes(k) || cat.includes(k));
+            // const name = service.name?.toLowerCase() || '';
+            // const cat = service.category?.name?.toLowerCase() || '';
+            // const keywords = ['photo', 'twilight', 'hdr', 'still', 'drone', 'video', 'pano', 'matterport'];
+            // const isPhotoService = keywords.some(k => name.includes(k) || cat.includes(k));
 
             // Prioritize tempPropertyData from the form over existing listing data
             const sqft = tempPropertyData?.square_footage || listingData?.square_footage;
@@ -144,25 +144,11 @@ const Services = ({ showAll }: { showAll: boolean }) => {
             // If no sqft, show all services
             if (!sqft) return true;
 
-            const hasMatchingOption = isPhotoService || service.product_options?.some((option) => {
-                // If option has sq_ft_rate, it should be shown regardless of range
-                if (option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0) return true;
-
-                if (!option.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
-
-                const [minStr, maxStr] = option.sq_ft_range.split("-").map((s) => s.trim());
-                const min = parseInt(minStr, 10);
-                const max = parseInt(maxStr, 10);
-
-                if (isNaN(min) || isNaN(max)) return false;
-
-                return (
-                    sqft >= min &&
-                    sqft <= max
-                );
-            });
-
-            return hasMatchingOption;
+            // Always show the service card — if no tier matches the entered sqft, the
+            // PricingCard component will display a "no tier match" info message and
+            // auto-select the custom option. Hiding the card here prevents the user
+            // from being able to add the service at all.
+            return true;
         });
 
         const finalData = (showAll ? fetched : filteredServices).filter((service: Services) => {
@@ -289,7 +275,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                                         {category}
                                     </AccordionTrigger>
                                     <AccordionContent className="border-none">
-                                        <div className="grid grid-cols-[repeat(auto-fill,250px)] gap-4 mt-[10px]">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-[10px]">
                                             {services.map((service) => (
                                                 <PricingCard
                                                     key={service.uuid}
@@ -312,7 +298,7 @@ const Services = ({ showAll }: { showAll: boolean }) => {
                         {[1, 2, 3].map((groupIndex) => (
                             <div key={groupIndex} className="space-y-4">
                                 <Skeleton className="h-8 w-48 mb-4 ml-2 bg-gray-200" />
-                                <div className="grid grid-cols-[repeat(auto-fill,250px)] gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {[1, 2, 3, 4].map((cardIndex) => (
                                         <PricingCardSkeleton key={cardIndex} />
                                     ))}

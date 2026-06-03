@@ -1,6 +1,7 @@
 'use client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import Link from 'next/link'
 import React, { useState } from 'react'
 import { login } from './login'
@@ -9,7 +10,6 @@ import { useRouter } from 'next/navigation'
 import { VendorLoginIcon } from '@/components/Icons'
 import { useAppContext } from '@/app/context/AppContext'
 import { useOrganization } from '@/app/context/OrganizationContext'
-import { Eye, EyeOff } from 'lucide-react'
 import WhitelabelLogo from '@/components/WhitelabelLogo'
 import { isDefaultDomain } from '@/lib/config/domains'
 import { getAppOrigin, getAppHostname } from '@/lib/utils'
@@ -23,7 +23,6 @@ function LoginUser() {
         password: false,
     })
     const [isLoading, setIsLoading] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
     const { setUserType } = useAppContext();
     const { organization } = useOrganization();
     const router = useRouter();
@@ -50,9 +49,9 @@ function LoginUser() {
             const currentHostname = getAppHostname();
             const isDefault = isDefaultDomain(currentHostname);
 
-            const response = await login({ 
-                email, 
-                password, 
+            const response = await login({
+                email,
+                password,
                 role: 'vendor',
                 organization_id: organization?.org_id,
                 domain: !isDefault ? getAppOrigin() : undefined
@@ -87,7 +86,7 @@ function LoginUser() {
                         <VendorLoginIcon width='110px' height='110px' />
                     </div>
                 )}
-                <Link href={'#'} className='hidden flex justify-center items-center bg-[#DC9600] hover:bg-[#DC9600] hover:opacity-85 rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
+                <Link href={'#'} className='hidden justify-center items-center bg-[#DC9600] hover:bg-[#DC9600] hover:opacity-85 rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.email ? 'text-red-500' : ''}`} htmlFor="email">Email Address</label>
                     <Input
@@ -112,29 +111,19 @@ function LoginUser() {
                     <label
                         className={`text-[14px] font-[500] ${errors.password ? 'text-red-500' : ''}`}
                         htmlFor="password">Password</label>
-                    <div className="relative">
-                        <Input
-                            id='password'
-                            name='password'
-                            type={showPassword ? 'text' : 'password'}
-                            placeholder='********'
-                            className={`h-[42px] border-[2px] border-solid border-[#BBBBBB] rounded-[6px] ${errors.password ? 'border-red-500' : 'border-[#BBBBBB]'} pr-10`}
-                            value={password}
-                            onChange={(e) => {
-                                setPassword(e.target.value)
-                                if (errors.password && e.target.value.trim() !== '') {
-                                    setErrors(prev => ({ ...prev, password: false }))
-                                }
-                            }}
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                        >
-                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
-                    </div>
+                    <PasswordInput
+                        id='password'
+                        name='password'
+                        placeholder='********'
+                        className={`h-[42px] border-[2px] border-solid border-[#BBBBBB] rounded-[6px] ${errors.password ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                        value={password}
+                        onChange={(e) => {
+                            setPassword(e.target.value)
+                            if (errors.password && e.target.value.trim() !== '') {
+                                setErrors(prev => ({ ...prev, password: false }))
+                            }
+                        }}
+                    />
                 </div>
                 <Button
                     type='submit'

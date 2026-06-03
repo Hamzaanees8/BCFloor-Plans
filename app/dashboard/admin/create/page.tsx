@@ -8,6 +8,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   Select,
   SelectContent,
@@ -25,13 +26,13 @@ import {
   GetOne,
   GetPermissions,
   GetRole,
-  ResetPassword,
   UserPayload,
 } from "../admin";
 import { GetOrganizations, Organization } from "../../global-settings/global-settings";
 import { useParams, useRouter } from "next/navigation";
 import { Country, State } from "country-state-city";
 import { SaveModal } from "@/components/SaveModal";
+import ChangePasswordDialog from "@/components/ChangePasswordDialog";
 import DynamicMap from "@/components/DYnamicMap";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
@@ -105,6 +106,7 @@ const AdminForm = () => {
   >(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState<string>("");
+  const [openChangePasswordDialog, setOpenChangePasswordDialog] = useState(false);
 
   const applyRolePreset = (preset: "super_admin" | "admin" | "booking_agent") => {
     if (activeRolePreset === preset) {
@@ -601,28 +603,6 @@ const AdminForm = () => {
       }
     }
   };
-
-  const handlePasswordReset = async (userId: string) => {
-    try {
-      const payload = {
-        new_password: password,
-        password_confirmation: password,
-        _method: "PUT",
-      };
-      console.log("payload", payload);
-
-      await ResetPassword(payload, userId);
-      toast.success("Reset email Send successfully");
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error("Delete failed:", error.message);
-        toast.error(error.message || "Failed to send email");
-      } else {
-        console.error("sending failed:", error);
-        toast.error("Failed to send email");
-      }
-    }
-  };
   return (
     <div className="font-alexandria">
       <div
@@ -776,7 +756,7 @@ const AdminForm = () => {
                           <label htmlFor="">
                             Password <span className="text-red-500">*</span>
                           </label>
-                          <Input
+                          <PasswordInput
                             value={password}
                             autoComplete="new-password"
                             onChange={(e) => {
@@ -791,7 +771,6 @@ const AdminForm = () => {
                             }}
                             className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.password ? "border-red-500" : ""
                               }`}
-                            type="password"
                           />
 
                           {fieldErrors.password && (
@@ -814,11 +793,20 @@ const AdminForm = () => {
                             />
                             <button
                               type="button"
-                              onClick={() => handlePasswordReset(userId)}
+                              onClick={() => {
+                                setPassword("");
+                                setOpenChangePasswordDialog(true);
+                              }}
                               className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
                             >
                               Reset
                             </button>
+                            <ChangePasswordDialog
+                              open={openChangePasswordDialog}
+                              setOpen={setOpenChangePasswordDialog}
+                              userId={userId}
+                              type="admin"
+                            />
                           </div>
                         </div>
                       )}

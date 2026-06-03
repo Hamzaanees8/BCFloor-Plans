@@ -137,9 +137,7 @@ export interface OrderData {
 
 function Page() {
   const { organization } = useOrganization();
-  const orgName = (organization?.is_whitelabel && organization?.name)
-    ? organization.name
-    : "Tojuco Solutions";
+  const orgName = organization?.slug?.toUpperCase() || "Tojuco Solutions";
   const [orderData, setOrderData] = useState<Order | null>(null);
   const [order_status, setOrder_status] = useState("");
   const [property_website, setProperty_website] = useState("");

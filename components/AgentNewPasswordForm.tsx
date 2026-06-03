@@ -2,13 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import Link from 'next/link';
 import React from 'react';
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { newPassword } from "@/app/(auth)/new-password/new-password";
-import {  VendorLoginIcon } from "./Icons";
+import { VendorLoginIcon } from "./Icons";
 import WhitelabelLogo from "./WhitelabelLogo";
 import { useOrganization } from "@/app/context/OrganizationContext";
 
@@ -75,18 +75,17 @@ function AgentNewPasswordForm() {
     return (
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
             <div className='w-[400px] flex flex-col gap-[25px]'>
-                 {hasCustomLogo ? (
-                     <WhitelabelLogo width={180} height={100} />
-                 ) : (
-                     <div className='flex justify-center'>
-                         <VendorLoginIcon width='110px' height='110px' />
-                     </div>
-                 )}
+                {hasCustomLogo ? (
+                    <WhitelabelLogo width={180} height={100} />
+                ) : (
+                    <div className='flex justify-center'>
+                        <VendorLoginIcon width='110px' height='110px' />
+                    </div>
+                )}
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.password ? 'text-red-500' : ''}`} htmlFor="password">Enter New Password</label>
-                    <Input
+                    <PasswordInput
                         id="password"
-                        type="password"
                         className={`h-[42px] border-[2px] border-solid rounded-[6px] focus:outline-none ${errors.password ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                         placeholder="Enter your password..."
                         value={password}

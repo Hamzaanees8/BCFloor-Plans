@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import WhitelabelLogo from './WhitelabelLogo';
 import Link from 'next/link';
 import React from 'react';
@@ -72,9 +72,8 @@ function NewPasswordForm() {
                 <WhitelabelLogo width={220} height={125} />
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.password ? 'text-red-500' : ''}`} htmlFor="password">Enter New Password</label>
-                    <Input
+                    <PasswordInput
                         id="password"
-                        type="password"
                         className={`h-[42px] border-[2px] border-solid rounded-[6px] focus:outline-none ${errors.password ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                         placeholder="Enter your password..."
                         value={password}

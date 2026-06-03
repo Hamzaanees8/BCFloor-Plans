@@ -4,11 +4,12 @@
 import React, { useState } from "react"
 import { Loader2, X } from "lucide-react"
 import { Input } from "./ui/input"
-import { Eye } from "./Icons"
+import { PasswordInput } from "./ui/password-input"
 import { toast } from "sonner"
 import { ResetPasswordAgent } from "@/app/dashboard/agents/agents"
 import { ResetPasswordSubAccount } from "@/app/dashboard/sub-accounts/subaccounts"
 import { ResetPasswordVendor } from "@/app/dashboard/vendors/vendors"
+import { ResetPassword as ResetPasswordAdmin } from "@/app/dashboard/admin/admin"
 import { useAppContext } from "@/app/context/AppContext"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog"
 import { Button } from "./ui/button"
@@ -28,9 +29,6 @@ const ChangePasswordDialog: React.FC<Props> = ({
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-    const [showNewPassword, setShowNewPassword] = useState(false);
     const [isShowAgain, setIsShowAgain] = useState(false)
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
     const [isLoading, setIsLoading] = useState(false);
@@ -80,6 +78,20 @@ const ChangePasswordDialog: React.FC<Props> = ({
             }
             if (type === "subaccount" && payload) {
                 await ResetPasswordSubAccount(payload, userId, token);
+                toast.success('Password Changed successfully');
+                setConfirmPassword("");
+                setCurrentPassword("");
+                setNewPassword("");
+                setIsShowAgain(false);
+                setOpen(false);
+            }
+            if (type === "admin" && payload) {
+                const adminPayload = {
+                    new_password: newPassword,
+                    confirm_password: confirmPassword,
+                    _method: "PUT",
+                };
+                await ResetPasswordAdmin(adminPayload, userId);
                 toast.success('Password Changed successfully');
                 setConfirmPassword("");
                 setCurrentPassword("");
@@ -139,60 +151,33 @@ const ChangePasswordDialog: React.FC<Props> = ({
                         {userType !== 'admin' && (
                             <div className='col-span-2'>
                                 <label htmlFor="">Current Password</label>
-                                <div className="relative w-full">
-                                    <Input
-                                        type={showCurrentPassword ? "text" : "password"}
-                                        value={currentPassword}
-                                        onChange={(e) => setCurrentPassword(e.target.value)}
-                                        className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
-                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                    />
-                                    <span
-                                        className="absolute right-3 top-2.5 cursor-pointer"
-                                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                                    >
-                                        <Eye />
-                                    </span>
-                                </div>
+                                <PasswordInput
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[10px]"
+                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                />
                                 {fieldErrors.confirm_password && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.confirm_password[0]}</p>}
                             </div>
                         )}
                         <div className='col-span-2'>
                             <label htmlFor="">New Password</label>
-                            <div className="relative w-full">
-                                <Input
-                                    type={showNewPassword ? "text" : "password"}
-                                    value={newPassword}
-                                    onChange={(e) => setNewPassword(e.target.value)}
-                                    className={`h-[42px] border-[1px] mt-[10px] ${fieldErrors.password ? 'border-red-500 focus-visible:ring-red-500' : 'border-[#BBBBBB]'}`}
-                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                />
-                                <span
-                                    className="absolute right-3 top-2.5 cursor-pointer"
-                                    onClick={() => setShowNewPassword(!showNewPassword)}
-                                >
-                                    <Eye />
-                                </span>
-                            </div>
+                            <PasswordInput
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                className={`h-[42px] border-[1px] mt-[10px] ${fieldErrors.password ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                            />
                             {fieldErrors.password && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.password[0]}</p>}
                         </div>
                         <div className='col-span-2'>
                             <label htmlFor="">Confirm Password</label>
-                            <div className="relative w-full">
-                                <Input
-                                    type={showConfirmPassword ? "text" : "password"}
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className={`h-[42px] border-[1px] mt-[10px] ${fieldErrors.password_confirmation ? 'border-red-500 focus-visible:ring-red-500' : 'border-[#BBBBBB]'}`}
-                                    style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
-                                />
-                                <span
-                                    className="absolute right-3 top-2.5 cursor-pointer"
-                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                >
-                                    <Eye />
-                                </span>
-                            </div>
+                            <PasswordInput
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                className={`h-[42px] border-[1px] mt-[10px] ${fieldErrors.password_confirmation ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                                style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                            />
                             {fieldErrors.password_confirmation && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.password_confirmation[0]}</p>}
                         </div>
                         <div className='flex items-center gap-[10px] col-span-2'>

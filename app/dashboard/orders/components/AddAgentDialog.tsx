@@ -11,6 +11,7 @@ import {
 
 import { Pencil, Plus, X, ChevronDown, ChevronUp } from "lucide-react"
 import { Input } from "../../../../components/ui/input"
+import { PasswordInput } from "../../../../components/ui/password-input"
 import DynamicMap from "../../../../components/DYnamicMap"
 import AddCoAgentDialog from "../../../../components/AddCoAgentDialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../components/ui/select"
@@ -407,11 +408,10 @@ const AddAgentDialog: React.FC<Props> = ({
                             {!uuid && (
                                 <div className='col-span-2'>
                                     <label htmlFor="">Password <span className="text-red-500">*</span></label>
-                                    <Input
+                                    <PasswordInput
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'
-                                        type="password"
                                     />
                                     {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
                                 </div>
