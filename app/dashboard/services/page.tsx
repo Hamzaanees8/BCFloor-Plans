@@ -29,7 +29,7 @@ export interface Services {
   id: number;
   name?: string;
   description?: string;
-  category?: { name: string };
+  category?: { name: string; type?: string[] };
   background_color?: string;
   border_color?: string;
   thumbnail?: string

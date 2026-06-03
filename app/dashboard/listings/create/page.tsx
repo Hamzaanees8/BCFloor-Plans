@@ -28,7 +28,6 @@ import { FilesData } from "../../file-manager/FileManagerContext";
 import { useParams, useRouter } from "next/navigation";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { Listings } from "@/lib/types";
-import { SaveModal } from "@/components/SaveModal";
 import { State } from "country-state-city";
 import DynamicMap from "@/components/DYnamicMap";
 import { Get } from "../../agents/agents";
@@ -37,7 +36,6 @@ import { useAppContext } from "@/app/context/AppContext";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import { useOrganization } from "@/app/context/OrganizationContext";
 import useUnsavedChangesWarning from "@/app/hooks/useUnsavedChangesWarning";
-import Link from "next/link";
 import GooglePlacesAutocomplete from "../../calendar/components/AutoCompleteInput";
 import AddAgentDialog from "../../orders/components/AddAgentDialog";
 import { cn } from "@/lib/utils";
@@ -100,7 +98,6 @@ const ListingsFrom = () => {
   );
   const [showAgain1, setShowAgain1] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [open, setOpen] = useState(false);
   const [initialAgentId, setInitialAgentId] = useState("");
   const [isAgentChanged, setIsAgentChanged] = useState(false);
   const [showAgentChangeConfirmation, setShowAgentChangeConfirmation] = useState(false);
@@ -113,10 +110,17 @@ const ListingsFrom = () => {
   //   setOrigin(window.location.origin);
   // }, []);
 
-  const { isDirty, setIsDirty } = useUnsaved();
+  const { isDirty, setIsDirty, confirmNavigation } = useUnsaved();
   useUnsavedChangesWarning(isDirty);
   const isPopulatingData = useRef(false);
   const hasInitiallyRendered = useRef(false);
+
+  // Helper to mark form dirty - only fires after initial data population
+  const markDirty = () => {
+    if (!isPopulatingData.current && hasInitiallyRendered.current) {
+      setIsDirty(true);
+    }
+  };
   const headerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -208,8 +212,9 @@ const ListingsFrom = () => {
           if (data) {
             isPopulatingData.current = true;
             setCurrentListing(data);
-            setConnectedAgent(data.agent.uuid);
-            setInitialAgentId(data.agent.uuid);
+            const agentUuid = data.agent?.uuid || data.agent_id || "";
+            setConnectedAgent(agentUuid);
+            setInitialAgentId(agentUuid);
             setListingPrice(data.listing_price?.toString() || "");
             setMls(data.mls_number || "");
             setBedrooms(data.bedrooms ?? "");
@@ -300,28 +305,26 @@ const ListingsFrom = () => {
 
     // Validate required fields
     if (
-      !listingPrice ||
-      isNaN(Number(listingPrice)) ||
-      Number(listingPrice) < 0
+      listingPrice !== "" &&
+      (isNaN(Number(listingPrice)) || Number(listingPrice) < 0)
     )
       validationErrors.listing_price = [
-        "Listing Price is required and must be a positive number",
+        "Listing Price must be a positive number",
       ];
-    if (!mls) validationErrors.mls_number = ["MLS Number is required"];
     if (userType !== "agent" && !connectedAgent)
       validationErrors.agent_id = ["Agent is required"];
     if (
-      bedrooms === "" ||
-      isNaN(Number(bedrooms)) ||
-      Number(bedrooms) < 0 ||
-      Number(bedrooms) > 20
+      bedrooms !== "" &&
+      (isNaN(Number(bedrooms)) ||
+        Number(bedrooms) < 0 ||
+        Number(bedrooms) > 20)
     )
       validationErrors.bedrooms = ["Bedrooms must be between 0 and 20"];
     if (
-      bathrooms === "" ||
-      isNaN(Number(bathrooms)) ||
-      Number(bathrooms) < 0 ||
-      Number(bathrooms) > 20
+      bathrooms !== "" &&
+      (isNaN(Number(bathrooms)) ||
+        Number(bathrooms) < 0 ||
+        Number(bathrooms) > 20)
     )
       validationErrors.bathrooms = ["Bathrooms must be between 0 and 20"];
     if (
@@ -330,35 +333,27 @@ const ListingsFrom = () => {
       Number(squareFootage) < 0
     )
       validationErrors.square_footage = [
-        "Square Footage must be a positive number",
+        "Square Footage is required and must be a positive number",
       ];
-    if (!lotSize) validationErrors.lot_size = ["Lot Size is required"];
     const currentYear = new Date().getFullYear();
     if (
-      yearConstructed === "" ||
-      isNaN(Number(yearConstructed)) ||
-      Number(yearConstructed) < 1800 ||
-      Number(yearConstructed) > currentYear
+      yearConstructed !== "" &&
+      (isNaN(Number(yearConstructed)) ||
+        Number(yearConstructed) < 1800 ||
+        Number(yearConstructed) > currentYear)
     )
       validationErrors.year_constructed = [
         `Year Constructed must be between 1800 and ${currentYear}`,
       ];
     if (
-      parkingSpots === "" ||
-      isNaN(Number(parkingSpots)) ||
-      Number(parkingSpots) < 0 ||
-      Number(parkingSpots) > 50
+      parkingSpots !== "" &&
+      (isNaN(Number(parkingSpots)) ||
+        Number(parkingSpots) < 0 ||
+        Number(parkingSpots) > 50)
     )
       validationErrors.parking_spots = [
         "Parking Spots must be between 0 and 50",
       ];
-    if (!propertyType)
-      validationErrors.property_type = ["Property Type is required"];
-    if (!propertyStatus)
-      validationErrors.property_status = ["Property Status is required"];
-    if (!heading) validationErrors.heading = ["Heading is required"];
-    if (!description)
-      validationErrors.description = ["Description is required"];
     if (!address) validationErrors.address = ["Address is required"];
     if (!city) validationErrors.city = ["City is required"];
     if (!province) validationErrors.province = ["Province is required"];
@@ -388,19 +383,19 @@ const ListingsFrom = () => {
 
     try {
       const payload = {
-        listing_price: Number(listingPrice),
-        mls_number: mls,
-        bedrooms: Number(bedrooms),
-        agent_id: userType === "agent" ? userInfo?.uuid : connectedAgent,
-        bathrooms: Number(bathrooms),
-        square_footage: Number(squareFootage),
-        lot_size: lotSize,
-        year_constructed: Number(yearConstructed),
-        parking_spots: Number(parkingSpots),
-        property_type: propertyType,
-        property_status: propertyStatus,
-        heading,
-        description,
+        listing_price: listingPrice ? Number(listingPrice) : null,
+        mls_number: mls || null,
+        bedrooms: bedrooms !== "" ? Number(bedrooms) : null,
+        agent_id: userType === "agent" ? userInfo?.uuid : (connectedAgent || null),
+        bathrooms: bathrooms !== "" ? Number(bathrooms) : null,
+        square_footage: squareFootage ? Number(squareFootage) : null,
+        lot_size: lotSize || null,
+        year_constructed: yearConstructed ? Number(yearConstructed) : null,
+        parking_spots: parkingSpots !== "" ? Number(parkingSpots) : null,
+        property_type: propertyType || null,
+        property_status: propertyStatus || null,
+        heading: heading || null,
+        description: description || null,
         suite: suite ? suite : null,
         address,
         city,
@@ -408,16 +403,16 @@ const ListingsFrom = () => {
         postal_code: postalCode,
         country,
         tour_activated: tourActivated,
-        publish_date: publishDate,
-        property_website: propertyWebsite,
-        mls_property: mlsProperty,
+        publish_date: publishDate || null,
+        property_website: propertyWebsite || null,
+        mls_property: mlsProperty || null,
         // occupancy: occupancy,
-        media_creator_access: mediaCreatorAccess,
-        instructions: instructions,
+        media_creator_access: mediaCreatorAccess || null,
+        instructions: instructions || null,
         animals_on_property: animalsOnProperty,
         co_agents: coAgents,
         send_statistics_email: Isstaticmail,
-        statistics_email_frequency: emailFrequency,
+        statistics_email_frequency: emailFrequency || null,
         statistics_email_recipients: staticEmail,
       };
       // coAgents.forEach((email, index) => {
@@ -429,9 +424,8 @@ const ListingsFrom = () => {
         if (result.status) {
           toast.success("Listing updated successfully");
           setIsLoading(true);
-          setOpen(true);
           setIsDirty(false);
-          router.push("/dashboard/listings");
+          // router.push("/dashboard/listings");
         }
         setIsLoading(false);
       } else {
@@ -439,7 +433,6 @@ const ListingsFrom = () => {
         if (result.status) {
           toast.success("Listings created successfully");
           setIsLoading(true);
-          setOpen(true);
           setIsDirty(false);
           router.push("/dashboard/listings");
         }
@@ -447,7 +440,6 @@ const ListingsFrom = () => {
       }
     } catch (error) {
       setIsLoading(false);
-      setOpen(false);
       setFieldErrors({});
       const apiError = error as {
         message?: string;
@@ -831,13 +823,16 @@ const ListingsFrom = () => {
         <div className="w-full h-[60px] bg-[#E4E4E4] font-alexandria pr-5 sticky top-[80px] z-40 flex items-center border-b border-[#BBBBBB]">
           <div className="flex items-center justify-center w-full">
             <div className="flex items-center justify-center gap-x-6 w-full">
-              <Link
-                href={
-                  (currentListing as Listings)?.orders?.[0]?.uuid
-                    ? `/dashboard/file-manager/${(currentListing as Listings)?.orders?.[0]?.uuid
-                    }?listingId=${currentListing?.uuid}`
-                    : "#"
-                }
+              <div
+                onClick={() => {
+                  if (!(currentListing as Listings)?.orders?.[0]?.uuid) return;
+                  confirmNavigation(() => {
+                    router.push(
+                      `/dashboard/file-manager/${(currentListing as Listings)?.orders?.[0]?.uuid
+                      }?listingId=${currentListing?.uuid}`
+                    );
+                  });
+                }}
                 className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${!(currentListing as Listings)?.orders?.[0]?.uuid
                   ? "opacity-50 pointer-events-none"
                   : ""
@@ -847,7 +842,7 @@ const ListingsFrom = () => {
                   }`}
               >
                 Media
-              </Link>
+              </div>
               <div
                 className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${true
                   ? `${userType}-bg text-white font-[700] ${userType}-border`
@@ -856,12 +851,13 @@ const ListingsFrom = () => {
               >
                 Property details
               </div>
-              <Link
-                href={
-                  currentListing?.orders?.[0]?.uuid
-                    ? `/dashboard/orders/${currentListing?.orders?.[0]?.uuid}`
-                    : "#"
-                }
+              <div
+                onClick={() => {
+                  if (!currentListing?.orders?.[0]?.uuid) return;
+                  confirmNavigation(() => {
+                    router.push(`/dashboard/orders/${currentListing?.orders?.[0]?.uuid}`);
+                  });
+                }}
                 className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${!currentListing?.orders?.[0]?.uuid
                   ? "opacity-50 pointer-events-none"
                   : ""
@@ -871,7 +867,7 @@ const ListingsFrom = () => {
                   }`}
               >
                 Order details
-              </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -879,12 +875,8 @@ const ListingsFrom = () => {
       <div>
         <form
           onChange={() => {
-            // Only mark as dirty if:
-            // 1. Not currently populating data from API
-            // 2. Has initially rendered (prevents autofill from triggering)
-            if (!isPopulatingData.current && hasInitiallyRendered.current) {
-              setIsDirty(true);
-            }
+            // Also catches native input/textarea changes
+            markDirty();
           }}
           onSubmit={() => {
             handleSubmit();
@@ -929,6 +921,7 @@ const ListingsFrom = () => {
                             isAgentChanged && "bg-yellow-50 border border-yellow-200"
                           )}>
                             <Select
+                              key={`${connectedAgent}-${agent.length}`}
                               value={connectedAgent}
                               onValueChange={handleAgentChange}
                             >
@@ -969,7 +962,7 @@ const ListingsFrom = () => {
                       <div>
                         <label htmlFor="">
                           Listing Price (CAD){" "}
-                          <span className="text-red-500">*</span>
+                          {/* <span className="text-red-500">*</span> */}
                         </label>
                         <Input
                           value={listingPrice}
@@ -996,7 +989,8 @@ const ListingsFrom = () => {
                       </div>
                       <div>
                         <label htmlFor="">
-                          MLS# <span className="text-red-500">*</span>
+                          MLS#
+                          {/* <span className="text-red-500">*</span> */}
                         </label>
                         <Input
                           value={mls}
@@ -1037,7 +1031,8 @@ const ListingsFrom = () => {
                           htmlFor="bedroom"
                           className="block text-sm font-normal"
                         >
-                          Bedrooms <span className="text-red-500">*</span>
+                          Bedrooms
+                          {/* <span className="text-red-500">*</span> */}
                         </label>
                         <Input
                           id="bedroom"
@@ -1077,28 +1072,30 @@ const ListingsFrom = () => {
                         <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
                           <button
                             type="button"
-                            onClick={() =>
+                            onClick={() => {
                               setBedrooms((prev) =>
                                 Math.max(
                                   0,
                                   parseFloat((prev || 0).toString()) + 1
                                 )
-                              )
-                            }
+                              );
+                              markDirty();
+                            }}
                             className={`${userType}-fill-svg`}
                           >
                             <ArrowUp />
                           </button>
                           <button
                             type="button"
-                            onClick={() =>
+                            onClick={() => {
                               setBedrooms((prev) =>
                                 Math.max(
                                   0,
                                   parseFloat((prev || 0).toString()) - 1
                                 )
-                              )
-                            }
+                              );
+                              markDirty();
+                            }}
                             className={`${userType}-fill-svg`}
                           >
                             <ArrowDown />
@@ -1110,7 +1107,8 @@ const ListingsFrom = () => {
                           htmlFor="bathroom"
                           className="block text-sm font-normal"
                         >
-                          Bathrooms <span className="text-red-500">*</span>
+                          Bathrooms
+                          {/* <span className="text-red-500">*</span> */}
                         </label>
                         <Input
                           id="bathroom"
@@ -1150,28 +1148,30 @@ const ListingsFrom = () => {
                         <div className="absolute top-[42px] right-2 flex flex-col items-center gap-[3px]">
                           <button
                             type="button"
-                            onClick={() =>
+                            onClick={() => {
                               setBathrooms((prev) =>
                                 Math.max(
                                   0,
                                   parseFloat((prev || 0).toString()) + 1
                                 )
-                              )
-                            }
+                              );
+                              markDirty();
+                            }}
                             className={`${userType}-fill-svg`}
                           >
                             <ArrowUp />
                           </button>
                           <button
                             type="button"
-                            onClick={() =>
+                            onClick={() => {
                               setBathrooms((prev) =>
                                 Math.max(
                                   0,
                                   parseFloat((prev || 0).toString()) - 1
                                 )
-                              )
-                            }
+                              );
+                              markDirty();
+                            }}
                             className={`${userType}-fill-svg`}
                           >
                             <ArrowDown />
@@ -1208,7 +1208,7 @@ const ListingsFrom = () => {
                       <div>
                         <label htmlFor="">
                           Lot Size (Acres){" "}
-                          <span className="text-red-500">*</span>
+                          {/* <span className="text-red-500">*</span> */}
                         </label>
                         <Input
                           value={lotSize}
@@ -1236,7 +1236,7 @@ const ListingsFrom = () => {
                       <div>
                         <label htmlFor="">
                           Year Contstructed{" "}
-                          <span className="text-red-500">*</span>
+                          {/* <span className="text-red-500">*</span> */}
                         </label>
                         <Input
                           value={yearConstructed}
@@ -1263,7 +1263,8 @@ const ListingsFrom = () => {
                       </div>
                       <div>
                         <label htmlFor="">
-                          Parking Spots <span className="text-red-500">*</span>
+                          Parking Spots
+                          {/* <span className="text-red-500">*</span> */}
                         </label>
                         <Input
                           value={parkingSpots}
@@ -1290,12 +1291,14 @@ const ListingsFrom = () => {
                       </div>
                       <div className="col-span-2">
                         <label htmlFor="">
-                          Property Type <span className="text-red-500">*</span>
+                          Property Type
+                          {/* <span className="text-red-500">*</span> */}
                         </label>
                         <Select
                           value={propertyType}
                           onValueChange={(value) => {
                             setPropertyType(value);
+                            markDirty();
                             if (fieldErrors.property_type) {
                               const newErrors = { ...fieldErrors };
                               delete newErrors.property_type;
@@ -1332,12 +1335,13 @@ const ListingsFrom = () => {
                       <div className="col-span-2">
                         <label htmlFor="">
                           Property Status{" "}
-                          <span className="text-red-500">*</span>
+                          {/* <span className="text-red-500">*</span> */}
                         </label>
                         <Select
                           value={propertyStatus}
                           onValueChange={(value) => {
                             setPropertyStatus(value);
+                            markDirty();
                             if (fieldErrors.property_status) {
                               const newErrors = { ...fieldErrors };
                               delete newErrors.property_status;
@@ -1376,7 +1380,8 @@ const ListingsFrom = () => {
                       </div>
                       <div className="col-span-2">
                         <label htmlFor="">
-                          Heading <span className="text-red-500">*</span>
+                          Heading
+                          {/* <span className="text-red-500">*</span> */}
                         </label>
                         <Input
                           value={heading}
@@ -1403,7 +1408,8 @@ const ListingsFrom = () => {
                       </div>
                       <div className="col-span-2">
                         <label htmlFor="">
-                          Description <span className="text-red-500">*</span>
+                          Description
+                          {/* <span className="text-red-500">*</span> */}
                         </label>
                         {/* <Input placeholder='Single Family Detached Starter Home' className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" /> */}
                         <Textarea
@@ -1458,6 +1464,7 @@ const ListingsFrom = () => {
                           setProvince(comp.province);
                           setCountry(comp.country);
                           setPostalCode(comp.postal_code);
+                          markDirty();
 
                           if (fieldErrors.address) {
                             const newErrors = { ...fieldErrors };
@@ -1889,14 +1896,7 @@ const ListingsFrom = () => {
           </Accordion >
         </form >
       </div >
-      <SaveModal
-        isOpen={open}
-        onClose={() => setOpen(false)}
-        isLoading={isLoading}
-        isSuccess={true}
-        backLink="/dashboard/listings"
-        title="Listing"
-      />
+
       <ConfirmationDialog
         open={showAgentChangeConfirmation}
         setOpen={setShowAgentChangeConfirmation}

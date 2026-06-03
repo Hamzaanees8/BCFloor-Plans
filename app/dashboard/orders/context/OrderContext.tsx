@@ -50,25 +50,25 @@ export type Slot = {
 };
 
 export type TempPropertyData = {
-    listing_price: number;
-    mls_number: string;
-    bedrooms: number;
-    bathrooms: number;
-    agent_id: string;
-    square_footage: number | undefined;
-    lot_size: string;
-    year_constructed: number;
-    parking_spots: number;
-    property_type: string;
-    property_status: string;
-    heading: string;
-    description: string;
-    suite: string;
-    address: string;
-    city: string;
-    province: string;
-    postal_code: string;
-    country: string;
+    listing_price?: number;
+    mls_number?: string;
+    bedrooms?: number;
+    bathrooms?: number;
+    agent_id?: string;
+    square_footage?: number;
+    lot_size?: string;
+    year_constructed?: number;
+    parking_spots?: number;
+    property_type?: string;
+    property_status?: string;
+    heading?: string;
+    description?: string;
+    suite?: string;
+    address?: string;
+    city?: string;
+    province?: string;
+    postal_code?: string;
+    country?: string;
 };
 
 type SelectedOptionsMap = Record<string, string>;

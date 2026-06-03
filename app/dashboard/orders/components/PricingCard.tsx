@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Check } from "lucide-react";
+import { Check, AlertTriangle } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { CleanedProductOption } from "../../services/services";
 import { SelectedService } from "./Services";
@@ -13,6 +13,7 @@ import { useOrderContext } from "../context/OrderContext";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { useSearchParams } from 'next/navigation';
+import { calcCustomSqftPrice, calcCustomQtyPrice } from "@/lib/pricingUtils";
 
 interface PricingCardProps {
   title: string;
@@ -67,36 +68,60 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
 
   const isEffectivelySelected = useMemo(() => {
     if (isOriginallyBooked) {
-      if (!switchEnabled) return true; // Card shows as selected/booked when switch is off
-      if (isCompleted) return isNewBookingSelected; // Re-book: starts unselected
-      return true; // Upgrade: starts pre-selected
+      if (!switchEnabled) return true;
+      if (isCompleted) return isNewBookingSelected;
+      return true;
     }
     return isSelected;
   }, [isOriginallyBooked, switchEnabled, isCompleted, isNewBookingSelected, isSelected]);
 
-  const isPhotoService = useMemo(() => {
+  const { hasAreaType, hasQuantityType, isLegacyPhotoService, isFloorplanOrTour } = useMemo(() => {
     const name = service.name?.toLowerCase() || '';
     const cat = service.category?.name?.toLowerCase() || '';
-    const keywords = ['photo', 'twilight', 'hdr', 'still', 'drone', 'video', 'pano', 'matterport'];
-    return keywords.some(k => name.includes(k) || cat.includes(k));
-  }, [service.name, service.category?.name]);
+    const photoKeywords = ['photo', 'twilight', 'hdr', 'still', 'drone', 'video', 'pano'];
+    const fpKeywords = ['floorplan', 'floor plan', '3d tour', 'matterport'];
 
-  const calculatedPriceForPhoto = useMemo(() => {
-    if (!isPhotoService || !pricingOptions || pricingOptions.length === 0) return null;
-    const firstOpt = pricingOptions[0];
-    const baseAmount = firstOpt?.amount ?? 0;
-    const baseQty = firstOpt?.quantity || 1;
-    const qtyValue = parseInt(customServiceNames[service.uuid]) || 0;
-    return (baseAmount / baseQty) * qtyValue;
-  }, [isPhotoService, pricingOptions, customServiceNames, service.uuid]);
+    return {
+      hasAreaType: service.category?.type?.includes('area') || false,
+      hasQuantityType: service.category?.type?.includes('quantity') || false,
+      isLegacyPhotoService: photoKeywords.some(k => name.includes(k) || cat.includes(k)),
+      isFloorplanOrTour: fpKeywords.some(k => name.includes(k) || cat.includes(k))
+    };
+  }, [service.name, service.category?.name, service.category?.type]);
+
+  const isQuantityModeSupported = hasQuantityType || (!hasAreaType && !hasQuantityType && !isFloorplanOrTour);
+  const isAreaModeSupported = hasAreaType || (!hasAreaType && !hasQuantityType && !isLegacyPhotoService);
+  const isHybrid = isQuantityModeSupported && isAreaModeSupported;
+
+  const defaultMode = isFloorplanOrTour ? 'area' : (isLegacyPhotoService ? 'quantity' : (hasAreaType ? 'area' : 'quantity'));
+
+  const [activeCalculationMode, setActiveCalculationMode] = useState<'area' | 'quantity'>(defaultMode);
+
+  const currentCalcMode = isHybrid ? activeCalculationMode : (isQuantityModeSupported ? 'quantity' : 'area');
+
+  const customCalcResult = useMemo(() => {
+    if (!pricingOptions || pricingOptions.length === 0) return null;
+    const inputVal = parseInt(customServiceNames[service.uuid]) || 0;
+    if (currentCalcMode === 'quantity') {
+      const qty = inputVal > 0 ? inputVal : 1;
+      return calcCustomQtyPrice(pricingOptions, qty);
+    } else {
+      const sqft = inputVal > 0 ? inputVal : squareFootage;
+      if (sqft <= 0) return null;
+      return calcCustomSqftPrice(pricingOptions, sqft);
+    }
+  }, [currentCalcMode, pricingOptions, customServiceNames, service.uuid, squareFootage]);
+
+  const calculatedCustomPrice = customCalcResult?.price ?? null;
 
   const selectedPrice = useMemo(() => {
     const option = selectedOptions[service.uuid];
     if (!option) return null;
 
     if (option === "custom") {
-      if (isPhotoService) {
-        return calculatedPriceForPhoto;
+      if (currentCalcMode === 'quantity' || (currentCalcMode === 'area' && calculatedCustomPrice !== null)) {
+        if (customPrices[service.uuid]) return Number(customPrices[service.uuid]);
+        return calculatedCustomPrice;
       }
       return customPrices[service.uuid] ? Number(customPrices[service.uuid]) : null;
     }
@@ -108,29 +133,25 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     }
 
     return found?.amount ?? null;
-  }, [selectedOptions, customPrices, pricingOptions, service.uuid, squareFootage, isPhotoService, calculatedPriceForPhoto]);
+  }, [selectedOptions, customPrices, pricingOptions, service.uuid, squareFootage, currentCalcMode, calculatedCustomPrice]);
 
   const displayPrice = useMemo(() => {
-    if (isPhotoService && selectedOption === "custom") {
-      return calculatedPriceForPhoto !== null ? Number(calculatedPriceForPhoto).toFixed(2) : '';
-    }
-    if (selectedOption === "custom") {
-      return customPrice !== '' ? Number(customPrice).toFixed(2) : '';
-    }
-    return selectedPrice !== null ? Number(selectedPrice).toFixed(2) : '';
-  }, [isPhotoService, calculatedPriceForPhoto, selectedOption, customPrice, selectedPrice]);
+    if (customPrice !== '') return Number(customPrice).toFixed(2);
+    if (calculatedCustomPrice !== null) return Number(calculatedCustomPrice).toFixed(2);
+    return '';
+  }, [calculatedCustomPrice, customPrice]);
 
 
   useEffect(() => {
     if (!pricingOptions || pricingOptions.length === 0) return;
-    if (selectedOption === "custom") return;
+    if (selectedOption === "custom" && !isHybrid) return;
 
     let FilteredOptions = [];
 
     if (showAll) {
       FilteredOptions = pricingOptions;
     } else {
-      if (isPhotoService || !squareFootage) {
+      if (currentCalcMode === 'quantity' || !squareFootage) {
         FilteredOptions = pricingOptions;
       } else {
         FilteredOptions = pricingOptions.filter((option) => {
@@ -147,14 +168,21 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
 
     const isValid = FilteredOptions.some(opt => opt.title === selectedOption);
 
-    if (!isValid && FilteredOptions.length > 0) {
+    if (FilteredOptions.length === 0 && pricingOptions.length > 0) {
+      if (selectedOption !== "custom") {
+        setSelectedOptions(prev => ({
+          ...prev,
+          [service.uuid]: "custom",
+        }));
+      }
+    } else if (!isValid && FilteredOptions.length > 0 && selectedOption !== "custom") {
       const defaultVal = FilteredOptions[0].title ?? '';
       setSelectedOptions(prev => ({
         ...prev,
         [service.uuid]: defaultVal,
       }));
     }
-  }, [pricingOptions, selectedOption, service.uuid, setSelectedOptions, selectedListingId, squareFootage, showAll, isPhotoService]);
+  }, [pricingOptions, selectedOption, service.uuid, setSelectedOptions, selectedListingId, squareFootage, showAll, currentCalcMode, isHybrid]);
 
   const getEffectivePriceAndQty = (optionTitle?: string, customAmt?: string, forcedQty?: string) => {
     const currentOption = optionTitle ?? selectedOption;
@@ -171,23 +199,22 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     let optionName = currentOption;
 
     if (currentOption === "custom") {
-      if (isPhotoService) {
-        const firstOpt = pricingOptions?.[0];
-        const baseAmount = firstOpt?.amount ?? 0;
-        const baseQty = firstOpt?.quantity || 1;
+      if (currentCalcMode === 'quantity') {
         const qtyValue = parseInt(currentCustomName) || 0;
-
+        const result = calcCustomQtyPrice(pricingOptions || [], qtyValue > 0 ? qtyValue : 1);
         quantity = qtyValue;
-        price = (baseAmount / baseQty) * quantity;
+        price = currentCustom ? Number(currentCustom) : (result?.price ?? undefined);
         option_id = undefined;
         custom = `${quantity} Units`;
         optionName = custom;
       } else {
-        price = currentCustom ? Number(currentCustom) : undefined;
+        const sqftValue = parseInt(currentCustomName) || squareFootage;
+        const result = calcCustomSqftPrice(pricingOptions || [], sqftValue > 0 ? sqftValue : squareFootage);
+        price = currentCustom ? Number(currentCustom) : (result?.price ?? undefined);
         quantity = 1;
         option_id = undefined;
-        custom = customServiceName;
-        optionName = customServiceName;
+        custom = currentCustomName ? `${currentCustomName} sqft` : (sqftValue ? `${sqftValue} sqft` : 'Custom');
+        optionName = custom;
       }
     } else {
       if (selectedOptionData?.sq_ft_rate && parseFloat(selectedOptionData.sq_ft_rate) > 0) {
@@ -258,6 +285,16 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     }
   };
 
+  const noTierMatch = currentCalcMode === 'area' && pricingOptions && pricingOptions.length > 0 && !pricingOptions.some((option) => {
+    if (option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0) return true;
+    if (!option?.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
+    const [minStr, maxStr] = option.sq_ft_range.split("-").map(s => s.trim());
+    const min = parseInt(minStr, 10);
+    const max = parseInt(maxStr, 10);
+    if (isNaN(min) || isNaN(max)) return false;
+    return squareFootage >= min && squareFootage <= max;
+  });
+
   return (
     <div className="relative group/card-wrapper pt-5 pl-5">
       {isOriginallyBooked && !isPaid && (
@@ -270,9 +307,6 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                     checked={switchEnabled}
                     onCheckedChange={(val) => {
                       setSwitchEnabled(val);
-                      // When enabling Re-book mode on a completed service,
-                      // clear previously loaded slots for this service so the
-                      // schedule tab shows a fresh, empty calendar.
                       if (val && isCompleted) {
                         setSelectedSlots(prev =>
                           prev.filter(slot => slot.service_id !== service.uuid)
@@ -295,7 +329,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
       )}
 
       <Card
-        className={`!w-[250px] h-fit border-2 rounded-[6px] px-2 py-4 relative ${isBooked ? 'opacity-60 pointer-events-none' : ''}`}
+        className={`w-full h-fit border-2 rounded-[6px] px-2 py-4 relative ${isBooked ? 'opacity-60 pointer-events-none' : ''}`}
         style={{
           backgroundColor: fieldBg,
           borderColor: isEffectivelySelected ? "#6BAE41" : fieldBorder,
@@ -343,6 +377,12 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                   Pricing Options
                 </AccordionTrigger>
                 <AccordionContent className="text-[#666666] text-[11px] font-[400]">
+                  {noTierMatch && (
+                    <div className="flex items-center gap-2 mb-2 p-1.5 rounded-md bg-amber-100 text-amber-800 text-[10px]">
+                      <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                      <span>Sqft falls outside tiers. Defaulting to custom.</span>
+                    </div>
+                  )}
                   <RadioGroup
                     value={selectedOptions[service.uuid] || ''}
                     onValueChange={(value) => {
@@ -355,7 +395,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                     className="flex flex-col ">
                     <div className="flex flex-col items-center justify-between gap-[10px]">
                       {pricingOptions?.filter((option) => {
-                        if (showAll || isPhotoService || !squareFootage) return true;
+                        if (showAll || currentCalcMode === 'quantity' || !squareFootage) return true;
                         if (option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0) return true;
                         if (!option.sq_ft_range || typeof option.sq_ft_range !== "string") return false;
                         const [minStr, maxStr] = option.sq_ft_range.split("-").map(s => s.trim());
@@ -364,32 +404,34 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                         if (isNaN(min) || isNaN(max)) return false;
                         return squareFootage >= min && squareFootage <= max;
                       }).map((option, idx) => (
-                        <div key={idx} className="w-full flex items-center justify-between">
-                          <RadioGroupItem
-                            value={option?.title ?? ""}
-                            disabled={isPaid || isBooked}
-                            title={isPaid ? "Cannot modify - service has been paid" : isBooked ? "Service is already booked" : ""}
-                            id={`option-${idx}`}
-                            className={`w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
-                                    appearance-none
-                                    after:hidden
-                                    data-[state=checked]:bg-transparent
-                                    data-[state=checked]:before:content-['']
-                                    data-[state=checked]:before:absolute
-                                    data-[state=checked]:before:inset-0
-                                    data-[state=checked]:before:m-auto
-                                    data-[state=checked]:before:w-[14px]
-                                    data-[state=checked]:before:h-[14px]
-                                    data-[state=checked]:before:bg-[var(--checked-bg)]
-                                    data-[state=checked]:before:rounded-[2px]`}
-                            style={{
-                              // @ts-expect-error: Custom CSS property for dynamic checked background
-                              '--checked-bg': roleSettings.pageTabColor
-                            }}
-                          />
-                          <label htmlFor={`option-${idx}`} className="">
-                            {option?.title ?? ''}
-                          </label>
+                        <div key={idx} className="w-full flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem
+                              value={option?.title ?? ""}
+                              disabled={isPaid || isBooked}
+                              title={isPaid ? "Cannot modify - service has been paid" : isBooked ? "Service is already booked" : ""}
+                              id={`option-${idx}`}
+                              className={`w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
+                                      appearance-none
+                                      after:hidden
+                                      data-[state=checked]:bg-transparent
+                                      data-[state=checked]:before:content-['']
+                                      data-[state=checked]:before:absolute
+                                      data-[state=checked]:before:inset-0
+                                      data-[state=checked]:before:m-auto
+                                      data-[state=checked]:before:w-[14px]
+                                      data-[state=checked]:before:h-[14px]
+                                      data-[state=checked]:before:bg-[var(--checked-bg)]
+                                      data-[state=checked]:before:rounded-[2px]`}
+                              style={{
+                                // @ts-expect-error: Custom CSS property for dynamic checked background
+                                '--checked-bg': roleSettings.pageTabColor
+                              }}
+                            />
+                            <label htmlFor={`option-${idx}`} className="text-left">
+                              {option?.title ?? ''}
+                            </label>
+                          </div>
                           <span className="">${
                             option.sq_ft_rate && parseFloat(option.sq_ft_rate) > 0
                               ? (option.min_price ? Math.max(parseFloat(option.sq_ft_rate) * squareFootage, option.min_price) : parseFloat(option.sq_ft_rate) * squareFootage).toFixed(2)
@@ -398,77 +440,96 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                         </div>
                       ))}
                     </div>
-                    {isPhotoService && (
-                      <div>
-                        <div className="flex items-center gap-2 mt-2">
-                          <label htmlFor="custom" className="text-[11px] text-[#666666]">Custom</label>
-                        </div>
-                        <div className="grid grid-cols-8 gap-2 mt-2 items-center">
-                          <RadioGroupItem
-                            value="custom"
-                            id="custom"
+
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <label htmlFor="custom" className="text-[11px] text-[#666666]">Custom Price</label>
+                        {isHybrid && (
+                          <select
+                            className="text-[9px] bg-gray-200 border border-gray-300 rounded p-0.5 px-1 outline-none focus:ring-1 focus:ring-gray-400 cursor-pointer"
+                            value={currentCalcMode}
                             disabled={isPaid || isBooked}
-                            title={isPaid ? "Cannot modify - service has been paid" : isBooked ? "Service is already booked" : ""}
-                            className="w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
-                              appearance-none
-                              after:hidden
-                              data-[state=checked]:bg-transparent
-                              data-[state=checked]:before:content-['']
-                              data-[state=checked]:before:absolute
-                              data-[state=checked]:before:inset-0
-                              data-[state=checked]:before:m-auto
-                              data-[state=checked]:before:w-[14px]
-                              data-[state=checked]:before:h-[14px]
-                              data-[state=checked]:before:bg-[var(--checked-bg)]
-                              data-[state=checked]:before:rounded-[2px]"
-                            style={{
-                              // @ts-expect-error: Custom CSS property for dynamic checked background
-                              '--checked-bg': roleSettings.pageTabColor
-                            }}
-                          />
-                          <Input
-                            placeholder={isPhotoService ? "Qty" : "Service Name"}
-                            type={isPhotoService ? "number" : "text"}
-                            disabled={isPaid || isBooked}
-                            className="h-[26px] px-[5px] bg-white text-[12px] font-medium text-gray-800 col-span-4 disabled:opacity-100 disabled:text-gray-800"
-                            value={customServiceName}
                             onChange={(e) => {
-                              if (isPaid || isBooked) return;
-                              setCustomServiceNames(prev => ({
+                              setActiveCalculationMode(e.target.value as 'area' | 'quantity');
+                            }}
+                          >
+                            <option value="area">SqFt Mode</option>
+                            <option value="quantity">Qty Mode</option>
+                          </select>
+                        )}
+                      </div>
+
+                      {currentCalcMode === 'area' && selectedOption === "custom" && customCalcResult && (
+                        <div className="text-[9px] text-gray-500 mb-1">
+                          {customCalcResult.method === 'explicit'
+                            ? `${parseInt(customServiceNames[service.uuid]) || squareFootage || 0} sqft × $${customCalcResult.rate.toFixed(4)}/sqft = $${customCalcResult.price.toFixed(2)}`
+                            : `${parseInt(customServiceNames[service.uuid]) || squareFootage || 0} sqft × $${customCalcResult.rate.toFixed(4)}/sqft (nearest tier) = $${customCalcResult.price.toFixed(2)}`
+                          }
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-8 gap-2 mt-1 items-center">
+                        <RadioGroupItem
+                          value="custom"
+                          id="custom"
+                          disabled={isPaid || isBooked}
+                          title={isPaid ? "Cannot modify - service has been paid" : isBooked ? "Service is already booked" : ""}
+                          className="w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
+                            appearance-none
+                            after:hidden
+                            data-[state=checked]:bg-transparent
+                            data-[state=checked]:before:content-['']
+                            data-[state=checked]:before:absolute
+                            data-[state=checked]:before:inset-0
+                            data-[state=checked]:before:m-auto
+                            data-[state=checked]:before:w-[14px]
+                            data-[state=checked]:before:h-[14px]
+                            data-[state=checked]:before:bg-[var(--checked-bg)]
+                            data-[state=checked]:before:rounded-[2px]"
+                          style={{
+                            // @ts-expect-error: Custom CSS property for dynamic checked background
+                            '--checked-bg': roleSettings.pageTabColor
+                          }}
+                        />
+                        <Input
+                          placeholder={currentCalcMode === 'quantity' ? "Enter quantity" : "Enter sqft."}
+                          type="number"
+                          disabled={isPaid || isBooked}
+                          className="h-[26px] px-[5px] bg-white text-[12px] font-medium text-gray-800 col-span-4 disabled:opacity-100 disabled:text-gray-800"
+                          value={customServiceName}
+                          onChange={(e) => {
+                            if (isPaid || isBooked) return;
+                            setCustomServiceNames(prev => ({
+                              ...prev,
+                              [service.uuid]: e.target.value,
+                            }));
+                            setSelectedOptions(prev => ({ ...prev, [service.uuid]: "custom" }));
+                            handleSelectService("custom", undefined, e.target.value);
+                          }}
+                        />
+                        <div className="relative col-span-3 flex items-center h-[26px]">
+                          <span className="absolute left-[6px] text-[12px] font-medium text-gray-800 pointer-events-none">$</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            placeholder="__"
+                            disabled={isPaid || isBooked || userType !== 'admin'}
+                            className="h-full pl-[16px] pr-[3px] bg-white text-[12px] font-medium text-gray-800 w-full disabled:opacity-100 disabled:text-gray-800"
+                            value={displayPrice}
+                            onChange={e => {
+                              if (isPaid || isBooked || userType !== 'admin') return;
+                              setCustomPrices(prev => ({
                                 ...prev,
                                 [service.uuid]: e.target.value,
                               }));
-                              if (isPhotoService) {
-                                setSelectedOptions(prev => ({ ...prev, [service.uuid]: "custom" }));
-                                handleSelectService("custom", undefined, e.target.value);
+                              if (selectedOption === "custom") {
+                                handleSelectService("custom", e.target.value);
                               }
                             }}
                           />
-                          <div className="relative col-span-3 flex items-center h-[26px]">
-                            <span className="absolute left-[6px] text-[12px] font-medium text-gray-800 pointer-events-none">$</span>
-                            <Input
-                              type="number"
-                              min={0}
-                              placeholder="__"
-                              disabled={isPaid || isBooked || (isPhotoService && selectedOption === "custom")}
-                              className="h-full pl-[16px] pr-[3px] bg-white text-[12px] font-medium text-gray-800 w-full disabled:opacity-100 disabled:text-gray-800"
-                              value={displayPrice}
-                              onChange={e => {
-                                if (isPaid || isBooked) return;
-                                if (isPhotoService && selectedOption === "custom") return;
-                                setCustomPrices(prev => ({
-                                  ...prev,
-                                  [service.uuid]: e.target.value,
-                                }));
-                                if (selectedOption === "custom") {
-                                  handleSelectService("custom", e.target.value);
-                                }
-                              }}
-                            />
-                          </div>
                         </div>
                       </div>
-                    )}
+                    </div>
                   </RadioGroup>
                 </AccordionContent>
               </AccordionItem>

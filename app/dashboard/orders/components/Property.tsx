@@ -168,6 +168,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     const [description, setDescription] = useState("");
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
     const [duplicateListing, setDuplicateListing] = useState<Listings | null>(null);
+    const [isInitialized, setIsInitialized] = useState(false);
 
     const resetForm = useCallback(() => {
         setConnectedAgent(selectedAgentId || '');
@@ -425,6 +426,10 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         }
     }, [selectedAgentId]);
 
+    useEffect(() => {
+        setIsInitialized(false);
+    }, [selectedListingId]);
+
 
     useEffect(() => {
         if (states.length && currentListing && currentListing?.province) {
@@ -514,7 +519,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             setProvince(currentListing.province);
             setPostalCode(currentListing.postal_code || "");
             setCountry(currentListing.country || "CA");
-        } else if (tempPropertyData && !selectedListingId) {
+            setIsInitialized(true);
+        } else if (tempPropertyData && !selectedListingId && !isInitialized) {
             // Restore from tempPropertyData if no listing is selected
             setConnectedAgent(tempPropertyData.agent_id || "");
             setListingPrice(tempPropertyData.listing_price?.toString() || "");
@@ -535,20 +541,21 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             setProvince(tempPropertyData.province || "");
             setPostalCode(tempPropertyData.postal_code || "");
             setCountry(tempPropertyData.country || "CA");
+            setIsInitialized(true);
         }
-    }, [currentListing, selectedListingId, tempPropertyData]);
+    }, [currentListing, selectedListingId, tempPropertyData, isInitialized]);
     useEffect(() => {
         if (!selectedListingId && (address || squareFootage) && !isLoading && !currentListing) {
             const payload = {
-                listing_price: Number(listingPrice),
+                listing_price: listingPrice === "" ? undefined : Number(listingPrice),
                 mls_number: mls,
-                bedrooms: Number(bedrooms),
-                bathrooms: Number(bathrooms),
+                bedrooms: bedrooms === "" ? undefined : Number(bedrooms),
+                bathrooms: bathrooms === "" ? undefined : Number(bathrooms),
                 agent_id: connectedAgent,
                 square_footage: squareFootage === "" ? undefined : Number(squareFootage),
                 lot_size: lotSize,
-                year_constructed: Number(yearConstructed || 1801),
-                parking_spots: Number(parkingSpots),
+                year_constructed: yearConstructed === "" ? undefined : Number(yearConstructed),
+                parking_spots: parkingSpots === "" ? undefined : Number(parkingSpots),
                 property_type: propertyType,
                 property_status: propertyStatus,
                 heading: heading,
@@ -601,16 +608,38 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
 
         try {
             const token = localStorage.getItem('token') || '';
-            const payload = {
-                listing_price: Number(listingPrice),
+            const apiPayload = {
+                listing_price: listingPrice === "" ? null : Number(listingPrice),
+                mls_number: mls || null,
+                bedrooms: bedrooms === "" ? null : Number(bedrooms),
+                bathrooms: bathrooms === "" ? null : Number(bathrooms),
+                agent_id: connectedAgent,
+                square_footage: squareFootage === "" ? null : Number(squareFootage),
+                lot_size: lotSize || null,
+                year_constructed: yearConstructed === "" ? null : Number(yearConstructed),
+                parking_spots: parkingSpots === "" ? null : Number(parkingSpots),
+                property_type: propertyType || null,
+                property_status: propertyStatus || null,
+                heading: heading || null,
+                description: description || null,
+                suite: suite || null,
+                address: address,
+                city: city,
+                province: province,
+                postal_code: postalCode,
+                country: country,
+            };
+
+            const tempPayload = {
+                listing_price: listingPrice === "" ? undefined : Number(listingPrice),
                 mls_number: mls,
-                bedrooms: Number(bedrooms),
-                bathrooms: Number(bathrooms),
+                bedrooms: bedrooms === "" ? undefined : Number(bedrooms),
+                bathrooms: bathrooms === "" ? undefined : Number(bathrooms),
                 agent_id: connectedAgent,
                 square_footage: squareFootage === "" ? undefined : Number(squareFootage),
                 lot_size: lotSize,
-                year_constructed: Number(yearConstructed || 1801),
-                parking_spots: Number(parkingSpots),
+                year_constructed: yearConstructed === "" ? undefined : Number(yearConstructed),
+                parking_spots: parkingSpots === "" ? undefined : Number(parkingSpots),
                 property_type: propertyType,
                 property_status: propertyStatus,
                 heading: heading,
@@ -624,16 +653,16 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
             };
 
             if (currentListing?.uuid) {
-                const updatedPayload = { ...payload, _method: 'PUT' };
+                const updatedPayload = { ...apiPayload, _method: 'PUT' };
                 await EditListings(currentListing.uuid, updatedPayload, token);
                 if (selectedListingId === currentListing.uuid) {
-                    setTempPropertyData(payload);
+                    setTempPropertyData(tempPayload);
                 }
                 resetForm();
                 setOpenAddListingDialog(false);
                 fetchListings();
             } else {
-                setTempPropertyData(payload);
+                setTempPropertyData(tempPayload);
                 setSelectedListingId(null);
                 if (onSetActiveTab) onSetActiveTab("services");
                 setOpenAddListingDialog(false);

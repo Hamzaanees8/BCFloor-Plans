@@ -405,7 +405,7 @@ const ServicesFrom = () => {
       }
       // For Regular Service Category
       else {
-        const isOptionValid = (opt: ProductOption) => {
+        const isOptionValid = (opt: any) => {
           return (
             opt.title?.trim() !== "" ||
             !!opt.amount ||
@@ -416,7 +416,12 @@ const ServicesFrom = () => {
           );
         };
 
-        const cleanedProductOptions: CleanedProductOption[] = options
+        const combinedOptions = [
+          ...(currentService?.product_options || []),
+          ...options,
+        ];
+
+        const cleanedProductOptions: CleanedProductOption[] = combinedOptions
           .filter(isOptionValid)
           .map((option) => {
             const baseOption: CleanedProductOption = {

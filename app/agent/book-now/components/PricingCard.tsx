@@ -6,6 +6,7 @@ import { Check, Plus } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Services } from "@/app/dashboard/services/page";
 import { useBookNowContext } from "../context/BookNowContext";
+import { useAppContext } from "@/app/context/AppContext";
 
 interface CleanedProductOption {
   uuid?: string;
@@ -42,6 +43,7 @@ export default function PricingCard({
     customServiceNames,
     setCustomServiceNames,
   } = useBookNowContext();
+  const { userType } = useAppContext();
 
   const fieldBg = "#f5f5f5";
   const fieldBorder = "#BBBBBB";
@@ -445,11 +447,11 @@ export default function PricingCard({
                         type="number"
                         min={0}
                         placeholder="$__"
-                        disabled={isPaid}
+                        disabled={isPaid || userType !== "admin"}
                         className="h-[26px] px-[3px] bg-white text-[10px] col-span-2"
                         value={customPrice}
                         onChange={(e) => {
-                          if (isPaid) return;
+                          if (isPaid || userType !== "admin") return;
                           setCustomPrices((prev) => ({
                             ...prev,
                             [service.uuid]: e.target.value,
