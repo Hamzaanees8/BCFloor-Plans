@@ -706,31 +706,31 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         const sEnd = dayjs(`${s.date} ${s.end_time}`);
         const slotStart = dayjs(slot.start);
         const slotEnd = dayjs(slot.end);
-        
-        return sidMatch && dateMatch && 
-               sStart.isSame(slotStart, 'minute') && 
-               sEnd.isSame(slotEnd, 'minute');
+
+        return sidMatch && dateMatch &&
+          sStart.isSame(slotStart, 'minute') &&
+          sEnd.isSame(slotEnd, 'minute');
       });
 
       if (matchingSelected) {
         const vendorId = matchingSelected.vendor?.uuid || matchingSelected.vendor_id;
         const matchedVendor = vendorsData.find(v => v.uuid === vendorId);
         const vendorName = matchedVendor ? `${matchedVendor.first_name} ${matchedVendor.last_name}` : 'Unknown';
-        
+
         // Even for selected slots, we check if it happens to be in a recommended window
         const isTwilightService = currentServiceData?.category?.name === "Twilight Photos" || service?.title?.includes("Twilight");
         let isRecommended = false;
         if (isTwilightService || recommendTimeMap[serviceKey] === 1) {
-           isRecommended = availableVendorIds.length > 0 && !isTwilightRestricted;
+          isRecommended = availableVendorIds.length > 0 && !isTwilightRestricted;
         }
 
         return {
           ...slot,
           title: `${vendorName}\n${service.title}`,
           className: `slot-selected vendor-${vendorId}${isRecommended ? ' slot-recommended' : ''}`,
-          extendedProps: { 
-            availableVendorIds: [], 
-            twilightRecommended: isTwilightService && isRecommended 
+          extendedProps: {
+            availableVendorIds: [],
+            twilightRecommended: isTwilightService && isRecommended
           },
         };
       }
@@ -1075,6 +1075,9 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
 
   function geocodeAddress(address: string): Promise<string> {
+    if (typeof window === "undefined" || !window.google || !window.google.maps) {
+      return Promise.reject("Google Maps API not loaded");
+    }
     const geocoder = new window.google.maps.Geocoder();
 
     return new Promise((resolve, reject) => {
@@ -1095,6 +1098,10 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
   async function calculateDistance(originInput: string, destinationInput: string): Promise<{ est_time: number; distance: number } | null> {
     try {
+      if (typeof window === "undefined" || !window.google || !window.google.maps) {
+        console.error("Google Maps API not loaded");
+        return null;
+      }
       if (!originInput || !destinationInput) {
         console.error("Origin or destination address is empty.");
         return null;
@@ -1312,14 +1319,20 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       return;
     }
 
-    // ── Gap validation ────────────────────────────────────────────────────────
-    // If the user previously deselected a middle slot, existing selections may
-    // have a gap. Block adding any new slot until the gap is resolved.
+    // ── Gap / Adjacency validation & auto-fill ────────────────────────────────
+    // If there are already selected slots, the new slot must attach to the start
+    // or end of the block. If the user clicks a slot that is separated from the
+    // block by a gap of unselected slots, we auto-fill those gap slots so the
+    // block stays consecutive.
+    const slotsToSelect: { start: string; end: string }[] = [];
+
     if (currentServiceSlots.length > 0) {
       const sortedExisting = [...currentServiceSlots].sort((a, b) =>
         a.start_time.localeCompare(b.start_time)
       );
 
+      // Detect an internal gap in the current selection (shouldn't normally happen
+      // because we prevent it, but guard anyway).
       let hasGap = false;
       for (let i = 0; i < sortedExisting.length - 1; i++) {
         if (sortedExisting[i].end_time !== sortedExisting[i + 1].start_time) {
@@ -1327,7 +1340,6 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           break;
         }
       }
-
       if (hasGap) {
         toast.error(
           `Your current slot selection for "${service.title}" has a gap. Please remove the isolated slot before adding a new one.`
@@ -1335,8 +1347,6 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         return;
       }
 
-      // ── Adjacency validation ────────────────────────────────────────────────
-      // New slots must attach directly to the start or end of the existing block.
       const firstExisting = sortedExisting[0];
       const lastExisting = sortedExisting[sortedExisting.length - 1];
       const clickedStartTime = dayjs(clicked.start).format('HH:mm:ss');
@@ -1345,30 +1355,87 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       const isAdjacentToEnd = clickedStartTime === lastExisting.end_time;
       const isAdjacentToStart = clickedEndTime === firstExisting.start_time;
 
-      if (!isAdjacentToEnd && !isAdjacentToStart) {
-        toast.error(
-          `Slots must be consecutive. You can only add slots immediately before or after your existing selection for "${service.title}".`
-        );
+      // Check if clicked slot is BEFORE the block with a gap — auto-fill the gap
+      const clickedEndDayjs = dayjs(`${selectedDate}T${clickedEndTime}`);
+      const blockStartDayjs = dayjs(`${selectedDate}T${firstExisting.start_time}`);
+      const isBeforeBlockWithGap = clickedEndDayjs.isBefore(blockStartDayjs);
+
+      // Check if clicked slot is AFTER the block with a gap — disallow (can only add to end adjacently)
+      const clickedStartDayjs = dayjs(`${selectedDate}T${clickedStartTime}`);
+      const blockEndDayjs = dayjs(`${selectedDate}T${lastExisting.end_time}`);
+      const isAfterBlockWithGap = clickedStartDayjs.isAfter(blockEndDayjs);
+
+      if (!isAdjacentToEnd && !isAdjacentToStart && !isBeforeBlockWithGap) {
+        if (isAfterBlockWithGap) {
+          toast.error(
+            `Slots must be consecutive. You can only add slots immediately before or after your existing selection for "${service.title}".`
+          );
+        } else {
+          toast.error(
+            `Slots must be consecutive. You can only add slots immediately before or after your existing selection for "${service.title}".`
+          );
+        }
         return;
       }
+
+      if (isAdjacentToEnd) {
+        // Adding to the END: auto-fill remaining needed slots forward from clicked
+        const remainingAfterThis = requiredSlots - currentServiceSlots.length;
+        const slotsToAdd = Math.max(1, remainingAfterThis);
+        for (let i = 0; i < slotsToAdd; i++) {
+          const s = dayjs(clicked.start).add(i * 15, 'minute').toISOString();
+          const e = dayjs(clicked.start).add((i + 1) * 15, 'minute').toISOString();
+          // Stop if we'd run past available events
+          const eventExists = events.find(ev => ev.start === s && ev.className?.includes('slot-available'));
+          if (i > 0 && !eventExists) break;
+          slotsToSelect.push({ start: s, end: e });
+        }
+      } else if (isAdjacentToStart) {
+        // Adding directly before the block: add just 1 slot (the clicked one)
+        slotsToSelect.push({ start: clicked.start, end: clicked.end });
+      } else if (isBeforeBlockWithGap) {
+        // Clicked slot is separated from block start by unselected gap slots.
+        // Auto-fill: clicked slot + all gap slots up to the block start.
+        const gapSlots: { start: string; end: string }[] = [];
+        let cursor = dayjs(clicked.start);
+        while (cursor.isBefore(blockStartDayjs)) {
+          const next = cursor.add(15, 'minute');
+          gapSlots.push({ start: cursor.toISOString(), end: next.toISOString() });
+          cursor = next;
+        }
+        // Only proceed if total wouldn't exceed required duration
+        if (currentServiceSlots.length + gapSlots.length > requiredSlots) {
+          toast.warning(`Selecting these slots would exceed the required ${requiredDuration} minutes for "${service.title}".`);
+          return;
+        }
+        slotsToSelect.push(...gapSlots);
+      }
+    } else {
+      // No existing slots — clicking for the first time.
+      // Auto-fill remaining required slots forward from clicked.
+      let remainingSlotsNeeded = requiredSlots;
+      if (remainingSlotsNeeded <= 0) remainingSlotsNeeded = 1;
+      for (let i = 0; i < remainingSlotsNeeded; i++) {
+        const s = dayjs(clicked.start).add(i * 15, 'minute').toISOString();
+        const e = dayjs(clicked.start).add((i + 1) * 15, 'minute').toISOString();
+        const eventExists = events.find(ev => ev.start === s && ev.className?.includes('slot-available'));
+        if (i > 0 && !eventExists) break;
+        slotsToSelect.push({ start: s, end: e });
+      }
     }
-    // ─────────────────────────────────────────────────────────────────────────
 
-    let remainingSlotsNeeded = requiredSlots - currentServiceSlots.length;
-
-    // Determine the range of slots to select
-    const slotsToSelect: { start: string; end: string }[] = [];
-
-    // If we've already met the requirement, we just want to add 1 slot (the clicked one)
-    if (remainingSlotsNeeded <= 0) {
-      remainingSlotsNeeded = 1;
+    if (slotsToSelect.length === 0) {
+      toast.error(`No valid slots could be determined. Please try a different slot.`);
+      return;
     }
 
-    for (let i = 0; i < remainingSlotsNeeded; i++) {
-      const start = dayjs(clicked.start).add(i * 15, 'minute').toISOString();
-      const end = dayjs(clicked.start).add((i + 1) * 15, 'minute').toISOString();
-      slotsToSelect.push({ start, end });
+    // Guard: final check that adding slotsToSelect won't exceed the cap
+    if (currentServiceSlots.length + slotsToSelect.length > requiredSlots) {
+      // Trim slotsToSelect to fit exactly
+      slotsToSelect.splice(requiredSlots - currentServiceSlots.length);
     }
+
+    const remainingSlotsNeeded = slotsToSelect.length;
 
     // Check for "sticky" vendor: if a vendor is already assigned to this service on this date,
     // and that vendor is available for ALL the current slots, auto-assign them.
