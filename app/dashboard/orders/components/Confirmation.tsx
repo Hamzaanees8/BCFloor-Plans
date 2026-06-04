@@ -728,11 +728,12 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                     </Button>
                                 </div>
                                 <div>
-                                    <p className='text-[12px]'>Lorem ipsum dolor sit amet. Et minus internos rem culpa ratione quo harum obcaecati ut minima quia.
-                                        Eos aliquid inventore et dicta sint quo autem ipsam ea officiis iste et quia temporibus eum ratione sunt
-                                        non dolorum cumque. Aut quas optio cum dolorem voluptatibus ut quae culpa aut repellat quod qui suscipit
-                                        consequuntur. Qui explicabo distinctio est eveniet dolorem sed voluptatem perspiciatis eum Quis dolorum
-                                        et voluptatem corporis cum minima ipsa.</p>
+                                    <p className="text-[12px]">
+                                        <span className="text-[14px] font-[500]">Important Final Pricing Notice:</span> The amount shown above is an estimated quote.
+                                        Final billing is calculated post-service and may vary based on actual on-site measurements (square footage),
+                                        travel expenses, and any additional services requested during the shoot.
+                                        The final invoice will be generated and sent to you upon project completion.
+                                    </p>
                                 </div>
                             </div>
                         ) : (

@@ -35,6 +35,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     setCustomServiceNames,
     selectedListingId,
     setSelectedSlots,
+    selectedSlots,
   } = useOrderContext();
   const [switchEnabled, setSwitchEnabled] = useState(false);
   const { userType } = useAppContext()
@@ -61,6 +62,22 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
   const isOriginallyBooked = !!selectedServiceItem?.service_uuid && !isEdit;
   const isCompleted = !!(selectedServiceItem?.is_completed);
   const isBooked = isOriginallyBooked && !switchEnabled;
+
+  const hasPastSlots = useMemo(() => {
+    const serviceSlots = (selectedSlots || []).filter(
+      (slot) =>
+        String(slot.service_id) === String(service.uuid) ||
+        (service.id && String(slot.service_id) === String(service.id))
+    );
+    return serviceSlots.some((slot) => {
+      try {
+        const slotDate = new Date(`${slot.date} ${slot.start_time}`);
+        return slotDate < new Date();
+      } catch {
+        return false;
+      }
+    });
+  }, [selectedSlots, service.uuid, service.id]);
 
   const isNewBookingSelected = useMemo(() => {
     return (selectedServices ?? []).some((s) => s.uuid === service.uuid && !s.service_uuid);
@@ -264,7 +281,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
   };
 
   const handleToggleService = () => {
-    if (isPaid || isBooked) return;
+    if (isPaid || isBooked || hasPastSlots) return;
     if (!selectedOption) return;
 
     if (setSelectedServices) {
@@ -312,7 +329,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
 
   return (
     <div className="relative group/card-wrapper pt-5 pl-5">
-      {isOriginallyBooked && !isPaid && (
+      {isOriginallyBooked && !isPaid && !hasPastSlots && (
         <div className="absolute top-0 left-0 z-50">
           <TooltipProvider>
             <Tooltip>
@@ -361,10 +378,10 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
             <div className="flex justify-between gap-2 w-full items-center">
               <div
                 onClick={handleToggleService}
-                title={isPaid ? "Cannot modify - service has been paid" : isBooked ? "Service is already booked" : ""}
+                title={isPaid ? "Cannot modify - service has been paid" : hasPastSlots ? "Cannot modify - service schedule is in the past" : isBooked ? "Service is already booked" : ""}
                 className={`
                           p-1  w-6 h-6 flex justify-center items-center rounded-md border-[2px]
-                          ${(isPaid || isBooked) ? "cursor-not-allowed opacity-100" : !selectedOption ? "cursor-not-allowed opacity-100" : "cursor-pointer"}
+                          ${(isPaid || isBooked || hasPastSlots) ? "cursor-not-allowed opacity-100" : !selectedOption ? "cursor-not-allowed opacity-100" : "cursor-pointer"}
                           ${isEffectivelySelected ? "bg-[#6BAE41] border-[#6BAE41]" : "bg-transparent border-[#BBBBBB]"}
                         `}
               >
@@ -373,7 +390,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                 )}
               </div>
               <div
-                className={`text-[16px] flex-1 text-left select-none ${!selectedOption || isPaid || isBooked ? "" : "cursor-pointer"}`}
+                className={`text-[16px] flex-1 text-left select-none ${!selectedOption || isPaid || isBooked || hasPastSlots ? "" : "cursor-pointer"}`}
                 style={{ color: roleSettings.pageText }}
                 onClick={handleToggleService}
               >
@@ -425,8 +442,8 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                           <div className="flex items-center gap-2">
                             <RadioGroupItem
                               value={option?.title ?? ""}
-                              disabled={isPaid || isBooked}
-                              title={isPaid ? "Cannot modify - service has been paid" : isBooked ? "Service is already booked" : ""}
+                              disabled={isPaid || isBooked || hasPastSlots}
+                              title={isPaid ? "Cannot modify - service has been paid" : hasPastSlots ? "Cannot modify - service schedule is in the past" : isBooked ? "Service is already booked" : ""}
                               id={`option-${service.uuid}-${idx}`}
                               className={`w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
                                       appearance-none
@@ -465,7 +482,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                           <select
                             className="text-[9px] bg-gray-200 border border-gray-300 rounded p-0.5 px-1 outline-none focus:ring-1 focus:ring-gray-400 cursor-pointer"
                             value={currentCalcMode}
-                            disabled={isPaid || isBooked}
+                            disabled={isPaid || isBooked || hasPastSlots}
                             onChange={(e) => {
                               setActiveCalculationMode(e.target.value as 'area' | 'quantity');
                             }}
@@ -489,8 +506,8 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                         <RadioGroupItem
                           value="custom"
                           id={`custom-${service.uuid}`}
-                          disabled={isPaid || isBooked}
-                          title={isPaid ? "Cannot modify - service has been paid" : isBooked ? "Service is already booked" : ""}
+                          disabled={isPaid || isBooked || hasPastSlots}
+                          title={isPaid ? "Cannot modify - service has been paid" : hasPastSlots ? "Cannot modify - service schedule is in the past" : isBooked ? "Service is already booked" : ""}
                           className="w-[18px] h-[18px] border border-gray-400 rounded-[3px] relative
                             appearance-none
                             after:hidden
@@ -511,11 +528,11 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                         <Input
                           placeholder={currentCalcMode === 'quantity' ? "Enter quantity" : "Enter sqft."}
                           type="number"
-                          disabled={isPaid || isBooked}
+                          disabled={isPaid || isBooked || hasPastSlots}
                           className="h-[30px] px-[5px] bg-white text-[12px] font-medium text-gray-800 col-span-4 disabled:opacity-100 disabled:text-gray-800"
                           value={customServiceName}
                           onChange={(e) => {
-                            if (isPaid || isBooked) return;
+                            if (isPaid || isBooked || hasPastSlots) return;
                             setCustomServiceNames(prev => ({
                               ...prev,
                               [service.uuid]: e.target.value,
@@ -530,7 +547,7 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
                             type="number"
                             min={0}
                             placeholder="__"
-                            disabled={isPaid || isBooked || userType !== 'admin'}
+                            disabled={isPaid || isBooked || hasPastSlots || userType !== 'admin'}
                             className="h-full pl-[16px] pr-[3px] bg-white text-[12px] font-medium text-gray-800 w-full disabled:opacity-100 disabled:text-gray-800"
                             value={displayPrice}
                             onChange={e => {

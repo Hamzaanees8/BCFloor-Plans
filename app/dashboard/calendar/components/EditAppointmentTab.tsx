@@ -14,6 +14,7 @@ import AddCoAgentDialog from '@/components/AddCoAgentDialog'
 import { GetUser } from '../../orders/orders';
 import { useOrderContext } from '../../orders/context/OrderContext';
 import { useAppContext } from '@/app/context/AppContext';
+import { toast } from 'sonner';
 
 import Link from 'next/link';
 import { getEffectiveServiceDuration } from "../../orders/utils/serviceTimeUtils";
@@ -136,6 +137,26 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
     }, [currentOrder, serviceId, agentData, currentAgent, totalSquareFootage])
     const handleDeleteOrderService = (serviceUuid: string | undefined) => {
         if (!serviceUuid) return;
+        
+        // Find the service to check if it is paid or in the past
+        const service = OrderServices.find(s => s.service?.uuid === serviceUuid);
+        if (service) {
+            const isPaid = service.payment_status?.toUpperCase() === 'PAID';
+            const serviceSlots = selectedSlots.filter((slot) =>
+                String(slot.service_id) === String(serviceUuid) ||
+                (service.service?.id && String(slot.service_id) === String(service.service?.id))
+            );
+            const hasPastSlots = serviceSlots.some((slot) => {
+                try {
+                    const slotDate = new Date(`${slot.date} ${slot.start_time}`);
+                    return slotDate < new Date();
+                } catch {
+                    return false;
+                }
+            });
+            if (isPaid || hasPastSlots) return;
+        }
+
         setOrderServices(prev => prev.filter(s => s.service?.uuid !== serviceUuid));
         setSelectedSlots(prev => prev.filter(slot => slot.service_id !== serviceUuid));
     }
@@ -522,6 +543,21 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                 <AccordionContent className="grid gap-4">
                     <div className="w-full flex flex-col items-center mt-[17px]">
                         {OrderServices.map((service, idx) => {
+                            const isPaid = service.payment_status?.toUpperCase() === 'PAID';
+                            const serviceSlots = selectedSlots.filter((slot) =>
+                                String(slot.service_id) === String(service.service?.uuid) ||
+                                (service.service?.id && String(slot.service_id) === String(service.service?.id))
+                            );
+                            const hasPastSlots = serviceSlots.some((slot) => {
+                                try {
+                                    const slotDate = new Date(`${slot.date} ${slot.start_time}`);
+                                    return slotDate < new Date();
+                                } catch {
+                                    return false;
+                                }
+                            });
+                            const cannotDelete = isPaid || hasPastSlots;
+
                             return <div key={idx} className='grid grid-cols-4 gap-x-4 mt-[10px]'>
                                 <div className='col-span-2'>
                                     <label htmlFor="">Service</label>
@@ -560,9 +596,25 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
                                     <div className=''>
                                         <Label className="text-[14px] text-[#424242] " htmlFor="">Delete</Label>
                                         <span
-                                            onClick={() => handleDeleteOrderService(service.service?.uuid)}
-                                            className='cursor-pointer flex justify-center items-center h-[42px] w-[50px] rounded-[6px] bg-[#E06D5E] hover:bg-[#f57d6d] mt-[10px]'>
-                                            <Trash stroke="#fff" strokeWidth={1} />
+                                            onClick={() => {
+                                                if (isPaid) {
+                                                    toast.error("Cannot remove - service has been paid");
+                                                    return;
+                                                }
+                                                if (hasPastSlots) {
+                                                    toast.error("Cannot remove - service schedule is in the past");
+                                                    return;
+                                                }
+                                                handleDeleteOrderService(service.service?.uuid);
+                                            }}
+                                            title={isPaid ? "Cannot modify - service has been paid" : hasPastSlots ? "Cannot modify - service schedule is in the past" : "Delete service"}
+                                            className={`flex justify-center items-center h-[42px] w-[50px] rounded-[6px] mt-[10px] transition-colors
+                                                ${cannotDelete 
+                                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60' 
+                                                    : 'bg-[#E06D5E] hover:bg-[#f57d6d] cursor-pointer text-white'
+                                                }`}
+                                        >
+                                            <Trash stroke={cannotDelete ? "#888" : "#fff"} strokeWidth={1} />
                                         </span>
                                     </div>
                                 </div>

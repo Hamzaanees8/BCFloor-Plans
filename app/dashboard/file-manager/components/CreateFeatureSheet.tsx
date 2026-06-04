@@ -218,7 +218,6 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
     };
 
     const templateImages = [
-      // { id: "BCFPStandard", type: "listing", url: "BcfpStandard" },
       { id: "BCFPStandard2", type: "tabloid", url: "BcfpStandard2" },
       { id: "BCFPStandard3", type: "tabloid", url: "BcfpStandard3" },
       { id: "BCFPStandard4", type: "tabloid", url: "BcfpStandard4" },
@@ -229,7 +228,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
       { id: "BCFPStandard10", type: "tabloid", url: "BcfpStandard10" },
       { id: "BCFPStandard11", type: "tabloid", url: "BcfpStandard11" },
       { id: "BCFPStandard12", type: "tabloid", url: "BcfpStandard12" },
-      { id: "BCFPStandard13", type: "tabloid", url: "BcfpStandard13" },
+      { id: "BCFPStandard13", type: "listing", url: "BcfpStandard13" },
       { id: "BCFPStandard14", type: "tabloid", url: "BcfpStandard14" },
       { id: "BCFPStandard15", type: "listing", url: "BcfpStandard15" },
       { id: "BCFPStandard16", type: "listing", url: "BcfpStandard16" },
@@ -239,8 +238,8 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
       { id: "BCFPStandard20", type: "listing", url: "BcfpStandard20" },
       { id: "BCFPStandard21", type: "listing", url: "BcfpStandard21" },
       { id: "BCFPStandard22", type: "listing", url: "BcfpStandard22" },
-      { id: "BCFPStandard23", type: "listing", url: "BcfpStandard23" },
-      { id: "BCFPStandard24", type: "listing", url: "BcfpStandard24" },
+      { id: "BCFPStandard23", type: "tabloid", url: "BcfpStandard23" },
+      { id: "BCFPStandard24", type: "tabloid", url: "BcfpStandard24" },
     ];
 
     // Helper to get thumbnail URL with fallback
@@ -678,8 +677,8 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
 
     const isTabloid = templateImages.find((t) => t.id === selectedTemplate)?.type === "tabloid";
     const targetWidth = isTabloid ? 1632 : 816; // width in pixels of tabloid or portrait letter at 96dpi
-    const scale = previewMode === "fit" 
-      ? Math.min((workspaceWidth - 64) / targetWidth, 1) 
+    const scale = previewMode === "fit"
+      ? Math.min((workspaceWidth - 64) / targetWidth, 1)
       : 1;
 
     const pdfSectionStyle = previewMode === "fit" ? {
@@ -1368,210 +1367,208 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                       <>
                         <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-3 rounded-lg border border-[#BBBBBB] shadow-sm mb-4 gap-4">
                           <div className="text-sm font-medium text-gray-700">
-                        Workspace Preview Mode: <span className="font-semibold capitalize text-blue-600">{previewMode === "print" ? "Print Layout (100% Paper Size)" : "Fit to Screen"}</span>
-                      </div>
-                      <div className="flex bg-gray-100 p-1 rounded-md border border-gray-200">
-                        <button
-                          type="button"
-                          onClick={() => setPreviewMode("print")}
-                          className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                            previewMode === "print"
-                              ? "bg-white text-gray-900 shadow-sm"
-                              : "text-gray-500 hover:text-gray-900"
-                          }`}
-                        >
-                          Print Preview
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPreviewMode("fit")}
-                          className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                            previewMode === "fit"
-                              ? "bg-white text-gray-900 shadow-sm"
-                              : "text-gray-500 hover:text-gray-900"
-                          }`}
-                        >
-                          Fit to Screen
-                        </button>
-                      </div>
-                    </div>
+                            Workspace Preview Mode: <span className="font-semibold capitalize text-blue-600">{previewMode === "print" ? "Print Layout (100% Paper Size)" : "Fit to Screen"}</span>
+                          </div>
+                          <div className="flex bg-gray-100 p-1 rounded-md border border-gray-200">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewMode("print")}
+                              className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${previewMode === "print"
+                                ? "bg-white text-gray-900 shadow-sm"
+                                : "text-gray-500 hover:text-gray-900"
+                                }`}
+                            >
+                              Print Preview
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewMode("fit")}
+                              className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${previewMode === "fit"
+                                ? "bg-white text-gray-900 shadow-sm"
+                                : "text-gray-500 hover:text-gray-900"
+                                }`}
+                            >
+                              Fit to Screen
+                            </button>
+                          </div>
+                        </div>
 
-                    <div 
-                      ref={workspaceRef} 
-                      className="pdf-preview-workspace flex justify-center w-full bg-[#E4E4E4] py-8 overflow-auto custom-scrollbar"
-                    >
-                      <div
-                        id="pdf-section"
-                        className={isTabloid ? "tabloid-sheet" : ""}
-                        style={pdfSectionStyle}
-                      >
-                        {selectedTemplate === "BCFPStandard" && (
-                          <BcfpStandard
-                            key={selectedSheetUuid || "new-BCFPStandard"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {/* {selectedTemplate === "BCFPStandard1" && <BcfpStandard1 orderData={orderData || null} />} */}
-                        {selectedTemplate === "BCFPStandard2" && (
-                          <BcfpStandard2
-                            key={selectedSheetUuid || "new-BCFPStandard2"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard3" && (
-                          <BcfpStandard3
-                            key={selectedSheetUuid || "new-BCFPStandard3"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard4" && (
-                          <BcfpStandard4
-                            key={selectedSheetUuid || "new-BCFPStandard4"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {/* {selectedTemplate === "BCFP Standard5" && <BcfpStandard5 orderData={orderData || null} />} */}
-                        {selectedTemplate === "BCFPStandard6" && (
-                          <BcfpStandard6
-                            key={selectedSheetUuid || "new-BCFPStandard6"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard7" && (
-                          <BcfpStandard7
-                            key={selectedSheetUuid || "new-BCFPStandard7"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard8" && (
-                          <BcfpStandard8
-                            key={selectedSheetUuid || "new-BCFPStandard8"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard9" && (
-                          <BcfpStandard9
-                            key={selectedSheetUuid || "new-BCFPStandard9"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard10" && (
-                          <BcfpStandard10
-                            key={selectedSheetUuid || "new-BCFPStandard10"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard11" && (
-                          <BcfpStandard11
-                            key={selectedSheetUuid || "new-BCFPStandard11"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard12" && (
-                          <BcfpStandard12
-                            key={selectedSheetUuid || "new-BCFPStandard12"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard13" && (
-                          <BcfpStandard13
-                            key={selectedSheetUuid || "new-BCFPStandard13"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard14" && (
-                          <BcfpStandard14
-                            key={selectedSheetUuid || "new-BCFPStandard14"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard15" && (
-                          <BcfpStandard15
-                            key={selectedSheetUuid || "new-BCFPStandard15"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard16" && (
-                          <BcfpStandard16
-                            key={selectedSheetUuid || "new-BCFPStandard16"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard17" && (
-                          <BcfpStandard17
-                            key={selectedSheetUuid || "new-BCFPStandard17"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard18" && (
-                          <BcfpStandard18
-                            key={selectedSheetUuid || "new-BCFPStandard18"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard19" && (
-                          <BcfpStandard19
-                            key={selectedSheetUuid || "new-BCFPStandard19"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard20" && (
-                          <BcfpStandard20
-                            key={selectedSheetUuid || "new-BCFPStandard20"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard21" && (
-                          <BcfpStandard21
-                            key={selectedSheetUuid || "new-BCFPStandard21"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard22" && (
-                          <BcfpStandard22
-                            key={selectedSheetUuid || "new-BCFPStandard22"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard23" && (
-                          <BcfpStandard23
-                            key={selectedSheetUuid || "new-BCFPStandard23"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                        {selectedTemplate === "BCFPStandard24" && (
-                          <BcfpStandard24
-                            key={selectedSheetUuid || "new-BCFPStandard24"}
-                            ref={activeStandardRef}
-                            orderData={orderData || null}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </>
-                )}
+                        <div
+                          ref={workspaceRef}
+                          className="pdf-preview-workspace flex justify-center w-full bg-[#E4E4E4] py-8 overflow-auto custom-scrollbar"
+                        >
+                          <div
+                            id="pdf-section"
+                            className={isTabloid ? "tabloid-sheet" : ""}
+                            style={pdfSectionStyle}
+                          >
+                            {selectedTemplate === "BCFPStandard" && (
+                              <BcfpStandard
+                                key={selectedSheetUuid || "new-BCFPStandard"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {/* {selectedTemplate === "BCFPStandard1" && <BcfpStandard1 orderData={orderData || null} />} */}
+                            {selectedTemplate === "BCFPStandard2" && (
+                              <BcfpStandard2
+                                key={selectedSheetUuid || "new-BCFPStandard2"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard3" && (
+                              <BcfpStandard3
+                                key={selectedSheetUuid || "new-BCFPStandard3"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard4" && (
+                              <BcfpStandard4
+                                key={selectedSheetUuid || "new-BCFPStandard4"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {/* {selectedTemplate === "BCFP Standard5" && <BcfpStandard5 orderData={orderData || null} />} */}
+                            {selectedTemplate === "BCFPStandard6" && (
+                              <BcfpStandard6
+                                key={selectedSheetUuid || "new-BCFPStandard6"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard7" && (
+                              <BcfpStandard7
+                                key={selectedSheetUuid || "new-BCFPStandard7"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard8" && (
+                              <BcfpStandard8
+                                key={selectedSheetUuid || "new-BCFPStandard8"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard9" && (
+                              <BcfpStandard9
+                                key={selectedSheetUuid || "new-BCFPStandard9"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard10" && (
+                              <BcfpStandard10
+                                key={selectedSheetUuid || "new-BCFPStandard10"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard11" && (
+                              <BcfpStandard11
+                                key={selectedSheetUuid || "new-BCFPStandard11"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard12" && (
+                              <BcfpStandard12
+                                key={selectedSheetUuid || "new-BCFPStandard12"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard13" && (
+                              <BcfpStandard13
+                                key={selectedSheetUuid || "new-BCFPStandard13"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard14" && (
+                              <BcfpStandard14
+                                key={selectedSheetUuid || "new-BCFPStandard14"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard15" && (
+                              <BcfpStandard15
+                                key={selectedSheetUuid || "new-BCFPStandard15"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard16" && (
+                              <BcfpStandard16
+                                key={selectedSheetUuid || "new-BCFPStandard16"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard17" && (
+                              <BcfpStandard17
+                                key={selectedSheetUuid || "new-BCFPStandard17"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard18" && (
+                              <BcfpStandard18
+                                key={selectedSheetUuid || "new-BCFPStandard18"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard19" && (
+                              <BcfpStandard19
+                                key={selectedSheetUuid || "new-BCFPStandard19"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard20" && (
+                              <BcfpStandard20
+                                key={selectedSheetUuid || "new-BCFPStandard20"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard21" && (
+                              <BcfpStandard21
+                                key={selectedSheetUuid || "new-BCFPStandard21"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard22" && (
+                              <BcfpStandard22
+                                key={selectedSheetUuid || "new-BCFPStandard22"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard23" && (
+                              <BcfpStandard23
+                                key={selectedSheetUuid || "new-BCFPStandard23"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                            {selectedTemplate === "BCFPStandard24" && (
+                              <BcfpStandard24
+                                key={selectedSheetUuid || "new-BCFPStandard24"}
+                                ref={activeStandardRef}
+                                orderData={orderData || null}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
 
                   </AccordionContent>
                 </AccordionItem>

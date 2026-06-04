@@ -162,6 +162,15 @@ type OrderContextType = {
     setIsPropertyValid: Dispatch<SetStateAction<boolean>>;
     lastPopulatedAgentId: string | null;
     setLastPopulatedAgentId: (id: string | null) => void;
+
+    // Schedule toggle maps — persisted here so they survive tab navigation
+    scheduleOverrideMap: Record<string, 0 | 1>;
+    setScheduleOverrideMap: Dispatch<SetStateAction<Record<string, 0 | 1>>>;
+    showAllVendorsMap: Record<string, 0 | 1>;
+    setShowAllVendorsMap: Dispatch<SetStateAction<Record<string, 0 | 1>>>;
+    recommendTimeMap: Record<string, 0 | 1>;
+    setRecommendTimeMap: Dispatch<SetStateAction<Record<string, 0 | 1>>>;
+
     resetOrderData: () => void;
     clearSelections: () => void;
 };
@@ -196,6 +205,11 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [lastPopulatedAgentId, setLastPopulatedAgentId] = useState<string | null>(null);
 
+    // Schedule toggle maps persisted in context so tab navigation doesn't reset them
+    const [scheduleOverrideMap, setScheduleOverrideMap] = useState<Record<string, 0 | 1>>({});
+    const [showAllVendorsMap, setShowAllVendorsMap] = useState<Record<string, 0 | 1>>({});
+    const [recommendTimeMap, setRecommendTimeMap] = useState<Record<string, 0 | 1>>({});
+
     const [agentsData, setAgentsData] = useState<Agent[]>([]);
     const [listingsData, setListingsData] = useState<Listings[]>([]);
     const [servicesData, setServicesData] = useState<Services[]>([]);
@@ -229,6 +243,9 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
         setTempPropertyData(null);
         setIsPropertyValid(false);
         setLastPopulatedAgentId(null);
+        setScheduleOverrideMap({});
+        setShowAllVendorsMap({});
+        setRecommendTimeMap({});
     }, []);
 
     const clearSelections = useCallback(() => {
@@ -253,6 +270,9 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
         setTempPropertyData(null);
         setIsPropertyValid(false);
         setLastPopulatedAgentId(null);
+        setScheduleOverrideMap({});
+        setShowAllVendorsMap({});
+        setRecommendTimeMap({});
     }, []);
 
     return (
@@ -320,6 +340,12 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
                 setIsPropertyValid,
                 lastPopulatedAgentId,
                 setLastPopulatedAgentId,
+                scheduleOverrideMap,
+                setScheduleOverrideMap,
+                showAllVendorsMap,
+                setShowAllVendorsMap,
+                recommendTimeMap,
+                setRecommendTimeMap,
                 resetOrderData,
                 clearSelections
             }}

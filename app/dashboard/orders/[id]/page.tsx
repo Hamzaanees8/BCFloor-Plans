@@ -87,6 +87,7 @@ export interface VendorData {
   company: { vendor_id: string };
   portfolio_images?: VendorPortfolioImage[];
   settings?: {
+    enable_service_area?: number | boolean;
     force_service_area: number | boolean;
     next_booking_slot_only?: number | boolean | string;
   };
@@ -159,6 +160,21 @@ function Page() {
   const fieldBg = `color-mix(in srgb, ${roleSettings.pageBg} 95%, black)`;
 
   const [openDetails, setOpenDetails] = useState(false);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  const [tooltipLocked, setTooltipLocked] = useState(false);
+
+  useEffect(() => {
+    if (!tooltipLocked) return;
+    const handleOutsideClick = () => {
+      setTooltipLocked(false);
+      setTooltipOpen(false);
+    };
+    document.addEventListener("click", handleOutsideClick);
+    return () => {
+      document.removeEventListener("click", handleOutsideClick);
+    };
+  }, [tooltipLocked]);
+
   const [agentData, setAgentData] = useState<Agent[]>([]);
   const [isChecked, setIsChecked] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -755,21 +771,31 @@ function Page() {
                             <SelectValue placeholder="Select Order Status" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Processing">
-                              Processing
-                            </SelectItem>
+                            <SelectItem value="Processing">Processing</SelectItem>
+                            <SelectItem value="In Progress">In Progress</SelectItem>
                             <SelectItem value="Pending">Pending</SelectItem>
                             <SelectItem value="Completed">Completed</SelectItem>
                             <SelectItem value="On Hold">On Hold</SelectItem>
+                            <SelectItem value="Cancelled">Cancelled</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <TooltipProvider>
-                        <Tooltip>
+                        <Tooltip open={tooltipOpen}>
                           <TooltipTrigger asChild>
                             <div
                               className="cursor-pointer p-2 rounded-md border-[1px] border-[#BBBBBB] h-[42px] w-[42px] flex justify-center items-center hover:bg-gray-200 transition-colors"
                               style={{ backgroundColor: fieldBg }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const nextLocked = !tooltipLocked;
+                                setTooltipLocked(nextLocked);
+                                setTooltipOpen(nextLocked);
+                              }}
+                              onMouseEnter={() => setTooltipOpen(true)}
+                              onMouseLeave={() => {
+                                if (!tooltipLocked) setTooltipOpen(false);
+                              }}
                             >
                               <Info
                                 className="h-5 w-5"
@@ -786,6 +812,7 @@ function Page() {
                               color: roleSettings.pageText,
                             }}
                             sideOffset={5}
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <div className="flex flex-col">
                               <div
@@ -1384,14 +1411,10 @@ function Page() {
                 </div>
                 <div>
                   <p className="text-[12px]">
-                    Lorem ipsum dolor sit amet. Et minus internos rem culpa
-                    ratione quo harum obcaecati ut minima quia. Eos aliquid
-                    inventore et dicta sint quo autem ipsam ea officiis iste et
-                    quia temporibus eum ratione sunt non dolorum cumque. Aut
-                    quas optio cum dolorem voluptatibus ut quae culpa aut
-                    repellat quod qui suscipit consequuntur. Qui explicabo
-                    distinctio est eveniet dolorem sed voluptatem perspiciatis
-                    eum Quis dolorum et voluptatem corporis cum minima ipsa.
+                    <span className="text-[14px] font-[500]">Important Final Pricing Notice:</span> The amount shown above is an estimated quote.
+                    Final billing is calculated post-service and may vary based on actual on-site measurements (square footage),
+                    travel expenses, and any additional services requested during the shoot.
+                    The final invoice will be generated and sent to you upon project completion.
                   </p>
                 </div>
               </div>

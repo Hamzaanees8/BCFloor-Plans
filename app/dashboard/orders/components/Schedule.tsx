@@ -87,7 +87,6 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
     const isEdit = searchParams.get('isEdit') === 'true';
     const [googleReady, setGoogleReady] = useState(typeof window !== 'undefined' && !!window.google && !!window.google.maps);
     const [selectedVendorMap, setSelectedVendorMap] = React.useState<Record<string, string | string[]>>({});
-    const [recommendTimeMap, setRecommendTimeMap] = useState<Record<string, 0 | 1>>({});
     const [filteredVendorsByService, setFilteredVendorsByService] = useState<Record<string, VendorData[]>>({});
     // Vendors with force_service_area=false whose property is OUTSIDE their geofence.
     // These are hidden by default but become available when the admin enables Schedule Override.
@@ -115,8 +114,6 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
     const [propertyLocation, setPropertyLocation] = useState<PropertyLocation | null>(null);
     const [openTooltipIdx, setOpenTooltipIdx] = useState<number | null>(null);
     const { userType } = useAppContext();
-    const [scheduleOverrideMap, setScheduleOverrideMap] = useState<Record<string, 0 | 1>>({});
-    const [showAllVendorsMap, setShowAllVendorsMap] = useState<Record<string, 0 | 1>>({});
 
     const {
         selectedCurrentListing,
@@ -126,6 +123,12 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
         servicesData,
         tempPropertyData,
         selectedSlots,
+        scheduleOverrideMap,
+        setScheduleOverrideMap,
+        showAllVendorsMap,
+        setShowAllVendorsMap,
+        recommendTimeMap,
+        setRecommendTimeMap,
     } = useOrderContext();
 
     const servicesToSchedule = isEdit ? selectedServices : selectedServices.filter((s: any) => !s.service_uuid);
@@ -154,6 +157,15 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
 
                 const insideResults = await Promise.all(
                     vendorsForService.map(async vendor => {
+                        const enable_service_area = vendor.settings?.enable_service_area;
+                        const isServiceAreaEnabled = enable_service_area === 1 || enable_service_area === true;
+
+                        // If service area is disabled for this vendor → skip all geofence checks,
+                        // always available for every listing (no override needed).
+                        if (!isServiceAreaEnabled) {
+                            return { vendor, inside: true, canOverride: false };
+                        }
+
                         const force_service_area = vendor.settings?.force_service_area;
                         const isForced = force_service_area === 1 || force_service_area === true;
 
