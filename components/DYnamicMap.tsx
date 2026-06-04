@@ -33,6 +33,7 @@ export default function DynamicMap({
   const { isLoaded } = useLoadScript({
     id: 'google-map-script',
     googleMapsApiKey: process.env.NEXT_PUBLIC_PLACES_API_KEY!,
+    version: "3.64",
   });
 
   const [center, setCenter] = useState<google.maps.LatLngLiteral>(defaultCoords);

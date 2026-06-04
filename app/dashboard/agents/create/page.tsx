@@ -192,6 +192,7 @@ const AgentForm = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [open, setOpen] = useState(false);
     const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     //const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
     const [isPaymentRequired, setIsPaymentRequired] = useState(false);
     const [openChangePasswordDialog, setOpenChangePasswordDialog] = useState(false);
@@ -404,6 +405,7 @@ const AgentForm = () => {
 
     const handleReset = () => {
         setPassword("");
+        setConfirmPassword("");
     };
 
     useEffect(() => {
@@ -691,9 +693,16 @@ const AgentForm = () => {
         if (emailCC && !emailRegex.test(emailCC)) {
             validationErrors.email_cc = ['Invalid email address'];
         }
-        if (!userId && userType !== 'agent' && !password.trim()) {
-            validationErrors.password = ['Password is required'];
-        } else if ((!userId && userType !== 'agent' && password.length < 8) || ((userId || userType === 'agent') && password && password.length < 8)) {
+        if (!userId && userType !== 'agent') {
+            if (!password.trim()) {
+                validationErrors.password = ['Password is required'];
+            } else if (password.length < 8) {
+                validationErrors.password = ['Password must be at least 8 characters'];
+            }
+            if (password !== confirmPassword) {
+                validationErrors.confirm_password = ['Passwords do not match'];
+            }
+        } else if ((userId || userType === 'agent') && password && password.length < 8) {
             validationErrors.password = ['Password must be at least 8 characters'];
         }
         if (!primaryPhone.trim()) {
@@ -911,28 +920,28 @@ const AgentForm = () => {
             setIsLoading(false)
             setOpen(false)
             setFieldErrors({});
-            const apiError = error as { message?: string; errors?: Record<string, string[]> };
+            const errObj = error as any;
+            const apiErrors = errObj.response?.data?.errors || errObj.errors;
 
-            if (apiError.errors && typeof apiError.errors === 'object') {
+            if (apiErrors && typeof apiErrors === "object") {
                 const normalizedErrors: Record<string, string[]> = {};
 
-                Object.entries(apiError.errors).forEach(([key, messages]) => {
-                    const normalizedKey = key.split('.')[0];
+                Object.entries(apiErrors).forEach(([key, messages]) => {
+                    const normalizedKey = key.split(".")[0];
                     if (!normalizedErrors[normalizedKey]) {
                         normalizedErrors[normalizedKey] = [];
                     }
-                    normalizedErrors[normalizedKey].push(...messages);
+                    const msgs = Array.isArray(messages) ? messages : [messages];
+                    normalizedErrors[normalizedKey].push(...(msgs as string[]));
                 });
 
                 setFieldErrors(normalizedErrors);
-
-                // Show the server error message if available, otherwise show first field error
-                const errorMessage = apiError.message || Object.values(normalizedErrors).flat()[0] || 'Validation error';
-                toast.error(errorMessage);
+                const firstMsg = Object.values(normalizedErrors).flat()[0];
+                toast.error(firstMsg || "Validation error kindly re-check your form");
             } else if (error instanceof Error) {
                 toast.error(error.message);
             } else {
-                toast.error('Failed to submit agent data');
+                toast.error("Failed to submit data");
             }
         }
     };
@@ -1245,23 +1254,47 @@ const AgentForm = () => {
                                                     {fieldErrors.email && <p className='text-red-500 text-[10px]'>{fieldErrors.email[0]}</p>}
                                                 </div>
                                                 {!userId && userType !== 'agent' && (
-                                                    <div className='col-span-2'>
-                                                        <label htmlFor="">Password <span className="text-red-500">*</span></label>
-                                                        <PasswordInput
-                                                            value={password}
-                                                            onChange={(e) => {
-                                                                setPassword(e.target.value);
-                                                                if (fieldErrors.password) {
-                                                                    const newErrors = { ...fieldErrors };
-                                                                    delete newErrors.password;
-                                                                    setFieldErrors(newErrors);
-                                                                }
-                                                            }}
-                                                            className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.password ? 'border-red-500' : 'border-[#BBBBBB]'}`}
-                                                            autoComplete="new-password"
-                                                        />
-                                                        {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
-                                                    </div>
+                                                    <>
+                                                        <div className='col-span-2'>
+                                                            <label htmlFor="">Password <span className="text-red-500">*</span></label>
+                                                            <PasswordInput
+                                                                value={password}
+                                                                onChange={(e) => {
+                                                                    setPassword(e.target.value);
+                                                                    if (fieldErrors.password) {
+                                                                        const newErrors = { ...fieldErrors };
+                                                                        delete newErrors.password;
+                                                                        setFieldErrors(newErrors);
+                                                                    }
+                                                                    if (fieldErrors.confirm_password) {
+                                                                        const newErrors = { ...fieldErrors };
+                                                                        delete newErrors.confirm_password;
+                                                                        setFieldErrors(newErrors);
+                                                                    }
+                                                                }}
+                                                                className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.password ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                                                                autoComplete="new-password"
+                                                            />
+                                                            {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
+                                                        </div>
+                                                        <div className='col-span-2'>
+                                                            <label className={fieldErrors.confirm_password ? 'text-red-500' : ''}>Confirm Password <span className="text-red-500">*</span></label>
+                                                            <PasswordInput
+                                                                value={confirmPassword}
+                                                                onChange={(e) => {
+                                                                    setConfirmPassword(e.target.value);
+                                                                    if (fieldErrors.confirm_password) {
+                                                                        const newErrors = { ...fieldErrors };
+                                                                        delete newErrors.confirm_password;
+                                                                        setFieldErrors(newErrors);
+                                                                    }
+                                                                }}
+                                                                className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.confirm_password ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                                                                autoComplete="new-password"
+                                                            />
+                                                            {fieldErrors.confirm_password && <p className='text-red-500 text-[10px]'>{fieldErrors.confirm_password[0]}</p>}
+                                                        </div>
+                                                    </>
                                                 )}
                                                 {currentUser && (
                                                     <div className='col-span-2'>

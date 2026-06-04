@@ -580,7 +580,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                             return (
                                                 <>
                                                     {/* Show override hint when there are overridable vendors */}
-                                                    {!isCalculating && hasOverridable && scheduleOverride === 0 && (
+                                                    {!isCalculating && hasOverridable && scheduleOverride === 0 && userType === 'admin' && (filteredVendorsByService[service.uuid ?? ''] ?? []).length === 0 && (
                                                         <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md">
                                                             <Info className="w-4 h-4 text-amber-600 shrink-0" />
                                                             <p className="text-[11px] text-amber-700 leading-snug">
@@ -874,9 +874,9 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
 
                                 </div>
 
-                                {idx === 2 && (
+                                {((idx + 1) % 3 === 0 || idx === servicesToSchedule?.length - 1) && (
                                     <div className="col-span-3">
-                                        <div className="flex justify-between items-center">
+                                        <div className="flex justify-between items-center border border-[#EEEEEE] bg-white p-4 rounded-lg">
                                             <div className="flex items-center gap-2 text-[9px] text-[#424242]">
                                                 <span className="w-3 h-3 bg-[#2BC6FF] inline-block" />
                                                 <span>Travel From Home</span>
@@ -910,34 +910,6 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                 })()}
             </div>
 
-            <div className="px-16 pb-6">
-                <div className="flex justify-between items-center border border-[#EEEEEE] bg-white p-4 rounded-lg">
-                    <div className="flex items-center gap-2 text-[9px] text-[#424242]">
-                        <span className="w-3 h-3 bg-[#2BC6FF] inline-block" />
-                        <span>Travel From Home</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[9px] text-[#424242]">
-                        <span className="w-3 h-3 bg-[#FD7DFF] inline-block" />
-                        <span>Travel Time Within 15 Minutes</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[9px] text-[#424242]">
-                        <span className="w-3 h-3 bg-[#E8B611] inline-block" />
-                        <span>Travel Time Within 30 Minutes</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[9px] text-[#424242]">
-                        <span className="w-3 h-3 bg-[#E2F202] inline-block" />
-                        <span>Travel Time Within 45 Minutes</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[9px] text-[#424242]">
-                        <span className="w-3 h-3 bg-[#9900A7] inline-block" />
-                        <span>Travel Time Within 60 Minutes</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[9px] text-[#424242]">
-                        <span className="w-3 h-3 bg-[#171484] inline-block" />
-                        <span>Travel Time More Than 60 Minutes</span>
-                    </div>
-                </div>
-            </div>
         </div>
     )
 }

@@ -1054,7 +1054,7 @@ const Page = () => {
     return (
         <div className="text-[#424242]">
             <Script
-                src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_PLACES_API_KEY || ""}&libraries=places`}
+                src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_PLACES_API_KEY || ""}&libraries=places&v=3.64`}
                 strategy="lazyOnload"
             />
             <div

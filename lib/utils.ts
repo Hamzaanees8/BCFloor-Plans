@@ -92,7 +92,7 @@ export function formatPhoneNumber(value: string): string {
     if (dLength <= 11) {
       return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
     }
-    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7, 11)} ext. ${digits.slice(11, 16)}`;
+    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7, 11)}`;
   }
 
   // If it starts with a plus but is NOT +1 (e.g. international number)
@@ -110,7 +110,7 @@ export function formatPhoneNumber(value: string): string {
   if (length <= 10) {
     return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
   }
-  return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)} ext. ${cleaned.slice(10, 15)}`;
+  return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
 }
 
 export function isValidPhoneNumber(value: string): boolean {

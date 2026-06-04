@@ -1199,7 +1199,7 @@ const VendorForm = () => {
       /> */}
       {
         <div
-          className={`flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600]`}
+          className={`flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] ${userType}-text text-[18px] font-[600] sticky top-[80px] z-10`}
           style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
         >
           <div className="flex gap-2">

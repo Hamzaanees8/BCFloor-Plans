@@ -671,25 +671,27 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         } catch (error) {
             console.log('Raw error:', error);
             setFieldErrors({});
-            const apiError = error as { message?: string; errors?: Record<string, string[]> };
+            const errObj = error as any;
+            const apiErrors = errObj.response?.data?.errors || errObj.errors;
 
-            if (apiError.errors && typeof apiError.errors === 'object') {
+            if (apiErrors && typeof apiErrors === "object") {
                 const normalizedErrors: Record<string, string[]> = {};
 
-                Object.entries(apiError.errors).forEach(([key, messages]) => {
-                    const normalizedKey = key.split('.')[0];
+                Object.entries(apiErrors).forEach(([key, messages]) => {
+                    const normalizedKey = key.split(".")[0];
                     if (!normalizedErrors[normalizedKey]) {
                         normalizedErrors[normalizedKey] = [];
                     }
-                    normalizedErrors[normalizedKey].push(...messages);
+                    const msgs = Array.isArray(messages) ? messages : [messages];
+                    normalizedErrors[normalizedKey].push(...(msgs as string[]));
                 });
 
                 setFieldErrors(normalizedErrors);
-
+                toast.error("Validation error kindly re-check your form");
             } else if (error instanceof Error) {
                 toast.error(error.message);
             } else {
-                toast.error('Failed to submit listing data');
+                toast.error("Failed to submit data");
             }
         } finally {
             setIsLoading(false);
@@ -1175,17 +1177,23 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                             <AccordionItem value="extra-details" className='border-0'>
                                                                 <AccordionTrigger className='font-[500] text-[16px] hover:no-underline' style={{ color: roleSettings.pageTabColor }}>Extra Details</AccordionTrigger>
                                                                 <AccordionContent>
-                                                                    <div className='grid grid-cols-4 gap-[16px]'>
+                                                                    <div className='grid grid-cols-4 px-1 gap-[16px]'>
                                                                         <div>
                                                                             <label htmlFor="">Listing Price (CAD)</label>
-                                                                            <Input
-                                                                                value={listingPrice}
-                                                                                onChange={(e) => setListingPrice(e.target.value)}
-                                                                                placeholder="e.g 844,500"
-                                                                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                                                style={{ backgroundColor: fieldBg }}
-                                                                                type="text"
-                                                                            />
+                                                                            <div className="relative mt-[12px]">
+                                                                                <Input
+                                                                                    value={listingPrice}
+                                                                                    onChange={(e) => {
+                                                                                        const val = e.target.value.replace(/[^0-9.]/g, '');
+                                                                                        setListingPrice(val);
+                                                                                    }}
+                                                                                    placeholder="e.g 844,500"
+                                                                                    className="h-[42px] border-[1px] border-[#BBBBBB] pr-8"
+                                                                                    style={{ backgroundColor: fieldBg }}
+                                                                                    type="text"
+                                                                                />
+                                                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666666] pointer-events-none">$</span>
+                                                                            </div>
                                                                         </div>
 
                                                                         <div className="relative w-full">

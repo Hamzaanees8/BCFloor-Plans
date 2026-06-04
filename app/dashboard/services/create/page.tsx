@@ -492,28 +492,27 @@ const ServicesFrom = () => {
       setOpen(false);
       setFieldErrors({});
 
-      const apiError = error as {
-        message?: string;
-        errors?: Record<string, string[]>;
-      };
+      const errObj = error as any;
+      const apiErrors = errObj.response?.data?.errors || errObj.errors;
 
-      if (apiError.errors && typeof apiError.errors === "object") {
+      if (apiErrors && typeof apiErrors === "object") {
         const normalizedErrors: Record<string, string[]> = {};
 
-        Object.entries(apiError.errors).forEach(([key, messages]) => {
-          if (!normalizedErrors[key]) {
-            normalizedErrors[key] = [];
+        Object.entries(apiErrors).forEach(([key, messages]) => {
+          const normalizedKey = key.split(".")[0];
+          if (!normalizedErrors[normalizedKey]) {
+            normalizedErrors[normalizedKey] = [];
           }
-          normalizedErrors[key].push(...messages);
+          const msgs = Array.isArray(messages) ? messages : [messages];
+          normalizedErrors[normalizedKey].push(...(msgs as string[]));
         });
 
         setFieldErrors(normalizedErrors);
         toast.error("Validation error kindly re-check your form");
       } else if (error instanceof Error) {
         toast.error(error.message);
-        console.error(error.message);
       } else {
-        toast.error("Failed to submit user data");
+        toast.error("Failed to submit data");
       }
     }
   };

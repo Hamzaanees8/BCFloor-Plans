@@ -39,10 +39,8 @@ export function SaveModal({
         style={{ backgroundColor: roleSettings.pageBg }}
       >
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            <h2 className="font-semibold text-lg" style={{ color: roleSettings.pageTabColor }}>
-              {isLoading ? "SAVING..." : "SUCCESS"}
-            </h2>
+          <AlertDialogTitle className="font-semibold text-lg" style={{ color: roleSettings.pageTabColor }}>
+            {isLoading ? "SAVING..." : "SUCCESS"}
           </AlertDialogTitle>
 
           <button

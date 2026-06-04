@@ -50,10 +50,15 @@ export default function OrderQuickViewCard({ data, onClose, vendorData, serviceD
     const agentNotes = allNotes.filter((note: any) => note.internal === 'false' || note.is_internal === false || (!note.internal && !note.is_internal));
     const internalNotes = allNotes.filter((note: any) => note.internal === 'true' || note.is_internal === true);
 
-    const serviceOptions = CurrentOrder?.services.find((service) => {
+    const serviceOptions = CurrentOrder?.services?.find((service) => {
         return service.service.uuid == CurrentService?.uuid
     })
 
+    const queryParams = new URLSearchParams();
+    if (CurrentOrder?.property?.uuid) queryParams.append('listingId', CurrentOrder.property.uuid);
+    if (CurrentService?.uuid) queryParams.append('serviceId', CurrentService.uuid);
+    const queryString = queryParams.toString();
+    const fileManagerHref = `/dashboard/file-manager/${CurrentOrder?.uuid}${queryString ? `?${queryString}` : ''}`;
 
     return (
         <Card
@@ -185,7 +190,7 @@ export default function OrderQuickViewCard({ data, onClose, vendorData, serviceD
             <CardFooter className="p-0 mt-10">
                 <div className="w-full flex justify-end gap-[10px]">
                     <Link
-                        href={`/dashboard/file-manager/${CurrentOrder?.uuid}?listingId=${CurrentOrder?.property?.uuid}${CurrentService?.uuid ? `&serviceId=${CurrentService.uuid}` : ''}`}
+                        href={fileManagerHref}
                         className={`${userType}-bg border-[1px] text-[14px] flex justify-center items-center ${userType}-border text-[#fff] rounded-none w-[132px] h-[32px] hover:text-white hover:brightness-110`}
                     >
                         Manage Media

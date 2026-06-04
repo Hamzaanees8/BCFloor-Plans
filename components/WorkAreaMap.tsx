@@ -43,6 +43,7 @@ export default function WorkAreaMap({
   const { isLoaded, loadError } = useLoadScript({
     id: 'google-map-script',
     googleMapsApiKey: process.env.NEXT_PUBLIC_PLACES_API_KEY || "",
+    version: "3.64",
     libraries: ["drawing"],
   });
 

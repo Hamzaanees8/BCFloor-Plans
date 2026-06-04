@@ -89,6 +89,7 @@ const OrdersForm = () => {
     const [country, setCountry] = useState("CA");
     const [postalCode, setPostalCode] = useState("");
     const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     const [selectedPermissions, setSelectedPermissions] = useState<number[]>([]);
     // const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
     const [openChangePasswordDialog, setOpenChangePasswordDialog] = useState(false);
@@ -113,6 +114,7 @@ const OrdersForm = () => {
     const { userType } = useAppContext()
     const handleReset = () => {
         setPassword("");
+        setConfirmPassword("");
     };
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '');
     const router = useRouter();
@@ -428,6 +430,10 @@ const OrdersForm = () => {
                 errors.password = ["Password must be at least 8 characters"];
                 isValid = false;
             }
+            if (password !== confirmPassword) {
+                errors.confirm_password = ["Passwords do not match"];
+                isValid = false;
+            }
         } else if (password && password.length < 8) {
             errors.password = ["Password must be at least 8 characters"];
             isValid = false;
@@ -551,31 +557,29 @@ const OrdersForm = () => {
             setOpenSaveDialog(false);
 
             setFieldErrors({});
-            const apiError = error as { message?: string; errors?: Record<string, string[]> };
+            const errObj = error as any;
+      const apiErrors = errObj.response?.data?.errors || errObj.errors;
 
-            if (apiError.errors && typeof apiError.errors === 'object') {
-                const normalizedErrors: Record<string, string[]> = {};
+      if (apiErrors && typeof apiErrors === "object") {
+        const normalizedErrors: Record<string, string[]> = {};
 
-                Object.entries(apiError.errors).forEach(([key, messages]) => {
-                    const normalizedKey = key.split('.')[0];
-                    if (!normalizedErrors[normalizedKey]) {
-                        normalizedErrors[normalizedKey] = [];
-                    }
-                    normalizedErrors[normalizedKey].push(...messages);
-                });
+        Object.entries(apiErrors).forEach(([key, messages]) => {
+          const normalizedKey = key.split(".")[0];
+          if (!normalizedErrors[normalizedKey]) {
+            normalizedErrors[normalizedKey] = [];
+          }
+          const msgs = Array.isArray(messages) ? messages : [messages];
+          normalizedErrors[normalizedKey].push(...(msgs as string[]));
+        });
 
-                setFieldErrors(normalizedErrors);
-
-                if (normalizedErrors.primary_email && normalizedErrors.primary_email.some(msg => msg.toLowerCase().includes('already been taken'))) {
-                    toast.error('Email is already connected as a co-agent. Either deactivate that account or create a new one using a different email address.');
-                } else {
-                    toast.error('Validation error kindly re-check your form');
-                }
-            } else if (error instanceof Error) {
-                toast.error(error.message);
-            } else {
-                toast.error('Failed to submit user data');
-            }
+        setFieldErrors(normalizedErrors);
+        const firstMsg = Object.values(normalizedErrors).flat()[0];
+        toast.error(firstMsg || "Validation error kindly re-check your form");
+      } else if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("Failed to submit data");
+      }
         }
     };
 
@@ -735,25 +739,53 @@ const OrdersForm = () => {
                                                     {fieldErrors.primary_email && <p className='text-red-500 text-[10px]'>{fieldErrors.primary_email[0]}</p>}
                                                 </div>
                                                 {!currentUser && (
-                                                    <div className='col-span-2'>
-                                                        <label htmlFor="">Password <span className="text-red-500">*</span></label>
-                                                        <PasswordInput
-                                                            value={password}
-                                                            onChange={(e) => {
-                                                                setPassword(e.target.value);
-                                                                if (fieldErrors.password) {
-                                                                    setFieldErrors(prev => {
-                                                                        const newErrors = { ...prev };
-                                                                        delete newErrors.password;
-                                                                        return newErrors;
-                                                                    });
-                                                                }
-                                                            }}
-                                                            className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.password ? 'border-red-500' : ''}`}
-                                                            autoComplete="new-password"
-                                                        />
-                                                        {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
-                                                    </div>
+                                                    <>
+                                                        <div className='col-span-2'>
+                                                            <label htmlFor="">Password <span className="text-red-500">*</span></label>
+                                                            <PasswordInput
+                                                                value={password}
+                                                                onChange={(e) => {
+                                                                    setPassword(e.target.value);
+                                                                    if (fieldErrors.password) {
+                                                                        setFieldErrors(prev => {
+                                                                            const newErrors = { ...prev };
+                                                                            delete newErrors.password;
+                                                                            return newErrors;
+                                                                        });
+                                                                    }
+                                                                    if (fieldErrors.confirm_password) {
+                                                                        setFieldErrors(prev => {
+                                                                            const newErrors = { ...prev };
+                                                                            delete newErrors.confirm_password;
+                                                                            return newErrors;
+                                                                        });
+                                                                    }
+                                                                }}
+                                                                className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.password ? 'border-red-500' : ''}`}
+                                                                autoComplete="new-password"
+                                                            />
+                                                            {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
+                                                        </div>
+                                                        <div className='col-span-2'>
+                                                            <label className={fieldErrors.confirm_password ? 'text-red-500' : ''}>Confirm Password <span className="text-red-500">*</span></label>
+                                                            <PasswordInput
+                                                                value={confirmPassword}
+                                                                onChange={(e) => {
+                                                                    setConfirmPassword(e.target.value);
+                                                                    if (fieldErrors.confirm_password) {
+                                                                        setFieldErrors(prev => {
+                                                                            const newErrors = { ...prev };
+                                                                            delete newErrors.confirm_password;
+                                                                            return newErrors;
+                                                                        });
+                                                                    }
+                                                                }}
+                                                                className={`h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] ${fieldErrors.confirm_password ? 'border-red-500' : ''}`}
+                                                                autoComplete="new-password"
+                                                            />
+                                                            {fieldErrors.confirm_password && <p className='text-red-500 text-[10px]'>{fieldErrors.confirm_password[0]}</p>}
+                                                        </div>
+                                                    </>
                                                 )}
                                                 {currentUser && (
                                                     <div className='col-span-2'>

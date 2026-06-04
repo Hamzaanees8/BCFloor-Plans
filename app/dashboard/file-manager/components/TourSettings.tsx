@@ -529,16 +529,22 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                     Active
                                                 </Label>
                                             </div> */}
-                                            <div>
-                                                <label htmlFor="">Price</label>
-                                                <Input
-                                                    value={price}
-                                                    onChange={(e) => setprice(e.target.value ? Number(e.target.value) : undefined)}
-                                                    placeholder="Enter Price"
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                    type="text"
-                                                />
-                                            </div>
+                                              <div>
+                                                  <label htmlFor="">Price</label>
+                                                  <div className="relative mt-[12px]">
+                                                      <Input
+                                                          value={price}
+                                                          onChange={(e) => {
+                                                              const val = e.target.value.replace(/[^0-9.]/g, '');
+                                                              setprice(val ? Number(val) : undefined);
+                                                          }}
+                                                          placeholder="Enter Price"
+                                                          className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] pr-8"
+                                                          type="text"
+                                                      />
+                                                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666666] pointer-events-none">$</span>
+                                                  </div>
+                                              </div>
                                             <div>
                                                 <label htmlFor="">Beds</label>
                                                 <Input

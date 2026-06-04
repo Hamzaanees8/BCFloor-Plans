@@ -439,31 +439,27 @@ const ListingsFrom = () => {
     } catch (error) {
       setIsLoading(false);
       setFieldErrors({});
-      const apiError = error as {
-        message?: string;
-        errors?: Record<string, string[]>;
-      };
+      const errObj = error as any;
+      const apiErrors = errObj.response?.data?.errors || errObj.errors;
 
-      if (apiError.errors && typeof apiError.errors === "object") {
+      if (apiErrors && typeof apiErrors === "object") {
         const normalizedErrors: Record<string, string[]> = {};
 
-        Object.entries(apiError.errors).forEach(([key, messages]) => {
+        Object.entries(apiErrors).forEach(([key, messages]) => {
           const normalizedKey = key.split(".")[0];
           if (!normalizedErrors[normalizedKey]) {
             normalizedErrors[normalizedKey] = [];
           }
-          normalizedErrors[normalizedKey].push(...messages);
+          const msgs = Array.isArray(messages) ? messages : [messages];
+          normalizedErrors[normalizedKey].push(...(msgs as string[]));
         });
 
         setFieldErrors(normalizedErrors);
-
-        // const firstError = Object.values(normalizedErrors).flat()[0];
-        // toast.error(firstError || "Validation error");
         toast.error("Validation error kindly re-check your form");
       } else if (error instanceof Error) {
         toast.error(error.message);
       } else {
-        toast.error("Failed to submit user data");
+        toast.error("Failed to submit data");
       }
     }
   };
@@ -958,27 +954,31 @@ const ListingsFrom = () => {
                       )}
 
                       <div>
-                        <label htmlFor="">
-                          Listing Price (CAD){" "}
-                          {/* <span className="text-red-500">*</span> */}
-                        </label>
-                        <Input
-                          value={listingPrice}
-                          onChange={(e) => {
-                            setListingPrice(e.target.value);
-                            if (fieldErrors.listing_price) {
-                              const newErrors = { ...fieldErrors };
-                              delete newErrors.listing_price;
-                              setFieldErrors(newErrors);
-                            }
-                          }}
-                          placeholder="e.g 844,500"
-                          className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.listing_price
-                            ? "border-red-500"
-                            : "border-[#BBBBBB]"
-                            }`}
-                          type="text"
-                        />
+                          <label htmlFor="">
+                            Listing Price (CAD){" "}
+                            {/* <span className="text-red-500">*</span> */}
+                          </label>
+                          <div className="relative mt-[12px]">
+                            <Input
+                              value={listingPrice}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[^0-9.]/g, '');
+                                setListingPrice(val);
+                                if (fieldErrors.listing_price) {
+                                  const newErrors = { ...fieldErrors };
+                                  delete newErrors.listing_price;
+                                  setFieldErrors(newErrors);
+                                }
+                              }}
+                              placeholder="e.g 844,500"
+                              className={`h-[42px] bg-[#EEEEEE] border-[1px] pr-8 ${fieldErrors.listing_price
+                                ? "border-red-500"
+                                : "border-[#BBBBBB]"
+                                }`}
+                              type="text"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666666] pointer-events-none">$</span>
+                          </div>
                         {fieldErrors.listing_price && (
                           <p className="text-red-500 text-[10px] mt-1">
                             {fieldErrors.listing_price[0]}

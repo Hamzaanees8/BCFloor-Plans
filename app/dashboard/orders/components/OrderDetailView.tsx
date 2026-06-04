@@ -519,23 +519,28 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
                 return false;
             }
         } catch (error) {
-            const apiError = error as { message?: string; errors?: Record<string, string[]> };
+            const errObj = error as any;
+      const apiErrors = errObj.response?.data?.errors || errObj.errors;
 
-            if (apiError.errors && typeof apiError.errors === 'object') {
-                const normalizedErrors: Record<string, string[]> = {};
+      if (apiErrors && typeof apiErrors === "object") {
+        const normalizedErrors: Record<string, string[]> = {};
 
-                Object.entries(apiError.errors).forEach(([key, messages]) => {
-                    const normalizedKey = key.split('.')[0];
-                    if (!normalizedErrors[normalizedKey]) {
-                        normalizedErrors[normalizedKey] = [];
-                    }
-                    normalizedErrors[normalizedKey].push(...messages);
-                });
-            } else if (error instanceof Error) {
-                toast.error(error.message);
-            } else {
-                toast.error('Failed to submit order data');
-            }
+        Object.entries(apiErrors).forEach(([key, messages]) => {
+          const normalizedKey = key.split(".")[0];
+          if (!normalizedErrors[normalizedKey]) {
+            normalizedErrors[normalizedKey] = [];
+          }
+          const msgs = Array.isArray(messages) ? messages : [messages];
+          normalizedErrors[normalizedKey].push(...(msgs as string[]));
+        });
+
+        const firstError = Object.values(normalizedErrors).flat()[0];
+        toast.error(firstError || "Validation error kindly re-check your form");
+      } else if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("Failed to submit data");
+      }
             return false;
         } finally {
             setIsLoading(false);

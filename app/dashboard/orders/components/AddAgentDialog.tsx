@@ -86,6 +86,7 @@ const AddAgentDialog: React.FC<Props> = ({
     const [isLoading, setIsLoading] = useState(false);
     const [coAgents, setCoAgents] = useState<{ name: string; email: string; primary_phone: string; split: string }[]>([]);
     const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     const [certificationText, setCertificationText] = useState<string>("");
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
@@ -118,6 +119,7 @@ const AddAgentDialog: React.FC<Props> = ({
         setCompanyName('');
         setCompanyWebsite('');
         setPassword('');
+        setConfirmPassword('');
         if (roles.length > 0) {
             setRole(String(roles[0].id));
         } else {
@@ -205,6 +207,18 @@ const AddAgentDialog: React.FC<Props> = ({
         try {
 
             const errors: Record<string, string[]> = {};
+            if (!uuid) {
+                if (!password.trim()) {
+                    errors.password = ['Password is required'];
+                } else if (password.length < 8) {
+                    errors.password = ['Password must be at least 8 characters'];
+                }
+                if (password !== confirmPassword) {
+                    errors.confirm_password = ['Passwords do not match'];
+                }
+            } else if (password && password.length < 8) {
+                errors.password = ['Password must be at least 8 characters'];
+            }
             if (!primaryPhone.trim()) {
                 errors.primary_phone = ['Primary phone is required'];
             } else if (!isValidPhoneNumber(primaryPhone)) {
@@ -296,25 +310,28 @@ const AddAgentDialog: React.FC<Props> = ({
             setIsLoading(false)
             setOpenSaveDialog(false)
             setFieldErrors({});
-            const apiError = error as { message?: string; errors?: Record<string, string[]> };
+            const errObj = error as any;
+      const apiErrors = errObj.response?.data?.errors || errObj.errors;
 
-            if (apiError.errors && typeof apiError.errors === 'object') {
-                const normalizedErrors: Record<string, string[]> = {};
+      if (apiErrors && typeof apiErrors === "object") {
+        const normalizedErrors: Record<string, string[]> = {};
 
-                Object.entries(apiError.errors).forEach(([key, messages]) => {
-                    const normalizedKey = key.split('.')[0];
-                    if (!normalizedErrors[normalizedKey]) {
-                        normalizedErrors[normalizedKey] = [];
-                    }
-                    normalizedErrors[normalizedKey].push(...messages);
-                });
+        Object.entries(apiErrors).forEach(([key, messages]) => {
+          const normalizedKey = key.split(".")[0];
+          if (!normalizedErrors[normalizedKey]) {
+            normalizedErrors[normalizedKey] = [];
+          }
+          const msgs = Array.isArray(messages) ? messages : [messages];
+          normalizedErrors[normalizedKey].push(...(msgs as string[]));
+        });
 
-                setFieldErrors(normalizedErrors);
-            } else if (error instanceof Error) {
-                toast.error(error.message);
-            } else {
-                toast.error('Failed to submit agent data');
-            }
+        setFieldErrors(normalizedErrors);
+        toast.error("Validation error kindly re-check your form");
+      } else if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("Failed to submit data");
+      }
         }
     };
 
@@ -406,15 +423,45 @@ const AddAgentDialog: React.FC<Props> = ({
                                 {fieldErrors.email && <p className='text-red-500 text-[10px]'>{fieldErrors.email[0]}</p>}
                             </div>
                             {!uuid && (
-                                <div className='col-span-2'>
-                                    <label htmlFor="">Password <span className="text-red-500">*</span></label>
-                                    <PasswordInput
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]'
-                                    />
-                                    {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
-                                </div>
+                                <>
+                                    <div className='col-span-2'>
+                                        <label htmlFor="">Password <span className="text-red-500">*</span></label>
+                                        <PasswordInput
+                                            value={password}
+                                            onChange={(e) => {
+                                                setPassword(e.target.value);
+                                                if (fieldErrors.password) {
+                                                    const newErrors = { ...fieldErrors };
+                                                    delete newErrors.password;
+                                                    setFieldErrors(newErrors);
+                                                }
+                                                if (fieldErrors.confirm_password) {
+                                                    const newErrors = { ...fieldErrors };
+                                                    delete newErrors.confirm_password;
+                                                    setFieldErrors(newErrors);
+                                                }
+                                            }}
+                                            className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.password ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                                        />
+                                        {fieldErrors.password && <p className='text-red-500 text-[10px]'>{fieldErrors.password[0]}</p>}
+                                    </div>
+                                    <div className='col-span-2'>
+                                        <label className={fieldErrors.confirm_password ? 'text-red-500' : ''}>Confirm Password <span className="text-red-500">*</span></label>
+                                        <PasswordInput
+                                            value={confirmPassword}
+                                            onChange={(e) => {
+                                                setConfirmPassword(e.target.value);
+                                                if (fieldErrors.confirm_password) {
+                                                    const newErrors = { ...fieldErrors };
+                                                    delete newErrors.confirm_password;
+                                                    setFieldErrors(newErrors);
+                                                }
+                                            }}
+                                            className={`h-[42px] bg-[#EEEEEE] border-[1px] mt-[12px] ${fieldErrors.confirm_password ? 'border-red-500' : 'border-[#BBBBBB]'}`}
+                                        />
+                                        {fieldErrors.confirm_password && <p className='text-red-500 text-[10px]'>{fieldErrors.confirm_password[0]}</p>}
+                                    </div>
+                                </>
                             )}
                             <div className='col-span-2'>
                                 <label htmlFor="">Primary Phone <span className="text-red-500">*</span></label>
