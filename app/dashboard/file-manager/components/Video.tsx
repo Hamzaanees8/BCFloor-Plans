@@ -58,7 +58,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
             const token = localStorage.getItem("token") || "";
             const vendor = orderData?.vendor;
             const vendorName = vendor ? `${vendor.first_name} ${vendor.last_name}` : "Vendor";
-            
+
             await api.post(`/notifications`, {
                 source: 'order',
                 source_id: orderData?.uuid || "",
@@ -459,7 +459,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                     )}
                                 </div>
                             )}
-                             {userType === 'admin' && (
+                            {userType === 'admin' && (
                                 <div
                                     className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
                                     onClick={(e) => {
@@ -785,44 +785,44 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                         </Button>
                     )}
                     {!isHidingMode && userType !== 'agent' && (
-                            reviewFilesEnabled && userType === 'vendor' ? (
-                                <Button
-                                    onClick={handleSubmitAdminApproval}
-                                    disabled={isSubmitting}
-                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] min-w-[150px] w-fit px-4 flex justify-center items-center font-alexandria`}
-                                >
-                                    {isSubmitting ? (
-                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                    ) : mediaUploaded ? (
-                                        <Check color="#fff" size={14} className="mr-2" />
-                                    ) : null}
-                                    {mediaUploaded ? 'Submitted' : 'Submit for Admin Approval'}
-                                </Button>
-                            ) : (
-                                <Button
-                                    onClick={() => {
-                                        setFileManagerMode('upload');
-                                        setMediaUploaded(true);
-                                        setShowConfirmation(true)
-                                        if (onSave) onSave();
-                                    }}
-                                    disabled={isSaving}
-                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[var(--primary-color)] hover:opacity-90 text-white'}  h-[32px] w-[150px] flex justify-center items-center `}
-                                    style={!mediaUploaded ? { backgroundColor: 'var(--primary-color)' } : {}}
-                                >
-                                    {isSaving ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            Submitting...
-                                        </>
-                                    ) : mediaUploaded ? (
-                                        <Check color="#fff" size={14} />
-                                    ) : (
-                                        'Submit to Client'
-                                    )}
-                                </Button>
-                            )
-                        )}
+                        reviewFilesEnabled && userType === 'vendor' ? (
+                            <Button
+                                onClick={handleSubmitAdminApproval}
+                                disabled={isSubmitting}
+                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] min-w-[150px] w-fit px-4 flex justify-center items-center font-alexandria`}
+                            >
+                                {isSubmitting ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                ) : mediaUploaded ? (
+                                    <Check color="#fff" size={14} className="mr-2" />
+                                ) : null}
+                                {mediaUploaded ? 'Submitted' : 'Submit for Admin Approval'}
+                            </Button>
+                        ) : (
+                            <Button
+                                onClick={() => {
+                                    setFileManagerMode('upload');
+                                    setMediaUploaded(true);
+                                    setShowConfirmation(true)
+                                    if (onSave) onSave();
+                                }}
+                                disabled={isSaving}
+                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[var(--primary-color)] hover:opacity-90 text-white'}  h-[32px] w-[150px] flex justify-center items-center `}
+                                style={!mediaUploaded ? { backgroundColor: 'var(--primary-color)' } : {}}
+                            >
+                                {isSaving ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Submitting...
+                                    </>
+                                ) : mediaUploaded ? (
+                                    <Check color="#fff" size={14} />
+                                ) : (
+                                    'Submit to Client'
+                                )}
+                            </Button>
+                        )
+                    )}
                     <AgentNotificationModal
                         open={showConfirmation}
                         onClose={() => setShowConfirmation(false)}
@@ -855,7 +855,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                         </div>
                     ) : userType === 'admin' ? (
                         <div className='flex items-center gap-[10px] mr-2'>
-                            <div className='flex flex-col justify-center items-end mr-2 text-right'>
+                            {/* <div className='flex flex-col justify-center items-end mr-2 text-right'>
                                 <p className='text-[16px] text-[#6BAE41] font-bold leading-none mb-1'>
                                     ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
                                 </p>
@@ -864,7 +864,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                         incl. ${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST
                                     </p>
                                 ) : null}
-                            </div>
+                            </div> */}
                             <Button
                                 onClick={() => {
                                     if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
@@ -939,9 +939,9 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                             variant="outline"
                             onClick={() => setOpenUpgrade(true)}
                             className={`border h-[36px] px-6 rounded transition-colors font-medium ml-2 ${userType}-button`}
-                            style={{ 
-                                borderColor: `var(--${userType}-page-tab-color)`, 
-                                color: `var(--${userType}-page-tab-color)` 
+                            style={{
+                                borderColor: `var(--${userType}-page-tab-color)`,
+                                color: `var(--${userType}-page-tab-color)`
                             }}
                         >
                             Upgrade Plan

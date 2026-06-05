@@ -490,3 +490,7 @@ export const useFileManagerContext = () => {
     }
     return context;
 };
+
+export const useOptionalFileManagerContext = () => {
+    return useContext(FileManagerContext);
+};

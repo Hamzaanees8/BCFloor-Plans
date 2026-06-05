@@ -391,3 +391,7 @@ export const useWhiteLabel = () => {
     }
     return context
 }
+
+export const useOptionalWhiteLabel = () => {
+    return useContext(WhiteLabelContext)
+}

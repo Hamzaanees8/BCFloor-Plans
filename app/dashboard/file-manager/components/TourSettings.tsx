@@ -201,54 +201,58 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
             return;
         }
 
-        // Validate agent inputs
-        if (!first_name.trim()) {
-            toast.error("Agent first name is required");
-            return;
-        }
-        if (!last_name.trim()) {
-            toast.error("Agent last name is required");
-            return;
-        }
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!email.trim()) {
-            toast.error("Agent email is required");
-            return;
-        } else if (!emailRegex.test(email)) {
-            toast.error("Invalid agent email address");
-            return;
-        }
-
         let formattedWebsite = website?.trim();
-        if (formattedWebsite && !/^https?:\/\//i.test(formattedWebsite)) {
-            formattedWebsite = 'https://' + formattedWebsite;
+        // Validate agent inputs
+        if (userType !== 'vendor') {
+            if (!first_name.trim()) {
+                toast.error("Agent first name is required");
+                return;
+            }
+            if (!last_name.trim()) {
+                toast.error("Agent last name is required");
+                return;
+            }
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!email.trim()) {
+                toast.error("Agent email is required");
+                return;
+            } else if (!emailRegex.test(email)) {
+                toast.error("Invalid agent email address");
+                return;
+            }
+
+            if (formattedWebsite && !/^https?:\/\//i.test(formattedWebsite)) {
+                formattedWebsite = 'https://' + formattedWebsite;
+            }
         }
 
         setSaving(true);
         try {
-            // Step 1: Upload agent files directly to S3
-            const filesToUpload: { file: File; slot: string }[] = [];
-            if (avatarFile) {
-                filesToUpload.push({ file: avatarFile, slot: 'avatar' });
-            }
-            if (companyLogoFile) {
-                filesToUpload.push({ file: companyLogoFile, slot: 'company_logo' });
-            }
-            if (filesToUpload.length > 0) {
-                await uploadFiles(filesToUpload, orderData.agent.uuid);
-            }
+            if (userType !== 'vendor') {
+                // Step 1: Upload agent files directly to S3
+                const filesToUpload: { file: File; slot: string }[] = [];
+                if (avatarFile) {
+                    filesToUpload.push({ file: avatarFile, slot: 'avatar' });
+                }
+                if (companyLogoFile) {
+                    filesToUpload.push({ file: companyLogoFile, slot: 'company_logo' });
+                }
+                if (filesToUpload.length > 0) {
+                    await uploadFiles(filesToUpload, orderData.agent.uuid);
+                }
 
-            // Step 2: Save agent details
-            await EditAgent(orderData.agent.uuid, {
-                first_name,
-                last_name,
-                email,
-                primary_phone: primary_phone || undefined,
-                company_name: company_name || undefined,
-                website: formattedWebsite || undefined,
-                license_number: license_number || undefined,
-                _method: 'PUT'
-            });
+                // Step 2: Save agent details
+                await EditAgent(orderData.agent.uuid, {
+                    first_name,
+                    last_name,
+                    email,
+                    primary_phone: primary_phone || undefined,
+                    company_name: company_name || undefined,
+                    website: formattedWebsite || undefined,
+                    license_number: license_number || undefined,
+                    _method: 'PUT'
+                });
+            }
 
             // Step 3: Save property details
             const token = localStorage.getItem("token");
@@ -665,8 +669,9 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                     value={first_name}
                                                     onChange={(e) => setfirst_name(e.target.value)}
                                                     placeholder="Enter First Name"
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-50"
                                                     type="text"
+                                                    disabled={userType === "vendor"}
                                                 />
                                             </div>
                                             <div>
@@ -675,38 +680,42 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                     value={last_name}
                                                     onChange={(e) => setlast_name(e.target.value)}
                                                     placeholder="Enter Last Name"
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-50"
                                                     type="text"
+                                                    disabled={userType === "vendor"}
                                                 />
                                             </div>
                                             <div className="col-span-2">
                                                 <label htmlFor="">Company Name</label>
                                                 <Input
                                                     placeholder="Enter Company Name"
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-50"
                                                     type="text"
                                                     value={company_name}
                                                     onChange={(e) => setcompany_name(e.target.value)}
+                                                    disabled={userType === "vendor"}
                                                 />
                                             </div>
                                             <div>
                                                 <label htmlFor="">License Number</label>
                                                 <Input
                                                     placeholder="Enter License Number"
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-50"
                                                     type="text"
                                                     value={license_number}
                                                     onChange={(e) => setlicense_number(e.target.value)}
+                                                    disabled={userType === "vendor"}
                                                 />
                                             </div>
                                             <div>
                                                 <label htmlFor="">Website</label>
                                                 <Input
                                                     placeholder="Enter Website"
-                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-50"
                                                     type="text"
                                                     value={website}
                                                     onChange={(e) => setwebsite(e.target.value)}
+                                                    disabled={userType === "vendor"}
                                                 />
                                             </div>
                                             <div className='col-span-2 flex items-end gap-x-[6px]'>
@@ -729,7 +738,8 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                         <button
                                                             type="button"
                                                             onClick={triggerFileInput}
-                                                            className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                            className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8] disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            disabled={userType === "vendor"}
                                                         >
                                                             Replace
                                                         </button>
@@ -769,7 +779,8 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                                         <button
                                                             type="button"
                                                             onClick={triggerFileInput1}
-                                                            className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8]"
+                                                            className="px-4 bg-[#E4E4E4] text-base font-normal w-[94px] h-full text-[#7D7D7D] border-l border-[#A8A8A8] disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            disabled={userType === "vendor"}
                                                         >
                                                             Replace
                                                         </button>
@@ -793,7 +804,10 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                             <Input
                                                 value={email}
                                                 onChange={(e) => setemail(e.target.value)}
-                                                className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="email" />
+                                                className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-50' 
+                                                type="email" 
+                                                disabled={userType === "vendor"}
+                                            />
 
                                         </div>
                                         <div>
@@ -801,7 +815,10 @@ const TourSettings = ({ orderData, setOrderData, onRefresh }: TourSettingProps) 
                                             <Input
                                                 value={primary_phone}
                                                 onChange={(e) => setprimary_phone(e.target.value)}
-                                                className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]' type="text" />
+                                                className='h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] disabled:opacity-50' 
+                                                type="text" 
+                                                disabled={userType === "vendor"}
+                                            />
                                         </div>
 
                                     </div>

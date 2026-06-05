@@ -1,13 +1,41 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useFileManagerContext } from "../FileManagerContext";
 import { CheckIcon } from 'lucide-react';
 const TourMatterport = () => {
-    const { links, setLinks, } = useFileManagerContext();
+    const { links, setLinks, filesData } = useFileManagerContext();
     const [isBrandedChecked, setIsBrandedChecked] = useState(false);
     const [isUnbrandedChecked, setIsUnbrandedChecked] = useState(false);
+
+    useEffect(() => {
+        if (filesData?.links && links.length === 0) {
+            const apiLinks = filesData.links
+                .filter(l => !l.is_hidden && l.link)
+                .map(l => ({
+                    uuid: l.uuid,
+                    type: l.type as "branded" | "unbranded",
+                    service_id: typeof l.service_id === 'string' ? l.service_id : (l.service?.uuid || String(l.service_id)),
+                    link: l.link,
+                    expiry_date: l.expiry_date
+                }));
+            
+            const uniqueLinks: typeof apiLinks = [];
+            const seen = new Set();
+            for (const l of apiLinks) {
+                const key = `${l.type}-${l.link}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueLinks.push(l);
+                }
+            }
+            if (uniqueLinks.length > 0) {
+                setLinks(uniqueLinks);
+            }
+        }
+    }, [filesData?.links, links.length, setLinks]);
+
     const isValidUrl = (url: string) => {
         try {
             new URL(url);

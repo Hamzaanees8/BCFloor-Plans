@@ -19,6 +19,7 @@ interface CustomSlideshowProps {
   propIsMuted?: boolean;
   propSetIsPlaying?: (playing: boolean) => void;
   propSetIsMuted?: (muted: boolean) => void;
+  className?: string;
 }
 
 const transitionClasses = [
@@ -54,7 +55,8 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   propIsPlaying,
   propIsMuted,
   propSetIsPlaying,
-  propSetIsMuted
+  propSetIsMuted,
+  className = "h-[100vh]"
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lastIndex, setLastIndex] = useState<number | null>(null);
@@ -107,7 +109,13 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
 
   useEffect(() => {
     if (propCurrentIndex !== undefined) {
-      setCurrentIndex(propCurrentIndex);
+      setCurrentIndex((prev) => {
+        if (prev !== propCurrentIndex) {
+          setLastIndex(prev);
+          return propCurrentIndex;
+        }
+        return prev;
+      });
     }
   }, [propCurrentIndex]);
 
@@ -215,7 +223,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     <div
       ref={containerRef}
       onMouseMove={handleMouseMove}
-      className="relative w-full h-[100vh] overflow-hidden bg-black group"
+      className={`relative w-full overflow-hidden bg-black group isolate ${className}`}
     >
       {/* Audio - only if not externally controlled */}
       {audioUrl && !externalAudioControl && (

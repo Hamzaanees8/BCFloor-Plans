@@ -10,12 +10,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  CircleArrowLeft,
-  CircleArrowRight,
   Mail,
   Phone,
 } from "lucide-react";
-import { useFileManagerContext } from "../FileManagerContext";
+import { useOptionalFileManagerContext } from "../FileManagerContext";
+import PublicTourFloorPlans from "@/app/tour/components/PublicTourFloorPlans";
 import {
   BathIcon,
   BedIcon,
@@ -34,20 +33,63 @@ import TourActivityDialog from "./TourActivityDialog";
 
 interface TourConfimation {
   orderData: Order | null;
+  isPublicView?: boolean;
+  hideAccordion?: boolean;
+  publicAudioUrl?: string;
+  onMediaView?: (uuid: string) => void;
+  publicTourPhotos?: any[];
+  publicVideoFiles?: any[];
+  publicFloorPlanFiles?: any[];
+  publicMatterportLinks?: any[];
+  isAudioPlaying?: boolean;
+  isAudioMuted?: boolean;
+  setIsAudioPlaying?: (val: boolean) => void;
+  setIsAudioMuted?: (val: boolean) => void;
 }
 
-import { useAppContext } from "@/app/context/AppContext";
+import { useOptionalAppContext } from "@/app/context/AppContext";
+import { useOptionalWhiteLabel } from "@/app/context/Whitelabel";
 import { PublishTour } from "../file-manager";
 import { toast } from "sonner";
 
-const TourConfirm = ({ orderData }: TourConfimation) => {
-  const { userType } = useAppContext();
-  const { selectedFiles, delay, transition, audioUrl, links, filesData } =
-    useFileManagerContext();
+const TourConfirm = ({
+  orderData,
+  isPublicView,
+  hideAccordion,
+  publicAudioUrl,
+  onMediaView,
+  publicTourPhotos,
+  publicVideoFiles,
+  publicFloorPlanFiles,
+  publicMatterportLinks,
+  isAudioPlaying,
+  isAudioMuted,
+  setIsAudioPlaying,
+  setIsAudioMuted
+}: TourConfimation) => {
+  const appContext = useOptionalAppContext();
+  const userType = appContext?.userType;
+
+  const whiteLabelContext = useOptionalWhiteLabel();
+  const appliedSettings = whiteLabelContext?.appliedSettings;
+
+  const role = (userType as string)?.toLowerCase() || "admin";
+  const roleSettings =
+    appliedSettings?.[role as keyof typeof appliedSettings] ||
+    appliedSettings?.["admin"] || { pageTabColor: '#4290E9', activeColor: '#4290E9' };
+
+  const fileManagerContext = useOptionalFileManagerContext();
+  const selectedFiles = fileManagerContext?.selectedFiles || [];
+  const delay = fileManagerContext?.delay || Number(orderData?.tours?.[0]?.slide_show?.slide_delay) || 4000;
+  const transition = fileManagerContext?.transition || orderData?.tours?.[0]?.slide_show?.transitions || 'kenburns';
+  const audioUrl = isPublicView ? publicAudioUrl : fileManagerContext?.audioUrl;
+  const links = fileManagerContext?.links || [];
+  const filesData = fileManagerContext?.filesData || null;
+  const selectedVideoFiles = React.useMemo(() => fileManagerContext?.selectedVideoFiles || [], [fileManagerContext?.selectedVideoFiles]);
+
   const uploadedImages = selectedFiles?.filter((f) => f.upload) || [];
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState("Home");
-  const { selectedVideoFiles } = useFileManagerContext();
   const [mainVideo, setMainVideo] = useState<string | null>(null);
   // const [confirmFloor, setConfirmFloor] = useState(false);
   const [open, setOpen] = useState(false);
@@ -61,16 +103,26 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
     }
   }, [filesData]);
 
-  let currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === "photo");
-
-  const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
-
-  let currentVideoFiles = filesData?.files?.filter(file => file.type === "video");
+  let currentTourPhotos = isPublicView
+    ? publicTourPhotos
+    : filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === "photo");
 
   if (userType === 'agent') {
     currentTourPhotos = currentTourPhotos?.filter(file => file.is_admin_approved);
-    currentVideoFiles = currentVideoFiles?.filter(file => file.is_admin_approved);
   }
+
+  const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
+
+  const currentVideoFiles = React.useMemo(() => {
+    let files = isPublicView
+      ? publicVideoFiles
+      : filesData?.files?.filter(file => file.type === "video");
+
+    if (userType === 'agent') {
+      files = files?.filter(file => file.is_admin_approved);
+    }
+    return files;
+  }, [isPublicView, publicVideoFiles, filesData?.files, userType]);
   const currentPath = window.location.href;
 
   function getMainURL(url: string) {
@@ -83,19 +135,6 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
     }
   }
   const mainUrl = getMainURL(currentPath);
-  console.log('mainUrl', mainUrl);
-
-  const handlePrev = () => {
-    setCurrentImageIndex((prev) =>
-      prev === 0 ? uploadedImages.length - 1 : prev - 1
-    );
-  };
-
-  const handleNext = () => {
-    setCurrentImageIndex((prev) =>
-      prev === uploadedImages.length - 1 ? 0 : prev + 1
-    );
-  };
 
   const isValidUrl = (url: string) => {
     try {
@@ -112,15 +151,28 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
       if (selectedVideoFiles.length > 0) {
         setMainVideo(URL.createObjectURL(selectedVideoFiles[0].file));
       } else if (currentVideoFiles && currentVideoFiles.length > 0) {
-        setMainVideo(`${API_URL}/${currentVideoFiles[0].file_path}`);
+        const videoUrl = currentVideoFiles[0].url || `${API_URL}/${currentVideoFiles[0].file_path}`;
+        setMainVideo(videoUrl);
       }
     }
   }, [selectedVideoFiles, currentVideoFiles, mainVideo, API_URL]);
 
-  const hasPhotos = orderData?.services.some(s => s.service.name.toLowerCase().includes('photo'));
-  const hasVideos = orderData?.services.some(s => s.service.name.toLowerCase().includes('video') || s.service.name.toLowerCase().includes('reel'));
-  const hasMatterport = orderData?.services.some(s => s.service.name.toLowerCase().includes('matterport') || s.service.name.toLowerCase().includes('3d tour'));
-  const hasFloorPlans = orderData?.services.some(s => s.service.name.toLowerCase().includes('floor plan'));
+  useEffect(() => {
+    if (isPublicView && activeTab === 'Videos' && mainVideo && currentVideoFiles && currentVideoFiles.length > 0) {
+      const normalizeUrl = (url: string) => url.split('?')[0];
+      const matchedVideo = currentVideoFiles.find((v: any) =>
+        normalizeUrl(v.url || `${API_URL}/${v.file_path}`) === normalizeUrl(mainVideo)
+      );
+      if (matchedVideo && onMediaView) {
+        onMediaView(matchedVideo.uuid);
+      }
+    }
+  }, [mainVideo, activeTab, isPublicView, currentVideoFiles, onMediaView, API_URL]);
+
+  const hasPhotos = isPublicView ? (publicTourPhotos && publicTourPhotos.length > 0) : orderData?.services?.some(s => s.service?.name?.toLowerCase().includes('photo'));
+  const hasVideos = isPublicView ? (publicVideoFiles && publicVideoFiles.length > 0) : orderData?.services?.some(s => s.service?.name?.toLowerCase().includes('video') || s.service?.name?.toLowerCase().includes('reel'));
+  const hasMatterport = isPublicView ? (publicMatterportLinks && publicMatterportLinks.length > 0) : orderData?.services?.some(s => s.service?.name?.toLowerCase().includes('matterport') || s.service?.name?.toLowerCase().includes('3d tour'));
+  const hasFloorPlans = isPublicView ? (publicFloorPlanFiles && publicFloorPlanFiles.length > 0) : orderData?.services?.some(s => s.service?.name?.toLowerCase().includes('floor plan'));
 
   const previewTabs = React.useMemo(() => {
     const tabs = ['Home'];
@@ -137,8 +189,27 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
     }
   }, [previewTabs, activeTab]);
 
-  const brandedLinks = links.filter(l => l.type === 'branded');
-  const unbrandedLinks = links.filter(l => l.type === 'unbranded');
+  const rawApiLinks = (filesData?.links || []).filter(l => !l.is_hidden && l.link).map(l => ({
+    ...l,
+    type: l.type as "branded" | "unbranded",
+  }));
+  const activeLinks = isPublicView
+    ? (publicMatterportLinks?.map(l => ({ ...l, type: 'branded' })) || [])
+    : (links.length > 0 ? links : rawApiLinks);
+
+  const uniqueLinks: any[] = [];
+  const seen = new Set();
+  for (const l of activeLinks) {
+    if (!l.link) continue;
+    const key = `${l.type}-${l.link}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueLinks.push(l);
+    }
+  }
+
+  const brandedLinks = uniqueLinks.filter(l => l.type === 'branded');
+  const unbrandedLinks = uniqueLinks.filter(l => l.type === 'unbranded');
 
   const tourUuid = filesData?.uuid;
 
@@ -192,7 +263,7 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
   return (
     <div className="w-full font-alexandria">
       {/* Tour Link Input */}
-      {tourUuid && (
+      {tourUuid && !isPublicView && (
         <div className="flex  items-center justify-center py-4">
           <div className="flex flex-col gap-4 ">
             <div className="">Tour Link</div>
@@ -225,12 +296,14 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
         </div>
       )}
       <Accordion type="single" defaultValue="Preview" className="w-full">
-        <AccordionItem value="Preview">
-          <AccordionTrigger className="px-[14px] py-[19px] border-t border-b border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-semibold uppercase [&>svg]:text-[#4290E9] [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-2">
-            Preview
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="w-full flex flex-col gap-6 px-6 pb-6 relative ">
+        <AccordionItem value="Preview" className={hideAccordion ? "border-none" : ""}>
+          {!hideAccordion && (
+            <AccordionTrigger className="px-[14px] py-[19px] border-t border-b border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-semibold uppercase [&>svg]:text-[#4290E9] [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-2">
+              Preview
+            </AccordionTrigger>
+          )}
+          <AccordionContent className={hideAccordion ? "border-none" : ""}>
+            <div className={`w-full flex flex-col gap-6 px-0 pb-6 relative ${hideAccordion ? "pt-0" : ""}`}>
               {/* Tabs */}
               <div className="flex justify-center space-x-4 py-2 absolute top-3 z-30 place-self-center">
                 {previewTabs.map((tab) => (
@@ -248,35 +321,33 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
               </div>
 
               {activeTab === "Home" && (
-                <div>
-                  {uploadedImages.length > 0 && (
-                    <div className="relative w-full h-[636px]  overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={URL.createObjectURL(
-                          uploadedImages[currentImageIndex].file
-                        )}
-                        alt={`Slide ${currentImageIndex + 1}`}
-                        className="w-full h-full object-cover"
+                <div className="pt-[0px]">
+                  {(uploadedImages.length > 0 || (currentTourPhotos?.length ?? 0) > 0) && (
+                    <div className={`relative w-full overflow-hidden ${isPublicView ? "h-[100vh]" : "h-[636px]"}`}>
+                      <CustomSlideshow
+                        images={uploadedImages}
+                        delay={delay}
+                        transition={transition}
+                        audioUrl={audioUrl}
+                        api_images={currentTourPhotos}
+                        className="h-full"
+                        currentIndex={currentImageIndex}
+                        onSlideChange={(index) => {
+                          setCurrentImageIndex(index);
+                          if (isPublicView && onMediaView && currentTourPhotos?.[index]) {
+                            onMediaView(currentTourPhotos[index].uuid);
+                          }
+                        }}
+                        externalAudioControl={isPublicView ? true : undefined}
+                        propIsPlaying={isAudioPlaying}
+                        propIsMuted={isAudioMuted}
+                        propSetIsPlaying={setIsAudioPlaying}
+                        propSetIsMuted={setIsAudioMuted}
                       />
-                      <div className="absolute bottom-4 right-4 flex space-x-2">
-                        <button
-                          onClick={handlePrev}
-                          className="  shadow flex items-center justify-center"
-                        >
-                          <CircleArrowLeft className="w-10 h-10 text-white" />
-                        </button>
-                        <button
-                          onClick={handleNext}
-                          className=" shadow flex items-center justify-center"
-                        >
-                          <CircleArrowRight className="w-10 h-10 text-white" />
-                        </button>
-                      </div>
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4 px-4 py-12 mt-10 text-center text-sm">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4 px-4 py-12 mt-3 text-center text-sm">
                     {[
                       {
                         label: "PRICE",
@@ -316,30 +387,30 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                     ]
                       .filter((item) => item.value !== null && item.value !== undefined && String(item.value).trim() !== "" && String(item.value).toLowerCase() !== "null" && String(item.value).toLowerCase() !== "undefined")
                       .map((item, index) => (
-                      <div
-                        key={index}
-                        className="flex flex-col items-center gap-3"
-                      >
-                        {item.icon}
-                        <div className="text-[14px] text-[#424242] font-alexandria font-semibold uppercase">
-                          {item.label}
+                        <div
+                          key={index}
+                          className="flex flex-col items-center gap-3"
+                        >
+                          {item.icon}
+                          <div className="text-[14px] text-[#424242] font-alexandria font-semibold uppercase">
+                            {item.label}
+                          </div>
+                          <div className="text-[14px] text-[#424242] font-alexandria font-normal uppercase">
+                            {item.value}
+                          </div>
                         </div>
-                        <div className="text-[14px] text-[#424242] font-alexandria font-normal uppercase">
-                          {item.value}
-                        </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
 
-                  <div className="flex gap-10">
-                    <div className="flex flex-col gap-5 items-center w-[350px]">
-                      {orderData?.agent.avatar_url ? (
-                        <div className="bg-[#ccc] w-full">
+                  <div className="flex gap-10 px-6">
+                    <div className="flex flex-col gap-5 items-start w-[350px]">
+                      {orderData?.agent.logo_url ? (
+                        <div className="bg-[#ccc] w-[250px] aspect-square rounded-lg flex items-center justify-center overflow-hidden">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={orderData.agent.avatar_url}
+                            src={orderData.agent.logo_url}
                             alt="Agent"
-                            className="w-full object-cover mb-2"
+                            className="w-full h-full object-cover"
                             onError={(e) => {
                               e.currentTarget.style.display = "none";
                               const parent = e.currentTarget.parentElement;
@@ -362,7 +433,8 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                         {orderData?.agent.primary_phone && (
                           <a
                             href={`tel:${orderData.agent.primary_phone}`}
-                            className="text-[#4290E9] text-[20px] font-alexandria font-light"
+                            className="text-[20px] font-alexandria font-light"
+                            style={{ color: roleSettings.pageTabColor }}
                           >
                             {orderData.agent.primary_phone}
                           </a>
@@ -370,7 +442,8 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                         {orderData?.agent.website && (
                           <a
                             href={orderData.agent.website}
-                            className="text-[#4290E9] text-[20px] font-alexandria font-light"
+                            className="text-[20px] font-alexandria font-light"
+                            style={{ color: roleSettings.pageTabColor }}
                             target="_blank"
                             rel="noreferrer"
                           >
@@ -405,12 +478,15 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                         <p className="text-sm text-gray-600">
                           {orderData?.property.description || "No description available."}
                         </p>
-                        <Button className="w-max bg-[#4290E9]">
+                        <Button
+                          className="w-max hover:opacity-90 text-white"
+                          style={{ backgroundColor: roleSettings.pageTabColor }}
+                        >
                           View Feature Sheet
                         </Button>
                       </div>
 
-                      <div className="w-[800px] h-[300px]">
+                      <div className="w-full h-[300px]">
                         <DynamicMap
                           address={orderData?.property.address}
                           city={orderData?.property.city}
@@ -427,16 +503,33 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                   {(uploadedImages.length > 0 || (currentTourPhotos?.length ?? 0) > 0) ? (
                     <>
                       <CustomSlideshow
+                        className={isPublicView ? "h-[100vh]" : "h-[100vh]"}
                         images={uploadedImages}
                         delay={delay}
                         transition={transition}
                         audioUrl={audioUrl}
                         api_images={currentTourPhotos}
+                        currentIndex={currentImageIndex}
+                        onSlideChange={(index) => {
+                          setCurrentImageIndex(index);
+                          if (isPublicView && onMediaView && currentTourPhotos?.[index - uploadedImages.length]) {
+                            onMediaView(currentTourPhotos[index - uploadedImages.length].uuid);
+                          }
+                        }}
+                        externalAudioControl={isPublicView ? true : undefined}
+                        propIsPlaying={isAudioPlaying}
+                        propIsMuted={isAudioMuted}
+                        propSetIsPlaying={setIsAudioPlaying}
+                        propSetIsMuted={setIsAudioMuted}
                       />
 
-                      <div className="grid grid-cols-6 gap-2 mt-4">
+                      <div className="grid grid-cols-6 gap-2 mt-12 px-6">
                         {uploadedImages.map((image, index) => (
-                          <div key={`uploaded-${index}`} className="w-full aspect-square overflow-hidden">
+                          <div
+                            key={`uploaded-${index}`}
+                            className={`w-full aspect-video overflow-hidden cursor-pointer transition-all ${currentImageIndex === index ? 'ring-2 ring-[#4290E9] ring-offset-1' : ''}`}
+                            onClick={() => setCurrentImageIndex(index)}
+                          >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={URL.createObjectURL(image.file)}
@@ -445,22 +538,29 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
                             />
                           </div>
                         ))}
-                        {currentTourPhotos?.map((image, index) => (
-                          <div key={`api-${index}`} className="w-full aspect-square overflow-hidden">
-                            {image.is_processing ? (
-                              <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
-                                <p className="text-gray-500 font-medium text-10px">Processing...</p>
-                              </div>
-                            ) : (
-                              /* eslint-disable-next-line @next/next/no-img-element */
-                              <img
-                                src={image.variant_urls?.thumb || image.url || `${API_URL}/${image.file_path}`}
-                                alt={`Uploaded ${index + 1}`}
-                                className="w-full h-full object-cover"
-                              />
-                            )}
-                          </div>
-                        ))}
+                        {currentTourPhotos?.map((image, index) => {
+                          const globalIndex = uploadedImages.length + index;
+                          return (
+                            <div
+                              key={`api-${index}`}
+                              className={`w-full aspect-square overflow-hidden cursor-pointer transition-all ${currentImageIndex === globalIndex ? 'ring-2 ring-[#4290E9] ring-offset-1' : ''}`}
+                              onClick={() => setCurrentImageIndex(globalIndex)}
+                            >
+                              {image.is_processing ? (
+                                <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                                  <p className="text-gray-500 font-medium text-10px">Processing...</p>
+                                </div>
+                              ) : (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img
+                                  src={image.variant_urls?.thumb || image.url || `${API_URL}/${image.file_path}`}
+                                  alt={`Uploaded ${index + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     </>
                   ) : (
@@ -552,11 +652,19 @@ const TourConfirm = ({ orderData }: TourConfimation) => {
 
               {activeTab === "Floorplan" && (
                 <div className="w-full pt-[80px]">
-                  <TourFloorPlans type="confirm" />
+                  {isPublicView ? (
+                    <PublicTourFloorPlans
+                      floorPlanFiles={publicFloorPlanFiles || []}
+                      snapshots={orderData?.tours?.[0]?.snapshots}
+                      tourPhotos={publicTourPhotos as any}
+                    />
+                  ) : (
+                    <TourFloorPlans type="confirm" />
+                  )}
                 </div>
               )}
               <div
-                className="w-full flex flex-col items-center gap-10"
+                className="w-full flex flex-col items-center gap-10 pt-[80px]"
                 style={{ display: activeTab === "Matterport" ? undefined : "none" }}
               >
                 {(!brandedLinks?.length && !unbrandedLinks?.length) ? (

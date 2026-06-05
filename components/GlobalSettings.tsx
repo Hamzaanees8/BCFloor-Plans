@@ -40,9 +40,8 @@ import { Button } from "./ui/button";
 //import SaveDialog from './SaveDialog'
 import { DateTime } from "luxon";
 import { Country, State } from "country-state-city";
-import { SaveModal } from "./SaveModal";
+// import { SaveModal } from "./SaveModal";
 import DynamicMap from "./DYnamicMap";
-import { useRouter } from "next/navigation";
 import { useAppContext } from "@/app/context/AppContext";
 import { EditAgent, GetOne as GetOneAgent } from "@/app/dashboard/agents/agents";
 import { Edit as EditAdminUser, GetOne as GetOneAdmin } from "@/app/dashboard/admin/admin";
@@ -210,7 +209,7 @@ interface SelectedDiscount {
 }
 
 const GlobalSettings = () => {
-    const [openSaveDialog, setOpenSaveDialog] = useState(false);
+    // const [openSaveDialog, setOpenSaveDialog] = useState(false);
     const [selectedDiscount, setSelectedDiscount] = useState<SelectedDiscount | null>(null);
     const [companyName, setCompanyName] = useState("");
     const [companyWebsite, setCompanyWebsite] = useState("");
@@ -286,6 +285,8 @@ const GlobalSettings = () => {
     const [secondaryEmail, setSecondaryEmail] = useState("");
     const [notificationEmail, setNotificationEmail] = useState("");
     const [quickBookStatus, setQuickBookStatus] = useState(false);
+    const [adminRoles, setAdminRoles] = useState<number[]>([]);
+    const [adminPermissions, setAdminPermissions] = useState<number[]>([]);
 
     const [openDiscount, setOpenDiscount] = useState(false);
 
@@ -337,7 +338,6 @@ const GlobalSettings = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<boolean>(false);
     const { userType } = useAppContext();
-    const router = useRouter();
     const userInfo = JSON.parse(localStorage.getItem("userInfo") || "");
 
     const commuteTimeOptions = [
@@ -364,6 +364,13 @@ const GlobalSettings = () => {
                     const adminData = adminRes.data;
 
                     isPopulatingData.current = true;
+
+                    if (adminData.roles && Array.isArray(adminData.roles)) {
+                        setAdminRoles(adminData.roles.map((r: any) => Number(r.id)));
+                    }
+                    if (adminData.permissions && Array.isArray(adminData.permissions)) {
+                        setAdminPermissions(adminData.permissions.map((p: any) => Number(p.id)));
+                    }
 
                     setFirstName(adminData.first_name || "");
                     setLastName(adminData.last_name || "");
@@ -511,7 +518,7 @@ const GlobalSettings = () => {
     useEffect(() => {
         if (!baselineSettingsRef.current || isPopulatingData.current) return;
 
-        const isChanged = 
+        const isChanged =
             firstName !== baselineSettingsRef.current.firstName ||
             lastName !== baselineSettingsRef.current.lastName ||
             email !== baselineSettingsRef.current.email ||
@@ -615,6 +622,8 @@ const GlobalSettings = () => {
                     province: province || undefined,
                     country: country || undefined,
                     avatar: avatarFile || undefined,
+                    roles: adminRoles.length > 0 ? adminRoles : undefined,
+                    permissions: adminPermissions.length > 0 ? adminPermissions : undefined,
                     _method: "PUT",
                 };
 
@@ -635,8 +644,8 @@ const GlobalSettings = () => {
                     country,
                 };
                 setIsLoading(true);
-                setOpenSaveDialog(true);
-                router.push("/dashboard/global-settings");
+                toast.success("Settings updated successfully");
+                // router.push("/dashboard/global-settings");
                 setIsLoading(false);
                 setIsDirty(false);
             } else if (userType === "agent") {
@@ -677,7 +686,6 @@ const GlobalSettings = () => {
                         license,
                     };
                     setIsLoading(true);
-                    setOpenSaveDialog(true);
                     toast.success("settings updated successfully");
                     setIsLoading(false);
                     setIsDirty(false);
@@ -703,9 +711,8 @@ const GlobalSettings = () => {
 
                         setFieldErrors(normalizedErrors);
 
-                        // const firstError = Object.values(normalizedErrors).flat()[0];
-                        // toast.error(firstError || 'Validation error');
-                        toast.error("Validation error kindly re-check your form");
+                        const firstError = Object.values(normalizedErrors).flat()[0];
+                        toast.error(firstError || 'Validation error');
                     } else if (error instanceof Error) {
                         toast.error(error.message);
                     } else {
@@ -735,9 +742,8 @@ const GlobalSettings = () => {
 
                 setFieldErrors(normalizedErrors);
 
-                // const firstError = Object.values(normalizedErrors).flat()[0];
-                // toast.error(firstError || 'Validation error');
-                toast.error("Validation error kindly re-check your form");
+                const firstError = Object.values(normalizedErrors).flat()[0];
+                toast.error(firstError || 'Validation error');
             } else if (error instanceof Error) {
                 toast.error(error.message);
             } else {
@@ -1147,14 +1153,7 @@ const GlobalSettings = () => {
                     </Button>
                 )}
             </div>
-            <SaveModal
-                isOpen={openSaveDialog}
-                onClose={() => setOpenSaveDialog(false)}
-                isLoading={isLoading}
-                isSuccess={true}
-                backLink="/dashboard/admin"
-                title={"Admin"}
-            />
+            {/* Removed SaveModal */}
             {/* <SaveDialog
                 open={openSaveDialog}
                 setOpen={setOpenSaveDialog}

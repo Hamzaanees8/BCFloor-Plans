@@ -268,6 +268,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
         setShowAllVendorsMap((prev) => ({ ...prev, ...newShowAllVendorsMap }));
         setScheduleOverrideMap((prev) => ({ ...prev, ...newScheduleOverrideMap }));
         setRecommendTimeMap((prev) => ({ ...prev, ...newRecommendTimeMap }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isEdit, selectedSlots, servicesToSchedule, servicesData]);
 
     const formatTravelTime = (minutes: number) => {

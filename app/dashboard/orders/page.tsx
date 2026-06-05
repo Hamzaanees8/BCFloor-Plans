@@ -154,6 +154,7 @@ type Agent = {
     avatar_url: string;
     company_logo_url: string;
     company_banner_url: string;
+    logo_url?: string;
 };
 export interface OrderDiscount {
     id: number;

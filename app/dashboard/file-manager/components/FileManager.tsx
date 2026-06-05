@@ -1438,10 +1438,10 @@ const FileManager = () => {
                   filesToApprove.forEach(f => newSet.add(f.uuid));
                   return newSet;
                 });
-                
+
                 // Save changes directly with the updated data to bypass React state delay
                 await handleSave(approvedFiles);
-                
+
                 toast.success("Files approved and released successfully!");
               }}
               className="bg-amber-600 hover:bg-amber-700 text-white font-[500] h-[36px] px-6 rounded-[6px] transition-colors"

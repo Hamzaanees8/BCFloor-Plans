@@ -577,12 +577,12 @@ export const BathIcon = ({ className = "" }) => (
   >
     <path
       d="M39.3502 7C36.0917 7 33.4502 9.68629 33.4502 13H45.2502C45.2502 9.68629 42.6087 7 39.3502 7Z"
-      stroke="currentColor"
+      stroke="#1E6FCC"
       strokeLinejoin="round"
     />
     <path
       d="M54.0996 34V8.375C54.0996 4.3019 50.7977 1 46.7246 1H46.2246C42.4277 1 39.3496 4.07804 39.3496 7.875V7.875"
-      stroke="currentColor"
+      stroke="#1E6FCC"
       strokeLinejoin="round"
     />
     <rect
@@ -590,32 +590,32 @@ export const BathIcon = ({ className = "" }) => (
       y="31"
       width="11.8"
       height="15"
-      stroke="currentColor"
+      stroke="#1E6FCC"
       strokeLinejoin="round"
     />
     <path
       d="M15.75 41.5H27.55"
-      stroke="currentColor"
+      stroke="#1E6FCC"
       strokeLinecap="round"
       strokeLinejoin="round"
     />
     <path
       d="M27.55 34H59C59.5523 34 60 34.4477 60 35V37.5C60 38.0523 59.5523 38.5 59 38.5H27.55M15.75 38.5H2C1.44771 38.5 1 38.0523 1 37.5V35C1 34.4477 1.44772 34 2 34H15.75"
-      stroke="currentColor"
+      stroke="#1E6FCC"
     />
     <path
       d="M57.0418 40C57.1134 46 57.0418 58 42.9882 58C30.496 58 21.1269 58 18.0039 58C7.07745 58 3.9502 47.5 3.9502 40"
-      stroke="currentColor"
+      stroke="#1E6FCC"
       strokeLinecap="round"
       strokeLinejoin="round"
     />
     <path
       d="M18.7 58V60C18.7 60.5523 18.2523 61 17.7 61H16.75C16.1977 61 15.75 60.5523 15.75 60V58"
-      stroke="currentColor"
+      stroke="#1E6FCC"
     />
     <path
       d="M48.2 58V60C48.2 60.5523 47.7523 61 47.2 61H46.25C45.6977 61 45.25 60.5523 45.25 60V58"
-      stroke="currentColor"
+      stroke="#1E6FCC"
     />
   </svg>
 );

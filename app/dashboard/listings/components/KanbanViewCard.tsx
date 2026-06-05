@@ -1,4 +1,4 @@
-import { Eye, FolderOpen, Plus } from "lucide-react";
+import { Eye, FolderOpen, Calendar } from "lucide-react";
 import React from "react";
 import { useAppContext } from "@/app/context/AppContext";
 import Link from "next/link";
@@ -112,7 +112,7 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
     href = latestOrder?.uuid
       ? `/dashboard/file-manager/${latestOrder.uuid}?listingId=${listingData.uuid}`
       : `/dashboard/listings/create/${listingData.uuid}`;
-    
+
     // We store the public tour URL
     (KanbanViewCard as any).publicTourUrl = isPublished ? `/tour/${slugify(addressSlug)}/${latestOrder?.uuid}` : null;
   }
@@ -169,7 +169,7 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
             title="Open Public Tour"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
             </svg>
           </a>
         )}
@@ -208,7 +208,7 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
             <Eye className="w-3.5 h-3.5" />
             <span>Quick View</span>
           </button>
-          
+
           <div className="w-[1px] h-4 bg-gray-200"></div>
 
           <Link
@@ -224,12 +224,12 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView }: KanbanViewCardP
             <>
               <div className="w-[1px] h-4 bg-gray-200"></div>
               <Link
-                href="/dashboard/orders/create"
+                href={latestOrder?.uuid ? `/dashboard/orders/create/${latestOrder.uuid}` : "/dashboard/orders/create"}
                 className="flex flex-1 justify-center items-center gap-1.5 py-1 hover:text-indigo-600 hover:bg-white rounded transition-all font-medium text-center"
-                title="New Booking"
+                title={latestOrder?.uuid ? "Update Booking" : "New Booking"}
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Book</span>
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Booking</span>
               </Link>
             </>
           )}

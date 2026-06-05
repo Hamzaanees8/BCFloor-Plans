@@ -29,6 +29,7 @@ export type Agent = {
     primary_phone?: string;
     secondary_phone?: string;
     avatar_url?: string;
+    logo_url?: string;
     company_name: string;
     notes: string;
     activity?: string;

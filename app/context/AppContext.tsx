@@ -75,3 +75,7 @@ export const useAppContext = () => {
   }
   return context;
 };
+
+export const useOptionalAppContext = () => {
+  return useContext(AppContext);
+};

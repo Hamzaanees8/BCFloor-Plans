@@ -20,21 +20,21 @@ import { OptimizedImagePreview, PdfPlaceholder } from "./OptimizedPreview";
 function TourFloorPlans({ type = "" }) {
   const { userType } = useAppContext();
   const { droppedMarkers, setDroppedMarkers, filesData, setFilesData, selectedFiles, floorFiles, deletedSnapshotUuids, setDeletedSnapshotUuids } = useFileManagerContext();
-  
+
   const currentTourFloorFiles = [
     ...(filesData?.files?.filter(file => {
-      const isFloorPlan = 
-        file?.service?.category?.name === "Floor Plan" || 
+      const isFloorPlan =
+        file?.service?.category?.name === "Floor Plan" ||
         file?.service?.name?.toLowerCase().includes("floor plan");
       return file.type === 'photo' && isFloorPlan;
     }) || []),
     ...floorFiles.filter(f => !f.is_deleted)
   ];
-  
+
   let photosList = [
     ...(filesData?.files?.filter(file => {
-      const isFloorPlan = 
-        file?.service?.category?.name === "Floor Plan" || 
+      const isFloorPlan =
+        file?.service?.category?.name === "Floor Plan" ||
         file?.service?.name?.toLowerCase().includes("floor plan");
       return file.type === 'photo' && !isFloorPlan;
     }) || []),
@@ -72,6 +72,7 @@ function TourFloorPlans({ type = "" }) {
     y: number;
   } | null>(null);
   const [previewMarker, setPreviewMarker] = useState<DroppedMarker | null>(null);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [clickPos, setClickPos] = useState<{ x: number; y: number } | null>(null);
   const [showPhotoSelector, setShowPhotoSelector] = useState(false);
@@ -220,26 +221,26 @@ function TourFloorPlans({ type = "" }) {
       // Server file
       setSnapshotFile(null);
       if (previewMarker) {
-        setPreviewMarker({ 
-          ...previewMarker, 
+        setPreviewMarker({
+          ...previewMarker,
           file: undefined,
-          isApi: true, 
-          file_path: file.file_path, 
-          url: file.url || file.variant_urls?.landing || file.variant_urls?.popup || file.variant_urls?.thumb, 
+          isApi: true,
+          file_path: file.file_path,
+          url: file.url || file.variant_urls?.landing || file.variant_urls?.popup || file.variant_urls?.thumb,
           thumbnail_url: file.variant_urls?.thumb || file.thumbnail_url || file.url,
-          variant_urls: file.variant_urls 
+          variant_urls: file.variant_urls
         });
       }
     } else {
       // Local file
       setSnapshotFile(file.file);
       if (previewMarker) {
-        setPreviewMarker({ 
-          ...previewMarker, 
-          file: file.file, 
-          isApi: false, 
-          url: undefined, 
-          file_path: undefined 
+        setPreviewMarker({
+          ...previewMarker,
+          file: file.file,
+          isApi: false,
+          url: undefined,
+          file_path: undefined
         });
       }
     }
@@ -258,14 +259,14 @@ function TourFloorPlans({ type = "" }) {
     } else {
       setSnapshotFile(null);
       if (previewMarker) {
-        setPreviewMarker({ 
-          ...previewMarker, 
+        setPreviewMarker({
+          ...previewMarker,
           file: undefined,
-          isApi: true, 
-          file_path: draggedFile.file_path, 
-          url: draggedFile.url, 
+          isApi: true,
+          file_path: draggedFile.file_path,
+          url: draggedFile.url,
           thumbnail_url: draggedFile.thumbnail_url,
-          variant_urls: draggedFile.variant_urls 
+          variant_urls: draggedFile.variant_urls
         });
       }
     }
@@ -309,13 +310,13 @@ function TourFloorPlans({ type = "" }) {
         next.add(activeApiSnapshotUuid);
         return next;
       });
-      
+
       setDroppedMarkers(prev => {
         const updated = [...prev, newMarker];
         setActiveMarkerIndex(updated.length - 1);
         return updated;
       });
-      
+
       setActiveApiSnapshotUuid(null);
       toast.success('Existing snapshot updated');
     } else {
@@ -350,7 +351,7 @@ function TourFloorPlans({ type = "" }) {
     if (activeApiSnapshotUuid && token) {
       try {
         await DeleteSnapshot(token, activeApiSnapshotUuid);
-        
+
         // Remove from local state immediately
         if (filesData) {
           setFilesData({
@@ -358,7 +359,7 @@ function TourFloorPlans({ type = "" }) {
             snapshots: filesData.snapshots.filter(s => s.uuid !== activeApiSnapshotUuid)
           });
         }
-        
+
         toast.success('Snapshot deleted successfully');
       } catch (error) {
         console.error("Error deleting snapshot:", error);
@@ -418,7 +419,7 @@ function TourFloorPlans({ type = "" }) {
           ref={imageContainerRef}
           onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
-          className={`relative w-[70%]  h-full bg-white overflow-visible ${type === "confirm" ? "m-auto" : ""}`}
+          className={`relative w-[70%] border border-gray-200  h-full bg-white overflow-visible ${type === "confirm" ? "m-auto" : ""}`}
         >
           {selectedFile && 'uuid' in selectedFile && selectedFile.is_processing ? (
             <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
@@ -433,7 +434,7 @@ function TourFloorPlans({ type = "" }) {
             ) : (
               <iframe
                 src={
-                  'uuid' in selectedFile 
+                  'uuid' in selectedFile
                     ? `${selectedFile.variant_urls?.popup || selectedFile.url || (selectedFile.file_path ? `${API_URL}/${selectedFile.file_path}` : '')}#toolbar=0`
                     : URL.createObjectURL((selectedFile as any).file)
                 }
@@ -459,9 +460,9 @@ function TourFloorPlans({ type = "" }) {
                 ref={imgRef}
                 src={
                   selectedFile
-                    ? ('uuid' in selectedFile 
-                        ? selectedFile.variant_urls?.popup || selectedFile.url || (selectedFile.file_path ? `${API_URL}/${selectedFile.file_path}` : '')
-                        : URL.createObjectURL((selectedFile as any).file))
+                    ? ('uuid' in selectedFile
+                      ? selectedFile.variant_urls?.popup || selectedFile.url || (selectedFile.file_path ? `${API_URL}/${selectedFile.file_path}` : '')
+                      : URL.createObjectURL((selectedFile as any).file))
                     : ""
                 }
                 alt="Selected Floor"
@@ -517,6 +518,9 @@ function TourFloorPlans({ type = "" }) {
                   }
                 }}
                 onMouseEnter={() => {
+                  if (hoverTimeoutRef.current) {
+                    clearTimeout(hoverTimeoutRef.current);
+                  }
                   if (isApiSnapshot) {
                     setPreviewMarker({
                       x: Number(marker.x_axis),
@@ -547,6 +551,11 @@ function TourFloorPlans({ type = "" }) {
                     setPreviewMarker(marker);
                   }
                 }}
+                onMouseLeave={() => {
+                  hoverTimeoutRef.current = setTimeout(() => {
+                    setPreviewMarker(null);
+                  }, 300);
+                }}
               >
                 <CameraIcon width={20} height={20} />
               </div>
@@ -554,13 +563,23 @@ function TourFloorPlans({ type = "" }) {
           })}
 
           {previewMarker && type === "confirm" && (
-            <div 
-              className="bg-[#565656] text-white font-alexandria shadow-lg w-[320px] h-[380px] absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300"
+            <div
+              className="bg-[#565656] text-white font-alexandria shadow-lg w-[420px] h-[450px] absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300"
               style={{
                 top: previewMarker.y > 50 ? 'auto' : `calc(${previewMarker.y}% - 24px)`,
                 bottom: previewMarker.y > 50 ? `calc(${100 - previewMarker.y}%)` : 'auto',
                 left: previewMarker.x > 50 ? 'auto' : `calc(${previewMarker.x}% + 15px)`,
                 right: previewMarker.x > 50 ? `calc(${100 - previewMarker.x}% + 15px)` : 'auto',
+              }}
+              onMouseEnter={() => {
+                if (hoverTimeoutRef.current) {
+                  clearTimeout(hoverTimeoutRef.current);
+                }
+              }}
+              onMouseLeave={() => {
+                hoverTimeoutRef.current = setTimeout(() => {
+                  setPreviewMarker(null);
+                }, 300);
               }}
             >
               <button
@@ -582,7 +601,7 @@ function TourFloorPlans({ type = "" }) {
                         : "")
                   }
                   alt={previewMarker.name || "Snapshot"}
-                  className="w-[95%] h-[70%] object-cover mx-auto mt-[10px]"
+                  className="w-[95%] h-[65%] aspect-video object-cover mx-auto mt-[10px]"
                 />
               )}
 
@@ -602,7 +621,7 @@ function TourFloorPlans({ type = "" }) {
           <div className="w-[30%] p-4 text-[#666666] border border-gray-400 rounded-[6px]">
             <p className="mb-[20px] text-[24px]">SnapShot</p>
             <div className="flex items-end gap-5">
-              <div 
+              <div
                 onDrop={handleSnapshotImageDrop}
                 onDragOver={(e) => e.preventDefault()}
                 className="mt-4 border p-2 rounded relative w-[200px] h-[150px] bg-gray-100 overflow-hidden flex items-center justify-center cursor-pointer group"
@@ -707,14 +726,14 @@ function TourFloorPlans({ type = "" }) {
                       />
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img 
+                      <img
                         src={
-                          'uuid' in file 
+                          'uuid' in file
                             ? file.variant_urls?.thumb || file.thumbnail_url || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : '')
                             : URL.createObjectURL((file as any).file)
-                        } 
-                        alt="preview" 
-                        className="max-w-full max-h-full" 
+                        }
+                        alt="preview"
+                        className="max-w-full max-h-full"
                       />
                     )
                   )}
@@ -736,13 +755,12 @@ function TourFloorPlans({ type = "" }) {
               {currentTourPhotos?.map((file, idx) => {
                 const isEditing = activeMarkerIndex !== null || !!activeApiSnapshotUuid;
                 return (
-                  <div 
-                    key={idx} 
-                    className={`bg-[#BBBBBB] h-auto relative transition-all duration-200 ${
-                      isEditing 
-                        ? "cursor-pointer ring-2 ring-transparent hover:ring-[#4290E9] scale-[0.98] hover:scale-100" 
-                        : "cursor-grab active:cursor-grabbing"
-                    }`}
+                  <div
+                    key={idx}
+                    className={`bg-[#BBBBBB] h-auto relative transition-all duration-200 ${isEditing
+                      ? "cursor-pointer ring-2 ring-transparent hover:ring-[#4290E9] scale-[0.98] hover:scale-100"
+                      : "cursor-grab active:cursor-grabbing"
+                      }`}
                     onClick={() => handlePhotoClick(file)}
                   >
                     <div className="relative w-full h-[160px]">
@@ -767,9 +785,9 @@ function TourFloorPlans({ type = "" }) {
                           draggable
                           onDragStart={(e) => {
                             e.dataTransfer.setData("text/plain", file.uuid);
-                            setDraggedFile({ 
-                              file_path: file.file_path || (file as any).variants?.thumb || (file as any).variants?.landing || (file as any).variants?.popup, 
-                               url: file.url || file.variant_urls?.landing || file.variant_urls?.popup || file.variant_urls?.thumb, 
+                            setDraggedFile({
+                              file_path: file.file_path || (file as any).variants?.thumb || (file as any).variants?.landing || (file as any).variants?.popup,
+                              url: file.url || file.variant_urls?.landing || file.variant_urls?.popup || file.variant_urls?.thumb,
                               thumbnail_url: file.variant_urls?.thumb || file.thumbnail_url || file.url,
                               variant_urls: file.variant_urls
                             });
@@ -782,7 +800,7 @@ function TourFloorPlans({ type = "" }) {
                           className="w-full h-full object-cover"
                         />
                       )}
-                      
+
                       {isEditing && (
                         <div className="absolute inset-0 bg-[#4290E9]/30 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity pointer-events-none">
                           <span className="text-white text-[12px] font-bold bg-[#4290E9] px-3 py-1 rounded shadow-lg">CLICK TO USE</span>
@@ -812,7 +830,7 @@ function TourFloorPlans({ type = "" }) {
                 <h3 className="text-lg font-bold text-gray-800">Select Snapshot Photo</h3>
                 <p className="text-xs text-gray-500 mt-0.5">Click any photo below to attach it to the selected floor plan coordinates</p>
               </div>
-              <button 
+              <button
                 type="button"
                 onClick={() => {
                   setShowPhotoSelector(false);
@@ -823,7 +841,7 @@ function TourFloorPlans({ type = "" }) {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-6">
               {currentTourPhotos?.length === 0 ? (
                 <div className="text-center py-12 text-gray-400">
@@ -834,7 +852,7 @@ function TourFloorPlans({ type = "" }) {
                   {currentTourPhotos?.map((file, idx) => {
                     const isLocal = !('uuid' in file);
                     return (
-                      <div 
+                      <div
                         key={idx}
                         onClick={() => handleSelectPhotoForClick(file)}
                         className="group border border-gray-200 rounded-lg overflow-hidden bg-gray-50 hover:border-[#4290E9] hover:ring-2 hover:ring-[#4290E9]/20 transition-all duration-200 cursor-pointer shadow-sm"
@@ -865,9 +883,9 @@ function TourFloorPlans({ type = "" }) {
                 </div>
               )}
             </div>
-            
+
             <div className="px-6 py-3.5 border-t border-gray-100 bg-gray-50 flex justify-end">
-              <Button 
+              <Button
                 type="button"
                 onClick={() => {
                   setShowPhotoSelector(false);
