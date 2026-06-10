@@ -10,11 +10,23 @@ export default function PublicRoute({ children }: { children: React.ReactNode })
   useEffect(() => {
     const token = localStorage.getItem("token");
 
-    // Define routes that should be accessible to everyone (logged in or not)
-    const publicAccessRoutes = ['/agent', '/tour'];
-    const isPublicAccessRoute = publicAccessRoutes.some(route => pathname?.startsWith(route));
+    const authRoutes = [
+      '/login',
+      '/login-user',
+      '/forget-password',
+      '/login-first-time',
+      '/new-password',
+      '/password-success',
+    ];
+    
+    // Check if the pathname is one of the auth routes (with or without /agent or /vendor prefix)
+    const isAuthRoute = authRoutes.some(route => 
+      pathname === route || pathname?.startsWith(`${route}/`) ||
+      pathname === `/agent${route}` || pathname?.startsWith(`/agent${route}/`) ||
+      pathname === `/vendor${route}` || pathname?.startsWith(`/vendor${route}/`)
+    ) || pathname === '/' || pathname === '/agent' || pathname === '/vendor';
 
-    if (token && !isPublicAccessRoute) {
+    if (token && isAuthRoute) {
       // Only redirect logged-in users if they're on auth pages (login, signup, etc.)
       router.replace("/dashboard");
     } else {

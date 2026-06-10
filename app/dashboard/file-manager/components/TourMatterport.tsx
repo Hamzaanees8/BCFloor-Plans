@@ -4,7 +4,10 @@ import { Label } from '@/components/ui/label'
 import React, { useState, useEffect } from 'react'
 import { useFileManagerContext } from "../FileManagerContext";
 import { CheckIcon } from 'lucide-react';
+import { addDays, format } from 'date-fns';
+import { useAppContext } from "@/app/context/AppContext";
 const TourMatterport = () => {
+    const { userType } = useAppContext();
     const { links, setLinks, filesData } = useFileManagerContext();
     const [isBrandedChecked, setIsBrandedChecked] = useState(false);
     const [isUnbrandedChecked, setIsUnbrandedChecked] = useState(false);
@@ -50,7 +53,9 @@ const TourMatterport = () => {
     const handleLinkChange = (index: number, value: string) => {
         setLinks(prev => {
             const updated = [...prev];
-            updated[index] = { ...updated[index], link: value };
+            const currentExpiry = updated[index].expiry_date;
+            const newExpiry = (!currentExpiry && value) ? format(addDays(new Date(), 90), "yyyy-MM-dd") : currentExpiry;
+            updated[index] = { ...updated[index], link: value, expiry_date: newExpiry };
             return updated;
         });
     };
@@ -60,9 +65,15 @@ const TourMatterport = () => {
     return (
         <div className='font-alexandria w-full'>
             {!hasLinks && (
-                <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
-                    <p>No Matterport links found — please add links or select a Matterport service.</p>
-                </div>
+                userType === 'agent' ? (
+                    <div className="font-alexandria w-full h-[50vh] text-[#E06D5E] flex justify-center items-center font-[500] text-[18px]">
+                        <p>Vendor has not added any Matterport links yet.</p>
+                    </div>
+                ) : (
+                    <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
+                        <p>No Matterport links found — please add links or select a Matterport service.</p>
+                    </div>
+                )
             )}
             <div className={!hasLinks ? 'hidden' : ''} style={{ display: !hasLinks ? 'none' : undefined }}>
             <div className='flex flex-col items-center justify-center gap-y-[38px] my-[42px]'>

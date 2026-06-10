@@ -20,7 +20,7 @@ function Page() {
                     </div>
                 )}
 
-                <Link href={'#'} className='hidden flex justify-center items-center bg-[var(--primary-color)] hover:bg-[var(--secondary-color)] rounded-[6px] h-[44px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
+                <Link href={'#'} className='hidden justify-center items-center bg-[var(--primary-color)] hover:bg-[var(--secondary-color)] rounded-[6px] h-[44px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <Link href={'/agent/login-user'} className='flex justify-center items-center bg-[#fff] hover:bg-[var(--primary-color)] hover:text-[#fff]  border-[1px] border-[var(--primary-color)] text-[var(--primary-color)] rounded-[6px] h-[44px] font-[600] text-[20px]' style={{ borderColor: 'var(--primary-color)' }}>Continue with Email</Link>
                 <div className='flex justify-center'>
                     <Link href="/agent/forget-password" className='w-fit text-[var(--primary-color)] border-b-[1px] leading-[18px] border-[var(--primary-color)] text-[16px] font-[400] text-center' style={{ borderColor: 'var(--primary-color)' }}>Forgot Password</Link>

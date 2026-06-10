@@ -96,7 +96,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
   let currentTourPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === "photo");
 
   if (userType === 'agent') {
-    currentTourPhotos = currentTourPhotos?.filter(file => file.is_admin_approved);
+    currentTourPhotos = currentTourPhotos?.filter(file => file.is_agent_approved || file.is_complimentary);
   }
 
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
@@ -132,6 +132,22 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
   });
 
   if ((!currentTourPhotos || currentTourPhotos?.length === 0) && (!selectedFiles || selectedFiles.length === 0)) {
+    const allPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === "photo") || [];
+    if (userType === 'agent') {
+      if (allPhotos.length > 0) {
+        return (
+          <div className="font-alexandria w-full h-[50vh] text-[#4290E9] flex justify-center items-center font-[500] text-[18px]">
+            <p>You have not approved any photos yet. Go to Photo service and approve media.</p>
+          </div>
+        );
+      } else {
+        return (
+          <div className="font-alexandria w-full h-[50vh] text-[#E06D5E] flex justify-center items-center font-[500] text-[18px]">
+            <p>Vendor has not uploaded any photos yet.</p>
+          </div>
+        );
+      }
+    }
     return (
       <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
         <p>No Photo found — please add Photos or select a Photo service.</p>

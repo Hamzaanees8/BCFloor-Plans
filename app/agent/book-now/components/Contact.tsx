@@ -131,16 +131,16 @@ const BookNowContact = () => {
     useEffect(() => {
         setUserName("Agent");
         const checkAuth = () => {
-             const token = localStorage.getItem('agentToken');
-             setHasAgentToken(!!token);
+            const token = localStorage.getItem('agentToken');
+            setHasAgentToken(!!token);
         };
         checkAuth();
-        
+
         window.addEventListener('storage', checkAuth);
         window.addEventListener('agentLogin', checkAuth);
         return () => {
-             window.removeEventListener('storage', checkAuth);
-             window.removeEventListener('agentLogin', checkAuth);
+            window.removeEventListener('storage', checkAuth);
+            window.removeEventListener('agentLogin', checkAuth);
         }
     }, []);
 
@@ -193,8 +193,8 @@ const BookNowContact = () => {
             setAgentNotes(prev =>
                 prev.map(note =>
                     note.note === editingNote.note &&
-                    note.internal === editingNote.internal &&
-                    note.date === editingNote.date
+                        note.internal === editingNote.internal &&
+                        note.date === editingNote.date
                         ? { ...note, note: tempNotes.trim() }
                         : note
                 )
@@ -212,13 +212,13 @@ const BookNowContact = () => {
                 setAgentNotes(prev =>
                     prev.map(note =>
                         note.note === editingNote.note &&
-                        note.internal === editingNote.internal &&
-                        note.date === editingNote.date
+                            note.internal === editingNote.internal &&
+                            note.date === editingNote.date
                             ? { ...note, note: tempNotes.trim() }
                             : note
                     )
                 );
-            toast.success("Note updated.");
+                toast.success("Note updated.");
             } else {
                 setAgentNotes(prev => [
                     ...prev,
@@ -269,24 +269,24 @@ const BookNowContact = () => {
                         )}
 
                         <div className='grid grid-cols-2 gap-[32px]'>
-                                {/* Split Invoice Section */}
-                                {coAgents.length > 0 && (
-                                    <div className='col-span-2 flex items-center justify-between'>
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <div className="inline-block">
-                                                        <label className={`flex items-center gap-x-[10px] ${(!isSplitInvoice && coAgents.length === 0) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={isSplitInvoice}
-                                                                disabled={!isSplitInvoice && coAgents.length === 0}
-                                                                onChange={(e) => {
-                                                                    setIsSplitInvoice(e.target.checked);
-                                                                }}
-                                                                className={`w-[18px] h-[18px] accent-[#4290E9] rounded-sm border border-[#CCCCCC] ${(!isSplitInvoice && coAgents.length === 0) ? 'cursor-not-allowed' : ''}`}
-                                                            />
-                                                            <span className='text-base font-semibold font-raleway text-[#666666]'>
+                            {/* Split Invoice Section */}
+                            {coAgents.length > 0 && (
+                                <div className='col-span-2 flex items-center justify-between'>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <div className="inline-block">
+                                                    <label className={`flex items-center gap-x-[10px] ${(!isSplitInvoice && coAgents.length === 0) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSplitInvoice}
+                                                            disabled={!isSplitInvoice && coAgents.length === 0}
+                                                            onChange={(e) => {
+                                                                setIsSplitInvoice(e.target.checked);
+                                                            }}
+                                                            className={`w-[18px] h-[18px] accent-[#4290E9] rounded-sm border border-[#CCCCCC] ${(!isSplitInvoice && coAgents.length === 0) ? 'cursor-not-allowed' : ''}`}
+                                                        />
+                                                        <span className='text-base font-semibold font-raleway text-[#666666]'>
                                                             Split Invoice
                                                         </span>
                                                     </label>
@@ -564,12 +564,12 @@ const BookNowContact = () => {
                                     </div>
                                 </DialogContent>
                             </Dialog>
-                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <RealtorSignInModal 
-                open={showAuthModal} 
+            <RealtorSignInModal
+                open={showAuthModal}
                 setOpen={setShowAuthModal}
             />
         </div>

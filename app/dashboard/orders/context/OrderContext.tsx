@@ -171,6 +171,9 @@ type OrderContextType = {
     recommendTimeMap: Record<string, 0 | 1>;
     setRecommendTimeMap: Dispatch<SetStateAction<Record<string, 0 | 1>>>;
 
+    isBookNowMode: boolean;
+    setIsBookNowMode: Dispatch<SetStateAction<boolean>>;
+
     resetOrderData: () => void;
     clearSelections: () => void;
 };
@@ -217,6 +220,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     const [ordersData, setOrdersData] = useState<Order[]>([]);
     const [packagesData, setPackagesData] = useState<Packages[]>([]);
     const [activePackage, setActivePackage] = useState<Packages | null>(null);
+
+    const [isBookNowMode, setIsBookNowMode] = useState(false);
 
     const resetOrderData = useCallback(() => {
         setInitComplete(false);
@@ -346,6 +351,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
                 setShowAllVendorsMap,
                 recommendTimeMap,
                 setRecommendTimeMap,
+                isBookNowMode,
+                setIsBookNowMode,
                 resetOrderData,
                 clearSelections
             }}

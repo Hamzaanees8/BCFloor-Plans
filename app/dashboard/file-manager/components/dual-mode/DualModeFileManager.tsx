@@ -20,6 +20,8 @@ interface DualModeFileManagerProps {
     singleAccordionTitle?: string;
     hideDashedBorder?: boolean;
     modeToggleButton?: React.ReactNode;
+    unselectedAction?: React.ReactNode;
+    unselectedSubHeader?: React.ReactNode;
 }
 
 export function DualModeFileManager({
@@ -33,14 +35,16 @@ export function DualModeFileManager({
     onSave,
     singleAccordionTitle,
     hideDashedBorder,
-    modeToggleButton
+    modeToggleButton,
+    unselectedAction,
+    unselectedSubHeader
 }: DualModeFileManagerProps) {
     const { userType } = useAppContext();
     const { selectionChangedUuids, isSaving, imagesPerRow } = useFileManagerContext();
     const savedItems = items.filter(item => item.status === 'uploaded').sort((a, b) => {
         if (userType === 'agent') {
-            const aSelected = !!a.originalData?.is_agent_approved;
-            const bSelected = !!b.originalData?.is_agent_approved;
+            const aSelected = !!(a.originalData?.is_agent_approved || a.originalData?.is_complimentary);
+            const bSelected = !!(b.originalData?.is_agent_approved || b.originalData?.is_complimentary);
             if (aSelected !== bSelected) {
                 return aSelected ? -1 : 1;
             }
@@ -48,8 +52,8 @@ export function DualModeFileManager({
         return a.order - b.order;
     });
 
-    const selectedItems = savedItems.filter(item => item.originalData?.is_agent_approved).sort((a, b) => a.order - b.order);
-    const agentUnselectedItems = savedItems.filter(item => !item.originalData?.is_agent_approved).sort((a, b) => a.order - b.order);
+    const selectedItems = savedItems.filter(item => item.originalData?.is_agent_approved || item.originalData?.is_complimentary).sort((a, b) => a.order - b.order);
+    const agentUnselectedItems = savedItems.filter(item => !(item.originalData?.is_agent_approved || item.originalData?.is_complimentary)).sort((a, b) => a.order - b.order);
     const unsavedItems = items.filter(item => item.status === 'local').sort((a, b) => a.order - b.order);
 
     const handleSavedOrderChange = (newSaved: FileItem[]) => {
@@ -59,7 +63,7 @@ export function DualModeFileManager({
     const handleSelectedOrderChange = (newSelected: FileItem[]) => {
         // We want to maintain the relative positions if possible, or just append/prepend
         // For simplified logic, let's just combine them based on status then selection
-        onItemsChange([...unsavedItems, ...newSelected, ...savedItems.filter(item => !item.originalData?.is_agent_approved)]);
+        onItemsChange([...unsavedItems, ...newSelected, ...savedItems.filter(item => !(item.originalData?.is_agent_approved || item.originalData?.is_complimentary))]);
     };
 
     const handleUnsavedOrderChange = (newUnsaved: FileItem[]) => {
@@ -189,9 +193,13 @@ export function DualModeFileManager({
                                         className={`px-[24px] py-[19px] h-[60px] ${userType}-text text-[18px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                         style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                                     >
-                                        Unselected Files ({agentUnselectedItems.length})
+                                        <div className="flex items-center flex-1 justify-between pr-4">
+                                            <span>Unselected Files ({agentUnselectedItems.length})</span>
+                                            {unselectedAction}
+                                        </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="p-4 border-t border-[#BBBBBB]">
+                                        {unselectedSubHeader}
                                         {agentUnselectedItems.length === 0 ? (
                                             <div className="flex items-center justify-center p-8 text-gray-500">
                                                 No files available

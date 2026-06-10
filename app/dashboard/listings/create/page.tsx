@@ -1623,55 +1623,103 @@ const ListingsFrom = () => {
                           )}
                         </div>
                       )}
-                      <div className=" w-full">
-                        <Label>Property Website</Label>
-                        {currentListing?.orders?.[0]?.uuid ? (
-                          <div className="relative w-full">
-                            <Input
-                              value={`${origin}/tour/${currentListing?.address?.replace(
-                                /\s+/g,
-                                "-"
-                              )}/${currentListing?.orders?.[0]?.uuid}`}
-                              readOnly
-                              type="text"
-                              className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] pr-10 truncate"
-                            />
-                            <Copy
-                              onClick={() => {
-                                const url = `${origin}/tour/${currentListing?.address?.replace(
-                                  /\s+/g,
-                                  "-"
-                                )}/${currentListing?.orders?.[0]?.uuid}`;
-                                navigator.clipboard.writeText(url);
-                                toast.success("Tour link copied to clipboard");
-                              }}
-                              className="cursor-pointer absolute right-3 top-[calc(50%+6px)] -translate-y-1/2 text-[#4290E9] h-[20px] w-[20px]"
-                              strokeWidth={1}
-                            />
-                          </div>
-                        ) : (
-                          <div className="relative w-full ">
-                            <Input
-                              value={propertyWebsite}
-                              onChange={(e) =>
-                                setPropertyWebsite(e.target.value)
-                              }
-                              type="text"
-                              readOnly
-                              placeholder="company.bcfp.com/vendor/id=88392"
-                              className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                            />
-                             <Copy
-                            className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 text-[#4290E9] h-[24px] w-[24px]"
-                            strokeWidth={1}
-                          /> 
-          </div>
-                        )}
-          {fieldErrors.property_website && (
-            <p className="text-red-500 text-[10px]">
-              {fieldErrors.property_website[0]}
-            </p>
+                      <div className=" w-full flex gap-4">
+        <div className="w-1/2">
+          <Label>Branded Tour Link</Label>
+          {currentListing?.orders?.[0]?.uuid ? (
+            <div className="relative w-full">
+              <Input
+                value={`${origin}/tour/${currentListing?.address?.replace(
+                  /\s+/g,
+                  "-"
+                )}/${currentListing?.orders?.[0]?.uuid}?type=branded`}
+                readOnly
+                type="text"
+                className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] pr-10 truncate"
+              />
+              <Copy
+                onClick={() => {
+                  const url = `${origin}/tour/${currentListing?.address?.replace(
+                    /\s+/g,
+                    "-"
+                  )}/${currentListing?.orders?.[0]?.uuid}?type=branded`;
+                  navigator.clipboard.writeText(url);
+                  toast.success("Branded Tour link copied to clipboard");
+                }}
+                className="cursor-pointer absolute right-3 top-[calc(50%+6px)] -translate-y-1/2 text-[#4290E9] h-[20px] w-[20px]"
+                strokeWidth={1}
+              />
+            </div>
+          ) : (
+            <div className="relative w-full ">
+              <Input
+                value={propertyWebsite}
+                onChange={(e) =>
+                  setPropertyWebsite(e.target.value)
+                }
+                type="text"
+                readOnly
+                placeholder="company.bcfp.com/vendor/id=88392?type=branded"
+                className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+              />
+              <Copy
+                className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 text-[#4290E9] h-[24px] w-[24px]"
+                strokeWidth={1}
+              /> 
+            </div>
           )}
+        </div>
+        
+        <div className="w-1/2">
+          <Label>Unbranded Tour Link</Label>
+          {currentListing?.orders?.[0]?.uuid ? (
+            <div className="relative w-full">
+              <Input
+                value={`${origin}/tour/${currentListing?.address?.replace(
+                  /\s+/g,
+                  "-"
+                )}/${currentListing?.orders?.[0]?.uuid}?type=unbranded`}
+                readOnly
+                type="text"
+                className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px] pr-10 truncate"
+              />
+              <Copy
+                onClick={() => {
+                  const url = `${origin}/tour/${currentListing?.address?.replace(
+                    /\s+/g,
+                    "-"
+                  )}/${currentListing?.orders?.[0]?.uuid}?type=unbranded`;
+                  navigator.clipboard.writeText(url);
+                  toast.success("Unbranded Tour link copied to clipboard");
+                }}
+                className="cursor-pointer absolute right-3 top-[calc(50%+6px)] -translate-y-1/2 text-[#4290E9] h-[20px] w-[20px]"
+                strokeWidth={1}
+              />
+            </div>
+          ) : (
+            <div className="relative w-full ">
+              <Input
+                value={propertyWebsite}
+                onChange={(e) =>
+                  setPropertyWebsite(e.target.value)
+                }
+                type="text"
+                readOnly
+                placeholder="company.bcfp.com/vendor/id=88392?type=unbranded"
+                className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+              />
+              <Copy
+                className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 text-[#4290E9] h-[24px] w-[24px]"
+                strokeWidth={1}
+              /> 
+            </div>
+          )}
+        </div>
+        {fieldErrors.property_website && (
+          <p className="text-red-500 text-[10px] w-full mt-1">
+            {fieldErrors.property_website[0]}
+          </p>
+        )}
       </div>
       <div className=" w-full">
         <Label>MLS Property</Label>

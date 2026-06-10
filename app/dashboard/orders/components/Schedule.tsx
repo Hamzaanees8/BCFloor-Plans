@@ -137,6 +137,9 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
     useEffect(() => {
         async function loadAndCalculate() {
             if (!vendorsData.length || (!selectedCurrentListing && !tempPropertyData) || !servicesData.length) {
+                setFilteredVendorsByService({});
+                setOverridableVendorsByService({});
+                setIsCalculating(false);
                 return;
             }
 

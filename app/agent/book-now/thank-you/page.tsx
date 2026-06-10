@@ -318,7 +318,7 @@ export default function ThankYouPage() {
                             <div className='text-center py-12'>
                                 <p className='text-[16px] text-[#666666] mb-4'>Order details not available</p>
                                 <Button
-                                    onClick={() => handleNavigate('/agent/book-now')}
+                                    onClick={() => handleNavigate('/book-now')}
                                     className='bg-[#4290E9] text-white hover:bg-[#3077C0] font-[600] h-[44px]'
                                 >
                                     Back to Book Now

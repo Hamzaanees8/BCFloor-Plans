@@ -44,8 +44,8 @@ function TourFloorPlans({ type = "" }) {
   let filteredFloorFiles = currentTourFloorFiles;
 
   if (userType === 'agent') {
-    photosList = photosList.filter(file => 'uuid' in file ? file.is_agent_approved : true);
-    filteredFloorFiles = filteredFloorFiles.filter(file => 'uuid' in file ? file.is_admin_approved : true);
+    photosList = photosList.filter(file => 'uuid' in file ? (file.is_agent_approved || file.is_complimentary) : true);
+    filteredFloorFiles = filteredFloorFiles.filter(file => 'uuid' in file ? (file.is_agent_approved || file.is_complimentary) : true);
   }
 
   const currentTourPhotos = photosList.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
@@ -392,6 +392,25 @@ function TourFloorPlans({ type = "" }) {
   const isSelectedFilePDF = selectedFile ? isPDF(selectedFile) : false;
 
   if (!filteredFloorFiles || filteredFloorFiles?.length === 0) {
+    const allFloorPlans = filesData?.files?.filter(file => {
+      const isFloorPlan = file?.service?.category?.name === "Floor Plan" || file?.service?.name?.toLowerCase().includes("floor plan");
+      return file.type === 'photo' && isFloorPlan;
+    }) || [];
+    if (userType === 'agent') {
+      if (allFloorPlans.length > 0) {
+        return (
+          <div className="font-alexandria w-full h-[50vh] text-[#4290E9] flex justify-center items-center font-[500] text-[18px]">
+            <p>You have not approved any floor plans yet. Go to Floor Plan service and approve media.</p>
+          </div>
+        );
+      } else {
+        return (
+          <div className="font-alexandria w-full h-[50vh] text-[#E06D5E] flex justify-center items-center font-[500] text-[18px]">
+            <p>Vendor has not uploaded any floor plans yet.</p>
+          </div>
+        );
+      }
+    }
     return (
       <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
         <p>No Floor Photo found — please add Floor Photos or select a Floor Plan service.</p>

@@ -48,6 +48,7 @@ type Props = {
     currentBookedService?: OrderService;
     onOpenInvoice?: (serviceName?: string) => void;
     gstRate?: number;
+    onSave?: () => void;
 };
 const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrderData, currentService, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate }) => {
     const { floorFiles, setFloorFiles, filesData, setFilesData, setChangedFileUuids, setSelectionChangedUuids, area, setArea, fileManagerMode, setFileManagerMode, imagesPerRow, isSaving, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
@@ -656,7 +657,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                             </div>
                         )}
 
-                        {userType === 'agent' && (
+                        {userType === 'agent' && !file.is_complimentary && (
                             <div
                                 className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
                                 onClick={(e) => {
@@ -932,7 +933,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                 e.target.value = "";
                             }}
                         />
-                        <FilePreviewModal type='floor_plans' open={openPreview} onOpenChange={() => { setOpenPreview(false) }} files={files} setSelectedFiles={setFloorFiles} serviceUuid={currentService?.uuid || ""} reviewFilesEnabled={reviewFilesEnabled} />
+                        <FilePreviewModal type='floor_plans' open={openPreview} onOpenChange={() => { setOpenPreview(false) }} files={files} setSelectedFiles={setFloorFiles} serviceUuid={currentService?.uuid || ""} reviewFilesEnabled={reviewFilesEnabled} onSave={onSave} />
                     </div>
                 </div>}
             {userType === 'admin' && <div className="">

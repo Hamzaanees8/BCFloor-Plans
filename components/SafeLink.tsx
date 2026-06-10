@@ -5,7 +5,7 @@ import { MouseEvent, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 
-interface SafeLinkProps extends LinkProps {
+interface SafeLinkProps extends Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, keyof LinkProps>, LinkProps {
   children: ReactNode;
   className?: string;
 }

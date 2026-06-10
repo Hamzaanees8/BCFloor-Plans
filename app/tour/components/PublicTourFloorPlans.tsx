@@ -49,6 +49,7 @@ interface PublicTourFloorPlansProps {
     floorPlanFiles?: FloorPlanFile[];
     snapshots?: Snapshoots[];
     tourPhotos?: any[];
+    watermarkLogo?: string;
 }
 
 // PDF Placeholder component
@@ -68,6 +69,7 @@ function PdfPlaceholder({ className = '', onClick }: { className?: string; onCli
 function PublicTourFloorPlans({
     floorPlanFiles = [],
     snapshots = [],
+    watermarkLogo
 }: PublicTourFloorPlansProps) {
     // Filter out PDF files
     const filteredFloorPlanFiles = floorPlanFiles.filter(file => file.type !== 'pdf' && !file.file_path?.toLowerCase().endsWith('.pdf'));
@@ -182,6 +184,16 @@ function PublicTourFloorPlans({
                                         alt="Selected Floor Plan"
                                         className="object-contain max-h-full max-w-full w-full h-full"
                                     />
+                                    {watermarkLogo && (
+                                        <>
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                                src={watermarkLogo}
+                                                alt="Watermark"
+                                                className="absolute bottom-10 right-10 w-[150px] object-contain opacity-60 pointer-events-none z-[50]"
+                                            />
+                                        </>
+                                    )}
 
                                     {/* Render markers for this floor plan (only for images, not PDFs) */}
                                     {[...filteredSnapshots, ...currentLocalSnapshots].map((snapshot, idx) => (
@@ -222,7 +234,7 @@ function PublicTourFloorPlans({
                                     ))}
 
                                     {previewMarker && (
-                                        <div 
+                                        <div
                                             className="bg-[#565656] text-white font-alexandria shadow-lg w-[320px] h-[380px] absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300"
                                             style={{
                                                 top: previewMarker.y > 50 ? 'auto' : `calc(${previewMarker.y}% - 24px)`,
@@ -239,13 +251,15 @@ function PublicTourFloorPlans({
                                             </button>
 
                                             {previewMarker.file_path && (
-                                                // eslint-disable-next-line @next/next/no-img-element
-                                                <img
-                                                    loading="lazy"
-                                                    src={previewMarker.variant_urls?.popup || previewMarker.variant_urls?.landing || previewMarker.file_path}
-                                                    alt={previewMarker.name || "Snapshot"}
-                                                    className="w-[95%] h-[65%] object-cover mx-auto mt-3 rounded"
-                                                />
+                                                <>
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img
+                                                        loading="lazy"
+                                                        src={previewMarker.variant_urls?.popup || previewMarker.variant_urls?.landing || previewMarker.file_path}
+                                                        alt={previewMarker.name || "Snapshot"}
+                                                        className="w-[95%] h-[65%] object-cover mx-auto mt-3 rounded"
+                                                    />
+                                                </>
                                             )}
 
                                             <div className="p-4 overflow-y-auto flex-1">

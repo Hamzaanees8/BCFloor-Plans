@@ -2,7 +2,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@radix-ui/react-dropdown-menu";
 import { X, Check, ArrowUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -72,6 +71,7 @@ interface FileRowProps {
   isComplimentary: boolean;
   onToggleComplimentary: (idx: number) => void;
   onCopyFromAbove: (idx: number) => void;
+  onTabNext: (idx: number, value: string) => void;
 }
 
 const FileRow = React.memo(({
@@ -90,8 +90,14 @@ const FileRow = React.memo(({
   isComplimentary,
   onToggleComplimentary,
   onCopyFromAbove,
+  onTabNext,
 }: FileRowProps) => {
   const [isCopied, setIsCopied] = useState(false);
+  const [focusedOptionIndex, setFocusedOptionIndex] = useState(-1);
+
+  const filteredSuggestions = allSuggestions.filter(item =>
+    !mediaType || item.toLowerCase().includes(mediaType.toLowerCase())
+  );
 
   const handleCopy = () => {
     onCopyFromAbove(idx);
@@ -106,10 +112,10 @@ const FileRow = React.memo(({
           <OptimizedImagePreview file={file} className="w-full h-full object-cover" />
 
           <span
-            className="flex w-[14px] h-[14px] absolute top-2 right-2 z-10 cursor-pointer"
+            className="flex items-center justify-center w-[28px] h-[28px] bg-white/90 hover:bg-white rounded-full absolute top-2 left-2 z-10 cursor-pointer shadow-md transition-all"
             onClick={() => onRemove(idx)}
           >
-            <X color={'#E06D5E'} size={14} />
+            <X color={'#E06D5E'} size={20} strokeWidth={2.5} />
           </span>
 
           {type === 'floor_plan' && (
@@ -138,75 +144,87 @@ const FileRow = React.memo(({
           </div>
         </div>
 
-        {type !== 'floor_plans' ? (
-          <div className="relative">
-            <Input
-              value={mediaType}
-              onChange={(e) => {
-                onMediaTypeChange(idx, e.target.value);
-                setOpenDropdown(idx);
-              }}
-              onFocus={() => setOpenDropdown(idx)}
-              placeholder="Select or Type Media Name"
-              className="w-full h-[42px] border text-[#696868] border-[#7d7d7d] pr-10"
-            />
-            {idx > 0 && (
-              <div className="absolute right-3 top-[21px] -translate-y-1/2 group">
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleCopy();
-                  }}
-                  type="button"
-                  className="text-gray-400 hover:text-gray-600 cursor-pointer p-1 rounded"
-                  aria-label="Copy from above"
-                >
-                  {isCopied ? <Check size={18} className="text-green-500" /> : <ArrowUp size={18} />}
-                </button>
-                <span className="pointer-events-none absolute bottom-full right-0 mb-2 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50">
-                  {isCopied ? 'Copied from above!' : 'Copy from above'}
-                </span>
-              </div>
-            )}
+        <div className="relative">
+          <Input
+            id={`media-input-${idx}`}
+            value={mediaType}
+            onChange={(e) => {
+              onMediaTypeChange(idx, e.target.value);
+              setOpenDropdown(idx);
+              setFocusedOptionIndex(-1);
+            }}
+            onFocus={() => {
+              setOpenDropdown(idx);
+              setFocusedOptionIndex(-1);
+            }}
+            onKeyDown={(e) => {
+              if (openDropdown === idx) {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setFocusedOptionIndex(prev =>
+                    prev < filteredSuggestions.length - 1 ? prev + 1 : prev
+                  );
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setFocusedOptionIndex(prev => prev > 0 ? prev - 1 : 0);
+                } else if (e.key === 'Enter' && focusedOptionIndex >= 0) {
+                  e.preventDefault();
+                  onMediaTypeChange(idx, filteredSuggestions[focusedOptionIndex]);
+                  setOpenDropdown(null);
+                }
+              }
+              if (e.key === 'Tab') {
+                e.preventDefault();
+                onTabNext(idx, mediaType);
+                setTimeout(() => {
+                  document.getElementById(`media-input-${idx + 1}`)?.focus();
+                }, 0);
+              }
+            }}
+            placeholder="Select or Type Media Name"
+            className="w-full h-[42px] border text-[#696868] border-[#7d7d7d] pr-10"
+          />
+          {idx > 0 && (
+            <div className="absolute right-3 top-[21px] -translate-y-1/2 group">
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleCopy();
+                }}
+                type="button"
+                className="text-gray-400 hover:text-gray-600 cursor-pointer p-1 rounded"
+                aria-label="Copy from above"
+              >
+                {isCopied ? <Check size={18} className="text-green-500" /> : <ArrowUp size={18} />}
+              </button>
+              <span className="pointer-events-none absolute bottom-full right-0 mb-2 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50">
+                {isCopied ? 'Copied from above!' : 'Copy from above'}
+              </span>
+            </div>
+          )}
 
-            {openDropdown === idx && (
-              <div className="absolute z-[100] w-full mt-1 bg-white border border-[#7d7d7d] rounded-md shadow-lg max-h-[200px] overflow-y-auto custom-scroll">
-                {allSuggestions
-                  .filter(item =>
-                    !mediaType ||
-                    item.toLowerCase().includes(mediaType.toLowerCase())
-                  )
-                  .map((item, i) => (
-                    <div
-                      key={i}
-                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-[#696868] text-[14px]"
-                      onClick={() => {
-                        onMediaTypeChange(idx, item);
-                        setOpenDropdown(null);
-                      }}
-                    >
-                      {item}
-                    </div>
-                  ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <Select onValueChange={(val) => onMediaTypeChange(idx, val)}>
-            <SelectTrigger className="w-full h-[42px] border text-[#696868] border-[#7d7d7d]">
-              <SelectValue placeholder="Select Media Name" />
-            </SelectTrigger>
-            <SelectContent>
-              {floorPlans.map((item, i) => (
-                <SelectItem key={i} value={item}>{item}</SelectItem>
+          {openDropdown === idx && (
+            <div className="absolute z-[100] w-full mt-1 bg-white border border-[#7d7d7d] rounded-md shadow-lg max-h-[200px] overflow-y-auto custom-scroll">
+              {filteredSuggestions.map((item, i) => (
+                <div
+                  key={i}
+                  className={`px-4 py-2 cursor-pointer text-[#696868] text-[14px] ${focusedOptionIndex === i ? 'bg-gray-100' : 'hover:bg-gray-100'
+                    }`}
+                  onClick={() => {
+                    onMediaTypeChange(idx, item);
+                    setOpenDropdown(null);
+                  }}
+                >
+                  {item}
+                </div>
               ))}
-            </SelectContent>
-          </Select>
-        )}
+            </div>
+          )}
+        </div>
 
         <div className="text-[13px] text-[#7d7d7d] grid grid-cols-3">
           <p className="truncate">{file.name}</p>
-          <p className="text-center">(1 of {totalFiles})</p>
+          <p className="text-center">({idx + 1} of {totalFiles})</p>
           <div className="text-right flex justify-end">
             <p
               onClick={() => onRemove(idx)}
@@ -235,6 +253,7 @@ interface Props {
   type: string;
   serviceUuid: string;
   reviewFilesEnabled?: boolean;
+  onSave?: () => void;
 }
 
 export default function FilePreviewModal({
@@ -245,6 +264,7 @@ export default function FilePreviewModal({
   type,
   serviceUuid,
   reviewFilesEnabled,
+  onSave,
 }: Props) {
   const [localFiles, setLocalFiles] = useState<File[]>(files);
   const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
@@ -254,6 +274,11 @@ export default function FilePreviewModal({
   const [complimentaryIndexes, setComplimentaryIndexes] = useState<number[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [showAgain, setShowAgain] = useState(true);
+
+  const onSaveRef = React.useRef(onSave);
+  React.useEffect(() => {
+    onSaveRef.current = onSave;
+  }, [onSave]);
 
   // LOAD FROM LOCALSTORAGE ON MOUNT
   useEffect(() => {
@@ -274,8 +299,9 @@ export default function FilePreviewModal({
     new Set(filesData?.files?.map(f => f.group).filter((g): g is string => Boolean(g)) || [])
   );
 
+  const baseSuggestions = type === 'floor_plans' ? floorPlans : mediaOptions;
   const allSuggestions = Array.from(
-    new Set([...mediaOptions, ...existingGroups])
+    new Set([...baseSuggestions, ...existingGroups])
   );
 
   useEffect(() => {
@@ -309,6 +335,12 @@ export default function FilePreviewModal({
     }
   }, [mediaTypes]);
 
+  const handleTabNext = useCallback((index: number, value: string) => {
+    if (index + 1 < localFiles.length) {
+      setMediaTypes(prev => ({ ...prev, [index + 1]: value }));
+    }
+  }, [localFiles.length]);
+
   const handleAdd = useCallback(() => {
     const existingServiceFilesCount = filesData?.files?.filter(f => f.service?.uuid === serviceUuid).length || 0;
 
@@ -322,7 +354,7 @@ export default function FilePreviewModal({
         group: selectedIndexes.includes(index) ? groupLabel : "",
         upload: true,
         service_id: serviceUuid,
-        is_admin_approved: !reviewFilesEnabled,
+        is_admin_approved: userType === 'admin' ? true : !reviewFilesEnabled,
         is_show: true,
         sort_order: totalExistingForService + index,
         is_complimentary: complimentaryIndexes.includes(index),
@@ -331,7 +363,12 @@ export default function FilePreviewModal({
       return [...prev, ...filesToAdd];
     });
 
+    // Close the modal and trigger the upload saving function
     onOpenChange(false);
+    setTimeout(() => {
+      if (onSaveRef.current) onSaveRef.current();
+    }, 200);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     localFiles,
     mediaTypes,
@@ -341,6 +378,7 @@ export default function FilePreviewModal({
     reviewFilesEnabled,
     setSelectedFiles,
     onOpenChange,
+    onSave,
     filesData,
     complimentaryIndexes,
   ]);
@@ -360,7 +398,7 @@ export default function FilePreviewModal({
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent 
+        <DialogContent
           className="w-[320px] md:w-[700px] max-w-none h-[90vh] md:h-[95vh] flex flex-col font-alexandria gap-0 p-4 md:p-6"
           onPointerDownOutside={(e) => {
             if (localFiles.length > 0) {
@@ -433,6 +471,7 @@ export default function FilePreviewModal({
                   )
                 }
                 onCopyFromAbove={handleCopyFromAbove}
+                onTabNext={handleTabNext}
               />
             ))}
           </div>
@@ -456,7 +495,7 @@ export default function FilePreviewModal({
               onClick={handleAdd}
               disabled={localFiles.length === 0}
             >
-              Add
+              Upload
             </Button>
           </div>
         </DialogContent>

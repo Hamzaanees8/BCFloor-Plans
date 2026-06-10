@@ -218,6 +218,54 @@ export const WhiteLabelProvider = ({ children }: { children: ReactNode }) => {
     // Load organizations and global settings on mount
     useEffect(() => {
         const init = async () => {
+            const hasToken = typeof window !== 'undefined' ? !!localStorage.getItem("token") : false;
+
+            if (!hasToken) {
+                // If there is no token (guest user on a public page), do not hit authenticated APIs.
+                // Fallback to activeOrg branding data which comes from the public domain resolution API.
+                let activeDefaults = getOrgDefaults(activeOrg);
+                
+                if (activeOrg?.branding?.white_label_styles) {
+                    const orgStyles = activeOrg.branding.white_label_styles;
+                    setSettings(orgStyles);
+                    setAppliedSettings(orgStyles);
+                    WhiteLabelStyles.apply(orgStyles);
+                } else {
+                    // Try to construct basic styles from public branding colors
+                    const primary = extractColorValue(activeOrg?.branding?.primary_color, '');
+                    const secondary = extractColorValue(activeOrg?.branding?.secondary_color, '');
+                    const logo = activeOrg?.branding?.logo;
+                    
+                    const newStyles = { ...activeDefaults };
+                    (Object.keys(newStyles) as Role[]).forEach(role => {
+                        if (logo) newStyles[role] = { ...newStyles[role], logo };
+                        if (primary) newStyles[role] = { ...newStyles[role], pageTabColor: primary };
+                        if (secondary) newStyles[role] = { ...newStyles[role], activeColor: secondary };
+                        
+                        // Force a bright layout for public guest users instead of generic dark theme
+                        // and ensure primary/secondary colors always match the org level fallbacks
+                        newStyles[role] = {
+                            ...newStyles[role],
+                            pageTabColor: primary || 'var(--org-primary)',
+                            activeColor: secondary || 'var(--org-secondary)',
+                            pageBg: '#FFFFFF',
+                            pageText: '#6D6D6D',
+                            sidebarBg: '#F3F4F6',
+                            sidebarText: '#4B5563',
+                            sidebarHoverBg: '#E5E7EB',
+                            sidebarHoverText: '#6D6D6D'
+                        };
+                    });
+                    activeDefaults = newStyles;
+                    
+                    activeDefaults = applyLogoFallback(activeDefaults, activeOrg);
+                    setSettings(activeDefaults);
+                    setAppliedSettings(activeDefaults);
+                    WhiteLabelStyles.apply(activeDefaults);
+                }
+                return;
+            }
+
             try {
                 const orgsRes = await GetOrganizations();
                 setOrganizations(Array.isArray(orgsRes.data) ? orgsRes.data : []);
@@ -273,6 +321,9 @@ export const WhiteLabelProvider = ({ children }: { children: ReactNode }) => {
         if (!selectedOrgUuid) {
             // Load Global from API/localStorage
             const loadGlobal = async () => {
+                const hasToken = typeof window !== 'undefined' ? !!localStorage.getItem("token") : false;
+                if (!hasToken) return;
+
                 try {
                     const response = await api.get('/settings/white_label_styles');
                     const remoteSettings = response.data?.value;
@@ -304,15 +355,32 @@ export const WhiteLabelProvider = ({ children }: { children: ReactNode }) => {
             
             const loadOrgBranding = async () => {
                 let stylesToUse = getOrgDefaults(org);
+                const hasToken = typeof window !== 'undefined' ? !!localStorage.getItem("token") : false;
                 
                 try {
-                    const response = await api.get(`/settings/white_label_styles?org_uuid=${selectedOrgUuid}`);
-                    const remoteSettings = response.data?.value;
-                    if (remoteSettings && typeof remoteSettings === 'object') {
-                        stylesToUse = remoteSettings;
+                    if (hasToken) {
+                        const response = await api.get(`/settings/white_label_styles?org_uuid=${selectedOrgUuid}`);
+                        const remoteSettings = response.data?.value;
+                        if (remoteSettings && typeof remoteSettings === 'object') {
+                            stylesToUse = remoteSettings;
+                        } else {
+                            // Pre-fill from org object if JSON styles are missing
+                            if (org) {
+                                const primary = extractColorValue(org.primary_color, '');
+                                const secondary = extractColorValue(org.secondary_color, '');
+                                if (primary || secondary) {
+                                    const next = { ...stylesToUse };
+                                    (Object.keys(next) as Role[]).forEach(role => {
+                                        if (primary) next[role] = { ...next[role], pageTabColor: primary };
+                                        if (secondary) next[role] = { ...next[role], activeColor: secondary };
+                                    });
+                                    stylesToUse = next;
+                                }
+                            }
+                        }
                     } else {
-                        // Pre-fill from org object if JSON styles are missing
-                        if (org) {
+                         // Pre-fill from org object if JSON styles are missing
+                         if (org) {
                             const primary = extractColorValue(org.primary_color, '');
                             const secondary = extractColorValue(org.secondary_color, '');
                             if (primary || secondary) {

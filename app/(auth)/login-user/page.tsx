@@ -51,7 +51,7 @@ function LoginUser() {
                 password,
                 role: 'admin',
                 organization_id: organization?.org_id,
-                domain: !isDefault ? getAppOrigin() : undefined
+                domain: !isDefault && !currentHostname.includes('localhost') ? getAppOrigin() : undefined
             });
 
             console.log('Login successful:', response);
@@ -86,8 +86,9 @@ function LoginUser() {
                         className={`h-[42px] border-[2px] border-solid border-[#BBBBBB] rounded-[6px] ${errors.email ? 'border-red-500' : 'border-[#BBBBBB]'}`}
                         value={email}
                         onChange={(e) => {
-                            setEmail(e.target.value)
-                            if (errors.email && e.target.value.trim() !== '') {
+                            const value = e.target.value.toLowerCase().replace(/[^a-z0-9@._\-+]/g, '');
+                            setEmail(value);
+                            if (errors.email && value.trim() !== '') {
                                 setErrors(prev => ({ ...prev, email: false }))
                             }
                         }}

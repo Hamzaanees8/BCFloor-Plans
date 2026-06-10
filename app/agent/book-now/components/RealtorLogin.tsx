@@ -13,8 +13,17 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { useAppContext } from "@/app/context/AppContext";
 import { useOrganization } from "@/app/context/OrganizationContext";
-import { agentLogin, agentSignup } from "../book-now";
+import { agentLogin, agentSignup, fetchOrganizationsForBookNow } from "../book-now";
+import { isDefaultDomain } from "@/lib/config/domains";
+import { getAppOrigin, getAppHostname } from "@/lib/utils";
 import { X } from "lucide-react";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 // Utility function to decode JWT token
 function decodeJWT(token: string) {
@@ -52,6 +61,16 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
     const [confirmPassword, setConfirmPassword] = React.useState("");
     const [firstName, setFirstName] = React.useState("");
     const [lastName, setLastName] = React.useState("");
+    const [organizations, setOrganizations] = React.useState<any[]>([]);
+    const [selectedOrgId, setSelectedOrgId] = React.useState<string>("");
+
+    React.useEffect(() => {
+        if (mode === "signup") {
+            fetchOrganizationsForBookNow().then((data) => {
+                setOrganizations(Array.isArray(data) ? data : []);
+            });
+        }
+    }, [mode]);
 
     const validateEmail = (email: string) => {
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -72,11 +91,14 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
 
         setIsLoading(true);
         try {
+            const currentHostname = getAppHostname();
+            const isDefault = isDefaultDomain(currentHostname);
+
             const response = await agentLogin(
                 email,
                 password,
                 organization?.org_id,
-                typeof window !== 'undefined' ? window.location.origin : undefined
+                !isDefault && !currentHostname.includes('localhost') ? getAppOrigin() : undefined
             );
             const token = response?.data?.token || response?.token;
             let user = response?.data?.user || response?.user;
@@ -162,6 +184,7 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                 email,
                 password,
                 password_confirmation: confirmPassword,
+                organization_id: selectedOrgId ? Number(selectedOrgId) : undefined,
             });
 
             const token = response?.data?.token || response?.token;
@@ -366,6 +389,24 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                                         className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB]"
                                     />
                                 </div>
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-normal text-[#666666]">
+                                    Organization
+                                </label>
+                                <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
+                                    <SelectTrigger className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB]">
+                                        <SelectValue placeholder="Select Organization" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {organizations.map((org) => (
+                                            <SelectItem key={org.id} value={org.id.toString()}>
+                                                {org.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
 
                             <div className="flex flex-col gap-2">

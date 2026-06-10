@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Maximize, Minimize, PauseCircle, Play, Volume2, VolumeX } from 'lucide-react'; // Lucide icons
+import { Maximize, Minimize, Pause, Play, Volume2, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react'; // Lucide icons
 import './SlideshowAnimations.css';
 import { Files, SelectedFiles } from '../FileManagerContext';
 
@@ -63,8 +63,14 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   const [transitionIndex, setTransitionIndex] = useState(0);
   const [internalIsPlaying, setInternalIsPlaying] = useState(true);
   const [internalIsMuted, setInternalIsMuted] = useState(false);
+  const [manualTransition, setManualTransition] = useState<string | null>(null);
+  const [isIntersecting, setIsIntersecting] = useState(true);
 
-  const isPlaying = propIsPlaying !== undefined ? propIsPlaying : internalIsPlaying;
+  const isPlaying = (propIsPlaying !== undefined ? propIsPlaying : internalIsPlaying) && isIntersecting;
+  const isPlayingRef = useRef(isPlaying);
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
   const isMuted = propIsMuted !== undefined ? propIsMuted : internalIsMuted;
   const setIsPlaying = propSetIsPlaying || setInternalIsPlaying;
   const setIsMuted = propSetIsMuted || setInternalIsMuted;
@@ -104,8 +110,10 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     };
   }, [allImages]);
 
-  const getTransitionClass = () =>
-    transition ? transition : transitionClasses[transitionIndex];
+  const getTransitionClass = () => {
+    if (manualTransition) return manualTransition;
+    return transition ? transition : transitionClasses[transitionIndex];
+  };
 
   useEffect(() => {
     if (propCurrentIndex !== undefined) {
@@ -122,6 +130,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
   useEffect(() => {
     if (isPlaying && allImages.length > 0) {
       intervalRef.current = setInterval(() => {
+        setManualTransition(null);
         const nextIndex = (currentIndex + 1) % allImages.length;
         setLastIndex(currentIndex);
         setCurrentIndex(nextIndex);
@@ -150,6 +159,21 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsIntersecting(entry.isIntersecting);
+      },
+      { threshold: 0.1 }
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
 
@@ -170,17 +194,77 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     setIsMuted(!isMuted);
   }
 
-  const handleMouseMove = () => {
-    setShowControls(true);
+  const isHoveringControlsRef = useRef(false);
+
+  const startControlsTimeout = () => {
     if (controlsTimeoutRef.current) {
       clearTimeout(controlsTimeoutRef.current);
     }
     controlsTimeoutRef.current = setTimeout(() => {
+      if (!isHoveringControlsRef.current) {
+        setShowControls(false);
+      }
+    }, 2000);
+  };
+
+  const handleMouseMove = () => {
+    setShowControls(true);
+    startControlsTimeout();
+  };
+
+  const handleContainerMouseLeave = () => {
+    if (!isHoveringControlsRef.current) {
       setShowControls(false);
-    }, 4000);
+    }
+  };
+
+  const handleControlMouseEnter = () => {
+    isHoveringControlsRef.current = true;
+    setShowControls(true);
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+  };
+
+  const handleControlMouseLeave = () => {
+    isHoveringControlsRef.current = false;
+    startControlsTimeout();
+  };
+
+  const handleNext = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (allImages.length === 0) return;
+    setManualTransition('slide-right-left-fast');
+    const nextIndex = (currentIndex + 1) % allImages.length;
+    setLastIndex(currentIndex);
+    setCurrentIndex(nextIndex);
+    if (onSlideChange) {
+      onSlideChange(nextIndex);
+    }
+    if (!transition) {
+      setTransitionIndex((prev) => (prev + 1) % transitionClasses.length);
+    }
+  };
+
+  const handlePrev = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (allImages.length === 0) return;
+    setManualTransition('slide-left-right-fast');
+    const prevIndex = currentIndex === 0 ? allImages.length - 1 : currentIndex - 1;
+    setLastIndex(currentIndex);
+    setCurrentIndex(prevIndex);
+    if (onSlideChange) {
+      onSlideChange(prevIndex);
+    }
+    if (!transition) {
+      setTransitionIndex((prev) => (prev + 1) % transitionClasses.length);
+    }
   };
 
   useEffect(() => {
+    // Initial timeout to hide controls if the user doesn't move the mouse
+    startControlsTimeout();
+
     return () => {
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
@@ -199,10 +283,12 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
           if (error.name === 'NotAllowedError' || error.name === 'NotSupportedError') {
             // Autoplay blocked - wait for user interaction
             const unlock = () => {
-              audioEl.play().catch(() => { });
               window.removeEventListener('click', unlock);
               window.removeEventListener('touchstart', unlock);
               window.removeEventListener('keydown', unlock);
+              if (isPlayingRef.current) {
+                audioEl.play().catch(() => { });
+              }
             };
             window.addEventListener('click', unlock, { once: true });
             window.addEventListener('touchstart', unlock, { once: true });
@@ -214,6 +300,10 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     } else {
       audioEl.pause();
     }
+
+    return () => {
+      audioEl.pause();
+    };
   }, [audioUrl, isPlaying]);
 
 
@@ -223,6 +313,7 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
     <div
       ref={containerRef}
       onMouseMove={handleMouseMove}
+      onMouseLeave={handleContainerMouseLeave}
       className={`relative w-full overflow-hidden bg-black group isolate ${className}`}
     >
       {/* Audio - only if not externally controlled */}
@@ -257,19 +348,46 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
 
       {/* Play/Pause Button */}
       <div
-        onClick={togglePlayback}
-        className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-50 transition-opacity duration-500 bg-black/20 hover:bg-black/40 rounded-full p-4 ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        onClick={(e) => { e.stopPropagation(); togglePlayback(); }}
+        onMouseEnter={handleControlMouseEnter}
+        onMouseLeave={handleControlMouseLeave}
+        className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-50 transition-opacity duration-500 bg-black/20 hover:bg-black/40 rounded-full p-3 ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
       >
         {isPlaying ? (
-          <PauseCircle size={64} color="#ffffff" />
+          <Pause size={48} color="#d1d5db" strokeWidth={1.5} />
         ) : (
-          <Play size={64} color="#ffffff" />
+          <Play size={48} color="#d1d5db" strokeWidth={1.5} />
         )}
       </div>
 
+      {/* Prev/Next Buttons */}
+      <div
+        onClick={handlePrev}
+        onMouseEnter={handleControlMouseEnter}
+        onMouseLeave={handleControlMouseLeave}
+        className={`absolute top-1/2 left-6 transform -translate-y-1/2 cursor-pointer z-[100] transition-opacity duration-500 bg-black/40 hover:bg-black/60 p-3 rounded-full border border-white/30 shadow-[0_0_15px_rgba(0,0,0,0.5)] ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+      >
+        <ChevronLeft size={40} color="#ffffff" />
+      </div>
+
+      <div
+        onClick={handleNext}
+        onMouseEnter={handleControlMouseEnter}
+        onMouseLeave={handleControlMouseLeave}
+        className={`absolute top-1/2 right-6 transform -translate-y-1/2 cursor-pointer z-[100] transition-opacity duration-500 bg-black/40 hover:bg-black/60 p-3 rounded-full border border-white/30 shadow-[0_0_15px_rgba(0,0,0,0.5)] ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+      >
+        <ChevronRight size={40} color="#ffffff" />
+      </div>
+
       {/* Bottom Controls Group */}
-      <div className={`absolute bottom-10 right-10 flex items-center gap-4 z-[1000] transition-opacity duration-500 ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+      <div 
+        className={`absolute bottom-10 right-10 flex items-center gap-4 z-[1000] transition-opacity duration-500 ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        onMouseEnter={handleControlMouseEnter}
+        onMouseLeave={handleControlMouseLeave}
+      >
         {/* Mute/Unmute Button */}
         <div
           onClick={toggleMute}

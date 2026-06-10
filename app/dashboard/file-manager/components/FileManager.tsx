@@ -39,7 +39,7 @@ import {
 } from "../file-manager";
 import { GetOneListing } from "../../listings/listing";
 import { Listings } from "@/lib/types";
-import Link from "next/link";
+import SafeLink from "@/components/SafeLink";
 import { Loader2, X } from "lucide-react";
 
 type OrerServices = NonNullable<Order>["services"][0];
@@ -501,6 +501,7 @@ const FileManager = () => {
             reviewFilesEnabled={reviewFilesEnabled}
             onOpenInvoice={handleOpenInvoice}
             gstRate={gstRate}
+            onSave={handleSave}
           />
         );
       case "drone":
@@ -527,6 +528,7 @@ const FileManager = () => {
             reviewFilesEnabled={reviewFilesEnabled}
             onOpenInvoice={handleOpenInvoice}
             gstRate={gstRate}
+            onSave={handleSave}
           />
         );
       case "Standard Photos":
@@ -567,6 +569,7 @@ const FileManager = () => {
             reviewFilesEnabled={reviewFilesEnabled}
             onOpenInvoice={handleOpenInvoice}
             gstRate={gstRate}
+            onSave={handleSave}
           />
         );
       default:
@@ -1158,7 +1161,7 @@ const FileManager = () => {
                 Media
               </div>
               {userType !== 'vendor' && (
-                <Link
+                <SafeLink
                   href={`/dashboard/listings/create/${currentListing?.uuid}`}
                   className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${false
                     ? `${userType}-bg text-white font-[700] ${userType}-border`
@@ -1171,9 +1174,9 @@ const FileManager = () => {
                   }}
                 >
                   Property details
-                </Link>
+                </SafeLink>
               )}
-              <Link
+              <SafeLink
                 href={`/dashboard/orders/${orderId}`}
                 className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${false
                   ? `${userType}-bg text-white font-[700] ${userType}-border`
@@ -1186,7 +1189,7 @@ const FileManager = () => {
                 }}
               >
                 Order details
-              </Link>
+              </SafeLink>
             </div>
           </div>
         </div>

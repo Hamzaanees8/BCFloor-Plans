@@ -26,6 +26,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import GooglePlacesAutocomplete from '../../calendar/components/AutoCompleteInput';
 import { SearchableSelect } from './SearchableSelect';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
+import { fetchVendorForBookNow, fetchServicesForBookNow } from '@/app/agent/book-now/book-now';
 
 declare global {
     interface Window {
@@ -99,6 +100,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         selectedSlots,
         agentNotes,
         coAgents,
+        isBookNowMode,
     } = useOrderContext();
     const { userType } = useAppContext()
     const searchParams = useSearchParams();
@@ -116,6 +118,11 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     const [searchValue, setSearchValue] = useState("");
     const [listingSearchValue, setListingSearchValue] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    
+    const [hasToken, setHasToken] = useState(true);
+    useEffect(() => {
+        setHasToken(!!localStorage.getItem("token"));
+    }, []);
     //const [isEditingListing, setIsEditingListing] = useState(false);
     const selectedAgent = useMemo(() => {
         return agentData.find((agent) => agent.uuid === selectedAgentId) || null;
@@ -323,27 +330,43 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
 
     const fetchServices = useCallback(() => {
         const token = localStorage.getItem("token");
-        if (!token) return;
+        if (!token && !isBookNowMode) return;
 
-        GetServices(token)
+        if (!token && isBookNowMode) {
+            fetchServicesForBookNow().then((data) => {
+                const fetched = Array.isArray(data) ? data : [];
+                setServicesData(fetched);
+            }).catch(err => console.log(err));
+            return;
+        }
+
+        GetServices(token as string)
             .then((data) => {
                 const fetched = Array.isArray(data.data) ? data.data : [];
                 setServicesData(fetched);
             })
             .catch((err) => console.log(err.message));
-    }, [setServicesData]);
+    }, [setServicesData, isBookNowMode]);
 
     const fetchVendors = useCallback(() => {
         const token = localStorage.getItem("token");
-        if (!token) return;
+        if (!token && !isBookNowMode) return;
 
-        GetVendors(token)
+        if (!token && isBookNowMode) {
+            fetchVendorForBookNow().then((data) => {
+                const fetched = Array.isArray(data) ? data : [];
+                setVendorsData(fetched);
+            }).catch(err => console.log(err));
+            return;
+        }
+
+        GetVendors(token as string)
             .then((data) => {
                 const fetched = Array.isArray(data.data) ? data.data : [];
                 setVendorsData(fetched);
             })
             .catch((err) => console.log(err.message));
-    }, [setVendorsData]);
+    }, [setVendorsData, isBookNowMode]);
 
     const fetchOrdersData = useCallback(() => {
         const token = localStorage.getItem("token");
@@ -363,7 +386,8 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         fetchOrdersData();
     }, [fetchServices, fetchVendors, fetchOrdersData]);
 
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '');
+    const userInfoRaw = typeof window !== 'undefined' ? localStorage.getItem('userInfo') : null;
+    const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
 
     const sortedCountries = useMemo(() => {
         const allCountries = Country.getAllCountries().map(c => ({
@@ -443,14 +467,14 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     useEffect(() => {
         const isValid = !!(
             address?.trim() &&
-            selectedAgentId &&
+            (selectedAgentId || (isBookNowMode && !hasToken)) &&
             (selectedListingId || Number(squareFootage) > 0) &&
             city?.trim() &&
             country &&
             postalCode?.trim()
         );
         setIsPropertyValid(isValid);
-    }, [address, squareFootage, selectedAgentId, city, country, postalCode, setIsPropertyValid, selectedListingId]);
+    }, [address, squareFootage, selectedAgentId, city, country, postalCode, setIsPropertyValid, selectedListingId, isBookNowMode, hasToken]);
 
 
     //     useEffect(() => {
@@ -829,8 +853,9 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     return (
         <div className='pt-7 px-[200px] pb-[80px] font-alexandria'>
             <div className='py-[10px] pl-[10px] flex flex-col gap-[30px]'>
-                <div className='flex flex-col gap-[14px]'>
-                    <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Agent <span className="text-red-500">*</span></p>
+                {!(isBookNowMode && !hasToken) && (
+                    <div className='flex flex-col gap-[14px]'>
+                        <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Agent <span className="text-red-500">*</span></p>
                     <div className='flex items-start justify-between'>
                         <div className='flex items-center gap-4'>
                             <Popover open={userType === 'agent' ? false : openAgent} onOpenChange={(open) => userType !== 'agent' && setOpenAgent(open)}>
@@ -968,12 +993,15 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                         </div>
                     )}
                 </div>
-                <div className='w-full h-[1px] bg-[#EEEEEE]' />
+                )}
+                {!(isBookNowMode && !hasToken) && (
+                    <div className='w-full h-[1px] bg-[#EEEEEE]' />
+                )}
                 <TooltipProvider>
                     <Tooltip delayDuration={300}>
                         <TooltipTrigger asChild>
                             <div className="relative w-full">
-                                <div className={cn("w-full transition-opacity duration-200", !selectedAgentId && "opacity-50 pointer-events-none")}>
+                                <div className={cn("w-full transition-opacity duration-200", (!selectedAgentId && !(isBookNowMode && !hasToken)) && "opacity-50 pointer-events-none")}>
                                     {duplicateListing && (
                                         <div className='w-full p-4 mb-4 rounded-lg bg-red-50 border border-red-200 flex flex-col gap-3'>
                                             <p className='text-red-600 text-[14px] font-[500]'>
@@ -1147,37 +1175,38 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                 </div>
                                                             </div>
 
-                                                            <div className="col-span-1">
-                                                                <label htmlFor="">MLS#</label>
-                                                                <Input
-                                                                    value={mls}
-                                                                    onChange={(e) => setMls(e.target.value)}
-                                                                    placeholder="e.g A2206608"
-                                                                    className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
-                                                                    style={{ backgroundColor: fieldBg }}
-                                                                    type="text"
-                                                                />
-                                                                {fieldErrors.mls_number && (
-                                                                    <p className="text-red-500 text-[10px]">
-                                                                        {fieldErrors.mls_number[0]}
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                            <div className="col-span-1 flex items-end h-full">
-                                                                <button
-                                                                    onClick={handleMlsFetch}
-                                                                    className="w-full h-[42px] text-white rounded-[4px] transition-colors disabled:opacity-50"
-                                                                    style={{ backgroundColor: roleSettings.pageTabColor }}
-                                                                >
-                                                                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Sync with MLS"}
-                                                                </button>
-                                                            </div>
+
                                                         </div>
                                                         <Accordion type="single" collapsible className="w-full">
                                                             <AccordionItem value="extra-details" className='border-0'>
                                                                 <AccordionTrigger className='font-[500] text-[16px] hover:no-underline' style={{ color: roleSettings.pageTabColor }}>Extra Details</AccordionTrigger>
                                                                 <AccordionContent>
                                                                     <div className='grid grid-cols-4 px-1 gap-[16px]'>
+                                                                        <div className="col-span-1">
+                                                                            <label htmlFor="">MLS#</label>
+                                                                            <Input
+                                                                                value={mls}
+                                                                                onChange={(e) => setMls(e.target.value)}
+                                                                                placeholder="e.g A2206608"
+                                                                                className="h-[42px] border-[1px] border-[#BBBBBB] mt-[12px]"
+                                                                                style={{ backgroundColor: fieldBg }}
+                                                                                type="text"
+                                                                            />
+                                                                            {fieldErrors.mls_number && (
+                                                                                <p className="text-red-500 text-[10px]">
+                                                                                    {fieldErrors.mls_number[0]}
+                                                                                </p>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="col-span-1 flex items-end h-full">
+                                                                            <button
+                                                                                onClick={handleMlsFetch}
+                                                                                className="w-full h-[42px] text-white rounded-[4px] transition-colors disabled:opacity-50"
+                                                                                style={{ backgroundColor: roleSettings.pageTabColor }}
+                                                                            >
+                                                                                {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Download MLS Data"}
+                                                                            </button>
+                                                                        </div>
                                                                         <div>
                                                                             <label htmlFor="">Listing Price (CAD)</label>
                                                                             <div className="relative mt-[12px]">
@@ -1385,13 +1414,13 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                 Cancel
                                                             </button>
                                                             <button
-                                                                disabled={isLoading || !address?.trim() || !selectedAgentId || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim()}
+                                                                disabled={isLoading || !address?.trim() || (!selectedAgentId && !(isBookNowMode && !hasToken)) || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim()}
                                                                 onClick={(e) => { handleSubmit(e) }}
                                                                 className={`w-full rounded-sm md:w-[176px] h-[40px] font-[400] text-[20px] flex items-center justify-center gap-2 text-white transition-all
-                                                ${(isLoading || !address?.trim() || !selectedAgentId || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim())
+                                                ${(isLoading || !address?.trim() || (!selectedAgentId && !(isBookNowMode && !hasToken)) || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim())
                                                                         ? 'bg-gray-400 cursor-not-allowed'
                                                                         : ''}`}
-                                                                style={{ backgroundColor: (isLoading || !address?.trim() || !selectedAgentId || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim()) ? undefined : roleSettings.pageTabColor }}
+                                                                style={{ backgroundColor: (isLoading || !address?.trim() || (!selectedAgentId && !(isBookNowMode && !hasToken)) || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim()) ? undefined : roleSettings.pageTabColor }}
                                                             >
                                                                 {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Next"}
                                                             </button>
@@ -1405,9 +1434,10 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                         </AccordionItem>
                                     </Accordion>
 
-                                    <div className='flex flex-col gap-[14px]'>
-                                        <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Listing</p>
-                                        <div className='flex items-start justify-between'>
+                                    {!(isBookNowMode && !hasToken) && (
+                                        <div className='flex flex-col gap-[14px] mt-[30px]'>
+                                            <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Listing</p>
+                                            <div className='flex items-start justify-between'>
                                             <div className='flex items-center gap-4'>
                                                 <Popover open={isAgentEdit ? false : openListing} onOpenChange={(open) => !isAgentEdit && setOpenListing(open)}>
                                                     <PopoverTrigger asChild>
@@ -1501,14 +1531,15 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                 </>
                                             )}
                                         </div>
-                                    </div>
+                                        </div>
+                                    )}
                                 </div>
-                                {!selectedAgentId && (
+                                {!selectedAgentId && !(isBookNowMode && !hasToken) && (
                                     <div className="absolute inset-0 z-10" />
                                 )}
                             </div>
                         </TooltipTrigger>
-                        {!selectedAgentId && (
+                        {(!selectedAgentId && !(isBookNowMode && !hasToken)) && (
                             <TooltipContent>
                                 <p>Please select an agent to search for a property.</p>
                             </TooltipContent>

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import {
   Mail,
   Phone,
+  MapPin,
 } from "lucide-react";
 import { useOptionalFileManagerContext } from "../FileManagerContext";
 import PublicTourFloorPlans from "@/app/tour/components/PublicTourFloorPlans";
@@ -45,6 +46,8 @@ interface TourConfimation {
   isAudioMuted?: boolean;
   setIsAudioPlaying?: (val: boolean) => void;
   setIsAudioMuted?: (val: boolean) => void;
+  watermarkLogo?: string;
+  publicTourType?: string | null;
 }
 
 import { useOptionalAppContext } from "@/app/context/AppContext";
@@ -65,7 +68,9 @@ const TourConfirm = ({
   isAudioPlaying,
   isAudioMuted,
   setIsAudioPlaying,
-  setIsAudioMuted
+  setIsAudioMuted,
+  watermarkLogo,
+  publicTourType
 }: TourConfimation) => {
   const appContext = useOptionalAppContext();
   const userType = appContext?.userType;
@@ -96,6 +101,33 @@ const TourConfirm = ({
   const [isPublishing, setIsPublishing] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
 
+  const [previewTourType, setPreviewTourType] = useState<"branded" | "unbranded">("branded");
+  const activeTourType = isPublicView ? publicTourType : previewTourType;
+
+  const getAgentLogo = () => {
+    if (!orderData?.agent) return undefined;
+    const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL || 'https://bcf-media.s3.amazonaws.com';
+    const agent: any = orderData.agent;
+    const primaryLogo =
+      agent.company_logos_urls?.find((l: any) => l.type === 'primary_logo') ||
+      agent.company_logos?.find((l: any) => l.type === 'primary_logo');
+
+    if (primaryLogo && (primaryLogo.url || primaryLogo.path)) {
+      const logoPath = primaryLogo.url || primaryLogo.path;
+      if (logoPath.startsWith('http')) {
+        return logoPath;
+      } else {
+        return `${API_URL}/${logoPath}`;
+      }
+    }
+
+    return agent.logo_url || agent.company_logo_url || agent.avatar_url;
+  };
+
+  const actualWatermarkLogo = isPublicView
+    ? watermarkLogo
+    : (activeTourType === "branded" ? getAgentLogo() : undefined);
+
   useEffect(() => {
     if (filesData) {
       // @ts-expect-error: is_publish might not be in the type definition but is present in the API response
@@ -108,7 +140,7 @@ const TourConfirm = ({
     : filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === "photo");
 
   if (userType === 'agent') {
-    currentTourPhotos = currentTourPhotos?.filter(file => file.is_admin_approved);
+    currentTourPhotos = currentTourPhotos?.filter(file => file.is_agent_approved || file.is_complimentary);
   }
 
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
@@ -119,7 +151,7 @@ const TourConfirm = ({
       : filesData?.files?.filter(file => file.type === "video");
 
     if (userType === 'agent') {
-      files = files?.filter(file => file.is_admin_approved);
+      files = files?.filter(file => file.is_agent_approved || file.is_complimentary);
     }
     return files;
   }, [isPublicView, publicVideoFiles, filesData?.files, userType]);
@@ -171,8 +203,36 @@ const TourConfirm = ({
 
   const hasPhotos = isPublicView ? (publicTourPhotos && publicTourPhotos.length > 0) : orderData?.services?.some(s => s.service?.name?.toLowerCase().includes('photo'));
   const hasVideos = isPublicView ? (publicVideoFiles && publicVideoFiles.length > 0) : orderData?.services?.some(s => s.service?.name?.toLowerCase().includes('video') || s.service?.name?.toLowerCase().includes('reel'));
-  const hasMatterport = isPublicView ? (publicMatterportLinks && publicMatterportLinks.length > 0) : orderData?.services?.some(s => s.service?.name?.toLowerCase().includes('matterport') || s.service?.name?.toLowerCase().includes('3d tour'));
   const hasFloorPlans = isPublicView ? (publicFloorPlanFiles && publicFloorPlanFiles.length > 0) : orderData?.services?.some(s => s.service?.name?.toLowerCase().includes('floor plan'));
+
+  const rawApiLinks = (filesData?.links || []).filter(l => !l.is_hidden && l.link).map(l => ({
+    ...l,
+    type: l.type as "branded" | "unbranded",
+  }));
+
+  const activeLinks = isPublicView
+    ? (publicMatterportLinks || [])
+    : (links.length > 0 ? links : rawApiLinks);
+
+  const uniqueLinks: any[] = [];
+  const seen = new Set();
+  for (const l of activeLinks) {
+    if (!l.link) continue;
+    const key = `${l.type}-${l.link}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueLinks.push(l);
+    }
+  }
+
+  const brandedLinks = uniqueLinks.filter(l => l.type === 'branded');
+  const unbrandedLinks = uniqueLinks.filter(l => l.type === 'unbranded');
+
+  const displayMatterportLinks = activeTourType === 'branded' ? brandedLinks : unbrandedLinks;
+
+  const hasMatterport = isPublicView
+    ? (displayMatterportLinks && displayMatterportLinks.length > 0)
+    : (orderData?.services?.some(s => s.service?.name?.toLowerCase().includes('matterport') || s.service?.name?.toLowerCase().includes('3d tour')) && displayMatterportLinks.length > 0);
 
   const previewTabs = React.useMemo(() => {
     const tabs = ['Home'];
@@ -189,27 +249,7 @@ const TourConfirm = ({
     }
   }, [previewTabs, activeTab]);
 
-  const rawApiLinks = (filesData?.links || []).filter(l => !l.is_hidden && l.link).map(l => ({
-    ...l,
-    type: l.type as "branded" | "unbranded",
-  }));
-  const activeLinks = isPublicView
-    ? (publicMatterportLinks?.map(l => ({ ...l, type: 'branded' })) || [])
-    : (links.length > 0 ? links : rawApiLinks);
 
-  const uniqueLinks: any[] = [];
-  const seen = new Set();
-  for (const l of activeLinks) {
-    if (!l.link) continue;
-    const key = `${l.type}-${l.link}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      uniqueLinks.push(l);
-    }
-  }
-
-  const brandedLinks = uniqueLinks.filter(l => l.type === 'branded');
-  const unbrandedLinks = uniqueLinks.filter(l => l.type === 'unbranded');
 
   const tourUuid = filesData?.uuid;
 
@@ -264,24 +304,47 @@ const TourConfirm = ({
     <div className="w-full font-alexandria">
       {/* Tour Link Input */}
       {tourUuid && !isPublicView && (
-        <div className="flex  items-center justify-center py-4">
-          <div className="flex flex-col gap-4 ">
-            <div className="">Tour Link</div>
-            <div className="flex justify-between">
-              <Input
-                type="text"
-                value={tourUrl}
-                className=" w-[410px] border border-[#8E8E8E] text-[#666666]"
-                readOnly
-              />
-              <a
-                target="_blank"
-                href={tourUrl}
-                className="w-fit px-3 bg-[#6BAE41] h-[35px] text-[14px] rounded-[8px] flex items-center justify-center gap-2 text-white ml-4">
-                <span>View Tour</span> <UploadRightIcon size={18} />
-              </a>
+        <div className="flex items-center justify-center py-4">
+          <div className="flex flex-col gap-4 w-[550px]">
+            {/* Branded Link */}
+            <div className="flex flex-col gap-2">
+              <div className="text-[14px] font-medium text-[#424242]">Branded Tour Link</div>
+              <div className="flex justify-between items-center w-full">
+                <Input
+                  type="text"
+                  value={`${tourUrl}?type=branded`}
+                  className="w-[410px] border border-[#8E8E8E] text-[#666666]"
+                  readOnly
+                />
+                <a
+                  target="_blank"
+                  href={`${tourUrl}?type=branded`}
+                  className="w-fit px-3 bg-[#6BAE41] h-[35px] text-[14px] rounded-[8px] flex items-center justify-center gap-2 text-white ml-4 whitespace-nowrap">
+                  <span>View Tour</span> <UploadRightIcon size={18} />
+                </a>
+              </div>
             </div>
-            <div className="flex items-center gap-x-3">
+
+            {/* Unbranded Link */}
+            <div className="flex flex-col gap-2">
+              <div className="text-[14px] font-medium text-[#424242]">Unbranded Tour Link</div>
+              <div className="flex justify-between items-center w-full">
+                <Input
+                  type="text"
+                  value={`${tourUrl}?type=unbranded`}
+                  className="w-[410px] border border-[#8E8E8E] text-[#666666]"
+                  readOnly
+                />
+                <a
+                  target="_blank"
+                  href={`${tourUrl}?type=unbranded`}
+                  className="w-fit px-3 bg-[#6BAE41] h-[35px] text-[14px] rounded-[8px] flex items-center justify-center gap-2 text-white ml-4 whitespace-nowrap">
+                  <span>View Tour</span> <UploadRightIcon size={18} />
+                </a>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-x-3 mt-2">
               <Button
                 onClick={handlePostTour}
                 disabled={isPublishing}
@@ -291,7 +354,6 @@ const TourConfirm = ({
               </Button>
               <Button onClick={() => setOpen(true)} className={`w-[100px] ${userType}-bg hover:bg-blue-600`}>Stats</Button>
             </div>
-
           </div>
         </div>
       )}
@@ -299,7 +361,18 @@ const TourConfirm = ({
         <AccordionItem value="Preview" className={hideAccordion ? "border-none" : ""}>
           {!hideAccordion && (
             <AccordionTrigger className="px-[14px] py-[19px] border-t border-b border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[#4290E9] text-[18px] font-semibold uppercase [&>svg]:text-[#4290E9] [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-2">
-              Preview
+              <div className="flex items-center gap-4">
+                <span>Preview</span>
+                <select
+                  className="bg-white border border-[#BBBBBB] text-[#333] text-sm rounded-md px-2 py-1 outline-none font-normal"
+                  value={previewTourType}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => setPreviewTourType(e.target.value as "branded" | "unbranded")}
+                >
+                  <option value="branded">Branded Tour</option>
+                  <option value="unbranded">Unbranded Tour</option>
+                </select>
+              </div>
             </AccordionTrigger>
           )}
           <AccordionContent className={hideAccordion ? "border-none" : ""}>
@@ -343,7 +416,20 @@ const TourConfirm = ({
                         propIsMuted={isAudioMuted}
                         propSetIsPlaying={setIsAudioPlaying}
                         propSetIsMuted={setIsAudioMuted}
+                        watermarkUrl={actualWatermarkLogo}
                       />
+
+                      {isPublicView && (
+                        <div className="absolute bottom-6 left-6 z-50 pointer-events-auto">
+                          <div className="bg-black/70 backdrop-blur-md rounded-[12px] px-4 py-3 flex items-center gap-3 shadow-lg">
+                            <MapPin className="text-white w-6 h-6 shrink-0" />
+                            <div className="flex flex-col text-left">
+                              <span className="text-white font-medium text-[22px] leading-tight">{orderData?.property_address || orderData?.property?.address}</span>
+                              <span className="text-white/80 text-[15px] leading-tight mt-1">{orderData?.property_location || `${orderData?.property?.city}, ${orderData?.property?.province}`}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -521,6 +607,7 @@ const TourConfirm = ({
                         propIsMuted={isAudioMuted}
                         propSetIsPlaying={setIsAudioPlaying}
                         propSetIsMuted={setIsAudioMuted}
+                        watermarkUrl={actualWatermarkLogo}
                       />
 
                       <div className="grid grid-cols-6 gap-2 mt-12 px-6">
@@ -563,11 +650,29 @@ const TourConfirm = ({
                         })}
                       </div>
                     </>
-                  ) : (
-                    <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
-                      <p>No photos found — please upload photos or select a photo service.</p>
-                    </div>
-                  )}
+                  ) : (() => {
+                    const allPhotos = filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === "photo") || [];
+                    if (userType === 'agent') {
+                      if (allPhotos.length > 0) {
+                        return (
+                          <div className="font-alexandria w-full h-[50vh] text-[#4290E9] flex justify-center items-center font-[500] text-[18px]">
+                            <p>You have not approved any photos yet. Go to Photo service and approve media.</p>
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div className="font-alexandria w-full h-[50vh] text-[#E06D5E] flex justify-center items-center font-[500] text-[18px]">
+                            <p>Vendor has not uploaded any photos yet.</p>
+                          </div>
+                        );
+                      }
+                    }
+                    return (
+                      <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
+                        <p>No photos found — please upload photos or select a photo service.</p>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -576,12 +681,20 @@ const TourConfirm = ({
                   <div className="p-4 pt-0">
                     {/* Main video preview */}
                     {mainVideo &&
-                      <div className="mb-6 h-[95vh] w-full bg-black overflow-hidden">
+                      <div className="mb-6 h-[95vh] w-full bg-black overflow-hidden relative">
                         <video
                           src={mainVideo || undefined}
                           className="w-full h-full object-contain"
                           controls
                         />
+                        {actualWatermarkLogo && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={actualWatermarkLogo}
+                            alt="Watermark"
+                            className="absolute bottom-12 right-6 w-[120px] object-contain opacity-60 pointer-events-none z-10 drop-shadow-md"
+                          />
+                        )}
                       </div>
                     }
 
@@ -641,10 +754,29 @@ const TourConfirm = ({
                           );
                         })}
                       </div>
-                    ) :
-                      <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
-                        <p>No Video found — please add Video or select a Video service.</p>
-                      </div>}
+                    ) : (() => {
+                      const allVideos = filesData?.files?.filter(file => file.type === "video") || [];
+                      if (userType === 'agent') {
+                        if (allVideos.length > 0) {
+                          return (
+                            <div className="font-alexandria w-full h-[50vh] text-[#4290E9] flex justify-center items-center font-[500] text-[18px]">
+                              <p>You have not approved any videos yet. Go to Video service and approve media.</p>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div className="font-alexandria w-full h-[50vh] text-[#E06D5E] flex justify-center items-center font-[500] text-[18px]">
+                              <p>Vendor has not uploaded any videos yet.</p>
+                            </div>
+                          );
+                        }
+                      }
+                      return (
+                        <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
+                          <p>No Video found — please add Video or select a Video service.</p>
+                        </div>
+                      );
+                    })()}
 
                   </div>
                 </div>
@@ -657,6 +789,7 @@ const TourConfirm = ({
                       floorPlanFiles={publicFloorPlanFiles || []}
                       snapshots={orderData?.tours?.[0]?.snapshots}
                       tourPhotos={publicTourPhotos as any}
+                      watermarkLogo={actualWatermarkLogo}
                     />
                   ) : (
                     <TourFloorPlans type="confirm" />
@@ -667,30 +800,25 @@ const TourConfirm = ({
                 className="w-full flex flex-col items-center gap-10 pt-[80px]"
                 style={{ display: activeTab === "Matterport" ? undefined : "none" }}
               >
-                {(!brandedLinks?.length && !unbrandedLinks?.length) ? (
-                  <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
-                    <p>No Matterport links found — please add links or select a Matterport service.</p>
-                  </div>
+                {!displayMatterportLinks?.length ? (
+                  userType === 'agent' ? (
+                    <div className="font-alexandria w-full h-[50vh] text-[#E06D5E] flex justify-center items-center font-[500] text-[18px]">
+                      <p>Vendor has not added any Matterport links yet.</p>
+                    </div>
+                  ) : (
+                    <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
+                      <p>No Matterport links found for this tour type.</p>
+                    </div>
+                  )
                 ) : (
                   <>
-                    {brandedLinks?.map(
+                    {displayMatterportLinks?.map(
                       (link, idx) =>
                         isValidUrl(link.link) && (
                           <iframe
-                            key={`preview-branded-${idx}`}
+                            key={`preview-matterport-${idx}`}
                             src={link.link}
-                            className="w-[80%] h-[500px] border"
-                            allowFullScreen
-                          ></iframe>
-                        )
-                    )}
-                    {unbrandedLinks?.map(
-                      (link, idx) =>
-                        isValidUrl(link.link) && (
-                          <iframe
-                            key={`preview-unbranded-${idx}`}
-                            src={link.link}
-                            className="w-[80%] h-[500px] border"
+                            className="w-[80%] h-[500px] border mt-4"
                             allowFullScreen
                           ></iframe>
                         )

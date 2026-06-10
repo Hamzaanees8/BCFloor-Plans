@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { fetchPublicTourData, OrderData, recordTourStat } from "./tour";
 import TourConfirm from "../dashboard/file-manager/components/TourConfirm";
 
@@ -34,7 +34,10 @@ const getVisitorId = () => {
 
 const PublicTour = () => {
     const params = useParams();
+    const searchParams = useSearchParams();
     const orderuuid = params.orderuuid as string;
+    const tourType = searchParams.get('type');
+    
     const [orderData, setOrderData] = useState<OrderData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -48,7 +51,31 @@ const PublicTour = () => {
     const [visitorId, setVisitorId] = useState<string>('');
     const viewedMediaRef = useRef<Set<string>>(new Set());
 
-    const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
+    const isBranded = tourType === 'branded';
+    
+    const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL || 'https://bcf-media.s3.amazonaws.com';
+    
+    const getAgentLogo = () => {
+        if (!isBranded || !orderData?.agent) return undefined;
+        
+        const agent: any = orderData.agent;
+        const primaryLogo = 
+            agent.company_logos_urls?.find((l: any) => l.type === 'primary_logo') || 
+            agent.company_logos?.find((l: any) => l.type === 'primary_logo');
+            
+        if (primaryLogo && (primaryLogo.url || primaryLogo.path)) {
+            const logoPath = primaryLogo.url || primaryLogo.path;
+            if (logoPath.startsWith('http')) {
+                return logoPath;
+            } else {
+                return `${API_URL}/${logoPath}`;
+            }
+        }
+        
+        return agent.logo_url || agent.company_logo_url || agent.avatar_url;
+    };
+
+    const watermarkLogo = getAgentLogo();
 
     useEffect(() => {
         setVisitorId(getVisitorId());
@@ -88,12 +115,13 @@ const PublicTour = () => {
             file.service.name !== '3D Floor Plans' &&
             file.service.category.name !== '2D Floor Plans' &&
             file.service.category.name !== '3D Floor Plans' &&
-            file.is_show !== false;
+            file.is_show !== false &&
+            ((file as any).is_agent_approved || (file as any).is_complimentary);
         return isPhoto;
     }) || [], [orderData]);
 
     const videoFiles = useMemo(() => orderData?.tours?.[0]?.files?.filter(file => {
-        const isVideo = file.service.category.name === "video" && file.is_show !== false;
+        const isVideo = file.service.category.name === "video" && file.is_show !== false && ((file as any).is_agent_approved || (file as any).is_complimentary);
         if (!isVideo) return false;
 
         // Date check
@@ -105,7 +133,7 @@ const PublicTour = () => {
     }) || [], [orderData]);
 
     const floorPlanFiles = useMemo(() => orderData?.tours?.[0]?.files?.filter(file => {
-        const isFloorPlan = file.service.category.name === "Floor Plan" && file.is_show !== false;
+        const isFloorPlan = file.service.category.name === "Floor Plan" && file.is_show !== false && ((file as any).is_agent_approved || (file as any).is_complimentary);
         if (!isFloorPlan) return false;
 
         // Date check
@@ -283,11 +311,7 @@ const PublicTour = () => {
 
     return (
         <div className="w-full font-alexandria relative">
-            {/* <div className="flex justify-center space-x-4 py-2 absolute top-3 z-50 w-full pointer-events-none">
-                <p className="w-full px-6 text-[#fff] text-[24px] [text-shadow:_2px_2px_4px_rgba(0,0,0,0.5)] pointer-events-auto">
-                    {orderData?.property_address} {orderData?.property_location}
-                </p>
-            </div> */}
+
 
             <TourConfirm
                 orderData={orderData as any}
@@ -295,14 +319,16 @@ const PublicTour = () => {
                 hideAccordion={true}
                 publicAudioUrl={audioUrl}
                 onMediaView={trackMediaView}
-                publicTourPhotos={tourPhotos as any}
-                publicVideoFiles={videoFiles as any}
-                publicFloorPlanFiles={floorPlanFiles as any}
-                publicMatterportLinks={matterportLinks as any}
+                publicTourPhotos={tourPhotos}
+                publicVideoFiles={videoFiles}
+                publicFloorPlanFiles={floorPlanFiles}
+                publicMatterportLinks={matterportLinks}
                 isAudioPlaying={isAudioPlaying}
                 isAudioMuted={isAudioMuted}
                 setIsAudioPlaying={setIsAudioPlaying}
                 setIsAudioMuted={setIsAudioMuted}
+                watermarkLogo={watermarkLogo}
+                publicTourType={tourType as any}
             />
 
             {audioUrl && (

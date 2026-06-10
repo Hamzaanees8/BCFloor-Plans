@@ -15,7 +15,7 @@ import UpgradeServicePopup from './UpgradeServicePopup';
 import PayInvoiceModal from './PayInvoiceModal';
 import AgentNotificationModal from './AgentNotificationModal';
 import { CalendarIcon } from "lucide-react"
-import { format } from "date-fns"
+import { format, addDays } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Calendar } from "@/components/ui/calendar"
 import {
@@ -26,7 +26,7 @@ import {
 import { ServiceCompletion, HideMediaFiles } from '../file-manager';
 import { api } from '@/lib/api';
 
-function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, currentBookedService, onOpenInvoice, gstRate }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number }) {
+function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, currentBookedService, onOpenInvoice, gstRate }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, onSave?: (overrideChangedFiles?: any[]) => Promise<void> | void }) {
     const { links, setLinks, setPreviewFiles, filesData, setFilesData, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [openPayment, setOpenPayment] = useState(false);
@@ -48,7 +48,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
             const token = localStorage.getItem("token") || "";
             const vendor = orderData?.vendor;
             const vendorName = vendor ? `${vendor.first_name} ${vendor.last_name}` : "Vendor";
-            
+
             await api.post(`/notifications`, {
                 source: 'order',
                 source_id: orderData?.uuid || "",
@@ -212,10 +212,12 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
 
             if (existingIndex >= 0) {
                 const updated = [...prev];
-                updated[existingIndex] = { ...updated[existingIndex], link: value };
+                const currentExpiry = updated[existingIndex].expiry_date;
+                const newExpiry = (!currentExpiry && value) ? format(addDays(new Date(), 90), "yyyy-MM-dd") : currentExpiry;
+                updated[existingIndex] = { ...updated[existingIndex], link: value, expiry_date: newExpiry };
                 return updated;
             } else {
-                return [...prev, { type, service_id: currentService?.uuid ?? '', link: value }];
+                return [...prev, { type, service_id: currentService?.uuid ?? '', link: value, expiry_date: format(addDays(new Date(), 90), "yyyy-MM-dd") }];
             }
         });
     };

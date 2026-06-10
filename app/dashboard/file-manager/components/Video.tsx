@@ -491,7 +491,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                             )}
 
 
-                            {userType === 'agent' && (
+                            {userType === 'agent' && !file.is_complimentary && (
                                 <div
                                     className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
                                     onClick={(e) => {
@@ -958,7 +958,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
             </div>
 
             <div className="py-4">
-                <FilePreviewModal type='HDR_photos' open={open} onOpenChange={() => { setOpen(false) }} files={files} setSelectedFiles={setSelectedVideoFiles} serviceUuid={currentService?.uuid ?? ''} reviewFilesEnabled={reviewFilesEnabled} />
+                <FilePreviewModal type='HDR_photos' open={open} onOpenChange={() => { setOpen(false) }} files={files} setSelectedFiles={setSelectedVideoFiles} serviceUuid={currentService?.uuid ?? ''} reviewFilesEnabled={reviewFilesEnabled} onSave={onSave} />
 
                 <div className="mt-4 flex flex-col items-center justify-center">
                     {userType === 'vendor' && reviewFilesEnabled && (

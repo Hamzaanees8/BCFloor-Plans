@@ -266,3 +266,24 @@ export async function fetchOrderSlots() {
         return [];
     }
 }
+
+export async function fetchOrganizationsForBookNow() {
+    try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL;
+        if (!API_URL) return [];
+        const response = await fetch(`${API_URL}/organizations`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+        if (response.ok) {
+            const data = await response.json();
+            return data.data || data || [];
+        }
+        return [];
+    } catch (error) {
+        console.log(error);
+        return [];
+    }
+}

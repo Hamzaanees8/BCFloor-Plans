@@ -21,6 +21,8 @@ import { useWhiteLabel } from '@/app/context/Whitelabel';
 import OrderStepper from '../components/OrderStepper';
 import { getEffectiveServiceDuration, splitSlotInto15MinChunks } from '../utils/serviceTimeUtils';
 import { toast } from 'sonner';
+import { fetchServicesForBookNow } from '@/app/agent/book-now/book-now';
+
 const OrderForm = () => {
     const confirmationRef = useRef<OrderConfirmationHandle>(null);
     const router = useRouter();
@@ -100,7 +102,8 @@ const OrderForm = () => {
         tempPropertyData,
         selectedCurrentListing,
         setLastPopulatedAgentId,
-        resetOrderData
+        resetOrderData,
+        isBookNowMode
     } = useOrderContext();
     const { setIsDirty } = useUnsaved();
 
@@ -139,10 +142,19 @@ const OrderForm = () => {
                 Get().then((res: { data: Agent[] }) => setAgentsData(Array.isArray(res.data) ? res.data : [])),
                 GetPackages(token).then((res: { data: Packages[] }) => setPackagesData(Array.isArray(res.data) ? res.data : []))
             ]).catch(err => console.log("Error fetching global data:", err));
+        } else if (isBookNowMode) {
+            // Fetch public services for guests
+            fetchServicesForBookNow()
+                .then((res) => setServicesData(Array.isArray(res) ? res : []))
+                .catch(err => console.log("Error fetching public services:", err));
         }
-    }, [setServicesData, setAgentsData, setPackagesData]);
+    }, [setServicesData, setAgentsData, setPackagesData, isBookNowMode]);
     const handleDoneClick = () => {
-        router.push('/dashboard/listings');
+        if (isBookNowMode) {
+            router.push('/agent/tours');
+        } else {
+            router.push('/dashboard/listings');
+        }
         setSelectedAgentId(null);
         setSelectedListingId(null);
         setDiscountCode("");
@@ -460,7 +472,7 @@ const OrderForm = () => {
     return (
         // <OrderProvider>
         <div className='font-alexandria' style={{ backgroundColor: roleSettings.pageBg }}>
-            <div ref={headerRef} className='w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center border-b' style={{ backgroundColor: headerBg, borderColor: fieldBorder, boxShadow: "0px 4px 4px #0000001F" }} >
+            <div ref={headerRef} className={`w-full h-[80px] font-alexandria sticky ${isBookNowMode ? 'top-[104px]' : 'top-0'} z-50 flex justify-between px-[20px] items-center border-b`} style={{ backgroundColor: headerBg, borderColor: fieldBorder, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className={`text-[16px] md:text-[24px] font-[400]`} style={{ color: roleSettings.pageTabColor }}> Orders
                     {currentUser ? ` › ${currentUser.id} ${`(${currentUser?.property?.address})`}` : ' › Add New Order'}</p>
                 <div className='flex gap-2'>
@@ -511,7 +523,7 @@ const OrderForm = () => {
 
 
             </div>
-            <div className='sticky top-[80px] z-40 flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] h-[80px] text-[18px] font-[600] shadow-sm' style={{ backgroundColor: fieldBg, borderColor: fieldBorder }} >
+            <div className={`sticky ${isBookNowMode ? 'top-[184px]' : 'top-[80px]'} z-40 flex justify-center items-center gap-x-2.5 px-[14px] py-[19px] border-t-[1px] border-b-[1px] h-[80px] text-[18px] font-[600] shadow-sm`} style={{ backgroundColor: fieldBg, borderColor: fieldBorder }} >
                 <OrderStepper
                     currentTab={active}
                     onTabChange={handleTabClick}

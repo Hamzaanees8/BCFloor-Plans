@@ -121,7 +121,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
             const serviceName = file.service?.name || '';
             const isForbiddenService = serviceName.toLowerCase().includes('floor plan') ||
                 serviceName.toLowerCase().includes('3d tour');
-            const isApproved = userType === 'agent' ? file.is_agent_approved : true;
+            const isApproved = userType === 'agent' ? (file.is_agent_approved || file.is_complimentary) : true;
             const isValidType = file.type === 'photo' || file.type === 'video';
 
             if (!isApproved || !isValidType || !file.service || isForbiddenService) return;

@@ -38,12 +38,31 @@ const Contact = () => {
         setIsSplitInvoice,
         agentsData,
         lastPopulatedAgentId,
-        setLastPopulatedAgentId
+        setLastPopulatedAgentId,
+        isBookNowMode
     } = useOrderContext();
     const { userType } = useAppContext()
     const { appliedSettings } = useWhiteLabel();
     const role = (userType as string)?.toLowerCase() || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+
+    const [hasToken, setHasToken] = useState(true);
+    useEffect(() => {
+        const checkToken = () => {
+            const token = localStorage.getItem("token") || localStorage.getItem("agentToken");
+            setHasToken(!!token);
+        };
+        
+        checkToken();
+        
+        window.addEventListener('storage', checkToken);
+        window.addEventListener('agentLogin', checkToken);
+        
+        return () => {
+            window.removeEventListener('storage', checkToken);
+            window.removeEventListener('agentLogin', checkToken);
+        };
+    }, []);
 
     const selectedAgent = useMemo(() => {
         return agentsData.find((agent) => agent.uuid === selectedAgentId) || null;
@@ -202,20 +221,36 @@ const Contact = () => {
         }
     }, [agentNotes]);
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("token") || localStorage.getItem("agentToken");
 
         if (!token) {
             console.log("Token not found.");
             return;
         }
 
-        GetUser(token)
-            .then((res) => {
-                const firstName = res?.data?.first_name || "";
-                const lastName = res?.data?.last_name || "";
-                setUserName(`${firstName} ${lastName}`.trim());
-            })
-            .catch((err) => console.log("Error fetching data:", err.message));
+        const userInfoStr = localStorage.getItem("userInfo");
+        if (userInfoStr) {
+            try {
+                const userObj = JSON.parse(userInfoStr);
+                const firstName = userObj.first_name || userObj.name || "";
+                const lastName = userObj.last_name || "";
+                setUserName(`${firstName} ${lastName}`.trim() || "Agent");
+            } catch (e) {
+                console.error("Error parsing userInfo", e);
+            }
+        }
+
+        if (localStorage.getItem("token")) {
+            GetUser(localStorage.getItem("token")!)
+                .then((res) => {
+                    const firstName = res?.data?.first_name || "";
+                    const lastName = res?.data?.last_name || "";
+                    if (firstName || lastName) {
+                        setUserName(`${firstName} ${lastName}`.trim());
+                    }
+                })
+                .catch((err) => console.log("Error fetching data:", err.message));
+        }
     }, []);
 
 
@@ -385,15 +420,31 @@ const Contact = () => {
                     <div className='w-full flex flex-col items-center'>
                         <div className='w-full md:w-[410px] pt-[32px] pb-[100px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
                             <div>
-                                {!token &&
+                                {(!hasToken && !isBookNowMode) &&
                                     <Button
                                         onClick={() => setShowSignIn(true)}
                                         className='bg-[#4290E9] w-[180px] h-[35px] rounded-[6px] hover:bg-[#509ffa]'>
                                         Login
                                     </Button>
                                 }
+                                {(isBookNowMode && !hasToken) && (
+                                    <div className="flex flex-col items-center justify-center py-10 gap-4 border rounded-md bg-gray-50">
+                                        <p className="text-[16px] font-semibold text-gray-700 text-center px-4">
+                                            Please log in or create an account to finalize your booking.
+                                        </p>
+                                        <Button
+                                            onClick={() => setShowSignIn(true)}
+                                            className='w-[200px] h-[40px] rounded-[6px] text-white hover:opacity-90'
+                                            style={{ backgroundColor: roleSettings.pageTabColor }}
+                                        >
+                                            Log In / Sign Up
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
-                            <div className='grid grid-cols-2 gap-[32px]'>
+                            
+                            {!(isBookNowMode && !hasToken) && (
+                                <div className='grid grid-cols-2 gap-[32px]'>
                                 {openDropdown && (
                                     <div className='col-span-2'>
                                         <Select
@@ -806,7 +857,8 @@ const Contact = () => {
                                         )}
                                     </div>
                                 </div>
-                            </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

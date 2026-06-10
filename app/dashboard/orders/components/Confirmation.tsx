@@ -69,7 +69,8 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         tempPropertyData,
         setTempPropertyData,
         servicesData: services,
-        listingsData
+        listingsData,
+        isBookNowMode
     } = useOrderContext();
     const { userType } = useAppContext()
     const router = useRouter();
@@ -79,6 +80,10 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     const roleSettings = appliedSettings[role as Role] || appliedSettings['admin'];
 
     const handleDone = () => {
+        if (isBookNowMode) {
+            router.push('/agent/tours');
+            return;
+        }
         const from = searchParams.get('from');
         if (from === 'calendar') {
             router.push('/dashboard/calendar');
@@ -1111,7 +1116,10 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                         <button
                                             disabled={isLoading}
                                             type="button"
-                                            onClick={handleSubmitOrder}
+                                            onClick={async (e) => {
+                                                await handleSubmitOrder(e);
+                                                setIsSubmitted(true);
+                                            }}
                                             className={`bg-[#4290E9] font-raleway text-white rounded-[3px] hover:bg-[#4290E9] w-full h-[30px] font-[600] text-[14px] flex items-center justify-center gap-2`}
                                         >
                                             {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Submit Order"}
@@ -1122,7 +1130,10 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                     <button
                                         disabled={isLoading}
                                         type="button"
-                                        onClick={handleSubmitOrder}
+                                        onClick={async (e) => {
+                                            await handleSubmitOrder(e);
+                                            setIsSubmitted(true);
+                                        }}
                                         className={`${userType}-bg font-raleway text-white rounded-[3px] hover-${userType}-bg w-full h-[30px] font-[600] text-[14px] flex items-center justify-center gap-2`}
                                     >
                                         {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Submit Order"}

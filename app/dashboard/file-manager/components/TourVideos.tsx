@@ -15,7 +15,7 @@ function TourVideos() {
     let currentServiceFiles = filesData?.files?.filter(file => file.type === "video");
 
     if (userType === 'agent') {
-        currentServiceFiles = currentServiceFiles?.filter(file => file.is_admin_approved);
+        currentServiceFiles = currentServiceFiles?.filter(file => file.is_agent_approved || file.is_complimentary);
     }
 
     const mainVideoSrc =
@@ -27,6 +27,22 @@ function TourVideos() {
                 : undefined);
 
     if ((!currentServiceFiles || currentServiceFiles?.length === 0) && selectedVideoFiles.length === 0) {
+        const allVideos = filesData?.files?.filter(file => file.type === "video") || [];
+        if (userType === 'agent') {
+            if (allVideos.length > 0) {
+                return (
+                    <div className="font-alexandria w-full h-[50vh] text-[#4290E9] flex justify-center items-center font-[500] text-[18px]">
+                        <p>You have not approved any videos yet. Go to Video service and approve media.</p>
+                    </div>
+                );
+            } else {
+                return (
+                    <div className="font-alexandria w-full h-[50vh] text-[#E06D5E] flex justify-center items-center font-[500] text-[18px]">
+                        <p>Vendor has not uploaded any videos yet.</p>
+                    </div>
+                );
+            }
+        }
         return (
             <div className="font-alexandria w-full h-[50vh] text-gray-500 flex justify-center items-center">
                 <p>No Video found — please add Video or select a Video service.</p>

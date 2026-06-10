@@ -63,7 +63,7 @@ export default function UnsavedChangesDialog({
       }}
     >
       <DialogContent
-        className="w-[320px] md:w-[560px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria border-none [&>button]:hidden"
+        className="w-[320px] md:max-w-[600px] md:w-[600px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria border-none [&>button]:hidden"
         style={{ backgroundColor: roleSettings.pageBg }}
       >
         {/* Header */}
