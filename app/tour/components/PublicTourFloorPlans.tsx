@@ -235,7 +235,7 @@ function PublicTourFloorPlans({
 
                                     {previewMarker && (
                                         <div
-                                            className="bg-[#565656] text-white font-alexandria shadow-lg w-[320px] h-[380px] absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300"
+                                            className="bg-[#565656] text-white font-alexandria shadow-lg w-fit max-w-[500px] min-w-[320px] h-auto absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300"
                                             style={{
                                                 top: previewMarker.y > 50 ? 'auto' : `calc(${previewMarker.y}% - 24px)`,
                                                 bottom: previewMarker.y > 50 ? `calc(${100 - previewMarker.y}%)` : 'auto',
@@ -257,16 +257,16 @@ function PublicTourFloorPlans({
                                                         loading="lazy"
                                                         src={previewMarker.variant_urls?.popup || previewMarker.variant_urls?.landing || previewMarker.file_path}
                                                         alt={previewMarker.name || "Snapshot"}
-                                                        className="w-[95%] h-[65%] object-cover mx-auto mt-3 rounded"
+                                                        className="w-auto h-auto max-w-[calc(100%-24px)] max-h-[300px] object-contain mx-auto mt-3 rounded"
                                                     />
                                                 </>
                                             )}
 
-                                            <div className="p-4 overflow-y-auto flex-1">
-                                                <p className="text-xl font-semibold uppercase pb-2">
+                                            <div className="p-4 flex-1">
+                                                <p className="text-xl font-semibold uppercase pb-2 break-words">
                                                     {previewMarker?.name || "Snapshot"}
                                                 </p>
-                                                <p className="text-gray-200 line-clamp-4">
+                                                <p className="text-gray-200 break-words">
                                                     {previewMarker?.description || "No description available"}
                                                 </p>
                                             </div>

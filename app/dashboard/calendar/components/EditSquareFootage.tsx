@@ -36,11 +36,12 @@ interface SquareFootageProps {
   setArea: React.Dispatch<React.SetStateAction<Area[]>>;
   updateInvoice: boolean;
   setUpdateInvoice: React.Dispatch<React.SetStateAction<boolean>>;
+  hideHeader?: boolean;
 }
 
 let uniqueId = 0;
 
-export default function EditSquareFootage({ currentOrder, setArea, updateInvoice, setUpdateInvoice }: SquareFootageProps) {
+export default function EditSquareFootage({ currentOrder, setArea, updateInvoice, setUpdateInvoice, hideHeader }: SquareFootageProps) {
   const { userType } = useAppContext();
   const [titles, setTitles] = useState<SquareFootageTitles>(defaultTitles);
   const [finishedAreas, setFinishedAreas] = useState<Field[]>([]);
@@ -75,59 +76,63 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
   useEffect(() => {
     if (tourSettings.length === 0) return;
 
-    // Build a map of existing area footage from the current order
-    const orderAreaMap = new Map<string, { footage: number; custom_title?: string }>();
-    currentOrder?.areas?.forEach((area: Area) => {
-      const key = (area.custom_title || area.type).trim().toLowerCase();
-      orderAreaMap.set(key, { footage: area.footage, custom_title: area.custom_title });
-    });
-
     const finished: Field[] = [];
     const subtotal: Field[] = [];
     const other: Field[] = [];
 
-    tourSettings.forEach((setting) => {
-      const label = setting.area;
-      const key = label.trim().toLowerCase();
-      const existing = orderAreaMap.get(key);
-
-      const category: "Finished" | "Subtotal" | "Other" =
-        setting.type === "Finished Area"
-          ? "Finished"
-          : setting.type === "Sub Area"
-            ? "Subtotal"
-            : "Other";
-
+    // 1. Add all existing areas from current order
+    currentOrder?.areas?.forEach((area: Area) => {
+      const category = (area.category || area.type) as "Finished" | "Subtotal" | "Other";
+      const label = area.custom_title || area.type;
+      
       const field: Field = {
         id: uniqueId++,
         label,
-        value: existing?.footage ?? 0,
-        custom_title: label,
-        category,
+        value: area.footage || 0,
+        custom_title: area.custom_title,
+        category: ["Finished", "Subtotal", "Other"].includes(category) ? category : "Other",
       };
 
-      if (category === "Finished") finished.push(field);
-      else if (category === "Subtotal") subtotal.push(field);
+      if (field.category === "Finished") finished.push(field);
+      else if (field.category === "Subtotal") subtotal.push(field);
       else other.push(field);
     });
 
-    // Also include any order subtotal areas not covered by tour settings
-    currentOrder?.areas?.forEach((area: Area) => {
-      if ((area.type as string) === "Subtotal") {
-        const alreadyAdded = subtotal.some(
-          (s) => s.label.trim().toLowerCase() === (area.custom_title || area.type).trim().toLowerCase()
-        );
-        if (!alreadyAdded) {
-          subtotal.push({
-            id: uniqueId++,
-            label: area.custom_title || area.type,
-            value: area.footage,
-            custom_title: area.custom_title,
-            category: "Subtotal",
-          });
-        }
-      }
-    });
+    // 2. Add defaults if empty
+    const finishedSettings = tourSettings.filter(s => s.type === "Finished Area");
+    const subtotalSettings = tourSettings.filter(s => s.type === "Sub Area");
+    const otherSettings = tourSettings.filter(s => s.type !== "Finished Area" && s.type !== "Sub Area");
+
+    if (finished.length === 0 && finishedSettings.length > 0) {
+      const mainLevelSetting = finishedSettings.find(s => s.area.trim().toLowerCase() === "main level") || finishedSettings[0];
+      finished.push({
+        id: uniqueId++,
+        label: mainLevelSetting.area,
+        value: 0,
+        custom_title: mainLevelSetting.area,
+        category: "Finished"
+      });
+    }
+
+    if (subtotal.length === 0 && subtotalSettings.length > 0) {
+      subtotal.push({
+        id: uniqueId++,
+        label: subtotalSettings[0].area,
+        value: 0,
+        custom_title: subtotalSettings[0].area,
+        category: "Subtotal"
+      });
+    }
+
+    if (other.length === 0 && otherSettings.length > 0) {
+      other.push({
+        id: uniqueId++,
+        label: otherSettings[0].area,
+        value: 0,
+        custom_title: otherSettings[0].area,
+        category: "Other"
+      });
+    }
 
     setFinishedAreas(finished);
     setSubtotalAreas(subtotal);
@@ -282,13 +287,15 @@ export default function EditSquareFootage({ currentOrder, setArea, updateInvoice
 
   return (
     <div className="bg-[#F5F5F5] p-4 rounded border border-gray-300 text-[14px] text-[#666666] font-alexandria space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="text-[24px] font-[400]">{currentOrder?.property_address}, {currentOrder?.property_location}</div>
-        <div className="flex items-center space-x-2">
-          <Switch id="update-invoice-sqft" checked={updateInvoice} onCheckedChange={setUpdateInvoice} className="data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-[#E06D5E]" />
-          <Label htmlFor="update-invoice-sqft" className="text-[14px] font-[500] text-[#424242]">Update Invoice</Label>
+      {!hideHeader && (
+        <div className="flex justify-between items-center">
+          <div className="text-[24px] font-[400]">{currentOrder?.property_address}, {currentOrder?.property_location}</div>
+          <div className="flex items-center space-x-2">
+            <Switch id="update-invoice-sqft" checked={updateInvoice} onCheckedChange={setUpdateInvoice} className="data-[state=checked]:bg-[#6BAE41] data-[state=unchecked]:bg-[#E06D5E]" />
+            <Label htmlFor="update-invoice-sqft" className="text-[14px] font-[500] text-[#424242]">Update Invoice</Label>
+          </div>
         </div>
-      </div>
+      )}
 
       {renderSection('finished', finishedAreas, setFinishedAreas)}
       {renderSection('subtotal', subtotalAreas, setSubtotalAreas)}

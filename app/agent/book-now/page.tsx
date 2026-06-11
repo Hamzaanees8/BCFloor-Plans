@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import Header from '@/components/Header';
 import OrderForm from '@/app/dashboard/orders/create/page';
-import { OrderProvider, useOrderContext } from '@/app/dashboard/orders/context/OrderContext';
+import { useOrderContext } from '@/app/dashboard/orders/context/OrderContext';
 import { UnsavedProvider } from '@/app/context/UnsavedContext';
 import { WhiteLabelProvider } from '@/app/context/Whitelabel';
 
@@ -31,12 +31,10 @@ export default function BookNowPage() {
     return (
         <WhiteLabelProvider>
             <UnsavedProvider>
-                <OrderProvider>
-                    <div className="min-h-screen bg-gray-50 flex flex-col">
-                        <Header />
-                        <BookNowContent />
-                    </div>
-                </OrderProvider>
+                <div className="min-h-screen bg-gray-50 flex flex-col">
+                    <Header />
+                    <BookNowContent />
+                </div>
             </UnsavedProvider>
         </WhiteLabelProvider>
     );

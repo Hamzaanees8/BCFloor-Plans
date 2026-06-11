@@ -457,6 +457,9 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                         }
                                     }}
                                 />
+                                <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center z-[20] pointer-events-none">
+                                    <p className="text-white font-medium text-sm drop-shadow-md">Processing...</p>
+                                </div>
                                 {file.uuid && filesToHide.has(file.uuid) && (
                                     <div className="absolute inset-0 bg-black/50 z-[25] flex flex-col items-center justify-center pointer-events-none">
                                         <Check color="white" size={48} className="opacity-100" />
@@ -554,7 +557,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                             </>
                         )}
 
-                        {userType !== 'agent' && (
+                        {userType !== 'agent' && !isLocal && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <span
@@ -599,26 +602,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                             </Tooltip>
                         )}
 
-                        {isLocal && !file.is_deleted && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div
-                                        className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-500 rounded-full p-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-300 z-[20] shadow-md hover:scale-110"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setFloorFiles(prev =>
-                                                prev.map(f => f.file === file.file ? { ...f, is_deleted: true } : f)
-                                            );
-                                        }}
-                                    >
-                                        <X color="white" size={14} strokeWidth={3} />
-                                    </div>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">
-                                    Remove file
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
+                        {/* Unsaved media remove button hidden during processing */}
 
                         {userType === 'admin' && (
                             <div
@@ -708,11 +692,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                 : (file.created_at ? format(new Date(file.created_at), 'MM/dd/yyyy') : format(new Date(), 'MM/dd/yyyy'))
                             }
                         </p>
-                        {isLocal ? (
-                            <span className='flex shrink-0 cursor-not-allowed opacity-50' style={{ width: imagesPerRow >= 6 ? '16px' : '24px', height: imagesPerRow >= 6 ? '16px' : '24px' }}>
-                                <DownloadIcon width='100%' height='100%' fill='#6BAE41' />
-                            </span>
-                        ) : canDownloadFile({
+                        {isLocal ? null : canDownloadFile({
                             file: file as Files,
                             currentService,
                             orderData,

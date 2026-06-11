@@ -45,9 +45,10 @@ function decodeJWT(token: string) {
 interface RealtorSignInModalProps {
     open: boolean;
     setOpen: (value: boolean) => void;
+    accentColor?: string;
 }
 
-export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, setOpen }) => {
+export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, setOpen, accentColor = '#4290E9' }) => {
     const [mode, setMode] = React.useState<"login" | "signup">("login");
 
     // Shared States
@@ -125,7 +126,7 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
             }
 
             if (token) {
-                localStorage.setItem("agentToken", token);
+                localStorage.setItem("token", token);
                 if (user) {
                     localStorage.setItem("userInfo", JSON.stringify(user));
                 } else {
@@ -211,7 +212,7 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
             }
 
             if (token) {
-                localStorage.setItem("agentToken", token);
+                localStorage.setItem("token", token);
                 if (user) {
                     localStorage.setItem("userInfo", JSON.stringify(user));
                 } else {
@@ -254,7 +255,7 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent className="w-[320px] md:w-[450px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria overflow-y-auto [&>button]:hidden">
                 <DialogHeader>
-                    <DialogTitle className={`flex items-center uppercase justify-between text-[#4290E9] text-[18px] font-[600]`}>
+                    <DialogTitle className={`flex items-center uppercase justify-between text-[18px] font-[600]`} style={{ color: accentColor }}>
                         {mode === "login" ? "Agent Login" : "Agent Signup"}
                         <button
                             type="button"
@@ -273,9 +274,10 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                         <button
                             type="button"
                             className={`px-3 py-1 w-[50%] rounded-md font-medium transition-all ${mode === "login"
-                                ? "bg-[#4290E9] text-white"
+                                ? "text-white"
                                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                                 }`}
+                            style={mode === "login" ? { backgroundColor: accentColor } : undefined}
                             onClick={() => {
                                 setMode("login");
                                 setEmail("");
@@ -290,9 +292,10 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                         <button
                             type="button"
                             className={`px-3 py-1 w-[50%] rounded-md font-medium transition-all ${mode === "signup"
-                                ? "bg-[#4290E9] text-white"
+                                ? "text-white"
                                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                                 }`}
+                            style={mode === "signup" ? { backgroundColor: accentColor } : undefined}
                             onClick={() => {
                                 setMode("signup");
                                 setEmail("");
@@ -338,7 +341,8 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                                 <Button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full bg-[#4290E9] text-white hover:opacity-90"
+                                    className="w-full text-white hover:opacity-90"
+                                    style={{ backgroundColor: accentColor }}
                                 >
                                     {isLoading ? "Logging in..." : "Login"}
                                 </Button>
@@ -354,7 +358,8 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                                             setEmail("");
                                             setPassword("");
                                         }}
-                                        className="text-[#4290E9] font-[600] hover:underline"
+                                        className="font-[600] hover:underline"
+                                        style={{ color: accentColor }}
                                     >
                                         Sign up
                                     </button>
@@ -450,7 +455,8 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                                 <Button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full bg-[#4290E9] text-white hover:opacity-90"
+                                    className="w-full text-white hover:opacity-90"
+                                    style={{ backgroundColor: accentColor }}
                                 >
                                     {isLoading ? "Signing up..." : "Sign up"}
                                 </Button>
@@ -469,7 +475,8 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                                             setFirstName("");
                                             setLastName("");
                                         }}
-                                        className="text-[#4290E9] font-[600] hover:underline"
+                                        className="font-[600] hover:underline"
+                                        style={{ color: accentColor }}
                                     >
                                         Login
                                     </button>

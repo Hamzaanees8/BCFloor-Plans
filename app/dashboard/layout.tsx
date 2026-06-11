@@ -4,7 +4,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useState, Suspense } from "react";
-import { OrderProvider } from "./orders/context/OrderContext";
+
 import ProtectedAdminRoute from "@/components/ProtectedAdminRoute";
 import { UnsavedProvider } from "../context/UnsavedContext";
 import { WhiteLabelProvider, useWhiteLabel } from "../context/Whitelabel";
@@ -63,11 +63,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         <div className="flex min-h-screen w-full">
             <WhiteLabelProvider>
                 <UnsavedProvider>
-                    <OrderProvider>
-                        <DashboardLayoutContentInternal>
-                            {children}
-                        </DashboardLayoutContentInternal>
-                    </OrderProvider>
+                    <DashboardLayoutContentInternal>
+                        {children}
+                    </DashboardLayoutContentInternal>
                 </UnsavedProvider>
             </WhiteLabelProvider>
         </div>

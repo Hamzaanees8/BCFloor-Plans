@@ -27,6 +27,7 @@ import GooglePlacesAutocomplete from '../../calendar/components/AutoCompleteInpu
 import { SearchableSelect } from './SearchableSelect';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { fetchVendorForBookNow, fetchServicesForBookNow } from '@/app/agent/book-now/book-now';
+import { RealtorSignInModal } from '@/app/agent/book-now/components/RealtorLogin';
 
 declare global {
     interface Window {
@@ -118,11 +119,21 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     const [searchValue, setSearchValue] = useState("");
     const [listingSearchValue, setListingSearchValue] = useState("");
     const [isLoading, setIsLoading] = useState(false);
-    
-    const [hasToken, setHasToken] = useState(true);
+
+    const [hasToken, setHasToken] = useState(!!localStorage.getItem("token"));
     useEffect(() => {
-        setHasToken(!!localStorage.getItem("token"));
-    }, []);
+        const checkToken = () => {
+            const token = localStorage.getItem("token");
+            setHasToken(!!token);
+            // If in book-now mode and user just logged in, redirect to dashboard
+            if (token && isBookNowMode) {
+                router.push('/dashboard/orders/create?transfer=true');
+            }
+        };
+        // Only listen for login events (initial state handled by useState default)
+        window.addEventListener('agentLogin', checkToken);
+        return () => window.removeEventListener('agentLogin', checkToken);
+    }, [isBookNowMode, router]);
     //const [isEditingListing, setIsEditingListing] = useState(false);
     const selectedAgent = useMemo(() => {
         return agentData.find((agent) => agent.uuid === selectedAgentId) || null;
@@ -135,6 +146,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     const [openAddListingDialog, setOpenAddListingDialog] = useState(!selectedListingId);
     const [openListing, setOpenListing] = useState(false);
     const [openAgent, setOpenAgent] = useState(false);
+    const [openSignInModal, setOpenSignInModal] = useState(false);
 
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [pendingListingId, setPendingListingId] = useState<string | null | 'NEW'>(null);
@@ -467,14 +479,14 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     useEffect(() => {
         const isValid = !!(
             address?.trim() &&
-            (selectedAgentId || (isBookNowMode && !hasToken)) &&
+            (selectedAgentId || isBookNowMode) &&
             (selectedListingId || Number(squareFootage) > 0) &&
             city?.trim() &&
             country &&
             postalCode?.trim()
         );
         setIsPropertyValid(isValid);
-    }, [address, squareFootage, selectedAgentId, city, country, postalCode, setIsPropertyValid, selectedListingId, isBookNowMode, hasToken]);
+    }, [address, squareFootage, selectedAgentId, city, country, postalCode, setIsPropertyValid, selectedListingId, isBookNowMode]);
 
 
     //     useEffect(() => {
@@ -853,146 +865,168 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     return (
         <div className='pt-7 px-[200px] pb-[80px] font-alexandria'>
             <div className='py-[10px] pl-[10px] flex flex-col gap-[30px]'>
+                {isBookNowMode && !hasToken && (
+                    <div className='w-full flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg'>
+                        <div>
+                            <h3 className='font-semibold text-gray-800'>Welcome! Please sign in to continue</h3>
+                            <p className='text-sm text-gray-600'>You can start entering your property details below, but you&apos;ll need to log in to proceed to the next step.</p>
+                        </div>
+                        <button
+                            onClick={() => setOpenSignInModal(true)}
+                            className='px-6 py-2 text-white font-medium rounded-md transition-colors'
+                            style={{ backgroundColor: roleSettings.pageTabColor }}
+                        >
+                            Sign In / Sign Up
+                        </button>
+                    </div>
+                )}
+
+                <RealtorSignInModal
+                    open={openSignInModal}
+                    setOpen={setOpenSignInModal}
+                    accentColor={roleSettings.pageTabColor}
+                />
+
                 {!(isBookNowMode && !hasToken) && (
                     <div className='flex flex-col gap-[14px]'>
                         <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Agent <span className="text-red-500">*</span></p>
-                    <div className='flex items-start justify-between'>
-                        <div className='flex items-center gap-4'>
-                            <Popover open={userType === 'agent' ? false : openAgent} onOpenChange={(open) => userType !== 'agent' && setOpenAgent(open)}>
-                                <PopoverTrigger asChild>
-                                    <button
-                                        className={cn(
-                                            "w-[432px] h-[42px] border-[1px] border-[#BBBBBB] px-3 flex items-center justify-between rounded-md",
-                                            userType === 'agent' ? "cursor-default" : "cursor-pointer",
-                                            !selectedAgent && "text-muted-foreground"
-                                        )}
-                                        style={{ backgroundColor: fieldBg }}
+                        <div className='flex items-start justify-between'>
+                            <div className='flex items-center gap-4'>
+                                <Popover open={userType === 'agent' ? false : openAgent} onOpenChange={(open) => userType !== 'agent' && setOpenAgent(open)}>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            className={cn(
+                                                "w-[432px] h-[42px] border-[1px] border-[#BBBBBB] px-3 flex items-center justify-between rounded-md",
+                                                userType === 'agent' ? "cursor-default" : "cursor-pointer",
+                                                !selectedAgent && "text-muted-foreground"
+                                            )}
+                                            style={{ backgroundColor: fieldBg }}
+                                        >
+                                            {userType === 'agent' && userInfo ? (
+                                                <span className='font-normal text-base' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
+                                                    {userInfo.first_name} {userInfo.last_name} – {userInfo.company_name}
+                                                </span>
+                                            ) : selectedAgent ? (
+                                                <span className='font-normal text-base' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
+                                                    {selectedAgent.first_name} {selectedAgent.last_name} – {selectedAgent.company_name}
+                                                </span>
+                                            ) : (
+                                                "Select Agent"
+                                            )}
+                                            {userType === 'admin' && <DropDownArrow stroke={roleSettings.pageText} />}
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[432px] p-0">
+                                        <Command shouldFilter={false}>
+                                            <CommandInput
+                                                placeholder="Search agent..."
+                                                value={searchValue}
+                                                onValueChange={(value) => {
+                                                    setSearchValue(value);
+                                                }}
+                                                className="h-9 font-normal text-base text-[#666666]"
+                                            />
+
+                                            <CommandList>
+                                                <CommandGroup>
+                                                    {(userType === 'admin' ? filteredAgents : [userInfo].filter(Boolean)).length > 0 ? (
+                                                        (userType === 'admin' ? filteredAgents : [userInfo]).map((agent) => (
+                                                            <CommandItem
+                                                                key={agent.uuid}
+                                                                onSelect={() => {
+                                                                    handleAgentSelect(agent.uuid || "");
+                                                                }}
+                                                            >
+                                                                <Check
+                                                                    className={cn(
+                                                                        "h-4 w-4 mr-2",
+                                                                        selectedAgentId === agent.uuid ? "opacity-100" : "opacity-0"
+                                                                    )}
+                                                                />
+                                                                {agent.first_name} {agent.last_name} – {agent.company_name}
+                                                            </CommandItem>
+                                                        ))
+                                                    ) : (
+                                                        <div className="px-4 py-2 text-sm text-muted-foreground">
+                                                            {userType === 'admin' ? 'No agents found.' : 'No agent information available.'}
+                                                        </div>
+                                                    )}
+                                                </CommandGroup>
+                                            </CommandList>
+
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                                {userType === 'admin' && (
+                                    <div
+                                        className={`cursor-pointer ${!selectedAgentId ? 'pointer-events-none opacity-50' : ''}`}
+                                        onClick={() => {
+                                            if (!selectedAgentId) return;
+                                            setIsEditingAgent(true);
+                                            setOpenAddAgentDialog(true);
+                                        }}
                                     >
-                                        {userType === 'agent' && userInfo ? (
-                                            <span className='font-normal text-base' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                                {userInfo.first_name} {userInfo.last_name} – {userInfo.company_name}
-                                            </span>
-                                        ) : selectedAgent ? (
-                                            <span className='font-normal text-base' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                                {selectedAgent.first_name} {selectedAgent.last_name} – {selectedAgent.company_name}
-                                            </span>
-                                        ) : (
-                                            "Select Agent"
-                                        )}
-                                        {userType === 'admin' && <DropDownArrow stroke={roleSettings.pageText} />}
-                                    </button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[432px] p-0">
-                                    <Command shouldFilter={false}>
-                                        <CommandInput
-                                            placeholder="Search agent..."
-                                            value={searchValue}
-                                            onValueChange={(value) => {
-                                                setSearchValue(value);
-                                            }}
-                                            className="h-9 font-normal text-base text-[#666666]"
-                                        />
-
-                                        <CommandList>
-                                            <CommandGroup>
-                                                {(userType === 'admin' ? filteredAgents : [userInfo].filter(Boolean)).length > 0 ? (
-                                                    (userType === 'admin' ? filteredAgents : [userInfo]).map((agent) => (
-                                                        <CommandItem
-                                                            key={agent.uuid}
-                                                            onSelect={() => {
-                                                                handleAgentSelect(agent.uuid || "");
-                                                            }}
-                                                        >
-                                                            <Check
-                                                                className={cn(
-                                                                    "h-4 w-4 mr-2",
-                                                                    selectedAgentId === agent.uuid ? "opacity-100" : "opacity-0"
-                                                                )}
-                                                            />
-                                                            {agent.first_name} {agent.last_name} – {agent.company_name}
-                                                        </CommandItem>
-                                                    ))
-                                                ) : (
-                                                    <div className="px-4 py-2 text-sm text-muted-foreground">
-                                                        {userType === 'admin' ? 'No agents found.' : 'No agent information available.'}
-                                                    </div>
-                                                )}
-                                            </CommandGroup>
-                                        </CommandList>
-
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
-                            {userType === 'admin' && (
-                                <div
-                                    className={`cursor-pointer ${!selectedAgentId ? 'pointer-events-none opacity-50' : ''}`}
-                                    onClick={() => {
-                                        if (!selectedAgentId) return;
-                                        setIsEditingAgent(true);
-                                        setOpenAddAgentDialog(true);
-                                    }}
-                                >
-                                    <EditIcon3 />
-                                </div>
-                            )}
+                                        <EditIcon3 />
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                className={`${userType == 'admin' ? 'flex' : 'hidden'} items-center gap-2 px-3 py-2 rounded-md border transition-colors`}
+                                style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}
+                                onClick={() => {
+                                    setIsEditingAgent(false);
+                                    handleAgentSelect(null);
+                                }}
+                            >
+                                <Plus className='w-4 h-4' />
+                                <span className='text-sm font-medium'>Create New Agent</span>
+                            </button>
+                            <AddAgentDialog
+                                open={openAddAgentDialog}
+                                setOpen={setOpenAddAgentDialog}
+                                uuid={isEditingAgent ? selectedAgent?.uuid : null}
+                                onSuccess={() => {
+                                    fetchAgents();
+                                }}
+                            />
                         </div>
-                        <button
-                            className={`${userType == 'admin' ? 'flex' : 'hidden'} items-center gap-2 px-3 py-2 rounded-md border transition-colors`}
-                            style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}
-                            onClick={() => {
-                                setIsEditingAgent(false);
-                                handleAgentSelect(null);
-                            }}
-                        >
-                            <Plus className='w-4 h-4' />
-                            <span className='text-sm font-medium'>Create New Agent</span>
-                        </button>
-                        <AddAgentDialog
-                            open={openAddAgentDialog}
-                            setOpen={setOpenAddAgentDialog}
-                            uuid={isEditingAgent ? selectedAgent?.uuid : null}
-                            onSuccess={() => {
-                                fetchAgents();
-                            }}
-                        />
-                    </div>
-                    {userType === 'agent' && userInfo ? (
-                        <div className='flex flex-col'>
-                            <p className={`font-[400] text-[20px]`} style={{ color: roleSettings.pageTabColor }}>
-                                {userInfo.first_name} {userInfo.last_name}
-                            </p>
-                            <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                {userInfo.company_name}
-                            </p>
-                            <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                {userInfo.email}
-                            </p>
-                            <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                {userInfo.primary_phone}
-                            </p>
-                        </div>
-                    ) : selectedAgent && (
-                        <div className='flex flex-col'>
-                            <p className={`font-[400] text-[20px]`} style={{ color: roleSettings.pageTabColor }}>
-                                {selectedAgent.first_name} {selectedAgent.last_name}
-                            </p>
-                            <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                {selectedAgent.company_name}
-                            </p>
-                            <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                {selectedAgent.email}
-                            </p>
-                            <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                {selectedAgent.primary_phone}
-                            </p>
-                            {selectedAgent.notes && (
-                                <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                    <span className='font-[600]'>Notes: </span> {selectedAgent.notes}
+                        {userType === 'agent' && userInfo ? (
+                            <div className='flex flex-col'>
+                                <p className={`font-[400] text-[20px]`} style={{ color: roleSettings.pageTabColor }}>
+                                    {userInfo.first_name} {userInfo.last_name}
                                 </p>
-                            )}
-                        </div>
-                    )}
-                </div>
+                                <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
+                                    {userInfo.company_name}
+                                </p>
+                                <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
+                                    {userInfo.email}
+                                </p>
+                                <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
+                                    {userInfo.primary_phone}
+                                </p>
+                            </div>
+                        ) : selectedAgent && (
+                            <div className='flex flex-col'>
+                                <p className={`font-[400] text-[20px]`} style={{ color: roleSettings.pageTabColor }}>
+                                    {selectedAgent.first_name} {selectedAgent.last_name}
+                                </p>
+                                <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
+                                    {selectedAgent.company_name}
+                                </p>
+                                <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
+                                    {selectedAgent.email}
+                                </p>
+                                <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
+                                    {selectedAgent.primary_phone}
+                                </p>
+                                {selectedAgent.notes && (
+                                    <p className='font-[400] text-[16px]' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
+                                        <span className='font-[600]'>Notes: </span> {selectedAgent.notes}
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 )}
                 {!(isBookNowMode && !hasToken) && (
                     <div className='w-full h-[1px] bg-[#EEEEEE]' />
@@ -1413,124 +1447,138 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                 style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}>
                                                                 Cancel
                                                             </button>
-                                                            <button
-                                                                disabled={isLoading || !address?.trim() || (!selectedAgentId && !(isBookNowMode && !hasToken)) || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim()}
-                                                                onClick={(e) => { handleSubmit(e) }}
-                                                                className={`w-full rounded-sm md:w-[176px] h-[40px] font-[400] text-[20px] flex items-center justify-center gap-2 text-white transition-all
-                                                ${(isLoading || !address?.trim() || (!selectedAgentId && !(isBookNowMode && !hasToken)) || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim())
-                                                                        ? 'bg-gray-400 cursor-not-allowed'
-                                                                        : ''}`}
-                                                                style={{ backgroundColor: (isLoading || !address?.trim() || (!selectedAgentId && !(isBookNowMode && !hasToken)) || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim()) ? undefined : roleSettings.pageTabColor }}
-                                                            >
-                                                                {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Next"}
-                                                            </button>
+                                                            <TooltipProvider delayDuration={100}>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <div className="w-full md:w-[176px]">
+                                                                            <button
+                                                                                disabled={isLoading || !address?.trim() || (!selectedAgentId && !(isBookNowMode && !hasToken)) || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim() || (isBookNowMode && !hasToken)}
+                                                                                onClick={(e) => { handleSubmit(e) }}
+                                                                                className={`w-full rounded-sm h-[40px] font-[400] text-[20px] flex items-center justify-center gap-2 text-white transition-all
+                                                                ${(isLoading || !address?.trim() || (!selectedAgentId && !(isBookNowMode && !hasToken)) || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim() || (isBookNowMode && !hasToken))
+                                                                                        ? 'bg-gray-400 cursor-not-allowed'
+                                                                                        : ''}`}
+                                                                                style={{ backgroundColor: (isLoading || !address?.trim() || (!selectedAgentId && !(isBookNowMode && !hasToken)) || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim() || (isBookNowMode && !hasToken)) ? undefined : roleSettings.pageTabColor }}
+                                                                            >
+                                                                                {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Next"}
+                                                                            </button>
+                                                                        </div>
+                                                                    </TooltipTrigger>
+                                                                    {(isBookNowMode && !hasToken) && (
+                                                                        <TooltipContent side="top">
+                                                                            <p>Please login or signup first to continue.</p>
+                                                                        </TooltipContent>
+                                                                    )}
+                                                                </Tooltip>
+                                                            </TooltipProvider>
                                                         </div>
-                                                        <p className="text-[12px] font-[500] text-center" style={{ color: roleSettings.pageTabColor }}>
-                                                            Please complete all required fields to proceed to the next step.
+                                                        <p className='text-[12px] text-blue-700'>
+                                                            <span className='font-[600]'>*Required fields</span> - Square Footage, Address, City, Province/State, Postal Code, and Country are required to proceed to the next step
                                                         </p>
+
                                                     </div>
                                                 </div>
                                             </AccordionContent>
                                         </AccordionItem>
                                     </Accordion>
 
-                                    {!(isBookNowMode && !hasToken) && (
+                                    {!(isBookNowMode) && (
                                         <div className='flex flex-col gap-[14px] mt-[30px]'>
                                             <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Listing</p>
                                             <div className='flex items-start justify-between'>
-                                            <div className='flex items-center gap-4'>
-                                                <Popover open={isAgentEdit ? false : openListing} onOpenChange={(open) => !isAgentEdit && setOpenListing(open)}>
-                                                    <PopoverTrigger asChild>
-                                                        <button
-                                                            className={cn(
-                                                                "w-[432px] h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] px-3 flex items-center justify-between rounded-md",
-                                                                !selectedListing && "text-muted-foreground",
-                                                                isAgentEdit && "pointer-events-none opacity-50"
-                                                            )}
-                                                        >
-                                                            {selectedListing ? (
-                                                                <span className='font-normal text-base' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
-                                                                    {selectedListing.suite ? `${selectedListing.suite} - ${selectedListing.address}` : selectedListing.address}, {selectedListing.city}
-                                                                </span>
-                                                            ) : (
-                                                                "Search and Select previous listings"
-                                                            )}
-                                                            <DropDownArrow stroke={roleSettings.pageText} />
-                                                        </button>
-                                                    </PopoverTrigger>
+                                                <div className='flex items-center gap-4'>
+                                                    <Popover open={isAgentEdit ? false : openListing} onOpenChange={(open) => !isAgentEdit && setOpenListing(open)}>
+                                                        <PopoverTrigger asChild>
+                                                            <button
+                                                                className={cn(
+                                                                    "w-[432px] h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] px-3 flex items-center justify-between rounded-md",
+                                                                    !selectedListing && "text-muted-foreground",
+                                                                    isAgentEdit && "pointer-events-none opacity-50"
+                                                                )}
+                                                            >
+                                                                {selectedListing ? (
+                                                                    <span className='font-normal text-base' style={{ color: `color-mix(in srgb, ${roleSettings.pageText}, transparent 20%)` }}>
+                                                                        {selectedListing.suite ? `${selectedListing.suite} - ${selectedListing.address}` : selectedListing.address}, {selectedListing.city}
+                                                                    </span>
+                                                                ) : (
+                                                                    "Search and Select previous listings"
+                                                                )}
+                                                                <DropDownArrow stroke={roleSettings.pageText} />
+                                                            </button>
+                                                        </PopoverTrigger>
 
-                                                    <PopoverContent className="w-[432px] p-0">
-                                                        <Command shouldFilter={false}>
-                                                            <CommandInput
-                                                                placeholder="Search and Select previous listings..."
-                                                                value={listingSearchValue}
-                                                                onValueChange={(val) => {
-                                                                    setListingSearchValue(val);
-                                                                }}
-                                                                className="h-9"
-                                                            />
+                                                        <PopoverContent className="w-[432px] p-0">
+                                                            <Command shouldFilter={false}>
+                                                                <CommandInput
+                                                                    placeholder="Search and Select previous listings..."
+                                                                    value={listingSearchValue}
+                                                                    onValueChange={(val) => {
+                                                                        setListingSearchValue(val);
+                                                                    }}
+                                                                    className="h-9"
+                                                                />
 
-                                                            <CommandList>
-                                                                <CommandGroup>
-                                                                    {filteredListings.length > 0 ? (
-                                                                        filteredListings.map((listing) => (
-                                                                            <CommandItem
-                                                                                key={listing.uuid}
-                                                                                onSelect={() => {
-                                                                                    handleListingSelect(listing.uuid);
-                                                                                }}
-                                                                                className="cursor-pointer"
-                                                                            >
-                                                                                <Check
-                                                                                    className={cn(
-                                                                                        "mr-2 h-4 w-4",
-                                                                                        selectedListingId === listing.uuid ? "opacity-100" : "opacity-0"
-                                                                                    )}
-                                                                                />
-                                                                                {listing.suite ? `${listing.suite} - ${listing.address}` : listing.address}, {listing.city}
-                                                                            </CommandItem>
-                                                                        ))
-                                                                    ) : (
-                                                                        <div className="px-4 py-2 text-sm text-muted-foreground text-center italic">
-                                                                            No listings found.
-                                                                        </div>
-                                                                    )}
-                                                                </CommandGroup>
-                                                            </CommandList>
-                                                        </Command>
-                                                    </PopoverContent>
-                                                </Popover>
+                                                                <CommandList>
+                                                                    <CommandGroup>
+                                                                        {filteredListings.length > 0 ? (
+                                                                            filteredListings.map((listing) => (
+                                                                                <CommandItem
+                                                                                    key={listing.uuid}
+                                                                                    onSelect={() => {
+                                                                                        handleListingSelect(listing.uuid);
+                                                                                    }}
+                                                                                    className="cursor-pointer"
+                                                                                >
+                                                                                    <Check
+                                                                                        className={cn(
+                                                                                            "mr-2 h-4 w-4",
+                                                                                            selectedListingId === listing.uuid ? "opacity-100" : "opacity-0"
+                                                                                        )}
+                                                                                    />
+                                                                                    {listing.suite ? `${listing.suite} - ${listing.address}` : listing.address}, {listing.city}
+                                                                                </CommandItem>
+                                                                            ))
+                                                                        ) : (
+                                                                            <div className="px-4 py-2 text-sm text-muted-foreground text-center italic">
+                                                                                No listings found.
+                                                                            </div>
+                                                                        )}
+                                                                    </CommandGroup>
+                                                                </CommandList>
+                                                            </Command>
+                                                        </PopoverContent>
+                                                    </Popover>
 
 
-                                                <div
-                                                    className={`cursor-pointer ${(isAgentEdit || !selectedListingId) ? 'pointer-events-none opacity-50' : ''}`}
-                                                    onClick={() => {
-                                                        if (!selectedListingId) return;
-                                                        setOpenAddListingDialog(true);
-                                                    }}
-                                                >
-                                                    <EditIcon3 />
-                                                </div>
-
-                                            </div>
-                                            {!openAddListingDialog && (
-                                                <>
-                                                    <div className="flex items-center gap-2 self-center">
-                                                        <div className="w-[30px] h-[1px] bg-[#BBBBBB]"></div>
-                                                        <span className="text-[#BBBBBB] text-sm">or</span>
-                                                        <div className="w-[30px] h-[1px] bg-[#BBBBBB]"></div>
-                                                    </div>
-                                                    <button
-                                                        className={cn('flex items-center gap-2 px-3 py-2 rounded-md border transition-colors', isAgentEdit && 'pointer-events-none opacity-50')}
-                                                        style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}
-                                                        onClick={() => handleListingSelect('NEW')}
+                                                    <div
+                                                        className={`cursor-pointer ${(isAgentEdit || !selectedListingId) ? 'pointer-events-none opacity-50' : ''}`}
+                                                        onClick={() => {
+                                                            if (!selectedListingId) return;
+                                                            setOpenAddListingDialog(true);
+                                                        }}
                                                     >
-                                                        <Plus className='w-4 h-4' />
-                                                        <span className='text-sm font-medium'>Create New Listing</span>
-                                                    </button>
-                                                </>
-                                            )}
-                                        </div>
+                                                        <EditIcon3 />
+                                                    </div>
+
+                                                </div>
+                                                {!openAddListingDialog && (
+                                                    <>
+                                                        <div className="flex items-center gap-2 self-center">
+                                                            <div className="w-[30px] h-[1px] bg-[#BBBBBB]"></div>
+                                                            <span className="text-[#BBBBBB] text-sm">or</span>
+                                                            <div className="w-[30px] h-[1px] bg-[#BBBBBB]"></div>
+                                                        </div>
+                                                        <button
+                                                            className={cn('flex items-center gap-2 px-3 py-2 rounded-md border transition-colors', isAgentEdit && 'pointer-events-none opacity-50')}
+                                                            style={{ borderColor: roleSettings.pageTabColor, color: roleSettings.pageTabColor }}
+                                                            onClick={() => handleListingSelect('NEW')}
+                                                        >
+                                                            <Plus className='w-4 h-4' />
+                                                            <span className='text-sm font-medium'>Create New Listing</span>
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>

@@ -313,7 +313,7 @@ export async function UploadFilesData(
     formData.append(`snapshots[${index}][description]`, snap.description || "");
     formData.append(
       `snapshots[${index}][file]`,
-      snap.file || snap.variant_urls?.thumb || snap.thumbnail_url || snap.url || snap.file_path || "",
+      snap.file || snap.variant_urls?.popup || snap.variant_urls?.thumb || snap.thumbnail_url || snap.url || snap.file_path || "",
     );
     formData.append(`snapshots[${index}][x_axis]`, String(snap.x));
     formData.append(`snapshots[${index}][y_axis]`, String(snap.y));
@@ -586,7 +586,7 @@ export async function UpdateFilesData(
     formData.append(`snapshots[${index}][file_name]`, snap.floorImageUrl || "");
     formData.append(
       `snapshots[${index}][file]`,
-      snap.file || snap.variant_urls?.thumb || snap.thumbnail_url || snap.url || snap.file_path || "",
+      snap.file || snap.variant_urls?.popup || snap.variant_urls?.thumb || snap.thumbnail_url || snap.url || snap.file_path || "",
     );
     formData.append(`snapshots[${index}][x_axis]`, String(snap.x.toFixed(6)));
     formData.append(`snapshots[${index}][y_axis]`, String(snap.y.toFixed(6)));

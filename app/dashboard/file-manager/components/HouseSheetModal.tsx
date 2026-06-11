@@ -119,27 +119,27 @@ const HouseSheetModal: React.FC<Props> = ({
             }
         } catch (error) {
             const errObj = error as any;
-      const apiErrors = errObj.response?.data?.errors || errObj.errors;
+            const apiErrors = errObj.response?.data?.errors || errObj.errors;
 
-      if (apiErrors && typeof apiErrors === "object") {
-        const normalizedErrors: Record<string, string[]> = {};
+            if (apiErrors && typeof apiErrors === "object") {
+                const normalizedErrors: Record<string, string[]> = {};
 
-        Object.entries(apiErrors).forEach(([key, messages]) => {
-          const normalizedKey = key.split(".")[0];
-          if (!normalizedErrors[normalizedKey]) {
-            normalizedErrors[normalizedKey] = [];
-          }
-          const msgs = Array.isArray(messages) ? messages : [messages];
-          normalizedErrors[normalizedKey].push(...(msgs as string[]));
-        });
+                Object.entries(apiErrors).forEach(([key, messages]) => {
+                    const normalizedKey = key.split(".")[0];
+                    if (!normalizedErrors[normalizedKey]) {
+                        normalizedErrors[normalizedKey] = [];
+                    }
+                    const msgs = Array.isArray(messages) ? messages : [messages];
+                    normalizedErrors[normalizedKey].push(...(msgs as string[]));
+                });
 
-        const firstError = Object.values(normalizedErrors).flat()[0];
-        toast.error(firstError || "Validation error kindly re-check your form");
-      } else if (error instanceof Error) {
-        toast.error(error.message);
-      } else {
-        toast.error("Failed to submit data");
-      }
+                const firstError = Object.values(normalizedErrors).flat()[0];
+                toast.error(firstError || "Validation error kindly re-check your form");
+            } else if (error instanceof Error) {
+                toast.error(error.message);
+            } else {
+                toast.error("Failed to submit data");
+            }
         }
     };
 
@@ -173,6 +173,7 @@ const HouseSheetModal: React.FC<Props> = ({
                         setArea={setTempArea}
                         updateInvoice={updateInvoice}
                         setUpdateInvoice={setUpdateInvoice}
+                        hideHeader={true}
                     />
                 </div>
 
@@ -197,7 +198,6 @@ const HouseSheetModal: React.FC<Props> = ({
                             </Button>
                         </DialogFooter>
                     </div>
-
                 </div>
             </DialogContent>
         </Dialog>

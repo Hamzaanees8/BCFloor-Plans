@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Lock } from 'lucide-react';
 import React from 'react';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 
@@ -69,10 +69,13 @@ const OrderStepper = ({ currentTab, onTabChange, steps, canNavigateTo, userType 
                                 {index + 1}
                             </div>
                             <span
-                                className={`text-[10px] md:text-sm font-bold uppercase transition-colors ${labelColor}`}
+                                className={`text-[10px] md:text-sm font-bold uppercase transition-colors flex items-center gap-1 ${labelColor}`}
                                 style={labelStyle}
                             >
                                 {step.label}
+                                {!isNavigable && index > activeIndex && (
+                                    <Lock className="w-3 h-3 md:w-4 md:h-4" />
+                                )}
                             </span>
                         </div>
 

@@ -470,8 +470,10 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
   const [twilightData, setTwilightData] = useState<TwilightResponse | null>(null);
   const [showConfirmDayChange, setShowConfirmDayChange] = useState(false);
   const [showConfirmVendorChange, setShowConfirmVendorChange] = useState(false);
+  const [showConfirmReplaceSelection, setShowConfirmReplaceSelection] = useState(false);
   const [pendingSelection, setPendingSelection] = useState<any | null>(null);
   const [pendingVendorAssignment, setPendingVendorAssignment] = useState<{ vendor: VendorData, slots: { start: string; end: string }[], previousVendorName?: string } | null>(null);
+  const [pendingReplaceSelection, setPendingReplaceSelection] = useState<{ info: EventClickArg, proposedSlots: { start: string, end: string }[], slotTime: string } | null>(null);
   const [showAgain, setShowAgain] = useState(true);
   const [hoveredSlotStart, setHoveredSlotStart] = useState<string | null>(null);
   const calendarRef = React.useRef<FullCalendar>(null);
@@ -1318,13 +1320,11 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
     const currentAssignedVendorId = currentServiceSlots.length > 0 ? (currentServiceSlots[0].vendor?.uuid || currentServiceSlots[0].vendor_id) : null;
     const isSwitchingVendor = currentAssignedVendorId && !selectedVendors.includes(currentAssignedVendorId);
-    
+
     const effectiveCurrentServiceSlots = isSwitchingVendor ? [] : currentServiceSlots;
 
-    if (effectiveCurrentServiceSlots.length >= requiredSlots) {
-      toast.warning(`You cannot select more than the required ${requiredDuration} minutes for "${service.title}".`);
-      return;
-    }
+    let isReplacementScenario = false;
+    const replacementClickedStartDayjs = dayjs(clicked.start);
 
     // ── Gap / Adjacency validation & auto-fill ────────────────────────────────
     // If there are already selected slots, the new slot must attach to the start
@@ -1367,21 +1367,40 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       const blockStartDayjs = dayjs(`${selectedDate}T${firstExisting.start_time}`);
       const isBeforeBlockWithGap = clickedEndDayjs.isBefore(blockStartDayjs);
 
-      // Check if clicked slot is AFTER the block with a gap — disallow (can only add to end adjacently)
-      const clickedStartDayjs = dayjs(`${selectedDate}T${clickedStartTime}`);
-      const blockEndDayjs = dayjs(`${selectedDate}T${lastExisting.end_time}`);
-      const isAfterBlockWithGap = clickedStartDayjs.isAfter(blockEndDayjs);
+      if (!forceProceed && effectiveCurrentServiceSlots.length >= requiredSlots) {
+        isReplacementScenario = true;
+      } else if (!forceProceed && !isAdjacentToEnd && !isAdjacentToStart && !isBeforeBlockWithGap) {
+        isReplacementScenario = true;
+      }
 
-      if (!isAdjacentToEnd && !isAdjacentToStart && !isBeforeBlockWithGap) {
-        if (isAfterBlockWithGap) {
-          toast.error(
-            `Slots must be consecutive. You can only add slots immediately before or after your existing selection for "${service.title}".`
+      if (isReplacementScenario) {
+        let remainingSlotsNeeded = requiredSlots;
+        if (remainingSlotsNeeded <= 0) remainingSlotsNeeded = 1;
+        let consecutiveAvailable = true;
+        const proposedSlots = [];
+
+        for (let i = 0; i < remainingSlotsNeeded; i++) {
+          const s = replacementClickedStartDayjs.add(i * 15, 'minute').toISOString();
+          const e = replacementClickedStartDayjs.add((i + 1) * 15, 'minute').toISOString();
+          const sTime = dayjs(s).format('HH:mm:ss');
+          const eventExists = events.find(ev =>
+            ev.start === s &&
+            (ev.className?.includes('slot-available') || currentServiceSlots.some(slot => slot.start_time === sTime))
           );
-        } else {
-          toast.error(
-            `Slots must be consecutive. You can only add slots immediately before or after your existing selection for "${service.title}".`
-          );
+          if (!eventExists) {
+            consecutiveAvailable = false;
+            break;
+          }
+          proposedSlots.push({ start: s, end: e });
         }
+
+        if (!consecutiveAvailable) {
+          toast.error("The consecutive slots are not available from the selected slot. Please select another slot.");
+          return;
+        }
+
+        setPendingReplaceSelection({ info, proposedSlots, slotTime: replacementClickedStartDayjs.format('hh:mm A') });
+        setShowConfirmReplaceSelection(true);
         return;
       }
 
@@ -1394,8 +1413,8 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           const e = dayjs(clicked.start).add((i + 1) * 15, 'minute').toISOString();
           // Stop if we'd run past available events
           const sTime = dayjs(s).format('HH:mm:ss');
-          const eventExists = events.find(ev => 
-            ev.start === s && 
+          const eventExists = events.find(ev =>
+            ev.start === s &&
             (ev.className?.includes('slot-available') || currentServiceSlots.some(slot => slot.start_time === sTime))
           );
           if (i > 0 && !eventExists) break;
@@ -1430,8 +1449,8 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         const s = dayjs(clicked.start).add(i * 15, 'minute').toISOString();
         const e = dayjs(clicked.start).add((i + 1) * 15, 'minute').toISOString();
         const sTime = dayjs(s).format('HH:mm:ss');
-        const eventExists = events.find(ev => 
-          ev.start === s && 
+        const eventExists = events.find(ev =>
+          ev.start === s &&
           (ev.className?.includes('slot-available') || currentServiceSlots.some(slot => slot.start_time === sTime))
         );
         if (i > 0 && !eventExists) break;
@@ -1663,6 +1682,74 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     await onEventClick(info, true);
   };
 
+  const handleConfirmReplaceSelection = async () => {
+    if (!pendingReplaceSelection) return;
+    const { proposedSlots } = pendingReplaceSelection;
+    const selectedDateForReplace = dayjs(proposedSlots[0].start).format('YYYY-MM-DD');
+
+    // Clear previous slots for this service
+    setSelectedSlots((prev: Slot[]) => prev.filter((slot: Slot) => slot.service_id !== service.uuid));
+    setPendingReplaceSelection(null);
+    setShowConfirmReplaceSelection(false);
+
+    // Find matching vendors for the proposed slots (same logic as in onEventClick)
+    const currentServiceDataForReplace = servicesData.find(s => s.uuid === service.uuid || String(s.id) === String(service.id));
+    const isNoTravelReplace = currentServiceDataForReplace?.is_travel_required === false;
+    const isFloorPlanReplace = isFloorPlanService(service.title, service.uuid, service.id, servicesData);
+    const isMatterportReplace = isMatterportService(service.title, service.uuid, service.id, servicesData);
+    const isSpecialServiceReplace = isFloorPlanReplace || isMatterportReplace;
+
+    const matchingVendors = vendorsData.filter(vendor => {
+      if (!vendor.uuid || !selectedVendors.includes(vendor.uuid)) return false;
+
+      const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
+      const shouldEnforceForVendor = isSpecialServiceReplace ? vendorHasNextBookingFlag : true;
+      const useFullDayReplace = isNoTravelReplace
+        ? !vendorHasNextBookingFlag
+        : (scheduleOverride === 1) && !(isSpecialServiceReplace && vendorHasNextBookingFlag);
+
+      const otherSlotsForDate = selectedSlots.filter((s: Slot) => s.service_id !== service.uuid && s.date === selectedDateForReplace);
+
+      let vendorAvailableSlots: Slots[];
+      if (useFullDayReplace) {
+        const fullDayWH: WorkHours = {
+          start_time: '00:00:00',
+          end_time: '23:59:59',
+          timezone: propertyTimezone || 'America/Vancouver',
+          work_days: [{ day: dayjs(selectedDateForReplace).format('ddd').toLowerCase(), start_time: '00:00:00', end_time: '23:59:59', is_off: 0, is_twilight: 0 }]
+        };
+        vendorAvailableSlots = generateMarkedSlots(selectedDateForReplace, fullDayWH, vendor.uuid ?? '', AllBookedSlots, otherSlotsForDate, [], [], 15);
+      } else {
+        if (!vendor.work_hours) return false;
+        const vendorTimezone = vendor.work_hours.timezone || 'America/Vancouver';
+        const targetTimezone = propertyTimezone || 'America/Vancouver';
+        const convertedWH = convertVendorWorkHoursToPropertyTimezone(selectedDateForReplace, vendor.work_hours, vendorTimezone, targetTimezone);
+        vendorAvailableSlots = generateMarkedSlots(selectedDateForReplace, convertedWH, vendor.uuid ?? '', AllBookedSlots, otherSlotsForDate, vendor.additional_breaks || [], vendor.calendar_events || [], 15);
+      }
+
+      const requiredSlotStart = shouldEnforceForVendor
+        ? getVendorRequiredSlotStart(vendor, selectedDateForReplace, AllBookedSlots, vendorAvailableSlots)
+        : null;
+      if (requiredSlotStart && !dayjs(proposedSlots[0].start).isSame(requiredSlotStart)) return false;
+
+      return proposedSlots.every(slot =>
+        vendorAvailableSlots.some(av =>
+          dayjs(av.start).isSame(slot.start) && dayjs(av.end).isSame(slot.end)
+        )
+      );
+    });
+
+    if (matchingVendors.length === 1) {
+      await handleAssignVendor(matchingVendors[0], proposedSlots, true);
+    } else if (matchingVendors.length > 1) {
+      setClickedSlot({ start: proposedSlots[0].start, end: proposedSlots[proposedSlots.length - 1].end });
+      setAvailableSlotVendors(matchingVendors);
+      setShowVendorModal(true);
+    } else {
+      toast.error('No vendor is available for the selected time slots. Please choose another slot.');
+    }
+  };
+
   const handleConfirmVendorChange = async () => {
     if (!pendingVendorAssignment) return;
     const { vendor, slots } = pendingVendorAssignment;
@@ -1678,7 +1765,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     if (!forceVendorChange && currentAssignedVendorId && currentAssignedVendorId !== vendor.uuid) {
       const previousVendor = vendorsData.find(v => v.uuid === currentAssignedVendorId);
       const previousVendorName = previousVendor ? `${previousVendor.first_name} ${previousVendor.last_name || ''}`.trim() : "the previous vendor";
-      
+
       setPendingVendorAssignment({ vendor, slots, previousVendorName });
       setShowConfirmVendorChange(true);
       setShowVendorModal(false);
@@ -2094,6 +2181,20 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         toggleShowAgain={() => setShowAgain(prev => !prev)}
         title="Change Vendor?"
         description={`Selecting a slot for this vendor will remove the previously selected slots for ${pendingVendorAssignment?.previousVendorName || "the previous vendor"}.`}
+      />
+      <ConfirmationDialog
+        open={showConfirmReplaceSelection}
+        setOpen={(open) => {
+          setShowConfirmReplaceSelection(open);
+          if (!open) {
+            setPendingReplaceSelection(null);
+          }
+        }}
+        onConfirm={handleConfirmReplaceSelection}
+        showAgain={showAgain}
+        toggleShowAgain={() => setShowAgain(prev => !prev)}
+        title="Replace Selection?"
+        description={`Do you want to select slots from ${pendingReplaceSelection?.slotTime} onwards? On clicking confirm, your previous selection for "${service.title}" will be removed.`}
       />
     </>
   );

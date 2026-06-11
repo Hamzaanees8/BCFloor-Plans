@@ -415,6 +415,9 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 className={`absolute inset-0 w-full h-full object-cover cursor-pointer transition-all duration-300 ${file.is_deleted ? 'blur-[2px] opacity-40 grayscale' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                 draggable={false}
                             />
+                            <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center z-[20] pointer-events-none">
+                                <p className="text-white font-medium text-sm drop-shadow-md">Processing...</p>
+                            </div>
                             {file.uuid && filesToHide.has(file.uuid) && (
                                 <div className="absolute inset-0 bg-black/50 z-[25] flex flex-col items-center justify-center pointer-events-none">
                                     <Check color="white" size={48} className="opacity-100" />
@@ -483,60 +486,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     <span className="text-[10px] font-bold">Approved</span>
                                 </div>
                             )}
-                            {userType !== 'agent' && (
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <span
-                                            className={`cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px] transition-opacity duration-300`}
-                                            style={{
-                                                clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                                backgroundColor: `${file.is_show !== false ? "#6BAE41" : "#E06D5E"}`,
-                                            }}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedFiles(prev =>
-                                                    prev.map(f => {
-                                                        if (f.file === file.file && f.service_id === file.service_id) {
-                                                            return { ...f, is_show: f.is_show === false ? true : false };
-                                                        }
-                                                        return f;
-                                                    })
-                                                );
-                                            }}
-                                        >
-                                            {file.is_show !== false ? <Check color="#fff" size={14} /> : <X color="#fff" size={14} />}
-                                        </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="left" align="start" className="mt-2 mr-2">
-                                        {file.is_show !== false ? "Hide from agent" : "Make visible to agent"}
-                                    </TooltipContent>
-                                </Tooltip>
-                            )}
-                            {!file.is_deleted && (
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <div
-                                            className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-500 rounded-full p-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-300 z-[20] shadow-md hover:scale-110"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedFiles(prev =>
-                                                    prev.map(f => {
-                                                        if (f.file === file.file && f.service_id === file.service_id) {
-                                                            return { ...f, is_deleted: true };
-                                                        }
-                                                        return f;
-                                                    })
-                                                );
-                                            }}
-                                        >
-                                            <X color="white" size={14} strokeWidth={3} />
-                                        </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top">
-                                        Remove file
-                                    </TooltipContent>
-                                </Tooltip>
-                            )}
+                            {/* Unsaved media green and red edge removed */}
+                            {/* Unsaved media remove button hidden during processing */}
                         </>
                     ) : (
                         <>

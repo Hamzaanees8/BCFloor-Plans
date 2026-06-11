@@ -84,7 +84,7 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
       const envDefaultDomains = getDefaultDomains();
       const defaultDomains = [
         ...envDefaultDomains,
-        "booking-new.localhost",
+        "bookings-new.localhost",
         "teams-new.localhost",
         "vendors-new.localhost"
       ];

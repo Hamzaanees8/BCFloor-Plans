@@ -22,6 +22,7 @@ import OrderStepper from '../components/OrderStepper';
 import { getEffectiveServiceDuration, splitSlotInto15MinChunks } from '../utils/serviceTimeUtils';
 import { toast } from 'sonner';
 import { fetchServicesForBookNow } from '@/app/agent/book-now/book-now';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const OrderForm = () => {
     const confirmationRef = useRef<OrderConfirmationHandle>(null);
@@ -103,15 +104,39 @@ const OrderForm = () => {
         selectedCurrentListing,
         setLastPopulatedAgentId,
         resetOrderData,
-        isBookNowMode
+        isBookNowMode,
     } = useOrderContext();
     const { setIsDirty } = useUnsaved();
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+    // Check token and listen to login events
+    useEffect(() => {
+        const checkAuth = () => {
+            const token = localStorage.getItem('token');
+            setIsAuthenticated(!!token);
+        };
+        
+        checkAuth();
+        window.addEventListener('agentLogin', checkAuth);
+        return () => window.removeEventListener('agentLogin', checkAuth);
+    }, []);
+
+    // Refetch services when user authenticates in book-now mode
+    useEffect(() => {
+        if (isBookNowMode && isAuthenticated) {
+            const token = localStorage.getItem('token');
+            if (token) {
+                GetServices(token).then((res: { data: ServiceType[] }) => setServicesData(Array.isArray(res.data) ? res.data : []));
+            }
+        }
+    }, [isAuthenticated, isBookNowMode, setServicesData]);
 
     useEffect(() => {
-        if (!userId && !isEdit) {
+        const isTransfer = searchParams.get('transfer') === 'true';
+        if (!userId && !isEdit && !isTransfer) {
             resetOrderData();
         }
-    }, [userId, isEdit, resetOrderData]);
+    }, [userId, isEdit, searchParams, resetOrderData]);
 
     useEffect(() => {
         const warningTabs = ['schedule', 'contact', 'order'];
@@ -390,6 +415,10 @@ const OrderForm = () => {
         }
     };
     const isValid = () => {
+        if (isBookNowMode && !isAuthenticated && active !== 'property') {
+            return false;
+        }
+
         if (active === 'property' && isPropertyValid) {
             return true
         } else if (active === 'services' && selectedServices.length > 0) {
@@ -446,6 +475,8 @@ const OrderForm = () => {
         // Can always go backward
         if (targetIndex <= currentIndex) return true;
 
+        if (isBookNowMode && !isAuthenticated && targetIndex > 0) return false;
+
         // Check each tab up to the one before target
         for (let i = 0; i < targetIndex; i++) {
             const tabToCheck = tabs[i];
@@ -487,17 +518,30 @@ const OrderForm = () => {
                     )}
 
                     {active !== "order" ? (
-                        <Button
-                            onClick={handleNext}
-                            disabled={!isValid()}
-                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-white flex gap-[5px] items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
-                            style={{
-                                backgroundColor: isValid() ? roleSettings.pageTabColor : '#BBBBBB',
-                                borderColor: isValid() ? roleSettings.pageTabColor : '#BBBBBB'
-                            }}
-                        >
-                            Next
-                        </Button>
+                        <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="flex">
+                                        <Button
+                                            onClick={handleNext}
+                                            disabled={!isValid() || (isBookNowMode && !isAuthenticated && active === 'property')}
+                                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-white flex gap-[5px] items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
+                                            style={{
+                                                backgroundColor: (isValid() && !(isBookNowMode && !isAuthenticated && active === 'property')) ? roleSettings.pageTabColor : '#BBBBBB',
+                                                borderColor: (isValid() && !(isBookNowMode && !isAuthenticated && active === 'property')) ? roleSettings.pageTabColor : '#BBBBBB'
+                                            }}
+                                        >
+                                            Next
+                                        </Button>
+                                    </div>
+                                </TooltipTrigger>
+                                {(isBookNowMode && !isAuthenticated && active === 'property') && (
+                                    <TooltipContent side="bottom">
+                                        <p>Please login or signup first to continue.</p>
+                                    </TooltipContent>
+                                )}
+                            </Tooltip>
+                        </TooltipProvider>
                     ) : isSubmitted ? (
                         <Button
                             onClick={handleDoneClick}

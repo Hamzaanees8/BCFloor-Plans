@@ -109,7 +109,7 @@ function TourFloorPlans({ type = "" }) {
     } else {
       newMarker.file_path = file.file_path;
       newMarker.url = file.url || file.variant_urls?.landing || file.variant_urls?.popup || file.variant_urls?.thumb;
-      newMarker.thumbnail_url = file.variant_urls?.thumb || file.thumbnail_url || file.url;
+      newMarker.thumbnail_url = file.variant_urls?.popup || file.variant_urls?.thumb || file.thumbnail_url || file.url;
       newMarker.variant_urls = file.variant_urls;
       newMarker.isApi = true;
     }
@@ -227,7 +227,7 @@ function TourFloorPlans({ type = "" }) {
           isApi: true,
           file_path: file.file_path,
           url: file.url || file.variant_urls?.landing || file.variant_urls?.popup || file.variant_urls?.thumb,
-          thumbnail_url: file.variant_urls?.thumb || file.thumbnail_url || file.url,
+          thumbnail_url: file.variant_urls?.popup || file.variant_urls?.thumb || file.thumbnail_url || file.url,
           variant_urls: file.variant_urls
         });
       }
@@ -583,7 +583,7 @@ function TourFloorPlans({ type = "" }) {
 
           {previewMarker && type === "confirm" && (
             <div
-              className="bg-[#565656] text-white font-alexandria shadow-lg w-[420px] h-[450px] absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300"
+              className="bg-[#565656] text-white font-alexandria shadow-lg w-fit max-w-[500px] min-w-[320px] h-auto absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300"
               style={{
                 top: previewMarker.y > 50 ? 'auto' : `calc(${previewMarker.y}% - 24px)`,
                 bottom: previewMarker.y > 50 ? `calc(${100 - previewMarker.y}%)` : 'auto',
@@ -620,15 +620,15 @@ function TourFloorPlans({ type = "" }) {
                         : "")
                   }
                   alt={previewMarker.name || "Snapshot"}
-                  className="w-[95%] h-[65%] aspect-video object-cover mx-auto mt-[10px]"
+                  className="w-auto h-auto max-w-[calc(100%-24px)] max-h-[300px] object-contain mx-auto mt-3 rounded"
                 />
               )}
 
-              <div className="p-4 overflow-y-auto">
-                <p className="text-[20px] font-[500] uppercase pb-2">
+              <div className="p-4 flex-1">
+                <p className="text-[20px] font-[500] uppercase pb-2 break-words">
                   {previewMarker?.name}
                 </p>
-                <p className="line-clamp-2">{previewMarker?.description}</p>
+                <p className="break-words">{previewMarker?.description}</p>
               </div>
             </div>
 
@@ -807,7 +807,7 @@ function TourFloorPlans({ type = "" }) {
                             setDraggedFile({
                               file_path: file.file_path || (file as any).variants?.thumb || (file as any).variants?.landing || (file as any).variants?.popup,
                               url: file.url || file.variant_urls?.landing || file.variant_urls?.popup || file.variant_urls?.thumb,
-                              thumbnail_url: file.variant_urls?.thumb || file.thumbnail_url || file.url,
+                              thumbnail_url: file.variant_urls?.popup || file.variant_urls?.thumb || file.thumbnail_url || file.url,
                               variant_urls: file.variant_urls
                             });
                             imageContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });

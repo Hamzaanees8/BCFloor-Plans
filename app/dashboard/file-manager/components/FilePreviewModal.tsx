@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@radix-ui/react-dropdown-menu";
-import { X, Check, ArrowUp } from "lucide-react";
+import { X, Check, ArrowUp, FileText, Image as ImageIcon, Video, File as FileIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/app/context/AppContext";
 import { SelectedFiles, useFileManagerContext } from "../FileManagerContext";
@@ -118,9 +118,16 @@ const FileRow = React.memo(({
             <X color={'#E06D5E'} size={20} strokeWidth={2.5} />
           </span>
 
+          <div className="absolute bottom-2 right-2 bg-black/60 p-1.5 rounded z-10 flex items-center justify-center pointer-events-none">
+            {file.type.startsWith('image/') ? <ImageIcon size={16} className="text-white" /> : 
+             file.type.startsWith('video/') ? <Video size={16} className="text-white" /> :
+             file.type === 'application/pdf' ? <FileText size={16} className="text-white" /> :
+             <FileIcon size={16} className="text-white" />}
+          </div>
+
           {type === 'floor_plan' && (
             <Input
-              className="absolute bottom-2 right-2 w-[14px] h-[14px] cursor-pointer"
+              className="absolute bottom-2 right-12 w-[14px] h-[14px] cursor-pointer z-10"
               type="checkbox"
               checked={isSelected}
               onChange={() => onToggleSelect(idx)}
@@ -222,10 +229,12 @@ const FileRow = React.memo(({
           )}
         </div>
 
-        <div className="text-[13px] text-[#7d7d7d] grid grid-cols-3">
-          <p className="truncate">{file.name}</p>
-          <p className="text-center">({idx + 1} of {totalFiles})</p>
-          <div className="text-right flex justify-end">
+        <div className="flex justify-between items-start text-[13px] text-[#7d7d7d]">
+          <div className="flex-1 pr-3">
+            <p className="line-clamp-2 break-all">{file.name}</p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <span>({idx + 1} of {totalFiles})</span>
             <p
               onClick={() => onRemove(idx)}
               className="text-[#E06D5E] cursor-pointer inline-block"
