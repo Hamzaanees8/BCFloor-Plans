@@ -732,27 +732,42 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                         </AccordionTrigger>
                         <AccordionContent>
                             <div className="w-full flex flex-col items-center gap-[20px] py-[30px] ">
+                                {userType === 'agent' && !(bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID') && (
+                                    <div className="w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
+                                        You have not paid for this service yet. Pay the service to visit/view Matterport.
+                                    </div>
+                                )}
                                 {isValidUrl(brandedLink) && (
-                                    <iframe
-                                        src={brandedLink}
-                                        className="w-[80%] h-[500px] border"
-                                        allowFullScreen
-                                    ></iframe>
+                                    <div className="relative w-[80%] h-[500px]">
+                                        <iframe
+                                            src={brandedLink}
+                                            className="w-full h-full border"
+                                            allowFullScreen
+                                        ></iframe>
+                                        {userType === 'agent' && !(bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID') && (
+                                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-transparent cursor-not-allowed" title="Matterport is being added">
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
 
                                 {isValidUrl(unbrandedLink) && (
-                                    <iframe
-                                        src={unbrandedLink}
-                                        className="w-[80%] h-[500px] border"
-                                        allowFullScreen
-                                    ></iframe>
+                                    <div className="relative w-[80%] h-[500px]">
+                                        <iframe
+                                            src={unbrandedLink}
+                                            className="w-full h-full border"
+                                            allowFullScreen
+                                        ></iframe>
+                                        {userType === 'agent' && !(bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID') && (
+                                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-transparent cursor-not-allowed" title="Matterport is being added">
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
 
                                 {!isValidUrl(brandedLink) && !isValidUrl(unbrandedLink) && (
                                     <p className="text-gray-500">Enter a valid link to preview the 3D tour</p>
                                 )}
-
-
                             </div>
 
                         </AccordionContent>

@@ -22,6 +22,7 @@ import { Services } from '../../services/page'
 import { CleanedProductOption } from '../../services/services'
 import { useSearchParams } from 'next/navigation'
 import { useAppContext } from '@/app/context/AppContext'
+import { useOrganization } from '@/app/context/OrganizationContext';
 
 interface Coordinate {
     lat: number
@@ -83,6 +84,7 @@ export interface ScheduleProps {
 }
 
 const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
+    const { organization } = useOrganization();
     const searchParams = useSearchParams();
     const isEdit = searchParams.get('isEdit') === 'true';
     const [googleReady, setGoogleReady] = useState(typeof window !== 'undefined' && !!window.google && !!window.google.maps);
@@ -94,6 +96,25 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
     const [masterDate, setMasterDate] = useState<Date>(new Date());
     const [serviceDates, setServiceDates] = useState<Record<string, Date | null>>({});
     const [vendorDistances, setVendorDistances] = useState<Record<string, number>>({});
+    const [orgContact, setOrgContact] = useState<{ phone: string, email: string } | null>(null);
+
+    useEffect(() => {
+        try {
+            const userInfoStr = localStorage.getItem('userInfo');
+            if (userInfoStr) {
+                const userInfo = JSON.parse(userInfoStr);
+                const org = userInfo?.organization || userInfo?.data?.organization;
+                if (org) {
+                    setOrgContact({
+                        phone: org.contact_phone || org.primary_phone || '',
+                        email: org.contact_email || org.from_email || org.email || ''
+                    });
+                }
+            }
+        } catch (e) {
+            console.error('Failed to parse userInfo for org contact', e);
+        }
+    }, []);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -816,11 +837,28 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                     </div>
                                                     <Button
                                                         variant="destructive"
-                                                        onClick={() => setSelectedServices(prev => prev.filter(s => s.uuid !== service.uuid))}
+                                                        onClick={() => {
+                                                            if (isEdit) {
+                                                                // Check if service has an ID (was saved before)
+                                                                if (service.id) {
+                                                                    if (window.confirm("Are you sure you want to remove this service?")) {
+                                                                        setSelectedServices((prev: any[]) => prev.filter((s: any) => s.uuid !== service.uuid));
+                                                                    }
+                                                                } else {
+                                                                    // If it doesn't have an ID, it was just added in this session, so just remove it from state
+                                                                    setSelectedServices((prev: any[]) => prev.filter((s: any) => s.uuid !== service.uuid));
+                                                                }
+                                                            } else {
+                                                                setSelectedServices((prev: any[]) => prev.filter((s: any) => s.uuid !== service.uuid));
+                                                            }
+                                                        }}
                                                         className="w-full max-w-[200px] h-[40px] font-alexandria font-semibold"
                                                     >
                                                         Remove Service
                                                     </Button>
+                                                    <div className="text-[13px] text-red-700 mt-2 font-alexandria">
+                                                        Please contact office at {orgContact?.phone || organization?.contact_phone || '(Phone number)'} & {orgContact?.email || organization?.contact_email || organization?.from_email || '(email)'}
+                                                    </div>
                                                 </div>
                                             ) : (
                                                 <OneDayCalendar

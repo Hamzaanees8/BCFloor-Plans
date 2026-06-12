@@ -78,7 +78,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
             const token = localStorage.getItem("token") || "";
             const vendor = orderData?.vendor;
             const vendorName = vendor ? `${vendor.first_name} ${vendor.last_name}` : "Vendor";
-            
+
             await api.post(`/notifications`, {
                 source: 'order',
                 source_id: orderData?.uuid || "",
@@ -687,8 +687,8 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                     <p className="col-span-2 text-[#8E8E8E] mt-1 truncate" style={{ fontSize: '14px' }} title={`Uploaded by: ${vendorName}`}>{isLocal ? 'Uploaded by: ' + vendorName : 'Uploaded by: ' + vendorName}</p>
                     <div className='col-span-2 flex items-center justify-between overflow-hidden' style={{ fontSize: '14px' }}>
                         <p className='text-[#8E8E8E] mt-1 truncate pr-1' style={{ fontSize: '14px' }}>
-                            {isLocal 
-                                ? format(new Date(), 'MM/dd/yyyy') 
+                            {isLocal
+                                ? format(new Date(), 'MM/dd/yyyy')
                                 : (file.created_at ? format(new Date(file.created_at), 'MM/dd/yyyy') : format(new Date(), 'MM/dd/yyyy'))
                             }
                         </p>
@@ -1064,7 +1064,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                     onSave={onSave}
                     singleAccordionTitle="all floor plans"
                     hideDashedBorder={true}
-                    modeToggleButton={userType === 'agent' ? <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} /> : undefined}
+                    modeToggleButton={<ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} />}
                 />
             </div>
             <ConfirmationDialog

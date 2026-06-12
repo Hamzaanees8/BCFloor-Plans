@@ -25,6 +25,8 @@ interface OrganizationData {
   is_whitelabel: boolean;
   from_name: string;
   from_email: string;
+  contact_email?: string | null;
+  contact_phone?: string | null;
   branding: OrganizationBranding;
 }
 

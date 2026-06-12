@@ -229,8 +229,7 @@ const Page = () => {
         typeof window !== "undefined" ? window.location.href : "dashboard/billing",
         undefined,
         isSplit ? paymentMode : undefined,
-        isSplit ? payerUuid : undefined,
-        true
+        isSplit ? payerUuid : undefined
       );
     } catch (err) {
       console.error(err);
@@ -313,8 +312,7 @@ const Page = () => {
             typeof window !== "undefined" ? window.location.href : "dashboard/billing",
             serviceId,
             undefined,
-            undefined,
-            true
+            undefined
           );
         } else {
           const amount = serviceId ? (serviceAmount || 0) : billing.remaining_amount;

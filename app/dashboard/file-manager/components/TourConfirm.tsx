@@ -489,7 +489,8 @@ const TourConfirm = ({
                   </div>
 
                   <div className="flex gap-10 px-6">
-                    <div className="flex flex-col gap-5 items-start w-[350px]">
+                    {activeTourType !== "unbranded" && (
+                      <div className="flex flex-col gap-5 items-start w-[350px]">
                       {orderData?.agent.logo_url ? (
                         <div className="bg-[#ccc] w-[250px] aspect-square rounded-lg flex items-center justify-center overflow-hidden">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -555,7 +556,8 @@ const TourConfirm = ({
                           )}
                         </div>
                       </div>
-                    </div>
+                      </div>
+                    )}
                     <div className="flex flex-1 flex-col justify-between gap-7 h-fit">
                       <div className="flex flex-col gap-4">
                         <h2 className="text-md font-semibold text-[#424242] font-alexandria">
@@ -812,15 +814,26 @@ const TourConfirm = ({
                   )
                 ) : (
                   <>
+                    {userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services?.find(s => s.service?.name?.toLowerCase().includes('matterport') || s.service?.name?.toLowerCase().includes('3d tour'))?.payment_status === 'PAID') && (
+                        <div className="w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center mb-[-20px]">
+                            You have not paid for this service yet. Pay the service to visit/view Matterport.
+                        </div>
+                    )}
                     {displayMatterportLinks?.map(
                       (link, idx) =>
                         isValidUrl(link.link) && (
-                          <iframe
-                            key={`preview-matterport-${idx}`}
-                            src={link.link}
-                            className="w-[80%] h-[500px] border mt-4"
-                            allowFullScreen
-                          ></iframe>
+                          <div key={`preview-matterport-${idx}`} className="relative w-[80%] h-[500px] mt-4">
+                              <iframe
+                                src={link.link}
+                                className="w-full h-full border"
+                                allowFullScreen
+                              ></iframe>
+                              {userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services?.find(s => s.service?.name?.toLowerCase().includes('matterport') || s.service?.name?.toLowerCase().includes('3d tour'))?.payment_status === 'PAID') && (
+                                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-transparent cursor-not-allowed" title="Matterport is being added">
+                                      {/* Transparent overlay blocks interaction */}
+                                  </div>
+                              )}
+                          </div>
                         )
                     )}
                   </>

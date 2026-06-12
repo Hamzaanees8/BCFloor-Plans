@@ -64,6 +64,8 @@ type TourDefaultsType = {
     allow_print_download: boolean;
     allow_client_upload: boolean;
     require_payment_before_download: boolean;
+    enable_matterport_default_expiry?: boolean;
+    matterport_default_expiry_days?: number;
 };
 
 export default function GlobalTourSetting() {
@@ -96,6 +98,8 @@ export default function GlobalTourSetting() {
         allow_print_download: true,
         allow_client_upload: true,
         require_payment_before_download: false,
+        enable_matterport_default_expiry: false,
+        matterport_default_expiry_days: 30,
     });
 
     const transitionOptions = [
@@ -591,6 +595,30 @@ export default function GlobalTourSetting() {
                                         onCheckedChange={(val) => handleTourDefaultChange('require_payment_before_download', val)}
                                         className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
                                     />
+                                </div>
+
+                                <div className="space-y-4 pt-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[#666666] font-semibold">Enable Matterport Default Expiry</Label>
+                                        <Switch
+                                            checked={!!tourDefaults.enable_matterport_default_expiry}
+                                            onCheckedChange={(val) => handleTourDefaultChange('enable_matterport_default_expiry', val)}
+                                            className="data-[state=unchecked]:bg-[#E06D5E] data-[state=checked]:bg-[#6BAE41]"
+                                        />
+                                    </div>
+                                    
+                                    {tourDefaults.enable_matterport_default_expiry && (
+                                        <div className="space-y-2">
+                                            <Label className="text-[#666666] font-semibold">Matterport Default Expiry (Days)</Label>
+                                            <Input
+                                                type="number"
+                                                min="1"
+                                                value={tourDefaults.matterport_default_expiry_days || 0}
+                                                onChange={(e) => handleTourDefaultChange('matterport_default_expiry_days', parseInt(e.target.value) || 0)}
+                                                className="w-full h-[42px] bg-[#EEEEEE] border-[#BBBBBB]"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

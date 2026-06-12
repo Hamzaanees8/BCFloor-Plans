@@ -72,8 +72,7 @@ export async function PayInvoiceWithStripe(
     redirectUrl: string, 
     serviceId?: string,
     paymentMode?: 'on_behalf' | 'self',
-    payerUuid?: string,
-    openInNewTab?: boolean
+    payerUuid?: string
 ) {
     const body: any = {
         agent_uuid: invoice.agent?.uuid || order.agent?.uuid || order.agent_uuid, // allow fallback
@@ -94,11 +93,7 @@ export async function PayInvoiceWithStripe(
 
     const response = await api.post('/agent/pay/create-session', body);
     if (response.data?.success && response.data?.url) {
-        if (openInNewTab) {
-            window.open(response.data.url, '_blank');
-        } else {
-            window.location.href = response.data.url;
-        }
+        window.open(response.data.url, '_blank');
     } else {
         throw new Error(response.data?.message || 'Failed to create payment session');
     }

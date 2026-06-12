@@ -22,6 +22,8 @@ interface DualModeFileManagerProps {
     modeToggleButton?: React.ReactNode;
     unselectedAction?: React.ReactNode;
     unselectedSubHeader?: React.ReactNode;
+    selectedAction?: React.ReactNode;
+    selectedSubHeader?: React.ReactNode;
 }
 
 export function DualModeFileManager({
@@ -37,7 +39,9 @@ export function DualModeFileManager({
     hideDashedBorder,
     modeToggleButton,
     unselectedAction,
-    unselectedSubHeader
+    unselectedSubHeader,
+    selectedAction,
+    selectedSubHeader
 }: DualModeFileManagerProps) {
     const { userType } = useAppContext();
     const { selectionChangedUuids, isSaving, imagesPerRow } = useFileManagerContext();
@@ -240,11 +244,13 @@ export function DualModeFileManager({
                                                 {saveButton}
                                             </div>
                                             <div className="flex items-center gap-4">
+                                                {selectedAction}
                                                 {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
                                             </div>
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="p-4 border-t border-[#BBBBBB]">
+                                        {selectedSubHeader}
                                         {selectedItems.length === 0 ? (
                                             <div className="flex items-center justify-center p-8 text-gray-500">
                                                 No selected files

@@ -84,6 +84,9 @@ const OrganizationsSettings = React.forwardRef<
         from_name: string;
         from_email: string;
         domains: any[];
+        disable_next_day_booking: boolean;
+        booking_cutoff_time: string;
+        show_org_details_on_empty_schedule: boolean;
     }>({
         name: "",
         contact_name: "",
@@ -104,6 +107,9 @@ const OrganizationsSettings = React.forwardRef<
         from_name: "",
         from_email: "",
         domains: [],
+        disable_next_day_booking: false,
+        booking_cutoff_time: "17:00",
+        show_org_details_on_empty_schedule: false,
     });
 
     const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -215,6 +221,9 @@ const OrganizationsSettings = React.forwardRef<
                     from_name: org.from_name || "",
                     from_email: org.from_email || "",
                     domains: org.domains || [],
+                    disable_next_day_booking: org.disable_next_day_booking ?? false,
+                    booking_cutoff_time: org.booking_cutoff_time || "17:00",
+                    show_org_details_on_empty_schedule: org.show_org_details_on_empty_schedule ?? false,
                 });
             })
             .catch(() => toast.error("Failed to load your organization"))
@@ -282,6 +291,9 @@ const OrganizationsSettings = React.forwardRef<
                 from_email: formState.is_whitelabel ? (formState.from_email?.trim() || null) : null,
                 domains: formState.is_whitelabel ? formState.domains : [],
                 logo: formState.logo,
+                disable_next_day_booking: formState.disable_next_day_booking,
+                booking_cutoff_time: formState.booking_cutoff_time,
+                show_org_details_on_empty_schedule: formState.show_org_details_on_empty_schedule,
             });
 
             // Update branding if whitelabel is enabled and branding info is changed
@@ -635,6 +647,52 @@ const OrganizationsSettings = React.forwardRef<
                                     placeholder="Postal Code"
                                 />
                             </div>
+
+                            {/* Scheduling Preferences */}
+                            <hr className="col-span-1 md:col-span-2 border-[#BBBBBB] my-4" />
+                            <div className="col-span-1 md:col-span-2">
+                                <p className="text-xs font-semibold uppercase tracking-wider text-[#999] mb-3">Scheduling Preferences</p>
+                            </div>
+
+                            {/* Show Org Details */}
+                            <div className="col-span-1 md:col-span-2 flex items-center gap-3">
+                                <Switch
+                                    id="org-show-details"
+                                    checked={formState.show_org_details_on_empty_schedule}
+                                    onCheckedChange={(val) => setFormState(prev => ({ ...prev, show_org_details_on_empty_schedule: val }))}
+                                    className="data-[state=unchecked]:bg-red-500 data-[state=checked]:bg-[#6BAE41]"
+                                />
+                                <Label htmlFor="org-show-details" className="cursor-pointer">
+                                    Show Organization Details
+                                </Label>
+                            </div>
+
+                            {/* Disable Next Day Booking */}
+                            <div className="col-span-1 flex items-center gap-3">
+                                <Switch
+                                    id="org-disable-next-day"
+                                    checked={formState.disable_next_day_booking}
+                                    onCheckedChange={(val) => setFormState(prev => ({ ...prev, disable_next_day_booking: val }))}
+                                    className="data-[state=unchecked]:bg-red-500 data-[state=checked]:bg-[#6BAE41]"
+                                />
+                                <Label htmlFor="org-disable-next-day" className="cursor-pointer">
+                                    Disable Next-Day Booking After Cutoff
+                                </Label>
+                            </div>
+
+                            {/* Cutoff Time */}
+                            {formState.disable_next_day_booking ? (
+                                <div className="col-span-1">
+                                    <Label className="text-sm font-semibold mb-2 block">Cutoff Time</Label>
+                                    <Input
+                                        type="time"
+                                        value={formState.booking_cutoff_time}
+                                        onChange={(e) => setFormState(prev => ({ ...prev, booking_cutoff_time: e.target.value }))}
+                                        className="h-[42px] border-[1px] border-[#BBBBBB]"
+                                        style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                                    />
+                                </div>
+                            ) : <div className="col-span-1" />}
 
                             {/* Whitelabel Branding Fields (rendered if organization is whitelabeled) */}
                             {formState.is_whitelabel && (

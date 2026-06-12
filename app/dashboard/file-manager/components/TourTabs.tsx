@@ -85,7 +85,7 @@ export default function TourTabs({ orderData, setOrderData, onRefresh }: TourPro
         )}
         {visibleTabs.includes('Matterport') && (
           <div style={{ display: activeTab === 'Matterport' ? undefined : 'none' }} className="p-4">
-            <TourMatterport />
+            <TourMatterport orderData={orderData} />
           </div>
         )}
         <div style={{ display: activeTab === 'Confirm' ? undefined : 'none' }}>

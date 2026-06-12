@@ -72,6 +72,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [isBulkSelecting, setIsBulkSelecting] = useState<boolean>(false);
     const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
+    const [isBulkDeselecting, setIsBulkDeselecting] = useState<boolean>(false);
+    const [bulkDeselectedIds, setBulkDeselectedIds] = useState<Set<string>>(new Set());
 
     const handleSubmitAdminApproval = async () => {
         setIsSubmitting(true);
@@ -423,9 +425,16 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     <Check color="white" size={48} className="opacity-100" />
                                 </div>
                             )}
-                            {isBulkSelecting && file.uuid && bulkSelectedIds.has(file.uuid) && (
+                            {isBulkSelecting && file.uuid && !file.is_agent_approved && bulkSelectedIds.has(file.uuid) && (
                                 <div className="absolute inset-0 bg-black/30 z-[25] flex flex-col items-center justify-center pointer-events-none">
                                     <div className="w-12 h-12 bg-[#6BAE41] rounded-full flex items-center justify-center shadow-lg">
+                                        <Check color="white" size={32} strokeWidth={3} />
+                                    </div>
+                                </div>
+                            )}
+                            {isBulkDeselecting && file.uuid && file.is_agent_approved && bulkDeselectedIds.has(file.uuid) && (
+                                <div className="absolute inset-0 bg-black/30 z-[25] flex flex-col items-center justify-center pointer-events-none">
+                                    <div className="w-12 h-12 bg-[#E06D5E] rounded-full flex items-center justify-center shadow-lg">
                                         <Check color="white" size={32} strokeWidth={3} />
                                     </div>
                                 </div>
@@ -503,8 +512,10 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         onClick={() => {
                                             if (isHidingMode && file.uuid) {
                                                 setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
-                                            } else if (isBulkSelecting && file.uuid) {
+                                            } else if (isBulkSelecting && file.uuid && !file.is_agent_approved) {
                                                 setBulkSelectedIds(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
+                                            } else if (isBulkDeselecting && file.uuid && file.is_agent_approved) {
+                                                setBulkDeselectedIds(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
                                             } else if (!isHidingMode) {
                                                 onOpenInvoice?.(currentService?.name);
                                             }
@@ -528,8 +539,10 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         onClick={() => {
                                             if (isHidingMode && file.uuid) {
                                                 setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
-                                            } else if (isBulkSelecting && file.uuid) {
+                                            } else if (isBulkSelecting && file.uuid && !file.is_agent_approved) {
                                                 setBulkSelectedIds(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
+                                            } else if (isBulkDeselecting && file.uuid && file.is_agent_approved) {
+                                                setBulkDeselectedIds(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
                                             } else if (!isHidingMode) {
                                                 handleImageClick(file.variant_urls?.popup || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : ''), file);
                                             }
@@ -551,8 +564,10 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     onClick={() => {
                                         if (isHidingMode && file.uuid) {
                                             setFilesToHide(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
-                                        } else if (isBulkSelecting && file.uuid) {
+                                        } else if (isBulkSelecting && file.uuid && !file.is_agent_approved) {
                                             setBulkSelectedIds(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
+                                        } else if (isBulkDeselecting && file.uuid && file.is_agent_approved) {
+                                            setBulkDeselectedIds(prev => { const next = new Set(prev); if (next.has(file.uuid)) next.delete(file.uuid); else next.add(file.uuid); return next; });
                                         } else if (!isHidingMode) {
                                             if (!file.is_deleted) handleImageClick(file.variant_urls?.popup || file.url || (file.file_path ? `${API_URL}/${file.file_path}` : ''), file);
                                         }
@@ -567,9 +582,16 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     <Check color="white" size={48} className="opacity-100" />
                                 </div>
                             )}
-                            {isBulkSelecting && file.uuid && bulkSelectedIds.has(file.uuid) && (!file.file || typeof file.file === 'string') && (
+                            {isBulkSelecting && file.uuid && !file.is_agent_approved && bulkSelectedIds.has(file.uuid) && (!file.file || typeof file.file === 'string') && (
                                 <div className="absolute inset-0 bg-black/30 z-[25] flex flex-col items-center justify-center pointer-events-none">
                                     <div className="w-12 h-12 bg-[#6BAE41] rounded-full flex items-center justify-center shadow-lg">
+                                        <Check color="white" size={32} strokeWidth={3} />
+                                    </div>
+                                </div>
+                            )}
+                            {isBulkDeselecting && file.uuid && file.is_agent_approved && bulkDeselectedIds.has(file.uuid) && (!file.file || typeof file.file === 'string') && (
+                                <div className="absolute inset-0 bg-black/30 z-[25] flex flex-col items-center justify-center pointer-events-none">
+                                    <div className="w-12 h-12 bg-[#E06D5E] rounded-full flex items-center justify-center shadow-lg">
                                         <Check color="white" size={32} strokeWidth={3} />
                                     </div>
                                 </div>
@@ -649,8 +671,17 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     className="absolute bottom-2 left-2 z-10 flex items-center bg-white/80 p-1 rounded cursor-pointer"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        if (isBulkSelecting && file.uuid) {
+                                        if (isBulkSelecting && file.uuid && !file.is_agent_approved) {
                                             setBulkSelectedIds(prev => {
+                                                const next = new Set(prev);
+                                                if (next.has(file.uuid)) next.delete(file.uuid);
+                                                else next.add(file.uuid);
+                                                return next;
+                                            });
+                                            return;
+                                        }
+                                        if (isBulkDeselecting && file.uuid && file.is_agent_approved) {
+                                            setBulkDeselectedIds(prev => {
                                                 const next = new Set(prev);
                                                 if (next.has(file.uuid)) next.delete(file.uuid);
                                                 else next.add(file.uuid);
@@ -831,7 +862,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 </div>
             </div>
         );
-    }, [API_URL, bookingToUse?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setFilesData, setSelectedFiles, userType, currentService?.uuid, handleToggleFeatured, setSelectionChangedUuids, shrinkingIds, isHidingMode, filesToHide, setFilesToHide, currentService?.name, onOpenInvoice, isBulkSelecting, bulkSelectedIds]);
+    }, [API_URL, bookingToUse?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setFilesData, setSelectedFiles, userType, currentService?.uuid, handleToggleFeatured, setSelectionChangedUuids, shrinkingIds, isHidingMode, filesToHide, setFilesToHide, currentService?.name, onOpenInvoice, isBulkSelecting, bulkSelectedIds, isBulkDeselecting, bulkDeselectedIds]);
 
 
 
@@ -988,6 +1019,40 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
         setBulkSelectedIds(new Set(unselectedFileIds));
     };
 
+    const handleBulkDeselectDone = () => {
+        const modifiedFiles: Files[] = [];
+        setFilesData(prev => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                files: prev.files.map(f => {
+                    if (f.uuid && bulkDeselectedIds.has(f.uuid)) {
+                        setChangedFileUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
+                        setSelectionChangedUuids(prevSet => { const s = new Set(prevSet); s.add(f.uuid); return s; });
+                        const updatedF = { ...f, is_agent_approved: false };
+                        modifiedFiles.push(updatedF as Files);
+                        return updatedF;
+                    } else if (f.uuid && changedFileUuids.has(f.uuid)) {
+                        modifiedFiles.push(f as Files);
+                    }
+                    return f;
+                })
+            };
+        });
+        setIsBulkDeselecting(false);
+        setBulkDeselectedIds(new Set());
+        setTimeout(() => {
+            if (onSave) onSave(modifiedFiles);
+        }, 100);
+    };
+
+    const handleDeselectAll = () => {
+        const selectedFileIds = currentServiceFiles
+            ?.filter(f => f.is_agent_approved && !f.is_complimentary)
+            .map(f => f.uuid) || [];
+        setBulkDeselectedIds(new Set(selectedFileIds));
+    };
+
     const unselectedAction = userType === 'agent' ? (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             {!isBulkSelecting ? (
@@ -1035,6 +1100,60 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                 <Button 
                     onClick={handleSelectAll} 
                     className="h-8 px-4 text-sm font-medium bg-[#4290E9] hover:bg-[#327ac9] text-white"
+                >
+                    Select All
+                </Button>
+            </div>
+        </div>
+    ) : null;
+
+    const selectedAction = userType === 'agent' ? (
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            {!isBulkDeselecting ? (
+                <Button 
+                    onClick={() => setIsBulkDeselecting(true)} 
+                    variant="outline" 
+                    className="h-8 px-4 text-sm font-medium border-[#E06D5E] text-[#E06D5E] hover:bg-[#E06D5E] hover:text-white"
+                >
+                    Bulk Remove
+                </Button>
+            ) : (
+                <div className="flex items-center gap-2">
+                    <Button 
+                        onClick={() => {
+                            setIsBulkDeselecting(false);
+                            setBulkDeselectedIds(new Set());
+                        }}
+                        variant="ghost" 
+                        className="h-8 px-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-200"
+                    >
+                        Cancel
+                    </Button>
+                    <Button 
+                        onClick={handleBulkDeselectDone} 
+                        className="h-8 px-4 text-sm font-medium bg-[#E06D5E] hover:bg-[#c45a4d] text-white"
+                    >
+                        Done ({bulkDeselectedIds.size})
+                    </Button>
+                </div>
+            )}
+        </div>
+    ) : null;
+
+    const selectedSubHeader = isBulkDeselecting && userType === 'agent' ? (
+        <div className="w-full flex justify-between items-center mb-4 bg-gray-50 p-2 rounded border border-gray-200">
+            <span className="text-sm text-gray-600 font-medium px-2">Select multiple media files to remove them at once.</span>
+            <div className="flex gap-2">
+                <Button 
+                    variant="ghost" 
+                    onClick={() => setBulkDeselectedIds(new Set())}
+                    className="h-8 text-sm text-gray-600 hover:text-gray-900"
+                >
+                    Clear Selection
+                </Button>
+                <Button 
+                    onClick={handleDeselectAll} 
+                    className="h-8 px-4 text-sm font-medium bg-[#E06D5E] hover:bg-[#c45a4d] text-white"
                 >
                     Select All
                 </Button>
@@ -1443,6 +1562,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         modeToggleButton={userType === 'agent' ? <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} /> : undefined}
                         unselectedAction={unselectedAction}
                         unselectedSubHeader={unselectedSubHeader}
+                        selectedAction={selectedAction}
+                        selectedSubHeader={selectedSubHeader}
                     />
                 </div>
 

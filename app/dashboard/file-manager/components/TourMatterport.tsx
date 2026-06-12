@@ -6,7 +6,9 @@ import { useFileManagerContext } from "../FileManagerContext";
 import { CheckIcon } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import { useAppContext } from "@/app/context/AppContext";
-const TourMatterport = () => {
+import { Order } from '../../orders/page';
+
+const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
     const { userType } = useAppContext();
     const { links, setLinks, filesData } = useFileManagerContext();
     const [isBrandedChecked, setIsBrandedChecked] = useState(false);
@@ -143,55 +145,44 @@ const TourMatterport = () => {
                         </AccordionTrigger>
                         <AccordionContent>
                             <div className="w-full flex flex-col items-center gap-[20px] py-[30px] ">
-                                {/* {previewFiles.map((item, idx) => (
-                                    <div key={idx} className="w-[80%] relative">
-
-                                        <img
-                                            src={URL.createObjectURL(item.file)}
-                                            alt="preview"
-                                            className="w-full h-auto object-contain"
-                                        />
-                                        <span
-                                            className="cursor-pointer absolute top-0 right-0 w-[60px] h-[60px] flex justify-end items-start p-[10px]"
-                                            style={{
-                                                clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
-                                                backgroundColor: item.upload ? "#6BAE41" : "#E06D5E",
-                                            }}
-                                            onClick={() => {
-                                                if (item.upload) {
-                                                    const updated = [...previewFiles];
-                                                    updated[idx].upload = false;
-                                                    setPreviewFiles(updated);
-                                                } else {
-                                                    setPreviewFiles((prev) => prev.filter((_, i) => i !== idx));
-                                                }
-                                            }}
-                                        >
-                                            {item.upload ? <Check color="#fff" size={16} /> : <X color="#fff" size={16} />}
-                                        </span>
+                                {userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services.find(s => s.service.name.toLowerCase().includes('matterport') || s.service.name.toLowerCase().includes('3d tour'))?.payment_status === 'PAID') && (
+                                    <div className="w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
+                                        You have not paid for this service yet. Pay the service to visit/view Matterport.
                                     </div>
-                                ))} */}
+                                )}
                                 {brandedLinks.map(
                                     (link, idx) =>
                                         isValidUrl(link.link) && (
-                                            <iframe
-                                                key={`preview-branded-${idx}`}
-                                                src={link.link}
-                                                className="w-[80%] h-[500px] border"
-                                                allowFullScreen
-                                            ></iframe>
+                                            <div key={`preview-branded-${idx}`} className="relative w-[80%] h-[500px]">
+                                                <iframe
+                                                    src={link.link}
+                                                    className="w-full h-full border"
+                                                    allowFullScreen
+                                                ></iframe>
+                                                {userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services.find(s => s.service.name.toLowerCase().includes('matterport') || s.service.name.toLowerCase().includes('3d tour'))?.payment_status === 'PAID') && (
+                                                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-transparent cursor-not-allowed" title="Matterport is being added">
+                                                        {/* Transparent overlay blocks interaction */}
+                                                    </div>
+                                                )}
+                                            </div>
                                         )
                                 )}
 
                                 {unbrandedLinks.map(
                                     (link, idx) =>
                                         isValidUrl(link.link) && (
-                                            <iframe
-                                                key={`preview-unbranded-${idx}`}
-                                                src={link.link}
-                                                className="w-[80%] h-[500px] border"
-                                                allowFullScreen
-                                            ></iframe>
+                                            <div key={`preview-unbranded-${idx}`} className="relative w-[80%] h-[500px]">
+                                                <iframe
+                                                    src={link.link}
+                                                    className="w-full h-full border"
+                                                    allowFullScreen
+                                                ></iframe>
+                                                {userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services.find(s => s.service.name.toLowerCase().includes('matterport') || s.service.name.toLowerCase().includes('3d tour'))?.payment_status === 'PAID') && (
+                                                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-transparent cursor-not-allowed" title="Matterport is being added">
+                                                        {/* Transparent overlay blocks interaction */}
+                                                    </div>
+                                                )}
+                                            </div>
                                         )
                                 )}
 

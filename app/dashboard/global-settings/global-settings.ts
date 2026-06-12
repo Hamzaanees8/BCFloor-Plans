@@ -556,6 +556,8 @@ export interface MediaSettingsPayload {
     allow_print_download: boolean;
     allow_client_upload: boolean;
     require_payment_before_download: boolean;
+    enable_matterport_default_expiry?: boolean;
+    matterport_default_expiry_days?: number;
   };
 }
 export async function CreateMediaSettings(payload: Omit<MediaSettingsPayload, 'tour_defaults'>) {
@@ -639,6 +641,9 @@ export interface Organization {
   from_email: string | null;
   white_label_styles?: any;
   domains: OrganizationDomain[];
+  disable_next_day_booking?: boolean;
+  booking_cutoff_time?: string;
+  show_org_details_on_empty_schedule?: boolean;
 }
 
 export interface OrganizationPayload {
@@ -667,6 +672,9 @@ export interface OrganizationPayload {
   from_email?: string | null;
   white_label_styles?: any;
   domains?: OrganizationDomain[];
+  disable_next_day_booking?: boolean;
+  booking_cutoff_time?: string;
+  show_org_details_on_empty_schedule?: boolean;
 }
 
 export async function GetOrganizations(): Promise<{ status: boolean; data: Organization[] }> {

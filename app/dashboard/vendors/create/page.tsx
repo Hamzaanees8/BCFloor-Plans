@@ -1093,13 +1093,9 @@ const VendorForm = () => {
       }
 
       const result = await connectStripe(vendorIdToUse);
-
-      if (result.success) {
+      if (result.success && result.url) {
         toast.success("Redirecting to Stripe...");
-
-        if (result.url) {
-          window.location.href = result.url;
-        }
+        window.open(result.url, "_blank");
       } else {
         toast.error(result.error || "Failed to connect Stripe");
       }

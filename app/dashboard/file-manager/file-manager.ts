@@ -891,7 +891,7 @@ export async function createPayment(
     const data = await response.json();
 
     if (data.success && data.url) {
-      window.location.href = data.url;
+      window.open(data.url, "_blank");
     } else {
       throw new Error(data.message || "Failed to create payment session");
     }

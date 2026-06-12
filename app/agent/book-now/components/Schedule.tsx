@@ -23,6 +23,7 @@ import { fetchVendorForBookNow, fetchServicesForBookNow, fetchOrderSlots } from 
 import { VendorData } from '@/app/dashboard/orders/[id]/page';
 import { Services } from '@/app/dashboard/services/page';
 import { CleanedProductOption } from '@/app/dashboard/services/services';
+import { useOrganization } from '@/app/context/OrganizationContext';
 
 interface Coordinate {
     lat: number
@@ -100,6 +101,7 @@ export interface ScheduleProps {
 }
 
 const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
+    const { organization } = useOrganization();
     const [selectedVendorMap, setSelectedVendorMap] = React.useState<Record<string, string | string[]>>({});
     const [recommendTimeMap, setRecommendTimeMap] = useState<Record<string, 0 | 1>>({});
     const [filteredVendorsByService, setFilteredVendorsByService] = useState<Record<string, VendorData[]>>({});
@@ -112,6 +114,25 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
     const [propertyLocation, setPropertyLocation] = useState<PropertyLocation | null>(null);
     const [vendorsData, setVendorsData] = useState<VendorData[]>([]);
     const [bookedSlots, setBookedSlots] = useState<Slot[]>([]);
+    const [orgContact, setOrgContact] = useState<{ phone: string, email: string } | null>(null);
+
+    useEffect(() => {
+        try {
+            const userInfoStr = localStorage.getItem('userInfo');
+            if (userInfoStr) {
+                const userInfo = JSON.parse(userInfoStr);
+                const org = userInfo?.organization || userInfo?.data?.organization;
+                if (org) {
+                    setOrgContact({
+                        phone: org.contact_phone || org.primary_phone || '',
+                        email: org.contact_email || org.from_email || org.email || ''
+                    });
+                }
+            }
+        } catch (e) {
+            console.error('Failed to parse userInfo for org contact', e);
+        }
+    }, []);
 
     const {
         selectedServices,
@@ -728,6 +749,9 @@ const BookNowSchedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                             >
                                                                 Remove Service
                                                             </Button>
+                                                            <div className="text-[13px] text-red-700 mt-2 font-alexandria">
+                                                                Please contact office at {orgContact?.phone || organization?.contact_phone || '(Phone number)'} & {orgContact?.email || organization?.contact_email || organization?.from_email || '(email)'}
+                                                            </div>
                                                         </div>
                                                     ) : (
                                                         <OneDayCalendar

@@ -113,7 +113,7 @@ export async function createQuickBilling(
     const data = await response.data;
 
     if (data.success && data.url) {
-      window.location.href = data.url;
+      window.open(data.url, "_blank");
     } else {
       throw new Error(data.message || "Failed to create payment session");
     }
