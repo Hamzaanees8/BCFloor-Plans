@@ -277,6 +277,8 @@ type FileManagerContextType = {
     setIncludeHidden: Dispatch<SetStateAction<boolean>>;
     deletedSnapshotUuids: Set<string>;
     setDeletedSnapshotUuids: Dispatch<SetStateAction<Set<string>>>;
+
+    handleSave: (overrideChangedFiles?: Files[]) => Promise<void>;
 };
 
 const FileManagerContext = createContext<FileManagerContextType | undefined>(undefined);
@@ -467,13 +469,15 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
         includeHidden,
         setIncludeHidden,
         deletedSnapshotUuids,
-        setDeletedSnapshotUuids
+        setDeletedSnapshotUuids,
+        handleSave: async () => {}
     }), [
         files, floorFiles, selectedFiles, links, brandedSelected, unBrandedSelected,
         previewFiles, selectedVideoFiles, droppedMarkers, delay, transition,
         audioUrl, selectedAudioTrack, formData, updateFormData, filesData,
         featureSheets, changedFileUuids, selectionChangedUuids, area, fileManagerMode, imagesPerRow,
         isSaving, isHidingMode, filesToHide, includeHidden, deletedSnapshotUuids
+        // handleSave is injected by FileManager, so it's not in the deps array here for the default context
     ]);
 
     return (

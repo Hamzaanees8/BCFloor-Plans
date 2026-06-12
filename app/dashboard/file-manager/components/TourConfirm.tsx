@@ -52,8 +52,11 @@ interface TourConfimation {
 
 import { useOptionalAppContext } from "@/app/context/AppContext";
 import { useOptionalWhiteLabel } from "@/app/context/Whitelabel";
-import { PublishTour } from "../file-manager";
+import { PublishTour, featureSheetService } from "../file-manager";
+import { FeatureSheetResponse, templateImages } from "../types/featureSheetTypes";
 import { toast } from "sonner";
+import { getGlobalPhotoOrder } from "../utils/sortOrderUtils";
+import { Loader2 } from "lucide-react";
 
 const TourConfirm = ({
   orderData,
@@ -101,6 +104,9 @@ const TourConfirm = ({
   const [isPublishing, setIsPublishing] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
 
+  const [featureSheets, setFeatureSheets] = useState<FeatureSheetResponse[]>([]);
+  const [isLoadingSheets, setIsLoadingSheets] = useState(false);
+
   const [previewTourType, setPreviewTourType] = useState<"branded" | "unbranded">("branded");
   const activeTourType = isPublicView ? publicTourType : previewTourType;
 
@@ -135,9 +141,32 @@ const TourConfirm = ({
     }
   }, [filesData]);
 
+  useEffect(() => {
+    const fetchFeatureSheets = async () => {
+      if (!orderData?.uuid) return;
+      try {
+        setIsLoadingSheets(true);
+        const response = await featureSheetService.getFeatureSheetsByOrder(orderData.uuid);
+        const dataArray = Array.isArray(response)
+          ? response
+          : (response as unknown as { data: FeatureSheetResponse[] }).data || [];
+        setFeatureSheets(dataArray);
+      } catch (error) {
+        console.error("Error fetching feature sheets:", error);
+      } finally {
+        setIsLoadingSheets(false);
+      }
+    };
+    fetchFeatureSheets();
+  }, [orderData?.uuid]);
+
   let currentTourPhotos = isPublicView
     ? publicTourPhotos
     : filesData?.files?.filter(file => file?.service?.name !== '2D Floor Plans' && file?.service?.name !== '3D Floor Plans' && file.type === "photo");
+
+  if (currentTourPhotos) {
+    currentTourPhotos = getGlobalPhotoOrder(currentTourPhotos as any);
+  }
 
   if (userType === 'agent') {
     currentTourPhotos = currentTourPhotos?.filter(file => file.is_agent_approved || file.is_complimentary);
@@ -491,71 +520,71 @@ const TourConfirm = ({
                   <div className="flex gap-10 px-6">
                     {activeTourType !== "unbranded" && (
                       <div className="flex flex-col gap-5 items-start w-[350px]">
-                      {orderData?.agent.logo_url ? (
-                        <div className="bg-[#ccc] w-[250px] aspect-square rounded-lg flex items-center justify-center overflow-hidden">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={orderData.agent.logo_url}
-                            alt="Agent"
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.currentTarget.style.display = "none";
-                              const parent = e.currentTarget.parentElement;
-                              if (parent) parent.style.display = "none";
-                            }}
-                          />
-                        </div>
-                      ) : null}
-                      <div className="text-left w-full flex flex-col gap-[12px]">
-                        <div className="text-[#424242] text-[16px] font-alexandria font-semibold">
-                          Contact
-                        </div>
-                        <div className="text-[#424242] text-[20px] font-alexandria font-light">
-                          {orderData?.agent.first_name}{" "}
-                          {orderData?.agent.last_name}
-                        </div>
-                        <div className="text-[#424242] text-[20px] font-alexandria font-light">
-                          {orderData?.agent.company_name || "Company Name"}
-                        </div>
-                        {orderData?.agent.primary_phone && (
-                          <a
-                            href={`tel:${orderData.agent.primary_phone}`}
-                            className="text-[20px] font-alexandria font-light"
-                            style={{ color: roleSettings.pageTabColor }}
-                          >
-                            {orderData.agent.primary_phone}
-                          </a>
-                        )}
-                        {orderData?.agent.website && (
-                          <a
-                            href={orderData.agent.website}
-                            className="text-[20px] font-alexandria font-light"
-                            style={{ color: roleSettings.pageTabColor }}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {orderData.agent.website}
-                          </a>
-                        )}
-                        <div className="flex gap-3">
+                        {orderData?.agent.logo_url ? (
+                          <div className="bg-[#ccc] w-[250px] aspect-square rounded-lg flex items-center justify-center overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={orderData.agent.logo_url}
+                              alt="Agent"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                                const parent = e.currentTarget.parentElement;
+                                if (parent) parent.style.display = "none";
+                              }}
+                            />
+                          </div>
+                        ) : null}
+                        <div className="text-left w-full flex flex-col gap-[12px]">
+                          <div className="text-[#424242] text-[16px] font-alexandria font-semibold">
+                            Contact
+                          </div>
+                          <div className="text-[#424242] text-[20px] font-alexandria font-light">
+                            {orderData?.agent.first_name}{" "}
+                            {orderData?.agent.last_name}
+                          </div>
+                          <div className="text-[#424242] text-[20px] font-alexandria font-light">
+                            {orderData?.agent.company_name || "Company Name"}
+                          </div>
                           {orderData?.agent.primary_phone && (
                             <a
                               href={`tel:${orderData.agent.primary_phone}`}
-                              className=""
+                              className="text-[20px] font-alexandria font-light"
+                              style={{ color: roleSettings.pageTabColor }}
                             >
-                              <Phone className="text-[#7D7D7D]" />
+                              {orderData.agent.primary_phone}
                             </a>
                           )}
-                          {orderData?.agent.email && (
+                          {orderData?.agent.website && (
                             <a
-                              href={`mailto:${orderData.agent.email}`}
-                              className=" "
+                              href={orderData.agent.website}
+                              className="text-[20px] font-alexandria font-light"
+                              style={{ color: roleSettings.pageTabColor }}
+                              target="_blank"
+                              rel="noreferrer"
                             >
-                              <Mail className="text-[#7D7D7D]" />
+                              {orderData.agent.website}
                             </a>
                           )}
+                          <div className="flex gap-3">
+                            {orderData?.agent.primary_phone && (
+                              <a
+                                href={`tel:${orderData.agent.primary_phone}`}
+                                className=""
+                              >
+                                <Phone className="text-[#7D7D7D]" />
+                              </a>
+                            )}
+                            {orderData?.agent.email && (
+                              <a
+                                href={`mailto:${orderData.agent.email}`}
+                                className=" "
+                              >
+                                <Mail className="text-[#7D7D7D]" />
+                              </a>
+                            )}
+                          </div>
                         </div>
-                      </div>
                       </div>
                     )}
                     <div className="flex flex-1 flex-col justify-between gap-7 h-fit">
@@ -566,12 +595,61 @@ const TourConfirm = ({
                         <p className="text-sm text-gray-600">
                           {orderData?.property.description || "No description available."}
                         </p>
-                        <Button
-                          className="w-max hover:opacity-90 text-white"
-                          style={{ backgroundColor: roleSettings.pageTabColor }}
-                        >
-                          View Feature Sheet
-                        </Button>
+
+                        <div className="flex gap-3">
+                          {(() => {
+                            const listingSheets = featureSheets.filter(sheet => {
+                              const template = templateImages.find(t => t.id === sheet.template_key);
+                              return template?.type === "listing" || (!template && sheet.type === "pdf" && sheet.template_key.toLowerCase().includes("flyer"));
+                            });
+
+                            const tabloidSheets = featureSheets.filter(sheet => {
+                              const template = templateImages.find(t => t.id === sheet.template_key);
+                              return template?.type === "tabloid" || (!template && sheet.type === "pdf" && sheet.template_key.toLowerCase().includes("tabloid"));
+                            });
+
+                            return (
+                              <>
+                                {listingSheets.length > 0 && (
+                                  <Button
+                                    className="w-max hover:opacity-90 text-white"
+                                    style={{ backgroundColor: roleSettings.pageTabColor }}
+                                    onClick={() => {
+                                      const sheet = listingSheets[listingSheets.length - 1]; // get latest
+                                      if (sheet.type === "pdf" && sheet.pdf_url) {
+                                        window.open(featureSheetService.buildStorageUrl(sheet.pdf_url) || "", "_blank");
+                                      } else {
+                                        window.open(`/tour/feature-sheet/${sheet.uuid}`, "_blank");
+                                      }
+                                    }}
+                                    disabled={isLoadingSheets}
+                                  >
+                                    {isLoadingSheets ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                    Listing Flyer
+                                  </Button>
+                                )}
+                                {tabloidSheets.length > 0 && (
+                                  <Button
+                                    className="w-max hover:opacity-90 text-white"
+                                    style={{ backgroundColor: roleSettings.pageTabColor }}
+                                    onClick={() => {
+                                      const sheet = tabloidSheets[tabloidSheets.length - 1]; // get latest
+                                      if (sheet.type === "pdf" && sheet.pdf_url) {
+                                        window.open(featureSheetService.buildStorageUrl(sheet.pdf_url) || "", "_blank");
+                                      } else {
+                                        window.open(`/tour/feature-sheet/${sheet.uuid}`, "_blank");
+                                      }
+                                    }}
+                                    disabled={isLoadingSheets}
+                                  >
+                                    {isLoadingSheets ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                    Tabloid Sheet
+                                  </Button>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
                       </div>
 
                       <div className="w-full h-[300px]">
@@ -814,27 +892,23 @@ const TourConfirm = ({
                   )
                 ) : (
                   <>
-                    {userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services?.find(s => s.service?.name?.toLowerCase().includes('matterport') || s.service?.name?.toLowerCase().includes('3d tour'))?.payment_status === 'PAID') && (
-                        <div className="w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center mb-[-20px]">
-                            You have not paid for this service yet. Pay the service to visit/view Matterport.
-                        </div>
-                    )}
-                    {displayMatterportLinks?.map(
-                      (link, idx) =>
-                        isValidUrl(link.link) && (
-                          <div key={`preview-matterport-${idx}`} className="relative w-[80%] h-[500px] mt-4">
+                    {userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services?.find(s => s.service?.name?.toLowerCase().includes('matterport') || s.service?.name?.toLowerCase().includes('3d tour'))?.payment_status === 'PAID') ? (
+                      <div className="w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center mb-[-20px]">
+                        You have not paid for this service yet. Pay the service to visit/view Matterport.
+                      </div>
+                    ) : (
+                      displayMatterportLinks?.map(
+                        (link, idx) =>
+                          isValidUrl(link.link) && (
+                            <div key={`preview-matterport-${idx}`} className="relative w-[80%] h-[500px] mt-4">
                               <iframe
                                 src={link.link}
                                 className="w-full h-full border"
                                 allowFullScreen
                               ></iframe>
-                              {userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services?.find(s => s.service?.name?.toLowerCase().includes('matterport') || s.service?.name?.toLowerCase().includes('3d tour'))?.payment_status === 'PAID') && (
-                                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-transparent cursor-not-allowed" title="Matterport is being added">
-                                      {/* Transparent overlay blocks interaction */}
-                                  </div>
-                              )}
-                          </div>
-                        )
+                            </div>
+                          )
+                      )
                     )}
                   </>
                 )}

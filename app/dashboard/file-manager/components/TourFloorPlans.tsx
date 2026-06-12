@@ -48,6 +48,8 @@ function TourFloorPlans({ type = "" }) {
     filteredFloorFiles = filteredFloorFiles.filter(file => 'uuid' in file ? (file.is_agent_approved || file.is_complimentary) : true);
   }
 
+  filteredFloorFiles = filteredFloorFiles.sort((a, b) => ((a as any).sort_order || 0) - ((b as any).sort_order || 0));
+
   const currentTourPhotos = photosList.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   const [draggedFile, setDraggedFile] = useState<{ file?: File; file_path?: string; url?: string; thumbnail_url?: string; variant_urls?: any } | null>(null);
 

@@ -109,16 +109,26 @@ const PublicTour = () => {
     }, [orderuuid]);
 
     // Extract files from orderData.tours[0].files
-    const tourPhotos = useMemo(() => orderData?.tours?.[0]?.files?.filter(file => {
-        const isPhoto = file.type === "photo" &&
-            file.service.name !== '2D Floor Plans' &&
-            file.service.name !== '3D Floor Plans' &&
-            file.service.category.name !== '2D Floor Plans' &&
-            file.service.category.name !== '3D Floor Plans' &&
-            file.is_show !== false &&
-            ((file as any).is_agent_approved || (file as any).is_complimentary);
-        return isPhoto;
-    }) || [], [orderData]);
+    const tourPhotos = useMemo(() => {
+        const filtered = orderData?.tours?.[0]?.files?.filter(file => {
+            const isPhoto = file.type === "photo" &&
+                file.service.name !== '2D Floor Plans' &&
+                file.service.name !== '3D Floor Plans' &&
+                file.service.category.name !== '2D Floor Plans' &&
+                file.service.category.name !== '3D Floor Plans' &&
+                file.is_show !== false &&
+                ((file as any).is_agent_approved || (file as any).is_complimentary) &&
+                (file as any).variant_urls &&
+                Object.keys((file as any).variant_urls).length > 0;
+            return isPhoto;
+        }) || [];
+
+        return filtered.sort((a, b) => {
+            const orderDiff = ((a as any).sort_order ?? 0) - ((b as any).sort_order ?? 0);
+            if (orderDiff !== 0) return orderDiff;
+            return ((a as any).service_id ?? 0) - ((b as any).service_id ?? 0);
+        });
+    }, [orderData]);
 
     const videoFiles = useMemo(() => orderData?.tours?.[0]?.files?.filter(file => {
         const isVideo = file.service.category.name === "video" && file.is_show !== false && ((file as any).is_agent_approved || (file as any).is_complimentary);

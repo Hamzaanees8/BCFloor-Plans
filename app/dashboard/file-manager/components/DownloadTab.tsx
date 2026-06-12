@@ -66,6 +66,32 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
             ?.some(f => f.type === 'video' && (f.is_paid || isServicePaid(f.service?.uuid || "")));
     }, [userType, orderData, filesData, isServicePaid]);
 
+    const hasAnyPhoto = useMemo(() => {
+        return filesData?.files?.some(f => f.type === 'photo') ?? false;
+    }, [filesData?.files]);
+
+    const hasAnyVideo = useMemo(() => {
+        return filesData?.files?.some(f => f.type === 'video') ?? false;
+    }, [filesData?.files]);
+
+    const unapprovedServiceNames = useMemo(() => {
+        if (!filesData?.files) return [];
+        const unapprovedFiles = filesData.files.filter(file => {
+            const serviceName = file.service?.name || '';
+            const isForbiddenService = serviceName.toLowerCase().includes('floor plan') ||
+                serviceName.toLowerCase().includes('3d tour');
+            if (isForbiddenService || !file.service) return false;
+            
+            const isApproved = userType === 'agent' ? (file.is_agent_approved || file.is_complimentary) : true;
+            const isValidType = file.type === 'photo' || file.type === 'video';
+            
+            return !isApproved && isValidType;
+        });
+        
+        const names = new Set(unapprovedFiles.map(f => f.service?.name).filter(Boolean));
+        return Array.from(names);
+    }, [filesData?.files, userType]);
+
     // Helper to compute date boundary for a specific booking index within a group
     const computeBookingBoundary = useCallback((group: OrderServiceEntry[], index: number): MediaDateBoundary => {
         if (!group || group.length <= 1) return { from: null, to: null };
@@ -309,20 +335,40 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
             {/* Buttons Row 1: Global Actions */}
             <div className="flex flex-wrap gap-3 mb-4">
                 <Button
-                    onClick={() => openSizeModal(paidPhotos, "All Photos")}
-                    disabled={paidPhotos.length === 0 || !isAnyPhotoPaid}
+                    onClick={() => {
+                        if (!isAnyPhotoPaid) {
+                            onOpenInvoice?.();
+                            return;
+                        }
+                        if (paidPhotos.length === 0) {
+                            toast.warning("No approved photos available to download.");
+                            return;
+                        }
+                        openSizeModal(paidPhotos, "All Photos");
+                    }}
+                    disabled={!hasAnyPhoto}
                     title={!isAnyPhotoPaid ? "service not paid yet" : ""}
-                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] text-white flex gap-[5px] justify-center items-center ${userType}-bg hover:brightness-110 rounded-[6px] transition-all ${(!isAnyPhotoPaid) ? "opacity-50 cursor-not-allowed" : ""}`}
+                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] text-white flex gap-[5px] justify-center items-center ${userType}-bg hover:brightness-110 rounded-[6px] transition-all ${(!hasAnyPhoto) ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                     <Download className="h-3.5 w-3.5" />
                     Download all photos
                 </Button>
 
                 <Button
-                    onClick={() => handleDownload(paidVideos, "All Videos", "original")}
-                    disabled={paidVideos.length === 0 || !isAnyVideoPaid}
+                    onClick={() => {
+                        if (!isAnyVideoPaid) {
+                            onOpenInvoice?.();
+                            return;
+                        }
+                        if (paidVideos.length === 0) {
+                            toast.warning("No approved videos available to download.");
+                            return;
+                        }
+                        handleDownload(paidVideos, "All Videos", "original");
+                    }}
+                    disabled={!hasAnyVideo}
                     title={!isAnyVideoPaid ? "service not paid yet" : ""}
-                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] text-white flex gap-[5px] justify-center items-center ${userType}-bg hover:brightness-110 rounded-[6px] transition-all ${(!isAnyVideoPaid) ? "opacity-50 cursor-not-allowed" : ""}`}
+                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] text-white flex gap-[5px] justify-center items-center ${userType}-bg hover:brightness-110 rounded-[6px] transition-all ${(!hasAnyVideo) ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                     <Download className="h-3.5 w-3.5" />
                     Download all videos
@@ -381,10 +427,15 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                         <React.Fragment key={service.uuid + service.name}>
                             {servicePhotos.length > 0 && (
                                 <Button
-                                    onClick={() => openSizeModal(servicePhotos, service.name)}
-                                    disabled={!isPaid}
+                                    onClick={() => {
+                                        if (!isPaid) {
+                                            onOpenInvoice?.(service.name);
+                                            return;
+                                        }
+                                        openSizeModal(servicePhotos, service.name);
+                                    }}
                                     title={!isPaid ? "service not paid yet" : ""}
-                                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors ${(!isPaid) ? "opacity-50 cursor-not-allowed" : ""}`}
+                                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
                                     style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                 >
                                     <Download className="h-3.5 w-3.5" />
@@ -393,10 +444,15 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                             )}
                             {serviceVideos.length > 0 && (
                                 <Button
-                                    onClick={() => handleDownload(serviceVideos, service.name, "original")}
-                                    disabled={!isPaid}
+                                    onClick={() => {
+                                        if (!isPaid) {
+                                            onOpenInvoice?.(service.name);
+                                            return;
+                                        }
+                                        handleDownload(serviceVideos, service.name, "original");
+                                    }}
                                     title={!isPaid ? "service not paid yet" : ""}
-                                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors ${(!isPaid) ? "opacity-50 cursor-not-allowed" : ""}`}
+                                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
                                     style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                 >
                                     <Download className="h-3.5 w-3.5" />
@@ -441,10 +497,15 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                             {/* Per-section download buttons */}
                                             {sectionPhotos.length > 0 && (
                                                 <Button
-                                                    onClick={() => openSizeModal(sectionPhotos, section.label)}
-                                                    disabled={!section.isPaid}
+                                                    onClick={() => {
+                                                        if (!section.isPaid) {
+                                                            onOpenInvoice?.(section.bookingEntry?.service.name || section.label);
+                                                            return;
+                                                        }
+                                                        openSizeModal(sectionPhotos, section.label);
+                                                    }}
                                                     title={!section.isPaid ? 'Service not paid yet' : ''}
-                                                    className={`px-3 h-[30px] border-[1px] ${userType}-border text-[11px] font-[500] ${userType}-text flex gap-[4px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors ${!section.isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className={`px-3 h-[30px] border-[1px] ${userType}-border text-[11px] font-[500] ${userType}-text flex gap-[4px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
                                                     style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                 >
                                                     <Download className="h-3 w-3" />
@@ -453,10 +514,15 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                             )}
                                             {sectionVideos.length > 0 && (
                                                 <Button
-                                                    onClick={() => handleDownload(sectionVideos, section.label, 'original')}
-                                                    disabled={!section.isPaid}
+                                                    onClick={() => {
+                                                        if (!section.isPaid) {
+                                                            onOpenInvoice?.(section.bookingEntry?.service.name || section.label);
+                                                            return;
+                                                        }
+                                                        handleDownload(sectionVideos, section.label, 'original');
+                                                    }}
                                                     title={!section.isPaid ? 'Service not paid yet' : ''}
-                                                    className={`px-3 h-[30px] border-[1px] ${userType}-border text-[11px] font-[500] ${userType}-text flex gap-[4px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors ${!section.isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className={`px-3 h-[30px] border-[1px] ${userType}-border text-[11px] font-[500] ${userType}-text flex gap-[4px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
                                                     style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                                                 >
                                                     <Download className="h-3 w-3" />
@@ -487,8 +553,8 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                                                 /* eslint-disable-next-line @next/next/no-img-element */
                                                                 <img
                                                                     src={file.variant_urls.thumb}
-                                                                    alt={file.group || file.name}
-                                                                    title={file.group || file.name}
+                                                                    alt={file.group?.trim() ? file.group : (file.name || (file as any).file_name)}
+                                                                    title={file.group?.trim() ? file.group : (file.name || (file as any).file_name)}
                                                                     className={`w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
                                                                 />
                                                             ) : (
@@ -497,7 +563,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                                                     preload="metadata"
                                                                     muted
                                                                     playsInline
-                                                                    title={file.group || file.name}
+                                                                    title={file.group?.trim() ? file.group : (file.name || (file as any).file_name)}
                                                                     className={`absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
                                                                 />
                                                             )
@@ -522,8 +588,8 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                                             /* eslint-disable-next-line @next/next/no-img-element */
                                                             <img
                                                                 src={file.thumbnail_url || file.variant_urls?.thumb || file.url}
-                                                                alt={file.group || file.name}
-                                                                title={file.group || file.name}
+                                                                alt={file.group?.trim() ? file.group : (file.name || (file as any).file_name)}
+                                                                title={file.group?.trim() ? file.group : (file.name || (file as any).file_name)}
                                                                 className={`w-full h-full object-cover transition-transform group-hover:scale-105 ${isSelected ? 'opacity-90' : ''}`}
                                                             />
                                                         )}
@@ -551,7 +617,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                                                         </div>
                                                     )}
                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 pointer-events-none">
-                                                        <p className="text-white text-xs truncate font-medium">{file.group || file.name}</p>
+                                                        <p className="text-white text-xs truncate font-medium">{file.group?.trim() ? file.group : (file.name || (file as any).file_name)}</p>
                                                         <p className="text-gray-300 text-[10px] truncate">{file.service?.name}</p>
                                                     </div>
                                                 </div>
@@ -579,8 +645,20 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                         )}
                     </div>
                 ) : (
-                    <div className="py-20 text-center text-gray-500">
-                        No media available to download.
+                    <div className="py-20 text-center">
+                        {unapprovedServiceNames.length > 0 ? (
+                            <div className="flex flex-col items-center gap-2 text-gray-600">
+                                <p className="text-lg font-medium text-gray-800">Media Requires Approval</p>
+                                <p className="text-sm max-w-md">
+                                    You have media available for <span className="font-semibold text-gray-800">{unapprovedServiceNames.join(', ')}</span>, but it has not been approved yet.
+                                </p>
+                                <p className="text-sm max-w-md">
+                                    Please review and approve your media to make it available for download.
+                                </p>
+                            </div>
+                        ) : (
+                            <p className="text-gray-500">No media available to download.</p>
+                        )}
                     </div>
                 )}
             </div>

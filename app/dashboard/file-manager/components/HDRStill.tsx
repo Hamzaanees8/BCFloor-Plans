@@ -290,48 +290,65 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
 
     const handleFileItemsChange = (newItems: FileItem[]) => {
         setFileItems(newItems);
-        // Here we would typically trigger an API call to update the order on the backend
-        // Since the backend API for pure order saving isn't defined yet, we just update local state
-        // and let handleUpload send the full files list which should retain order if backend supports it.
-        // For now, we update the sort_order in filesData context to reflect the drag
 
-        // Update local state and context to reflect new sort order
-        newItems.forEach((item, index) => {
-            const newSortOrder = index + 1;
-            if (item.status === 'local') {
-                // For files not yet uploaded, update SelectedFiles
-                setSelectedFiles(prev => prev.map(f => {
+        // --- Global-slot-preserving local reorder ---
+        // The set of sort_order values a service "owns" globally stays fixed.
+        // We only redistribute those values across the new positions.
+        // This prevents service-level drag from corrupting globally-assigned numbers.
+
+        // Collect the globally-sorted sort_order slots currently owned by this service
+        const uploadedSlots = (filesData?.files ?? [])
+            .filter(f => f.service?.uuid === currentService?.uuid && !f.is_hidden)
+            .map(f => f.sort_order)
+            .sort((a, b) => a - b); // ascending slot pool
+
+        // Highest existing slot — new local files get appended after this
+        const maxSlot = uploadedSlots.length > 0 ? Math.max(...uploadedSlots) : 0;
+
+        // Separate items by status so we can assign slots independently
+        const uploadedItems = newItems.filter(item => item.status === 'uploaded');
+        const localItems = newItems.filter(item => item.status === 'local');
+
+        // Assign sort_orders to uploaded items using preserved slot values
+        uploadedItems.forEach((item, uploadedIndex) => {
+            const newSortOrder = uploadedSlots[uploadedIndex] ?? uploadedIndex + 1;
+            if (!filesData) return;
+            setFilesData(prev => {
+                if (!prev) return prev;
+                const hasModifications = prev.files.some(
+                    f => f.uuid === item.serverId && f.sort_order !== newSortOrder
+                );
+                if (hasModifications) {
+                    setChangedFileUuids(prevSet => {
+                        const newSet = new Set(prevSet);
+                        newSet.add(item.serverId!);
+                        return newSet;
+                    });
+                    return {
+                        ...prev,
+                        files: prev.files.map(f => {
+                            if (f.uuid === item.serverId) {
+                                return { ...f, sort_order: newSortOrder };
+                            }
+                            return f;
+                        }),
+                    };
+                }
+                return prev;
+            });
+        });
+
+        // Assign sort_orders to local (not-yet-uploaded) items appended after all slots
+        localItems.forEach((item, localIndex) => {
+            const newSortOrder = maxSlot + localIndex + 1;
+            setSelectedFiles(prev =>
+                prev.map(f => {
                     if (f.file === item.file) {
                         return { ...f, sort_order: newSortOrder };
                     }
                     return f;
-                }));
-            } else if (item.status === 'uploaded' && filesData) {
-                // For existing files, update FilesData and mark as changed
-                setFilesData(prev => {
-                    if (!prev) return prev;
-                    const hasModifications = prev.files.some(f => f.uuid === item.serverId && f.sort_order !== newSortOrder);
-
-                    if (hasModifications) {
-                        setChangedFileUuids(prevSet => {
-                            const newSet = new Set(prevSet);
-                            newSet.add(item.serverId!);
-                            return newSet;
-                        });
-
-                        return {
-                            ...prev,
-                            files: prev.files.map(f => {
-                                if (f.uuid === item.serverId) {
-                                    return { ...f, sort_order: newSortOrder };
-                                }
-                                return f;
-                            })
-                        };
-                    }
-                    return prev;
-                });
-            }
+                })
+            );
         });
     };
 
@@ -764,7 +781,7 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     <div className={`w-4 h-4 border rounded mr-1 flex items-center justify-center ${file.is_agent_approved ? `${userType}-bg ${userType}-border` : 'bg-white border-[#7D7D7D]'}`}>
                                         {file.is_agent_approved && <Check color="white" size={12} />}
                                     </div>
-                                    <span className="text-[10px] font-bold text-[#7D7D7D]">Selected</span>
+                                    <span className="text-[10px] font-bold text-[#7D7D7D]">{file.is_agent_approved ? 'Selected' : 'Select'}</span>
                                 </div>
                             )}
                             {userType !== 'agent' && (

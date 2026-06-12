@@ -11,6 +11,7 @@ import { Order } from '../../orders/page';
 const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
     const { userType } = useAppContext();
     const { links, setLinks, filesData } = useFileManagerContext();
+    const isUnpaidAgent = userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services.find(s => s.service.name.toLowerCase().includes('matterport') || s.service.name.toLowerCase().includes('3d tour'))?.payment_status === 'PAID');
     const [isBrandedChecked, setIsBrandedChecked] = useState(false);
     const [isUnbrandedChecked, setIsUnbrandedChecked] = useState(false);
 
@@ -78,6 +79,7 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                 )
             )}
             <div className={!hasLinks ? 'hidden' : ''} style={{ display: !hasLinks ? 'none' : undefined }}>
+            {!isUnpaidAgent && (
             <div className='flex flex-col items-center justify-center gap-y-[38px] my-[42px]'>
                 {/* Branded */}
                 <div className='flex items-end gap-x-5 w-[474px]'>
@@ -137,6 +139,7 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                     )}
                 </div>
             </div>
+            )}
             <div className='w-full'>
                 <Accordion type="single" defaultValue="Preview" className="w-full">
                     <AccordionItem value="Preview">
@@ -145,54 +148,47 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
                         </AccordionTrigger>
                         <AccordionContent>
                             <div className="w-full flex flex-col items-center gap-[20px] py-[30px] ">
-                                {userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services.find(s => s.service.name.toLowerCase().includes('matterport') || s.service.name.toLowerCase().includes('3d tour'))?.payment_status === 'PAID') && (
+                                {isUnpaidAgent ? (
                                     <div className="w-[80%] bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded text-center">
                                         You have not paid for this service yet. Pay the service to visit/view Matterport.
                                     </div>
-                                )}
-                                {brandedLinks.map(
-                                    (link, idx) =>
-                                        isValidUrl(link.link) && (
-                                            <div key={`preview-branded-${idx}`} className="relative w-[80%] h-[500px]">
-                                                <iframe
-                                                    src={link.link}
-                                                    className="w-full h-full border"
-                                                    allowFullScreen
-                                                ></iframe>
-                                                {userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services.find(s => s.service.name.toLowerCase().includes('matterport') || s.service.name.toLowerCase().includes('3d tour'))?.payment_status === 'PAID') && (
-                                                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-transparent cursor-not-allowed" title="Matterport is being added">
-                                                        {/* Transparent overlay blocks interaction */}
+                                ) : (
+                                    <>
+                                        {brandedLinks.map(
+                                            (link, idx) =>
+                                                isValidUrl(link.link) && (
+                                                    <div key={`preview-branded-${idx}`} className="relative w-[80%] h-[500px]">
+                                                        <iframe
+                                                            src={link.link}
+                                                            className="w-full h-full border"
+                                                            allowFullScreen
+                                                        ></iframe>
                                                     </div>
-                                                )}
-                                            </div>
-                                        )
-                                )}
+                                                )
+                                        )}
 
-                                {unbrandedLinks.map(
-                                    (link, idx) =>
-                                        isValidUrl(link.link) && (
-                                            <div key={`preview-unbranded-${idx}`} className="relative w-[80%] h-[500px]">
-                                                <iframe
-                                                    src={link.link}
-                                                    className="w-full h-full border"
-                                                    allowFullScreen
-                                                ></iframe>
-                                                {userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services.find(s => s.service.name.toLowerCase().includes('matterport') || s.service.name.toLowerCase().includes('3d tour'))?.payment_status === 'PAID') && (
-                                                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-transparent cursor-not-allowed" title="Matterport is being added">
-                                                        {/* Transparent overlay blocks interaction */}
+                                        {unbrandedLinks.map(
+                                            (link, idx) =>
+                                                isValidUrl(link.link) && (
+                                                    <div key={`preview-unbranded-${idx}`} className="relative w-[80%] h-[500px]">
+                                                        <iframe
+                                                            src={link.link}
+                                                            className="w-full h-full border"
+                                                            allowFullScreen
+                                                        ></iframe>
                                                     </div>
-                                                )}
-                                            </div>
-                                        )
-                                )}
+                                                )
+                                        )}
 
-                                {/* Fallback if no valid URLs */}
-                                {brandedLinks.every(l => !isValidUrl(l.link)) &&
-                                    unbrandedLinks.every(l => !isValidUrl(l.link)) && (
-                                        <p className="text-gray-500">
-                                            Enter a valid link to preview the 3D tour
-                                        </p>
-                                    )}
+                                        {/* Fallback if no valid URLs */}
+                                        {brandedLinks.every(l => !isValidUrl(l.link)) &&
+                                            unbrandedLinks.every(l => !isValidUrl(l.link)) && (
+                                                <p className="text-gray-500">
+                                                    Enter a valid link to preview the 3D tour
+                                                </p>
+                                            )}
+                                    </>
+                                )}
                             </div>
 
                         </AccordionContent>

@@ -91,11 +91,14 @@ const CustomSlideshow: React.FC<CustomSlideshowProps> = ({
       id: `local-${img.file.name}-${img.file.size}-${idx}`
     }));
 
-    const remoteImages = (api_images || []).map((img, idx) => ({
-      src: img.url || img.variant_urls?.popup || img.variant_urls?.slider || `${API_URL}/${img.file_path}`,
-      isLocal: false,
-      id: `remote-${img.uuid || img.file_path}-${idx}`
-    }));
+    const remoteImages = (api_images || []).map((img, idx) => {
+      console.log(`Slideshow Image ${idx} raw data:`, img);
+      return {
+        src: img.url || img.variant_urls?.popup || img.variant_urls?.slider || `${API_URL}/${img.file_path}`,
+        isLocal: false,
+        id: `remote-${img.uuid || img.file_path}-${idx}`
+      };
+    });
 
     return [...localImages, ...remoteImages];
   }, [images, api_images, API_URL]);

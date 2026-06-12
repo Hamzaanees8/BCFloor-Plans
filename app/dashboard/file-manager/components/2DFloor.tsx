@@ -992,7 +992,10 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                     <p className={`font-semibold text-lg ${userType}-text uppercase`}>Square Footage</p>
                     <div className="flex justify-center">
                         <div className="w-[700px] pt-6">
-                            <SquareFootage currentOrder={orderData || undefined} />
+                            <SquareFootage 
+                                currentOrder={orderData || undefined} 
+                                isPaid={bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}
+                            />
                         </div>
                     </div>
                     {userType !== 'agent' && (

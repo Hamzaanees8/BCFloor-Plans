@@ -71,8 +71,10 @@ function PublicTourFloorPlans({
     snapshots = [],
     watermarkLogo
 }: PublicTourFloorPlansProps) {
-    // Filter out PDF files
-    const filteredFloorPlanFiles = floorPlanFiles.filter(file => file.type !== 'pdf' && !file.file_path?.toLowerCase().endsWith('.pdf'));
+    // Filter out PDF files and sort by sort_order
+    const filteredFloorPlanFiles = floorPlanFiles
+        .filter(file => file.type !== 'pdf' && !file.file_path?.toLowerCase().endsWith('.pdf'))
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
     const [selectedImageId, setSelectedImageId] = useState<string | null>(() => {
         if (filteredFloorPlanFiles?.length > 0) {

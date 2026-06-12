@@ -21,14 +21,15 @@ type Props = {
   open: boolean
   setOpen: (value: boolean) => void
   onConfirm: () => void
+  onCancel?: () => void
   showAgain: boolean
   toggleShowAgain: () => void
-  dialogType?: 'delete' | 'merge' | 'payment' | 'agent_change' | 'file_upload_cancel' // ADD THIS PROP
+  dialogType?: 'delete' | 'merge' | 'payment' | 'agent_change' | 'file_upload_cancel' | 'deselect' // ADD THIS PROP
   title?: string
   description?: string
 }
 
-const getStorageKey = (type: 'delete' | 'merge' | 'payment' | 'agent_change' | 'file_upload_cancel' = 'delete') => {
+const getStorageKey = (type: 'delete' | 'merge' | 'payment' | 'agent_change' | 'file_upload_cancel' | 'deselect' = 'delete') => {
   switch (type) {
     case 'merge':
       return 'confirmation_dialog_merge_show_again';
@@ -38,6 +39,8 @@ const getStorageKey = (type: 'delete' | 'merge' | 'payment' | 'agent_change' | '
       return 'confirmation_dialog_agent_change_show_again';
     case 'file_upload_cancel':
       return 'confirmation_dialog_file_upload_cancel_show_again';
+    case 'deselect':
+      return 'confirmation_dialog_deselect_show_again';
     default:
       return 'confirmation_dialog_delete_show_again';
   }
@@ -47,6 +50,7 @@ const ConfirmationDialog: React.FC<Props> = ({
   open,
   setOpen,
   onConfirm,
+  onCancel,
   showAgain,
   toggleShowAgain,
   dialogType = 'delete',
@@ -101,6 +105,9 @@ const ConfirmationDialog: React.FC<Props> = ({
         <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px]  mt-2 font-alexandria">
           <DialogClose
             className={`bg-white rounded-[8px] w-full md:w-[170px] h-[44px] text-[20px] font-[400] ${userType}-text border ${userType}-border text-[#0078D4] hover-${userType}-bg ${userType}-button`}
+            onClick={() => {
+              if (onCancel) onCancel();
+            }}
           >
             Cancel
           </DialogClose>

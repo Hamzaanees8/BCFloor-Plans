@@ -121,11 +121,28 @@ const Page = () => {
     {
       id: "feature_sheet",
       header: "TEMPLATE",
-      cell: ({ row }) => (
-        <div className="text-[#666666]">
-          {row.original.feature_sheet?.template_key || "N/A"}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const featureSheet = row.original.feature_sheet;
+        const templateKey = featureSheet?.template_key || "N/A";
+        const orderId = featureSheet?.order_id;
+        const sheetUuid = featureSheet?.uuid;
+
+        return (
+          <div className="flex flex-col text-[#666666]">
+            <span>{templateKey}</span>
+            {orderId && sheetUuid && (
+              <a
+                href={`/dashboard/file-manager/${orderId}?serviceId=CreateFeatureSheet&sheetUuid=${sheetUuid}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-500 hover:underline text-xs"
+              >
+                Preview Sheet
+              </a>
+            )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "copies",

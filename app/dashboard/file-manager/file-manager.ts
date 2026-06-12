@@ -315,8 +315,10 @@ export async function UploadFilesData(
       `snapshots[${index}][file]`,
       snap.file || snap.variant_urls?.popup || snap.variant_urls?.thumb || snap.thumbnail_url || snap.url || snap.file_path || "",
     );
-    formData.append(`snapshots[${index}][x_axis]`, String(snap.x));
-    formData.append(`snapshots[${index}][y_axis]`, String(snap.y));
+    const xAxis = Number(snap.x ?? (snap as any).x_axis ?? 0);
+    const yAxis = Number(snap.y ?? (snap as any).y_axis ?? 0);
+    formData.append(`snapshots[${index}][x_axis]`, String(xAxis.toFixed(6)));
+    formData.append(`snapshots[${index}][y_axis]`, String(yAxis.toFixed(6)));
     if (snap.uuid) {
       formData.append(`snapshots[${index}][uuid]`, snap.uuid);
     }
@@ -588,8 +590,10 @@ export async function UpdateFilesData(
       `snapshots[${index}][file]`,
       snap.file || snap.variant_urls?.popup || snap.variant_urls?.thumb || snap.thumbnail_url || snap.url || snap.file_path || "",
     );
-    formData.append(`snapshots[${index}][x_axis]`, String(snap.x.toFixed(6)));
-    formData.append(`snapshots[${index}][y_axis]`, String(snap.y.toFixed(6)));
+    const xAxis = Number(snap.x ?? (snap as any).x_axis ?? 0);
+    const yAxis = Number(snap.y ?? (snap as any).y_axis ?? 0);
+    formData.append(`snapshots[${index}][x_axis]`, String(xAxis.toFixed(6)));
+    formData.append(`snapshots[${index}][y_axis]`, String(yAxis.toFixed(6)));
     if (snap.uuid) {
       formData.append(`snapshots[${index}][uuid]`, snap.uuid);
     }

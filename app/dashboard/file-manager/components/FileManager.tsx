@@ -438,7 +438,8 @@ const FileManager = () => {
     }
 
     if (activeTab === "CreateFeatureSheet") {
-      return <CreateFeatureSheet ref={featureSheetRef} orderData={orderData} />;
+      const sheetUuid = searchParams.get("sheetUuid");
+      return <CreateFeatureSheet ref={featureSheetRef} orderData={orderData} previewSheetUuid={sheetUuid || undefined} />;
     }
     const category = activeService?.category?.name;
 
@@ -593,7 +594,14 @@ const FileManager = () => {
       try {
         const filesData = await GetFilesData(token, orderData?.uuid || "", includeHidden);
         if (filesData.data && filesData.data.length > 0) {
-          setFilesData(filesData.data[0]);
+          const updatedTour = filesData.data[0];
+          if (updatedTour.files) {
+            updatedTour.files = updatedTour.files.map((f: any) => ({
+              ...f,
+              is_processing: f.status === 'processing' || f.is_processing || (f.type === 'photo' && (!f.variant_urls || Object.keys(f.variant_urls).length === 0))
+            }));
+          }
+          setFilesData(updatedTour);
           // Removed accidental setInterval call
 
           setSelectedAudioTrack(
@@ -690,7 +698,7 @@ const FileManager = () => {
           if (updatedTour.files) {
             updatedTour.files = updatedTour.files.map((f: any) => ({
               ...f,
-              is_processing: f.status === 'processing' || f.is_processing
+              is_processing: f.status === 'processing' || f.is_processing || (f.type === 'photo' && (!f.variant_urls || Object.keys(f.variant_urls).length === 0))
             }));
           }
 

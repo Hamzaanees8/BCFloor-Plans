@@ -20,6 +20,7 @@ export interface PrintRequest {
   feature_sheet: {
     template_key: string;
     uuid: string;
+    order_id?: string;
   };
 }
 

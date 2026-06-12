@@ -474,6 +474,8 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
   const [pendingSelection, setPendingSelection] = useState<any | null>(null);
   const [pendingVendorAssignment, setPendingVendorAssignment] = useState<{ vendor: VendorData, slots: { start: string; end: string }[], previousVendorName?: string } | null>(null);
   const [pendingReplaceSelection, setPendingReplaceSelection] = useState<{ info: EventClickArg, proposedSlots: { start: string, end: string }[], slotTime: string } | null>(null);
+  const [showConfirmDeselect, setShowConfirmDeselect] = useState(false);
+  const [pendingDeselect, setPendingDeselect] = useState<{ slotStart: string; slotEnd: string; selectedDate: string; serviceSlotsForDate: Slot[]; clickedEvent: any; slotRangeText: string } | null>(null);
   const [showAgain, setShowAgain] = useState(true);
   const [hoveredSlotStart, setHoveredSlotStart] = useState<string | null>(null);
   const calendarRef = React.useRef<FullCalendar>(null);
@@ -1203,101 +1205,10 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     }
 
     if (isAlreadySelected) {
-      // Get all selected slots for this service on this date, sorted by time
       const serviceSlotsForDate = selectedSlots
         .filter((slot: Slot) => slot.service_id === service.uuid && slot.date === selectedDate)
         .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
-      // If only one slot, allow deselection
-      if (serviceSlotsForDate.length === 1) {
-        setSelectedSlots((prev: Slot[]) =>
-          prev.filter(
-            (slot: Slot) =>
-              !(
-                slot.service_id === service.uuid &&
-                slot.start_time === slotStart &&
-                slot.end_time === slotEnd &&
-                slot.date === selectedDate
-              )
-          )
-        );
-
-        const updatedEvents = events.map((event: Slots) => {
-          if (
-            dayjs(event.start).isSame(clicked.start) &&
-            dayjs(event.end).isSame(clicked.end)
-          ) {
-            return {
-              ...event,
-              title: '',
-              className: `slot-available`,
-            };
-          }
-          return event;
-        });
-
-        setEvents(updatedEvents);
-
-        // Show unselect toast
-        const formatTime = (time: string) => {
-          const [h, m] = time.split(":");
-          const hour = parseInt(h);
-          const meridian = hour >= 12 ? "PM" : "AM";
-          const formattedHour = hour % 12 || 12;
-          return `${formattedHour}:${m} ${meridian}`;
-        };
-        const slotTimeRange = `${formatTime(slotStart)} - ${formatTime(slotEnd)}`;
-        const deficit = requiredSlots - 0;
-        if (deficit > 0) {
-          toast.warning(`You have unselected a slot from ${slotTimeRange} and have ${deficit} less slot${deficit > 1 ? 's' : ''}. Please select ${deficit === 1 ? 'one' : deficit} more slot${deficit > 1 ? 's' : ''}.`);
-        }
-
-        return;
-      }
-
-      // Multiple slots: only allow deselection from start or end
-      const firstSlot = serviceSlotsForDate[0];
-      const lastSlot = serviceSlotsForDate[serviceSlotsForDate.length - 1];
-
-      const isFirstSlot = slotStart === firstSlot.start_time && slotEnd === firstSlot.end_time;
-      const isLastSlot = slotStart === lastSlot.start_time && slotEnd === lastSlot.end_time;
-
-      if (!isFirstSlot && !isLastSlot) {
-        // Prevent deselection of middle slots
-        toast.error('You can only remove slots from the start or end of your booking. Please unselect the first or last slot.');
-        return;
-      }
-
-      // Allow deselection
-      setSelectedSlots((prev: Slot[]) =>
-        prev.filter(
-          (slot: Slot) =>
-            !(
-              slot.service_id === service.uuid &&
-              slot.start_time === slotStart &&
-              slot.end_time === slotEnd &&
-              slot.date === selectedDate
-            )
-        )
-      );
-
-      const updatedEvents = events.map((event: Slots) => {
-        if (
-          dayjs(event.start).isSame(clicked.start) &&
-          dayjs(event.end).isSame(clicked.end)
-        ) {
-          return {
-            ...event,
-            title: '',
-            className: `slot-available`,
-          };
-        }
-        return event;
-      });
-
-      setEvents(updatedEvents);
-
-      // Show unselect toast
       const formatTime = (time: string) => {
         const [h, m] = time.split(":");
         const hour = parseInt(h);
@@ -1305,12 +1216,20 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         const formattedHour = hour % 12 || 12;
         return `${formattedHour}:${m} ${meridian}`;
       };
-      const slotTimeRange = `${formatTime(slotStart)} - ${formatTime(slotEnd)}`;
-      const deficit = requiredSlots - (serviceSlotsForDate.length - 1);
-      if (deficit > 0) {
-        toast.warning(`You have unselected a slot from ${slotTimeRange} and have ${deficit} less slot${deficit > 1 ? 's' : ''}. Please select ${deficit === 1 ? 'one' : deficit} more slot${deficit > 1 ? 's' : ''}.`);
-      }
 
+      const firstSlot = serviceSlotsForDate[0];
+      const lastSlot = serviceSlotsForDate[serviceSlotsForDate.length - 1];
+      const slotRangeText = `${formatTime(firstSlot.start_time)} - ${formatTime(lastSlot.end_time)}`;
+
+      setPendingDeselect({
+        slotStart,
+        slotEnd,
+        selectedDate,
+        serviceSlotsForDate,
+        clickedEvent: clicked,
+        slotRangeText
+      });
+      setShowConfirmDeselect(true);
       return;
     }
 
@@ -1671,6 +1590,73 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       const durationTryingToSelect = remainingSlotsNeeded * 15;
       toast.error(`There are not ${durationTryingToSelect} min consecutive slots available for any eligible vendor starting at this time. Please select another slot.`);
     }
+  };
+
+  const handleConfirmDeselect = () => {
+    if (!pendingDeselect) return;
+    
+    setSelectedSlots((prev: Slot[]) =>
+      prev.filter((slot: Slot) => slot.service_id !== service.uuid)
+    );
+    toast.success(`Removed all selected slots for ${service.title}.`);
+    setPendingDeselect(null);
+    setShowConfirmDeselect(false);
+  };
+
+  const handleCancelDeselect = () => {
+    if (!pendingDeselect) return;
+    const { slotStart, slotEnd, selectedDate, serviceSlotsForDate } = pendingDeselect;
+    
+    if (serviceSlotsForDate.length > 1) {
+      const firstSlot = serviceSlotsForDate[0];
+      const lastSlot = serviceSlotsForDate[serviceSlotsForDate.length - 1];
+
+      const isFirstSlot = slotStart === firstSlot.start_time && slotEnd === firstSlot.end_time;
+      const isLastSlot = slotStart === lastSlot.start_time && slotEnd === lastSlot.end_time;
+
+      if (!isFirstSlot && !isLastSlot) {
+        toast.error('You can only remove slots from the start or end of your booking. Please unselect the first or last slot.');
+        setPendingDeselect(null);
+        setShowConfirmDeselect(false);
+        return;
+      }
+    }
+
+    setSelectedSlots((prev: Slot[]) =>
+      prev.filter(
+        (slot: Slot) =>
+          !(
+            slot.service_id === service.uuid &&
+            slot.start_time === slotStart &&
+            slot.end_time === slotEnd &&
+            slot.date === selectedDate
+          )
+      )
+    );
+
+    const requiredDuration = getEffectiveServiceDuration(
+      servicesData?.find((s) => s.uuid === service.uuid)?.product_options?.find(
+        (option) => option.uuid === service.option_id
+      )?.service_duration,
+      tempPropertyData?.square_footage || selectedCurrentListing?.square_footage
+    );
+    const requiredSlots = Math.ceil(requiredDuration / 15);
+
+    const formatTime = (time: string) => {
+      const [h, m] = time.split(":");
+      const hour = parseInt(h);
+      const meridian = hour >= 12 ? "PM" : "AM";
+      const formattedHour = hour % 12 || 12;
+      return `${formattedHour}:${m} ${meridian}`;
+    };
+    const slotTimeRange = `${formatTime(slotStart)} - ${formatTime(slotEnd)}`;
+    const deficit = requiredSlots - (serviceSlotsForDate.length - 1);
+    if (deficit > 0) {
+      toast.warning(`You have unselected a slot from ${slotTimeRange} and have ${deficit} less slot${deficit > 1 ? 's' : ''}. Please select ${deficit === 1 ? 'one' : deficit} more slot${deficit > 1 ? 's' : ''}.`);
+    }
+
+    setPendingDeselect(null);
+    setShowConfirmDeselect(false);
   };
 
   const handleConfirmDayChange = async () => {
@@ -2195,6 +2181,22 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         toggleShowAgain={() => setShowAgain(prev => !prev)}
         title="Replace Selection?"
         description={`Do you want to select slots from ${pendingReplaceSelection?.slotTime} onwards? On clicking confirm, your previous selection for "${service.title}" will be removed.`}
+      />
+      <ConfirmationDialog
+        open={showConfirmDeselect}
+        setOpen={(open) => {
+          setShowConfirmDeselect(open);
+          if (!open) {
+            setPendingDeselect(null);
+          }
+        }}
+        onConfirm={handleConfirmDeselect}
+        onCancel={handleCancelDeselect}
+        showAgain={showAgain}
+        toggleShowAgain={() => setShowAgain(prev => !prev)}
+        dialogType="deselect"
+        title="Remove Selection?"
+        description={`Did you want to remove the selection? Clicking confirm will remove the selected slots (${pendingDeselect?.slotRangeText || ''}) of ${service.title}.`}
       />
     </>
   );

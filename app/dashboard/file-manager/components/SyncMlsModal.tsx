@@ -6,21 +6,20 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Button } from '@/components/ui/button';
-import { X, Loader2, CheckCircle2, AlertCircle, Package, Info } from 'lucide-react';
+import { X, Loader2, CheckCircle2, AlertCircle, Package, Info, GripVertical, ArrowLeftRight } from 'lucide-react';
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { useFileManagerContext, Files } from '../FileManagerContext';
+import { useGlobalFileUpload } from '@/context/GlobalFileUploadContext';
+import { computeGlobalReorderUpdates } from '../utils/sortOrderUtils';
 import { ApiFile } from './DownloadModal';
 import { Order } from '../../orders/page';
 import { Input } from '@/components/ui/input';
 import { SyncToMls } from '../../orders/orders';
 import { EditListings } from '../../listings/listing';
 import { toast } from 'sonner';
+import { SortableGrid } from './dual-mode/SortableGrid';
+import { FileItem } from './dual-mode/types';
 
 type ValidationStatus = 'idle' | 'valid' | 'invalid';
 
@@ -36,10 +35,10 @@ type Props = {
 const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tourUuid, onSync }) => {
   const { userType } = useAppContext();
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
-  
+
   // Fields state
   const [mlsNumber, setMlsNumber] = useState<string>('');
-  
+
   // Internal actions state
   const [isUpdatingMls, setIsUpdatingMls] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -47,6 +46,14 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
 
   // Validation state
   const [mlsStatus, setMlsStatus] = useState<ValidationStatus>('idle');
+
+  // FileItems for SortableGrid
+  const [photoItems, setPhotoItems] = useState<FileItem[]>([]);
+  const [videoItems, setVideoItems] = useState<FileItem[]>([]);
+  const [isReorderMode, setIsReorderMode] = useState(false);
+  const { filesData, setFilesData, deletedSnapshotUuids, links, delay, transition, selectedAudioTrack } = useFileManagerContext();
+  const { startUpload } = useGlobalFileUpload();
+  const [isGlobalSaving, setGlobalSaving] = useState(false);
 
   const performValidation = useCallback((value: string) => {
     const trimmed = value.trim();
@@ -60,20 +67,60 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
     setMlsStatus(isValid ? 'valid' : 'invalid');
   }, []);
 
+  const validApiFiles = useMemo(() => {
+    return apiFiles.filter(f => f.variant_urls && Object.keys(f.variant_urls).length > 0);
+  }, [apiFiles]);
+
   // Initialization
   useEffect(() => {
     if (open && orderData) {
       const initialMls = orderData.property?.mls_number || orderData.property?.mls_property || '';
       setMlsNumber(initialMls);
       setIsExistingMls(!!initialMls);
-      
+
       // Auto-validate if pre-filled
       if (initialMls) performValidation(initialMls);
       else setMlsStatus('idle');
-      
+
       setSelectedFiles([]);
+
+      // Initialize fileItems
+      const photoApiFiles = validApiFiles.filter(f => f.type === 'photo');
+      const videoApiFiles = validApiFiles.filter(f => f.type === 'video');
+
+      const sortedPhotos = [...photoApiFiles].sort((a, b) => {
+        const orderDiff = (a.sort_order ?? 0) - (b.sort_order ?? 0);
+        if (orderDiff !== 0) return orderDiff;
+        return (a.service?.id ?? 0) - (b.service?.id ?? 0);
+      });
+
+      const sortedVideos = [...videoApiFiles].sort((a, b) => {
+        const orderDiff = (a.sort_order ?? 0) - (b.sort_order ?? 0);
+        if (orderDiff !== 0) return orderDiff;
+        return (a.service?.id ?? 0) - (b.service?.id ?? 0);
+      });
+
+      setPhotoItems(
+        sortedPhotos.map((f, index) => ({
+          clientId: f.uuid,
+          url: f.url || '',
+          status: 'uploaded',
+          order: index,
+          originalData: f,
+        }))
+      );
+
+      setVideoItems(
+        sortedVideos.map((f, index) => ({
+          clientId: f.uuid,
+          url: f.url || '',
+          status: 'uploaded',
+          order: index,
+          originalData: f,
+        }))
+      );
     }
-  }, [open, orderData, performValidation]);
+  }, [open, orderData, performValidation, validApiFiles]);
 
   const handleMlsChange = (val: string) => {
     setMlsNumber(val);
@@ -84,60 +131,159 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
   };
 
   const isMlsValid = mlsStatus === 'valid';
-
-  // Group files by service
-  const groupedFiles = useMemo(() => {
-    const groups: Map<string, ApiFile[]> = new Map();
-    
-    apiFiles.forEach((file) => {
-      const serviceName = file.service?.name || "Other Media";
-      if (!groups.has(serviceName)) {
-        groups.set(serviceName, []);
-      }
-      groups.get(serviceName)?.push(file);
-    });
-
-    return Array.from(groups.entries()).map(([name, files]) => ({
-      name,
-      files: files.map(f => ({
-        id: f.uuid,
-        name: f.group || f.name,
-        url: f.url || '',
-        type: f.type,
-        uuid: f.uuid,
-        thumbnail_url: f.thumbnail_url,
-        variant_urls: f.variant_urls,
-      }))
-    }));
-  }, [apiFiles]);
-
-  const totalFilesCount = apiFiles.length;
+  const totalFilesCount = validApiFiles.length;
 
   const handleSelectAllGlobal = (checked: boolean) => {
     if (!isMlsValid) return;
     if (checked) {
-      setSelectedFiles(apiFiles.map((f) => f.uuid));
+      setSelectedFiles(validApiFiles.map((f) => f.uuid));
     } else {
       setSelectedFiles([]);
     }
   };
 
-  const handleSelectService = (serviceFiles: {id: string}[], checked: boolean) => {
-    if (!isMlsValid) return;
-    const serviceIds = serviceFiles.map(f => f.id);
-    if (checked) {
-      setSelectedFiles(prev => Array.from(new Set([...prev, ...serviceIds])));
-    } else {
-      setSelectedFiles(prev => prev.filter(id => !serviceIds.includes(id)));
-    }
-  };
-
-  const handleToggleFile = (fileId: string) => {
+  const handleToggleFile = useCallback((fileId: string) => {
     if (!isMlsValid) return;
     setSelectedFiles((prev) =>
       prev.includes(fileId) ? prev.filter((id) => id !== fileId) : [...prev, fileId]
     );
-  };
+  }, [isMlsValid]);
+
+  const handlePhotoOrderChange = useCallback((newItems: FileItem[]) => {
+    setPhotoItems(newItems);
+  }, []);
+
+  const handleVideoOrderChange = useCallback((newItems: FileItem[]) => {
+    setVideoItems(newItems);
+  }, []);
+
+  const handleSaveReorder = useCallback(async () => {
+    if (!filesData) return;
+
+    // Compute globally-unique sort_orders for photos
+    const reorderedPhotos = photoItems
+      .map((item) => item.originalData as Files)
+      .filter(Boolean);
+    const photoUpdates = computeGlobalReorderUpdates(reorderedPhotos);
+
+    // Compute globally-unique sort_orders for videos
+    const reorderedVideos = videoItems
+      .map((item) => item.originalData as Files)
+      .filter(Boolean);
+    const videoUpdates = computeGlobalReorderUpdates(reorderedVideos);
+
+    const allUpdates = [...photoUpdates, ...videoUpdates];
+    const updatesMap = new Map(allUpdates.map((u) => [u.uuid, u.sort_order]));
+
+    const newlyChangedFiles: Files[] = [];
+    const newFilesList = filesData.files.map((f) => {
+      const newOrder = updatesMap.get(f.uuid);
+      if (newOrder !== undefined && f.sort_order !== newOrder) {
+        const updatedFile = { ...f, sort_order: newOrder };
+        newlyChangedFiles.push(updatedFile);
+        return updatedFile;
+      }
+      return f;
+    });
+
+    if (newlyChangedFiles.length === 0) {
+      setIsReorderMode(false);
+      return;
+    }
+
+    // Write new sort_orders into context immediately for UI update
+    setFilesData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        files: newFilesList,
+      };
+    });
+
+    const token = localStorage.getItem("token");
+    if (!token || !orderData) {
+      toast.error("Could not save reorder. Missing data.");
+      return;
+    }
+
+    const activeSnapshots = (filesData.snapshots || [])
+      .filter((s) => !deletedSnapshotUuids.has(s.uuid))
+      .map((snap) => ({
+        uuid: snap.uuid,
+        x: Number(snap.x_axis ?? 0),
+        y: Number(snap.y_axis ?? 0),
+        floorImageUrl: snap.file_name ?? "",
+        isApi: true as const,
+        name: snap.name ?? undefined,
+        description: snap.description ?? undefined,
+        file_path: snap.file_path,
+        url: snap.url,
+        thumbnail_url: snap.thumbnail_url,
+        variant_urls: snap.variant_urls,
+      }));
+
+    setGlobalSaving(true);
+    try {
+      await startUpload({
+        token,
+        orderUuid: orderData.uuid,
+        filesDataUuid: filesData.uuid,
+        files: [],
+        links: links,
+        droppedMarkers: activeSnapshots,
+        delay: delay,
+        transition: transition,
+        selectedAudioTrack: selectedAudioTrack || "none",
+        changedFiles: newlyChangedFiles,
+        isUpdate: true
+      });
+      setIsReorderMode(false);
+      toast.success("Order saved successfully.");
+    } catch (error) {
+      console.error("Failed to save reorder", error);
+      toast.error("Failed to save reorder.");
+    } finally {
+      setGlobalSaving(false);
+    }
+  }, [photoItems, videoItems, filesData, setFilesData, startUpload, orderData, delay, transition, selectedAudioTrack, deletedSnapshotUuids, links]);
+
+  const handleCancelReorder = useCallback(() => {
+    const photoApiFiles = validApiFiles.filter(f => f.type === 'photo');
+    const videoApiFiles = validApiFiles.filter(f => f.type === 'video');
+
+    const sortedPhotos = [...photoApiFiles].sort((a, b) => {
+      const orderDiff = (a.sort_order ?? 0) - (b.sort_order ?? 0);
+      if (orderDiff !== 0) return orderDiff;
+      return (a.service?.id ?? 0) - (b.service?.id ?? 0);
+    });
+
+    const sortedVideos = [...videoApiFiles].sort((a, b) => {
+      const orderDiff = (a.sort_order ?? 0) - (b.sort_order ?? 0);
+      if (orderDiff !== 0) return orderDiff;
+      return (a.service?.id ?? 0) - (b.service?.id ?? 0);
+    });
+
+    setPhotoItems(
+      sortedPhotos.map((f, index) => ({
+        clientId: f.uuid,
+        url: f.url || '',
+        status: 'uploaded',
+        order: index,
+        originalData: f,
+      }))
+    );
+
+    setVideoItems(
+      sortedVideos.map((f, index) => ({
+        clientId: f.uuid,
+        url: f.url || '',
+        status: 'uploaded',
+        order: index,
+        originalData: f,
+      }))
+    );
+    setIsReorderMode(false);
+  }, [validApiFiles]);
 
   const handleSync = async () => {
     if (!isMlsValid || selectedFiles.length === 0) return;
@@ -160,12 +306,19 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
       }
 
       // 2. Trigger Sync
-      const fileIds = apiFiles
-        .filter(f => selectedFiles.includes(f.uuid))
-        .map(f => f.id);
+      // Preserve the order defined in the UI
+      const allFileItems = [...photoItems, ...videoItems];
+      const fileIds = allFileItems
+        .filter(item => selectedFiles.includes(item.clientId))
+        .map(item => (item.originalData as ApiFile).id);
+
+      // We also might want to pass sorted selected files array back for onSync
+      const sortedSelectedUuids = allFileItems
+        .filter(item => selectedFiles.includes(item.clientId))
+        .map(item => item.clientId);
 
       if (onSync) {
-        await onSync(selectedFiles, mlsNumber.trim());
+        await onSync(sortedSelectedUuids, mlsNumber.trim());
       } else {
         await SyncToMls(tourUuid || orderData?.uuid || '', {
           file_ids: fileIds
@@ -186,9 +339,77 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
 
   const isMlsMissing = !orderData?.property?.mls_number && !orderData?.property?.mls_property;
 
+  const renderPhotoCard = useCallback(
+    (item: FileItem) => {
+      const file = item.originalData as ApiFile;
+      if (!file) return null;
+
+      const imgSrc = file.thumbnail_url || file.variant_urls?.thumb || file.url || '';
+      const isSelected = selectedFiles.includes(item.clientId);
+
+      return (
+        <div
+          className={`relative bg-white rounded-lg overflow-hidden group select-none border-2 transition-all ${isReorderMode ? 'cursor-grab active:cursor-grabbing hover:border-[#BBBBBB]' : `cursor-pointer ${isSelected ? `${userType}-border shadow-md` : 'border-[#E4E4E4] hover:border-[#BBBBBB]'}`}`}
+          onClick={() => { if (!isReorderMode) handleToggleFile(item.clientId); }}
+        >
+          <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100">
+            {file.is_processing ? (
+              <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                <p className="text-gray-500 font-medium text-sm">Processing…</p>
+              </div>
+            ) : file.type === 'video' ? (
+              <div className="relative w-full h-full">
+                <video src={file.url} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                  <div className="w-8 h-8 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center">
+                    <div className="w-0 h-0 border-t-[5px] border-t-transparent border-l-[8px] border-l-white border-b-[5px] border-b-transparent ml-1" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={imgSrc}
+                alt={file.name}
+                className="absolute inset-0 w-full h-full object-cover"
+                draggable={false}
+              />
+            )}
+
+            {isSelected && (
+              <div className={`absolute top-2 right-2 z-10 ${userType}-text bg-white rounded-full shadow-sm`}>
+                <CheckCircle2 className="w-6 h-6 shadow-sm" />
+              </div>
+            )}
+
+            {isReorderMode && (
+              <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                <GripVertical className="text-white w-8 h-8 drop-shadow-lg" />
+              </div>
+            )}
+
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 pointer-events-none">
+              <p className="text-white text-[13px] truncate font-medium">{file.group?.trim() ? file.group : file.name}</p>
+              <p className="text-gray-300 text-[10px] truncate">{file.service?.name}</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between px-2 py-2 bg-white text-[13px] border-t border-[#E4E4E4]">
+            <p className="text-[#424242] font-semibold truncate max-w-[80%]">
+              {file.group?.trim() ? file.group : file.name}
+            </p>
+            <span className="text-[#999] text-[10px] uppercase ml-1 shrink-0">
+              {file.type}
+            </span>
+          </div>
+        </div>
+      );
+    },
+    [selectedFiles, userType, handleToggleFile, isReorderMode]
+  );
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-[#FAFAFA] rounded-[8px] shadow-lg border p-6 w-full max-w-[750px] max-h-[calc(100vh-40px)] flex flex-col font-alexandria [&>button]:hidden overflow-hidden">
+      <DialogContent className="bg-[#FAFAFA] rounded-[8px] shadow-lg border p-6 w-full max-w-[950px] max-h-[calc(100vh-40px)] flex flex-col font-alexandria [&>button]:hidden overflow-hidden !transform-none !top-0 !bottom-0 !left-0 !right-0 m-auto h-fit">
         <DialogHeader>
           <div className="flex items-center justify-between border-b border-[#E4E4E4] pb-2">
             <DialogTitle className={`uppercase ${userType}-text text-[18px] font-semibold`}>
@@ -216,9 +437,8 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
                 value={mlsNumber}
                 onChange={(e) => handleMlsChange(e.target.value)}
                 placeholder="e.g. X1234567"
-                className={`h-[44px] pr-10 ${
-                  mlsStatus === 'valid' ? 'border-green-500' : mlsStatus === 'invalid' ? 'border-red-400' : 'border-[#BBBBBB]'
-                }`}
+                className={`h-[44px] pr-10 ${mlsStatus === 'valid' ? 'border-green-500' : mlsStatus === 'invalid' ? 'border-red-400' : 'border-[#BBBBBB]'
+                  }`}
                 disabled={isSyncing || isExistingMls}
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -240,122 +460,116 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
             )}
           </div>
 
+          {/* Info Box */}
+          <div className="mb-4 p-4 rounded-lg flex gap-3 items-start border border-blue-200 bg-blue-50/50">
+            <Info className="w-5 h-5 shrink-0 text-blue-500 mt-0.5" />
+            <div className="text-[13px] text-blue-900/80 leading-relaxed">
+              <p className="font-semibold text-blue-900 mb-1 text-[14px]">MLS Photo Order Information</p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                <li>Photos will be published to the MLS in the order shown below.</li>
+                <li>The first image will be used as the listing&apos;s primary photo, where supported by the MLS.</li>
+                <li>Rearrange photos to control how they are presented to agents and buyers.</li>
+                <li>Save your changes before syncing to ensure the correct photo sequence is transmitted.</li>
+              </ul>
+            </div>
+          </div>
+
           {totalFilesCount > 0 ? (
             <>
               <div className="flex items-center justify-between mb-4 px-2">
                 <div className="flex items-center gap-x-2.5">
-                    <div
-                    onClick={() => handleSelectAllGlobal(!(selectedFiles.length === totalFilesCount && totalFilesCount > 0))}
-                    className={`w-4 h-4 flex items-center justify-center rounded-[2px] cursor-pointer bg-white border border-[#666666] transition-all ${!isMlsValid ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
+                  <div
+                    onClick={() => {
+                      if (!isReorderMode) {
+                        handleSelectAllGlobal(!(selectedFiles.length === totalFilesCount && totalFilesCount > 0))
+                      }
+                    }}
+                    className={`w-4 h-4 flex items-center justify-center rounded-[2px] cursor-pointer bg-white border border-[#666666] transition-all ${(!isMlsValid || isReorderMode) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
                     {selectedFiles.length === totalFilesCount && totalFilesCount > 0 && (
-                        <div className={`${userType}-bg w-2.5 h-2.5 rounded-[1px]`} />
+                      <div className={`${userType}-bg w-2.5 h-2.5 rounded-[1px]`} />
                     )}
-                    </div>
-                    <label className={`text-[#666666] text-sm font-medium uppercase tracking-tight ${!isMlsValid ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                  </div>
+                  <label className={`text-[#666666] text-sm font-medium uppercase tracking-tight ${(!isMlsValid || isReorderMode) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
                     Select All ({selectedFiles.length}/{totalFilesCount})
-                    </label>
+                  </label>
                 </div>
+                {isReorderMode ? (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-[12px] border-[#BBBBBB] text-[#666666]"
+                      onClick={handleCancelReorder}
+                      disabled={isGlobalSaving}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-8 text-[12px] bg-[#4290E9] hover:bg-[#4999f5] text-white"
+                      onClick={handleSaveReorder}
+                      disabled={isGlobalSaving}
+                    >
+                      {isGlobalSaving ? "Saving..." : "Done"}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-[12px] gap-1.5 font-medium border border-[#BBBBBB] text-[#666666] hover:border-[#4290E9] hover:text-[#4290E9]"
+                    onClick={() => setIsReorderMode(true)}
+                  >
+                    <ArrowLeftRight className="w-3.5 h-3.5" /> Reorder
+                  </Button>
+                )}
               </div>
 
-              <Accordion type="multiple" defaultValue={groupedFiles.map(g => g.name)} className="space-y-4">
-                {groupedFiles.map((group) => {
-                  const allGroupSelected = group.files.every(f => selectedFiles.includes(f.id));
-                  const someGroupSelected = group.files.some(f => selectedFiles.includes(f.id));
+              {photoItems.length > 0 && (
+                <div className="mb-6">
+                  <p className={`text-[15px] font-semibold ${userType}-text mb-3 uppercase tracking-wider`}>
+                    Photos ({photoItems.length})
+                  </p>
+                  <SortableGrid
+                    items={photoItems}
+                    onOrderChange={handlePhotoOrderChange}
+                    mode={isReorderMode ? "reorder" : "upload"}
+                    renderItem={renderPhotoCard}
+                    columns={4}
+                  />
+                </div>
+              )}
 
-                  return (
-                    <AccordionItem key={group.name} value={group.name} className="border border-[#E4E4E4] rounded-lg bg-white overflow-hidden shadow-sm">
-                      <div className="flex items-center bg-gray-50/80 px-4 border-b border-[#E4E4E4]">
-                        <div
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectService(group.files, !allGroupSelected);
-                          }}
-                          className={`w-4 h-4 flex items-center justify-center rounded-[2px] cursor-pointer bg-white border border-[#666666] transition-all mr-3 ${!isMlsValid ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                          {allGroupSelected ? (
-                            <div className={`${userType}-bg w-2.5 h-2.5 rounded-[1px]`} />
-                          ) : someGroupSelected ? (
-                            <div className="bg-gray-400 w-2 h-0.5" />
-                          ) : null}
-                        </div>
-                        <AccordionTrigger className="flex-1 py-4 hover:no-underline font-semibold text-[15px] uppercase text-[#424242]">
-                          <div className="flex items-center gap-2">
-                             <Package className={`w-4 h-4 ${userType}-text`} />
-                             {group.name}
-                             <span className="text-[12px] font-normal text-[#999999] ml-2">
-                               ({group.files.filter(f => selectedFiles.includes(f.id)).length}/{group.files.length} Selected)
-                             </span>
-                          </div>
-                        </AccordionTrigger>
-                      </div>
-                      <AccordionContent className="p-4 pb-2">
-                        <div className="grid grid-cols-1 gap-y-3">
-                          {group.files.map((file) => (
-                            <div
-                              key={file.id}
-                              className={`flex items-center gap-x-4 p-3 bg-white rounded-lg border border-[#F0F0F0] transition-colors ${!isMlsValid ? 'opacity-50' : 'hover:border-[#BBBBBB]'}`}
-                            >
-                              <div
-                                onClick={() => handleToggleFile(file.id)}
-                                className={`w-5 h-5 flex items-center justify-center rounded-[4px] bg-white border border-[#BBBBBB] shrink-0 ${!isMlsValid ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                              >
-                                {selectedFiles.includes(file.id) && (
-                                  <div className={`${userType}-bg w-3 h-3 rounded-[2px]`} />
-                                )}
-                              </div>
-
-                              <div className="relative w-[100px] h-[65px] shrink-0 bg-gray-100 rounded-md overflow-hidden shadow-inner">
-                                {file.type === 'photo' ? (
-                                  /* eslint-disable-next-line @next/next/no-img-element */
-                                  <img
-                                    src={file.thumbnail_url || file.variant_urls?.thumb || file.url}
-                                    alt={file.name}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : file.type === 'video' ? (
-                                  <div className="relative w-full h-full">
-                                    <video src={file.url} className="w-full h-full object-cover" />
-                                    <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                                       <div className="w-8 h-8 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center">
-                                          <div className="w-0 h-0 border-t-[5px] border-t-transparent border-l-[8px] border-l-white border-b-[5px] border-b-transparent ml-1" />
-                                       </div>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold uppercase text-xs">
-                                    {file.name.split('.').pop() || 'FILE'}
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="flex flex-col gap-y-1 flex-grow min-w-0">
-                                <p className="text-[#424242] text-[15px] font-semibold truncate leading-tight">{file.name}</p>
-                                <p className="text-[#999999] text-[11px] uppercase font-medium">{file.type}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  );
-                })}
-              </Accordion>
+              {videoItems.length > 0 && (
+                <div>
+                  <p className={`text-[15px] font-semibold ${userType}-text mb-3 uppercase tracking-wider`}>
+                    Videos ({videoItems.length})
+                  </p>
+                  <SortableGrid
+                    items={videoItems}
+                    onOrderChange={handleVideoOrderChange}
+                    mode={isReorderMode ? "reorder" : "upload"}
+                    renderItem={renderPhotoCard}
+                    columns={4}
+                  />
+                </div>
+              )}
             </>
           ) : (
             <div className="bg-white p-8 rounded-lg border border-[#E4E4E4] flex flex-col items-center justify-center text-center">
-               <Package className="w-12 h-12 text-gray-300 mb-4" />
-               <p className={`${userType}-text font-semibold text-[16px] mb-1`}>
-                 No media available for sync.
-               </p>
-               <p className="text-gray-500 text-[14px]">
-                 You have not approved any media or service not paid yet.
-               </p>
+              <Package className="w-12 h-12 text-gray-300 mb-4" />
+              <p className={`${userType}-text font-semibold text-[16px] mb-1`}>
+                No media available for sync.
+              </p>
+              <p className="text-gray-500 text-[14px]">
+                You have not approved any media or service not paid yet.
+              </p>
             </div>
           )}
         </div>
 
-        <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-3 font-alexandria border-t border-[#E4E4E4] pt-4 mt-2">
+        <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-3 font-alexandria border-t border-[#E4E4E4] pt-1">
           <Button
             variant="outline"
             onClick={onClose}
@@ -366,7 +580,7 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
           </Button>
           <Button
             onClick={handleSync}
-            disabled={!isMlsValid || selectedFiles.length === 0 || isSyncing}
+            disabled={!isMlsValid || selectedFiles.length === 0 || isSyncing || isReorderMode}
             className={`${userType}-bg rounded-[6px] text-white hover:opacity-80 hover:${userType}-bg w-full md:w-[200px] h-[44px] font-semibold text-[16px] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md`}
           >
             {isSyncing ? (
@@ -379,9 +593,10 @@ const SyncMlsModal: React.FC<Props> = ({ open, onClose, apiFiles, orderData, tou
             )}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </DialogContent >
+    </Dialog >
   );
 };
 
 export default SyncMlsModal;
+

@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
@@ -74,6 +75,8 @@ interface FeatureSheetComponentRef {
 
 interface CreateFeatureSheetProps {
   orderData: Order | null;
+  isReadonly?: boolean;
+  previewSheetUuid?: string;
 }
 
 export interface CreateFeatureSheetRef {
@@ -81,13 +84,13 @@ export interface CreateFeatureSheetRef {
 }
 
 const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetProps>(
-  function CreateFeatureSheet({ orderData }, ref) {
+  function CreateFeatureSheet({ orderData, isReadonly = false, previewSheetUuid }, ref) {
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
     const logoInputRef = useRef<HTMLInputElement | null>(null);
     const [email, setEmail] = useState<string>("");
     const [linkedin, setLinkedin] = useState<string>("");
     const [phone, setPhone] = useState<string>("");
-    const [previewMode, setPreviewMode] = useState<"print" | "fit">("print");
+    const [previewMode] = useState<"print" | "fit">("print");
     const workspaceRef = useRef<HTMLDivElement>(null);
     const [workspaceWidth, setWorkspaceWidth] = useState(1200);
     const {
@@ -121,6 +124,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
     const realtorInputRef = useRef<HTMLInputElement | null>(null);
     const searchParams = useSearchParams();
     const listingId = searchParams.get("listingId");
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [customPdf, setCustomPdf] = useState<{
       name: string;
       url: string;
@@ -526,6 +530,24 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
       fetchAgentSheets();
     }, [activeTab]);
 
+    // Force load the specific sheet if previewSheetUuid is provided or in readonly mode
+    useEffect(() => {
+      if (featureSheets.length > 0 && !selectedSheetUuid) {
+        if (previewSheetUuid) {
+          const sheet = featureSheets.find(s => s.uuid === previewSheetUuid);
+          if (sheet) {
+            setSelectedTemplate(sheet.template_key);
+            setSelectedSheetUuid(sheet.uuid);
+            return;
+          }
+        }
+        if (isReadonly && featureSheets.length > 0) {
+          setSelectedTemplate(featureSheets[0].template_key);
+          setSelectedSheetUuid(featureSheets[0].uuid);
+        }
+      }
+    }, [isReadonly, featureSheets, selectedSheetUuid, previewSheetUuid]);
+
     // Load data into formData when selectedTemplate changes
     useEffect(() => {
       if (!selectedTemplate || featureSheets.length === 0) return;
@@ -695,10 +717,11 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
     return (
       <>
         <div className="w-full h-auto">
-          <div className="flex justify-between h-[60px] items-center bg-[#E4E4E4] px-4">
-            <div className="flex gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+          {!isReadonly && (
+            <div className="flex justify-between h-[60px] items-center bg-[#E4E4E4] px-4">
+              <div className="flex gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                   <button
                     disabled={isDownloading}
                     className={`flex items-center justify-center gap-2 px-4 py-2 text-[13px] w-[164px] h-[32px] transition-colors ${userType}-bg text-white rounded-[6px] font-[500] disabled:opacity-50`}
@@ -762,8 +785,9 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
               {/* Service integration removed */}
             </div>
           </div>
+          )}
 
-          {!selectedTemplate && (
+          {!selectedTemplate && !isReadonly && (
             <div className="flex flex-col items-center w-full">
               <div className="flex gap-[20px] justify-center items-center bg-[#E4E4E4] w-full h-[60px] border-t-[1px] border-[#BBBBBB]">
                 <button
@@ -815,7 +839,7 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
             </div>
           )}
 
-          {!selectedTemplate && (
+          {!selectedTemplate && !isReadonly && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-20 mt-8 mb-20 h-auto px-20">
               {/* Saved Feature Sheets Section */}
               {featureSheets.length > 0 && (
@@ -1025,9 +1049,10 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
             <form>
               <Accordion
                 type="multiple"
-                defaultValue={["FeatureSheetSettings", "FeatureSheetPreview"]}
+                defaultValue={isReadonly ? ["FeatureSheetPreview"] : ["FeatureSheetSettings", "FeatureSheetPreview"]}
                 className="w-full space-y-4"
               >
+                {!isReadonly && (
                 <AccordionItem value="FeatureSheetSettings">
                   <AccordionTrigger
                     className={` overflow-visible px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:currentColor  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
@@ -1334,69 +1359,37 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                     </div>
                   </AccordionContent>
                 </AccordionItem>
+                )}
 
-                <AccordionItem value="FeatureSheetPreview">
+                <AccordionItem value="FeatureSheetPreview" className="border-t-[1px] border-[#BBBBBB]">
                   <AccordionTrigger
-                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                    className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] uppercase [&>svg]:text-[#4290E9]  [&>svg]:w-6 [&>svg]:h-6  [&>svg]:stroke-[2] [&>svg]:stroke-current hover:no-underline`}
                   >
-                    <span className="flex items-center gap-2">
-                      Feature Sheet Preview
-                    </span>
+                    <div className="flex items-center justify-between w-full pr-4">
+                      <span className="flex items-center gap-2">
+                        Feature Sheet Preview
+                      </span>
+                      <Button 
+                        onClick={(e) => { 
+                          e.preventDefault(); 
+                          e.stopPropagation(); 
+                          handleDownload(false); 
+                        }}
+                        disabled={isDownloading}
+                        className="shadow-md h-[36px] text-sm font-semibold capitalize px-4 bg-white border-2 border-current text-current hover:bg-gray-50"
+                      >
+                        {isDownloading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Generating...
+                          </>
+                        ) : "Download PDF"}
+                      </Button>
+                    </div>
                   </AccordionTrigger>
                   <AccordionContent className="grid gap-4 !overflow-visible !max-h-full">
-                    {customPdf && (
-                      <div
-                        id="pdf-section"
-                        className="w-full bg-white"
-                        style={{ height: "400vh" }}
-                      >
-                        <iframe
-                          src={`${customPdf.url}#toolbar=0&navpanes=0&scrollbar=0`}
-                          className="w-full h-full border-none"
-                          style={{
-                            overflow: "hidden",
-                            minHeight: "100vh",
-                          }}
-                          title="Custom Feature Sheet PDF"
-                        />
-                      </div>
-                    )}
-
-                    {/* Preview Mode Toggle Button */}
-                    {!customPdf && (
-                      <>
-                        <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-3 rounded-lg border border-[#BBBBBB] shadow-sm mb-4 gap-4">
-                          <div className="text-sm font-medium text-gray-700">
-                            Workspace Preview Mode: <span className="font-semibold capitalize text-blue-600">{previewMode === "print" ? "Print Layout (100% Paper Size)" : "Fit to Screen"}</span>
-                          </div>
-                          <div className="flex bg-gray-100 p-1 rounded-md border border-gray-200">
-                            <button
-                              type="button"
-                              onClick={() => setPreviewMode("print")}
-                              className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${previewMode === "print"
-                                ? "bg-white text-gray-900 shadow-sm"
-                                : "text-gray-500 hover:text-gray-900"
-                                }`}
-                            >
-                              Print Preview
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPreviewMode("fit")}
-                              className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${previewMode === "fit"
-                                ? "bg-white text-gray-900 shadow-sm"
-                                : "text-gray-500 hover:text-gray-900"
-                                }`}
-                            >
-                              Fit to Screen
-                            </button>
-                          </div>
-                        </div>
-
-                        <div
-                          ref={workspaceRef}
-                          className="pdf-preview-workspace flex justify-center w-full bg-[#E4E4E4] py-8 overflow-auto custom-scrollbar"
-                        >
+                    <div className="flex-1 overflow-auto bg-gray-50 flex items-center justify-center p-8">
+                        <div className="relative shadow-xl">
                           <div
                             id="pdf-section"
                             className={isTabloid ? "tabloid-sheet" : ""}
@@ -1567,9 +1560,18 @@ const CreateFeatureSheet = forwardRef<CreateFeatureSheetRef, CreateFeatureSheetP
                             )}
                           </div>
                         </div>
+                      </div>
+                    {!isReadonly && (
+                      <>
+                        {/* Print Request Drawer */}
+                        <div className="fixed bottom-0 right-0 p-4 border-l border-t border-gray-200 bg-white rounded-tl-lg shadow-lg z-50 hidden">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-semibold text-lg text-gray-800">Print Request</h3>
+                          </div>
+                          <PrintRequestModal featureSheetUuid={selectedSheetUuid || ""} orderUuid={orderData?.uuid || ""} open={isPrintModalOpen} onClose={() => setIsPrintModalOpen(false)} />
+                        </div>
                       </>
                     )}
-
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>

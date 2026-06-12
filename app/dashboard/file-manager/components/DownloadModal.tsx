@@ -28,6 +28,7 @@ export type ApiFile = {
   is_processing?: boolean;
   thumbnail_url?: string;
   is_paid?: boolean;
+  sort_order?: number;
   variant_urls?: {
     thumb?: string;
     popup?: string;

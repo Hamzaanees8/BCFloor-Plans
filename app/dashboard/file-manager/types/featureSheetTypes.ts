@@ -128,6 +128,32 @@ export interface FeatureSheetTheme {
 
 
 export type TemplateType = "listing" | "tabloid";
+
+export const templateImages: { id: string; type: TemplateType; url: string }[] = [
+  { id: "BCFPStandard2", type: "tabloid", url: "BcfpStandard2" },
+  { id: "BCFPStandard3", type: "tabloid", url: "BcfpStandard3" },
+  { id: "BCFPStandard4", type: "tabloid", url: "BcfpStandard4" },
+  { id: "BCFPStandard6", type: "tabloid", url: "BcfpStandard6" },
+  { id: "BCFPStandard7", type: "tabloid", url: "BcfpStandard7" },
+  { id: "BCFPStandard8", type: "tabloid", url: "BcfpStandard8" },
+  { id: "BCFPStandard9", type: "tabloid", url: "BcfpStandard9" },
+  { id: "BCFPStandard10", type: "tabloid", url: "BcfpStandard10" },
+  { id: "BCFPStandard11", type: "tabloid", url: "BcfpStandard11" },
+  { id: "BCFPStandard12", type: "tabloid", url: "BcfpStandard12" },
+  { id: "BCFPStandard13", type: "listing", url: "BcfpStandard13" },
+  { id: "BCFPStandard14", type: "tabloid", url: "BcfpStandard14" },
+  { id: "BCFPStandard15", type: "listing", url: "BcfpStandard15" },
+  { id: "BCFPStandard16", type: "listing", url: "BcfpStandard16" },
+  { id: "BCFPStandard17", type: "listing", url: "BcfpStandard17" },
+  { id: "BCFPStandard18", type: "listing", url: "BcfpStandard18" },
+  { id: "BCFPStandard19", type: "listing", url: "BcfpStandard19" },
+  { id: "BCFPStandard20", type: "listing", url: "BcfpStandard20" },
+  { id: "BCFPStandard21", type: "listing", url: "BcfpStandard21" },
+  { id: "BCFPStandard22", type: "listing", url: "BcfpStandard22" },
+  { id: "BCFPStandard23", type: "tabloid", url: "BcfpStandard23" },
+  { id: "BCFPStandard24", type: "tabloid", url: "BcfpStandard24" },
+];
+
 export type UploadedBy = "admin" | "agent" | "vendor";
 export type FeatureSheetType = "template" | "custom" | "pdf";
 

@@ -293,6 +293,11 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 style={{ backgroundColor: `var(--${userType}-page-bg, #BBBBBB)` }}
             >
                 <div className="relative w-full aspect-video overflow-hidden">
+                    {file.is_complimentary && (
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-[#DC9600] text-white text-[8px] sm:text-[10px] px-3 sm:px-4 py-0.5 rounded-b-xl font-medium z-[100] flex items-center justify-center shadow-md">
+                            Complimentary
+                        </div>
+                    )}
                     {isLocal ? (
                         <>
                             <OptimizedImagePreview
@@ -550,8 +555,8 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
     useEffect(() => {
         const checkServiceCompletion = async () => {
             const token = localStorage.getItem("token");
-            // Count only agent approved files
-            const numberOfApprovedFiles = currentServiceFiles?.filter(f => f.is_agent_approved).length ?? 0
+            // Count only agent approved files that are NOT complimentary
+            const numberOfApprovedFiles = currentServiceFiles?.filter(f => f.is_agent_approved && !f.is_complimentary).length ?? 0
 
             if (numberOfApprovedFiles >= (bookingToUse?.option?.quantity ?? 1)) {
                 if (token && currentBookedService?.uuid && orderData?.uuid && !currentBookedService?.is_completed) {
@@ -867,7 +872,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                     <div className="flex items-center gap-8">
                         <div className="flex flex-col items-center">
                             <span className="text-[22px] font-medium text-[#7D7D7D] leading-none">
-                                {currentServiceFiles?.filter(f => f.is_agent_approved).length || 0} <span className="text-[#7D7D7D]">/ {bookingToUse?.option?.quantity || 0}</span>
+                                {currentServiceFiles?.filter(f => f.is_agent_approved && !f.is_complimentary).length || 0} <span className="text-[#7D7D7D]">/ {bookingToUse?.option?.quantity || 0}</span>
                             </span>
                             <span className="text-[12px] text-[#7D7D7D] mt-1">Selected</span>
                         </div>
