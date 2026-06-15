@@ -49,8 +49,10 @@ type Props = {
     onOpenInvoice?: (serviceName?: string) => void;
     gstRate?: number;
     onSave?: () => void;
+    isScrolled?: boolean;
+    stickyOffset?: number;
 };
-const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrderData, currentService, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate }) => {
+const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrderData, currentService, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset }) => {
     const { floorFiles, setFloorFiles, filesData, setFilesData, setChangedFileUuids, setSelectionChangedUuids, area, setArea, fileManagerMode, setFileManagerMode, imagesPerRow, isSaving, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
     const [replacingFile, setReplacingFile] = useState<File | null>(null);
     const [openPreview, setOpenPreview] = useState(false);
@@ -730,16 +732,28 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
 
     return (
         <div>
-            {!isListing &&
+            {!isListing && (
                 <div
-                    className='relative w-full justify-between h-[65px] font-alexandria pr-5 z-10 flex items-center border-b border-[#BBBBBB] px-6 overflow-visible'
-                    style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
+                    className={`w-full justify-between font-alexandria pr-5 z-10 flex items-center border-b border-[#BBBBBB] px-6 overflow-visible transition-all duration-300 ${
+                      isScrolled ? "sticky h-[44px] shadow-sm" : "relative h-[65px]"
+                    }`}
+                    style={{
+                      backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)`,
+                      top: isScrolled ? `${stickyOffset}px` : "auto"
+                    }}
                 >
 
                     <div>
                         {(userType !== 'agent') ? (
                             <div className="flex gap-2 items-center">
-                                <Button onClick={() => fileInputRef.current?.click()} className={`w-[150px] md:w-[143px] h-[32px] md:h-[32px]  justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg`}>Add File</Button>
+                                <Button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className={`justify-center rounded-[6px] font-raleway border-[1px] ${userType}-border ${userType}-bg text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover-${userType}-bg transition-all duration-300 ${
+                                        isScrolled ? "h-[28px] w-[120px] text-[11px]" : "w-[150px] md:w-[143px] h-[32px] md:h-[32px] text-[14px] md:text-[16px] font-[600]"
+                                    }`}
+                                >
+                                    Add File
+                                </Button>
                             </div>
                         ) : (
                             <div className="flex gap-2 items-center">
@@ -749,17 +763,23 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                     }}
                                     title={!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "service not paid yet" : ""}
                                     disabled={!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID")}
-                                    className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                                    className={`${userType}-bg hover-${userType}-bg flex justify-center items-center transition-all duration-300 ${
+                                        isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                    } ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                                >
                                     Download Files
                                 </Button>
                             </div>
                         )}
                     </div>
                     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-                        <p className='flex flex-col items-center pointer-events-auto'><span className={`${userType}-text font-bold text-[16px]`}>{currentService ? currentService.name : ''}</span>
-                            <span className='text-[12px] text-[#7D7D7D]'>
-                                {bookingToUse?.option?.title || `${bookingToUse?.option?.quantity || 0} Files`}
-                            </span>
+                        <p className='flex flex-col items-center pointer-events-auto'>
+                            <span className={`font-bold transition-all duration-300 ${userType}-text ${isScrolled ? "text-[13px]" : "text-[16px]"}`}>{currentService ? currentService.name : ''}</span>
+                            {!isScrolled && (
+                                <span className='text-[12px] text-[#7D7D7D]'>
+                                    {bookingToUse?.option?.title || `${bookingToUse?.option?.quantity || 0} Files`}
+                                </span>
+                            )}
                         </p>
                     </div>
                     <div className='flex items-center gap-x-[14px]'>
@@ -770,7 +790,9 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                     onClick={() => {
                                         setShowDownloadModal(true);
                                     }}
-                                    className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}
+                                    className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${
+                                        isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                    }`}
                                 >
                                     Download Files
                                 </Button>
@@ -786,7 +808,9 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                         }
                                     }}
                                     variant={isHidingMode ? 'default' : 'outline'}
-                                    className={`h-[32px] w-[120px] flex justify-center items-center ${isHidingMode ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white' : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50'}`}
+                                    className={`flex justify-center items-center transition-all duration-300 ${
+                                        isScrolled ? "h-[28px] w-[100px] text-[11px]" : "h-[32px] w-[120px]"
+                                    } ${isHidingMode ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white' : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50'}`}
                                 >
                                     {isHidingMode ? 'Save' : 'Hide Media'}
                                 </Button>
@@ -796,7 +820,9 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                     <Button
                                         onClick={handleSubmitAdminApproval}
                                         disabled={isSubmitting}
-                                        className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] min-w-[150px] w-fit px-4 flex justify-center items-center font-alexandria`}
+                                        className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${
+                                            isScrolled ? "h-[28px] min-w-[120px] w-fit px-2 text-[11px]" : "h-[32px] min-w-[150px] w-fit px-4"
+                                        }`}
                                     >
                                         {isSubmitting ? (
                                             <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -814,7 +840,9 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                             if (onSave) onSave();
                                         }}
                                         disabled={isSaving}
-                                        className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center `}
+                                        className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center transition-all duration-300 ${
+                                            isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                        }`}
                                     >
                                         {isSaving ? (
                                             <>
@@ -915,7 +943,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                         />
                         <FilePreviewModal type='floor_plans' open={openPreview} onOpenChange={() => { setOpenPreview(false) }} files={files} setSelectedFiles={setFloorFiles} serviceUuid={currentService?.uuid || ""} reviewFilesEnabled={reviewFilesEnabled} onSave={onSave} />
                     </div>
-                </div>}
+                </div>)}
             {userType === 'admin' && <div className="">
                 {/* {!success ? (
                                     <Button

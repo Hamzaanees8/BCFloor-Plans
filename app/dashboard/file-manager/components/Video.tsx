@@ -27,7 +27,7 @@ import { api } from '@/lib/api';
 
 
 
-function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number }) {
+function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, isScrolled?: boolean, stickyOffset?: number }) {
     const [files, setFiles] = useState<File[]>([]);
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [open, setOpen] = useState(false);
@@ -655,16 +655,25 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
     return (
         <div>
             <div
-                className='relative h-[66px] w-full flex justify-between items-center px-4 font-alexandria'
-                style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
+                className={`w-full flex justify-between items-center px-4 font-alexandria transition-all duration-300 z-10 ${
+                  isScrolled ? "sticky h-[44px] shadow-sm" : "relative h-[66px]"
+                }`}
+                style={{
+                  backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)`,
+                  top: isScrolled ? `${stickyOffset}px` : "auto"
+                }}
             >
                 <div>
                     {(userType !== 'agent') ? (
                         <div className="flex gap-2 items-center">
                             <Button
-
                                 onClick={handleFileInputClick}
-                                className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}>Add File</Button>
+                                className={`${userType}-bg flex justify-center items-center hover-${userType}-bg transition-all duration-300 ${
+                                    isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                }`}
+                            >
+                                Add File
+                            </Button>
                             <input
                                 ref={fileInputRef}
                                 type="file"
@@ -681,7 +690,9 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                     setShowDownloadModal(true);
                                 }}
                                 disabled={!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID")}
-                                className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                                className={`${userType}-bg hover-${userType}-bg flex justify-center items-center transition-all duration-300 ${
+                                    isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                } ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
                                 Download Files
                             </Button>
                         </div>
@@ -689,18 +700,20 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 </div>
                 <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
                     <p className='flex flex-col items-center pointer-events-auto'>
-                        <span className={`${userType}-text font-bold text-[16px]`}>
+                        <span className={`font-bold transition-all duration-300 ${userType}-text ${isScrolled ? "text-[13px]" : "text-[16px]"}`}>
                             {currentService ? currentService.name : ''}
                         </span>
 
-                        <span className='text-[12px] text-[#7D7D7D]'>
-                            {bookingToUse?.option?.title || `${bookingToUse?.option?.quantity || 0} Files`}
-                            {userType !== 'agent' && (
-                                <span className='ml-1'>
-                                    ({currentServiceFiles?.filter(f => !f.is_deleted).length || 0} / {bookingToUse?.option?.quantity || 1})
-                                </span>
-                            )}
-                        </span>
+                        {!isScrolled && (
+                            <span className='text-[12px] text-[#7D7D7D]'>
+                                {bookingToUse?.option?.title || `${bookingToUse?.option?.quantity || 0} Files`}
+                                {userType !== 'agent' && (
+                                    <span className='ml-1'>
+                                        ({currentServiceFiles?.filter(f => !f.is_deleted).length || 0} / {bookingToUse?.option?.quantity || 1})
+                                    </span>
+                                )}
+                            </span>
+                        )}
                     </p>
                 </div>
                 <div className='flex justify-center items-center gap-x-[14px]'>
@@ -710,7 +723,9 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                             onClick={() => {
                                 setShowDownloadModal(true);
                             }}
-                            className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}
+                            className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${
+                                isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                            }`}
                         >
                             Download Files
                         </Button>
@@ -726,7 +741,9 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                 }
                             }}
                             variant={isHidingMode ? 'default' : 'outline'}
-                            className={`h-[32px] w-[120px] flex justify-center items-center ${isHidingMode ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white' : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50'}`}
+                            className={`flex justify-center items-center transition-all duration-300 ${
+                                isScrolled ? "h-[28px] w-[100px] text-[11px]" : "h-[32px] w-[120px]"
+                            } ${isHidingMode ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white' : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50'}`}
                         >
                             {isHidingMode ? 'Save' : 'Hide Media'}
                         </Button>
@@ -736,7 +753,9 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                             <Button
                                 onClick={handleSubmitAdminApproval}
                                 disabled={isSubmitting}
-                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] min-w-[150px] w-fit px-4 flex justify-center items-center font-alexandria`}
+                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${
+                                    isScrolled ? "h-[28px] min-w-[120px] w-fit px-2 text-[11px]" : "h-[32px] min-w-[150px] w-fit px-4"
+                                }`}
                             >
                                 {isSubmitting ? (
                                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -750,11 +769,13 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                 onClick={() => {
                                     setFileManagerMode('upload');
                                     setMediaUploaded(true);
-                                    setShowConfirmation(true)
+                                    setShowConfirmation(true);
                                     if (onSave) onSave();
                                 }}
                                 disabled={isSaving}
-                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[var(--primary-color)] hover:opacity-90 text-white'}  h-[32px] w-[150px] flex justify-center items-center `}
+                                className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : 'bg-[var(--primary-color)] hover:opacity-90 text-white'} flex justify-center items-center transition-all duration-300 ${
+                                    isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                }`}
                                 style={!mediaUploaded ? { backgroundColor: 'var(--primary-color)' } : {}}
                             >
                                 {isSaving ? (

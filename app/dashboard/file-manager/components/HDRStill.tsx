@@ -48,13 +48,13 @@ export interface PaymentData {
 }
 
 
-function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: (overrideChangedFiles?: Files[]) => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number }) {
+function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: (overrideChangedFiles?: Files[]) => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, isScrolled?: boolean, stickyOffset?: number }) {
     const [files, setFiles] = useState<File[]>([]);
     const [sortBy, setSortBy] = useState<'order' | 'name' | 'date'>('order');
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [open, setOpen] = useState(false);
     const [openUpgrade, setOpenUpgrade] = useState(false);
-    const { selectedFiles, setSelectedFiles, filesData, setFilesData, changedFileUuids, setChangedFileUuids, setSelectionChangedUuids, fileManagerMode, setFileManagerMode, imagesPerRow, isSaving, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
+    const { selectedFiles, setSelectedFiles, filesData, setFilesData, changedFileUuids, setChangedFileUuids, setSelectionChangedUuids, fileManagerMode, setFileManagerMode, imagesPerRow, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
     const [openPayment, setOpenPayment] = useState(false);
     const [, setSuccess] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1205,20 +1205,24 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     ))}
                 </>,
                 document.body
-            )}
-
-
-            {!isListing && (
+            )}            {!isListing && (
                 <div
-                    className='relative h-[66px] w-full flex justify-between items-center px-4 font-alexandria overflow-visible'
-                    style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
+                    className={`w-full flex justify-between items-center px-4 font-alexandria overflow-visible transition-all duration-300 z-10 ${
+                      isScrolled ? "sticky h-[44px] shadow-sm" : "relative h-[66px]"
+                    }`}
+                    style={{
+                      backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)`,
+                      top: isScrolled ? `${stickyOffset}px` : "auto"
+                    }}
                 >
                     <div>
                         {userType !== 'agent' ? (
                             <div className="flex gap-2 items-center">
                                 <Button
                                     onClick={handleFileInputClick}
-                                    className={`${userType}-bg h-[32px] w-[150px] flex justify-center items-center hover-${userType}-bg`}
+                                    className={`${userType}-bg flex justify-center items-center hover-${userType}-bg transition-all duration-300 ${
+                                        isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                    }`}
                                 >
                                     Add File
                                 </Button>
@@ -1239,7 +1243,9 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     }}
                                     title={!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "service not paid yet" : ""}
                                     disabled={!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID")}
-                                    className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                                    className={`${userType}-bg hover-${userType}-bg flex justify-center items-center transition-all duration-300 ${
+                                        isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                    } ${!(bookingToUse?.payment_status === "PAID" || orderData?.payment_status === "PAID") ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
                                     Download Files
                                 </Button>
                             </div>
@@ -1247,17 +1253,21 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                     </div>
                     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
                         <p className='flex flex-col items-center pointer-events-auto'>
-                            <span className={`${userType}-text font-bold text-[16px]`}>{currentService ? currentService.name : ''}</span>
-                            <span className='text-[12px] text-[#7D7D7D]'>
-                                {bookingToUse?.option?.title || `${bookingToUse?.option?.quantity || 0} Photos`}
-                            </span>
+                            <span className={`font-bold transition-all duration-300 ${userType}-text ${isScrolled ? "text-[13px]" : "text-[16px]"}`}>{currentService ? currentService.name : ''}</span>
+                            {!isScrolled && (
+                                <span className='text-[12px] text-[#7D7D7D]'>
+                                    {bookingToUse?.option?.title || `${bookingToUse?.option?.quantity || 0} Photos`}
+                                </span>
+                            )}
                         </p>
                     </div>
                     <div className='flex justify-center items-center gap-x-[14px]'>
                         {userType === 'admin' && (
                             <Button
                                 onClick={() => setShowDownloadModal(true)}
-                                className={`${userType}-bg hover-${userType}-bg h-[32px] w-[150px] flex justify-center items-center cursor-pointer`}
+                                className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${
+                                    isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                }`}
                             >
                                 Download Files
                             </Button>
@@ -1273,7 +1283,9 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                     }
                                 }}
                                 variant={isHidingMode ? 'default' : 'outline'}
-                                className={`h-[32px] w-[120px] flex justify-center items-center ${isHidingMode ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white' : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50'}`}
+                                className={`flex justify-center items-center transition-all duration-300 ${
+                                    isScrolled ? "h-[28px] w-[100px] text-[11px]" : "h-[32px] w-[120px]"
+                                } ${isHidingMode ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white' : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50'}`}
                             >
                                 {isHidingMode ? 'Save' : 'Hide Media'}
                             </Button>
@@ -1283,7 +1295,9 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 <Button
                                     onClick={handleSubmitAdminApproval}
                                     disabled={isSubmitting}
-                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] min-w-[150px] w-fit px-4 flex justify-center items-center font-alexandria`}
+                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${
+                                        isScrolled ? "h-[28px] min-w-[120px] w-fit px-2 text-[11px]" : "h-[32px] min-w-[150px] w-fit px-4"
+                                    }`}
                                 >
                                     {isSubmitting ? (
                                         <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -1298,23 +1312,21 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                         setShowConfirmation(true);
                                         handleSubmitToClient();
                                     }}
-                                    disabled={isSaving}
-                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} h-[32px] w-[150px] flex justify-center items-center`}
+                                    disabled={isSubmitting}
+                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center transition-all duration-300 ${
+                                        isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                    }`}
                                 >
-                                    {isSaving ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            Submitting...
-                                        </>
+                                    {isSubmitting ? (
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                     ) : mediaUploaded ? (
-                                        <Check color="#fff" size={14} />
-                                    ) : (
-                                        'Submit to Client'
-                                    )}
+                                        <Check color="#fff" size={14} className="mr-2" />
+                                    ) : null}
+                                    {mediaUploaded ? 'Submitted' : 'Send for Approval'}
                                 </Button>
                             )
                         )}
-                        {userType === 'admin' && (
+                    {userType === 'admin' && (
                             <div className='flex items-center gap-[10px]'>
                                 {/* <div className='flex flex-col justify-center items-end mr-2 text-right'>
                                     <p className='text-[16px] text-[#6BAE41] font-bold leading-none mb-1'>

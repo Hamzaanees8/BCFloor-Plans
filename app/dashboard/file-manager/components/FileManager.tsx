@@ -84,6 +84,22 @@ const FileManager = () => {
   const [activeTab, setActiveTab] = useState<string>("download");
   const [activeServiceIndex, setActiveServiceIndex] = useState<number>(0);
   const [orderData, setOrderData] = React.useState<Order | null>(null);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 120) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
   const { userType } = useAppContext();
   const {
     selectedFiles,
@@ -401,6 +417,10 @@ const FileManager = () => {
   };
 
   const activeServiceGroup = groupedServices.get(activeTab);
+  const hasSubTabs = activeServiceGroup && activeServiceGroup.length > 1;
+  const stickyOffset = isListing
+    ? 145 // 55 (header) + 40 (property links) + 50 (tabs)
+    : (hasSubTabs ? 141 : 105); // 55 (header) + 50 (tabs) + (36 subtabs if present)
   const mediaDateBoundary = computeMediaBoundary(
     activeServiceGroup,
     activeServiceIndex
@@ -460,6 +480,8 @@ const FileManager = () => {
               mediaDateBoundary={mediaDateBoundary}
               onOpenInvoice={handleOpenInvoice}
               gstRate={gstRate}
+              isScrolled={isScrolled}
+              stickyOffset={stickyOffset}
             />
           </div>
         );
@@ -476,6 +498,8 @@ const FileManager = () => {
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
             gstRate={gstRate}
+            isScrolled={isScrolled}
+            stickyOffset={stickyOffset}
           />
         );
       case "HDR Photos":
@@ -490,6 +514,8 @@ const FileManager = () => {
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
             gstRate={gstRate}
+            isScrolled={isScrolled}
+            stickyOffset={stickyOffset}
           />
         );
       case "3d rendering":
@@ -503,6 +529,8 @@ const FileManager = () => {
             onOpenInvoice={handleOpenInvoice}
             gstRate={gstRate}
             onSave={handleSave}
+            isScrolled={isScrolled}
+            stickyOffset={stickyOffset}
           />
         );
       case "drone":
@@ -517,6 +545,8 @@ const FileManager = () => {
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
             gstRate={gstRate}
+            isScrolled={isScrolled}
+            stickyOffset={stickyOffset}
           />
         );
       case "Staging":
@@ -530,6 +560,8 @@ const FileManager = () => {
             onOpenInvoice={handleOpenInvoice}
             gstRate={gstRate}
             onSave={handleSave}
+            isScrolled={isScrolled}
+            stickyOffset={stickyOffset}
           />
         );
       case "Standard Photos":
@@ -544,6 +576,8 @@ const FileManager = () => {
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
             gstRate={gstRate}
+            isScrolled={isScrolled}
+            stickyOffset={stickyOffset}
           />
         );
       case "Twilight Photos":
@@ -558,6 +592,8 @@ const FileManager = () => {
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
             gstRate={gstRate}
+            isScrolled={isScrolled}
+            stickyOffset={stickyOffset}
           />
         );
       case "3D Tour":
@@ -571,6 +607,8 @@ const FileManager = () => {
             onOpenInvoice={handleOpenInvoice}
             gstRate={gstRate}
             onSave={handleSave}
+            isScrolled={isScrolled}
+            stickyOffset={stickyOffset}
           />
         );
       default:
@@ -779,7 +817,9 @@ const FileManager = () => {
       <div
 
         ref={headerRef}
-        className="w-full h-[80px] font-alexandria pr-5 sticky top-0 z-50 flex justify-between items-center"
+        className={`w-full font-alexandria pr-5 sticky top-0 z-50 flex justify-between items-center transition-all duration-300 ${
+          isScrolled ? "h-[55px] shadow-md" : "h-[80px]"
+        }`}
         style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
       >
         {/* Invoices List Modal */}
@@ -1037,24 +1077,29 @@ const FileManager = () => {
               </>
             )}
           </DialogContent>
-        </Dialog>
-        <div className="flex items-center gap-x-4">
+        </Dialog>        <div className="flex items-center gap-x-4">
           {!isListing && (
             <div
-              className={`flex items-center p-4 gap-x-2.5 ${userType}-bg h-full w-[240px]`}
+              className={`flex items-center gap-x-2.5 ${userType}-bg h-full w-[240px] transition-all duration-300 ${
+                isScrolled ? "px-4 py-1" : "p-4"
+              }`}
             >
-              <Avatar className="h-8 w-8">
+              <Avatar className={`transition-all duration-300 ${isScrolled ? "h-6 w-6" : "h-8 w-8"}`}>
                 <AvatarImage src="https://github.com/shadcn.png" />
                 <AvatarFallback>CN</AvatarFallback>
               </Avatar>
               <div>
-                <p className="text-[14px] font-normal text-white font-alexandria leading-4">
+                <p className={`font-normal text-white font-alexandria leading-4 transition-all duration-300 ${
+                  isScrolled ? "text-[11px]" : "text-[14px]"
+                }`}>
                   {orgName}
                 </p>
                 {/* <p className="text-[14px] font-normal text-white font-alexandria leading-4">
                   Media Company Owner
                 </p> */}
-                <p className="text-[12px] font-normal text-white font-alexandria leading-4">
+                <p className={`font-normal text-white font-alexandria leading-4 transition-all duration-300 ${
+                  isScrolled ? "text-[10px]" : "text-[12px]"
+                }`}>
                   {(() => {
                     const vendor = activeSlot?.vendor || orderData?.vendor;
                     return vendor ? `${vendor.first_name} ${vendor.last_name}` : "Taylor Tayburn";
@@ -1064,7 +1109,9 @@ const FileManager = () => {
             </div>
           )}
           <p
-            className={`text-[16px] md:text-[24px] font-[400] pl-5 ${userType}-text`}
+            className={`font-[400] pl-5 ${userType}-text transition-all duration-300 ${
+              isScrolled ? "text-[13px] md:text-[16px]" : "text-[16px] md:text-[24px]"
+            }`}
           >
             {isListing
               ? `Listings › ${currentListing?.address || ""}`
@@ -1075,7 +1122,11 @@ const FileManager = () => {
           <Button
             onClick={() => handleSave()}
             disabled={isSaving}
-            className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button`}
+            className={`rounded-[6px] border-[1px] ${userType}-border font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button transition-all duration-300 ${
+              isScrolled
+                ? "w-[90px] md:w-[115px] h-[28px] md:h-[32px] text-[11px] md:text-[13px]"
+                : "w-[110px] md:w-[143px] h-[35px] md:h-[44px] text-[14px] md:text-[16px]"
+            }`}
             style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
           >
             {isSaving ? (
@@ -1090,20 +1141,16 @@ const FileManager = () => {
           {userType !== "vendor" && (
             <Button
               onClick={() => setShowInvoicesModal(true)}
-              className={`w-[110px] rounded-[6px] md:w-[143px] h-[35px] md:h-[44px]  border-[1px] ${userType}-border text-[14px] md:text-[16px] font-[400] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button`}
+              className={`rounded-[6px] border-[1px] ${userType}-border font-[400] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button transition-all duration-300 ${
+                isScrolled
+                  ? "w-[75px] md:w-[100px] h-[28px] md:h-[32px] text-[11px] md:text-[13px]"
+                  : "w-[110px] md:w-[143px] h-[35px] md:h-[44px] text-[14px] md:text-[16px]"
+              }`}
               style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
             >
               Invoice
             </Button>
           )}
-
-
-          {/* <Link
-            href={""}
-            className="w-[110px] md:w-[143px] h-[35px] md:h-[44px]  justify-center rounded-[6px] border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]"
-          >
-            Submit
-          </Link> */}
         </div>
         {/* Invoice Payment Dialog */}
       </div>
@@ -1150,13 +1197,17 @@ const FileManager = () => {
       </div>
       {isListing && (
         <div
-          className="w-full h-[60px] font-alexandria pr-5 sticky top-[80px] z-40 flex items-center border-b border-[#BBBBBB]"
+          className={`w-full font-alexandria pr-5 sticky z-40 flex items-center border-b border-[#BBBBBB] transition-all duration-300 ${
+            isScrolled ? "top-[55px] h-[40px]" : "top-[80px] h-[60px]"
+          }`}
           style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
         >
           <div className="flex items-center justify-center w-full">
             <div className="flex items-center justify-center gap-x-6 w-full">
               <div
-                className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${true
+                className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${
+                  isScrolled ? "h-[26px] w-[120px]" : "h-[30px] w-[150px]"
+                } ${true
                   ? `${userType}-bg text-white font-[700] ${userType}-border`
                   : `text-[#666666] font-[700]`
                   }`}
@@ -1171,7 +1222,9 @@ const FileManager = () => {
               {userType !== 'vendor' && (
                 <SafeLink
                   href={`/dashboard/listings/create/${currentListing?.uuid}`}
-                  className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${false
+                  className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${
+                    isScrolled ? "h-[26px] w-[120px]" : "h-[30px] w-[150px]"
+                  } ${false
                     ? `${userType}-bg text-white font-[700] ${userType}-border`
                     : `text-[#666666] font-[700]`
                     }`}
@@ -1186,7 +1239,9 @@ const FileManager = () => {
               )}
               <SafeLink
                 href={`/dashboard/orders/${orderId}`}
-                className={`h-[30px] w-[150px] cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${false
+                className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${
+                  isScrolled ? "h-[26px] w-[120px]" : "h-[30px] w-[150px]"
+                } ${false
                   ? `${userType}-bg text-white font-[700] ${userType}-border`
                   : `text-[#666666] font-[700]`
                   }`}
@@ -1203,13 +1258,19 @@ const FileManager = () => {
         </div>
       )}
       <div
-        className="w-full h-[90px] font-alexandria pr-5 z-10 flex items-center border-b border-[#BBBBBB]"
+        className={`w-full font-alexandria pr-5 flex items-center border-b border-[#BBBBBB] transition-all duration-300 sticky z-30 ${
+          isScrolled
+            ? `${isListing ? "top-[95px] h-[50px] shadow-sm" : "top-[55px] h-[50px] shadow-sm"}`
+            : `${isListing ? "top-[140px] h-[90px]" : "top-[80px] h-[90px]"}`
+        }`}
         style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
       >
         <div className="px-[26px]">
           {!isListing && (
             <div
-              className={`min-h-[32px] w-[115px] flex items-center cursor-pointer rounded-[24px] ${userType}-bg`}
+              className={`min-h-[32px] w-[115px] flex items-center cursor-pointer rounded-[24px] ${userType}-bg transition-all duration-300 ${
+                isScrolled ? "scale-90" : "scale-100"
+              }`}
               onClick={handleBackNavigation}
             >
               <div className="flex items-center px-[14px] py-[4px] gap-x-[10px]">
@@ -1231,7 +1292,9 @@ const FileManager = () => {
                 params.delete("serviceId"); // remove serviceId param
                 router.replace(`?${params.toString()}`);
               }}
-              className={`h-[60px] cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-200 ${activeTab === "download"
+              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-300 ${
+                isScrolled ? "h-[36px]" : "h-[60px]"
+              } ${activeTab === "download"
                 ? `bg-[#DC9600] text-white border-[#DC9600]`
                 : `text-[#DC9600] border-[#DC9600]`
                 }`}
@@ -1257,7 +1320,9 @@ const FileManager = () => {
                     params.set("serviceId", serviceUuid);
                     router.replace(`?${params.toString()}`);
                   }}
-                  className={`h-[60px] cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-200 ${isActive
+                  className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-300 ${
+                    isScrolled ? "h-[36px]" : "h-[60px]"
+                  } ${isActive
                     ? `${userType}-bg text-white ${userType}-border`
                     : `${userType}-text ${userType}-border`
                     }`}
@@ -1280,7 +1345,9 @@ const FileManager = () => {
                 params.delete("serviceId"); // remove serviceId param
                 router.replace(`?${params.toString()}`);
               }}
-              className={`h-[60px] cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-200 ${activeTab === "tour"
+              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-300 ${
+                isScrolled ? "h-[36px]" : "h-[60px]"
+              } ${activeTab === "tour"
                 ? `${userType}-bg text-white ${userType}-border`
                 : `${userType}-text  ${userType}-border`
                 }`}
@@ -1301,7 +1368,9 @@ const FileManager = () => {
                 params.delete("serviceId"); // remove serviceId param
                 router.replace(`?${params.toString()}`);
               }}
-              className={`h-[60px] cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-200 ${activeTab === "CreateFeatureSheet"
+              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-300 ${
+                isScrolled ? "h-[36px]" : "h-[60px]"
+              } ${activeTab === "CreateFeatureSheet"
                 ? `${userType}-bg text-white ${userType}-border`
                 : `${userType}-text  ${userType}-border`
                 }`}
@@ -1323,7 +1392,9 @@ const FileManager = () => {
                 setIsHiddenMediaModalOpen(true);
                 setIncludeHidden(true); // Ensure hidden files are fetched when opening the modal
               }}
-              className={`h-[40px] px-4 rounded-[6px] border-[1px] transition-all duration-200 text-[12px] md:text-[14px] font-[500] flex items-center gap-2 ${userType}-border ${userType}-text hover:text-white hover-${userType}-bg ${userType}-button`}
+              className={`rounded-[6px] border-[1px] transition-all duration-200 text-[12px] md:text-[14px] font-[500] flex items-center gap-2 ${userType}-border ${userType}-text hover:text-white hover-${userType}-bg ${userType}-button ${
+                isScrolled ? "h-[28px] px-2 text-[10px]" : "h-[40px] px-4"
+              }`}
               style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
             >
               Show Hidden Media
@@ -1335,10 +1406,14 @@ const FileManager = () => {
       {/* Sub-tabs for duplicate service bookings */}
       {activeServiceGroup && activeServiceGroup.length > 1 && (
         <div
-          className="w-full flex flex-col gap-0 border-b border-[#BBBBBB]"
+          className={`w-full flex flex-col gap-0 border-b border-[#BBBBBB] transition-all duration-300 sticky z-20 ${
+            isScrolled
+              ? `${isListing ? "top-[145px] h-[36px] shadow-sm" : "top-[105px] h-[36px] shadow-sm"}`
+              : `${isListing ? "top-[230px] h-[45px]" : "top-[170px] h-[45px]"}`
+          }`}
           style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), white 40%)` }}
         >
-          <div className="flex items-stretch h-[45px]">
+          <div className={`flex items-stretch transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[45px]"}`}>
             {activeServiceGroup.map((booking, idx) => {
               const isSubActive = idx === activeServiceIndex;
               const bookingDate = new Date(booking.created_at).toLocaleDateString("en-US", {

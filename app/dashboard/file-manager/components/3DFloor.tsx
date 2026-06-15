@@ -26,7 +26,7 @@ import {
 import { ServiceCompletion, HideMediaFiles } from '../file-manager';
 import { api } from '@/lib/api';
 
-function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, currentBookedService, onOpenInvoice, gstRate }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, onSave?: (overrideChangedFiles?: any[]) => Promise<void> | void }) {
+function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, onSave?: (overrideChangedFiles?: any[]) => Promise<void> | void, isScrolled?: boolean, stickyOffset?: number }) {
     const { links, setLinks, setPreviewFiles, filesData, setFilesData, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [openPayment, setOpenPayment] = useState(false);
@@ -360,21 +360,28 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
     return (
         <div className='font-alexandria w-full'>
 
-            {!isListing &&
+            {!isListing && (
                 <div
-                    className='relative h-[66px] w-full flex justify-between items-center px-4 font-alexandria'
-                    style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
+                    className={`w-full flex justify-between items-center px-4 font-alexandria transition-all duration-300 z-10 ${
+                      isScrolled ? "sticky h-[44px] shadow-sm" : "relative h-[66px]"
+                    }`}
+                    style={{
+                      backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)`,
+                      top: isScrolled ? `${stickyOffset}px` : "auto"
+                    }}
                 >
                     <div>
                     </div>
                     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
                         <p className='flex flex-col items-center pointer-events-auto'>
-                            <span className={`${userType}-text font-bold text-[16px]`}>
+                            <span className={`font-bold transition-all duration-300 ${userType}-text ${isScrolled ? "text-[13px]" : "text-[16px]"}`}>
                                 {currentService ? currentService.name : '3D Tour'}
                             </span>
-                            <span className='text-[12px] text-[#7D7D7D]'>
-                                {bookingToUse?.option?.title ?? '1 Link'}
-                            </span>
+                            {!isScrolled && (
+                                <span className='text-[12px] text-[#7D7D7D]'>
+                                    {bookingToUse?.option?.title ?? '1 Link'}
+                                </span>
+                            )}
                         </p>
                     </div>
                     <div className='flex justify-center items-center gap-x-[14px]'>
@@ -389,7 +396,9 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                     }
                                 }}
                                 disabled={isHidingLoading}
-                                className={`h-[32px] w-[120px] flex justify-center items-center ${isHidingMode ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white' : 'bg-gray-600 hover:bg-gray-700 text-white'}`}
+                                className={`flex justify-center items-center transition-all duration-300 ${
+                                    isScrolled ? "h-[28px] w-[100px] text-[11px]" : "h-[32px] w-[120px]"
+                                } ${isHidingMode ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white' : 'bg-gray-600 hover:bg-gray-700 text-white'}`}
                                 variant={isHidingMode ? 'default' : 'outline'}
                             >
                                 {isHidingLoading ? (
@@ -404,7 +413,9 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                 <Button
                                     onClick={handleSubmitAdminApproval}
                                     disabled={isSubmitting}
-                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] min-w-[150px] w-fit px-4 flex justify-center items-center font-alexandria`}
+                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center font-alexandria transition-all duration-300 ${
+                                        isScrolled ? "h-[28px] min-w-[120px] w-fit px-2 text-[11px]" : "h-[32px] min-w-[150px] w-fit px-4"
+                                    }`}
                                 >
                                     {isSubmitting ? (
                                         <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -416,34 +427,30 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                             ) : (
                                 <Button
                                     onClick={() => {
-                                        setMediaUploaded(true)
-                                        setShowConfirmation(true)
+                                        setMediaUploaded(true);
+                                        setShowConfirmation(true);
                                     }}
-                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`}  h-[32px] w-[150px] flex justify-center items-center `}>{mediaUploaded ? <Check color="#fff" size={14} /> : 'Send for Approval'} </Button>
+                                    className={`${mediaUploaded ? "bg-[#6BAE41] hover:bg-[#7dc94f]" : `${userType}-bg hover-${userType}-bg`} flex justify-center items-center transition-all duration-300 ${
+                                        isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                    }`}
+                                >
+                                    {mediaUploaded ? <Check color="#fff" size={14} /> : 'Send for Approval'}
+                                </Button>
                             )
                         )}
                         {userType === 'admin' && (
                             <div className='flex items-center gap-[10px] mr-2'>
-                                {/* <div className='flex flex-col justify-center items-end mr-2 text-right'>
-                                    <p className='text-[16px] text-[#6BAE41] font-bold leading-none mb-1'>
-                                        ${(parseFloat(bookingToUse?.option?.amount || "0") + (gstRate ? parseFloat(bookingToUse?.option?.amount || "0") * gstRate : 0)).toFixed(2)}
-                                    </p>
-                                    {gstRate ? (
-                                        <p className='text-[#7D7D7D] text-[9px] leading-none'>
-                                            incl. ${(parseFloat(bookingToUse?.option?.amount || "0") * gstRate).toFixed(2)} GST
-                                        </p>
-                                    ) : null}
-                                </div> */}
                                 <Button
                                     onClick={() => {
                                         if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
                                             onOpenInvoice?.(currentService?.name);
                                         }
                                     }}
-                                    className={`h-[32px] w-[100px] flex justify-center items-center 
-                                        ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
-                                            ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
-                                            : "bg-[#DC9600] hover:bg-[#eda304]"}`}
+                                    className={`flex justify-center items-center transition-all duration-300 ${
+                                        isScrolled ? "h-[28px] w-[90px] text-[11px]" : "h-[32px] w-[100px]"
+                                    } ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
+                                        ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
+                                        : "bg-[#DC9600] hover:bg-[#eda304]"}`}
                                 >
                                     {bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'PAID' : 'UNPAID'}
                                 </Button>
@@ -508,7 +515,7 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                         />
                     </div>
                 </div>
-            }
+            )}
 
             {!isListing && (
                 <div className={`p-4 flex ${userType === 'agent' ? 'justify-between' : 'justify-end'} items-center gap-4 border-b border-gray-200`}>
