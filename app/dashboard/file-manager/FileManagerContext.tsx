@@ -279,6 +279,9 @@ type FileManagerContextType = {
     deletedSnapshotUuids: Set<string>;
     setDeletedSnapshotUuids: Dispatch<SetStateAction<Set<string>>>;
 
+    tourSettings: any | null;
+    setTourSettings: Dispatch<SetStateAction<any | null>>;
+
     handleSave: (overrideChangedFiles?: Files[]) => Promise<void>;
 };
 
@@ -406,7 +409,7 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
     const [filesToHide, setFilesToHide] = useState<Set<string>>(new Set());
     const [includeHidden, setIncludeHidden] = useState<boolean>(false);
     const [deletedSnapshotUuids, setDeletedSnapshotUuids] = useState<Set<string>>(new Set());
-
+    const [tourSettings, setTourSettings] = useState<any | null>(null);
 
     const [formData, setFormData] = useState<FormData>(initialFormData);
 
@@ -471,13 +474,15 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
         setIncludeHidden,
         deletedSnapshotUuids,
         setDeletedSnapshotUuids,
+        tourSettings,
+        setTourSettings,
         handleSave: async () => {}
     }), [
         files, floorFiles, selectedFiles, links, brandedSelected, unBrandedSelected,
         previewFiles, selectedVideoFiles, droppedMarkers, delay, transition,
         audioUrl, selectedAudioTrack, formData, updateFormData, filesData,
         featureSheets, changedFileUuids, selectionChangedUuids, area, fileManagerMode, imagesPerRow,
-        isSaving, isHidingMode, filesToHide, includeHidden, deletedSnapshotUuids
+        isSaving, isHidingMode, filesToHide, includeHidden, deletedSnapshotUuids, tourSettings
         // handleSave is injected by FileManager, so it's not in the deps array here for the default context
     ]);
 

@@ -174,7 +174,7 @@ export function packagePayloadToFormData(payload: PackagePayload): FormData {
 export async function GetServices(token: string, orgSlug?: string | null) {
 
     try {
-        const url = orgSlug ? `/services/${encodeURIComponent(orgSlug)}` : `/services`;
+        const url = orgSlug ? `/services?slug=${encodeURIComponent(orgSlug)}` : `/services`;
         const response = await api.get(url, {
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -277,7 +277,7 @@ export async function CreateService(payload: ServicePayload, token: string) {
 export async function GetPackages(token: string, orgSlug?: string | null) {
 
     try {
-        const url = orgSlug ? `/packages/${encodeURIComponent(orgSlug)}` : `/packages`;
+        const url = orgSlug ? `/packages?slug=${encodeURIComponent(orgSlug)}` : `/packages`;
         const response = await api.get(url, {
             headers: {
                 Authorization: `Bearer ${token}`,

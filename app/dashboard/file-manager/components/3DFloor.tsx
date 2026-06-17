@@ -27,7 +27,7 @@ import { ServiceCompletion, HideMediaFiles } from '../file-manager';
 import { api } from '@/lib/api';
 
 function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, onSave?: (overrideChangedFiles?: any[]) => Promise<void> | void, isScrolled?: boolean, stickyOffset?: number }) {
-    const { links, setLinks, setPreviewFiles, filesData, setFilesData, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
+    const { links, setLinks, setPreviewFiles, filesData, setFilesData, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide, tourSettings } = useFileManagerContext();
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [openPayment, setOpenPayment] = useState(false);
     const [, setSuccess] = useState(false);
@@ -206,18 +206,25 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
 
 
     const handleLinkChange = (type: "branded" | "unbranded", value: string) => {
+        const enableMatterportExpiry = tourSettings?.enable_matterport_default_expiry;
+        const defaultMatterportDays = parseInt(tourSettings?.matterport_default_expiry_days || "0", 10);
 
         setLinks(prev => {
             const existingIndex = prev.findIndex(l => l.type === type && l.service_id === currentService?.uuid);
 
+            let calculatedExpiry = "";
+            if (enableMatterportExpiry && defaultMatterportDays > 0 && value) {
+                calculatedExpiry = format(addDays(new Date(), defaultMatterportDays), "yyyy-MM-dd");
+            }
+
             if (existingIndex >= 0) {
                 const updated = [...prev];
                 const currentExpiry = updated[existingIndex].expiry_date;
-                const newExpiry = (!currentExpiry && value) ? format(addDays(new Date(), 90), "yyyy-MM-dd") : currentExpiry;
+                const newExpiry = (!currentExpiry && value) ? calculatedExpiry : currentExpiry;
                 updated[existingIndex] = { ...updated[existingIndex], link: value, expiry_date: newExpiry };
                 return updated;
             } else {
-                return [...prev, { type, service_id: currentService?.uuid ?? '', link: value, expiry_date: format(addDays(new Date(), 90), "yyyy-MM-dd") }];
+                return [...prev, { type, service_id: currentService?.uuid ?? '', link: value, expiry_date: calculatedExpiry }];
             }
         });
     };

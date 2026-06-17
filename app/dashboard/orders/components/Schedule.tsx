@@ -23,6 +23,7 @@ import { CleanedProductOption } from '../../services/services'
 import { useSearchParams } from 'next/navigation'
 import { useAppContext } from '@/app/context/AppContext'
 import { useOrganization } from '@/app/context/OrganizationContext';
+import { GetTourSettings } from '@/app/dashboard/global-settings/global-settings';
 
 interface Coordinate {
     lat: number
@@ -150,10 +151,38 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
         setShowAllVendorsMap,
         recommendTimeMap,
         setRecommendTimeMap,
+        portalSettings,
+        setPortalSettings,
     } = useOrderContext();
+
+    useEffect(() => {
+        GetTourSettings().then((res: any) => {
+            if (res?.portal_settings) setPortalSettings(res.portal_settings);
+            else if (res?.data?.portal_settings) setPortalSettings(res.data.portal_settings);
+        }).catch(err => console.log("Error fetching global settings in Schedule:", err));
+    }, [setPortalSettings]);
 
     const servicesToSchedule = isEdit ? selectedServices : selectedServices.filter((s: any) => !s.service_uuid);
     const serviceCount = servicesToSchedule?.length || 0;
+
+    const minDate = React.useMemo(() => {
+        const date = new Date();
+        date.setHours(0, 0, 0, 0);
+
+        if (portalSettings?.disable_next_day_booking && portalSettings.booking_cutoff_time) {
+            const now = new Date();
+            const [cutoffHour, cutoffMinute] = portalSettings.booking_cutoff_time.split(':').map(Number);
+            const cutoffTime = new Date();
+            cutoffTime.setHours(cutoffHour, cutoffMinute, 0, 0);
+
+            if (now >= cutoffTime) {
+                date.setDate(date.getDate() + 2);
+            } else {
+                date.setDate(date.getDate() + 1);
+            }
+        }
+        return date;
+    }, [portalSettings]);
 
     useEffect(() => {
         async function loadAndCalculate() {
@@ -399,7 +428,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                         setServiceDates({}); // Reset individual overrides when master changes
                                     }
                                 }}
-                                disabled={{ before: new Date() }}
+                                disabled={{ before: minDate }}
                                 initialFocus
                             />
                         </PopoverContent>
@@ -671,6 +700,15 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                             )}
                                                         </SelectContent>
                                                     </Select>
+                                                    {noVendors && portalSettings?.show_org_details_on_empty_schedule && orgContact && (
+                                                        <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-red-50 border border-red-200 rounded-md">
+                                                            <Info className="w-4 h-4 text-red-600 shrink-0" />
+                                                            <p className="text-[11px] text-red-700 leading-snug">
+                                                                <span className="font-semibold">No vendors available.</span>{' '}
+                                                                Please contact us at <span className="font-semibold">{orgContact.phone || ''}</span> {orgContact.email ? `or ` : ''}<span className="font-semibold">{orgContact.email || ''}</span> to schedule this service.
+                                                            </p>
+                                                        </div>
+                                                    )}
                                                 </>
                                             );
                                         })()}
@@ -728,7 +766,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                             setServiceDates(prev => ({ ...prev, [serviceKey]: date }));
                                                         }
                                                     }}
-                                                    disabled={{ before: new Date() }}
+                                                    disabled={{ before: minDate }}
                                                     initialFocus
                                                 />
                                             </PopoverContent>
@@ -856,9 +894,11 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                     >
                                                         Remove Service
                                                     </Button>
-                                                    <div className="text-[13px] text-red-700 mt-2 font-alexandria">
-                                                        Please contact office at {orgContact?.phone || organization?.contact_phone || '(Phone number)'} & {orgContact?.email || organization?.contact_email || organization?.from_email || '(email)'}
-                                                    </div>
+                                                    {portalSettings?.show_org_details_on_empty_schedule && (
+                                                        <div className="text-[13px] text-red-700 mt-2 font-alexandria">
+                                                            Please contact office at {orgContact?.phone || organization?.contact_phone || '(Phone number)'} & {orgContact?.email || organization?.contact_email || organization?.from_email || '(email)'}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <OneDayCalendar

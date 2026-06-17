@@ -433,6 +433,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     selectedCurrentListing,
     tempPropertyData,
     servicesData: contextServicesData,
+    portalSettings,
   } = useOrderContext();
 
   // Use external data if provided (for BookNow), otherwise use context
@@ -441,6 +442,25 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
   const vendorsData = externalVendorsData || contextVendorsData;
   const servicesData = externalServicesData || contextServicesData;
   const { id } = useParams();
+
+  const minDate = React.useMemo(() => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+
+    if (portalSettings?.disable_next_day_booking && portalSettings.booking_cutoff_time) {
+      const now = new Date();
+      const [cutoffHour, cutoffMinute] = portalSettings.booking_cutoff_time.split(':').map(Number);
+      const cutoffTime = new Date();
+      cutoffTime.setHours(cutoffHour, cutoffMinute, 0, 0);
+
+      if (now >= cutoffTime) {
+        date.setDate(date.getDate() + 2);
+      } else {
+        date.setDate(date.getDate() + 1);
+      }
+    }
+    return date;
+  }, [portalSettings]);
 
   const currentServiceForBorder = servicesData?.find((s) => s.uuid === service.uuid);
   const productOptionForBorder = currentServiceForBorder?.product_options?.find(
@@ -2056,6 +2076,7 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
             center: 'title',
             right: ''
           }}
+          validRange={React.useMemo(() => ({ start: minDate }), [minDate])}
           titleFormat={{ weekday: 'short', day: 'numeric' }}
           datesSet={(arg: DatesSetArg) => {
             const calendarDate = dayjs(arg.start).format('YYYY-MM-DD');

@@ -24,6 +24,9 @@ import { toast } from 'sonner';
 import { fetchServicesForBookNow } from '@/app/agent/book-now/book-now';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useBookNowOrg } from '@/app/agent/book-now/context/BookNowOrgContext';
+import { useOrganization } from '@/app/context/OrganizationContext';
+import { isDefaultDomain } from '@/lib/config/domains';
+import { getAppHostname } from '@/lib/utils';
 
 const OrderForm = () => {
     const confirmationRef = useRef<OrderConfirmationHandle>(null);
@@ -62,7 +65,12 @@ const OrderForm = () => {
     // Read org slug from URL path ([org_slug] segment) OR from ?slug= query param
     const { orgSlug: ctxOrgSlug } = useBookNowOrg();
     const searchParamsSlug = searchParams.get('slug');
-    const orgSlug = ctxOrgSlug || searchParamsSlug || null;
+    const { organization } = useOrganization();
+
+    const isDefault = typeof window !== "undefined" ? isDefaultDomain(getAppHostname()) : true;
+    const resolvedWhitelabelSlug = (!isDefault && organization?.slug) ? organization.slug : null;
+
+    const orgSlug = resolvedWhitelabelSlug || ctxOrgSlug || searchParamsSlug || null;
 
     const tabs = ["property", "services", "schedule", "contact", "order"];
     const steps = [
@@ -121,7 +129,7 @@ const OrderForm = () => {
             const token = localStorage.getItem('agentToken') || localStorage.getItem('token');
             setIsAuthenticated(!!token);
         };
-        
+
         checkAuth();
         window.addEventListener('agentLogin', checkAuth);
         return () => window.removeEventListener('agentLogin', checkAuth);

@@ -57,6 +57,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
     setIsSaving,
     imagesPerRow,
     deletedSnapshotUuids,
+    tourSettings,
   } = useFileManagerContext();
 
   const { startUpload } = useGlobalFileUpload();
@@ -112,6 +113,21 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
       }
     }
   }, [selectedAudioTrack, audioUrl, setAudioUrl]);
+
+  React.useEffect(() => {
+    if (tourSettings) {
+      if (tourSettings.autoplay_enabled !== undefined && typeof tourSettings.autoplay_enabled === 'boolean') {
+        setAutoPlay(tourSettings.autoplay_enabled);
+      }
+      if (tourSettings.transition_effect && Array.isArray(tourSettings.transition_effect) && tourSettings.transition_effect.length > 0) {
+        // ensure current transition is in the list or set to first
+        if (!tourSettings.transition_effect.includes(transition)) {
+          setTransition(tourSettings.transition_effect[0]);
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tourSettings]);
 
   // ─── Compute globally-sorted photo list ───────────────────────────────────
   // getGlobalPhotoOrder sorts by sort_order ASC, ties broken by service_id ASC
@@ -223,7 +239,7 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
         token,
         orderUuid: orderData.uuid,
         filesDataUuid: filesData.uuid,
-        files: [], 
+        files: [],
         links: links,
         droppedMarkers: activeSnapshots,
         delay: delay,
@@ -533,17 +549,27 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                         <SelectValue placeholder="Select Animation Effect" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="fade-in">Fade In</SelectItem>
-                        <SelectItem value="slide-right-left">Slide Right to Left</SelectItem>
-                        <SelectItem value="slide-left-right">Slide Left to Right</SelectItem>
-                        <SelectItem value="slide-top-bottom">Slide Top to Bottom</SelectItem>
-                        <SelectItem value="slide-bottom-top">Slide Bottom to Top</SelectItem>
-                        <SelectItem value="reveal-left-right">Reveal Left to Right</SelectItem>
-                        <SelectItem value="rotate-bottom-left">Rotate Bottom Left</SelectItem>
-                        <SelectItem value="rotate-bottom-right">Rotate Bottom Right</SelectItem>
-                        <SelectItem value="rotate-left-bottom">Rotate Left Bottom</SelectItem>
-                        <SelectItem value="rotate-left-top">Rotate Left Top</SelectItem>
-                        <SelectItem value="kenburns">Ken Burns</SelectItem>
+                        {tourSettings?.transition_effect && Array.isArray(tourSettings.transition_effect) && tourSettings.transition_effect.length > 0 ? (
+                          tourSettings.transition_effect.map((t: string) => (
+                            <SelectItem key={t} value={t}>
+                              {t.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <>
+                            <SelectItem value="fade-in">Fade In</SelectItem>
+                            <SelectItem value="slide-right-left">Slide Right to Left</SelectItem>
+                            <SelectItem value="slide-left-right">Slide Left to Right</SelectItem>
+                            <SelectItem value="slide-top-bottom">Slide Top to Bottom</SelectItem>
+                            <SelectItem value="slide-bottom-top">Slide Bottom to Top</SelectItem>
+                            <SelectItem value="reveal-left-right">Reveal Left to Right</SelectItem>
+                            <SelectItem value="rotate-bottom-left">Rotate Bottom Left</SelectItem>
+                            <SelectItem value="rotate-bottom-right">Rotate Bottom Right</SelectItem>
+                            <SelectItem value="rotate-left-bottom">Rotate Left Bottom</SelectItem>
+                            <SelectItem value="rotate-left-top">Rotate Left Top</SelectItem>
+                            <SelectItem value="kenburns">Ken Burns</SelectItem>
+                          </>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -612,6 +638,8 @@ function TourPicture({ orderData }: { orderData: Order | null }) {
                     ? `${orderData.agent.company_logo_url}`
                     : undefined
                 }
+                propIsPlaying={autoPlay}
+                propSetIsPlaying={setAutoPlay}
               />
             </div>
           </AccordionContent>

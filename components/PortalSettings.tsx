@@ -7,9 +7,8 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { useAppContext } from "@/app/context/AppContext";
 import {
-    Organization,
-    GetUserOrganization,
-    UpdateOrganization,
+    GetTourSettings,
+    SavePortalSettings,
 } from "@/app/dashboard/global-settings/global-settings";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
@@ -20,8 +19,7 @@ const PortalSettings = React.forwardRef<
     const { userType } = useAppContext();
     const accentColor = userType === "admin" ? "#4290E9" : "#6BAE41";
 
-    const [ownOrg, setOwnOrg] = useState<Organization | null>(null);
-    const [ownOrgLoading, setOwnOrgLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [formState, setFormState] = useState<{
         disable_next_day_booking: boolean;
@@ -38,28 +36,26 @@ const PortalSettings = React.forwardRef<
     }));
 
     useEffect(() => {
-        setOwnOrgLoading(true);
-        GetUserOrganization()
+        setIsLoading(true);
+        GetTourSettings()
             .then(async (res) => {
-                const org = res.data;
-                setOwnOrg(org);
-
-                setFormState({
-                    disable_next_day_booking: org.disable_next_day_booking ?? false,
-                    booking_cutoff_time: org.booking_cutoff_time || "17:00",
-                    show_org_details_on_empty_schedule: org.show_org_details_on_empty_schedule ?? false,
-                });
+                const settings = res.data?.portal_settings;
+                if (settings) {
+                    setFormState({
+                        disable_next_day_booking: settings.disable_next_day_booking ?? false,
+                        booking_cutoff_time: settings.booking_cutoff_time || "17:00",
+                        show_org_details_on_empty_schedule: settings.show_org_details_on_empty_schedule ?? false,
+                    });
+                }
             })
-            .catch(() => toast.error("Failed to load your organization settings"))
-            .finally(() => setOwnOrgLoading(false));
+            .catch(() => toast.error("Failed to load portal settings"))
+            .finally(() => setIsLoading(false));
     }, []);
 
     const handleSave = async () => {
-        if (!ownOrg) return;
-
         setIsSaving(true);
         try {
-            await UpdateOrganization(ownOrg.uuid, {
+            await SavePortalSettings({
                 disable_next_day_booking: formState.disable_next_day_booking,
                 booking_cutoff_time: formState.booking_cutoff_time,
                 show_org_details_on_empty_schedule: formState.show_org_details_on_empty_schedule,
@@ -74,7 +70,7 @@ const PortalSettings = React.forwardRef<
         }
     };
 
-    if (ownOrgLoading) {
+    if (isLoading) {
         return (
             <div className="w-full flex justify-center items-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin" style={{ color: accentColor }} />

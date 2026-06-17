@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   GetFilesData,
+  GetTourSettings,
 } from "../file-manager";
 import { GetOneListing } from "../../listings/listing";
 import { Listings } from "@/lib/types";
@@ -128,7 +129,8 @@ const FileManager = () => {
     setIncludeHidden,
     deletedSnapshotUuids,
     setDeletedSnapshotUuids,
-    setDroppedMarkers
+    setDroppedMarkers,
+    setTourSettings
   } = useFileManagerContext();
   const [isHiddenMediaModalOpen, setIsHiddenMediaModalOpen] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -279,26 +281,26 @@ const FileManager = () => {
       const originalInvoice = invoices.find(i => i.uuid === invoice.uuid);
       const hasExtraLocally = invoice.items?.some((i: any) => i.description?.match(/Extra (Photos|Media)/i));
       const hadExtraInDb = originalInvoice?.items?.some((i: any) => i.description?.match(/Extra (Photos|Media)/i));
-      
+
       if (
         (invoice.items?.length !== (originalInvoice?.items?.length || 0)) ||
         (hasExtraLocally || hadExtraInDb)
       ) {
         await UpdateInvoice(invoice.uuid, {
-            notes: invoice.notes,
-            tax_rate: invoice.tax_rate,
-            items: invoice.items.map((i: any) => ({
-                description: i.description,
-                quantity: i.quantity,
-                unit_price: i.unit_price,
-                order_service_id: i.order_service_id || i.order_service?.id || null
-            }))
+          notes: invoice.notes,
+          tax_rate: invoice.tax_rate,
+          items: invoice.items.map((i: any) => ({
+            description: i.description,
+            quantity: i.quantity,
+            unit_price: i.unit_price,
+            order_service_id: i.order_service_id || i.order_service?.id || null
+          }))
         });
-        
+
         // Refresh local invoices to reflect the synced state
         const updatedRes = await GetInvoicesByOrder(orderData.uuid);
         if (updatedRes?.data) {
-           setInvoices(Array.isArray(updatedRes.data) ? updatedRes.data : []);
+          setInvoices(Array.isArray(updatedRes.data) ? updatedRes.data : []);
         }
       }
 
@@ -459,12 +461,12 @@ const FileManager = () => {
     const baseItems = invoice.items || [];
     // Filter out previously injected extra media to recalculate accurately
     const cleanedBaseItems = baseItems.filter((i: any) => !i.description?.match(/Extra (Photos|Media)/i));
-    
+
     const extraItems: any[] = [];
-    
+
     cleanedBaseItems.forEach((item: any) => {
       let os = item.order_service || item.orderService;
-      
+
       // If the invoice item's order_service lacks the option data, fetch it from orderData.services
       if (!os || !os.option?.quantity) {
         const matchedService = orderData.services?.find((s: any) => s.id === (item.order_service_id || os?.id));
@@ -477,10 +479,10 @@ const FileManager = () => {
 
       const serviceId = os.service_id || os.service?.id;
       const currentLimit = os.option.quantity;
-      
-      const selectedCount = filesData.files.filter((f: any) => 
-        (Number(f.service?.id) === Number(serviceId) || Number(f.service_id) === Number(serviceId) || f.service?.uuid === os.service?.uuid) 
-        && f.is_agent_approved 
+
+      const selectedCount = filesData.files.filter((f: any) =>
+        (Number(f.service?.id) === Number(serviceId) || Number(f.service_id) === Number(serviceId) || f.service?.uuid === os.service?.uuid)
+        && f.is_agent_approved
         && !f.is_complimentary
         && !f.is_deleted
       ).length;
@@ -505,7 +507,7 @@ const FileManager = () => {
       const subtotal = newItems.reduce((sum: number, i: any) => sum + (parseFloat(i.quantity) * parseFloat(i.unit_price) || 0), 0);
       const taxAmount = subtotal * (parseFloat(invoice.tax_rate || "0") / 100);
       const newTotal = subtotal + taxAmount;
-      
+
       return {
         ...invoice,
         items: newItems,
@@ -715,6 +717,23 @@ const FileManager = () => {
   // currentService removed — no longer needed after invoice-first flow
 
   useEffect(() => {
+    async function fetchTourSettings() {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      try {
+        const settingsRes = await GetTourSettings(token);
+        if (settingsRes?.value) {
+          setTourSettings(settingsRes.value);
+        }
+      } catch (err) {
+        console.error("Failed to fetch tour settings", err);
+      }
+    }
+    fetchTourSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     async function fetchFilesData() {
       const token = localStorage.getItem("token");
       if (!token || !orderData) {
@@ -750,6 +769,7 @@ const FileManager = () => {
           // If no data found, set to an empty object to stop the loader in children
           setFilesData({ files: [], links: [], snapshots: [] } as any);
         }
+
       } catch (error) {
         console.error("Error fetching files data:", error);
         // Also set to empty state on error to prevent infinite loader
@@ -909,9 +929,8 @@ const FileManager = () => {
       <div
 
         ref={headerRef}
-        className={`w-full font-alexandria pr-5 sticky top-0 z-50 flex justify-between items-center transition-all duration-300 ${
-          isScrolled ? "h-[55px] shadow-md" : "h-[80px]"
-        }`}
+        className={`w-full font-alexandria pr-5 sticky top-0 z-50 flex justify-between items-center transition-all duration-300 ${isScrolled ? "h-[55px] shadow-md" : "h-[80px]"
+          }`}
         style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
       >
         {/* Invoices List Modal */}
@@ -1172,26 +1191,23 @@ const FileManager = () => {
         </Dialog>        <div className="flex items-center gap-x-4">
           {!isListing && (
             <div
-              className={`flex items-center gap-x-2.5 ${userType}-bg h-full w-[240px] transition-all duration-300 ${
-                isScrolled ? "px-4 py-1" : "p-4"
-              }`}
+              className={`flex items-center gap-x-2.5 ${userType}-bg h-full w-[240px] transition-all duration-300 ${isScrolled ? "px-4 py-1" : "p-4"
+                }`}
             >
               <Avatar className={`transition-all duration-300 ${isScrolled ? "h-6 w-6" : "h-8 w-8"}`}>
                 <AvatarImage src="https://github.com/shadcn.png" />
                 <AvatarFallback>CN</AvatarFallback>
               </Avatar>
               <div>
-                <p className={`font-normal text-white font-alexandria leading-4 transition-all duration-300 ${
-                  isScrolled ? "text-[11px]" : "text-[14px]"
-                }`}>
+                <p className={`font-normal text-white font-alexandria leading-4 transition-all duration-300 ${isScrolled ? "text-[11px]" : "text-[14px]"
+                  }`}>
                   {orgName}
                 </p>
                 {/* <p className="text-[14px] font-normal text-white font-alexandria leading-4">
                   Media Company Owner
                 </p> */}
-                <p className={`font-normal text-white font-alexandria leading-4 transition-all duration-300 ${
-                  isScrolled ? "text-[10px]" : "text-[12px]"
-                }`}>
+                <p className={`font-normal text-white font-alexandria leading-4 transition-all duration-300 ${isScrolled ? "text-[10px]" : "text-[12px]"
+                  }`}>
                   {(() => {
                     const vendor = activeSlot?.vendor || orderData?.vendor;
                     return vendor ? `${vendor.first_name} ${vendor.last_name}` : "Taylor Tayburn";
@@ -1201,9 +1217,8 @@ const FileManager = () => {
             </div>
           )}
           <p
-            className={`font-[400] pl-5 ${userType}-text transition-all duration-300 ${
-              isScrolled ? "text-[13px] md:text-[16px]" : "text-[16px] md:text-[24px]"
-            }`}
+            className={`font-[400] pl-5 ${userType}-text transition-all duration-300 ${isScrolled ? "text-[13px] md:text-[16px]" : "text-[16px] md:text-[24px]"
+              }`}
           >
             {isListing
               ? `Listings › ${currentListing?.address || ""}`
@@ -1214,11 +1229,10 @@ const FileManager = () => {
           <Button
             onClick={() => handleSave()}
             disabled={isSaving}
-            className={`rounded-[6px] border-[1px] ${userType}-border font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button transition-all duration-300 ${
-              isScrolled
-                ? "w-[90px] md:w-[115px] h-[28px] md:h-[32px] text-[11px] md:text-[13px]"
-                : "w-[110px] md:w-[143px] h-[35px] md:h-[44px] text-[14px] md:text-[16px]"
-            }`}
+            className={`rounded-[6px] border-[1px] ${userType}-border font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button transition-all duration-300 ${isScrolled
+              ? "w-[90px] md:w-[115px] h-[28px] md:h-[32px] text-[11px] md:text-[13px]"
+              : "w-[110px] md:w-[143px] h-[35px] md:h-[44px] text-[14px] md:text-[16px]"
+              }`}
             style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
           >
             {isSaving ? (
@@ -1233,11 +1247,10 @@ const FileManager = () => {
           {userType !== "vendor" && (
             <Button
               onClick={() => setShowInvoicesModal(true)}
-              className={`rounded-[6px] border-[1px] ${userType}-border font-[400] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button transition-all duration-300 ${
-                isScrolled
-                  ? "w-[75px] md:w-[100px] h-[28px] md:h-[32px] text-[11px] md:text-[13px]"
-                  : "w-[110px] md:w-[143px] h-[35px] md:h-[44px] text-[14px] md:text-[16px]"
-              }`}
+              className={`rounded-[6px] border-[1px] ${userType}-border font-[400] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button transition-all duration-300 ${isScrolled
+                ? "w-[75px] md:w-[100px] h-[28px] md:h-[32px] text-[11px] md:text-[13px]"
+                : "w-[110px] md:w-[143px] h-[35px] md:h-[44px] text-[14px] md:text-[16px]"
+                }`}
               style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
             >
               Invoice
@@ -1289,19 +1302,17 @@ const FileManager = () => {
       </div>
       {isListing && (
         <div
-          className={`w-full font-alexandria pr-5 sticky z-40 flex items-center border-b border-[#BBBBBB] transition-all duration-300 ${
-            isScrolled ? "top-[55px] h-[40px]" : "top-[80px] h-[60px]"
-          }`}
+          className={`w-full font-alexandria pr-5 sticky z-40 flex items-center border-b border-[#BBBBBB] transition-all duration-300 ${isScrolled ? "top-[55px] h-[40px]" : "top-[80px] h-[60px]"
+            }`}
           style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
         >
           <div className="flex items-center justify-center w-full">
             <div className="flex items-center justify-center gap-x-6 w-full">
               <div
-                className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${
-                  isScrolled ? "h-[26px] w-[120px]" : "h-[30px] w-[150px]"
-                } ${true
-                  ? `${userType}-bg text-white font-[700] ${userType}-border`
-                  : `text-[#666666] font-[700]`
+                className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${isScrolled ? "h-[26px] w-[120px]" : "h-[30px] w-[150px]"
+                  } ${true
+                    ? `${userType}-bg text-white font-[700] ${userType}-border`
+                    : `text-[#666666] font-[700]`
                   }`}
                 style={{
                   backgroundColor: true
@@ -1314,11 +1325,10 @@ const FileManager = () => {
               {userType !== 'vendor' && (
                 <SafeLink
                   href={`/dashboard/listings/create/${currentListing?.uuid}`}
-                  className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${
-                    isScrolled ? "h-[26px] w-[120px]" : "h-[30px] w-[150px]"
-                  } ${false
-                    ? `${userType}-bg text-white font-[700] ${userType}-border`
-                    : `text-[#666666] font-[700]`
+                  className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${isScrolled ? "h-[26px] w-[120px]" : "h-[30px] w-[150px]"
+                    } ${false
+                      ? `${userType}-bg text-white font-[700] ${userType}-border`
+                      : `text-[#666666] font-[700]`
                     }`}
                   style={{
                     backgroundColor: true
@@ -1331,11 +1341,10 @@ const FileManager = () => {
               )}
               <SafeLink
                 href={`/dashboard/orders/${orderId}`}
-                className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${
-                  isScrolled ? "h-[26px] w-[120px]" : "h-[30px] w-[150px]"
-                } ${false
-                  ? `${userType}-bg text-white font-[700] ${userType}-border`
-                  : `text-[#666666] font-[700]`
+                className={`cursor-pointer flex items-center uppercase justify-center font-medium text-[11px] border px-1 text-center rounded-[4px] transition-all duration-200 min-w-[95px] ${isScrolled ? "h-[26px] w-[120px]" : "h-[30px] w-[150px]"
+                  } ${false
+                    ? `${userType}-bg text-white font-[700] ${userType}-border`
+                    : `text-[#666666] font-[700]`
                   }`}
                 style={{
                   backgroundColor: true
@@ -1350,19 +1359,17 @@ const FileManager = () => {
         </div>
       )}
       <div
-        className={`w-full font-alexandria pr-5 flex items-center border-b border-[#BBBBBB] transition-all duration-300 sticky z-30 ${
-          isScrolled
-            ? `${isListing ? "top-[95px] h-[50px] shadow-sm" : "top-[55px] h-[50px] shadow-sm"}`
-            : `${isListing ? "top-[140px] h-[90px]" : "top-[80px] h-[90px]"}`
-        }`}
+        className={`w-full font-alexandria pr-5 flex items-center border-b border-[#BBBBBB] transition-all duration-300 sticky z-30 ${isScrolled
+          ? `${isListing ? "top-[95px] h-[50px] shadow-sm" : "top-[55px] h-[50px] shadow-sm"}`
+          : `${isListing ? "top-[140px] h-[90px]" : "top-[80px] h-[90px]"}`
+          }`}
         style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
       >
         <div className="px-[26px]">
           {!isListing && (
             <div
-              className={`min-h-[32px] w-[115px] flex items-center cursor-pointer rounded-[24px] ${userType}-bg transition-all duration-300 ${
-                isScrolled ? "scale-90" : "scale-100"
-              }`}
+              className={`min-h-[32px] w-[115px] flex items-center cursor-pointer rounded-[24px] ${userType}-bg transition-all duration-300 ${isScrolled ? "scale-90" : "scale-100"
+                }`}
               onClick={handleBackNavigation}
             >
               <div className="flex items-center px-[14px] py-[4px] gap-x-[10px]">
@@ -1384,11 +1391,10 @@ const FileManager = () => {
                 params.delete("serviceId"); // remove serviceId param
                 router.replace(`?${params.toString()}`);
               }}
-              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-300 ${
-                isScrolled ? "h-[36px]" : "h-[60px]"
-              } ${activeTab === "download"
-                ? `bg-[#DC9600] text-white border-[#DC9600]`
-                : `text-[#DC9600] border-[#DC9600]`
+              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[60px]"
+                } ${activeTab === "download"
+                  ? `bg-[#DC9600] text-white border-[#DC9600]`
+                  : `text-[#DC9600] border-[#DC9600]`
                 }`}
               style={{
                 backgroundColor:
@@ -1412,11 +1418,10 @@ const FileManager = () => {
                     params.set("serviceId", serviceUuid);
                     router.replace(`?${params.toString()}`);
                   }}
-                  className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-300 ${
-                    isScrolled ? "h-[36px]" : "h-[60px]"
-                  } ${isActive
-                    ? `${userType}-bg text-white ${userType}-border`
-                    : `${userType}-text ${userType}-border`
+                  className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[60px]"
+                    } ${isActive
+                      ? `${userType}-bg text-white ${userType}-border`
+                      : `${userType}-text ${userType}-border`
                     }`}
                   style={{
                     backgroundColor: isActive
@@ -1437,11 +1442,10 @@ const FileManager = () => {
                 params.delete("serviceId"); // remove serviceId param
                 router.replace(`?${params.toString()}`);
               }}
-              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-300 ${
-                isScrolled ? "h-[36px]" : "h-[60px]"
-              } ${activeTab === "tour"
-                ? `${userType}-bg text-white ${userType}-border`
-                : `${userType}-text  ${userType}-border`
+              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[60px]"
+                } ${activeTab === "tour"
+                  ? `${userType}-bg text-white ${userType}-border`
+                  : `${userType}-text  ${userType}-border`
                 }`}
               style={{
                 backgroundColor:
@@ -1460,11 +1464,10 @@ const FileManager = () => {
                 params.delete("serviceId"); // remove serviceId param
                 router.replace(`?${params.toString()}`);
               }}
-              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-300 ${
-                isScrolled ? "h-[36px]" : "h-[60px]"
-              } ${activeTab === "CreateFeatureSheet"
-                ? `${userType}-bg text-white ${userType}-border`
-                : `${userType}-text  ${userType}-border`
+              className={`cursor-pointer flex items-center justify-center font-medium text-[9px] w-[95px] border px-1 text-center rounded-[4px] transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[60px]"
+                } ${activeTab === "CreateFeatureSheet"
+                  ? `${userType}-bg text-white ${userType}-border`
+                  : `${userType}-text  ${userType}-border`
                 }`}
               style={{
                 backgroundColor:
@@ -1484,9 +1487,8 @@ const FileManager = () => {
                 setIsHiddenMediaModalOpen(true);
                 setIncludeHidden(true); // Ensure hidden files are fetched when opening the modal
               }}
-              className={`rounded-[6px] border-[1px] transition-all duration-200 text-[12px] md:text-[14px] font-[500] flex items-center gap-2 ${userType}-border ${userType}-text hover:text-white hover-${userType}-bg ${userType}-button ${
-                isScrolled ? "h-[28px] px-2 text-[10px]" : "h-[40px] px-4"
-              }`}
+              className={`rounded-[6px] border-[1px] transition-all duration-200 text-[12px] md:text-[14px] font-[500] flex items-center gap-2 ${userType}-border ${userType}-text hover:text-white hover-${userType}-bg ${userType}-button ${isScrolled ? "h-[28px] px-2 text-[10px]" : "h-[40px] px-4"
+                }`}
               style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
             >
               Show Hidden Media
@@ -1498,11 +1500,10 @@ const FileManager = () => {
       {/* Sub-tabs for duplicate service bookings */}
       {activeServiceGroup && activeServiceGroup.length > 1 && (
         <div
-          className={`w-full flex flex-col gap-0 border-b border-[#BBBBBB] transition-all duration-300 sticky z-20 ${
-            isScrolled
-              ? `${isListing ? "top-[145px] h-[36px] shadow-sm" : "top-[105px] h-[36px] shadow-sm"}`
-              : `${isListing ? "top-[230px] h-[45px]" : "top-[170px] h-[45px]"}`
-          }`}
+          className={`w-full flex flex-col gap-0 border-b border-[#BBBBBB] transition-all duration-300 sticky z-20 ${isScrolled
+            ? `${isListing ? "top-[145px] h-[36px] shadow-sm" : "top-[105px] h-[36px] shadow-sm"}`
+            : `${isListing ? "top-[230px] h-[45px]" : "top-[170px] h-[45px]"}`
+            }`}
           style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), white 40%)` }}
         >
           <div className={`flex items-stretch transition-all duration-300 ${isScrolled ? "h-[36px]" : "h-[45px]"}`}>

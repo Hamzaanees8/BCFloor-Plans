@@ -10,7 +10,7 @@ import { Order } from '../../orders/page';
 
 const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
     const { userType } = useAppContext();
-    const { links, setLinks, filesData } = useFileManagerContext();
+    const { links, setLinks, filesData, tourSettings } = useFileManagerContext();
     const isUnpaidAgent = userType === 'agent' && !(orderData?.payment_status === 'PAID' || orderData?.services.find(s => s.service.name.toLowerCase().includes('matterport') || s.service.name.toLowerCase().includes('3d tour'))?.payment_status === 'PAID');
     const [isBrandedChecked, setIsBrandedChecked] = useState(false);
     const [isUnbrandedChecked, setIsUnbrandedChecked] = useState(false);
@@ -57,7 +57,15 @@ const TourMatterport = ({ orderData }: { orderData: Order | null }) => {
         setLinks(prev => {
             const updated = [...prev];
             const currentExpiry = updated[index].expiry_date;
-            const newExpiry = (!currentExpiry && value) ? format(addDays(new Date(), 90), "yyyy-MM-dd") : currentExpiry;
+            
+            let newExpiry = currentExpiry;
+            if (!currentExpiry && value) {
+                if (tourSettings?.enable_matterport_default_expiry) {
+                    const days = parseInt(tourSettings.matterport_default_expiry_days) || 90;
+                    newExpiry = format(addDays(new Date(), days), "yyyy-MM-dd");
+                }
+            }
+            
             updated[index] = { ...updated[index], link: value, expiry_date: newExpiry };
             return updated;
         });

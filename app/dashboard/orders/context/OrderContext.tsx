@@ -10,6 +10,7 @@ import { Listings } from '@/lib/types';
 import { Agent } from '@/lib/types';
 import { Services, Packages } from '../../services/page';
 import { VendorData } from '../[id]/page';
+import { PortalSettingsPayload } from '../../global-settings/global-settings';
 type CoAgent = {
     name: string;
     email: string;
@@ -174,6 +175,9 @@ type OrderContextType = {
     isBookNowMode: boolean;
     setIsBookNowMode: Dispatch<SetStateAction<boolean>>;
 
+    portalSettings: PortalSettingsPayload | null;
+    setPortalSettings: Dispatch<SetStateAction<PortalSettingsPayload | null>>;
+
     resetOrderData: () => void;
     clearSelections: () => void;
 };
@@ -222,6 +226,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     const [activePackage, setActivePackage] = useState<Packages | null>(null);
 
     const [isBookNowMode, setIsBookNowMode] = useState(false);
+    const [portalSettings, setPortalSettings] = useState<PortalSettingsPayload | null>(null);
 
     const resetOrderData = useCallback(() => {
         setInitComplete(false);
@@ -251,6 +256,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
         setScheduleOverrideMap({});
         setShowAllVendorsMap({});
         setRecommendTimeMap({});
+        setPortalSettings(null);
     }, []);
 
     const clearSelections = useCallback(() => {
@@ -278,6 +284,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
         setScheduleOverrideMap({});
         setShowAllVendorsMap({});
         setRecommendTimeMap({});
+        setPortalSettings(null);
     }, []);
 
     return (
@@ -353,6 +360,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
                 setRecommendTimeMap,
                 isBookNowMode,
                 setIsBookNowMode,
+                portalSettings,
+                setPortalSettings,
                 resetOrderData,
                 clearSelections
             }}

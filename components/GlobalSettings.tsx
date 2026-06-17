@@ -893,10 +893,10 @@ const GlobalSettings = () => {
             { name: "Profile Settings", permission: null },
             { name: "Discounts", permission: PERMISSIONS.SET_DISCOUNTS },
             { name: "Tour Settings", permission: PERMISSIONS.CREATE_TOUR_SETTINGS },
+            { name: "Portal Settings", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Appearances", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Templates", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Organizations", permission: PERMISSIONS.VIEW_ADMIN },
-            { name: "Portal Settings", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Media Processing", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Email Logs", permission: PERMISSIONS.VIEW_ADMIN }
         ];

@@ -65,6 +65,8 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
     const [organizations, setOrganizations] = React.useState<any[]>([]);
     const [selectedOrgId, setSelectedOrgId] = React.useState<string>("");
 
+    const isDefault = typeof window !== "undefined" ? isDefaultDomain(getAppHostname()) : true;
+
     React.useEffect(() => {
         if (mode === "signup") {
             fetchOrganizationsForBookNow().then((data) => {
@@ -93,7 +95,6 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
         setIsLoading(true);
         try {
             const currentHostname = getAppHostname();
-            const isDefault = isDefaultDomain(currentHostname);
 
             const response = await agentLogin(
                 email,
@@ -186,7 +187,7 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                 email,
                 password,
                 password_confirmation: confirmPassword,
-                organization_id: selectedOrgId ? Number(selectedOrgId) : undefined,
+                organization_id: !isDefault && organization?.org_id ? Number(organization.org_id) : (selectedOrgId ? Number(selectedOrgId) : undefined),
             });
 
             const token = response?.data?.token || response?.token;
@@ -398,23 +399,36 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                                 </div>
                             </div>
 
-                            <div className="flex flex-col gap-2">
-                                <label className="text-sm font-normal text-[#666666]">
-                                    Organization
-                                </label>
-                                <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
-                                    <SelectTrigger className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB]">
-                                        <SelectValue placeholder="Select Organization" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {organizations.map((org) => (
-                                            <SelectItem key={org.id} value={org.id.toString()}>
-                                                {org.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            {isDefault ? (
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-sm font-normal text-[#666666]">
+                                        Organization
+                                    </label>
+                                    <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
+                                        <SelectTrigger className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB]">
+                                            <SelectValue placeholder="Select Organization" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {organizations.map((org) => (
+                                                <SelectItem key={org.id} value={org.id.toString()}>
+                                                    {org.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-sm font-normal text-[#666666]">
+                                        Organization
+                                    </label>
+                                    <Input
+                                        value={organization?.name || ""}
+                                        disabled
+                                        className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] text-[#666666] cursor-not-allowed"
+                                    />
+                                </div>
+                            )}
 
                             <div className="flex flex-col gap-2">
                                 <label className="text-sm font-normal text-[#666666]">

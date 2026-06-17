@@ -598,6 +598,26 @@ export async function UpdateMediaSettings(payload: MediaSettingsPayload) {
   return data;
 }
 
+export interface PortalSettingsPayload {
+  show_org_details_on_empty_schedule: boolean;
+  disable_next_day_booking: boolean;
+  booking_cutoff_time: string;
+}
+
+export async function SavePortalSettings(payload: PortalSettingsPayload) {
+  const response = await api.post(`/global-settings`, { portal_settings: payload });
+
+  const data = await response.data;
+
+  if (data.success !== true) {
+    const error = new Error(data.message || "Request failed");
+    (error as FetchErrors).errors = data.errors;
+    throw error;
+  }
+
+  return data;
+}
+
 // ─── Organizations ────────────────────────────────────────────────────────────
 
 export interface OrganizationDomain {

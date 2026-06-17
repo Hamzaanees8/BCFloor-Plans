@@ -2420,3 +2420,16 @@ export class FeatureSheetService {
 }
 
 export const featureSheetService = new FeatureSheetService();
+export async function GetTourSettings(token?: string) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const response = await fetch(`${API_URL}/settings/tour_settings`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch tour settings");
+  }
+
+  return response.json();
+}

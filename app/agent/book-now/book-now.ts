@@ -52,7 +52,7 @@ export async function fetchServicesForBookNow(orgSlug?: string | null) {
         const timeout = setTimeout(() => controller.abort(), 8000);
 
         try {
-            const url = orgSlug ? `${API_URL}/services/${encodeURIComponent(orgSlug)}` : `${API_URL}/services`;
+            const url = orgSlug ? `${API_URL}/services?slug=${encodeURIComponent(orgSlug)}` : `${API_URL}/services`;
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
