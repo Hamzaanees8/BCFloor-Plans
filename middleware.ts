@@ -15,6 +15,7 @@ const AUTH_ROUTES = [
 // Routes that are shared across all portals and should not be rewritten
 const SHARED_ROUTES = [
   '/tour',
+  '/tours',
   '/whitelabel',
 ];
 

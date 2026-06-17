@@ -36,6 +36,7 @@ const PublicTour = () => {
     const params = useParams();
     const searchParams = useSearchParams();
     const orderuuid = params.orderuuid as string;
+    const orgSlug = params.org_slug as string | undefined;
     const tourType = searchParams.get('type');
     
     const [orderData, setOrderData] = useState<OrderData | null>(null);
@@ -84,7 +85,7 @@ const PublicTour = () => {
     useEffect(() => {
         const fetchOrderData = async () => {
             try {
-                const data = await fetchPublicTourData(orderuuid);
+                const data = await fetchPublicTourData(orderuuid, orgSlug);
                 setOrderData(data);
 
                 // Track Page View
@@ -106,7 +107,7 @@ const PublicTour = () => {
         if (orderuuid) {
             fetchOrderData();
         }
-    }, [orderuuid]);
+    }, [orderuuid, orgSlug]);
 
     // Extract files from orderData.tours[0].files
     const tourPhotos = useMemo(() => {

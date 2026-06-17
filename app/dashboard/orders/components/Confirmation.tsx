@@ -1,5 +1,6 @@
 'use client'
 import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
+import Link from 'next/link';
 import { useOrderContext } from '../context/OrderContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import { Role } from '@/app/context/whiteLabelConfig';
@@ -9,12 +10,13 @@ import { SelectedService } from './Services';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 import { Input } from '@/components/ui/input';
-import { Plus, Loader2, File } from 'lucide-react';
+import { Plus, File } from 'lucide-react';
 import { GetDiscount } from '../../global-settings/global-settings';
 import { toast } from 'sonner';
 import { Create, Edit, GetOneOrder, GetVendors, OrderPayload, CreateListings } from '../orders';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useBookNowOrg } from '@/app/agent/book-now/context/BookNowOrgContext';
 
 
 import { VendorData } from '../[id]/page';
@@ -84,12 +86,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             router.push('/agent/tours');
             return;
         }
-        const from = searchParams.get('from');
-        if (from === 'calendar') {
-            router.push('/dashboard/calendar');
-        } else {
-            router.push('/dashboard/listings');
-        }
+        router.push('/dashboard/calendar');
     };
 
     const [discounts, setDiscounts] = React.useState<Discount[]>([]);
@@ -98,6 +95,10 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     const [orderData, setOrderData] = React.useState<Order | null>(null);
     const params = useParams();
     const userId = params?.id as string;
+    // Read org slug from context (path segment) OR ?slug= query param
+    const { orgSlug: ctxOrgSlug } = useBookNowOrg();
+    const slugFromQuery = searchParams.get('slug');
+    const orgSlug = ctxOrgSlug || slugFromQuery || null;
 
     const isEdit = searchParams.get('isEdit') === 'true';
     const isAddFlow = !!userId && !isEdit;
@@ -169,7 +170,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     }, [activePackage]);
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem('token');
 
         if (!token) {
             console.log("Token not found.");
@@ -184,22 +185,22 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     }, [createdOrderUuid]);
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem('token');
 
         if (!token) {
             console.log("Token not found.");
             return;
         }
 
-        GetVendors(token)
+        GetVendors(token, orgSlug)
             .then((data) => {
                 setVendorsData(data.data);
             })
             .catch((err) => console.log(err.message));
-    }, []);
+    }, [orgSlug]);
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem('token');
 
         if (!token) {
             console.log("Token not found.");
@@ -366,10 +367,25 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             const discounts = buildDiscountPayload();
             const token = localStorage.getItem('token') || '';
 
+            let finalAgentId = selectedAgentId ?? '';
+            if (isBookNowMode && !finalAgentId) {
+                const userInfoStr = localStorage.getItem('userInfo');
+                if (userInfoStr) {
+                    try {
+                        const userInfo = JSON.parse(userInfoStr);
+                        finalAgentId = userInfo?.uuid || userInfo?.id || userInfo?.agent?.uuid || '';
+                    } catch {}
+                }
+            }
+
             let propertyId = selectedListingId;
 
             if (!propertyId && tempPropertyData) {
-                const listingResponse = await CreateListings(tempPropertyData, token);
+                const listingPayload = {
+                    ...tempPropertyData,
+                    agent_id: tempPropertyData.agent_id || finalAgentId
+                };
+                const listingResponse = await CreateListings(listingPayload, token);
                 if (listingResponse?.data?.uuid) {
                     propertyId = listingResponse.data.uuid;
                     // We can clear tempPropertyData after order is fully submitted if we want, 
@@ -381,7 +397,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             }
 
             const payload: OrderPayload = {
-                agent_id: selectedAgentId ?? '',
+                agent_id: finalAgentId,
                 property_id: propertyId ?? '',
                 amount: total,
                 order_status: "Processing",
@@ -503,7 +519,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                 const updatedPayload = { ...payload, _method: 'PUT' };
                 response = await Edit(userId, updatedPayload, token);
             } else {
-                response = await Create(payload, token);
+                response = await Create(payload, token, orgSlug);
             }
 
             if (!response?.success) throw new Error("Order failed");
@@ -731,6 +747,15 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                     >
                                         Done
                                     </Button>
+                                    {isBookNowMode && (
+                                        <Link 
+                                            href={'/dashboard'}
+                                            className={`mt-2 col-span-2 font-raleway text-white rounded-[3px] w-full h-[32px] font-[600] text-[14px] flex items-center justify-center transition-opacity hover:opacity-90`}
+                                            style={{ backgroundColor: roleSettings.pageTabColor || '#4290E9' }}
+                                        >
+                                            Go to Dashboard
+                                        </Link>
+                                    )}
                                 </div>
                                 <div>
                                     <p className="text-[12px]">
@@ -1110,34 +1135,6 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                             );
                                         })()}
                                     </div>
-                                </div>
-                                {!userType &&
-                                    <div className='col-span-2'>
-                                        <button
-                                            disabled={isLoading}
-                                            type="button"
-                                            onClick={async (e) => {
-                                                await handleSubmitOrder(e);
-                                                setIsSubmitted(true);
-                                            }}
-                                            className={`bg-[#4290E9] font-raleway text-white rounded-[3px] hover:bg-[#4290E9] w-full h-[30px] font-[600] text-[14px] flex items-center justify-center gap-2`}
-                                        >
-                                            {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Submit Order"}
-                                        </button>
-                                    </div>
-                                }
-                                <div className='col-span-2'>
-                                    <button
-                                        disabled={isLoading}
-                                        type="button"
-                                        onClick={async (e) => {
-                                            await handleSubmitOrder(e);
-                                            setIsSubmitted(true);
-                                        }}
-                                        className={`${userType}-bg font-raleway text-white rounded-[3px] hover-${userType}-bg w-full h-[30px] font-[600] text-[14px] flex items-center justify-center gap-2`}
-                                    >
-                                        {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Submit Order"}
-                                    </button>
                                 </div>
 
                             </div>

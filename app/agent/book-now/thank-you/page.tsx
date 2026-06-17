@@ -71,6 +71,7 @@ export default function ThankYouPage() {
     const [selectedServices, setSelectedServices] = useState<StoredService[]>([]);
     const [tempPropertyData, setTempPropertyData] = useState<StoredProperty | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
     useEffect(() => {
         // Get stored data from localStorage
@@ -92,6 +93,9 @@ export default function ThankYouPage() {
                 console.error('Failed to parse property:', e);
             }
         }
+
+        // Check login state
+        setIsLoggedIn(!!localStorage.getItem('agentToken'));
     }, []);
 
     useEffect(() => {
@@ -190,12 +194,18 @@ export default function ThankYouPage() {
                                 <DownloadCloud className='w-[18px] h-[18px]' />
                                 Download
                             </Button>
-                            <Button
-                                onClick={() => handleNavigate('/agent/login-user')}
-                                className='md:w-[200px] h-[44px] bg-[#4290E9] text-white hover:bg-[#3077C0] font-[600]'
-                            >
-                                Login
-                            </Button>
+                            {isLoggedIn ? (
+                                <Button
+                                    onClick={() => handleNavigate('/dashboard')}
+                                    className='md:w-[200px] h-[44px] bg-[#4290E9] text-white hover:bg-[#3077C0] font-[600]'
+                                >
+                                    Go to Dashboard
+                                </Button>
+                            ) : (
+                                <p className='text-[14px] text-[#666666] self-center text-center'>
+                                    Log in to access your order from the dashboard.
+                                </p>
+                            )}
                         </div>
 
                         {/* Order Details Card */}

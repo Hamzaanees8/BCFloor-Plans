@@ -14,15 +14,19 @@ import { Textarea } from '@/components/ui/textarea'
 import { Loader2, RotateCcw } from 'lucide-react'
 import { RefundInvoice } from '../invoice_api'
 import { toast } from 'sonner'
+import { useAppContext } from '@/app/context/AppContext'
 
 type RefundModalProps = {
     isOpen: boolean;
     onClose: () => void;
     invoice: any;
     onSuccess: () => void;
+    defaultAmount?: number;
 }
 
-const RefundModal = ({ isOpen, onClose, invoice, onSuccess }: RefundModalProps) => {
+const RefundModal = ({ isOpen, onClose, invoice, onSuccess, defaultAmount }: RefundModalProps) => {
+    const { userType } = useAppContext();
+    const role = (userType as string) || 'admin';
     const [amount, setAmount] = useState('')
     const [notes, setNotes] = useState('')
     const [submitting, setSubmitting] = useState(false)
@@ -30,10 +34,15 @@ const RefundModal = ({ isOpen, onClose, invoice, onSuccess }: RefundModalProps) 
     useEffect(() => {
         if (isOpen && invoice) {
             const refundable = (parseFloat(invoice.paid_amount || 0) - parseFloat(invoice.refunded_amount || 0)).toFixed(2)
-            setAmount(refundable)
+            if (defaultAmount !== undefined) {
+                const safeDefault = Math.min(defaultAmount, parseFloat(refundable)).toFixed(2)
+                setAmount(safeDefault)
+            } else {
+                setAmount(refundable)
+            }
             setNotes('')
         }
-    }, [isOpen, invoice])
+    }, [isOpen, invoice, defaultAmount])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -81,6 +90,7 @@ const RefundModal = ({ isOpen, onClose, invoice, onSuccess }: RefundModalProps) 
                             onChange={(e) => setAmount(e.target.value)}
                             placeholder="0.00"
                             required
+                            disabled={role !== 'admin'}
                         />
                         <p className="text-xs text-gray-500">
                             Maximum refundable: ${(parseFloat(invoice.paid_amount || 0) - parseFloat(invoice.refunded_amount || 0)).toFixed(2)}

@@ -1,9 +1,10 @@
 import { api } from "@/lib/api";
 
 
-export async function GetPublicTours() {
+export async function GetPublicTours(slug?: string) {
     try {
-        const response = await api.get(`/public/tour`);
+        const url = slug ? `/public/tour/${slug}` : `/public/tour`;
+        const response = await api.get(url);
         const data = await response.data;
         if (data.success !== true) {
             throw new Error(data.message || `Request failed with status ${data.success}`);

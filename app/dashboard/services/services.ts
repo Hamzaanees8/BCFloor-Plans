@@ -171,10 +171,11 @@ export function packagePayloadToFormData(payload: PackagePayload): FormData {
 }
 
 
-export async function GetServices(token: string) {
+export async function GetServices(token: string, orgSlug?: string | null) {
 
     try {
-        const response = await api.get(`/services`, {
+        const url = orgSlug ? `/services/${encodeURIComponent(orgSlug)}` : `/services`;
+        const response = await api.get(url, {
             headers: {
                 Authorization: `Bearer ${token}`,
             },
@@ -273,10 +274,11 @@ export async function CreateService(payload: ServicePayload, token: string) {
     return response.data;
 }
 
-export async function GetPackages(token: string) {
+export async function GetPackages(token: string, orgSlug?: string | null) {
 
     try {
-        const response = await api.get(`/packages`, {
+        const url = orgSlug ? `/packages/${encodeURIComponent(orgSlug)}` : `/packages`;
+        const response = await api.get(url, {
             headers: {
                 Authorization: `Bearer ${token}`,
             },

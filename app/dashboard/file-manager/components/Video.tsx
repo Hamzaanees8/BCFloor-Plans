@@ -44,6 +44,9 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
     const [selectedVideoUrl, setSelectedVideoUrl] = useState<string>('');
     const [editingFile, setEditingFile] = useState<SelectedFiles | Files | null>(null);
     const [replacingFile, setReplacingFile] = useState<File | null>(null);
+    const [updatingThumbnailUuid, setUpdatingThumbnailUuid] = useState<string | null>(null);
+    const [uploadingThumbnailUuid, setUploadingThumbnailUuid] = useState<string | null>(null);
+    const thumbnailUpdateRef = useRef<HTMLInputElement | null>(null);
     const { userType } = useAppContext()
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -171,6 +174,88 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
         e.target.value = "";
     };
 
+    const handleThumbnailFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !updatingThumbnailUuid) return;
+
+        const uuid = updatingThumbnailUuid;
+        setUpdatingThumbnailUuid(null);
+        e.target.value = ""; // Reset input
+
+        const toastId = toast.loading("Uploading thumbnail...");
+        setUploadingThumbnailUuid(uuid);
+        try {
+            // Step 1: Request presigned URL with entity_type "video-thumbnail"
+            // entity_id is the video TourFile UUID so the backend can locate the parent video record
+            const presignedResponse = await S3UploadService.getPresignedUrls({
+                entity_type: "video-thumbnail",
+                entity_id: uuid,
+                files: [{
+                    filename: file.name,
+                    content_type: file.type,
+                    size: file.size,
+                }],
+            });
+
+            if (!presignedResponse.success || !presignedResponse.data.uploads.length) {
+                throw new Error("Failed to get presigned URL for thumbnail");
+            }
+
+            const uploadData = presignedResponse.data.uploads[0];
+
+            // Step 2: Upload image directly to S3 via presigned URL
+            await S3UploadService.uploadToS3(uploadData.presigned_url, file, uploadData.content_type);
+
+            // Step 3: Confirm upload — backend generates thumb (300px) & player (1280px)
+            // webp variants, stores them in the video's variants JSON, and cleans up the original
+            const confirmResponse = await S3UploadService.confirmUpload({
+                entity_type: "video-thumbnail",
+                entity_id: uuid,
+                uploads: [{
+                    upload_id: uploadData.upload_id,
+                    s3_key: uploadData.s3_key,
+                    original_filename: uploadData.original_filename,
+                    content_type: uploadData.content_type,
+                }],
+            });
+
+            if (!confirmResponse.success) {
+                throw new Error("Backend failed to process thumbnail variants");
+            }
+
+            // Step 4: Update local filesData state with the returned variant_urls
+            const updatedFile = confirmResponse.data.files.find(f => f.uuid === uuid);
+            setFilesData(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    files: prev.files.map(f => {
+                        if (f.uuid === uuid) {
+                            const newVariantUrls = updatedFile?.variant_urls;
+                            return {
+                                ...f,
+                                variant_urls: {
+                                    slider: f.variant_urls?.slider || '',
+                                    landing: f.variant_urls?.landing || '',
+                                    popup: f.variant_urls?.popup || '',
+                                    thumb: newVariantUrls?.thumb || f.variant_urls?.thumb || '',
+                                },
+                            };
+                        }
+                        return f;
+                    }),
+                };
+            });
+
+            toast.success("Thumbnail updated successfully!", { id: toastId });
+        } catch (error) {
+            console.error("Failed to upload thumbnail:", error);
+            toast.error("Failed to update thumbnail.", { id: toastId });
+        } finally {
+            setUploadingThumbnailUuid(null);
+        }
+    };
+
     const handleFilesChange = (selectedVideoFiles: File[]) => {
         setFiles(selectedVideoFiles);
     };
@@ -183,7 +268,11 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
     }, [files])
     const bookingToUse = currentBookedService || orderData?.services.find((service) => service.service.uuid === currentService?.uuid)
 
-    const filesForService = useMemo(() => selectedVideoFiles.filter(f => f.service_id === currentService?.uuid), [selectedVideoFiles, currentService?.uuid]);
+    const filesForService = useMemo(() => {
+        return selectedVideoFiles.filter(f => f.service_id === currentService?.uuid);
+    }, [selectedVideoFiles, currentService?.uuid]);
+
+
 
     const [fileItems, setFileItems] = useState<FileItem[]>([]);
 
@@ -384,12 +473,33 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                         }
                                     }}
                                 >
-                                    {file.variant_urls?.thumb ? (
+                                    {userType !== 'agent' && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (uploadingThumbnailUuid === file.uuid) return;
+                                                setUpdatingThumbnailUuid(file.uuid);
+                                                thumbnailUpdateRef.current?.click();
+                                            }}
+                                            disabled={uploadingThumbnailUuid === file.uuid}
+                                            className="absolute top-2 left-2 z-20 bg-white/90 hover:bg-white text-[10px] font-semibold px-2 py-1 rounded shadow-sm text-gray-700 transition-colors flex items-center gap-1 disabled:opacity-70 disabled:cursor-not-allowed"
+                                        >
+                                            {uploadingThumbnailUuid === file.uuid ? (
+                                                <>
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                    Uploading...
+                                                </>
+                                            ) : (
+                                                'Change Thumb'
+                                            )}
+                                        </button>
+                                    )}
+                                    {file.variant_urls?.thumb || file.thumbnail_url ? (
                                         // eslint-disable-next-line @next/next/no-img-element
                                         <img
-                                            src={file.variant_urls.thumb}
-                                            alt={file.name}
-                                            className={`absolute inset-0 w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
+                                            src={file.variant_urls?.thumb || file.thumbnail_url || ''}
+                                            alt="Video thumbnail"
+                                            className={`absolute inset-0 w-full h-full object-cover ${!file.is_admin_approved && reviewFilesEnabled && userType === 'admin' ? 'opacity-70' : ''} ${isDragging ? 'opacity-0' : 'opacity-100'} ${file.is_hidden ? 'grayscale opacity-60' : ''}`}
                                         />
                                     ) : (
                                         <video
@@ -544,7 +654,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                 </div>
             </div>
         );
-    }, [API_URL, bookingToUse?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setSelectedVideoFiles, userType, isHidingMode, filesToHide, setFilesToHide]);
+    }, [API_URL, bookingToUse?.payment_status, currentServiceFiles?.length, fileItems, imagesPerRow, orderData?.payment_status, reviewFilesEnabled, setChangedFileUuids, setSelectionChangedUuids, setFilesData, setSelectedVideoFiles, userType, isHidingMode, filesToHide, setFilesToHide, uploadingThumbnailUuid, setUpdatingThumbnailUuid]);
 
     const handleVideoClick = (url: string, file: SelectedFiles | Files) => {
         setSelectedVideoUrl(url);
@@ -681,6 +791,13 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                 hidden
                                 accept="video/*"
                                 onChange={handleFileSelect}
+                            />
+                            <input
+                                ref={thumbnailUpdateRef}
+                                type="file"
+                                hidden
+                                accept="image/*"
+                                onChange={handleThumbnailFileSelect}
                             />
                         </div>
                     ) : (
@@ -956,6 +1073,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                         setEditingFile(null);
                     }}
                     file={selectedVideoUrl}
+                    poster={editingFile && !('file' in editingFile) ? ((editingFile as Files).variant_urls as any)?.player || (editingFile as Files).variant_urls?.thumb || (editingFile as Files).thumbnail_url : undefined}
                     title={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'Video') : 'Video'}
                     initialName={editingFile ? (('file' in editingFile) ? editingFile.type : (editingFile as Files).group || (editingFile as Files).type || 'Video') : ''}
                     isPaid={bookingToUse?.payment_status === 'PAID' || orderData?.payment_status === 'PAID'}

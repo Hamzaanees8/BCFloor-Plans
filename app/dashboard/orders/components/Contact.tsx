@@ -13,9 +13,10 @@ import { toast } from 'sonner';
 import { useAppContext } from '@/app/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { RealtorSignInModal } from '@/app/agent/book-now/components/RealtorLogin';
+
 import { SearchableSelect } from './SearchableSelect';
 import { useOrderContext } from '../context/OrderContext';
+import { RealtorSignInModal } from '@/app/agent/book-now/components/RealtorLogin';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import {
     Table,
@@ -46,6 +47,7 @@ const Contact = () => {
     const role = (userType as string)?.toLowerCase() || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
 
+    const [showSignIn, setShowSignIn] = useState(false);
     const [hasToken, setHasToken] = useState(true);
     useEffect(() => {
         const checkToken = () => {
@@ -81,7 +83,7 @@ const Contact = () => {
     const [openAddCoAgentDialog, setOpenAddCoAgentDialog] = useState(false);
     const [openDropdown, setOpenDropdown] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-    const [showSignIn, setShowSignIn] = useState(false);
+
 
     // New States for Notes Redesign
     const [editingNote, setEditingNote] = useState<any | null>(null);
@@ -427,22 +429,10 @@ const Contact = () => {
                                         Login
                                     </Button>
                                 }
-                                {(isBookNowMode && !hasToken) && (
-                                    <div className="flex flex-col items-center justify-center py-10 gap-4 border rounded-md bg-gray-50">
-                                        <p className="text-[16px] font-semibold text-gray-700 text-center px-4">
-                                            Please log in or create an account to finalize your booking.
-                                        </p>
-                                        <Button
-                                            onClick={() => setShowSignIn(true)}
-                                            className='w-[200px] h-[40px] rounded-[6px] text-white hover:opacity-90'
-                                            style={{ backgroundColor: roleSettings.pageTabColor }}
-                                        >
-                                            Log In / Sign Up
-                                        </Button>
-                                    </div>
-                                )}
                             </div>
+                            <RealtorSignInModal open={showSignIn} setOpen={setShowSignIn} accentColor={roleSettings.pageTabColor} />
                             
+
                             {!(isBookNowMode && !hasToken) && (
                                 <div className='grid grid-cols-2 gap-[32px]'>
                                 {openDropdown && (
@@ -679,9 +669,11 @@ const Contact = () => {
                                             <div className="flex justify-between items-center text-white rounded-[6px] px-4 py-1.5 w-max mb-2" style={{ backgroundColor: roleSettings.pageTabColor }}>
                                                 <span className="font-bold text-[13px]">Appointment Notes</span>
                                             </div>
-                                            <p className="text-[#E06D5E] text-[12px] mb-2">
-                                                These notes will be viewable by AGENT.
-                                            </p>
+                                            {(userType === 'vendor' || userType === 'admin') && (
+                                                <p className="text-[#E06D5E] text-[12px] mb-2">
+                                                    These notes will be viewable by AGENT.
+                                                </p>
+                                            )}
                                             <div className="relative">
                                                 <div className="w-full min-h-[150px] max-h-[300px] p-3 rounded-[6px] border border-[#BBBBBB] overflow-y-auto bg-[#E4E4E4]">
                                                     {agentNotes.filter(n => n.internal === "false" || !n.internal).length === 0 ? (
@@ -863,7 +855,7 @@ const Contact = () => {
                     </div>
                 </div>
             </div>
-            <RealtorSignInModal open={showSignIn} setOpen={setShowSignIn} />
+
         </>
     );
 };

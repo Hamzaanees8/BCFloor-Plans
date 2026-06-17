@@ -1,6 +1,6 @@
 
 export interface PresignedUrlRequest {
-    entity_type: 'tour' | 'order' | 'listing' | 'feature-sheet' | 'vendor-portfolio' | 'agent' | 'agent-audio' | 'organization-audio';
+    entity_type: 'tour' | 'order' | 'listing' | 'feature-sheet' | 'vendor-portfolio' | 'agent' | 'agent-audio' | 'organization-audio' | 'video-thumbnail';
     entity_id: string;
     files: {
         filename: string;
@@ -26,7 +26,7 @@ export interface PresignedUrlResponse {
 }
 
 export interface ConfirmUploadRequest {
-    entity_type: 'tour' | 'order' | 'listing' | 'feature-sheet' | 'vendor-portfolio' | 'agent' | 'agent-audio' | 'organization-audio';
+    entity_type: 'tour' | 'order' | 'listing' | 'feature-sheet' | 'vendor-portfolio' | 'agent' | 'agent-audio' | 'organization-audio' | 'video-thumbnail';
     entity_id: string;
     tour_id?: string;
     feature_sheet_id?: string;
@@ -47,6 +47,16 @@ export interface ConfirmUploadRequest {
     }[];
 }
 
+export interface VideoVariants {
+    thumb?: string;
+    player?: string;
+}
+
+export interface VideoVariantUrls {
+    thumb?: string;
+    player?: string;
+}
+
 export interface ConfirmUploadResponse {
     success: boolean;
     data: {
@@ -54,6 +64,9 @@ export interface ConfirmUploadResponse {
             uuid: string;
             filename: string;
             status: 'complete' | 'processing';
+            // Returned for video-thumbnail confirmations
+            variants?: VideoVariants;
+            variant_urls?: VideoVariantUrls;
         }[];
     };
 }

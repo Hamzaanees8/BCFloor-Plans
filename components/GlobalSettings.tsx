@@ -57,6 +57,7 @@ import EmailTemplatesSettings from "./EmailTemplatesSettings";
 import OrganizationsSettings from "./OrganizationsSettings";
 import MediaJobsTable from "./MediaJobsTable";
 import EmailLogsSettings from "./EmailLogsSettings";
+import PortalSettings from "./PortalSettings";
 import { usePermissions } from "@/app/hooks/usePermissions";
 import { PERMISSIONS } from "@/lib/permissions";
 
@@ -301,6 +302,7 @@ const GlobalSettings = () => {
     const baselineSettingsRef = useRef<any>(null);
     const headerRef = useRef<HTMLDivElement>(null);
     const orgSettingsRef = useRef<{ save: () => Promise<void> } | null>(null);
+    const portalSettingsRef = useRef<{ save: () => Promise<void> } | null>(null);
 
     // Override overflow-x: hidden on ancestor elements that break sticky positioning
     useEffect(() => {
@@ -894,6 +896,7 @@ const GlobalSettings = () => {
             { name: "Appearances", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Templates", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Organizations", permission: PERMISSIONS.VIEW_ADMIN },
+            { name: "Portal Settings", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Media Processing", permission: PERMISSIONS.VIEW_ADMIN },
             { name: "Email Logs", permission: PERMISSIONS.VIEW_ADMIN }
         ];
@@ -1141,6 +1144,17 @@ const GlobalSettings = () => {
                             Save Changes
                         </Button>
                     ) : null
+                ) : activeTab === "Portal Settings" ? (
+                    <Button
+                        type="button"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            portalSettingsRef.current?.save();
+                        }}
+                        className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center justify-center hover:text-[#fff] hover-${userType}-bg `}
+                    >
+                        Save Changes
+                    </Button>
                 ) : activeTab === "Templates" || activeTab === "Tour Settings" || activeTab === "Email Logs" ? null : (
                     <Button
                         type="button"
@@ -1197,6 +1211,9 @@ const GlobalSettings = () => {
                 )}
                 {activeTab === "Email Logs" && userType === "admin" && (
                     <EmailLogsSettings />
+                )}
+                {activeTab === "Portal Settings" && userType === "admin" && (
+                    <PortalSettings ref={portalSettingsRef} />
                 )}
 
                 <Accordion

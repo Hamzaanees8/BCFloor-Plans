@@ -157,9 +157,13 @@ function EditOrderPayloadToFormData(payload: EditOrderPayload): FormData {
   return formData;
 }
 
-export async function Create(payload: OrderPayload, token: string) {
+export async function Create(payload: OrderPayload, token: string, orgSlug?: string | null) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const formData = payloadToFormData(payload);
+
+  if (orgSlug) {
+    formData.append('org_slug', orgSlug);
+  }
 
   const response = await fetch(`${API_URL}/orders`, {
     method: "POST",
@@ -435,11 +439,12 @@ export async function ResetPasswordSubAccount(
 
   return data;
 }
-export async function GetVendors(token: string) {
+export async function GetVendors(token: string, orgSlug?: string | null) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   try {
-    const response = await fetch(`${API_URL}/vendors`, {
+    const url = orgSlug ? `${API_URL}/vendors?slug=${encodeURIComponent(orgSlug)}` : `${API_URL}/vendors`;
+    const response = await fetch(url, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -489,11 +494,12 @@ export async function GetOneOrder(token: string, uuid: string) {
     throw error;
   }
 }
-export async function GetServices(token: string) {
+export async function GetServices(token: string, orgSlug?: string | null) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   try {
-    const response = await fetch(`${API_URL}/services`, {
+    const url = orgSlug ? `${API_URL}/services/${encodeURIComponent(orgSlug)}` : `${API_URL}/services`;
+    const response = await fetch(url, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,

@@ -26,7 +26,7 @@ import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
 import { useUnsaved } from "@/app/context/UnsavedContext";
 import { useOrganization } from "@/app/context/OrganizationContext";
 import { toast } from "sonner";
-import { GetInvoicesByOrder, PayInvoiceWithStripe } from "../../invoice/invoice_api";
+import { GetInvoicesByOrder, PayInvoiceWithStripe, UpdateInvoice } from "../../invoice/invoice_api";
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
 import {
   Dialog,
@@ -275,6 +275,33 @@ const FileManager = () => {
       return;
     }
     try {
+      // Sync dynamically calculated Extra Photos to the backend before redirecting to Stripe
+      const originalInvoice = invoices.find(i => i.uuid === invoice.uuid);
+      const hasExtraLocally = invoice.items?.some((i: any) => i.description?.match(/Extra (Photos|Media)/i));
+      const hadExtraInDb = originalInvoice?.items?.some((i: any) => i.description?.match(/Extra (Photos|Media)/i));
+      
+      if (
+        (invoice.items?.length !== (originalInvoice?.items?.length || 0)) ||
+        (hasExtraLocally || hadExtraInDb)
+      ) {
+        await UpdateInvoice(invoice.uuid, {
+            notes: invoice.notes,
+            tax_rate: invoice.tax_rate,
+            items: invoice.items.map((i: any) => ({
+                description: i.description,
+                quantity: i.quantity,
+                unit_price: i.unit_price,
+                order_service_id: i.order_service_id || i.order_service?.id || null
+            }))
+        });
+        
+        // Refresh local invoices to reflect the synced state
+        const updatedRes = await GetInvoicesByOrder(orderData.uuid);
+        if (updatedRes?.data) {
+           setInvoices(Array.isArray(updatedRes.data) ? updatedRes.data : []);
+        }
+      }
+
       const isSplit = !!invoice.split_details;
       const payerUuid = currentUser?.uuid;
       const isOwner = currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid);
@@ -426,6 +453,71 @@ const FileManager = () => {
     activeServiceIndex
   );
 
+  const injectExtraItems = (invoice: any) => {
+    if (!filesData?.files || !orderData) return invoice;
+
+    const baseItems = invoice.items || [];
+    // Filter out previously injected extra media to recalculate accurately
+    const cleanedBaseItems = baseItems.filter((i: any) => !i.description?.match(/Extra (Photos|Media)/i));
+    
+    const extraItems: any[] = [];
+    
+    cleanedBaseItems.forEach((item: any) => {
+      let os = item.order_service || item.orderService;
+      
+      // If the invoice item's order_service lacks the option data, fetch it from orderData.services
+      if (!os || !os.option?.quantity) {
+        const matchedService = orderData.services?.find((s: any) => s.id === (item.order_service_id || os?.id));
+        if (matchedService && matchedService.option?.quantity) {
+          os = matchedService;
+        } else {
+          return;
+        }
+      }
+
+      const serviceId = os.service_id || os.service?.id;
+      const currentLimit = os.option.quantity;
+      
+      const selectedCount = filesData.files.filter((f: any) => 
+        (Number(f.service?.id) === Number(serviceId) || Number(f.service_id) === Number(serviceId) || f.service?.uuid === os.service?.uuid) 
+        && f.is_agent_approved 
+        && !f.is_complimentary
+        && !f.is_deleted
+      ).length;
+
+      if (selectedCount > currentLimit) {
+        const extraCount = selectedCount - currentLimit;
+        const unitPrice = parseFloat(os.option.amount) / currentLimit;
+        const extraCost = extraCount * unitPrice;
+
+        extraItems.push({
+          description: `${extraCount} Extra Photos (${item.description || os.option?.title || 'Service'})`,
+          quantity: extraCount,
+          unit_price: unitPrice.toFixed(2),
+          amount: extraCost.toFixed(2),
+          order_service_id: os.id
+        });
+      }
+    });
+
+    if (extraItems.length > 0 || cleanedBaseItems.length !== baseItems.length) {
+      const newItems = [...cleanedBaseItems, ...extraItems];
+      const subtotal = newItems.reduce((sum: number, i: any) => sum + (parseFloat(i.quantity) * parseFloat(i.unit_price) || 0), 0);
+      const taxAmount = subtotal * (parseFloat(invoice.tax_rate || "0") / 100);
+      const newTotal = subtotal + taxAmount;
+      
+      return {
+        ...invoice,
+        items: newItems,
+        subtotal: subtotal.toFixed(2),
+        tax_amount: taxAmount.toFixed(2),
+        total: newTotal.toFixed(2)
+      };
+    }
+
+    return invoice;
+  };
+
   const handleOpenInvoice = (serviceName?: string) => {
     const serviceInv = serviceName
       ? invoices.find(inv => {
@@ -442,7 +534,7 @@ const FileManager = () => {
     const finalInv = serviceInv || invoices[0];
 
     if (finalInv) {
-      setViewingInvoice(finalInv);
+      setViewingInvoice(injectExtraItems(finalInv));
     } else {
       setShowInvoicesModal(true);
     }
@@ -840,7 +932,7 @@ const FileManager = () => {
                   <Loader2 className="h-8 w-8 animate-spin" style={{ color: `var(--${userType}-page-tab-color)` }} />
                 </div>
               ) : (() => {
-                const filteredList = invoices;
+                const filteredList = invoices.map(injectExtraItems);
 
                 if (filteredList.length === 0) {
                   return (

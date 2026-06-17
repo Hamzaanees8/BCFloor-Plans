@@ -137,9 +137,10 @@ export interface TourStats {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-export const fetchPublicTourData = async (orderuuid: string): Promise<OrderData> => {
+export const fetchPublicTourData = async (orderuuid: string, orgSlug?: string | null): Promise<OrderData> => {
     try {
-        const response = await fetch(`${API_URL}/tour/public/${orderuuid}`);
+        const query = orgSlug ? `?org_slug=${encodeURIComponent(orgSlug)}` : '';
+        const response = await fetch(`${API_URL}/tour/public/${orderuuid}${query}`);
         if (!response.ok) {
             throw new Error('Failed to fetch order data');
         }

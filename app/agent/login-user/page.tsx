@@ -63,9 +63,10 @@ function LoginUser() {
             router.push('/dashboard/calendar');
             localStorage.setItem('token', response.data.token);
             setIsLoading(false)
-            setUserType(response.data.type === 'user' ? 'admin' : response.data.type)
-            localStorage.setItem('userType', response.data.type === 'user' ? 'admin' : response.data.type)
-            localStorage.setItem('userInfo', JSON.stringify(response.data.user));
+            setUserType('agent')
+            localStorage.setItem('userType', 'agent')
+            const userObj = (response.data as any).user || (response.data as any).agent || response.data;
+            localStorage.setItem('userInfo', JSON.stringify(userObj));
         } catch (error: unknown) {
             if (error instanceof Error) {
                 setIsLoading(false)
@@ -85,7 +86,7 @@ function LoginUser() {
                         <AgentLoginIcon width='110px' height='110px' />
                     </div>
                 )}
-                <Link href={'#'} className='hidden justify-center items-center bg-[var(--primary-color)] hover:bg-[var(--secondary-color)] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
+                <Link href={'#'} className='hidden justify-center items-center bg-[var(--agent-bg-color)] hover:bg-[var(--secondary-color)] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.email ? 'text-red-500' : ''}`} htmlFor="email">Email Address</label>
                     <Input
@@ -128,8 +129,8 @@ function LoginUser() {
                 <Button
                     type='submit'
                     disabled={isLoading}
-                    className={`flex justify-center items-center ${isLoading ? 'bg-[var(--primary-color)]' : 'bg-[#fff]'}  hover:bg-[var(--primary-color)] hover:text-[#fff] border-[1px] border-[var(--primary-color)] text-[var(--primary-color)] rounded-[6px] h-[42px] font-[600] text-[20px]`}
-                    style={{ borderColor: 'var(--primary-color)', color: isLoading ? '#fff' : 'var(--primary-color)' }}>
+                    className={`flex justify-center items-center ${isLoading ? 'bg-[var(--agent-bg-color)]' : 'bg-[#fff]'}  hover:bg-[var(--agent-bg-color)] hover:text-[#fff] border-[1px] border-[var(--agent-bg-color)] text-[var(--agent-bg-color)] rounded-[6px] h-[42px] font-[600] text-[20px]`}
+                    style={{ borderColor: 'var(--agent-bg-color)', color: isLoading ? '#fff' : 'var(--agent-bg-color)' }}>
                     {isLoading ? (
                         <div role="status">
                             <svg
@@ -155,7 +156,7 @@ function LoginUser() {
                     )}
                 </Button>
                 <div className='flex justify-center'>
-                    <Link href="/agent/forget-password" className='w-fit text-[var(--primary-color)] border-b-[1px] leading-[18px] border-[var(--primary-color)] text-[16px] font-[400] text-center' style={{ borderColor: 'var(--primary-color)' }}>Forgot Password</Link>
+                    <Link href="/agent/forget-password" className='w-fit text-[var(--agent-bg-color)] border-b-[1px] leading-[18px] border-[var(--agent-bg-color)] text-[16px] font-[400] text-center' style={{ borderColor: 'var(--agent-bg-color)' }}>Forgot Password</Link>
                 </div>
                 <p className='text-[10px] text-[#666666] font-[400] mx-auto'>Powered by Tojuco Software {new Date().getFullYear()}</p>
             </form>

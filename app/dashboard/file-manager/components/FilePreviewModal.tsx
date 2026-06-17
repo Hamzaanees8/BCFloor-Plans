@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@radix-ui/react-dropdown-menu";
@@ -72,6 +72,8 @@ interface FileRowProps {
   onToggleComplimentary: (idx: number) => void;
   onCopyFromAbove: (idx: number) => void;
   onTabNext: (idx: number, value: string) => void;
+  thumbnailFile?: File;
+  onThumbnailChange?: (idx: number, file: File | undefined) => void;
 }
 
 const FileRow = React.memo(({
@@ -91,9 +93,12 @@ const FileRow = React.memo(({
   onToggleComplimentary,
   onCopyFromAbove,
   onTabNext,
+  thumbnailFile,
+  onThumbnailChange,
 }: FileRowProps) => {
   const [isCopied, setIsCopied] = useState(false);
   const [focusedOptionIndex, setFocusedOptionIndex] = useState(-1);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
 
   const filteredSuggestions = allSuggestions.filter(item =>
     !mediaType || item.toLowerCase().includes(mediaType.toLowerCase())
@@ -134,6 +139,33 @@ const FileRow = React.memo(({
             />
           )}
         </div>
+        
+        {file.type.startsWith('video/') && onThumbnailChange && (
+          <div className="mt-2 w-[200px]">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full text-xs h-7"
+              onClick={() => thumbnailInputRef.current?.click()}
+            >
+              {thumbnailFile ? "Change Thumbnail" : "Add Thumbnail"}
+            </Button>
+            {thumbnailFile && (
+               <p className="text-[10px] text-gray-500 mt-1 truncate">{thumbnailFile.name}</p>
+            )}
+            <input 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              ref={thumbnailInputRef}
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  onThumbnailChange(idx, e.target.files[0]);
+                }
+              }}
+            />
+          </div>
+        )}
       </div>
 
       <div className="w-full flex flex-col gap-[10px]">
@@ -278,6 +310,7 @@ export default function FilePreviewModal({
   const [localFiles, setLocalFiles] = useState<File[]>(files);
   const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
   const [mediaTypes, setMediaTypes] = useState<{ [key: number]: string }>({});
+  const [thumbnailFiles, setThumbnailFiles] = useState<{ [key: number]: File }>({});
   const [groupLabel, setGroupLabel] = useState("");
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
   const [complimentaryIndexes, setComplimentaryIndexes] = useState<number[]>([]);
@@ -326,6 +359,7 @@ export default function FilePreviewModal({
     }
     setSelectedIndexes([]);
     setComplimentaryIndexes([]);
+    setThumbnailFiles({});
     setGroupLabel("");
   }, [files, type]);
 
@@ -367,6 +401,7 @@ export default function FilePreviewModal({
         is_show: true,
         sort_order: totalExistingForService + index,
         is_complimentary: complimentaryIndexes.includes(index),
+        thumbnailFile: thumbnailFiles[index],
       }));
 
       return [...prev, ...filesToAdd];
@@ -481,6 +516,16 @@ export default function FilePreviewModal({
                 }
                 onCopyFromAbove={handleCopyFromAbove}
                 onTabNext={handleTabNext}
+                thumbnailFile={thumbnailFiles[idx]}
+                onThumbnailChange={(i, file) => {
+                  if (file) {
+                    setThumbnailFiles(p => ({ ...p, [i]: file }));
+                  } else {
+                    const newFiles = { ...thumbnailFiles };
+                    delete newFiles[i];
+                    setThumbnailFiles(newFiles);
+                  }
+                }}
               />
             ))}
           </div>

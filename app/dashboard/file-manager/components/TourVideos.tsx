@@ -8,7 +8,7 @@ import { OptimizedImagePreview } from './OptimizedPreview';
 function TourVideos() {
     const { userType } = useAppContext();
     const { selectedVideoFiles, setSelectedVideoFiles, filesData } = useFileManagerContext();
-    const [mainVideo, setMainVideo] = useState<string | null>(null);
+    const [mainVideo, setMainVideo] = useState<{src: string, poster?: string} | null>(null);
 
     const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
@@ -18,13 +18,16 @@ function TourVideos() {
         currentServiceFiles = currentServiceFiles?.filter(file => file.is_agent_approved || file.is_complimentary);
     }
 
-    const mainVideoSrc =
-        mainVideo ??
-        (selectedVideoFiles[0]?.file
-            ? URL.createObjectURL(selectedVideoFiles[0].file)
-            : currentServiceFiles?.[0]
-                ? currentServiceFiles[0].url || `${API_URL}/${currentServiceFiles[0].file_path}`
-                : undefined);
+    const defaultFile = currentServiceFiles?.[0];
+    const defaultSrc = selectedVideoFiles[0]?.file
+        ? URL.createObjectURL(selectedVideoFiles[0].file)
+        : defaultFile
+            ? defaultFile.url || `${API_URL}/${defaultFile.file_path}`
+            : undefined;
+    const defaultPoster = (defaultFile?.variant_urls as any)?.player || defaultFile?.variant_urls?.thumb || defaultFile?.thumbnail_url || undefined;
+
+    const mainVideoSrc = mainVideo?.src ?? defaultSrc;
+    const mainVideoPoster = mainVideo?.poster ?? defaultPoster;
 
     if ((!currentServiceFiles || currentServiceFiles?.length === 0) && selectedVideoFiles.length === 0) {
         const allVideos = filesData?.files?.filter(file => file.type === "video") || [];
@@ -54,6 +57,7 @@ function TourVideos() {
             <div className="mb-6 h-[95vh] w-full bg-black rounded overflow-hidden">
                 <video
                     src={mainVideoSrc}
+                    poster={mainVideoPoster}
                     className="w-full h-full object-contain"
                     controls
                 />
@@ -62,7 +66,7 @@ function TourVideos() {
             {(selectedVideoFiles.length > 0 || (currentServiceFiles?.length ?? 0) > 0) && (
                 <div className="mt-4 w-full grid grid-cols-3 gap-5 p-3">
                     {selectedVideoFiles.map((file, idx) => (
-                        <div key={idx} onClick={() => setMainVideo(URL.createObjectURL(file.file))} className=" h-auto relative">
+                        <div key={idx} onClick={() => setMainVideo({src: URL.createObjectURL(file.file)})} className=" h-auto relative">
                             <div className="relative w-full h-[240px] cursor-pointer overflow-hidden">
                                 <OptimizedImagePreview
                                     file={file.file}
@@ -105,7 +109,7 @@ function TourVideos() {
                                     </div>
                                 ) : (
                                     <>
-                                        <div onClick={() => setMainVideo(file.url || `${API_URL}/${file.file_path}`)} className="w-full h-full">
+                                        <div onClick={() => setMainVideo({src: file.url || `${API_URL}/${file.file_path}`, poster: (file.variant_urls as any)?.player || file.variant_urls?.thumb || file.thumbnail_url || undefined})} className="w-full h-full">
                                             {file.variant_urls?.thumb ? (
                                                 // eslint-disable-next-line @next/next/no-img-element
                                                 <img

@@ -28,6 +28,7 @@ interface Props {
     suggestions?: string[];
     isPaid?: boolean;
     isAgentApproved?: boolean;
+    poster?: string;
 }
 
 const defaultMediaOptions = [
@@ -49,7 +50,8 @@ const PhotoPreviewModal: React.FC<Props> = ({
     type = 'photo',
     suggestions,
     isPaid = true,
-    isAgentApproved = false
+    isAgentApproved = false,
+    poster
 }) => {
     const { userType } = useAppContext();
     const { filesData } = useFileManagerContext();
@@ -147,6 +149,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
                     {type === 'video' ? (
                         <video
                             src={mediaUrl}
+                            poster={poster}
                             controls
                             controlsList="nodownload"
                             preload="auto"

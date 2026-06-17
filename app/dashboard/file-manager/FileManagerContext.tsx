@@ -14,6 +14,7 @@ export type SelectedFiles = {
     is_deleted?: boolean;
     sort_order?: number;
     is_complimentary?: boolean;
+    thumbnailFile?: File;
 };
 import { FeatureSheetResponse } from './types/featureSheetTypes';
 import { Area } from './file-manager';

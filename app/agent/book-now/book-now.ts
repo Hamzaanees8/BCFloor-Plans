@@ -1,8 +1,23 @@
 import { AgentPayload, FetchErrors, payloadToFormData } from "@/app/dashboard/agents/agents";
 
-export async function AgentSignup(payload: AgentPayload) {
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+
+function appendOrgSlug(url: string, orgSlug?: string | null): string {
+    if (!orgSlug) return url;
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}org_slug=${encodeURIComponent(orgSlug)}`;
+}
+
+// ─── Agent Signup ────────────────────────────────────────────────────────────
+
+export async function AgentSignup(payload: AgentPayload, orgSlug?: string | null) {
     const API_URL = process.env.NEXT_PUBLIC_API_URL;
     const formData = payloadToFormData(payload);
+
+    if (orgSlug) {
+        formData.append('org_slug', orgSlug);
+    }
 
     const response = await fetch(`${API_URL}/agents`, {
         method: "POST",
@@ -22,8 +37,10 @@ export async function AgentSignup(payload: AgentPayload) {
     return data;
 }
 
+// ─── Services ────────────────────────────────────────────────────────────────
+
 // Fetch services for book-now without authentication
-export async function fetchServicesForBookNow() {
+export async function fetchServicesForBookNow(orgSlug?: string | null) {
     try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -35,7 +52,8 @@ export async function fetchServicesForBookNow() {
         const timeout = setTimeout(() => controller.abort(), 8000);
 
         try {
-            const response = await fetch(`${API_URL}/services`, {
+            const url = orgSlug ? `${API_URL}/services/${encodeURIComponent(orgSlug)}` : `${API_URL}/services`;
+            const response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -53,7 +71,6 @@ export async function fetchServicesForBookNow() {
             }
         } catch (fetchError) {
             console.log(fetchError);
-
             return [];
         }
     } catch (error) {
@@ -62,7 +79,9 @@ export async function fetchServicesForBookNow() {
     }
 }
 
-export async function fetchDiscountsForBookNow() {
+// ─── Discounts ───────────────────────────────────────────────────────────────
+
+export async function fetchDiscountsForBookNow(orgSlug?: string | null) {
     try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -74,7 +93,8 @@ export async function fetchDiscountsForBookNow() {
         const timeout = setTimeout(() => controller.abort(), 8000);
 
         try {
-            const response = await fetch(`${API_URL}/discounts`, {
+            const url = appendOrgSlug(`${API_URL}/discounts`, orgSlug);
+            const response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -93,18 +113,18 @@ export async function fetchDiscountsForBookNow() {
         } catch (fetchError) {
             // Silently ignore fetch errors
             console.log(fetchError);
-
             return [];
         }
     } catch (error) {
         // Silently ignore outer errors
         console.log(error);
-
         return [];
     }
 }
 
-export async function fetchVendorForBookNow(token?: string | null) {
+// ─── Vendors ─────────────────────────────────────────────────────────────────
+
+export async function fetchVendorForBookNow(token?: string | null, orgSlug?: string | null) {
     try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL;
         const controller = new AbortController();
@@ -119,7 +139,8 @@ export async function fetchVendorForBookNow(token?: string | null) {
                 headers['Authorization'] = `Bearer ${token}`;
             }
 
-            const response = await fetch(`${API_URL}/vendors`, {
+            const url = orgSlug ? `${API_URL}/vendors?slug=${encodeURIComponent(orgSlug)}` : `${API_URL}/vendors`;
+            const response = await fetch(url, {
                 method: 'GET',
                 headers,
             });
@@ -142,8 +163,16 @@ export async function fetchVendorForBookNow(token?: string | null) {
     }
 }
 
+// ─── Login ───────────────────────────────────────────────────────────────────
+
 // Login for agents
-export async function agentLogin(email: string, password: string, organization_id?: number, domain?: string) {
+export async function agentLogin(
+    email: string,
+    password: string,
+    organization_id?: number,
+    domain?: string,
+    orgSlug?: string | null
+) {
     try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -157,7 +186,8 @@ export async function agentLogin(email: string, password: string, organization_i
                 password,
                 role: 'agent',
                 organization_id,
-                domain
+                domain,
+                ...(orgSlug ? { org_slug: orgSlug } : {}),
             }),
         });
 
@@ -172,17 +202,23 @@ export async function agentLogin(email: string, password: string, organization_i
     }
 }
 
+// ─── Signup ───────────────────────────────────────────────────────────────────
+
 // Signup for agents
-export async function agentSignup(payload: unknown) {
+export async function agentSignup(payload: unknown, orgSlug?: string | null) {
     try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+        const enrichedPayload = orgSlug
+            ? { ...(payload as object), org_slug: orgSlug }
+            : payload;
 
         const response = await fetch(`${API_URL}/agent/signup`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(enrichedPayload),
         });
 
         if (!response.ok) {
@@ -195,6 +231,8 @@ export async function agentSignup(payload: unknown) {
         throw error;
     }
 }
+
+// ─── Order Submission ────────────────────────────────────────────────────────
 
 // Submit order for book-now
 export async function submitBookNowOrder(orderPayload: unknown, token: string) {
@@ -221,6 +259,8 @@ export async function submitBookNowOrder(orderPayload: unknown, token: string) {
     }
 }
 
+// ─── Property ────────────────────────────────────────────────────────────────
+
 // Create property/listing for book-now
 export async function createPropertyForBookNow(propertyData: unknown, token: string) {
     try {
@@ -245,12 +285,16 @@ export async function createPropertyForBookNow(propertyData: unknown, token: str
         throw error;
     }
 }
+
+// ─── Order Slots ─────────────────────────────────────────────────────────────
+
 // Fetch booked slots for book-now
-export async function fetchOrderSlots() {
+export async function fetchOrderSlots(orgSlug?: string | null) {
     try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL;
         if (!API_URL) return [];
-        const response = await fetch(`${API_URL}/order-slots`, {
+        const url = appendOrgSlug(`${API_URL}/order-slots`, orgSlug);
+        const response = await fetch(url, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -267,11 +311,14 @@ export async function fetchOrderSlots() {
     }
 }
 
-export async function fetchOrganizationsForBookNow() {
+// ─── Organizations ───────────────────────────────────────────────────────────
+
+export async function fetchOrganizationsForBookNow(orgSlug?: string | null) {
     try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL;
         if (!API_URL) return [];
-        const response = await fetch(`${API_URL}/organizations`, {
+        const url = appendOrgSlug(`${API_URL}/organizations`, orgSlug);
+        const response = await fetch(url, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',

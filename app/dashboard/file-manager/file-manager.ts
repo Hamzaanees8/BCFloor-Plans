@@ -231,14 +231,26 @@ export async function UploadFilesData(
       for (let i = 0; i < files.length; i += PRESIGNED_BATCH_SIZE) {
         const fileBatch = files.slice(i, i + PRESIGNED_BATCH_SIZE);
 
-        const presignedRequest = {
-          entity_type: "order" as const,
-          entity_id: orderUuid,
-          files: fileBatch.map((f) => ({
+        const filesPayload: any[] = [];
+        fileBatch.forEach((f) => {
+          filesPayload.push({
             filename: f.file.name,
             content_type: f.file.type,
             size: f.file.size,
-          })),
+          });
+          if (f.thumbnailFile) {
+            filesPayload.push({
+              filename: f.thumbnailFile.name,
+              content_type: f.thumbnailFile.type,
+              size: f.thumbnailFile.size,
+            });
+          }
+        });
+
+        const presignedRequest = {
+          entity_type: "order" as const,
+          entity_id: orderUuid,
+          files: filesPayload,
         };
 
         const presignedResponse = await S3UploadService.getPresignedUrls(presignedRequest);
@@ -247,37 +259,45 @@ export async function UploadFilesData(
         const batchUploads = presignedResponse.data.uploads;
         uploads.push(...batchUploads);
 
+        const uploadTasks: { fileObj: SelectedFiles; upload: any; isThumb: boolean }[] = [];
+        let uploadIdx = 0;
+        fileBatch.forEach((fileObj) => {
+           uploadTasks.push({ fileObj, upload: batchUploads[uploadIdx++], isThumb: false });
+           if (fileObj.thumbnailFile) {
+             uploadTasks.push({ fileObj, upload: batchUploads[uploadIdx++], isThumb: true });
+           }
+        });
+
         // Upload files in this batch to S3 (concurrency limit)
-        for (let j = 0; j < fileBatch.length; j += S3_CONCURRENT_UPLOADS) {
-          const s3Batch = fileBatch.slice(j, j + S3_CONCURRENT_UPLOADS);
-          const s3BatchUploads = batchUploads.slice(j, j + S3_CONCURRENT_UPLOADS);
+        for (let j = 0; j < uploadTasks.length; j += S3_CONCURRENT_UPLOADS) {
+          const s3Batch = uploadTasks.slice(j, j + S3_CONCURRENT_UPLOADS);
 
-          await Promise.all(s3Batch.map(async (fileObj, s3Index) => {
-            const globalIndex = i + j + s3Index;
-            const upload = s3BatchUploads[s3Index];
+          await Promise.all(s3Batch.map(async (task) => {
+            const globalIndex = files.indexOf(task.fileObj);
+            const upload = task.upload;
 
-            if (onProgress) {
+            if (onProgress && !task.isThumb) {
               onProgress(globalIndex, 0, 'uploading');
             }
 
             try {
               await S3UploadService.uploadToS3(
                 upload.presigned_url,
-                fileObj.file,
+                task.isThumb && task.fileObj.thumbnailFile ? task.fileObj.thumbnailFile : task.fileObj.file,
                 upload.content_type,
                 (progress) => {
-                  if (onProgress) {
+                  if (onProgress && !task.isThumb) {
                     onProgress(globalIndex, progress, 'uploading');
                   }
                 }
               );
-              fileUuids.set(fileObj.file, upload.upload_id);
+              if (!task.isThumb) fileUuids.set(task.fileObj.file, upload.upload_id);
 
-              if (onProgress) {
+              if (onProgress && !task.isThumb) {
                 onProgress(globalIndex, 100, 'confirming');
               }
             } catch (error) {
-              if (onProgress) {
+              if (onProgress && !task.isThumb) {
                 onProgress(globalIndex, 0, 'error');
               }
               throw error;
@@ -354,19 +374,18 @@ export async function UploadFilesData(
         const filesBatch = files.slice(i, i + PRESIGNED_BATCH_SIZE);
         const uploadsBatch = uploads.slice(i, i + PRESIGNED_BATCH_SIZE);
 
-        await S3UploadService.confirmUpload({
-          entity_type: "tour",
-          entity_id: tourUuid,
-          tour_id: tourUuid,
-          uploads: filesBatch.map((fileObj, batchIdx) => {
-            const index = i + batchIdx;
-            const upload = uploadsBatch[batchIdx];
-            return {
-              upload_id: upload.upload_id,
-              s3_key: upload.s3_key,
-              original_filename: upload.original_filename,
-              content_type: upload.content_type,
-              type: getFileTypeFromContentType(upload.content_type),
+        const confirmUploadsPayload: any[] = [];
+        let cIdx = 0;
+        filesBatch.forEach((fileObj) => {
+            const mainUpload = uploadsBatch[cIdx++];
+            const thumbUpload = fileObj.thumbnailFile ? uploadsBatch[cIdx++] : null;
+            
+            confirmUploadsPayload.push({
+              upload_id: mainUpload.upload_id,
+              s3_key: mainUpload.s3_key,
+              original_filename: mainUpload.original_filename,
+              content_type: mainUpload.content_type,
+              type: getFileTypeFromContentType(mainUpload.content_type),
               group: fileObj.type,
               service_id: fileObj.service_id,
               is_featured: fileObj.is_featured || false,
@@ -374,9 +393,16 @@ export async function UploadFilesData(
               is_admin_approved: fileObj.is_admin_approved !== false,
               is_agent_approved: fileObj.is_agent_approved || false,
               is_complimentary: fileObj.is_complimentary || false,
-              sort_order: fileObj.sort_order !== undefined ? fileObj.sort_order : index + 1,
-            };
-          }),
+              sort_order: fileObj.sort_order !== undefined ? fileObj.sort_order : files.indexOf(fileObj) + 1,
+              ...(thumbUpload ? { thumbnail_s3_key: thumbUpload.s3_key } : {})
+            });
+        });
+
+        await S3UploadService.confirmUpload({
+          entity_type: "tour",
+          entity_id: tourUuid,
+          tour_id: tourUuid,
+          uploads: confirmUploadsPayload,
         });
 
         // Mark this batch as complete in UI
@@ -429,14 +455,26 @@ export async function UpdateFilesData(
       for (let i = 0; i < newFiles.length; i += PRESIGNED_BATCH_SIZE) {
         const fileBatch = newFiles.slice(i, i + PRESIGNED_BATCH_SIZE);
 
-        const presignedRequest = {
-          entity_type: "tour" as const,
-          entity_id: tourUuid,
-          files: fileBatch.map((f) => ({
+        const filesPayload: any[] = [];
+        fileBatch.forEach((f) => {
+          filesPayload.push({
             filename: f.file.name,
             content_type: f.file.type,
             size: f.file.size,
-          })),
+          });
+          if (f.thumbnailFile) {
+            filesPayload.push({
+              filename: f.thumbnailFile.name,
+              content_type: f.thumbnailFile.type,
+              size: f.thumbnailFile.size,
+            });
+          }
+        });
+
+        const presignedRequest = {
+          entity_type: "tour" as const,
+          entity_id: tourUuid,
+          files: filesPayload,
         };
 
         const presignedResponse = await S3UploadService.getPresignedUrls(presignedRequest);
@@ -444,38 +482,46 @@ export async function UpdateFilesData(
 
         const batchUploads = presignedResponse.data.uploads;
 
+        const uploadTasks: { fileObj: SelectedFiles; upload: any; isThumb: boolean }[] = [];
+        let uploadIdx = 0;
+        fileBatch.forEach((fileObj) => {
+           uploadTasks.push({ fileObj, upload: batchUploads[uploadIdx++], isThumb: false });
+           if (fileObj.thumbnailFile) {
+             uploadTasks.push({ fileObj, upload: batchUploads[uploadIdx++], isThumb: true });
+           }
+        });
+
         // Upload all new files in this batch to S3 (concurrency limit)
-        for (let j = 0; j < fileBatch.length; j += S3_CONCURRENT_UPLOADS) {
-          const s3Batch = fileBatch.slice(j, j + S3_CONCURRENT_UPLOADS);
-          const s3BatchUploads = batchUploads.slice(j, j + S3_CONCURRENT_UPLOADS);
+        for (let j = 0; j < uploadTasks.length; j += S3_CONCURRENT_UPLOADS) {
+          const s3Batch = uploadTasks.slice(j, j + S3_CONCURRENT_UPLOADS);
 
           await Promise.all(
-            s3Batch.map(async (fileObj, s3Index) => {
-              const globalIndex = files.indexOf(fileObj);
-              const upload = s3BatchUploads[s3Index];
+            s3Batch.map(async (task) => {
+              const globalIndex = files.indexOf(task.fileObj);
+              const upload = task.upload;
               
-              if (onProgress && globalIndex !== -1) {
+              if (onProgress && globalIndex !== -1 && !task.isThumb) {
                 onProgress(globalIndex, 0, 'uploading');
               }
 
               try {
                 await S3UploadService.uploadToS3(
                   upload.presigned_url,
-                  fileObj.file,
+                  task.isThumb && task.fileObj.thumbnailFile ? task.fileObj.thumbnailFile : task.fileObj.file,
                   upload.content_type,
                   (progress) => {
-                    if (onProgress && globalIndex !== -1) {
+                    if (onProgress && globalIndex !== -1 && !task.isThumb) {
                       onProgress(globalIndex, progress, 'uploading');
                     }
                   }
                 );
-                fileUuids.set(fileObj.file, upload.upload_id);
+                if (!task.isThumb) fileUuids.set(task.fileObj.file, upload.upload_id);
 
-                if (onProgress && globalIndex !== -1) {
+                if (onProgress && globalIndex !== -1 && !task.isThumb) {
                   onProgress(globalIndex, 100, 'confirming');
                 }
               } catch (error) {
-                if (onProgress && globalIndex !== -1) {
+                if (onProgress && globalIndex !== -1 && !task.isThumb) {
                   onProgress(globalIndex, 0, 'error');
                 }
                 throw error;
@@ -484,19 +530,18 @@ export async function UpdateFilesData(
           );
         }
 
-        // Confirm this batch of uploads
-        await S3UploadService.confirmUpload({
-          entity_type: "tour",
-          entity_id: tourUuid,
-          tour_id: tourUuid,
-          uploads: fileBatch.map((fileObj, batchIdx) => {
-            const uploadInfo = batchUploads[batchIdx];
-            return {
-              upload_id: uploadInfo.upload_id,
-              s3_key: uploadInfo.s3_key,
-              original_filename: uploadInfo.original_filename,
-              content_type: uploadInfo.content_type,
-              type: getFileTypeFromContentType(uploadInfo.content_type),
+        const confirmUploadsPayload: any[] = [];
+        let cIdx = 0;
+        fileBatch.forEach((fileObj) => {
+            const mainUpload = batchUploads[cIdx++];
+            const thumbUpload = fileObj.thumbnailFile ? batchUploads[cIdx++] : null;
+            
+            confirmUploadsPayload.push({
+              upload_id: mainUpload.upload_id,
+              s3_key: mainUpload.s3_key,
+              original_filename: mainUpload.original_filename,
+              content_type: mainUpload.content_type,
+              type: getFileTypeFromContentType(mainUpload.content_type),
               group: fileObj.type,
               service_id: fileObj.service_id,
               is_featured: fileObj.is_featured || false,
@@ -505,8 +550,16 @@ export async function UpdateFilesData(
               is_agent_approved: fileObj.is_agent_approved || false,
               is_complimentary: fileObj.is_complimentary || false,
               sort_order: fileObj.sort_order !== undefined ? fileObj.sort_order : newFiles.indexOf(fileObj) + 1,
-            };
-          }),
+              ...(thumbUpload ? { thumbnail_s3_key: thumbUpload.s3_key } : {})
+            });
+        });
+
+        // Confirm this batch of uploads
+        await S3UploadService.confirmUpload({
+          entity_type: "tour",
+          entity_id: tourUuid,
+          tour_id: tourUuid,
+          uploads: confirmUploadsPayload,
         });
 
         // Mark this batch as complete in UI

@@ -103,6 +103,7 @@ const Page = () => {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [refundDefaultAmount, setRefundDefaultAmount] = useState<number | undefined>(undefined);
   const [fetchingInvoice, setFetchingInvoice] = useState(false);
   const [selectedOrderUuid, setSelectedOrderUuid] = useState("");
   const [serviceInvoicePopup, setServiceInvoicePopup] = useState<{
@@ -110,7 +111,7 @@ const Page = () => {
     billing: BillingItem;
     serviceId?: string;
   } | null>(null);
-  const [actionLoading, setActionLoading] = useState<{ id: string | number, action: "pay" | "view" } | null>(null);
+  const [actionLoading, setActionLoading] = useState<{ id: string | number, action: "pay" | "view" | "refund" } | null>(null);
 
   const [showInvoicesModal, setShowInvoicesModal] = useState(false);
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -252,13 +253,16 @@ const Page = () => {
 
       if (serviceId) {
         // Service-level action: find the invoice that contains this service
-        targetInvoice = invoicesList.find((inv: any) =>
+        const serviceInvoices = invoicesList.filter((inv: any) =>
           inv.items?.some((i: any) => {
             const sUuid = i.order_service?.uuid || i.orderService?.uuid;
             const sId = i.order_service_id || i.order_service?.id || i.orderService?.id;
             return sUuid === serviceId || sId?.toString() === serviceId;
           })
-        ) || invoicesList[0];
+        );
+        targetInvoice = serviceInvoices.find((inv: any) => !inv.notes?.toLowerCase().includes("consolidated")) 
+                     || serviceInvoices[0] 
+                     || invoicesList[0];
       } else {
         // Order-level action: prefer the consolidated invoice, then primary, then first
         targetInvoice =
@@ -898,10 +902,114 @@ const Page = () => {
                               <div className="space-y-4">
                                 {/* Order Summary */}
                                 <div className="bg-white p-6 rounded-[6px] border border-[#BBBBBB]">
-                                  <h3 className="text-[16px] font-[600] uppercase tracking-wide mb-4 font-alexandria" style={{ color: roleSettings.pageTabColor }}>
-                                    Order Summary
-                                  </h3>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                                  <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4 md:gap-0">
+                                    <h3 className="text-[16px] font-[600] uppercase tracking-wide font-alexandria m-0" style={{ color: roleSettings.pageTabColor }}>
+                                      Order Summary
+                                    </h3>
+                                    <div className="flex flex-wrap items-center gap-4">
+                                      {orderInvoiceUrl && (
+                                        <a
+                                          href={orderInvoiceUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="flex items-center gap-1 text-xs font-medium hover:underline"
+                                          style={{ color: roleSettings.activeColor }}
+                                        >
+                                          <ExternalLink className="w-4 h-4" />
+                                          Stripe Invoice
+                                        </a>
+                                      )}
+                                      <div className="flex flex-wrap gap-2 items-center">
+                                        <Button
+                                          onClick={() => handleInvoiceAction(billing, "view")}
+                                          disabled={actionLoading !== null}
+                                          className="h-[35px] px-4 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[100px] cursor-pointer"
+                                          onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = roleSettings.pageTabColor;
+                                            e.currentTarget.style.color = 'white';
+                                            e.currentTarget.style.borderColor = roleSettings.pageTabColor;
+                                          }}
+                                          onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'white';
+                                            e.currentTarget.style.color = '#666666';
+                                            e.currentTarget.style.borderColor = '#BBBBBB';
+                                          }}
+                                        >
+                                          {actionLoading?.id === billing.order_id && actionLoading?.action === "view" ? (
+                                            <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
+                                          ) : (
+                                            "Invoice"
+                                          )}
+                                        </Button>
+
+                                        {billing.remaining_amount > 0 && (
+                                          <Button
+                                            onClick={() => handleInvoiceAction(billing, "pay")}
+                                            disabled={actionLoading !== null}
+                                            className="h-[35px] px-4 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
+                                            style={{ backgroundColor: roleSettings.pageTabColor }}
+                                          >
+                                            {actionLoading?.id === billing.order_id && actionLoading?.action === "pay" ? (
+                                              <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
+                                            ) : (
+                                              "Pay All"
+                                            )}
+                                          </Button>
+                                        )}
+
+                                        {role === 'admin' && billing.remaining_amount > 0 && (
+                                          <Button
+                                            onClick={async () => {
+                                              try {
+                                                setActionLoading({ id: billing.order_id, action: "pay" });
+                                                const res = await GetInvoicesByOrder(billing.order_uuid);
+                                                const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
+                                                const unpaidInvoices = invoicesList.filter((inv: any) => {
+                                                  const s = (inv.status || "").toUpperCase();
+                                                  return s !== "PAID" && s !== "VOID";
+                                                });
+                                                const invoiceToPay =
+                                                  unpaidInvoices.find((inv: any) => inv.notes?.toLowerCase().includes("consolidated")) ||
+                                                  unpaidInvoices.find((inv: any) => inv.agent_type === "primary") ||
+                                                  unpaidInvoices[0] ||
+                                                  invoicesList[0];
+                                                
+                                                if (invoiceToPay) {
+                                                  handleOpenManualPayment(invoiceToPay);
+                                                } else {
+                                                  toast.error("No invoice found to mark as paid.");
+                                                }
+                                              } catch (err) {
+                                                console.error("Failed to load invoice for manual payment:", err);
+                                                toast.error("Failed to load invoice.");
+                                              } finally {
+                                                setActionLoading(null);
+                                              }
+                                            }}
+                                            disabled={actionLoading !== null}
+                                            className="h-[35px] px-4 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-emerald-600 hover:text-white active:scale-[0.98]"
+                                          >
+                                            {actionLoading?.id === billing.order_id && actionLoading?.action === "pay" ? (
+                                              <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
+                                            ) : (
+                                              "Mark Paid"
+                                            )}
+                                          </Button>
+                                        )}
+                                        {role === 'admin' && billing.status === 'paid' && (
+                                          <Button
+                                            variant="outline"
+                                            onClick={(e) => handleRefundClick(e, billing.order_uuid)}
+                                            className="h-[35px] px-4 border border-orange-200 text-orange-600 rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-orange-50"
+                                            disabled={fetchingInvoice}
+                                          >
+                                            {fetchingInvoice ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />} Refund
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                                     <div>
                                       <p className="text-gray-600">
                                         Service Time
@@ -931,100 +1039,6 @@ const Page = () => {
                                           billing.created_at
                                         ).toLocaleDateString()}
                                       </p>
-                                    </div>
-                                    <div>
-                                      <div className="flex flex-col gap-3">
-                                        {orderInvoiceUrl && (
-                                          <a
-                                            href={orderInvoiceUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center gap-1 text-xs font-medium mb-1 hover:underline"
-                                            style={{ color: roleSettings.activeColor }}
-                                          >
-                                            <ExternalLink className="w-4 h-4" />
-                                            Stripe Invoice
-                                          </a>
-                                        )}
-                                        <div className="flex gap-2 items-center">
-                                          <Button
-                                            onClick={() => handleInvoiceAction(billing, "view")}
-                                            disabled={actionLoading !== null}
-                                            className="h-[35px] px-4 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-gray-50"
-                                          >
-                                            {actionLoading?.id === billing.order_id && actionLoading?.action === "view" ? (
-                                              <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
-                                            ) : (
-                                              "Invoice"
-                                            )}
-                                          </Button>
-
-                                          {billing.remaining_amount > 0 && (
-                                            <Button
-                                              onClick={() => handleInvoiceAction(billing, "pay")}
-                                              disabled={actionLoading !== null}
-                                              className="h-[35px] px-4 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
-                                              style={{ backgroundColor: roleSettings.pageTabColor }}
-                                            >
-                                              {actionLoading?.id === billing.order_id && actionLoading?.action === "pay" ? (
-                                                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
-                                              ) : (
-                                                "Pay All"
-                                              )}
-                                            </Button>
-                                          )}
-
-                                          {role === 'admin' && billing.remaining_amount > 0 && (
-                                            <Button
-                                              onClick={async () => {
-                                                try {
-                                                  setActionLoading({ id: billing.order_id, action: "pay" });
-                                                  const res = await GetInvoicesByOrder(billing.order_uuid);
-                                                  const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
-                                                  const unpaidInvoices = invoicesList.filter((inv: any) => {
-                                                    const s = (inv.status || "").toUpperCase();
-                                                    return s !== "PAID" && s !== "VOID";
-                                                  });
-                                                  const invoiceToPay =
-                                                    unpaidInvoices.find((inv: any) => inv.notes?.toLowerCase().includes("consolidated")) ||
-                                                    unpaidInvoices.find((inv: any) => inv.agent_type === "primary") ||
-                                                    unpaidInvoices[0] ||
-                                                    invoicesList[0];
-                                                  
-                                                  if (invoiceToPay) {
-                                                    handleOpenManualPayment(invoiceToPay);
-                                                  } else {
-                                                    toast.error("No invoice found to mark as paid.");
-                                                  }
-                                                } catch (err) {
-                                                  console.error("Failed to load invoice for manual payment:", err);
-                                                  toast.error("Failed to load invoice.");
-                                                } finally {
-                                                  setActionLoading(null);
-                                                }
-                                              }}
-                                              disabled={actionLoading !== null}
-                                              className="h-[35px] px-4 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-emerald-50 active:scale-[0.98]"
-                                            >
-                                              {actionLoading?.id === billing.order_id && actionLoading?.action === "pay" ? (
-                                                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
-                                              ) : (
-                                                "Mark Paid"
-                                              )}
-                                            </Button>
-                                          )}
-                                          {role === 'admin' && billing.status === 'paid' && (
-                                            <Button
-                                              variant="outline"
-                                              onClick={(e) => handleRefundClick(e, billing.order_uuid)}
-                                              className="h-[35px] px-4 border border-orange-200 text-orange-600 rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-orange-50"
-                                              disabled={fetchingInvoice}
-                                            >
-                                              {fetchingInvoice ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />} Refund
-                                            </Button>
-                                          )}
-                                        </div>
-                                      </div>
                                     </div>
                                   </div>
 
@@ -1137,7 +1151,17 @@ const Page = () => {
                                                 <Button
                                                   onClick={() => handleInvoiceAction(billing, "view", serviceUuid, service.amount)}
                                                   disabled={actionLoading !== null}
-                                                  className="h-[30px] px-3 bg-white border border-[#BBBBBB] text-[#666666] rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-gray-50"
+                                                  className="h-[30px] px-3 bg-white border border-[#BBBBBB] text-[#666666] rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer"
+                                                  onMouseEnter={(e) => {
+                                                    e.currentTarget.style.backgroundColor = roleSettings.pageTabColor;
+                                                    e.currentTarget.style.color = 'white';
+                                                    e.currentTarget.style.borderColor = roleSettings.pageTabColor;
+                                                  }}
+                                                  onMouseLeave={(e) => {
+                                                    e.currentTarget.style.backgroundColor = 'white';
+                                                    e.currentTarget.style.color = '#666666';
+                                                    e.currentTarget.style.borderColor = '#BBBBBB';
+                                                  }}
                                                 >
                                                   {actionLoading?.id === serviceUuid && actionLoading?.action === "view" ? (
                                                     <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
@@ -1167,13 +1191,16 @@ const Page = () => {
                                                             setActionLoading({ id: serviceUuid, action: "pay" });
                                                             const res = await GetInvoicesByOrder(billing.order_uuid);
                                                             const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
-                                                            const targetInvoice = invoicesList.find((inv: any) =>
+                                                            const serviceInvoices = invoicesList.filter((inv: any) =>
                                                               inv.items?.some((i: any) => {
                                                                 const sUuid = i.order_service?.uuid || i.orderService?.uuid;
                                                                 const sId = i.order_service_id || i.order_service?.id || i.orderService?.id;
                                                                 return sUuid === serviceUuid || sId?.toString() === serviceUuid;
                                                               })
-                                                            ) || invoicesList[0];
+                                                            );
+                                                            const targetInvoice = serviceInvoices.find((inv: any) => !inv.notes?.toLowerCase().includes("consolidated")) 
+                                                                               || serviceInvoices[0] 
+                                                                               || invoicesList[0];
 
                                                             if (targetInvoice) {
                                                               handleOpenManualPayment(targetInvoice);
@@ -1188,7 +1215,7 @@ const Page = () => {
                                                           }
                                                         }}
                                                         disabled={actionLoading !== null}
-                                                        className="h-[30px] px-3 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-emerald-50 active:scale-[0.98]"
+                                                        className="h-[30px] px-3 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-emerald-600 hover:text-white active:scale-[0.98]"
                                                       >
                                                         {actionLoading?.id === serviceUuid && actionLoading?.action === "pay" ? (
                                                           <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
@@ -1200,12 +1227,58 @@ const Page = () => {
                                                   </>
                                                 )}
                                                 {(service.status === "paid" || billing.status === "paid") && (
-                                                  <Button
-                                                    disabled
-                                                    className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[90px] bg-[#6BAE41] cursor-not-allowed opacity-90"
-                                                  >
-                                                    Paid
-                                                  </Button>
+                                                  <>
+                                                    <Button
+                                                      disabled
+                                                      className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[90px] bg-[#6BAE41] cursor-not-allowed opacity-90"
+                                                    >
+                                                      Paid
+                                                    </Button>
+                                                    {role === 'admin' && (
+                                                      <Button
+                                                        variant="outline"
+                                                        onClick={async (e) => {
+                                                          e.stopPropagation();
+                                                          try {
+                                                            setActionLoading({ id: serviceUuid, action: "refund" });
+                                                            const res = await GetInvoicesByOrder(billing.order_uuid);
+                                                            const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
+                                                            const serviceInvoices = invoicesList.filter((inv: any) =>
+                                                              inv.items?.some((i: any) => {
+                                                                const sUuid = i.order_service?.uuid || i.orderService?.uuid;
+                                                                const sId = i.order_service_id || i.order_service?.id || i.orderService?.id;
+                                                                return sUuid === serviceUuid || sId?.toString() === serviceUuid;
+                                                              })
+                                                            );
+                                                            const targetInvoice = serviceInvoices.find((inv: any) => !inv.notes?.toLowerCase().includes("consolidated")) 
+                                                                               || serviceInvoices[0] 
+                                                                               || invoicesList[0];
+
+                                                            if (targetInvoice) {
+                                                              setSelectedInvoice(targetInvoice);
+                                                              setRefundDefaultAmount(service.amount * (1 + taxRate / 100));
+                                                              setIsRefundModalOpen(true);
+                                                            } else {
+                                                              toast.error("No invoice found for this service.");
+                                                            }
+                                                          } catch (err) {
+                                                            console.error("Failed to load invoice for refund:", err);
+                                                            toast.error("Failed to load invoice for refund.");
+                                                          } finally {
+                                                            setActionLoading(null);
+                                                          }
+                                                        }}
+                                                        disabled={actionLoading !== null}
+                                                        className="h-[30px] px-3 border border-orange-200 text-orange-600 rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-orange-50"
+                                                      >
+                                                        {actionLoading?.id === serviceUuid && actionLoading?.action === "refund" ? (
+                                                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                                        ) : (
+                                                          <RotateCcw className="h-4 w-4 mr-2" />
+                                                        )} Refund
+                                                      </Button>
+                                                    )}
+                                                  </>
                                                 )}
                                               </div>
                                             </div>
@@ -1631,8 +1704,10 @@ const Page = () => {
         onClose={() => {
           setIsRefundModalOpen(false);
           setSelectedInvoice(null);
+          setRefundDefaultAmount(undefined);
         }}
         invoice={selectedInvoice}
+        defaultAmount={refundDefaultAmount}
         onSuccess={() => {
           // Re-fetch billings to update status
           const loadBillings = async () => {

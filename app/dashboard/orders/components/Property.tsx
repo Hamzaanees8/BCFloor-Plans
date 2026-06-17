@@ -27,7 +27,8 @@ import GooglePlacesAutocomplete from '../../calendar/components/AutoCompleteInpu
 import { SearchableSelect } from './SearchableSelect';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { fetchVendorForBookNow, fetchServicesForBookNow } from '@/app/agent/book-now/book-now';
-import { RealtorSignInModal } from '@/app/agent/book-now/components/RealtorLogin';
+
+import { useBookNowOrg } from '@/app/agent/book-now/context/BookNowOrgContext';
 
 declare global {
     interface Window {
@@ -112,6 +113,10 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
     // const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
     const fieldBg = `color-mix(in srgb, ${roleSettings.pageBg} 95%, black)`;
+    
+    const { orgSlug: ctxOrgSlug } = useBookNowOrg();
+    const slugFromQuery = searchParams.get('slug');
+    const orgSlug = ctxOrgSlug || slugFromQuery || null;
     // Using context data directly where possible, but keeping local state for immediate UI responsiveness if needed 
     // or just synchronizing them. For now, let's keep local states and sync them to context.
     const [agentData, setAgentData] = useState<Agent[]>([]);
@@ -123,17 +128,13 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     const [hasToken, setHasToken] = useState(!!localStorage.getItem("token"));
     useEffect(() => {
         const checkToken = () => {
-            const token = localStorage.getItem("token");
+            const token = localStorage.getItem("token") || localStorage.getItem("agentToken");
             setHasToken(!!token);
-            // If in book-now mode and user just logged in, redirect to dashboard
-            if (token && isBookNowMode) {
-                router.push('/dashboard/orders/create?transfer=true');
-            }
         };
         // Only listen for login events (initial state handled by useState default)
         window.addEventListener('agentLogin', checkToken);
         return () => window.removeEventListener('agentLogin', checkToken);
-    }, [isBookNowMode, router]);
+    }, []);
     //const [isEditingListing, setIsEditingListing] = useState(false);
     const selectedAgent = useMemo(() => {
         return agentData.find((agent) => agent.uuid === selectedAgentId) || null;
@@ -146,7 +147,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     const [openAddListingDialog, setOpenAddListingDialog] = useState(!selectedListingId);
     const [openListing, setOpenListing] = useState(false);
     const [openAgent, setOpenAgent] = useState(false);
-    const [openSignInModal, setOpenSignInModal] = useState(false);
+
 
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [pendingListingId, setPendingListingId] = useState<string | null | 'NEW'>(null);
@@ -345,40 +346,40 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
         if (!token && !isBookNowMode) return;
 
         if (!token && isBookNowMode) {
-            fetchServicesForBookNow().then((data) => {
+            fetchServicesForBookNow(orgSlug).then((data) => {
                 const fetched = Array.isArray(data) ? data : [];
                 setServicesData(fetched);
             }).catch(err => console.log(err));
             return;
         }
 
-        GetServices(token as string)
+        GetServices(token as string, orgSlug)
             .then((data) => {
                 const fetched = Array.isArray(data.data) ? data.data : [];
                 setServicesData(fetched);
             })
             .catch((err) => console.log(err.message));
-    }, [setServicesData, isBookNowMode]);
+    }, [setServicesData, isBookNowMode, orgSlug]);
 
     const fetchVendors = useCallback(() => {
         const token = localStorage.getItem("token");
         if (!token && !isBookNowMode) return;
 
         if (!token && isBookNowMode) {
-            fetchVendorForBookNow().then((data) => {
+            fetchVendorForBookNow(undefined, orgSlug).then((data) => {
                 const fetched = Array.isArray(data) ? data : [];
                 setVendorsData(fetched);
             }).catch(err => console.log(err));
             return;
         }
 
-        GetVendors(token as string)
+        GetVendors(token as string, orgSlug)
             .then((data) => {
                 const fetched = Array.isArray(data.data) ? data.data : [];
                 setVendorsData(fetched);
             })
             .catch((err) => console.log(err.message));
-    }, [setVendorsData, isBookNowMode]);
+    }, [setVendorsData, isBookNowMode, orgSlug]);
 
     const fetchOrdersData = useCallback(() => {
         const token = localStorage.getItem("token");
@@ -451,7 +452,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     }, [selectedListingId, listingData])
 
     useEffect(() => {
-        if (userType === 'agent') {
+        if (userType === 'agent' && userInfo?.uuid) {
             setSelectedAgentId(userInfo.uuid)
         }
     }, [userInfo, setSelectedAgentId, userType])
@@ -615,7 +616,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!connectedAgent) {
+        if (!connectedAgent && !isBookNowMode) {
             toast.error('Agent field is required. Please select an agent.');
             return;
         }
@@ -865,29 +866,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     return (
         <div className='pt-7 px-[200px] pb-[80px] font-alexandria'>
             <div className='py-[10px] pl-[10px] flex flex-col gap-[30px]'>
-                {isBookNowMode && !hasToken && (
-                    <div className='w-full flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg'>
-                        <div>
-                            <h3 className='font-semibold text-gray-800'>Welcome! Please sign in to continue</h3>
-                            <p className='text-sm text-gray-600'>You can start entering your property details below, but you&apos;ll need to log in to proceed to the next step.</p>
-                        </div>
-                        <button
-                            onClick={() => setOpenSignInModal(true)}
-                            className='px-6 py-2 text-white font-medium rounded-md transition-colors'
-                            style={{ backgroundColor: roleSettings.pageTabColor }}
-                        >
-                            Sign In / Sign Up
-                        </button>
-                    </div>
-                )}
-
-                <RealtorSignInModal
-                    open={openSignInModal}
-                    setOpen={setOpenSignInModal}
-                    accentColor={roleSettings.pageTabColor}
-                />
-
-                {!(isBookNowMode && !hasToken) && (
+                {!(isBookNowMode) && (
                     <div className='flex flex-col gap-[14px]'>
                         <p className='text-[14px] font-[400]' style={{ color: roleSettings.pageText }}>Agent <span className="text-red-500">*</span></p>
                         <div className='flex items-start justify-between'>
@@ -1026,16 +1005,15 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                 )}
                             </div>
                         )}
+
                     </div>
                 )}
-                {!(isBookNowMode && !hasToken) && (
-                    <div className='w-full h-[1px] bg-[#EEEEEE]' />
-                )}
+                <div className='w-full h-[1px] bg-[#EEEEEE]' />
                 <TooltipProvider>
                     <Tooltip delayDuration={300}>
                         <TooltipTrigger asChild>
                             <div className="relative w-full">
-                                <div className={cn("w-full transition-opacity duration-200", (!selectedAgentId && !(isBookNowMode && !hasToken)) && "opacity-50 pointer-events-none")}>
+                                <div className={cn("w-full transition-opacity duration-200", (!selectedAgentId && !isBookNowMode) && "opacity-50 pointer-events-none")}>
                                     {duplicateListing && (
                                         <div className='w-full p-4 mb-4 rounded-lg bg-red-50 border border-red-200 flex flex-col gap-3'>
                                             <p className='text-red-600 text-[14px] font-[500]'>
@@ -1452,23 +1430,18 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
                                                                     <TooltipTrigger asChild>
                                                                         <div className="w-full md:w-[176px]">
                                                                             <button
-                                                                                disabled={isLoading || !address?.trim() || (!selectedAgentId && !(isBookNowMode && !hasToken)) || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim() || (isBookNowMode && !hasToken)}
+                                                                                disabled={isLoading || !address?.trim() || (!selectedAgentId && !isBookNowMode) || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim()}
                                                                                 onClick={(e) => { handleSubmit(e) }}
                                                                                 className={`w-full rounded-sm h-[40px] font-[400] text-[20px] flex items-center justify-center gap-2 text-white transition-all
-                                                                ${(isLoading || !address?.trim() || (!selectedAgentId && !(isBookNowMode && !hasToken)) || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim() || (isBookNowMode && !hasToken))
+                                                                ${(isLoading || !address?.trim() || (!selectedAgentId && !isBookNowMode) || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim())
                                                                                         ? 'bg-gray-400 cursor-not-allowed'
                                                                                         : ''}`}
-                                                                                style={{ backgroundColor: (isLoading || !address?.trim() || (!selectedAgentId && !(isBookNowMode && !hasToken)) || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim() || (isBookNowMode && !hasToken)) ? undefined : roleSettings.pageTabColor }}
+                                                                                style={{ backgroundColor: (isLoading || !address?.trim() || (!selectedAgentId && !isBookNowMode) || (!selectedListingId && (!squareFootage || Number(squareFootage) <= 0)) || !city?.trim() || !country || !postalCode?.trim()) ? undefined : roleSettings.pageTabColor }}
                                                                             >
                                                                                 {isLoading ? <Loader2 className='w-4 h-4 animate-spin' /> : "Next"}
                                                                             </button>
                                                                         </div>
                                                                     </TooltipTrigger>
-                                                                    {(isBookNowMode && !hasToken) && (
-                                                                        <TooltipContent side="top">
-                                                                            <p>Please login or signup first to continue.</p>
-                                                                        </TooltipContent>
-                                                                    )}
                                                                 </Tooltip>
                                                             </TooltipProvider>
                                                         </div>

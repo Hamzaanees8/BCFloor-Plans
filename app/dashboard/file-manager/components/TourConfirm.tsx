@@ -144,6 +144,8 @@ const TourConfirm = ({
   useEffect(() => {
     const fetchFeatureSheets = async () => {
       if (!orderData?.uuid) return;
+      const token = localStorage.getItem("token") || localStorage.getItem("agentToken");
+      if (!token) return;
       try {
         setIsLoadingSheets(true);
         const response = await featureSheetService.getFeatureSheetsByOrder(orderData.uuid);

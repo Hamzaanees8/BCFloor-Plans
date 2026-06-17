@@ -21,6 +21,7 @@ export interface QueuedFile {
     // S3 upload info (set after presigned URL received)
     presignedUrl?: string;
     s3Key?: string;
+    thumbnailFile?: File;
 
     // Metadata for backend
     entityType: 'tour' | 'order' | 'listing';
@@ -66,6 +67,7 @@ interface UploadMetadata {
     group?: string;
     serviceId?: string;
     isSimulation?: boolean;
+    thumbnailFiles?: Record<string, File>;
 }
 
 const UploadQueueContext = createContext<UploadQueueContextType | undefined>(undefined);
@@ -112,6 +114,7 @@ export function UploadQueueProvider({ children }: { children: ReactNode }) {
             group: metadata.group,
             serviceId: metadata.serviceId,
             isSimulation: metadata.isSimulation,
+            thumbnailFile: metadata.thumbnailFiles?.[file.name],
         }));
 
         setQueue(prev => [...prev, ...newFiles]);
@@ -178,22 +181,39 @@ export function UploadQueueProvider({ children }: { children: ReactNode }) {
                     updateFile(queuedFile.id, { status: 'complete', progress: 100 });
                 } else {
                     // Real upload logic
-                    // Step 1: Get presigned URL
-                    const presignedData = await getPresignedUrl(queuedFile);
+                    // Step 1: Get presigned URLs
+                    const presignedUploads = await getPresignedUrls(queuedFile);
+                    const mainPresignedData = presignedUploads[0];
+                    const thumbPresignedData = presignedUploads[1];
+
                     updateFile(queuedFile.id, {
-                        presignedUrl: presignedData.presigned_url,
-                        s3Key: presignedData.s3_key,
+                        presignedUrl: mainPresignedData.presigned_url,
+                        s3Key: mainPresignedData.s3_key,
                     });
 
                     // Step 2: Upload to S3 with progress
-                    await uploadToS3(
-                        queuedFile.file,
-                        presignedData.presigned_url,
-                        (progress) => updateFile(queuedFile.id, { progress })
-                    );
+                    const uploadPromises = [
+                        uploadToS3(
+                            queuedFile.file,
+                            mainPresignedData.presigned_url,
+                            (progress) => updateFile(queuedFile.id, { progress })
+                        )
+                    ];
+
+                    if (queuedFile.thumbnailFile && thumbPresignedData) {
+                        uploadPromises.push(
+                            uploadToS3(
+                                queuedFile.thumbnailFile,
+                                thumbPresignedData.presigned_url,
+                                () => {} // Optional: could track separate progress if needed
+                            )
+                        );
+                    }
+
+                    await Promise.all(uploadPromises);
 
                     // Step 3: Confirm upload with backend
-                    await confirmUpload(queuedFile, presignedData);
+                    await confirmUpload(queuedFile, mainPresignedData, thumbPresignedData?.s3_key);
 
                     // Mark as processing (if image) or complete (if video)
                     const isVideo = queuedFile.contentType.startsWith('video/');
@@ -263,9 +283,23 @@ export function useUploadQueue() {
 }
 
 // API helper functions (in the same file or separate)
-async function getPresignedUrl(file: QueuedFile) {
+async function getPresignedUrls(file: QueuedFile) {
     const API_URL = process.env.NEXT_PUBLIC_API_URL;
     const token = localStorage.getItem('token'); // Adjust based on your auth
+
+    const filesPayload = [{
+        filename: file.filename,
+        content_type: file.contentType,
+        size: file.size,
+    }];
+
+    if (file.thumbnailFile) {
+        filesPayload.push({
+            filename: file.thumbnailFile.name,
+            content_type: file.thumbnailFile.type,
+            size: file.thumbnailFile.size,
+        });
+    }
 
     const response = await fetch(`${API_URL}/uploads/presigned-urls`, {
         method: 'POST',
@@ -276,11 +310,7 @@ async function getPresignedUrl(file: QueuedFile) {
         body: JSON.stringify({
             entity_type: file.entityType,
             entity_id: file.entityId,
-            files: [{
-                filename: file.filename,
-                content_type: file.contentType,
-                size: file.size,
-            }],
+            files: filesPayload,
         }),
     });
 
@@ -289,7 +319,7 @@ async function getPresignedUrl(file: QueuedFile) {
     }
 
     const data = await response.json() as PresignedUrlResponse;
-    return data.data.uploads[0];
+    return data.data.uploads;
 }
 
 async function uploadToS3(
@@ -324,7 +354,7 @@ async function uploadToS3(
     });
 }
 
-async function confirmUpload(file: QueuedFile, presignedData: PresignedUrlResponse['data']['uploads'][0]) {
+async function confirmUpload(file: QueuedFile, presignedData: PresignedUrlResponse['data']['uploads'][0], thumbnailS3Key?: string) {
     const API_URL = process.env.NEXT_PUBLIC_API_URL;
     const token = localStorage.getItem('token');
 
@@ -345,6 +375,7 @@ async function confirmUpload(file: QueuedFile, presignedData: PresignedUrlRespon
                 content_type: file.contentType,
                 group: file.group,
                 service_id: file.serviceId,
+                ...(thumbnailS3Key ? { thumbnail_s3_key: thumbnailS3Key } : {})
             }],
         }),
     });

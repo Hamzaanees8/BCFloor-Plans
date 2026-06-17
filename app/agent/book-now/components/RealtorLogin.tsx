@@ -134,6 +134,7 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                 }
                 toast.success("Login successful!");
                 setUserType("agent");
+                localStorage.setItem("userType", "agent");
 
                 // Dispatch custom event to notify other components
                 window.dispatchEvent(new Event('agentLogin'));
@@ -220,6 +221,7 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                 }
                 toast.success("Signup successful!");
                 setUserType("agent");
+                localStorage.setItem("userType", "agent");
 
                 // Dispatch custom event to notify other components
                 window.dispatchEvent(new Event('agentLogin'));
