@@ -1180,8 +1180,8 @@ const GlobalSettings = () => {
                     }}
                 >
                     <div className="mx-auto max-w-7xl h-full flex items-center justify-center px-4">
-                        <div className="w-full overflow-x-auto scrollbar-hide flex items-center justify-center py-2 h-full">
-                            <div className="flex gap-[6px] min-w-max">
+                        <div className="w-full overflow-x-auto scrollbar-hide flex items-center py-2 h-full">
+                            <div className="flex gap-[6px] min-w-max mx-auto">
                                 {tabs.map((tab) => (
                                     <button
                                         key={tab}

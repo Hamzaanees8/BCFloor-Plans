@@ -46,9 +46,10 @@ interface RealtorSignInModalProps {
     open: boolean;
     setOpen: (value: boolean) => void;
     accentColor?: string;
+    description?: string;
 }
 
-export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, setOpen, accentColor = '#4290E9' }) => {
+export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, setOpen, accentColor = '#4290E9', description }) => {
     const [mode, setMode] = React.useState<"login" | "signup">("login");
 
     // Shared States
@@ -268,6 +269,9 @@ export const RealtorSignInModal: React.FC<RealtorSignInModalProps> = ({ open, se
                             <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
                         </button>
                     </DialogTitle>
+                    {description && (
+                        <p className="text-[14px] text-gray-500 text-left mt-2 normal-case font-normal">{description}</p>
+                    )}
                     <hr className="w-full h-[1px] text-[#BBBBBB]" />
                 </DialogHeader>
 

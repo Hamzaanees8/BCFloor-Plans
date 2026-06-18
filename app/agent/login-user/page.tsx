@@ -86,7 +86,7 @@ function LoginUser() {
                         <AgentLoginIcon width='110px' height='110px' />
                     </div>
                 )}
-                <Link href={'#'} className='hidden justify-center items-center bg-[var(--agent-bg-color)] hover:bg-[var(--secondary-color)] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
+                <Link href={'#'} className='hidden justify-center items-center bg-[var(--agent-bg-color)] hover:bg-[var(--agent-bg-color)] hover:opacity-90 transition-all duration-200 rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.email ? 'text-red-500' : ''}`} htmlFor="email">Email Address</label>
                     <Input

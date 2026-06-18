@@ -875,11 +875,9 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                     </div>
                                     <Button
                                         onClick={() => {
-                                            if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
-                                                onOpenInvoice?.(currentService?.name);
-                                            }
+                                            onOpenInvoice?.(currentService?.name);
                                         }}
-                                        className={`h-[32px] w-[100px] flex justify-center items-center 
+                                        className={`h-[32px] w-[100px] flex justify-center items-center cursor-pointer
                                             ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                                 ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
                                                 : "bg-[#DC9600] hover:bg-[#eda304]"}`}
@@ -901,14 +899,12 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                     </div> */}
                                     <Button
                                         onClick={() => {
-                                            if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
-                                                onOpenInvoice?.(currentService?.name);
-                                            }
+                                            onOpenInvoice?.(currentService?.name);
                                         }}
-                                        className={`h-[32px] w-[100px] flex justify-center items-center font-bold text-white
+                                        className={`h-[32px] w-[100px] flex justify-center items-center font-bold text-white cursor-pointer
                                             ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
-                                                ? "bg-[#6BAE41] pointer-events-none"
-                                                : "bg-[#DC9600] hover:bg-[#eda304] cursor-pointer"}`}
+                                                ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
+                                                : "bg-[#DC9600] hover:bg-[#eda304]"}`}
                                     >
                                         {bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID' ? 'PAID' : 'UNPAID'}
                                     </Button>
@@ -973,31 +969,52 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                     </div>
 
                     {userType === 'agent' ? (
-                        <div className="flex items-center gap-8">
-                            {/* <div className="flex flex-col items-center">
-                                <span className="text-[22px] font-medium text-[#7D7D7D] leading-none">
-                                    {currentServiceFiles?.filter(f => f.is_agent_approved).length || 0} <span className="text-[#7D7D7D]">/ {bookingToUse?.option?.quantity || 0}</span>
-                                </span>
-                                <span className="text-[12px] text-[#7D7D7D] mt-1">Selected</span>
-                            </div>
-                            <div className="flex flex-col items-center">
-                                <span className="text-[22px] font-medium text-[#666666] leading-none">
-                                    {currentServiceFiles?.filter(f => !f.is_deleted).length || 0}
-                                </span>
-                                <span className="text-[12px] text-[#666666] mt-1">Available</span>
-                            </div> */}
-                            <Button
-                                variant="outline"
-                                onClick={() => setOpenUpgrade(true)}
-                                className={`border h-[36px] px-6 rounded transition-colors font-medium ml-2 ${userType}-button`}
-                                style={{
-                                    borderColor: `var(--${userType}-page-tab-color)`,
-                                    color: `var(--${userType}-page-tab-color)`
-                                }}
-                            >
-                                Upgrade Plan
-                            </Button>
-                        </div>
+                        (() => {
+                            const selectedCount = currentServiceFiles?.filter(f => f.is_agent_approved && !f.is_complimentary).length || 0;
+                            const currentLimit = bookingToUse?.option?.quantity || 0;
+                            const isOverLimit = selectedCount > currentLimit;
+
+                            // Find next option
+                            const sortedOptions = [...(currentService?.product_options || [])].sort((a, b) => (a.quantity || 0) - (b.quantity || 0));
+                            const nextOption = sortedOptions.find(opt => (opt.quantity || 0) > currentLimit);
+
+                            const currentAmount = parseFloat(String(bookingToUse?.option?.amount || '0'));
+                            const nextAmount = nextOption ? parseFloat(String(nextOption.amount || '0')) : 0;
+                            const diffAmount = nextAmount - currentAmount;
+
+                            return (
+                                <div className="flex items-center gap-8">
+                                    <div className="flex flex-col items-center">
+                                        <span className={`text-[26px] font-medium leading-none ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>
+                                            {selectedCount} <span className="text-[#7D7D7D]">/ {currentLimit}</span>
+                                        </span>
+                                        <span className={`text-[12px] mt-1 ${isOverLimit ? 'text-[#E06D5E]' : 'text-[#7D7D7D]'}`}>Selected</span>
+                                    </div>
+                                    <div className="flex flex-col items-center">
+                                        <span className="text-[26px] font-medium text-[#666666] leading-none">
+                                            {currentServiceFiles?.filter(f => !f.is_deleted).length || 0}
+                                        </span>
+                                        <span className="text-[12px] text-[#666666] mt-1">Available</span>
+                                    </div>
+                                    <div className="flex flex-col items-end">
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => setOpenUpgrade(true)}
+                                            className={`${userType}-bg text-white hover:brightness-110 h-[36px] px-6 rounded transition-colors font-medium border-none mb-2`}
+                                        >
+                                            Upgrade Plan
+                                        </Button>
+                                        {isOverLimit && nextOption && (
+                                            <div className="text-right text-[12px] text-[#666666] leading-[1.4]">
+                                                <div>{nextOption.quantity} Floor Plans</div>
+                                                <div>+{diffAmount.toFixed(2)}</div>
+                                                <div>Total - <span className="text-[#E06D5E] font-bold">${nextAmount.toFixed(2)}</span></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })()
                     ) : (
                         <div className="flex items-center gap-8">
                             <div className="flex flex-col items-center">

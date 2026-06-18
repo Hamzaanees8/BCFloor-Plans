@@ -89,17 +89,63 @@ const FileManager = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 120) {
-        setIsScrolled(true);
-      } else {
-        setIsScrolled(false);
-      }
+      const scrollY = window.scrollY;
+      const scrollHeight = Math.max(
+        document.documentElement.scrollHeight,
+        document.body.scrollHeight
+      );
+      const clientHeight = window.innerHeight;
+      const scrollableHeight = scrollHeight - clientHeight;
+      
+      // Calculate the approximate height reduction when scrolled (shrink amount)
+      // Max shrink amount is around 120px (header 25px + tabs 40px + listing sub-header 20px + booking sub-tabs 9px + local tab toolbars 22px)
+      // We use 250px to provide a safe buffer and prevent scroll jitter (dancing) on short pages.
+      const shrinkAmount = 250;
+
+      setIsScrolled((prev) => {
+        if (scrollY > 120) {
+          if (prev) {
+            // If already collapsed, keep collapsed unless we scroll up,
+            // or if the remaining scrollable height is too small to sustain collapse.
+            // But if we are clamped at the very bottom of the page, do not uncollapse.
+            const isAtBottom = scrollY >= scrollableHeight - 10;
+            if (isAtBottom && scrollableHeight > 0) {
+              return true;
+            }
+            if (scrollableHeight < 120) {
+              return false;
+            }
+            return true;
+          } else {
+            // If expanded, collapse only if we scrolled past 120 and the page has enough height to not immediately bounce back
+            if (scrollableHeight >= 120 + shrinkAmount) {
+              return true;
+            }
+            return false;
+          }
+        } else {
+          // scrollY <= 120: ordinarily we uncollapse, EXCEPT if we were already collapsed
+          // and the browser clamped us to the bottom of a very short page.
+          if (prev) {
+            const isAtBottom = scrollY >= scrollableHeight - 10;
+            if (isAtBottom && scrollableHeight > 0) {
+              return true;
+            }
+          }
+          return false;
+        }
+      });
     };
+
     window.addEventListener("scroll", handleScroll, { passive: true });
+    
+    // Evaluate initial scroll state
+    handleScroll();
+
     return () => {
       window.removeEventListener("scroll", handleScroll);
     };
-  }, []);
+  }, [activeTab, activeServiceIndex]);
 
   const { userType } = useAppContext();
   const {
@@ -279,8 +325,8 @@ const FileManager = () => {
     try {
       // Sync dynamically calculated Extra Photos to the backend before redirecting to Stripe
       const originalInvoice = invoices.find(i => i.uuid === invoice.uuid);
-      const hasExtraLocally = invoice.items?.some((i: any) => i.description?.match(/Extra (Photos|Media)/i));
-      const hadExtraInDb = originalInvoice?.items?.some((i: any) => i.description?.match(/Extra (Photos|Media)/i));
+      const hasExtraLocally = invoice.items?.some((i: any) => i.description?.match(/Extra (Photos|Media|Videos|Floor Plans|Files)/i));
+      const hadExtraInDb = originalInvoice?.items?.some((i: any) => i.description?.match(/Extra (Photos|Media|Videos|Floor Plans|Files)/i));
 
       if (
         (invoice.items?.length !== (originalInvoice?.items?.length || 0)) ||
@@ -460,7 +506,7 @@ const FileManager = () => {
 
     const baseItems = invoice.items || [];
     // Filter out previously injected extra media to recalculate accurately
-    const cleanedBaseItems = baseItems.filter((i: any) => !i.description?.match(/Extra (Photos|Media)/i));
+    const cleanedBaseItems = baseItems.filter((i: any) => !i.description?.match(/Extra (Photos|Media|Videos|Floor Plans|Files)/i));
 
     const extraItems: any[] = [];
 
@@ -492,8 +538,18 @@ const FileManager = () => {
         const unitPrice = parseFloat(os.option.amount) / currentLimit;
         const extraCost = extraCount * unitPrice;
 
+        let extraLabel = "Photos";
+        const catName = os.service?.category?.name?.toLowerCase() || "";
+        if (catName.includes("video")) {
+          extraLabel = "Videos";
+        } else if (catName.includes("floor")) {
+          extraLabel = "Floor Plans";
+        } else if (catName.includes("drone") || catName.includes("render") || catName.includes("staging") || catName.includes("tour")) {
+          extraLabel = "Files";
+        }
+
         extraItems.push({
-          description: `${extraCount} Extra Photos (${item.description || os.option?.title || 'Service'})`,
+          description: `${extraCount} Extra ${extraLabel} (${item.description || os.option?.title || 'Service'})`,
           quantity: extraCount,
           unit_price: unitPrice.toFixed(2),
           amount: extraCost.toFixed(2),

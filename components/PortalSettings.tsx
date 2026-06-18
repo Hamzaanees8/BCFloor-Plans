@@ -109,7 +109,7 @@ const PortalSettings = React.forwardRef<
                                         className="data-[state=unchecked]:bg-red-500 data-[state=checked]:bg-[#6BAE41]"
                                     />
                                     <Label htmlFor="org-show-details" className="cursor-pointer font-medium text-sm">
-                                        Show Organization Details
+                                        Show Organization Contact Details (If no vendor is found)
                                     </Label>
                                 </div>
 

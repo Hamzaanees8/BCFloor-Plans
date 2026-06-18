@@ -43,7 +43,7 @@ function Login() {
                         onChange={(e) => setPassword(e.target.value)}
                     />
                 </div>
-                <Button className='bg-[#6BAE41] rounded-[6px] h-[44px] font-[600] text-[20px]'>Login</Button>
+                <Button className='bg-[var(--agent-bg-color,#6BAE41)] hover:bg-[var(--agent-bg-color,#6BAE41)] hover:opacity-90 text-white transition-all duration-200 rounded-[6px] h-[44px] font-[600] text-[20px]'>Login</Button>
                 <p className='text-[10px] text-[#666666] font-[400] mx-auto'>Powered by Tojuco Software 2025</p>
             </div>
         </div>

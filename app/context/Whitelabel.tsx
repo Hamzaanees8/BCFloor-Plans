@@ -84,12 +84,12 @@ export const WhiteLabelProvider = ({ children }: { children: ReactNode }) => {
     const [organizations, setOrganizations] = useState<Organization[]>([])
 
 
-    // Apply styles whenever APPLIED settings change (Global only)
+    // Apply styles whenever APPLIED settings change (Global or matching active custom domain)
     useEffect(() => {
-        if (!selectedOrgUuid) {
+        if (!selectedOrgUuid || selectedOrgUuid === activeOrg?.uuid) {
             WhiteLabelStyles.apply(appliedSettings);
         }
-    }, [appliedSettings, selectedOrgUuid]);
+    }, [appliedSettings, selectedOrgUuid, activeOrg]);
 
     const syncSettings = async (nextApplied: Record<Role, WhiteLabelSettings>) => {
         // Apply to local state
@@ -355,6 +355,7 @@ export const WhiteLabelProvider = ({ children }: { children: ReactNode }) => {
             
             const loadOrgBranding = async () => {
                 let stylesToUse = getOrgDefaults(org);
+                let hasRemoteSettings = false;
                 const hasToken = typeof window !== 'undefined' ? !!localStorage.getItem("token") : false;
                 
                 try {
@@ -363,6 +364,7 @@ export const WhiteLabelProvider = ({ children }: { children: ReactNode }) => {
                         const remoteSettings = response.data?.value;
                         if (remoteSettings && typeof remoteSettings === 'object') {
                             stylesToUse = remoteSettings;
+                            hasRemoteSettings = true;
                         } else {
                             // Pre-fill from org object if JSON styles are missing
                             if (org) {
@@ -407,9 +409,13 @@ export const WhiteLabelProvider = ({ children }: { children: ReactNode }) => {
                         if (logo || primary || secondary) {
                             const newStyles = { ...stylesToUse };
                             (Object.keys(newStyles) as Role[]).forEach(role => {
-                                if (logo) newStyles[role] = { ...newStyles[role], logo };
-                                if (primary) newStyles[role] = { ...newStyles[role], pageTabColor: primary };
-                                if (secondary) newStyles[role] = { ...newStyles[role], activeColor: secondary };
+                                if (logo && !newStyles[role].logo) {
+                                    newStyles[role] = { ...newStyles[role], logo };
+                                }
+                                if (!hasRemoteSettings) {
+                                    if (primary) newStyles[role] = { ...newStyles[role], pageTabColor: primary };
+                                    if (secondary) newStyles[role] = { ...newStyles[role], activeColor: secondary };
+                                }
                             });
                             stylesToUse = newStyles;
                         }

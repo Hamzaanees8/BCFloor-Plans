@@ -381,7 +381,7 @@ export default function GlobalTourSetting() {
         <div>
             <Accordion
                 type="multiple"
-                defaultValue={["tour", 'size']}
+                defaultValue={["tour", "defaults", "size"]}
                 className="w-full space-y-4 "
             >
                 {userType === "admin" && (

@@ -449,11 +449,9 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                             <div className='flex items-center gap-[10px] mr-2'>
                                 <Button
                                     onClick={() => {
-                                        if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
-                                            onOpenInvoice?.(currentService?.name);
-                                        }
+                                        onOpenInvoice?.(currentService?.name);
                                     }}
-                                    className={`flex justify-center items-center transition-all duration-300 ${
+                                    className={`flex justify-center items-center transition-all duration-300 cursor-pointer ${
                                         isScrolled ? "h-[28px] w-[90px] text-[11px]" : "h-[32px] w-[100px]"
                                     } ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                         ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
@@ -481,11 +479,9 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                                 </div>
                                 <Button
                                     onClick={() => {
-                                        if (!(bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID')) {
-                                            onOpenInvoice?.(currentService?.name);
-                                        }
+                                        onOpenInvoice?.(currentService?.name);
                                     }}
-                                    className={`h-[32px] w-[100px] flex justify-center items-center 
+                                    className={`h-[32px] w-[100px] flex justify-center items-center cursor-pointer
                                         ${paymentSuccess || bookingToUse?.payment_status == 'PAID' || orderData?.payment_status === 'PAID'
                                             ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
                                             : "bg-[#DC9600] hover:bg-[#eda304]"}`}

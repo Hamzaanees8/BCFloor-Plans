@@ -4,6 +4,9 @@ import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { fetchPublicTourData, OrderData, recordTourStat } from "./tour";
 import TourConfirm from "../dashboard/file-manager/components/TourConfirm";
+import { useOrganization } from "@/app/context/OrganizationContext";
+import { isDefaultDomain } from "@/lib/config/domains";
+import { getAppHostname } from "@/lib/utils";
 
 export interface Snapshoots {
     x_axis: number;
@@ -36,7 +39,12 @@ const PublicTour = () => {
     const params = useParams();
     const searchParams = useSearchParams();
     const orderuuid = params.orderuuid as string;
-    const orgSlug = params.org_slug as string | undefined;
+    const { organization } = useOrganization();
+    
+    const isDefault = typeof window !== "undefined" ? isDefaultDomain(getAppHostname()) : true;
+    const resolvedWhitelabelSlug = (!isDefault && organization?.slug) ? organization.slug : null;
+    const orgSlug = (params.org_slug as string | undefined) || resolvedWhitelabelSlug || undefined;
+    
     const tourType = searchParams.get('type');
     
     const [orderData, setOrderData] = useState<OrderData | null>(null);

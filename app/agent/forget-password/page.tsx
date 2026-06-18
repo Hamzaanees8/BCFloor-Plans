@@ -79,7 +79,7 @@ function ForgotPassword() {
                     )}
                     <Button
                         disabled={isLoading}
-                        onClick={handleSubmit} className='flex justify-center items-center bg-[var(--agent-bg-color)] hover:bg-[var(--secondary-color)] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'> {isLoading ? (
+                        onClick={handleSubmit} className='flex justify-center items-center bg-[var(--agent-bg-color)] hover:bg-[var(--agent-bg-color)] hover:opacity-90 transition-all duration-200 rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'> {isLoading ? (
                             <div role="status">
                                 <svg
                                     aria-hidden="true"

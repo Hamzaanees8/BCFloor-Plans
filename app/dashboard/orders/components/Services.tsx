@@ -9,8 +9,7 @@ import { useAppContext } from '@/app/context/AppContext'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { Listings } from '@/lib/types'
 import { useSearchParams, useParams } from 'next/navigation'
-import { RealtorSignInModal } from '@/app/agent/book-now/components/RealtorLogin'
-import { Button } from '@/components/ui/button'
+
 
 
 export interface SelectedService {
@@ -91,25 +90,6 @@ const Services = ({ showAll }: { showAll: boolean }) => {
     const [servicesData, setServicesData] = useState<Services[]>([]);
     const [accordionDefaults, setAccordionDefaults] = useState<string[]>([]);
     const [listingData, setListingData] = useState<Listings | undefined>(undefined);
-    const [hasToken, setHasToken] = useState(true);
-    const [showSignIn, setShowSignIn] = useState(false);
-
-    useEffect(() => {
-        const checkToken = () => {
-            const token = localStorage.getItem("token") || localStorage.getItem("agentToken");
-            setHasToken(!!token);
-        };
-        
-        checkToken();
-        
-        window.addEventListener('storage', checkToken);
-        window.addEventListener('agentLogin', checkToken);
-        
-        return () => {
-            window.removeEventListener('storage', checkToken);
-            window.removeEventListener('agentLogin', checkToken);
-        };
-    }, []);
 
     useEffect(() => {
         const selectedIds = selectedServices.map(s => s.uuid).filter(Boolean) as string[];
@@ -214,22 +194,6 @@ const Services = ({ showAll }: { showAll: boolean }) => {
 
     return (
         <div className='px-[10px] flex flex-col gap-[15px] font-alexandria'>
-            <RealtorSignInModal open={showSignIn} setOpen={setShowSignIn} accentColor={roleSettings.pageTabColor} />
-
-            {(isBookNowMode && !hasToken) && (
-                <div className="flex flex-col items-center justify-center py-6 mt-4 gap-4 border rounded-md bg-gray-50">
-                    <p className="text-[16px] font-semibold text-gray-700 text-center px-4">
-                        Please log in or create an account to proceed to the next step.
-                    </p>
-                    <Button
-                        onClick={() => setShowSignIn(true)}
-                        className='w-[200px] h-[40px] rounded-[6px] text-white hover:opacity-90'
-                        style={{ backgroundColor: roleSettings.pageTabColor }}
-                    >
-                        Log In / Sign Up
-                    </Button>
-                </div>
-            )}
 
             {!selectedListingId && (
                 <div className='flex gap-[12px] items-center mt-[42px] py-[15px]'>

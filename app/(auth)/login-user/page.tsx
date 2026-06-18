@@ -75,7 +75,7 @@ function LoginUser() {
         <div className='w-full flex justify-center items-start pt-[80px] px-[40px] md:px-0'>
             <form onSubmit={handleLogin} className='w-[400px] flex flex-col gap-[25px]'>
                 <WhitelabelLogo width={220} height={120} />
-                <Link href={'#'} className='hidden  justify-center items-center bg-[#4290E9] hover:bg-[#357AD1] rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
+                <Link href={'#'} className='hidden justify-center items-center bg-[var(--admin-bg-color,#4290E9)] hover:bg-[var(--admin-bg-color,#4290E9)] hover:opacity-90 transition-all duration-200 rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.email ? 'text-red-500' : ''}`} htmlFor="email">Email Address</label>
                     <Input
@@ -118,7 +118,8 @@ function LoginUser() {
                 <Button
                     type='submit'
                     disabled={isLoading}
-                    className={`flex justify-center items-center ${isLoading ? 'bg-[#4290E9]' : 'bg-[#fff]'}  hover:bg-[#4290E9] hover:text-[#fff] border-[1px] border-[#4290E9] text-[#4290E9] rounded-[6px] h-[42px] font-[600] text-[20px]`}>
+                    className={`flex justify-center items-center ${isLoading ? 'bg-[var(--admin-bg-color,#4290E9)]' : 'bg-[#fff]'}  hover:bg-[var(--admin-bg-color,#4290E9)] hover:text-[#fff] border-[1px] border-[var(--admin-bg-color,#4290E9)] text-[var(--admin-bg-color,#4290E9)] transition-all duration-200 rounded-[6px] h-[42px] font-[600] text-[20px]`}
+                    style={{ borderColor: 'var(--admin-bg-color, #4290E9)', color: isLoading ? '#fff' : undefined }}>
                     {isLoading ? (
                         <div role="status">
                             <svg
@@ -144,7 +145,7 @@ function LoginUser() {
                     )}
                 </Button>
                 <div className='flex justify-center'>
-                    <Link href="/forget-password" className='w-fit text-[#4290E9] border-b-[1px] leading-[18px] border-[#4290E9] text-[16px] font-[400] text-center'>Forgot Password</Link>
+                    <Link href="/forget-password" className='w-fit text-[var(--admin-bg-color,#4290E9)] border-b-[1px] leading-[18px] border-[var(--admin-bg-color,#4290E9)] text-[16px] font-[400] text-center' style={{ borderColor: 'var(--admin-bg-color, #4290E9)' }}>Forgot Password</Link>
                 </div>
                 <p className='text-[10px] text-[#666666] font-[400] mx-auto'>Powered by Tojuco Software {new Date().getFullYear()}</p>
             </form>

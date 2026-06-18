@@ -10,6 +10,9 @@ import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/DataTable';
 import { ColumnDef, Row } from '@tanstack/react-table';
 import Header from '@/components/Header';
+import { useOrganization } from '@/app/context/OrganizationContext';
+import { isDefaultDomain } from '@/lib/config/domains';
+import { getAppHostname } from '@/lib/utils';
 
 const slugify = (text: string) => {
     return text
@@ -23,8 +26,13 @@ const slugify = (text: string) => {
 
 const Page = () => {
     const { userType } = useAppContext();
+    const { organization } = useOrganization();
     const params = useParams();
-    const orgSlug = (params?.org_slug as string) || null;
+    
+    const isDefault = typeof window !== "undefined" ? isDefaultDomain(getAppHostname()) : true;
+    const resolvedWhitelabelSlug = (!isDefault && organization?.slug) ? organization.slug : null;
+    const orgSlug = (params?.org_slug as string) || resolvedWhitelabelSlug || null;
+    
     const pageBg = '#EFEFEF';
 
     const [toursData, setToursData] = useState<Tour[]>([]);

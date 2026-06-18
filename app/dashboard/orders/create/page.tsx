@@ -22,9 +22,10 @@ import OrderStepper from '../components/OrderStepper';
 import { getEffectiveServiceDuration, splitSlotInto15MinChunks } from '../utils/serviceTimeUtils';
 import { toast } from 'sonner';
 import { fetchServicesForBookNow } from '@/app/agent/book-now/book-now';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
 import { useBookNowOrg } from '@/app/agent/book-now/context/BookNowOrgContext';
 import { useOrganization } from '@/app/context/OrganizationContext';
+import { RealtorSignInModal } from '@/app/agent/book-now/components/RealtorLogin';
 import { isDefaultDomain } from '@/lib/config/domains';
 import { getAppHostname } from '@/lib/utils';
 
@@ -123,6 +124,7 @@ const OrderForm = () => {
     
     const { setIsDirty } = useUnsaved();
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [showSignIn, setShowSignIn] = useState(false);
 
     // Check token and listen to login events
     useEffect(() => {
@@ -338,6 +340,11 @@ const OrderForm = () => {
         const currentIndex = tabs.indexOf(active);
         const nextIndex = currentIndex + 1;
 
+        if (active === 'services' && isBookNowMode && !isAuthenticated) {
+            setShowSignIn(true);
+            return;
+        }
+
         if (active === 'schedule') {
             const newInvalidServices: string[] = [];
             let firstErrorToastShown = false;
@@ -431,10 +438,6 @@ const OrderForm = () => {
         }
     };
     const isValid = () => {
-        if (isBookNowMode && !isAuthenticated && active === 'services') {
-            return false;
-        }
-
         if (active === 'property' && isPropertyValid) {
             return true
         } else if (active === 'services' && selectedServices.length > 0) {
@@ -520,6 +523,12 @@ const OrderForm = () => {
     return (
         // <OrderProvider>
         <div className='font-alexandria' style={{ backgroundColor: roleSettings.pageBg }}>
+            <RealtorSignInModal
+                open={showSignIn}
+                setOpen={setShowSignIn}
+                accentColor={roleSettings.pageTabColor}
+                description="Please sign in or sign up for scheduling."
+            />
             <div ref={headerRef} className={`w-full h-[80px] font-alexandria sticky ${isBookNowMode ? 'top-[104px]' : 'top-0'} z-50 flex justify-between px-[20px] items-center border-b`} style={{ backgroundColor: headerBg, borderColor: fieldBorder, boxShadow: "0px 4px 4px #0000001F" }} >
                 <p className={`text-[16px] md:text-[24px] font-[400]`} style={{ color: roleSettings.pageTabColor }}> Orders
                     {currentUser ? ` › ${currentUser.id} ${`(${currentUser?.property?.address})`}` : ' › Add New Order'}</p>
@@ -535,30 +544,17 @@ const OrderForm = () => {
                     )}
 
                     {active !== "order" ? (
-                        <TooltipProvider delayDuration={100}>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div className="flex">
-                                        <Button
-                                            onClick={handleNext}
-                                            disabled={!isValid()}
-                                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-white flex gap-[5px] items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
-                                            style={{
-                                                backgroundColor: isValid() ? roleSettings.pageTabColor : '#BBBBBB',
-                                                borderColor: isValid() ? roleSettings.pageTabColor : '#BBBBBB'
-                                            }}
-                                        >
-                                            Next
-                                        </Button>
-                                    </div>
-                                </TooltipTrigger>
-                                {(isBookNowMode && !isAuthenticated && active === 'services') && (
-                                    <TooltipContent side="bottom">
-                                        <p>Please login or signup first to continue.</p>
-                                    </TooltipContent>
-                                )}
-                            </Tooltip>
-                        </TooltipProvider>
+                        <Button
+                            onClick={handleNext}
+                            disabled={!isValid()}
+                            className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-white flex gap-[5px] items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
+                            style={{
+                                backgroundColor: isValid() ? roleSettings.pageTabColor : '#BBBBBB',
+                                borderColor: isValid() ? roleSettings.pageTabColor : '#BBBBBB'
+                            }}
+                        >
+                            Next
+                        </Button>
                     ) : isSubmitted ? (
                         <Button
                             onClick={handleDoneClick}

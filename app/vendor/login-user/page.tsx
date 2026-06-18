@@ -86,7 +86,7 @@ function LoginUser() {
                         <VendorLoginIcon width='110px' height='110px' />
                     </div>
                 )}
-                <Link href={'#'} className='hidden justify-center items-center bg-[#DC9600] hover:bg-[#DC9600] hover:opacity-85 rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
+                <Link href={'#'} className='hidden justify-center items-center bg-[var(--vendor-bg-color,#DC9600)] hover:bg-[var(--vendor-bg-color,#DC9600)] hover:opacity-85 transition-all duration-200 rounded-[6px] h-[42px] font-[600] text-[20px] text-[white]'>Login with Google</Link>
                 <div className='flex flex-col gap-[10px]'>
                     <label className={`text-[14px] font-[500] ${errors.email ? 'text-red-500' : ''}`} htmlFor="email">Email Address</label>
                     <Input
@@ -129,7 +129,8 @@ function LoginUser() {
                 <Button
                     type='submit'
                     disabled={isLoading}
-                    className={`flex justify-center items-center ${isLoading ? 'bg-[#DC9600]' : 'bg-[#fff]'}  hover:bg-[#DC9600] hover:text-[#fff] border-[1px] border-[#DC9600] text-[#DC9600] rounded-[6px] h-[42px] font-[600] text-[20px]`}>
+                    className={`flex justify-center items-center ${isLoading ? 'bg-[var(--vendor-bg-color,#DC9600)]' : 'bg-[#fff]'}  hover:bg-[var(--vendor-bg-color,#DC9600)] hover:text-[#fff] border-[1px] border-[var(--vendor-bg-color,#DC9600)] text-[var(--vendor-bg-color,#DC9600)] transition-all duration-200 rounded-[6px] h-[42px] font-[600] text-[20px]`}
+                    style={{ borderColor: 'var(--vendor-bg-color, #DC9600)', color: isLoading ? '#fff' : undefined }}>
                     {isLoading ? (
                         <div role="status">
                             <svg
@@ -155,7 +156,7 @@ function LoginUser() {
                     )}
                 </Button>
                 <div className='flex justify-center'>
-                    <Link href="/vendor/forget-password" className='w-fit text-[#DC9600] border-b-[1px] leading-[18px] border-[#DC9600] text-[16px] font-[400] text-center'>Forgot Password</Link>
+                    <Link href="/vendor/forget-password" className='w-fit text-[var(--vendor-bg-color,#DC9600)] border-b-[1px] leading-[18px] border-[var(--vendor-bg-color,#DC9600)] text-[16px] font-[400] text-center' style={{ borderColor: 'var(--vendor-bg-color, #DC9600)' }}>Forgot Password</Link>
                 </div>
                 <p className='text-[10px] text-[#666666] font-[400] mx-auto'>Powered by Tojuco Software {new Date().getFullYear()}</p>
             </form>
