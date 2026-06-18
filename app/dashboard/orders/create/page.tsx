@@ -85,8 +85,6 @@ const OrderForm = () => {
     const [currentUser, setCurrentUser] = useState<Order | null>(null);
     const { userType } = useAppContext()
     const { appliedSettings } = useWhiteLabel();
-    const role = (userType as string)?.toLowerCase() || 'admin';
-    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
 
     const {
         selectedServices,
@@ -119,6 +117,10 @@ const OrderForm = () => {
         resetOrderData,
         isBookNowMode,
     } = useOrderContext();
+    
+    const role = (userType as string)?.toLowerCase() || (isBookNowMode ? 'agent' : 'admin');
+    const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+    
     const { setIsDirty } = useUnsaved();
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -588,7 +590,7 @@ const OrderForm = () => {
                     onTabChange={handleTabClick}
                     steps={steps}
                     canNavigateTo={canNavigateTo}
-                    userType={userType}
+                    userType={role}
                 />
             </div>
 

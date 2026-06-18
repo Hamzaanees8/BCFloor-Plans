@@ -5,6 +5,8 @@ import { MapPin, Mail, Trash2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { useOrganization } from '@/app/context/OrganizationContext'
+import { useOptionalWhiteLabel } from '@/app/context/Whitelabel'
 
 interface InvoiceDocumentProps {
     invoice: any;
@@ -29,10 +31,45 @@ const InvoiceDocument = ({
     setEditData,
     roleSettings
 }: InvoiceDocumentProps) => {
+    const { organization } = useOrganization()
+    const currentOrg = organization as any;
+    const whiteLabelContext = useOptionalWhiteLabel()
+    const organizations = whiteLabelContext?.organizations || []
+
     if (!invoice) return null;
 
     // Default settings if roleSettings is not provided (defensive)
     const settings = roleSettings || { pageTabColor: '#000', pageBg: '#fff' };
+
+    // Find the organization specifically associated with this invoice
+    const invoiceOrg = organizations.find((org: any) =>
+        org.id === invoice.organization_id ||
+        org.uuid === invoice.organization_id ||
+        org.uuid === invoice.organization_uuid
+    ) as any;
+    console.log('invoiceOrg', invoiceOrg);
+
+    const invOrg = invoice.organization as any;
+
+    const orgName = invoiceOrg?.name || invOrg?.name || currentOrg?.name || "BC Floor plans";
+    const orgEmail = invoiceOrg?.contact_email || invoiceOrg?.from_email || invOrg?.contact_email || invOrg?.from_email || currentOrg?.contact_email || currentOrg?.from_email || "info@bcfloorplans.com";
+
+    // Attempt to extract logo from all possible nested structures
+    const orgWlsLogo = invoiceOrg?.white_label_styles?.admin?.logo || invoiceOrg?.white_label_styles?.vendor?.logo || invoiceOrg?.white_label_styles?.agent?.logo;
+    const invoiceOrgWlsLogo = invOrg?.white_label_styles?.admin?.logo || invOrg?.white_label_styles?.vendor?.logo || invOrg?.white_label_styles?.agent?.logo;
+    const companyLogoUrl = invoiceOrg?.company_logos_urls?.find((l: any) => l.type === 'primary_logo')?.url || invoiceOrg?.company_logos_urls?.[0]?.url || invOrg?.company_logos_urls?.find((l: any) => l.type === 'primary_logo')?.url || invOrg?.company_logos_urls?.[0]?.url;
+
+    let logoUrl = companyLogoUrl || invoiceOrg?.logo_url || invoiceOrg?.logo || invoiceOrg?.branding?.logo || orgWlsLogo ||
+        invOrg?.logo_url || invOrg?.logo || invOrg?.branding?.logo || invoiceOrgWlsLogo ||
+        settings?.logo || currentOrg?.branding?.logo;
+    console.log('logoUrl', logoUrl);
+
+    // Only fallback to BCF logo if no organization logo is found and the organization is BC Floor plans, 
+    // or if the logo explicitly falls back
+    const isBcf = orgName.toLowerCase().includes("bcf") || orgName.toLowerCase().includes("bc floor plans");
+    if (!logoUrl && isBcf) {
+        logoUrl = "/bcfloor.png";
+    }
 
     return (
         <div id="invoice-download-content" className="relative bg-white p-12 rounded-lg border-2 border-gray-100 shadow-2xl mx-auto w-full max-w-[950px]  flex flex-col">
@@ -40,8 +77,8 @@ const InvoiceDocument = ({
             <div className="flex justify-between items-start mb-12">
                 <div>
                     <div className="flex border-box items-center gap-3 mb-6">
-                        <Image src="/bcfloor.png" alt="BCFloor Logo" width={60} height={60} className="object-contain" />
-                        <span className="text-2xl font-bold tracking-tight text-gray-900 leading-normal mb-0 pb-0">BC Floor plans</span>
+                        {logoUrl && <Image src={logoUrl} alt="Organization Logo" width={60} height={60} className="object-contain" />}
+                        <span className="text-2xl font-bold tracking-tight text-gray-900 leading-normal mb-0 pb-0">{orgName}</span>
                     </div>
                     <div className="space-y-1">
                         <p className="text-sm font-medium text-gray-600">Invoice Number: <span className="text-gray-900">{invoice.invoice_number}</span></p>
@@ -84,8 +121,8 @@ const InvoiceDocument = ({
                         Bill From:
                     </h3>
                     <div className="space-y-2 text-sm text-gray-600">
-                        <p className="font-bold text-gray-900">BC Floor plans</p>
-                        <p>info@bcfloorplans.com</p>
+                        <p className="font-bold text-gray-900">{orgName}</p>
+                        <p>{orgEmail}</p>
                     </div>
                 </div>
                 <div>
@@ -139,11 +176,11 @@ const InvoiceDocument = ({
                                                 )}
                                                 {serviceOption && (
                                                     <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border min-w-fit"
-                                                          style={{ 
-                                                              color: settings.pageTabColor, 
-                                                              backgroundColor: `${settings.pageTabColor}1A`, 
-                                                              borderColor: `${settings.pageTabColor}33` 
-                                                          }}>
+                                                        style={{
+                                                            color: settings.pageTabColor,
+                                                            backgroundColor: `${settings.pageTabColor}1A`,
+                                                            borderColor: `${settings.pageTabColor}33`
+                                                        }}>
                                                         {serviceOption}
                                                     </span>
                                                 )}
@@ -172,9 +209,9 @@ const InvoiceDocument = ({
                                                     onChange={(e) => updateItem(idx, 'unit_price', e.target.value)}
                                                     className="w-24 text-right h-8 font-black"
                                                 />
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="icon" 
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
                                                     className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
                                                     onClick={() => removeItem(idx)}
                                                 >
@@ -190,12 +227,12 @@ const InvoiceDocument = ({
                         })}
                     </tbody>
                 </table>
-                
+
                 {isEditing && (
                     <div className="mt-4 flex justify-start">
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
+                        <Button
+                            variant="outline"
+                            size="sm"
                             onClick={addItem}
                             className="bg-white hover:brightness-95 flex items-center gap-2 border-[1px]"
                             style={{ color: settings.pageTabColor, borderColor: settings.pageTabColor }}

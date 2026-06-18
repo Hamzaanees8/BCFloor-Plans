@@ -78,7 +78,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { appliedSettings } = useWhiteLabel();
-    const role = (userType as string)?.toLowerCase() || 'admin';
+    const role = (userType as string)?.toLowerCase() || (isBookNowMode ? 'agent' : 'admin');
     const roleSettings = appliedSettings[role as Role] || appliedSettings['admin'];
 
     const handleDone = () => {

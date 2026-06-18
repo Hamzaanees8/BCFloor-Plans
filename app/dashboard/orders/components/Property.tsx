@@ -109,7 +109,7 @@ const Property = ({ onSetActiveTab }: { onSetActiveTab?: (tab: string) => void }
     const isEdit = searchParams.get('isEdit') === 'true';
     const isAgentEdit = userType === 'agent' && isEdit;
     const { appliedSettings } = useWhiteLabel();
-    const role = (userType as string)?.toLowerCase() || 'admin';
+    const role = (userType as string)?.toLowerCase() || (isBookNowMode ? 'agent' : 'admin');
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
     // const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
     const fieldBg = `color-mix(in srgb, ${roleSettings.pageBg} 95%, black)`;

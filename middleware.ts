@@ -191,6 +191,41 @@ export async function middleware(request: NextRequest) {
     console.log('Default domain detected, guessing portal_type:', portalType, 'for', hostname);
   }
 
+  // For custom domains, check if we need to rewrite to slug-based URLs
+  if (!isDefaultDomain && orgData && orgData.slug) {
+    const slug = orgData.slug as string;
+    const pathname = url.pathname;
+    const search = url.search;
+    const segments = pathname.split('/').filter(Boolean);
+
+    // 1. Rewrite "/tours" or "/tours/" -> "/tours/[org_slug]"
+    if (segments.length === 1 && segments[0] === 'tours') {
+      const targetUrl = new URL(`/tours/${slug}${search}`, request.url);
+      console.log(`[Middleware] Rewriting whitelabel tours list: ${pathname} -> ${targetUrl.pathname}`);
+      const response = NextResponse.rewrite(targetUrl);
+      response.cookies.set('org_data', JSON.stringify(orgData), {
+        path: '/',
+        maxAge: 3600,
+        sameSite: 'lax',
+      });
+      return response;
+    }
+
+    // 2. Rewrite "/tour/[orderuuid]" -> "/tour/[org_slug]/[orderuuid]"
+    if (segments.length === 2 && segments[0] === 'tour' && segments[1] !== slug) {
+      const orderuuid = segments[1];
+      const targetUrl = new URL(`/tour/${slug}/${orderuuid}${search}`, request.url);
+      console.log(`[Middleware] Rewriting whitelabel single tour: ${pathname} -> ${targetUrl.pathname}`);
+      const response = NextResponse.rewrite(targetUrl);
+      response.cookies.set('org_data', JSON.stringify(orgData), {
+        path: '/',
+        maxAge: 3600,
+        sameSite: 'lax',
+      });
+      return response;
+    }
+  }
+
   // Build the routing response based on portal_type
   const response = buildResponse(portalType, url, request);
 

@@ -36,11 +36,12 @@ export default function PricingCard({ title, pricingOptions, setSelectedServices
     selectedListingId,
     setSelectedSlots,
     selectedSlots,
+    isBookNowMode,
   } = useOrderContext();
   const [switchEnabled, setSwitchEnabled] = useState(false);
   const { userType } = useAppContext()
   const { appliedSettings } = useWhiteLabel();
-  const role = (userType as string)?.toLowerCase() || 'admin';
+  const role = (userType as string)?.toLowerCase() || (isBookNowMode ? 'agent' : 'admin');
   const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
 
   const fieldBg = `color-mix(in srgb, ${roleSettings.pageBg} 95%, black)`;

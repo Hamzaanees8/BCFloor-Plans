@@ -44,7 +44,7 @@ const Contact = () => {
     } = useOrderContext();
     const { userType } = useAppContext()
     const { appliedSettings } = useWhiteLabel();
-    const role = (userType as string)?.toLowerCase() || 'admin';
+    const role = (userType as string)?.toLowerCase() || (isBookNowMode ? 'agent' : 'admin');
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
 
     const [showSignIn, setShowSignIn] = useState(false);

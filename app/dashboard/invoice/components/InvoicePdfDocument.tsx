@@ -2,6 +2,8 @@
 import React from 'react'
 import Image from 'next/image'
 import { MapPin, Mail } from 'lucide-react'
+import { useOrganization } from '@/app/context/OrganizationContext'
+import { useOptionalWhiteLabel } from '@/app/context/Whitelabel'
 
 interface InvoicePdfDocumentProps {
     invoice: any;
@@ -9,8 +11,41 @@ interface InvoicePdfDocumentProps {
 }
 
 const InvoicePdfDocument = ({ invoice, roleSettings }: InvoicePdfDocumentProps) => {
+    const { organization } = useOrganization()
+    const currentOrg = organization as any;
+    const whiteLabelContext = useOptionalWhiteLabel()
+    const organizations = whiteLabelContext?.organizations || []
+
     if (!invoice) return null;
     const settings = roleSettings || { pageTabColor: '#000', pageBg: '#fff' };
+
+    // Find the organization specifically associated with this invoice
+    const invoiceOrg = organizations.find((org: any) => 
+        org.id === invoice.organization_id || 
+        org.uuid === invoice.organization_id || 
+        org.uuid === invoice.organization_uuid
+    ) as any;
+
+    const invOrg = invoice.organization as any;
+
+    const orgName = invoiceOrg?.name || invOrg?.name || currentOrg?.name || "BC Floor plans";
+    const orgEmail = invoiceOrg?.contact_email || invoiceOrg?.from_email || invOrg?.contact_email || invOrg?.from_email || currentOrg?.contact_email || currentOrg?.from_email || "info@bcfloorplans.com";
+    
+    // Attempt to extract logo from all possible nested structures
+    const orgWlsLogo = invoiceOrg?.white_label_styles?.admin?.logo || invoiceOrg?.white_label_styles?.vendor?.logo || invoiceOrg?.white_label_styles?.agent?.logo;
+    const invoiceOrgWlsLogo = invOrg?.white_label_styles?.admin?.logo || invOrg?.white_label_styles?.vendor?.logo || invOrg?.white_label_styles?.agent?.logo;
+    const companyLogoUrl = invoiceOrg?.company_logos_urls?.find((l: any) => l.type === 'primary_logo')?.url || invoiceOrg?.company_logos_urls?.[0]?.url || invOrg?.company_logos_urls?.find((l: any) => l.type === 'primary_logo')?.url || invOrg?.company_logos_urls?.[0]?.url;
+
+    let logoUrl = companyLogoUrl || invoiceOrg?.logo_url || invoiceOrg?.logo || invoiceOrg?.branding?.logo || orgWlsLogo || 
+                  invOrg?.logo_url || invOrg?.logo || invOrg?.branding?.logo || invoiceOrgWlsLogo || 
+                  settings?.logo || currentOrg?.branding?.logo;
+
+    // Only fallback to BCF logo if no organization logo is found and the organization is BC Floor plans, 
+    // or if the logo explicitly falls back
+    const isBcf = orgName.toLowerCase().includes("bcf") || orgName.toLowerCase().includes("bc floor plans");
+    if (!logoUrl && isBcf) {
+        logoUrl = "/bcfloor.png";
+    }
 
     return (
         <div id="invoice-pdf-content" className="bg-white p-12 mx-auto font-alexandria text-gray-900 flex flex-col" style={{ width: '800px', minHeight: '1123px' }}>
@@ -18,16 +53,18 @@ const InvoicePdfDocument = ({ invoice, roleSettings }: InvoicePdfDocumentProps) 
             <div className="flex justify-between items-start mb-12">
                 <div className="flex flex-col gap-4">
                     <div className="flex items-center gap-3 h-[60px]">
-                        <Image 
-                            src="/bcfloor.png" 
-                            alt="Logo" 
-                            width={60} 
-                            height={60} 
-                            className="object-contain" 
-                            crossOrigin="anonymous" 
-                            unoptimized
-                        />
-                        <span className="text-2xl font-bold tracking-tight leading-none pt-1">BC Floor plans</span>
+                        {logoUrl && (
+                            <Image 
+                                src={logoUrl} 
+                                alt="Logo" 
+                                width={60} 
+                                height={60} 
+                                className="object-contain" 
+                                crossOrigin="anonymous" 
+                                unoptimized
+                            />
+                        )}
+                        <span className="text-2xl font-bold tracking-tight leading-none pt-1">{orgName}</span>
                     </div>
                     <div>
                         <p className="text-sm font-medium text-gray-600">Invoice Number: <span className="text-gray-900">{invoice.invoice_number}</span></p>
@@ -67,10 +104,10 @@ const InvoicePdfDocument = ({ invoice, roleSettings }: InvoicePdfDocumentProps) 
                         Bill From:
                     </h3>
                     <div className="space-y-1 text-sm text-gray-600">
-                        <p className="font-bold text-gray-900 pb-1">BC Floor plans</p>
+                        <p className="font-bold text-gray-900 pb-1">{orgName}</p>
                         <div className="flex items-start gap-2">
                             <Mail size={14} className="shrink-0 mt-0.5" style={{ color: settings.pageTabColor }} />
-                            <span className="leading-snug">info@bcfloorplans.com</span>
+                            <span className="leading-snug">{orgEmail}</span>
                         </div>
                     </div>
                 </div>

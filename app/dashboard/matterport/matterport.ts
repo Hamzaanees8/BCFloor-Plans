@@ -56,7 +56,8 @@ export interface MatterportApiResponse {
   slide_show: SlideShowSettings;
   created_at: string;
   updated_at: string;
-  orders: OrderApi;
+  orders?: OrderApi;
+  order?: OrderApi;
   links?: TourLinkApi[];
 }
 export enum MatterportStatus {
@@ -69,7 +70,7 @@ export enum MatterportRenewalAction {
 }
 export interface MatterportAd {
   agentName: string;
-  orderNumber: `#${string}`; // enforces #0001 format
+  orderNumber: `#${string}` | string; // enforces #0001 format or fallback
   propertyuuid: string;
   orderuud: string;
   address: string;
@@ -107,7 +108,8 @@ export async function GetMatterPort(token: string) {
 export const mapMatterportApiToAd = (
   api: MatterportApiResponse
 ): MatterportAd => {
-  const org = (api.orders as any)?.organization;
+  const orderObj = api.orders || api.order;
+  const org = (orderObj as any)?.organization;
   
   // Find branded and unbranded links in the tour links array
   const brandedLinkObj = api.links?.find((l) => l.type === "branded");
@@ -134,21 +136,21 @@ export const mapMatterportApiToAd = (
   }
 
   return {
-    agentName: `${api.orders.agent?.first_name ?? "N/A"} ${api.orders.agent?.last_name ?? ""}`.trim(),
-    orderNumber: `#${api.orders.id}`,
-    orderuud: api.orders.uuid,
-    propertyuuid: api.orders.property.uuid,
-    address: `${api.orders.property_address}, ${api.orders.property_location}`,
+    agentName: `${orderObj?.agent?.first_name ?? "N/A"} ${orderObj?.agent?.last_name ?? ""}`.trim(),
+    orderNumber: orderObj?.id ? `#${orderObj.id}` : "",
+    orderuud: orderObj?.uuid ?? "",
+    propertyuuid: orderObj?.property?.uuid ?? "",
+    address: orderObj ? `${orderObj.property_address || ""}, ${orderObj.property_location || ""}`.trim() : "N/A",
     organizationName: org?.name || "Global / None",
     organizationId: org?.id ?? undefined,
-    reminderDate: new Date(api.created_at).toLocaleDateString("en-US", {
+    reminderDate: api.created_at ? new Date(api.created_at).toLocaleDateString("en-US", {
       month: "short",
       day: "2-digit",
       year: "numeric",
-    }),
+    }) : "N/A",
     renewalDate: formattedExpiry,
     status:
-      api.orders.payment_status === "PAID"
+      orderObj?.payment_status === "PAID"
         ? MatterportStatus.ACTIVE
         : MatterportStatus.INACTIVE,
     renewal: MatterportRenewalAction.RENEW,
