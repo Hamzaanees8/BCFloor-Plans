@@ -31,6 +31,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
 import InvoicePdfDocument from "@/app/dashboard/invoice/components/InvoicePdfDocument";
 import DownloadInvoicePdf from "@/app/dashboard/invoice/components/DownloadInvoicePdf";
+import { useIsMobile } from "@/hooks/use-mobile";
+import MobileVendorEarnings from "@/components/mobile/vendor/MobileVendorEarnings";
 
 import Script from "next/script";
 
@@ -254,6 +256,8 @@ const Page = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [orderData, setOrderData] = useState<Order[]>([]);
     const { userType } = useAppContext();
+    const isMobile = useIsMobile();
+
     const loggedInVendorUuid = useMemo(() => {
         if (userType === "vendor" && typeof window !== "undefined") {
             const userInfo = localStorage.getItem("userInfo");
@@ -1048,8 +1052,9 @@ const Page = () => {
     const endIndex = startIndex + itemsPerPage;
     const paginatedVendors = vendorsGrouped.slice(startIndex, endIndex);
 
-
-
+    if (isMobile && userType === "vendor") {
+        return <MobileVendorEarnings />;
+    }
 
     return (
         <div className="text-[#424242]">

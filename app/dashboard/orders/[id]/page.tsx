@@ -51,6 +51,8 @@ import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { GetInvoicesByOrder, PayInvoiceWithStripe } from "../../invoice/invoice_api";
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
 import { useOrganization } from "@/app/context/OrganizationContext";
+import { useIsMobile } from "@/hooks/use-mobile";
+import MobileSquareFootage from "@/components/mobile/vendor/MobileSquareFootage";
 export interface VendorAddress {
   type: "company" | "billing" | string;
   address_line_1: string;
@@ -246,6 +248,8 @@ function Page() {
   const params = useParams();
   const searchParams = useSearchParams();
   const orderId = params?.id as string;
+  const isMobile = useIsMobile();
+
   useEffect(() => {
     setCountries(Country.getAllCountries());
   }, []);
@@ -532,6 +536,10 @@ function Page() {
 
     processStripePayment();
   }, [searchParams, router]);
+
+  if (isMobile && searchParams.get("mobile_sqft") === "1") {
+    return <MobileSquareFootage orderId={orderId} />;
+  }
 
   return (
     <div

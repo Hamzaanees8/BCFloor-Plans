@@ -10,6 +10,9 @@ import { Agent } from '@/lib/types';
 import { GetAgents } from './calendar';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
+import { useIsMobile } from '@/hooks/use-mobile';
+import MobileVendorToday from '@/components/mobile/vendor/MobileVendorToday';
+import MobileAdminDashboard from '@/components/mobile/admin/MobileAdminDashboard';
 
 type Vendor = {
     uuid?: string;
@@ -72,6 +75,7 @@ type Vendor = {
 
 const Page = () => {
     const { userType } = useAppContext();
+    const isMobile = useIsMobile();
     const headerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -197,6 +201,18 @@ const Page = () => {
 
     }, []);
 
+
+    // Mobile views: show simplified role-specific views instead of complex calendar
+    if (isMobile) {
+        if (userType === 'vendor') {
+            return <MobileVendorToday />;
+        }
+        if (userType === 'admin') {
+            return <MobileAdminDashboard />;
+        }
+        // Agent on mobile: show simplified schedule view too
+        return <MobileAdminDashboard />;
+    }
 
     return (
         <div>

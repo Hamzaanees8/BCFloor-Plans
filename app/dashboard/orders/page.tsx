@@ -18,6 +18,9 @@ import { ColumnDef, Row } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronsUpDown, ChevronUp } from "lucide-react";
 import DropdownActions from "@/components/DropdownActions";
+import { useIsMobile } from '@/hooks/use-mobile';
+import MobileAgentOrders from '@/components/mobile/agent/MobileAgentOrders';
+import MobileOrdersList from '@/components/mobile/admin/MobileOrdersList';
 
 export type Order = {
     id: number;
@@ -303,6 +306,7 @@ const Page = () => {
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
     const headerBg = `color-mix(in srgb, ${roleSettings.pageBg} 90%, black)`;
+    const isMobile = useIsMobile();
 
     // Router for navigation
     const router = useRouter();
@@ -373,7 +377,6 @@ const Page = () => {
         setLoading(true);
         setError(false);
 
-
         Get(token)
             .then(data => {
                 const sorted = Array.isArray(data.data)
@@ -389,6 +392,12 @@ const Page = () => {
                 setLoading(false);
             });
     }, []);
+
+    // Mobile views for orders
+    if (isMobile) {
+        if (userType === 'agent') return <MobileAgentOrders />;
+        return <MobileOrdersList />;
+    }
 
     const handleDelete = async (userId: string) => {
         try {

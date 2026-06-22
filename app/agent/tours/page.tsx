@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/DataTable';
 import { ColumnDef, Row } from '@tanstack/react-table';
 import Header from '@/components/Header';
+import { useIsMobile } from '@/hooks/use-mobile';
+import MobileAgentTours from '@/components/mobile/agent/MobileAgentTours';
 
 const slugify = (text: string) => {
     return text
@@ -22,6 +24,7 @@ const slugify = (text: string) => {
 
 const Page = () => {
     const { userType } = useAppContext();
+    const isMobile = useIsMobile();
     const pageBg = '#EFEFEF';
 
     const [toursData, setToursData] = useState<Tour[]>([]);
@@ -72,6 +75,11 @@ const Page = () => {
                 setLoading(false);
             });
     }, []);
+
+    // Mobile view for tours
+    if (isMobile) {
+        return <MobileAgentTours />;
+    }
 
     const filteredTours = toursData.filter((tour) => {
         const search = searchQuery.toLowerCase();

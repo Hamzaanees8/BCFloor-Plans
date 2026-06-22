@@ -28,6 +28,9 @@ import { OrderSlots } from "./billing";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { useIsMobile } from '@/hooks/use-mobile';
+import MobileBillingOverview from '@/components/mobile/admin/MobileBillingOverview';
+import MobileBillingDetail from '@/components/mobile/admin/MobileBillingDetail';
 import InvoiceModal from "../invoice/components/InvoiceModal";
 import RefundModal from "../invoice/components/RefundModal";
 import { GetInvoicesByOrder, PayInvoiceWithStripe, MarkPaid } from "../invoice/invoice_api";
@@ -44,6 +47,9 @@ const Page = () => {
   const { appliedSettings } = useWhiteLabel();
   const role = (userType as string) || 'admin';
   const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+  const isMobile = useIsMobile();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const headerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -89,8 +95,6 @@ const Page = () => {
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [showAgain, setShowAgain] = useState(true);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
-  const searchParams = useSearchParams();
-  const router = useRouter();
 
   // Filter states
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -606,6 +610,20 @@ const Page = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedBillings = sortedBillings.slice(startIndex, endIndex);
+
+  // Mobile view for billing
+  if (isMobile) {
+    const orderParam = searchParams.get('order');
+    if (orderParam) {
+      return (
+        <MobileBillingDetail
+          orderId={orderParam}
+          onBack={() => router.push('/dashboard/billing')}
+        />
+      );
+    }
+    return <MobileBillingOverview />;
+  }
 
   return (
     <div>

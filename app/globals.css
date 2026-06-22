@@ -649,3 +649,215 @@ textarea::placeholder {
   height: 100% !important;
   box-sizing: border-box !important;
 }
+
+/* ==========================================================================
+   Mobile View System
+   Bottom nav, touch targets, cards, and responsive utilities for mobile shell
+   ========================================================================== */
+
+/* Safe area padding for devices with notches/home indicators */
+.mobile-bottom-safe {
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Minimum touch target for interactive elements on mobile */
+.mobile-touch-target {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* Standardised mobile card */
+.mobile-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f0f0f0;
+}
+
+.mobile-card-pressed {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+/* Mobile status badges */
+.mobile-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  line-height: 1.4;
+}
+
+.mobile-badge-blue {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.mobile-badge-green {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.mobile-badge-red {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.mobile-badge-orange {
+  background-color: #ffedd5;
+  color: #c2410c;
+}
+
+.mobile-badge-amber {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
+.mobile-badge-gray {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}
+
+.mobile-badge-emerald {
+  background-color: #d1fae5;
+  color: #047857;
+}
+
+.mobile-badge-rose {
+  background-color: #ffe4e6;
+  color: #be123c;
+}
+
+/* Mobile bottom nav */
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 50;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.mobile-bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  flex: 1;
+  padding: 6px 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-bottom-nav-item span {
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+/* Mobile section header */
+.mobile-section-header {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9ca3af;
+  padding: 16px 16px 8px;
+}
+
+/* Mobile summary card (for dashboard stats) */
+.mobile-summary-card {
+  background: white;
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid #f0f0f0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mobile-summary-card .mobile-summary-value {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.mobile-summary-card .mobile-summary-label {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* Mobile input overrides for larger touch targets */
+@media (max-width: 767px) {
+  .mobile-input {
+    height: 48px !important;
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+    border-radius: 10px !important;
+  }
+
+  /* Prevent iOS zoom on input focus */
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  input[type="tel"],
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Mobile more-menu overlay */
+.mobile-more-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: white;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-more-menu-enter {
+  animation: slideUpIn 0.3s ease-out forwards;
+}
+
+.mobile-more-menu-exit {
+  animation: slideDownOut 0.2s ease-in forwards;
+}
+
+@keyframes slideUpIn {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDownOut {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
