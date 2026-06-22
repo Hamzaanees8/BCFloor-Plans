@@ -110,15 +110,15 @@ export function DualModeFileManager({
                     <Accordion type="multiple" defaultValue={["all"]} className="w-full">
                         <AccordionItem value="all" className="overflow-hidden shadow-sm">
                             <AccordionTrigger
-                                className={`px-[24px] py-[19px] h-[60px] ${userType}-text text-[18px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                className={`px-[16px] py-[10px] h-[50px] ${userType}-text text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                 style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                             >
                                 <div className="flex items-center flex-1 justify-between pr-4">
-                                    <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2">
                                         <span>{singleAccordionTitle} ({items.length})</span>
                                         {saveButton}
                                     </div>
-                                    <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2">
                                         {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
                                     </div>
                                 </div>
@@ -173,7 +173,7 @@ export function DualModeFileManager({
                                 {unsavedItems.length > 0 && (
                                     <AccordionItem value="unsaved" className="overflow-hidden shadow-sm">
                                         <AccordionTrigger
-                                            className={`px-[24px] py-[19px] h-[60px] ${userType}-text text-[18px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                            className={`px-[16px] py-[10px] h-[50px] ${userType}-text text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                             style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                                         >
                                             Unsaved Files ({unsavedItems.length})
@@ -194,7 +194,7 @@ export function DualModeFileManager({
 
                                 <AccordionItem value="saved" className="overflow-hidden shadow-sm">
                                     <AccordionTrigger
-                                        className={`px-[24px] py-[19px] h-[60px] ${userType}-text text-[18px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        className={`px-[16px] py-[10px] h-[50px] ${userType}-text text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                         style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                                     >
                                         <div className="flex items-center flex-1 justify-between pr-4">
@@ -235,15 +235,15 @@ export function DualModeFileManager({
                             <Accordion type="multiple" defaultValue={["selected"]} className="w-full">
                                 <AccordionItem value="selected" className="overflow-hidden shadow-sm">
                                     <AccordionTrigger
-                                        className={`px-[24px] py-[19px] h-[60px] ${userType}-text text-[18px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        className={`px-[16px] py-[10px] h-[50px] ${userType}-text text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                         style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                                     >
                                         <div className="flex items-center flex-1 justify-between pr-4">
-                                            <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2">
                                                 <span>Selected files ({selectedItems.length})</span>
                                                 {saveButton}
                                             </div>
-                                            <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2">
                                                 {selectedAction}
                                                 {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
                                             </div>
@@ -276,7 +276,7 @@ export function DualModeFileManager({
                             {unsavedItems.length > 0 && (
                                 <AccordionItem value="unsaved" className="overflow-hidden shadow-sm">
                                     <AccordionTrigger
-                                        className={`px-[24px] py-[19px] h-[60px] ${userType}-text text-[18px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                        className={`px-[16px] py-[10px] h-[50px] ${userType}-text text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                         style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                                     >
                                         Unsaved Files ({unsavedItems.length})
@@ -297,12 +297,12 @@ export function DualModeFileManager({
 
                             <AccordionItem value="saved" className="overflow-hidden shadow-sm">
                                 <AccordionTrigger
-                                    className={`px-[24px] py-[19px] h-[60px] ${userType}-text text-[18px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                                    className={`px-[16px] py-[10px] h-[50px] ${userType}-text text-[15px] font-[600] uppercase hover:no-underline [&>svg]:${userType}-text [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
                                     style={{ backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)` }}
                                 >
                                     <div className="flex items-center flex-1 justify-between pr-4">
                                         <span>Saved Files ({savedItems.length})</span>
-                                        <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-2">
                                             {modeToggleButton && <div onClick={e => e.stopPropagation()}>{modeToggleButton}</div>}
                                         </div>
                                     </div>

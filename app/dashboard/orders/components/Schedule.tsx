@@ -13,7 +13,7 @@ import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import React, { useEffect, useState } from 'react'
 import OneDayCalendar, { getDistanceColor } from './OneDayCalendar'
-import { getPropertyTimezone, PropertyLocation } from '../orders'
+import { getPropertyTimezone, PropertyLocation, getCachedGeocode, fetchTwilightTime, TwilightResponse } from '../orders'
 import { VendorData } from '../[id]/page'
 import { useOrderContext, Slot } from '../context/OrderContext'
 import VendorWorkCarousel from './VendorWorkCarousel'
@@ -49,29 +49,12 @@ function isPointInPolygon(point: Coordinate, polygon: Coordinate[]): boolean {
     return inside
 }
 
-async function isPropertyInsideVendorArea(selectedCurrentListing: string, vendor: VendorData): Promise<boolean> {
-    if (!selectedCurrentListing || !vendor.coordinates) return false
-    if (typeof window === 'undefined' || !window.google || !window.google.maps) return false
+async function isPropertyInsideVendorArea(propertyCoords: Coordinate | null, vendor: VendorData): Promise<boolean> {
+    if (!propertyCoords || !vendor.coordinates) return false
 
     try {
         const polygon: Coordinate[] = JSON.parse(vendor.coordinates as unknown as string);
         if (!Array.isArray(polygon) || polygon.length < 3) return false
-
-        const geocoder = new window.google.maps.Geocoder()
-
-        const propertyCoords = await new Promise<Coordinate | null>((resolve) => {
-            geocoder.geocode({ address: selectedCurrentListing }, (results, status) => {
-                if (status === 'OK' && results && results[0]) {
-                    const loc = results[0].geometry.location
-                    resolve({ lat: loc.lat(), lng: loc.lng() })
-                } else {
-                    console.error('Geocoding failed:', status)
-                    resolve(null)
-                }
-            })
-        })
-
-        if (!propertyCoords) return false
 
         return isPointInPolygon(propertyCoords, polygon)
     } catch (err) {
@@ -184,23 +167,58 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
         return date;
     }, [portalSettings]);
 
+    const [twilightData, setTwilightData] = useState<TwilightResponse | null>(null);
+    const lastAddressRef = React.useRef<string>('');
+    const isRunningRef = React.useRef<boolean>(false);
+
+    const addressString = React.useMemo(() => {
+        if (selectedCurrentListing) {
+            return `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.country}`.replace(/,\s*,/g, ',');
+        }
+        if (tempPropertyData) {
+            return `${tempPropertyData.address}, ${tempPropertyData.city}, ${tempPropertyData.country}`.replace(/,\s*,/g, ',');
+        }
+        return '';
+    }, [selectedCurrentListing, tempPropertyData]);
+
+    const fullAddress = React.useMemo(() => {
+        if (selectedCurrentListing) {
+            return `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.province || ''}, ${selectedCurrentListing.country}`.replace(/,\s*,/g, ',');
+        }
+        if (tempPropertyData) {
+            return `${tempPropertyData.address}, ${tempPropertyData.city}, ${tempPropertyData.province || ''}, ${tempPropertyData.country}`.replace(/,\s*,/g, ',');
+        }
+        return '';
+    }, [selectedCurrentListing, tempPropertyData]);
+
+    useEffect(() => {
+        async function loadTwilight() {
+            if (!addressString) return;
+            const formattedDate = format(masterDate, 'yyyy-MM-dd');
+            const result = await fetchTwilightTime(addressString, formattedDate);
+            if (result) setTwilightData(result);
+        }
+        loadTwilight();
+    }, [addressString, masterDate]);
+
     useEffect(() => {
         async function loadAndCalculate() {
-            if (!vendorsData.length || (!selectedCurrentListing && !tempPropertyData) || !servicesData.length) {
+            if (!vendorsData.length || !addressString || !servicesData.length) {
                 setFilteredVendorsByService({});
                 setOverridableVendorsByService({});
                 setIsCalculating(false);
                 return;
             }
 
+            if (isRunningRef.current) return;
+            isRunningRef.current = true;
             setIsCalculating(true);
 
+            // Fetch geocode once for all ops
+            const propertyCoords = await getCachedGeocode(addressString);
+
             // 1. Filter vendors by service/area
-            const addressString = selectedCurrentListing
-                ? `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.country}`
-                : `${tempPropertyData?.address}, ${tempPropertyData?.city}, ${tempPropertyData?.country}`;
             const result: Record<string, VendorData[]> = {};
-            // Vendors that can be included via Schedule Override (force_service_area=false, outside geofence)
             const overridable: Record<string, VendorData[]> = {};
 
             for (const service of servicesData) {
@@ -213,8 +231,6 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                         const enable_service_area = vendor.settings?.enable_service_area;
                         const isServiceAreaEnabled = enable_service_area === 1 || enable_service_area === true;
 
-                        // If service area is disabled for this vendor → skip all geofence checks,
-                        // always available for every listing (no override needed).
                         if (!isServiceAreaEnabled) {
                             return { vendor, inside: true, canOverride: false };
                         }
@@ -222,7 +238,6 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                         const force_service_area = vendor.settings?.force_service_area;
                         const isForced = force_service_area === 1 || force_service_area === true;
 
-                        // Parse coordinates — check if a geofence has been drawn
                         let hasCoordinates = false;
                         try {
                             const coords = JSON.parse(vendor.coordinates as unknown as string);
@@ -232,20 +247,15 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                         }
 
                         if (isForced) {
-                            // force_service_area=true: always check geofence, NEVER overridable
-                            const inside = await isPropertyInsideVendorArea(addressString, vendor);
+                            const inside = await isPropertyInsideVendorArea(propertyCoords, vendor);
                             return { vendor, inside, canOverride: false };
                         }
 
                         if (!hasCoordinates) {
-                            // force_service_area=false, no geofence drawn: always available
                             return { vendor, inside: true, canOverride: false };
                         }
 
-                        // force_service_area=false but a geofence IS drawn:
-                        // Check if the property falls inside it.
-                        // If outside → vendor is overridable (admin can bypass with Schedule Override).
-                        const inside = await isPropertyInsideVendorArea(addressString, vendor);
+                        const inside = await isPropertyInsideVendorArea(propertyCoords, vendor);
                         return { vendor, inside, canOverride: !inside };
                     })
                 );
@@ -262,11 +272,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
             setFilteredVendorsByService(result);
             setOverridableVendorsByService(overridable);
 
-            // 2. Load property timezone
-            const fullAddress = selectedCurrentListing
-                ? `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.province}, ${selectedCurrentListing.country}`
-                : `${tempPropertyData?.address}, ${tempPropertyData?.city}, ${tempPropertyData?.province}, ${tempPropertyData?.country}`;
-
+            // 2. Load property timezone (uses cached geocode under the hood)
             const location = await getPropertyTimezone(fullAddress);
             if (location) {
                 setPropertyLocation(location);
@@ -274,29 +280,31 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                 console.error('Failed to fetch property timezone');
             }
 
-            // 3. Calculate distances for both available and overridable vendors
-            const listingAddress = selectedCurrentListing
-                ? `${selectedCurrentListing.address}, ${selectedCurrentListing.city}, ${selectedCurrentListing.province}, ${selectedCurrentListing.country}`
-                : `${tempPropertyData?.address}, ${tempPropertyData?.city}, ${tempPropertyData?.province}, ${tempPropertyData?.country}`;
-
-            const allVendorSets = Object.keys(result).map(svcUuid => {
-                const available = result[svcUuid] ?? [];
-                const override = overridable[svcUuid] ?? [];
-                return [...available, ...override];
+            // 3. Calculate distances for unique vendors
+            const uniqueVendorsMap = new Map<string, VendorData>();
+            Object.values(result).flat().forEach(v => {
+                if (v.uuid) uniqueVendorsMap.set(v.uuid, v);
+            });
+            Object.values(overridable).flat().forEach(v => {
+                if (v.uuid) uniqueVendorsMap.set(v.uuid, v);
             });
 
-            const distancePromises = allVendorSets.map(async (vendors) => {
-                if (vendors?.length > 0) {
-                    await calculateAllVendorDistances(listingAddress, vendors);
+            const uniqueVendors = Array.from(uniqueVendorsMap.values());
+            
+            if (uniqueVendors.length > 0) {
+                for (let i = 0; i < uniqueVendors.length; i += 25) {
+                    const batch = uniqueVendors.slice(i, i + 25);
+                    await calculateAllVendorDistances(fullAddress, batch);
                 }
-            });
-            await Promise.all(distancePromises);
+            }
 
             setIsCalculating(false);
+            isRunningRef.current = false;
+            lastAddressRef.current = addressString;
         }
 
         loadAndCalculate();
-    }, [vendorsData, servicesData, selectedCurrentListing, tempPropertyData, googleReady]);
+    }, [addressString, fullAddress, vendorsData, servicesData, googleReady]);
 
     useEffect(() => {
         if (!isEdit || !selectedSlots.length || !servicesData.length) return;
@@ -946,6 +954,7 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                     masterDate={serviceDates[serviceKey] || masterDate}
                                                     onVendorSelected={handleVendorChange}
                                                     isCalculating={isCalculating}
+                                                    twilightData={twilightData}
                                                 />
                                             )}
                                         </div>

@@ -591,17 +591,11 @@ export interface TwilightResponse {
 }
 
 export async function fetchTwilightTime(address: string, date: string): Promise<TwilightResponse | null> {
-  const API_KEY = process.env.NEXT_PUBLIC_PLACES_API_KEY;
-
   try {
-    const geocodeRes = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${API_KEY}`
-    );
-    const geoData = await geocodeRes.json();
+    const coords = await getCachedGeocode(address);
+    if (!coords) throw new Error(`No geocode results found for address: ${address}`);
 
-    if (!geoData.results.length) throw new Error(`No geocode results found for address: ${address}`);
-
-    const { lat, lng } = geoData.results[0].geometry.location;
+    const { lat, lng } = coords;
 
     const twilightRes = await fetch(
       `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lng}&date=${date}&formatted=0`
@@ -663,27 +657,61 @@ export interface PropertyLocation {
   timeZoneName: string;
 }
 
-export async function getPropertyTimezone(address: string): Promise<PropertyLocation | null> {
-  try {
+export const geocodeCache = new Map<string, Coordinate>();
+
+export async function getCachedGeocode(address: string): Promise<Coordinate | null> {
+  if (geocodeCache.has(address)) {
+    return geocodeCache.get(address) || null;
+  }
+
+  if (typeof window !== 'undefined' && window.google && window.google.maps) {
+    const geocoder = new window.google.maps.Geocoder();
+    return new Promise<Coordinate | null>((resolve) => {
+      geocoder.geocode({ address }, (results, status) => {
+        if (status === 'OK' && results && results[0]) {
+          const loc = results[0].geometry.location;
+          const coords = { lat: loc.lat(), lng: loc.lng() };
+          geocodeCache.set(address, coords);
+          resolve(coords);
+        } else {
+          console.error('Geocoding failed:', status);
+          resolve(null);
+        }
+      });
+    });
+  } else {
     const API_KEY = process.env.NEXT_PUBLIC_PLACES_API_KEY;
-    if (!API_KEY) throw new Error('Google Maps API key is missing');
+    if (!API_KEY) return null;
 
     const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
       address
     )}&key=${API_KEY}`;
-
-    const geoRes = await fetch(geocodeUrl);
-    const geoData = await geoRes.json();
-
-    if (geoData.status !== 'OK' || !geoData.results?.length) {
-      console.error('Geocoding failed:', geoData.status, geoData.error_message);
-      return null;
+    try {
+      const geoRes = await fetch(geocodeUrl);
+      const geoData = await geoRes.json();
+      if (geoData.status === 'OK' && geoData.results?.length) {
+        const loc = geoData.results[0].geometry.location;
+        const coords = { lat: loc.lat, lng: loc.lng };
+        geocodeCache.set(address, coords);
+        return coords;
+      }
+    } catch (e) {
+      console.error('Geocoding fetch failed:', e);
     }
+  }
+  return null;
+}
 
-    const location = geoData.results[0].geometry.location;
+export async function getPropertyTimezone(address: string): Promise<PropertyLocation | null> {
+  try {
+    const coords = await getCachedGeocode(address);
+    if (!coords) return null;
+
+    const API_KEY = process.env.NEXT_PUBLIC_PLACES_API_KEY;
+    if (!API_KEY) throw new Error('Google Maps API key is missing');
 
     const timestamp = Math.floor(Date.now() / 1000);
-    const timezoneUrl = `https://maps.googleapis.com/maps/api/timezone/json?location=${location.lat},${location.lng}&timestamp=${timestamp}&key=${API_KEY}`;
+    const timezoneUrl = `https://maps.googleapis.com/maps/api/timezone/json?location=${coords.lat},${coords.lng}&timestamp=${timestamp}&key=${API_KEY}`;
 
     const tzRes = await fetch(timezoneUrl);
     const tzData = await tzRes.json();
@@ -694,8 +722,8 @@ export async function getPropertyTimezone(address: string): Promise<PropertyLoca
     }
 
     return {
-      lat: location.lat,
-      lng: location.lng,
+      lat: coords.lat,
+      lng: coords.lng,
       timeZoneId: tzData.timeZoneId,
       timeZoneName: tzData.timeZoneName,
     };

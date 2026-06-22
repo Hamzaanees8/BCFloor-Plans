@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import CopyableFileName from './CopyableFileName';
 import FilePreviewModal from './FilePreviewModal';
-import { Check, X, PlayCircle, Loader2 } from 'lucide-react';
+import { Check, X, PlayCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { DownloadIcon } from '@/components/Icons';
 import { Button } from '@/components/ui/button';
 import { Services } from '../../services/page';
@@ -27,11 +27,12 @@ import { api } from '@/lib/api';
 
 
 
-function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, isScrolled?: boolean, stickyOffset?: number }) {
+function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset, onShowHiddenMedia }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: () => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, isScrolled?: boolean, stickyOffset?: number, onShowHiddenMedia?: () => void }) {
     const [files, setFiles] = useState<File[]>([]);
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [open, setOpen] = useState(false);
     const [openPayment, setOpenPayment] = useState(false);
+    const [isHiding, setIsHiding] = useState(false);
     const [, setSuccess] = useState(false);
     const [openUpgrade, setOpenUpgrade] = useState(false);
     const [openPaymentModal, setOpenPaymentModal] = useState(false);
@@ -410,6 +411,23 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                     <Check color="white" size={48} className="opacity-100" />
                                 </div>
                             )}
+                            {(userType === 'admin' || userType === 'agent') && file.uuid && (
+                                <span
+                                    className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFilesToHide(prev => {
+                                            const next = new Set(prev);
+                                            if (next.has(file.uuid)) next.delete(file.uuid);
+                                            else next.add(file.uuid);
+                                            return next;
+                                        });
+                                    }}
+                                    title={filesToHide.has(file.uuid) ? "Selected to hide" : "Visible"}
+                                >
+                                    {filesToHide.has(file.uuid) ? <EyeOff size={16} className="text-[#E06D5E]" /> : <Eye size={16} className="text-gray-700" />}
+                                </span>
+                            )}
                             {file.is_deleted && (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 z-[30] gap-2">
                                     <p className="text-white font-medium text-lg drop-shadow-lg uppercase mb-4">Deleted</p>
@@ -517,6 +535,23 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                                         <div className="absolute inset-0 bg-black/50 z-[25] flex flex-col items-center justify-center pointer-events-none">
                                             <Check color="white" size={48} className="opacity-100" />
                                         </div>
+                                    )}
+                                    {(userType === 'admin' || userType === 'agent') && file.uuid && (
+                                        <span
+                                            className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setFilesToHide(prev => {
+                                                    const next = new Set(prev);
+                                                    if (next.has(file.uuid)) next.delete(file.uuid);
+                                                    else next.add(file.uuid);
+                                                    return next;
+                                                });
+                                            }}
+                                            title={filesToHide.has(file.uuid) ? "Selected to hide" : "Visible"}
+                                        >
+                                            {filesToHide.has(file.uuid) ? <EyeOff size={16} className="text-[#E06D5E]" /> : <Eye size={16} className="text-gray-700" />}
+                                        </span>
                                     )}
                                 </div>
                             )}
@@ -745,6 +780,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
             return;
         }
 
+        setIsHiding(true);
         try {
             await HideMediaFiles(token, Array.from(filesToHide), true);
             toast.success("Media hidden successfully");
@@ -759,8 +795,35 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
             });
         } catch (error: any) {
             toast.error(error.message || "Failed to hide media");
+        } finally {
+            setIsHiding(false);
         }
     };
+
+    const selectedAction = userType === 'agent' ? (
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <Button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    if (filesToHide.size > 0) {
+                        handleHideSubmit();
+                    } else {
+                        if (onShowHiddenMedia) onShowHiddenMedia();
+                    }
+                }}
+                disabled={isHiding}
+                variant={filesToHide.size > 0 ? 'default' : 'outline'}
+                className={`h-7 px-3 text-xs font-medium transition-all duration-300 ${
+                    filesToHide.size > 0 
+                    ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white border-none' 
+                    : 'border-[#E06D5E] text-[#E06D5E] hover:bg-red-50 bg-white'
+                }`}
+            >
+                {isHiding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {filesToHide.size > 0 ? 'Hide Media' : 'Show Hidden Media'}
+            </Button>
+        </div>
+    ) : null;
 
     return (
         <div>
@@ -784,6 +847,18 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                             >
                                 Add File
                             </Button>
+                            {userType === 'admin' && (
+                                <Button
+                                    onClick={() => {
+                                        setShowDownloadModal(true);
+                                    }}
+                                    className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${
+                                        isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                    }`}
+                                >
+                                    Download Files
+                                </Button>
+                            )}
                             <input
                                 ref={fileInputRef}
                                 type="file"
@@ -834,19 +909,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                     </p>
                 </div>
                 <div className='flex justify-center items-center gap-x-[14px]'>
-                    {/* Download Files button moved to the left */}
-                    {userType === 'admin' && (
-                        <Button
-                            onClick={() => {
-                                setShowDownloadModal(true);
-                            }}
-                            className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${
-                                isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                            }`}
-                        >
-                            Download Files
-                        </Button>
-                    )}
+
                     {(userType === 'admin' || userType === 'agent') && (
                         <Button
                             onClick={() => {
@@ -865,8 +928,8 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                             {isHidingMode ? 'Save' : 'Hide Media'}
                         </Button>
                     )}
-                    {!isHidingMode && userType !== 'agent' && (
-                        reviewFilesEnabled && userType === 'vendor' ? (
+                    {!isHidingMode && userType === 'vendor' && (
+                        reviewFilesEnabled ? (
                             <Button
                                 onClick={handleSubmitAdminApproval}
                                 disabled={isSubmitting}
@@ -1081,6 +1144,7 @@ function Video({ currentService, orderData, reviewFilesEnabled, onSave, mediaDat
                         disabled={userType === 'agent'}
                         onSave={onSave}
                         modeToggleButton={userType === 'agent' ? <ModeToggle mode={fileManagerMode} onModeChange={handleModeChange} /> : undefined}
+                        selectedAction={selectedAction}
                     />
                 </div>
                 <PhotoPreviewModal

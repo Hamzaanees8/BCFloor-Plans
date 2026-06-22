@@ -24,9 +24,10 @@ interface HiddenMediaModalProps {
     onClose: () => void;
     currentService?: Services;
     mediaDateBoundary?: MediaDateBoundary;
+    isFetching?: boolean;
 }
 
-export default function HiddenMediaModal({ open, onClose, currentService, mediaDateBoundary }: HiddenMediaModalProps) {
+export default function HiddenMediaModal({ open, onClose, currentService, mediaDateBoundary, isFetching }: HiddenMediaModalProps) {
     const { filesData, setFilesData } = useFileManagerContext();
     const { userType } = useAppContext();
     const [selectedUuids, setSelectedUuids] = useState<Set<string>>(new Set());
@@ -102,7 +103,6 @@ export default function HiddenMediaModal({ open, onClose, currentService, mediaD
             }
             
             setSelectedUuids(new Set());
-            // If all items of interest are unhidden or user wants to close
             if (selectedUuids.size === totalHiddenCount) {
                 onClose();
             }
@@ -117,12 +117,26 @@ export default function HiddenMediaModal({ open, onClose, currentService, mediaD
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="w-[95%] md:w-[800px] max-w-[900px] rounded-[8px] p-4 md:p-6 gap-[10px] font-alexandria [&>button]:hidden bg-white">
                 <DialogHeader className="mb-2">
-                    <DialogTitle className={`flex items-center justify-between ${userType}-text text-[18px] font-[600] border-b-[1px] border-[#E4E4E4] pb-2 uppercase`}>
-                        <div className="flex items-center gap-2">
-                            <span>Hidden Media Management</span>
-                            <span className="text-[12px] font-normal text-muted-foreground bg-gray-100 px-3 py-0.5 rounded-full lowercase">
-                                {totalHiddenCount} items
-                            </span>
+                    <DialogTitle className={`flex items-center justify-between ${userType}-text text-[18px] font-[600] border-b-[1px] border-[#E4E4E4] pb-3 uppercase`}>
+                        <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2">
+                                <span>Hidden Media</span>
+                                {!isFetching && (
+                                    <span className="text-[12px] font-normal text-muted-foreground bg-gray-100 px-3 py-0.5 rounded-full lowercase">
+                                        {totalHiddenCount} items
+                                    </span>
+                                )}
+                                {isFetching && (
+                                    <span className="flex items-center gap-1.5 text-[12px] font-normal text-muted-foreground normal-case">
+                                        <Loader2 size={13} className="animate-spin" /> Loading...
+                                    </span>
+                                )}
+                            </div>
+                            {currentService && (
+                                <span className="text-[11px] font-normal text-[#7D7D7D] normal-case tracking-normal">
+                                    Service: <span className="font-semibold text-[#555]">{currentService.name}</span>
+                                </span>
+                            )}
                         </div>
                         <Button onClick={onClose} variant="ghost" className="border-none !shadow-none p-0 h-auto hover:bg-transparent">
                             <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
@@ -131,10 +145,21 @@ export default function HiddenMediaModal({ open, onClose, currentService, mediaD
                 </DialogHeader>
 
                 <div className="flex-1 overflow-y-auto max-h-[60vh] pr-2">
-                    {totalHiddenCount === 0 ? (
+                    {isFetching ? (
+                        <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+                            <Loader2 size={42} className={`animate-spin opacity-60 ${userType}-text`} />
+                            <p className="text-[14px] font-medium">Fetching hidden media...</p>
+                            {currentService && (
+                                <p className="text-[12px] text-[#7D7D7D]">for <span className="font-semibold">{currentService.name}</span></p>
+                            )}
+                        </div>
+                    ) : totalHiddenCount === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground font-alexandria">
                             <Check size={48} className="mb-4 opacity-20" />
                             <p className="text-[16px]">No hidden media found for this service.</p>
+                            {currentService && (
+                                <p className="text-[12px] text-[#7D7D7D] mt-1">{currentService.name}</p>
+                            )}
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-4">
@@ -249,7 +274,13 @@ export default function HiddenMediaModal({ open, onClose, currentService, mediaD
                 <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[5px] mt-2 font-alexandria border-t pt-4">
                     <div className="flex w-full items-center justify-between">
                         <p className="text-[14px] text-[#666666]">
-                            {selectedUuids.size} items selected
+                            {isFetching ? (
+                                <span className="flex items-center gap-1.5 text-[13px]">
+                                    <Loader2 size={13} className="animate-spin" /> Loading hidden media...
+                                </span>
+                            ) : (
+                                `${selectedUuids.size} items selected`
+                            )}
                         </p>
                         <div className="flex gap-[10px]">
                             <Button 
@@ -262,7 +293,7 @@ export default function HiddenMediaModal({ open, onClose, currentService, mediaD
                             </Button>
                             <Button 
                                 onClick={handleUnhide} 
-                                disabled={selectedUuids.size === 0 || isLoading}
+                                disabled={selectedUuids.size === 0 || isLoading || !!isFetching}
                                 className={`${userType}-border hover:opacity-95 text-white ${userType}-bg hover-${userType}-bg h-[40px] px-6 font-[400] text-[16px] min-w-[150px]`}
                             >
                                 {isLoading ? (

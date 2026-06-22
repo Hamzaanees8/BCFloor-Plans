@@ -397,9 +397,9 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
                 {(userType === 'agent' || userType === 'admin') && (
                   <Button
                       onClick={() => setIsSyncModalOpen(true)}
-                      disabled={(allApprovedPhotos.length === 0 && allApprovedVideos.length === 0)}
-                      className={`px-4 h-[32px] md:h-[38px] border-[1px] ${(allApprovedPhotos.length === 0 && allApprovedVideos.length === 0) ? "border-gray-300 text-gray-500 bg-gray-100 opacity-50 cursor-not-allowed" : `${userType}-border ${userType}-text hover:text-[#fff] hover-${userType}-bg ${userType}-button`} text-[12px] md:text-[13px] font-[500] flex gap-[5px] justify-center items-center rounded-[6px] transition-colors`}
-                      style={(allApprovedPhotos.length === 0 && allApprovedVideos.length === 0) ? {} : { backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
+                      disabled={(allApprovedPhotos.length === 0)}
+                      className={`px-4 h-[32px] md:h-[38px] border-[1px] ${(allApprovedPhotos.length === 0) ? "border-gray-300 text-gray-500 bg-gray-100 opacity-50 cursor-not-allowed" : `${userType}-border ${userType}-text hover:text-[#fff] hover-${userType}-bg ${userType}-button`} text-[12px] md:text-[13px] font-[500] flex gap-[5px] justify-center items-center rounded-[6px] transition-colors`}
+                      style={(allApprovedPhotos.length === 0) ? {} : { backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                   >
                       Sync MLS
                   </Button>
@@ -683,7 +683,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({ orderData, groupedOrderServic
             <SyncMlsModal 
                 open={isSyncModalOpen}
                 onClose={() => setIsSyncModalOpen(false)}
-                apiFiles={[...allApprovedPhotos, ...allApprovedVideos].filter(f => 
+                apiFiles={[...allApprovedPhotos].filter(f => 
                   canDownloadFile({
                     file: f,
                     orderData,

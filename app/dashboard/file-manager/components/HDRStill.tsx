@@ -48,7 +48,7 @@ export interface PaymentData {
 }
 
 
-function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: (overrideChangedFiles?: Files[]) => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, isScrolled?: boolean, stickyOffset?: number }) {
+function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, onSave?: (overrideChangedFiles?: Files[]) => void, mediaDateBoundary?: MediaDateBoundary, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, isScrolled?: boolean, stickyOffset?: number, onShowHiddenMedia?: () => void }) {
     const [files, setFiles] = useState<File[]>([]);
     const [sortBy, setSortBy] = useState<'order' | 'name' | 'date'>('order');
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
@@ -1226,6 +1226,16 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 >
                                     Add File
                                 </Button>
+                                {userType === 'admin' && (
+                                    <Button
+                                        onClick={() => setShowDownloadModal(true)}
+                                        className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${
+                                            isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                        }`}
+                                    >
+                                        Download Files
+                                    </Button>
+                                )}
                                 <input
                                     ref={fileInputRef}
                                     type="file"
@@ -1262,16 +1272,6 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                         </p>
                     </div>
                     <div className='flex justify-center items-center gap-x-[14px]'>
-                        {userType === 'admin' && (
-                            <Button
-                                onClick={() => setShowDownloadModal(true)}
-                                className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${
-                                    isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                                }`}
-                            >
-                                Download Files
-                            </Button>
-                        )}
                         {(userType === 'admin' || userType === 'agent') && (
                             <Button
                                 onClick={() => {
@@ -1290,8 +1290,8 @@ function FileTab1({ currentService, orderData, isListing, reviewFilesEnabled, on
                                 {isHidingMode ? 'Save' : 'Hide Media'}
                             </Button>
                         )}
-                        {!isHidingMode && userType !== 'agent' && (
-                            reviewFilesEnabled && userType === 'vendor' ? (
+                        {!isHidingMode && userType === 'vendor' && (
+                            reviewFilesEnabled ? (
                                 <Button
                                     onClick={handleSubmitAdminApproval}
                                     disabled={isSubmitting}

@@ -96,7 +96,7 @@ const FileManager = () => {
       );
       const clientHeight = window.innerHeight;
       const scrollableHeight = scrollHeight - clientHeight;
-      
+
       // Calculate the approximate height reduction when scrolled (shrink amount)
       // Max shrink amount is around 120px (header 25px + tabs 40px + listing sub-header 20px + booking sub-tabs 9px + local tab toolbars 22px)
       // We use 250px to provide a safe buffer and prevent scroll jitter (dancing) on short pages.
@@ -138,7 +138,7 @@ const FileManager = () => {
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    
+
     // Evaluate initial scroll state
     handleScroll();
 
@@ -179,6 +179,7 @@ const FileManager = () => {
     setTourSettings
   } = useFileManagerContext();
   const [isHiddenMediaModalOpen, setIsHiddenMediaModalOpen] = useState(false);
+  const [isHiddenMediaFetching, setIsHiddenMediaFetching] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
   const featureSheetRef = useRef<CreateFeatureSheetRef>(null);
   const { startUpload } = useGlobalFileUpload();
@@ -626,6 +627,7 @@ const FileManager = () => {
               currentBookedService={activeServiceGroup?.[activeServiceIndex]}
               isListing={false}
               reviewFilesEnabled={reviewFilesEnabled}
+              onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
               onSave={handleSave}
               mediaDateBoundary={mediaDateBoundary}
               onOpenInvoice={handleOpenInvoice}
@@ -644,6 +646,7 @@ const FileManager = () => {
             currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
+            onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
@@ -660,6 +663,7 @@ const FileManager = () => {
             currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
+            onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
@@ -676,6 +680,7 @@ const FileManager = () => {
             currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
+            onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
             onOpenInvoice={handleOpenInvoice}
             gstRate={gstRate}
             onSave={handleSave}
@@ -691,6 +696,7 @@ const FileManager = () => {
             currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
+            onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
@@ -707,6 +713,7 @@ const FileManager = () => {
             currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
+            onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
             onOpenInvoice={handleOpenInvoice}
             gstRate={gstRate}
             onSave={handleSave}
@@ -722,6 +729,7 @@ const FileManager = () => {
             currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
+            onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
@@ -738,6 +746,7 @@ const FileManager = () => {
             currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
+            onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
             onSave={handleSave}
             mediaDateBoundary={mediaDateBoundary}
             onOpenInvoice={handleOpenInvoice}
@@ -754,6 +763,7 @@ const FileManager = () => {
             currentBookedService={activeServiceGroup?.[activeServiceIndex]}
             isListing={false}
             reviewFilesEnabled={reviewFilesEnabled}
+            onShowHiddenMedia={() => { setIsHiddenMediaModalOpen(true); setIncludeHidden(true); }}
             onOpenInvoice={handleOpenInvoice}
             gstRate={gstRate}
             onSave={handleSave}
@@ -796,6 +806,7 @@ const FileManager = () => {
         console.log("Token not found.");
         return;
       }
+      if (includeHidden) setIsHiddenMediaFetching(true);
       try {
         const filesData = await GetFilesData(token, orderData?.uuid || "", includeHidden);
         if (filesData.data && filesData.data.length > 0) {
@@ -830,6 +841,8 @@ const FileManager = () => {
         console.error("Error fetching files data:", error);
         // Also set to empty state on error to prevent infinite loader
         setFilesData({ files: [], links: [], snapshots: [] } as any);
+      } finally {
+        setIsHiddenMediaFetching(false);
       }
     }
     fetchFilesData();
@@ -1536,7 +1549,7 @@ const FileManager = () => {
             </div>
           </div>
         </div>
-        {userType !== 'vendor' && (
+        {/* {userType !== 'vendor' && (
           <div className="flex items-center gap-x-4 pr-6">
             <Button
               onClick={() => {
@@ -1550,7 +1563,7 @@ const FileManager = () => {
               Show Hidden Media
             </Button>
           </div>
-        )}
+        )} */}
       </div>
 
       {/* Sub-tabs for duplicate service bookings */}
@@ -1694,6 +1707,7 @@ const FileManager = () => {
         onClose={() => setIsHiddenMediaModalOpen(false)}
         currentService={activeService}
         mediaDateBoundary={mediaDateBoundary}
+        isFetching={isHiddenMediaFetching}
       />
     </div >
   );

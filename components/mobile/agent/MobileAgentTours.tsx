@@ -172,6 +172,7 @@ export default function MobileAgentTours() {
                 {/* Featured Image */}
                 <div className="w-full h-[180px] bg-gray-100 relative">
                   {image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={image}
                       alt={address}

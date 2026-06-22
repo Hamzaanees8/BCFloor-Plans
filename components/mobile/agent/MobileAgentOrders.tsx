@@ -217,6 +217,7 @@ export default function MobileAgentOrders() {
                   {/* Thumbnail */}
                   <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
                     {thumbnail ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={thumbnail}
                         alt={order.property_address}

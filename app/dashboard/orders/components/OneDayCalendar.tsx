@@ -81,6 +81,7 @@ interface CalendarProps {
   externalServicesData?: Services[];
   onVendorSelected?: (vendorId: string) => void;
   isCalculating?: boolean;
+  twilightData?: TwilightResponse | null;
 }
 
 interface MinimalSlot {
@@ -423,7 +424,7 @@ export function getDistanceColor(distance: number | undefined): string {
   return "#171484";
 }
 
-export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, scheduleOverrideMap, recommendTimeMap, serviceKey, vendorDistances, propertyTimezone, masterDate, externalSetSelectedSlots, externalSelectedSlots, externalBookedSlots, externalVendorsData, externalServicesData, onVendorSelected, isCalculating, scheduleOverride }: CalendarProps) {
+export default function OneDayCalendar({ setSelectedDate, selectedVendors, service, showAllVendorsMap, recommendTimeMap, serviceKey, vendorDistances, propertyTimezone, masterDate, externalSetSelectedSlots, externalSelectedSlots, externalBookedSlots, externalVendorsData, externalServicesData, onVendorSelected, isCalculating, scheduleOverride, twilightData: externalTwilightData }: CalendarProps) {
   const {
     selectedSlots: contextSelectedSlots,
     setSelectedSlots: contextSetSelectedSlots,
@@ -553,26 +554,23 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     return ordersData?.filter((order: Order) => order.uuid !== orderIdParam).map((order: Order) => order.slots).flat() || [];
   }, [ordersData, orderIdParam, externalBookedSlots]);
 
-  useEffect(() => {
+  const computedEvents = useMemo(() => {
     const date = currentDate;
     const filteredVendors = vendorsData.filter(
       (vendor) => vendor.uuid && selectedVendors?.includes(vendor.uuid)
     );
 
     if (filteredVendors.length === 0) {
-      setEvents([]);
-      return;
+      return [];
     }
 
     const fullDaySlots = generateAllDaySlots(date, 15);
-    // Track vendors available for each slot
     const slotVendorsMap = new Map<string, string[]>();
 
     const otherServiceSlots = selectedSlots.filter((s: Slot) =>
       s.service_id !== service.uuid && s.date === date
     );
 
-    // Check if this service does not require travel (full-day availability regardless of work hours)
     const currentServiceDataForSlots = servicesData.find(s => s.uuid === service.uuid || String(s.id) === String(service.id));
     const isNoTravelRequired = currentServiceDataForSlots?.is_travel_required === false;
     const squareFootageForSlots = tempPropertyData?.square_footage || selectedCurrentListing?.square_footage;
@@ -584,7 +582,6 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
     const requiredSlotsCountForService = Math.max(1, Math.ceil(requiredDurationForSlots / 15));
     const isFloorPlan = isFloorPlanService(service.title, service.uuid, service.id, servicesData);
     const isMatterport = isMatterportService(service.title, service.uuid, service.id, servicesData);
-    // Services where allow_next_booking should be enforced (like floor plan)
     const isSpecialService = isFloorPlan || isMatterport;
 
     filteredVendors.forEach((vendor) => {
@@ -592,26 +589,19 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       if (!vendorId) return;
 
       const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
-      // For special services (floor plan / matterport), enforce next_booking_slot_only per-vendor
       const shouldEnforceForVendor = isSpecialService
         ? vendorHasNextBookingFlag
         : true;
 
-      // Full-day bypass logic:
-      // - For no-travel services: full day only when vendor's allow_next_booking is OFF
-      //   (if allow_next_booking is ON, use actual schedule so first-slot restriction applies)
-      // - For travel-required services: full day only when schedule override is ON,
-      //   but never for special services (floor plan / matterport) that have next_booking_slot_only
       const useFullDay = isNoTravelRequired
         ? !vendorHasNextBookingFlag
         : (scheduleOverride === 1) && !(isSpecialService && vendorHasNextBookingFlag);
 
       if (useFullDay) {
-        // Create 24h work hours
         const fullDayWorkHours: WorkHours = {
           start_time: '00:00:00',
           end_time: '23:59:59',
-          timezone: propertyTimezone || 'America/Vancouver', // Use property timezone to ensure 00-24 coverage in local time
+          timezone: propertyTimezone || 'America/Vancouver',
           work_days: [
             {
               day: dayjs(currentDate).format('ddd').toLowerCase(),
@@ -623,18 +613,14 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           ]
         };
 
-        // We don't need to convert timezone because we are forcing it to match property timezone
-        // directly to cover the full day in the displayed calendar
-        const convertedWorkHours = fullDayWorkHours;
-
         const vendorSlots = generateMarkedSlots(
           currentDate,
-          convertedWorkHours,
+          fullDayWorkHours,
           vendorId,
           AllBookedSlots,
           otherServiceSlots,
-          [], // Ignore breaks/timeoffs for no-travel / schedule override
-          [], // Ignore calendar events for no-travel / schedule override
+          [],
+          [],
           15
         );
 
@@ -651,19 +637,15 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
         slotsToExpose.forEach((slot) => {
           const key = `${slot.start}_${slot.end}`;
-          if (!slotVendorsMap.has(key)) {
-            slotVendorsMap.set(key, []);
-          }
+          if (!slotVendorsMap.has(key)) slotVendorsMap.set(key, []);
           slotVendorsMap.get(key)!.push(vendorId);
         });
 
       } else {
-        // NORMAL LOGIC
         if (!vendor.work_hours) return;
 
         const vendorTimezone = vendor.work_hours.timezone || 'America/Vancouver';
         const targetTimezone = propertyTimezone || 'America/Vancouver';
-
 
         const convertedWorkHours = convertVendorWorkHoursToPropertyTimezone(
           currentDate,
@@ -695,36 +677,31 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
 
         slotsToExpose.forEach((slot) => {
           const key = `${slot.start}_${slot.end}`;
-          if (!slotVendorsMap.has(key)) {
-            slotVendorsMap.set(key, []);
-          }
+          if (!slotVendorsMap.has(key)) slotVendorsMap.set(key, []);
           slotVendorsMap.get(key)!.push(vendorId);
         });
       }
     });
+
     let availableSlotsCount = 0;
     const finalSlots = fullDaySlots.map((slot) => {
       const key = `${slot.start}_${slot.end}`;
       const availableVendorIds = slotVendorsMap.get(key) || [];
 
-      // Check if this is a Twilight service and filter slots based on twilight time
       let isTwilightRestricted = false;
       const currentServiceData = servicesData.find(s => s.uuid === service.uuid || String(s.id) === String(service.id));
 
       if (currentServiceData?.category?.name === "Twilight Photos" && twilightData?.sunset) {
         const targetTimezone = propertyTimezone || 'America/Vancouver';
         const sunsetLocalTimeStr = convertUTCToTimezone(twilightData.sunset, targetTimezone);
-
         const twilightTime = dayjs(`${date}T${sunsetLocalTimeStr}`);
         const allowedStartTime = twilightTime.subtract(30, 'minute');
         const slotStartTime = dayjs(slot.start);
-
         if (slotStartTime.isBefore(allowedStartTime)) {
           isTwilightRestricted = true;
         }
       }
 
-      // Check if this slot is already selected for the current service/order
       const matchingSelected = selectedSlots.find(s => {
         const sidMatch = s.service_id === service.uuid || String(s.service_id) === String(service.id);
         const dateMatch = s.date === date;
@@ -732,7 +709,6 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         const sEnd = dayjs(`${s.date} ${s.end_time}`);
         const slotStart = dayjs(slot.start);
         const slotEnd = dayjs(slot.end);
-
         return sidMatch && dateMatch &&
           sStart.isSame(slotStart, 'minute') &&
           sEnd.isSame(slotEnd, 'minute');
@@ -742,14 +718,11 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         const vendorId = matchingSelected.vendor?.uuid || matchingSelected.vendor_id;
         const matchedVendor = vendorsData.find(v => v.uuid === vendorId);
         const vendorName = matchedVendor ? `${matchedVendor.first_name} ${matchedVendor.last_name}` : 'Unknown';
-
-        // Even for selected slots, we check if it happens to be in a recommended window
         const isTwilightService = currentServiceData?.category?.name === "Twilight Photos" || service?.title?.includes("Twilight");
         let isRecommended = false;
         if (isTwilightService || recommendTimeMap[serviceKey] === 1) {
           isRecommended = availableVendorIds.length > 0 && !isTwilightRestricted;
         }
-
         return {
           ...slot,
           title: `${vendorName}\n${service.title}`,
@@ -766,7 +739,6 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
         const isTwilightService = currentServiceData?.category?.name === "Twilight Photos" || service?.title?.includes("Twilight");
 
         let maxRecommended = 1;
-
         if (isTwilightService) {
           const productOption = currentServiceData?.product_options?.find(
             (option) => option.uuid === service.option_id
@@ -800,17 +772,20 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           ...slot,
           title: '',
           className: 'slot-available',
-          extendedProps: {
-            availableVendorIds
-          }
+          extendedProps: { availableVendorIds }
         };
       }
 
       return { ...slot, title: 'Unavailable', className: 'slot-unavailable', extendedProps: { availableVendorIds: [] } };
     });
 
-    setEvents(finalSlots);
-  }, [vendorsData, ordersData, currentDate, selectedVendors, selectedSlots, service.title, service.uuid, service.id, service.option_id, AllBookedSlots, propertyTimezone, recommendTimeMap, serviceKey, scheduleOverrideMap, scheduleOverride, twilightData, servicesData, tempPropertyData, selectedCurrentListing]);
+    return finalSlots;
+  }, [vendorsData, currentDate, selectedVendors, selectedSlots, service.title, service.uuid, service.id, service.option_id, AllBookedSlots, propertyTimezone, recommendTimeMap, serviceKey, scheduleOverride, twilightData, servicesData, tempPropertyData, selectedCurrentListing]);
+
+  // Sync computedEvents to state only when they actually change (reference-stable write)
+  useEffect(() => {
+    setEvents(computedEvents);
+  }, [computedEvents]);
 
   useEffect(() => {
     async function loadTwilight() {
@@ -821,8 +796,14 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
       const result = await fetchTwilightTime(address, currentDate);
       if (result) setTwilightData(result);
     }
+
+    if (externalTwilightData !== undefined && masterDate && dayjs(currentDate).format('YYYY-MM-DD') === dayjs(masterDate).format('YYYY-MM-DD')) {
+      setTwilightData(externalTwilightData);
+      return;
+    }
+
     loadTwilight();
-  }, [selectedCurrentListing, tempPropertyData, currentDate]);
+  }, [selectedCurrentListing, tempPropertyData, currentDate, externalTwilightData, masterDate]);
 
 
 
@@ -867,15 +848,21 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
   }, [events]);
 
   const hasCheckedForNextAvailableDay = React.useRef(false);
+  // Track which date we last ran the auto-jump for so date changes don't re-trigger it
+  const lastAutoJumpDate = React.useRef<string>('');
+
   useEffect(() => {
     if (!calendarRef.current || events.length === 0) return;
 
     // If the user already selected slots for this service on the current day,
-    // do not auto-jump to another day just because no more available slots remain.
+    // do not auto-jump.
     const hasCurrentDaySelection = selectedSlots.some(
       (slot: Slot) => slot.service_id === service.uuid && slot.date === currentDate
     );
     if (hasCurrentDaySelection) return;
+
+    // Don't re-run auto-jump if we already jumped to this exact date
+    if (lastAutoJumpDate.current === currentDate) return;
 
     const hasAvailableSlots = events.some(event =>
       event.className === 'slot-available' ||
@@ -896,28 +883,40 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
           s.service_id !== service.uuid
         );
 
-        // Check if this is a no-travel service for next-day search
         const serviceDataForSearch = servicesData.find(s => s.uuid === service.uuid || String(s.id) === String(service.id));
         const isNoTravelSearch = serviceDataForSearch?.is_travel_required === false;
         const isFloorPlanSearch = isFloorPlanService(service.title, service.uuid, service.id, servicesData);
         const isMatterportSearch = isMatterportService(service.title, service.uuid, service.id, servicesData);
         const isSpecialServiceSearch = isFloorPlanSearch || isMatterportSearch;
 
+        // Check if ALL vendors have weekend days off (Sat/Sun)
+        const allVendorsOffOnWeekend = filteredVendors.every(vendor => {
+          if (!vendor.work_hours?.work_days) return true;
+          const satOff = vendor.work_hours.work_days.find(d => d.day === 'sat')?.is_off;
+          const sunOff = vendor.work_hours.work_days.find(d => d.day === 'sun')?.is_off;
+          return (satOff === 1 || satOff === true || satOff === '1') &&
+            (sunOff === 1 || sunOff === true || sunOff === '1');
+        });
+
         for (let daysAhead = 1; daysAhead <= 30; daysAhead++) {
           const testDate = dayjs(currentDate).add(daysAhead, 'day').format('YYYY-MM-DD');
+          const testDayOfWeek = dayjs(testDate).day(); // 0=Sun, 6=Sat
+
+          // Skip weekends when auto-jumping if vendors are off on weekends
+          if (allVendorsOffOnWeekend && (testDayOfWeek === 0 || testDayOfWeek === 6)) {
+            continue;
+          }
+
           const fullDaySlots = generateAllDaySlots(testDate, 15);
           const availableSlotMap = new Map<string, Slots>();
 
           filteredVendors.forEach((vendor) => {
             const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
-            // Mirror useFullDay logic from slot generation
             const useFullDaySearch = isNoTravelSearch
               ? !vendorHasNextBookingFlag
               : (scheduleOverride === 1) && !(isSpecialServiceSearch && vendorHasNextBookingFlag);
 
-
             if (useFullDaySearch) {
-              // No-Travel: use full-day work hours, only booked slots are blocked
               const fullDayWorkHours: WorkHours = {
                 start_time: '00:00:00',
                 end_time: '23:59:59',
@@ -978,14 +977,13 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
             });
           });
 
-          // Check if this day has any available slots
           const hasSlots = fullDaySlots.some(slot => {
             const key = `${slot.start}_${slot.end}`;
             return availableSlotMap.has(key);
           });
 
           if (hasSlots) {
-            // Found a day with available slots, navigate to it
+            lastAutoJumpDate.current = testDate;
             const calendarApi = calendarRef.current?.getApi();
             if (calendarApi) {
               setTimeout(() => {
@@ -1007,8 +1005,10 @@ export default function OneDayCalendar({ setSelectedDate, selectedVendors, servi
   const recommendVal = recommendTimeMap?.[serviceKey];
   useEffect(() => {
     hasScrolledToFirstSlot.current = false;
-    hasCheckedForNextAvailableDay.current = false; // Reset when vendors change
-  }, [vendorsKey, recommendVal, currentDate]); // Reset when vendors, recommendation status, or date changes
+    // Only reset the auto-jump guard on vendor or recommendation changes, NOT on date changes.
+    // The lastAutoJumpDate ref already prevents re-running on the same date.
+    hasCheckedForNextAvailableDay.current = false;
+  }, [vendorsKey, recommendVal]); // intentionally exclude currentDate
 
   // ── Hover preview computation ──────────────────────────────────────────────
   // Determines which slots to highlight and whether the preview is valid

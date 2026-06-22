@@ -15,7 +15,7 @@ import { format } from 'date-fns';
 
 
 import { Order, OrderService } from '../../orders/page';
-import { Check, X, Loader2 } from 'lucide-react';
+import { Check, X, Loader2, Eye, EyeOff } from 'lucide-react';
 import { DownloadFile, ServiceCompletion, HideMediaFiles } from '../file-manager';
 import { S3UploadService } from '@/lib/upload/s3-service';
 import FilePreviewModal from './FilePreviewModal';
@@ -51,6 +51,7 @@ type Props = {
     onSave?: () => void;
     isScrolled?: boolean;
     stickyOffset?: number;
+    onShowHiddenMedia?: () => void;
 };
 const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrderData, currentService, isListing, reviewFilesEnabled, onSave, mediaDateBoundary, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset }) => {
     const { floorFiles, setFloorFiles, filesData, setFilesData, setChangedFileUuids, setSelectionChangedUuids, area, setArea, fileManagerMode, setFileManagerMode, imagesPerRow, isSaving, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide } = useFileManagerContext();
@@ -467,6 +468,23 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                         <Check color="white" size={48} className="opacity-100" />
                                     </div>
                                 )}
+                                {(userType === 'admin' || userType === 'agent') && file.uuid && (
+                                    <span
+                                        className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setFilesToHide(prev => {
+                                                const next = new Set(prev);
+                                                if (next.has(file.uuid)) next.delete(file.uuid);
+                                                else next.add(file.uuid);
+                                                return next;
+                                            });
+                                        }}
+                                        title={filesToHide.has(file.uuid) ? "Selected to hide" : "Visible"}
+                                    >
+                                        {filesToHide.has(file.uuid) ? <EyeOff size={16} className="text-[#E06D5E]" /> : <Eye size={16} className="text-gray-700" />}
+                                    </span>
+                                )}
                                 {file.is_deleted && (
                                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 z-[30] gap-2">
                                         <p className="text-white font-medium text-lg drop-shadow-lg uppercase mb-4">Deleted</p>
@@ -555,6 +573,23 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                     <div className="absolute inset-0 bg-black/50 z-[25] flex flex-col items-center justify-center pointer-events-none">
                                         <Check color="white" size={48} className="opacity-100" />
                                     </div>
+                                )}
+                                {(userType === 'admin' || userType === 'agent') && file.uuid && (!file.file || typeof file.file === 'string') && (
+                                    <span
+                                        className="cursor-pointer absolute top-2 right-2 z-[26] bg-white/50 p-1 rounded-full hover:bg-white/80 transition"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setFilesToHide(prev => {
+                                                const next = new Set(prev);
+                                                if (next.has(file.uuid)) next.delete(file.uuid);
+                                                else next.add(file.uuid);
+                                                return next;
+                                            });
+                                        }}
+                                        title={filesToHide.has(file.uuid) ? "Selected to hide" : "Visible"}
+                                    >
+                                        {filesToHide.has(file.uuid) ? <EyeOff size={16} className="text-[#E06D5E]" /> : <Eye size={16} className="text-gray-700" />}
+                                    </span>
                                 )}
                             </>
                         )}
@@ -754,6 +789,18 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                 >
                                     Add File
                                 </Button>
+                                {userType === 'admin' && (
+                                    <Button
+                                        onClick={() => {
+                                            setShowDownloadModal(true);
+                                        }}
+                                        className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${
+                                            isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
+                                        }`}
+                                    >
+                                        Download Files
+                                    </Button>
+                                )}
                             </div>
                         ) : (
                             <div className="flex gap-2 items-center">
@@ -785,18 +832,7 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                     <div className='flex items-center gap-x-[14px]'>
                         {/* <Button className='w-[150px] md:w-[143px] h-[32px] md:h-[32px]  justify-center rounded-[6px] font-raleway border-[1px] border-[#4290E9] bg-[#4290E9] text-[14px] md:text-[16px] font-[600] text-[#EEEEEE] flex gap-[5px] items-center hover:text-[#fff] hover:bg-[#4290E9]'>Download All File</Button> */}
                         <div className='flex justify-center items-center gap-x-[14px]'>
-                            {userType === 'admin' && (
-                                <Button
-                                    onClick={() => {
-                                        setShowDownloadModal(true);
-                                    }}
-                                    className={`${userType}-bg hover-${userType}-bg flex justify-center items-center cursor-pointer transition-all duration-300 ${
-                                        isScrolled ? "h-[28px] w-[120px] text-[11px]" : "h-[32px] w-[150px]"
-                                    }`}
-                                >
-                                    Download Files
-                                </Button>
-                            )}
+
                             {(userType === 'admin' || userType === 'agent') && (
                                 <Button
                                     onClick={() => {
@@ -815,8 +851,8 @@ const Service: React.FC<Props & { onSave?: () => void }> = ({ orderData, setOrde
                                     {isHidingMode ? 'Save' : 'Hide Media'}
                                 </Button>
                             )}
-                            {!isHidingMode && userType !== 'agent' && (
-                                reviewFilesEnabled && userType === 'vendor' ? (
+                            {!isHidingMode && userType === 'vendor' && (
+                                reviewFilesEnabled ? (
                                     <Button
                                         onClick={handleSubmitAdminApproval}
                                         disabled={isSubmitting}

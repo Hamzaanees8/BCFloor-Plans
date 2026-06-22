@@ -23,17 +23,16 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover"
-import { ServiceCompletion, HideMediaFiles } from '../file-manager';
+import { ServiceCompletion } from '../file-manager';
 import { api } from '@/lib/api';
 
-function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, onSave?: (overrideChangedFiles?: any[]) => Promise<void> | void, isScrolled?: boolean, stickyOffset?: number }) {
-    const { links, setLinks, setPreviewFiles, filesData, setFilesData, isHidingMode, setIsHidingMode, filesToHide, setFilesToHide, tourSettings } = useFileManagerContext();
+function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, currentBookedService, onOpenInvoice, gstRate, isScrolled, stickyOffset }: { currentService?: Services, orderData: Order | null, isListing?: boolean, reviewFilesEnabled?: boolean, currentBookedService?: OrderService, onOpenInvoice?: (serviceName?: string) => void, gstRate?: number, onSave?: (overrideChangedFiles?: any[]) => Promise<void> | void, isScrolled?: boolean, stickyOffset?: number, onShowHiddenMedia?: () => void }) {
+    const { links, setLinks, setPreviewFiles, filesData, isHidingMode, filesToHide, setFilesToHide, tourSettings } = useFileManagerContext();
     const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
     const [openPayment, setOpenPayment] = useState(false);
     const [, setSuccess] = useState(false);
     const [openPaymentModal, setOpenPaymentModal] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
-    const [isHidingLoading, setIsHidingLoading] = useState(false);
     const [openUpgrade, setOpenUpgrade] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [copiedField, setCopiedField] = useState<'branded' | 'unbranded' | null>(null);
@@ -319,39 +318,6 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [unbrandedApiLink, currentService, brandedApiLink, orderData, bookingToUse?.uuid, bookingToUse?.is_completed])
 
-
-    const handleBatchHide = async () => {
-        if (filesToHide.size === 0) {
-            setIsHidingMode(false);
-            return;
-        }
-
-        const token = localStorage.getItem("token");
-        if (!token) return;
-
-        setIsHidingLoading(true);
-        try {
-            await HideMediaFiles(token, Array.from(filesToHide), true);
-            toast.success(`${filesToHide.size} item(s) hidden successfully`);
-
-            // Update local state to remove hidden items
-            if (filesData) {
-                setFilesData({
-                    ...filesData,
-                    links: filesData.links.filter(l => l.uuid && !filesToHide.has(l.uuid))
-                });
-            }
-
-            setFilesToHide(new Set());
-            setIsHidingMode(false);
-        } catch (error) {
-            console.error("Error hiding links:", error);
-            toast.error("Failed to hide links");
-        } finally {
-            setIsHidingLoading(false);
-        }
-    };
-
     const toggleHideSelection = (uuid: string) => {
         setFilesToHide(prev => {
             const next = new Set(prev);
@@ -392,31 +358,8 @@ function FileTab2({ currentService, orderData, isListing, reviewFilesEnabled, cu
                         </p>
                     </div>
                     <div className='flex justify-center items-center gap-x-[14px]'>
-                        {(userType === 'admin' || userType === 'agent') && (
-                            <Button
-                                onClick={() => {
-                                    if (isHidingMode) {
-                                        handleBatchHide();
-                                    } else {
-                                        setIsHidingMode(true);
-                                        setFilesToHide(new Set());
-                                    }
-                                }}
-                                disabled={isHidingLoading}
-                                className={`flex justify-center items-center transition-all duration-300 ${
-                                    isScrolled ? "h-[28px] w-[100px] text-[11px]" : "h-[32px] w-[120px]"
-                                } ${isHidingMode ? 'bg-[#E06D5E] hover:bg-[#c45a4d] text-white' : 'bg-gray-600 hover:bg-gray-700 text-white'}`}
-                                variant={isHidingMode ? 'default' : 'outline'}
-                            >
-                                {isHidingLoading ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    isHidingMode ? 'Save' : 'Hide Media'
-                                )}
-                            </Button>
-                        )}
-                        {userType !== 'agent' && !isHidingMode && (
-                            reviewFilesEnabled && userType === 'vendor' ? (
+                        {!isHidingMode && userType === 'vendor' && (
+                            reviewFilesEnabled ? (
                                 <Button
                                     onClick={handleSubmitAdminApproval}
                                     disabled={isSubmitting}
