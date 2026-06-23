@@ -16,6 +16,8 @@ import { Switch } from "@/components/ui/switch";
 import DropdownActions from "@/components/DropdownActions";
 import { useRouter } from "next/navigation";
 import { UpdateStatus } from './vendors';
+import { useIsMobile } from '@/hooks/use-mobile';
+import MobileVendorsList from '@/components/mobile/vendors/MobileVendorsList';
 import { useUser } from "@/context/UserContext";
 import { GetOrganizations } from "@/app/dashboard/global-settings/global-settings";
 import {
@@ -32,6 +34,7 @@ const Page = () => {
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
     const headerRef = useRef<HTMLDivElement>(null);
+    const isMobile = useIsMobile();
 
     useEffect(() => {
         const header = headerRef.current;
@@ -335,6 +338,69 @@ const Page = () => {
 
     // Check if user can create vendors
     const canCreateVendor = userType !== 'admin' || hasPermission(PERMISSIONS.CREATE_VENDOR);
+
+    if (isMobile) {
+        return (
+            <div className="font-alexandria pb-16">
+                {/* Header */}
+                <div
+                    className="w-full h-14 z-50 sticky top-0 flex justify-between px-4 items-center border-b shadow-sm"
+                    style={{ backgroundColor: roleSettings.pageBg }}
+                >
+                    <p className="text-base font-medium" style={{ color: roleSettings.pageTabColor }}>
+                        Vendors ({length})
+                    </p>
+                    <div className="flex items-center gap-2">
+                        {isSuperAdmin && (
+                            <Select value={orgFilter} onValueChange={setOrgFilter}>
+                                <SelectTrigger className="h-8 text-xs border bg-white rounded-md w-28">
+                                    <SelectValue placeholder="All Orgs" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-[250px]">
+                                    <SelectItem value="all">All Orgs</SelectItem>
+                                    {organizations.map((org) => (
+                                        <SelectItem key={org.id} value={String(org.id)}>{org.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                        {canCreateVendor && (
+                            <Link
+                                href={'/dashboard/vendors/create'}
+                                className="text-xs px-3 py-1.5 rounded-md text-white font-medium hover:brightness-110"
+                                style={{ backgroundColor: roleSettings.pageTabColor }}
+                            >
+                                + New Vendor
+                            </Link>
+                        )}
+                    </div>
+                </div>
+
+                <MobileVendorsList
+                    vendors={filteredVendors}
+                    loading={loading}
+                    error={error}
+                    userType={userType}
+                    isSuperAdmin={isSuperAdmin}
+                    onQuickView={(vendor) => {
+                        setShowCard(true);
+                        setSelectedData(vendor);
+                    }}
+                    onEdit={(uuid) => router.push(`/dashboard/vendors/create/${uuid}`)}
+                    handleDelete={handleDelete}
+                    handleUpdateStatus={handleUpdateStatus}
+                />
+
+                {showCard && selectedData && (
+                    <QuickViewCard
+                        type="vendors"
+                        data={selectedData}
+                        onClose={() => setShowCard(false)}
+                    />
+                )}
+            </div>
+        );
+    }
 
     return (
         <div>

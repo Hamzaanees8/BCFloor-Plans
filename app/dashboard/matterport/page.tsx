@@ -20,6 +20,8 @@ import { ColumnDef } from "@tanstack/react-table";
 import { useUser } from "@/context/UserContext";
 import { GetOrganizations } from "@/app/dashboard/global-settings/global-settings";
 import { Copy, Check, ExternalLink } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import MobileMatterportList from "@/components/mobile/matterport/MobileMatterportList";
 
 const options = [
   { label: "Activate" },
@@ -88,6 +90,7 @@ const MatterportPage = () => {
 
   const [loading, setLoading] = useState<boolean>(false);
   const headerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -296,6 +299,64 @@ const MatterportPage = () => {
   //         return "";
   //     }
   //   };
+
+  if (isMobile) {
+    return (
+      <div className="font-alexandria pb-16">
+        {/* Header */}
+        <div
+          className="w-full h-14 z-50 sticky top-0 flex justify-between px-4 items-center border-b shadow-sm"
+          style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)` }}
+        >
+          <p className={`text-base font-medium ${userType}-text`}>
+            Matterport ({filteredData.length})
+          </p>
+          {isSuperAdmin && (
+            <Select value={orgFilter} onValueChange={setOrgFilter}>
+              <SelectTrigger className="h-8 text-xs border bg-white rounded-md w-28">
+                <SelectValue placeholder="All Orgs" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[250px]">
+                <SelectItem value="all">All Orgs</SelectItem>
+                {organizations.map((org) => (
+                  <SelectItem key={org.id} value={String(org.id)}>{org.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+
+        {/* Filters */}
+        <div className="p-4 space-y-2.5 bg-gray-50 border-b">
+          <input
+            type="text"
+            placeholder="Search address..."
+            value={addressFilter}
+            onChange={(e) => setAddressFilter(e.target.value)}
+            className="w-full px-3 h-10 border border-gray-300 rounded-md focus:outline-none text-sm bg-white"
+          />
+          <Select onValueChange={(value) => setFilter(value)} defaultValue="Show All">
+            <SelectTrigger className="w-full h-9 bg-white text-xs">
+              <SelectValue placeholder="Show All" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Show All">Show All</SelectItem>
+              <SelectItem value="ACTIVE">Active</SelectItem>
+              <SelectItem value="INACTIVE">Inactive</SelectItem>
+              <SelectItem value="RENEWAL NEEDED">Renewal Needed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <MobileMatterportList
+          tours={filteredData}
+          loading={loading}
+          isSuperAdmin={isSuperAdmin}
+          options={options}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-full min-w-0 ">

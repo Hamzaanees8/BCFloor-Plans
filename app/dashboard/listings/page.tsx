@@ -17,6 +17,8 @@ import { Switch } from '@/components/ui/switch';
 import DropdownActions from '@/components/DropdownActions';
 import { Listings, Agent } from '@/lib/types';
 import { Get as GetAgents } from '@/app/dashboard/agents/agents';
+import { useIsMobile } from '@/hooks/use-mobile';
+import MobileListingsList from '@/components/mobile/listings/MobileListingsList';
 const getLatestOrder = (orders?: any[]) => {
   if (!orders || orders.length === 0) return null;
   return [...orders].sort(
@@ -89,6 +91,7 @@ const Page = () => {
   const { appliedSettings } = useWhiteLabel();
   const role = (userType as string) || 'admin';
   const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+  const isMobile = useIsMobile();
 
   const [showCard, setShowCard] = React.useState(false);
   const [type, setType] = React.useState("");
@@ -262,6 +265,116 @@ const Page = () => {
         return 0;
     }
   });
+
+  if (isMobile) {
+    return (
+      <div className="font-alexandria pb-16">
+        {/* Header */}
+        <div
+          className="w-full h-14 z-50 sticky top-0 flex justify-between px-4 items-center border-b shadow-sm"
+          style={{ backgroundColor: roleSettings.pageBg }}
+        >
+          <p className="text-base font-medium" style={{ color: roleSettings.pageTabColor }}>
+            Listings ({filteredListings?.length})
+          </p>
+          {userType !== 'vendor' && (
+            <Link
+              href="/dashboard/orders/create"
+              className="text-xs px-3 py-1.5 rounded-md text-white font-medium hover:brightness-110"
+              style={{ backgroundColor: roleSettings.pageTabColor }}
+            >
+              + New Booking
+            </Link>
+          )}
+        </div>
+
+        {/* Filters */}
+        <div className="p-4 space-y-2.5 bg-gray-50 border-b">
+          <Input
+            placeholder="Search listings..."
+            className="h-10 bg-white"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            {(userType === 'admin' || userType === 'vendor') && (
+              <Select value={agentFilter || 'all'} onValueChange={handleAgentChange}>
+                <SelectTrigger className="h-9 bg-white text-xs">
+                  <SelectValue placeholder="All Agents" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[250px]">
+                  <SelectItem value="all">All Agents</SelectItem>
+                  {agents.map((agent) => (
+                    <SelectItem key={agent.uuid} value={agent.uuid || ''}>
+                      {agent.first_name} {agent.last_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value)}>
+              <SelectTrigger className="h-9 bg-white text-xs">
+                <SelectValue placeholder="Property Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="Just listed">Just listed</SelectItem>
+                <SelectItem value="Sold">Sold</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="Under contract">Under contract</SelectItem>
+                <SelectItem value="Withdrawn">Withdrawn</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterTour} onValueChange={(value) => setFilterTour(value)}>
+              <SelectTrigger className="h-9 bg-white text-xs">
+                <SelectValue placeholder="Tour Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Tours</SelectItem>
+                <SelectItem value="true">Active</SelectItem>
+                <SelectItem value="false">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={(value) => setSortBy(value)}>
+              <SelectTrigger className="h-9 bg-white text-xs">
+                <SelectValue placeholder="Sort By" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest First</SelectItem>
+                <SelectItem value="oldest">Oldest First</SelectItem>
+                <SelectItem value="price_high">Price: High-Low</SelectItem>
+                <SelectItem value="price_low">Price: Low-High</SelectItem>
+                <SelectItem value="address_asc">Address: A-Z</SelectItem>
+                <SelectItem value="address_desc">Address: Z-A</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <MobileListingsList
+          listings={filteredListings}
+          loading={loading}
+          error={error}
+          userType={userType}
+          onQuickView={(listing) => {
+            setShowCard(true);
+            setType('listing');
+            setSelectedData(listing);
+          }}
+          handleDelete={handleDelete}
+          handleUpdateStatus={handleUpdateStatus}
+        />
+
+        {showCard && type === 'listing' && selectedData && (
+          <QuickViewCard
+            type="listing"
+            data={selectedData}
+            onClose={() => setShowCard(false)}
+          />
+        )}
+      </div>
+    );
+  }
 
   const columns: ColumnDef<Listings>[] = [
     {

@@ -16,8 +16,11 @@ import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/app/context/AppContext";
 import { GetNotifications, MarkNotificationAsRead } from "./notification";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
+import MobileNotificationsList from "@/components/mobile/notifications/MobileNotificationsList";
 
 const Page = () => {
+  const isMobile = useIsMobile();
   const [showCard, setShowCard] = React.useState(false);
   const [selectedNotification, setSelectedNotification] =
     React.useState<NotificationData | null>(null);
@@ -288,6 +291,84 @@ const Page = () => {
       },
     },
   ];
+
+  if (isMobile) {
+    return (
+      <div className="font-alexandria pb-16" style={{ backgroundColor: `var(--${userType}-page-bg, #F2F2F2)` }}>
+        {/* Header */}
+        <div
+          className="w-full h-14 z-50 sticky top-0 flex justify-between px-4 items-center border-b shadow-sm"
+          style={{
+            backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`,
+          }}
+        >
+          <p className={`text-base font-medium ${userType}-text`}>
+            Notifications ({unreadCount > 0 ? `${unreadCount} unread` : filteredNotifications.length})
+          </p>
+        </div>
+
+        {/* Filters */}
+        <div className="p-4 space-y-2.5 bg-gray-50 border-b">
+          <Input
+            placeholder="Search Address, Order ID..."
+            className="h-10 bg-white text-xs"
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchAddress(e.target.value)}
+            value={searchAddress}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              placeholder="Search Name..."
+              className="h-9 bg-white text-xs"
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchName(e.target.value)}
+              value={searchName}
+            />
+            <Select
+              onValueChange={(value) => setFilterReadStatus(value)}
+              defaultValue="all"
+            >
+              <SelectTrigger className="h-9 bg-white text-xs">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="read">Read</SelectItem>
+                <SelectItem value="unread">Unread</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <MobileNotificationsList
+          notifications={filteredNotifications}
+          loading={loading}
+          error={error}
+          userType={userType}
+          onNotificationClick={handleNotificationClick}
+        />
+
+        {/* Load More Months Button */}
+        <div className="flex justify-center py-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+            className="text-xs px-4 py-2 text-[#666666] border border-[#D1D5DB] hover:bg-gray-100"
+          >
+            {isLoadingMore ? "Loading..." : "Load previous Month Notifications"}
+          </Button>
+        </div>
+
+        {showCard && selectedNotification && (
+          <QuickViewCard
+            type="notification"
+            data={selectedNotification}
+            onClose={() => setShowCard(false)}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={{ backgroundColor: `var(--${userType}-page-bg, #F2F2F2)` }}>

@@ -33,6 +33,7 @@ import InvoicePdfDocument from "@/app/dashboard/invoice/components/InvoicePdfDoc
 import DownloadInvoicePdf from "@/app/dashboard/invoice/components/DownloadInvoicePdf";
 import { useIsMobile } from "@/hooks/use-mobile";
 import MobileVendorEarnings from "@/components/mobile/vendor/MobileVendorEarnings";
+import MobileAdminVendorBilling from "@/components/mobile/vendor-billing/MobileAdminVendorBilling";
 
 import Script from "next/script";
 
@@ -1062,8 +1063,55 @@ const Page = () => {
                 src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_PLACES_API_KEY || ""}&libraries=places&v=3.64`}
                 strategy="lazyOnload"
             />
-            <div
-                ref={headerRef}
+            {isMobile ? (
+                <div className="font-alexandria pb-16 bg-[#F2F2F2]">
+                    <div
+                        className="w-full h-14 z-50 sticky top-0 flex justify-between px-4 items-center border-b shadow-sm"
+                        style={{ backgroundColor: roleSettings.pageBg }}
+                    >
+                        <p className="text-base font-medium" style={{ color: roleSettings.pageTabColor }}>
+                            Billing ({vendorsGrouped.length})
+                        </p>
+                        <div className="flex gap-2">
+                            <Button
+                                size="sm"
+                                onClick={() => router.push('/dashboard/vendor-billing/invoices')}
+                                className="text-xs px-2.5 h-8 text-white hover:brightness-110 active:scale-95 transition-all"
+                                style={{ backgroundColor: roleSettings.pageTabColor }}
+                            >
+                                Invoices
+                            </Button>
+                            <Button
+                                size="sm"
+                                onClick={() => router.push('/dashboard/vendor-billing/uninvoiced')}
+                                className="text-xs px-2.5 h-8 text-white hover:brightness-110 active:scale-95 transition-all"
+                                style={{ backgroundColor: roleSettings.pageTabColor }}
+                            >
+                                Create
+                            </Button>
+                        </div>
+                    </div>
+
+                    <MobileAdminVendorBilling
+                        vendorsGrouped={vendorsGrouped}
+                        loading={loading}
+                        roleSettings={roleSettings}
+                        vendorInvoicesMap={vendorInvoicesMap}
+                        loadingInvoices={loadingInvoices}
+                        vendorTotalEarnings={vendorTotalEarnings}
+                        travelCosts={travelCosts}
+                        loadingTravelCosts={loadingTravelCosts}
+                        handlePayInvoice={handlePayInvoice}
+                        triggerPaymentAction={triggerPaymentAction}
+                        setViewingInvoice={setViewingInvoice}
+                        setIsViewModalOpen={setIsViewModalOpen}
+                        router={router}
+                    />
+                </div>
+            ) : (
+                <div className="hidden md:block">
+                    <div
+                        ref={headerRef}
                 className="w-full h-[80px] font-alexandria sticky top-0 z-50 flex justify-between px-[20px] items-center"
                 style={{ backgroundColor: `var(--${userType}-page-bg, #E4E4E4)`, boxShadow: "0px 4px 4px #0000001F" }}
             >
@@ -1635,6 +1683,8 @@ const Page = () => {
                     </div>
                 )}
             </div>
+            </div>
+            )}
 
             <ConfirmationDialog
                 open={confirmOpen}

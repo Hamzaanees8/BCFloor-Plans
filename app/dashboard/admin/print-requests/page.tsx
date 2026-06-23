@@ -16,6 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Printer } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import MobilePrintRequestsList from "@/components/mobile/admin/MobilePrintRequestsList";
 
 const Page = () => {
   const { userType } = useAppContext();
@@ -29,6 +31,7 @@ const Page = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
   const headerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchRequests();
@@ -192,6 +195,35 @@ const Page = () => {
       },
     },
   ];
+
+  if (isMobile) {
+    return (
+      <ProtectedAdminRoute>
+        <div className="font-alexandria pb-16">
+          {/* Header */}
+          <div
+            className="w-full h-14 z-50 sticky top-0 flex justify-between px-4 items-center border-b shadow-sm"
+            style={{ backgroundColor: roleSettings.pageBg }}
+          >
+            <div className="flex items-center gap-2">
+              <Printer className="w-5 h-5" style={{ color: roleSettings.pageTabColor }} />
+              <p className="text-base font-medium" style={{ color: roleSettings.pageTabColor }}>
+                Print Requests ({printRequests.length})
+              </p>
+            </div>
+          </div>
+
+          <MobilePrintRequestsList
+            requests={printRequests}
+            loading={loading}
+            error={error}
+            handleStatusChange={handleStatusChange}
+            getStatusColor={getStatusColor}
+          />
+        </div>
+      </ProtectedAdminRoute>
+    );
+  }
 
   return (
     <ProtectedAdminRoute>

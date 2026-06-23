@@ -731,8 +731,8 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
         ];
 
         return (
-            <div className='flex justify-between mb-4'>
-                <div className='flex gap-[10px]'>
+            <div className='flex flex-wrap gap-3 justify-between items-center mb-4'>
+                <div className='flex flex-wrap gap-[10px]'>
                     <button onClick={() => onNavigate('TODAY')} className={`ml-1 h-[30px] px-3 flex justify-center items-center text-white ${userType}-bg rounded-md text-sm font-medium shadow-sm hover:brightness-110`}>
                         Today
                     </button>
@@ -770,20 +770,20 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                         </button>
                     ))}
                 </div>
-                <div className='flex gap-[16px] items-center'>
+                <div className='flex flex-wrap gap-[10px] items-center'>
                     {(userType === 'admin' || userType === 'vendor') &&
                         <Button
                             onClick={() => {
                                 setOpen(true)
                                 setPopupType('break')
                             }}
-                            className={`font-raleway text-[14px] font-[600] hover-${userType}-bg flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>
+                            className={`font-raleway text-[14px] font-[600] hover-${userType}-bg flex justify-center items-center px-4 md:px-[40px] h-[42px] ${userType}-bg`}>
                             Add Time Off
                         </Button>
                     }
 
                     {(userType !== 'vendor') &&
-                        <Link href={'/dashboard/orders/create?from=calendar'} className={`font-raleway text-[14px] font-[600] hover-${userType}-bg rounded-[6px] text-[#fff] flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>
+                        <Link href={'/dashboard/orders/create?from=calendar'} className={`font-raleway text-[14px] font-[600] hover-${userType}-bg rounded-[6px] text-[#fff] flex justify-center items-center px-4 md:px-[40px] h-[42px] ${userType}-bg`}>
                             Create New Booking
                         </Link>
                     }
@@ -831,8 +831,8 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
         ];
 
         return (
-            <div className='flex justify-between mb-4'>
-                <div className='flex gap-[10px]'>
+            <div className='flex flex-wrap gap-3 justify-between items-center mb-4'>
+                <div className='flex flex-wrap gap-[10px]'>
                     <button onClick={() => onNavigate('TODAY')} className={`ml-1 h-[30px] px-3 flex justify-center items-center text-white ${userType}-bg rounded-md text-sm font-medium shadow-sm hover:brightness-110`}>
                         Today
                     </button>
@@ -896,7 +896,7 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                     ))}
                 </div>
 
-                <div className='flex gap-[16px] items-center'>
+                <div className='flex flex-wrap gap-[10px] items-center'>
 
 
                     {(userType === 'admin' || userType === 'vendor') &&
@@ -905,13 +905,13 @@ const BigCalendar = ({ orderData, selectedservice, selectedVendors, vendorData, 
                                 setOpen(true)
                                 setPopupType('break')
                             }}
-                            className={`font-raleway text-[14px] font-[600] hover-${userType}-bg flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>
+                            className={`font-raleway text-[14px] font-[600] hover-${userType}-bg flex justify-center items-center px-4 md:px-[40px] h-[42px] ${userType}-bg`}>
                             Add Time Off
                         </Button>
                     }
 
                     {(userType !== 'vendor') &&
-                        <Link href={'/dashboard/orders/create?from=calendar'} className={`font-raleway text-[14px] font-[600] hover-${userType}-bg rounded-[6px] text-[#fff] flex justify-center items-center px-[40px] h-[42px] ${userType}-bg`}>
+                        <Link href={'/dashboard/orders/create?from=calendar'} className={`font-raleway text-[14px] font-[600] hover-${userType}-bg rounded-[6px] text-[#fff] flex justify-center items-center px-4 md:px-[40px] h-[42px] ${userType}-bg`}>
                             Create New Booking
                         </Link>
                     }

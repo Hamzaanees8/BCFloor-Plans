@@ -17,6 +17,8 @@ import { useRouter } from "next/navigation";
 
 import { UploadRightIcon } from "@/components/Icons";
 import { UpdateAgentStatus } from './agents';
+import { useIsMobile } from '@/hooks/use-mobile';
+import MobileAgentsList from '@/components/mobile/agents/MobileAgentsList';
 import { ColumnDef } from "@tanstack/react-table";
 import { useUser } from "@/context/UserContext";
 import { GetOrganizations } from "@/app/dashboard/global-settings/global-settings";
@@ -51,6 +53,7 @@ const Page = () => {
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
     const headerRef = useRef<HTMLDivElement>(null);
+    const isMobile = useIsMobile();
 
     useEffect(() => {
         const header = headerRef.current;
@@ -372,6 +375,74 @@ const Page = () => {
 
     // Check if user can create agents
     const canCreateAgent = userType !== 'admin' || hasPermission(PERMISSIONS.CREATE_AGENT);
+
+    if (isMobile) {
+        return (
+            <div className="font-alexandria pb-16">
+                {/* Header */}
+                <div
+                    className="w-full h-14 z-50 sticky top-0 flex justify-between px-4 items-center border-b shadow-sm"
+                    style={{ backgroundColor: roleSettings.pageBg }}
+                >
+                    <p className="text-base font-medium" style={{ color: roleSettings.pageTabColor }}>
+                        Agents ({agentlength})
+                    </p>
+                    <div className="flex items-center gap-2">
+                        {isSuperAdmin && (
+                            <Select value={orgFilter} onValueChange={setOrgFilter}>
+                                <SelectTrigger className="h-8 text-xs border bg-white rounded-md w-28">
+                                    <SelectValue placeholder="All Orgs" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-[250px]">
+                                    <SelectItem value="all">All Orgs</SelectItem>
+                                    {organizations.map((org) => (
+                                        <SelectItem key={org.id} value={String(org.id)}>{org.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                        {(userType !== 'vendor' && canCreateAgent) && (
+                            <Link
+                                href={'/dashboard/agents/create'}
+                                className="text-xs px-3 py-1.5 rounded-md text-white font-medium hover:brightness-110"
+                                style={{ backgroundColor: roleSettings.pageTabColor }}
+                            >
+                                + New Agent
+                            </Link>
+                        )}
+                    </div>
+                </div>
+
+                <MobileAgentsList
+                    agents={filteredAgents}
+                    loading={loading}
+                    error={error}
+                    userType={userType}
+                    isSuperAdmin={isSuperAdmin}
+                    onQuickView={(agent) => {
+                        const { roles, ...rest } = agent;
+                        const mappedRoles =
+                            roles && roles.length > 0
+                                ? [{ id: roles[0].id, name: roles[0].name }] as { id: number; name: string; }[]
+                                : undefined;
+                        setShowCard(true);
+                        setSelectedData({ ...rest, roles: mappedRoles });
+                    }}
+                    onEdit={(uuid) => router.push(`/dashboard/agents/create/${uuid}`)}
+                    handleDelete={handleDelete}
+                    handleUpdateStatus={handleUpdateStatus}
+                />
+
+                {showCard && selectedData && (
+                    <QuickViewCard
+                        type="agent"
+                        data={selectedData}
+                        onClose={() => setShowCard(false)}
+                    />
+                )}
+            </div>
+        );
+    }
 
     return (
         <div>
